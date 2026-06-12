@@ -16,7 +16,6 @@ import Hydra.Cardano.Api.Prelude (
   PaymentKey,
   SigningKey,
  )
-import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Blockfrost.Client qualified as BF
 import Hydra.Chain.CardanoClient (localNodeConnectInfo, submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)
@@ -24,6 +23,8 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.TUI.Options (Options (..))
+import Hydra.Tx.Crypto (signTx)
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
 import Network.HTTP.Req qualified as Req
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
@@ -57,7 +58,7 @@ instance IsChainState tx => FromJSON (AllPossibleAPIMessages tx) where
 data Client tx m = Client
   { sendInput :: ClientInput tx -> m ()
   -- ^ Send some input to the server.
-  , sk :: SigningKey PaymentKey
+  , sk :: Secret (SigningKey PaymentKey)
   , externalCommit :: UTxO -> m ()
   , recoverCommit :: TxId -> m ()
   }
@@ -89,7 +90,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         , recoverCommit = recoverCommit'
         }
  where
-  readExternalSk = readFileTextEnvelopeThrow cardanoSigningKey
+  readExternalSk = mkSecret <$> readFileTextEnvelopeThrow cardanoSigningKey
   -- TODO(SN): ping thread?
   client q = runClient (toString hostname) (fromIntegral port) "/?history=yes" $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?

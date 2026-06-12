@@ -9,8 +9,9 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefAddress, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -27,7 +28,7 @@ import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (fanoutChunkSize, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -49,6 +50,7 @@ healthyFinalPartialFanoutTx =
       finalPartialFanoutTx
         scriptRegistry
         healthyDistributeUTxO
+        mempty
         (headInput, headOutput)
         healthySlotNo
         headTokenScript
@@ -102,6 +104,7 @@ healthyProgressDatum =
     , Head.contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , Head.accumulatorCommitment =
         Accumulator.getAccumulatorCommitment healthyRemainingAccumulator
+    , Head.headAdaOverhead = 0
     }
 
 healthyParties :: [Party]
@@ -133,6 +136,11 @@ data FinalPartialFanoutMutation
     -- true when proof=A (public from datum), and geq lets excess ADA go anywhere.
     -- mustHaveOutputs should reject this with FinalPartialFanoutZeroOutputs.
     MutateFinalPartialFanoutZeroOutputs
+  | -- | Changing headAdaOverhead in the input FanoutProgressDatum breaks value conservation.
+    MutateFinalPartialFanoutHeadAdaOverhead
+  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
+    -- Exposes that withCRSLookup must also validate txOutAddress.
+    MutateFinalPartialFanoutWrongAddressCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -156,8 +164,8 @@ genFinalPartialFanoutMutation (tx, _utxo) =
       pure $
         SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutWrongAccumulator $
           let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx mempty)
-              Head.FanoutProgressDatum{headId, parties, contestationDeadline} = healthyProgressDatum
-           in ChangeInputHeadDatum (Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = wrongCommitment})
+              Head.FanoutProgressDatum{headId, parties, contestationDeadline, headAdaOverhead} = healthyProgressDatum
+           in ChangeInputHeadDatum (Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = wrongCommitment, headAdaOverhead})
     , -- Under-counting outputs: claim 1 output with a dummy proof when the actual
       -- count is larger. The subset scalars differ from what the proof was built for,
       -- so the membership check fails.
@@ -218,11 +226,43 @@ genFinalPartialFanoutMutation (tx, _utxo) =
                   , Head.proof = attackProof
                   , Head.crsRef = crsRef
                   }
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateFinalPartialFanoutHeadAdaOverhead <$> do
+        -- Changing headAdaOverhead in the input datum shifts the conservation baseline;
+        -- the on-chain headInValue == outputs + overhead check fails.
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead (Head.FanoutProgress healthyProgressDatum))
+    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
+      -- The script-hash check passes because the reference script bytes are legitimate,
+      -- but the address check (once enforced) must reject it.
+      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutateFinalPartialFanoutWrongAddressCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
+        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
+            fakeRedeemer =
+              Head.FinalPartialFanout
+                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
+                , Head.proof =
+                    bls12_381_G1_uncompress $
+                      toBuiltin $
+                        either error id $
+                          Accumulator.createMembershipProofFromUTxO @Tx
+                            healthyDistributeUTxO
+                            healthyRemainingAccumulator
+                            (Accumulator.crsG1Points crsSize)
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
-      -- valid subset proof. The completeness check (proof == G1_generator) catches this:
-      -- a proof for n-1 of n elements is not the G1 generator.
+      -- valid proof for n-1 elements. The conservation check catches this: the sum of
+      -- n-1 outputs is less than headInValue, so HeadValueIsNotPreserved fires before
+      -- the membership check (isG1Generator was removed; strict == conservation replaces it).
       pure $
-        SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutStealAda $
+        SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateFinalPartialFanoutStealAda $
           let n = UTxO.size healthyDistributeUTxO - 1
               distributedMinus1 = UTxO.fromList $ take n $ UTxO.toList healthyDistributeUTxO
               proof =

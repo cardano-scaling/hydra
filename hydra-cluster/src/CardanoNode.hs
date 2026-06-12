@@ -499,7 +499,7 @@ withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
-    withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
+    withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe, close_fds = True} $
       \_stdin _stdout mError processHandle ->
         (`finally` cleanupSocketFile) $
           raceLabelled

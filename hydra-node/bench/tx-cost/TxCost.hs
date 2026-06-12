@@ -42,7 +42,6 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (utxoFromTx)
-import Hydra.Tx.KZGTrustedSetup (maxAccumulatorSize)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Chain.Direct.State (
@@ -61,9 +60,8 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
+import Test.Hydra.Tx.Fixture (defaultPParams, fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
-import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
@@ -86,7 +84,7 @@ computeInitCost = do
     seedInput <- genTxIn
     seedOutput <- genOutputFor =<< arbitrary
     let utxo = UTxO.singleton seedInput seedOutput
-    pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
+    pure (initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
 computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeIncrementCost = do
@@ -169,7 +167,6 @@ computeFanOutCost = do
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
         -- Sparse descending search: find the largest UTxO count that still fits in a tx.
-        -- Regular fanout is bounded by tx size/budget, not by maxAccumulatorSize.
         [(p, u) | p <- [numberOfParties], u <- [2000, 1500, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 15, 10]]
   pure $ interesting <> limit
  where
@@ -190,19 +187,15 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    let maxExtra = min 50 (maxAccumulatorSize - numOutputs)
-    utxoToCommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
-    utxoToDecommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
-    let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
     let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-        utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+        spendableUTxO = getKnownUTxO stClosed <> getKnownUTxO cctx
+    pure (utxo, unsafeFanout cctx spendableUTxO seedTxIn utxo mempty mempty utxo deadlineSlotNo, spendableUTxO)
 
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.
@@ -250,7 +243,7 @@ computePartialFanOutNominalCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    join <$> findLargestFitting (pure . tryChunk) (pure . isJust) (totalUTxO - 1)
+    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (totalUTxO - 1)
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
@@ -291,7 +284,7 @@ computePartialFanOutMixedCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    join <$> findLargestFitting (pure . tryChunk) (pure . isJust) (totalUTxO - 1)
+    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (totalUTxO - 1)
 
 -- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
 -- with mixed UTxOs. This is the terminal step that burns all head tokens and
@@ -322,13 +315,12 @@ computeFinalPartialFanOutCost = do
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
-        stClosed = snd . fromJust $ observeClose stOpen closeTx
+    let utxoValue = UTxO.totalValue utxo
+        stOpenInflated = stOpen{openUTxO = UTxO.map (modifyTxOutValue (<> utxoValue)) (openUTxO stOpen)}
+        closeTx = unsafeClose cctx (getKnownUTxO stOpenInflated) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpenInflated closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-        u0Value = UTxO.totalValue utxo
-        spendableUTxO =
-          UTxO.map (modifyTxOutValue (<> u0Value)) (getKnownUTxO stClosed)
-            <> getKnownUTxO cctx
+        spendableUTxO = getKnownUTxO stClosed <> getKnownUTxO cctx
         utxoRemaining = UTxO.fromList . drop 1 $ UTxO.toList utxo
         -- Step 1: minimal PartialFanout (1 output) to produce a FanoutProgress head output
         partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn 1 utxo deadlineSlotNo

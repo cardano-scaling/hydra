@@ -13,12 +13,12 @@ import Hydra.Cardano.Api (
   SigningKey,
   VerificationKey,
   deserialiseFromRawBytesHex,
-  getVerificationKey,
   serialiseToRawBytesHexText,
   verificationKeyHash,
  )
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
+import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey, getVerificationKey)
+import Hydra.Tx.Secret (Secret)
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}
@@ -49,8 +49,10 @@ instance FromCBOR Party where
 instance ToCBOR Party where
   toCBOR Party{vkey} = toCBOR vkey
 
--- | Get the 'Party' given some Hydra 'SigningKey'.
-deriveParty :: SigningKey HydraKey -> Party
+-- | Get the 'Party' from a 'Secret'-wrapped Hydra 'SigningKey'.
+-- Uses the polymorphic 'getVerificationKey' from 'Hydra.Tx.Crypto',
+-- which works directly on the 'Secret'-wrapped key.
+deriveParty :: Secret (SigningKey HydraKey) -> Party
 deriveParty = Party . getVerificationKey
 
 -- | Convert "high-level" 'Party' to the "low-level" representation as used

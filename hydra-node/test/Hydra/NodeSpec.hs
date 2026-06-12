@@ -3,6 +3,7 @@
 module Hydra.NodeSpec where
 
 import Hydra.Prelude hiding (label)
+import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
@@ -477,7 +478,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}, nodeStateHandle
 testHydraNode ::
   (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) =>
   Tracer m (HydraNodeLog SimpleTx) ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [Party] ->
   ContestationPeriod ->
   [Input SimpleTx] ->

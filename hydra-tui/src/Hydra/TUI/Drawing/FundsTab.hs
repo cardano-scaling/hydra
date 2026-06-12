@@ -9,7 +9,7 @@ import Brick.Forms (Form, formState, renderForm)
 import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Hydra.Cardano.Api hiding (Active)
+import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
@@ -25,6 +25,7 @@ import Hydra.TUI.Drawing.Utils (
  )
 import Hydra.TUI.Model
 import Hydra.TUI.Style
+import Hydra.Tx.Crypto (getVerificationKey)
 import Lens.Micro ((^.))
 
 -- | Render the Funds tab: the L2 head state (utxo, pending commits/decommits,

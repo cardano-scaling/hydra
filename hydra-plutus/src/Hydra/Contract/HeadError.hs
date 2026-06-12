@@ -43,8 +43,8 @@ data HeadError
   | ContesterNotIncluded
   | WrongNumberOfSigners
   | SignerAlreadyContested
-  | FailedContestCurrent
-  | FailedContestUsedDec
+  | FailedContestUnused
+  | FailedContestUsed
   | FanoutUTxOHashMismatch
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
@@ -53,13 +53,8 @@ data HeadError
   | DepositNotSpent
   | DepositInputNotFound
   | HeadInputNotFound
-  | FailedContestUnusedDec
-  | FailedContestUnusedInc
-  | FailedContestUsedInc
-  | FailedCloseUnusedDec
-  | FailedCloseUsedDec
-  | FailedCloseUnusedInc
-  | FailedCloseUsedInc
+  | FailedCloseUnused
+  | FailedCloseUsed
   | MissingCRSDatum
   | MissingCRSRefInput
   | PartialFanoutMembershipFailed
@@ -68,6 +63,10 @@ data HeadError
   | FinalPartialFanoutMembershipFailed
   | InvalidCRSRefScript
   | FinalPartialFanoutZeroOutputs
+  | PartialFanoutZeroOutputs
+  | PartialFanoutCannotBeLastBatch
+  | ChangedHeadAdaOverhead
+  | InvalidCRSRefAddress
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -113,8 +112,8 @@ instance ToErrorCode HeadError where
     ContesterNotIncluded -> "H34"
     WrongNumberOfSigners -> "H35"
     SignerAlreadyContested -> "H36"
-    FailedContestCurrent -> "H37"
-    FailedContestUsedDec -> "H38"
+    FailedContestUnused -> "H37"
+    FailedContestUsed -> "H38"
     -- Fanout
     FanoutUTxOHashMismatch -> "H39"
     FanoutUTxOToDecommitHashMismatch -> "H40"
@@ -124,13 +123,8 @@ instance ToErrorCode HeadError where
     DepositInputNotFound -> "H44"
     HeadInputNotFound -> "H45"
     FailedCloseAny -> "H46"
-    FailedContestUnusedDec -> "H47"
-    FailedContestUnusedInc -> "H48"
-    FailedContestUsedInc -> "H49"
-    FailedCloseUnusedDec -> "H50"
-    FailedCloseUsedDec -> "H51"
-    FailedCloseUnusedInc -> "H52"
-    FailedCloseUsedInc -> "H53"
+    FailedCloseUnused -> "H47"
+    FailedCloseUsed -> "H48"
     FanoutUTxOToCommitHashMismatch -> "H54"
     MissingCRSDatum -> "H55"
     MissingCRSRefInput -> "H56"
@@ -141,3 +135,7 @@ instance ToErrorCode HeadError where
     FinalPartialFanoutMembershipFailed -> "H60"
     InvalidCRSRefScript -> "H61"
     FinalPartialFanoutZeroOutputs -> "H62"
+    PartialFanoutZeroOutputs -> "H63"
+    PartialFanoutCannotBeLastBatch -> "H64"
+    ChangedHeadAdaOverhead -> "H65"
+    InvalidCRSRefAddress -> "H66"

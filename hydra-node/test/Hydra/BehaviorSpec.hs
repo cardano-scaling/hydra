@@ -3,6 +3,7 @@
 module Hydra.BehaviorSpec where
 
 import Hydra.Prelude
+import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
 import Control.Concurrent.Class.MonadSTM (
@@ -18,8 +19,6 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (async, cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
-import Data.List ((!!))
-import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
@@ -68,7 +67,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
+import Hydra.Tx.Crypto (HydraKey, aggregate, getVerificationKey, sign)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
@@ -1373,7 +1372,7 @@ nothingHappensFor node secs =
 
 withHydraNode ::
   forall s a.
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [Party] ->
   SimulatedChainNetwork SimpleTx (IOSim s) ->
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) ->
@@ -1383,7 +1382,7 @@ withHydraNode signingKey otherParties chain action = do
 
 withHydraNode' ::
   DepositPeriod ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [Party] ->
   SimulatedChainNetwork SimpleTx (IOSim s) ->
   (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) ->
@@ -1437,7 +1436,7 @@ createHydraNode ::
   Tracer m (HydraNodeLog tx) ->
   Ledger tx ->
   ChainStateType tx ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [Party] ->
   TQueue m (ServerOutput tx) ->
   TQueue m (ClientMessage tx) ->
@@ -1489,7 +1488,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   env =
     Environment
       { party
-      , signingKey
+      , signingKey = signingKey
       , otherParties
       , contestationPeriod = cp
       , depositPeriod = dp
@@ -1547,10 +1546,12 @@ assertHeadIsClosedWith expectedSnapshotNumber = \case
     snapshotNumber `shouldBe` expectedSnapshotNumber
   _ -> failure "expected HeadIsClosed"
 
--- | Provide a quick and dirty to way to label stuff from a signing key
-shortLabel :: SigningKey HydraKey -> String
+-- | Provide a quick and dirty way to label stuff from a signing key. Uses
+-- the *verification* key (which is public) for the label, since 'Show' on a
+-- 'SigningKey HydraKey' is forbidden by the type system.
+shortLabel :: Secret (SigningKey HydraKey) -> String
 shortLabel s =
-  take 8 $ drop 1 $ List.words (show s) !! 2
+  take 8 $ drop 2 $ show (getVerificationKey s)
 
 -- | Get the head 'UTxO' from open 'HeadState'.
 getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)

@@ -65,34 +65,22 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', 'utxoHash', 'utxoToCommitHash', 'utxoToDecommitHash',
--- and 'accumulator' according to CDDL schemata:
+-- 'headId', 'version', 'number', and 'accumulatorHash' according to CDDL schemata:
 --
--- headId = bytes .size 16
+-- headId = bytes .size 28
 -- version = uint
 -- number = uint
--- utxoHash = bytes
--- utxoToCommitHash = bytes
--- utxoToDecommitHash = bytes
--- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the serialized HydraAccumulator
+-- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
 --
--- The accumulator hash is derived from the HydraAccumulator built over all UTxOs
--- and is what gets stored in the on-chain ClosedDatum for verification.
-instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator} =
+-- The BLS accumulator commitment (bound via accumulatorHash) commits to the full UTxO set.
+instance SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation Snapshot{headId, version, number, accumulator} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
-        <> serialise (toData $ toBuiltin utxoHash)
-        <> serialise (toData $ toBuiltin utxoToCommitHash)
-        <> serialise (toData $ toBuiltin utxoToDecommitHash)
         <> serialise (toData $ toBuiltin accumulatorBytes)
    where
-    utxoHash = hashUTxO utxo
-    utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
-    utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
-    -- Serialize the accumulator for signing
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
 
 instance IsTx tx => ToJSON (Snapshot tx) where
@@ -128,6 +116,11 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+
+-- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
+snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx
+snapshotUTxO Snapshot{utxo, utxoToCommit, utxoToDecommit} =
+  utxo <> fold utxoToCommit <> fold utxoToDecommit
 
 -- * ConfirmedSnapshot
 

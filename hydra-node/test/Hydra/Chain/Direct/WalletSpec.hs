@@ -55,6 +55,7 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
+import Hydra.Tx.Secret (mkSecret)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (
@@ -95,14 +96,14 @@ spec = parallel $ do
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret sk) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
     prop "re-queries UTxO from the tip, even on reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, sk) queryFn mockQueryEpochInfo mockQueryPParams
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret sk) queryFn mockQueryEpochInfo mockQueryPParams
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip

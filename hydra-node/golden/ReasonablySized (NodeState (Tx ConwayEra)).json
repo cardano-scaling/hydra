@@ -101,12 +101,12 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "67710bbfa119bb2466209597941092e217880627957b69a41c840ca8d5a1248a4db98066ae7d254a234469d506a59c0544ff670289c68eb564e8aa55bdbf5e08",
-                                    "8f2e6ff835bddd76c8fbd0c4f9307d97551788261c71583b20c921e8700c5959ee23c8955fc8301e89ee2bc9ddc4b459cf332d699eff38ab1e001bad01e7f801",
-                                    "f20e8a7ce3908daa14a4e24cb09e7ec8ca8da759413949d292e5c3f25fc067bdecf314b3ba276d11db3c3d2699b07d09a1f97c395abc44f50ce344f00f568e04",
-                                    "772d8cbfe9bbdfba5bcfdaed6fde53316264ac97db564d790050347ab08763e65cea5b7c239f644016ca24b133c6976600efaaeff225f685f3087cdbe65f460f",
-                                    "3f5ded3d5a14f66f5febdebd01d87591f7cb96c8c52a629e1f1a1896ef1c7fa973afd0ffe07e823e3955edc22c05a20210ac33e60f5b286c72b19665a6c7ce03",
-                                    "21798e399c7367e2912e9f5ddb24cf88a8516ebd82f686bb363b0da5d00d858f67e8e36dc0990d4ae274fc24fadb5376da4eed90898b7bab5870519708bd5f02"
+                                    "5b5834cd60187ff2acb633fa00b8316bf7fbef10bf9208eca55e1146686376ce7b5cda02469854434c476b1335da10016952088c9d8cb3d32c0249158f2df007",
+                                    "41e8816269ccf37e145ea4150b46675fd390a8dc063f92f7880fa037053907e3dd6afacd3e67963e0cfe8cdbed440a37dc61aa9cd09fedb6a51542ad7734e70a",
+                                    "6b5dfd6292cccae1a26a288c9678d3cfd15272104e338a08fcac37719ed79ea51ce8d8fa29c6054b38f3d178ad1e22bd7e1b82f35a1d1ebc3014be0115d8040d",
+                                    "b8e9540ebd9340cbfbda8b503cbadb3057161a9ed9ed61ed39fa1d0b870732c02b62f45d4204dfa558c4c739c450a12e4fcb15411ef249543f6bca7a196b0001",
+                                    "447dc88d243338511beab17744c95511722b71aec49aabb6f5d8a474cf2fc5406bfdc8958f0cb0f4777c329c42b17fbb3e34548be861fa177f54f5dc7e743706",
+                                    "aeb1fc06b4a0c7c20b89cb7208375bc9225df8c4613cb792afd86bf93025269b969687b9c99b5ee3cad5748dbc6897a97d7043a4ed8e070d8f4c06bd802d1704"
                                 ]
                             },
                             "snapshot": {
@@ -631,7 +631,7 @@
                         },
                         "seenSnapshot": {
                             "signatories": {
-                                "71a4822cac306f8d46e2093d83bf013065d70dbc71ceebb32cd4a527c0c5c942": "ff02bd924ddd0ca9209cdb33fea7cd13cad74ffe3a4f52b5b5d4b790e2e046300097dc462d5139a677d6ef096c36b97fc7d72b25e06abbc1d457ac385a189a00"
+                                "71a4822cac306f8d46e2093d83bf013065d70dbc71ceebb32cd4a527c0c5c942": "a0c0122006682c01b7a27c9744d12fe67257d2f6391c49e9dfcd3d647db7d29f33e17d2942ee11500f069ea5aa659a408f99143e8c7cf5f2c4c6df4d4f1ecf02"
                             },
                             "snapshot": {
                                 "accumulator": "da8d12107565650354719dcc3eb8f0ccce993f3953bd9d387be63034f21c86f2",
@@ -1567,9 +1567,9 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "b45879507db0ceb3f9649d5c208096623d9bf1660f23fd68e59ed2d873cd9ea060c56149580183364d6c0102ae6fb2aa983f87925cdcd558b536ca6e3ca1a008",
-                                "22101c5e8f6ae044ede65a98763f8f07e500815704ccb4caf47a0bc17aa88b48ca86476cf9ac35a1fb5b476008e7909f62acca00d5eee9164f3da043161dad00",
-                                "c12420c249317a6262f41f336ba8a1e5123c2f7b7d7a7e09ceae89ec4ba6a2ce3968f12dae8d9ffce9b8ac2cef3a69bdb82da53f0fe50a5d7b6cf15b50388805"
+                                "5e0ebb49eef7a9513f77cc8d007ddfbcab8ff78e9b56a18b3b1b1deba55bb6beebd02b5264f0670c576d76e091c0966e1ae863326d30ef4b53df9f302f351a00",
+                                "6830b7ff0662d67805015abe169c5da7dcfbd35819e46e9c59722979043aeb4fcdf3186f63212b8a4f7880ccf74699dc57e22f6a66a1e207d78bb18d4949bd02",
+                                "8f8833779470338e4e57df61de3e4356bf782ab09d329c33075fd217878c3b760a9720edfb056d82f8780219eeb18eca6196e7052c824e0f5e5a9fef1b86ec02"
                             ]
                         },
                         "snapshot": {
@@ -1744,51 +1744,86 @@
                         "tag": "ConfirmedSnapshot"
                     },
                     "contestationDeadline": "1864-05-14T17:10:24.589922062281Z",
-                    "distributedFanoutOutputs": [
-                        {
-                            "address": "addr_test1qp9uxez7qlzam6s006l0ndkhps87ru785redmjum69xs7c6xe8883ldtt4rqmcwxs9j7lsalkjns5jjgvpdze7ugqhdsjluy03",
+                    "distributedFanoutOutputs": {
+                        "0100060508050708000702020401050803000702010602010005040206060701#23": {
+                            "address": "addr_test1vqnqm9q6emngs8dlcluqjme9dhdjh3f0vfv6jkkzz4sydmcavv969",
+                            "datum": null,
+                            "datumhash": "c0cb76567287dc0e1fc238b7091f52ca890ea504bf9d164166d092252ca7d481",
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                    "833d8ef5997b51d2db4d765eb7": 1
+                                },
+                                "lovelace": 1202490
+                            }
+                        },
+                        "0105060708040200030207070506030701020504040203030805000007060805#53": {
+                            "address": "addr_test1qp9jr7glkqknlug8spawsm2tajldc6edwlgzdyz7f7j78evlleq9lrd7j2ep67wga9rzlcj2nrj88ftf8zfyhyq63h6s2n2y60",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
                             "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
+                                "lovelace": 969750
+                            }
+                        },
+                        "0502010505030402010700020507060308070707060106070005030400030605#98": {
+                            "address": "addr_test1wq9lqjksqwrc85dyk3lqy9jhljqhv5fjfgaanv38pvnggkch2l8sd",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "a4d00ab2e9eb0793a72cbf89822bb6945c9985730c54a7341cc62995": {
+                                    "35": 1
+                                },
                                 "lovelace": 7500000000000000
                             }
                         },
-                        {
-                            "address": "addr_test1xrpa3y3ak0rdx7hsna96j58t2recm6ph287ktaegkjgkx8klwtx38w4r9zgkvnfulqkpw3qm6cfjlxqk8g6h6zdxerkqs0hmsy",
+                        "0508020400000305030204030606030802020008050402080301020808070706#42": {
+                            "address": "addr_test1vp03phpr9h08nahjj9emhaqg7dls0zg7zfmaap3slssvhqqzrfurr",
                             "datum": null,
-                            "inlineDatum": {
-                                "int": 4
-                            },
-                            "inlineDatumRaw": "04",
-                            "inlineDatumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
                                 "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
-                                    "39": 2
+                                    "e3f7fcbc0619cb00947fab8acffd5a928ee5a8ccc09fa3": 1
+                                },
+                                "lovelace": 1099050
+                            }
+                        },
+                        "0601080108000301070608010405000607050705070804030404050206000304#99": {
+                            "address": "addr_test1qqgtdhglhknh99helgzcs6z7q5rszzy7nzy4lj0whyywxdhj85vptvekwlczdpyvrrajrtu6n5kqsgypagzazz2cqalq93havp",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "49d5c86184b0be137b53850518580d1b751b5838bf1e8f70bae71bb3": {
+                                    "71fa": 5710560972791983342
                                 },
                                 "lovelace": 1163700
                             }
                         },
-                        {
-                            "address": "addr_test1zrmjv2ly4w087pvd52rv0jefaaq4j2ej4m453zr459y9ng5hkt2kgxljducc3kzqzkmegwefdkd5vdvdgnzjwx0hm30sum3a8r",
+                        "0605060604070800070505010508020001000203010404030406020708070102#75": {
+                            "address": "addr_test1zztnvydtt2mvx8ndml3vrfj0faf8adwa686uf3ecd7skg2lc076swr6d9sautthwv5lx9gx3j5p4epw0l00fzkuqn0gszhc4hz",
                             "datum": null,
-                            "inlineDatum": {
-                                "int": -2
-                            },
-                            "inlineDatumRaw": "21",
-                            "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
-                                "d51b89dda39ca0235af62a9b1f8c80d21436015178f7917bb1aada42": {
-                                    "2d1bf21126a8065b5d4cbef49ef8e2c61df5a4640ef257b53078612b3915ff": 1
-                                },
-                                "lovelace": 1297310
+                                "lovelace": 969750
                             }
                         }
-                    ],
+                    },
                     "headId": "07080406010607040801030401000608",
                     "headSeed": "00040607020308020007040408020205",
                     "parameters": {
@@ -1812,46 +1847,83 @@
                         ]
                     },
                     "readyToFanoutSent": false,
-                    "remainingFanoutOutputs": [
-                        {
-                            "address": "addr_test1qpdvfrerkz7g396urpfvq3v0w4as4rj43ghzrjcvgc2q84wuszhyz2z6dwlae6266nezws2jqlsa0e3awjc5yvehn5qs24dqn5",
+                    "remainingFanoutOutputs": {
+                        "0307070703030308030308080405040405000104030200000103000008020303#8": {
+                            "address": "addr_test1zp9ql9u7z6wr8sfwrjkxjd8vce96w8dll8numfy20rcqgwavq9dr7z5tt8r6twc6rymsy549vpqks6uqsmasalhmaxcsexrvlk",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
                             "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
-                                "lovelace": 969750
-                            }
-                        },
-                        {
-                            "address": "addr_test1qph79n3jqgs0sy0km45607jjrtarttaaznpmvpcwsj2m0vykgzerw0z25mqeh0e4q5302mvwft88h0pmz974t8cf4z0stshrvv",
-                            "datum": null,
-                            "inlineDatum": {
-                                "int": 3
-                            },
-                            "inlineDatumRaw": "03",
-                            "inlineDatumhash": "e88bd757ad5b9bedf372d8d3f0cf6c962a469db61a265f6418e1ffed86da29ec",
-                            "referenceScript": null,
-                            "value": {
-                                "bbc694e960f98064af665773bdcb4c17b965f93ddd20d3126c5ca1ea": {
-                                    "38": 1
+                                "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                                    "7b50f6695011a77e8fc2925db887fe7bd057ebc0a9d7": 1
                                 },
-                                "lovelace": 1163700
+                                "lovelace": 1215420
                             }
                         },
-                        {
-                            "address": "addr_test1zr2j4kgnc7286jr030dtv8w3t25533efcw8f37uqzc6hl74pdpmy8xkwnma4wjzqkwhn7h6q96mpft7j9fkyef92xjhq2qwuqg",
+                        "0402030804020308020203070707040008010508050105080703010803050805#63": {
+                            "address": "addr_test1xqk6fy9alg42j65tqfh69e68esu9kpp26xrmw24a2mkenhhw6n9fszxstqyzhw8dcvpwpac30j33r8cl239sflt0f2psaknehd",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
                             "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
-                                "lovelace": 969750
+                                "lovelace": 7500000000000000
+                            }
+                        },
+                        "0404040206070004050502060002010006040002020107020207010807070504#12": {
+                            "address": "addr_test1qqx9ecpec3tcmu2lvzu3qtcr4rtsgc243f8mae7f2mzmftmqr6llchppatg33jjrrmz9ufztcwg4ans9hftk5janvsyqddvavn",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "lovelace": 7500000000000000
+                            }
+                        },
+                        "0701060607070407040504020608040107000003030603030804020705070107#24": {
+                            "address": "addr_test1xzpqyycf7gu08yc50zncqcxffs2xm0yelxulejsgvrvhjt3ymklt8af49wqlw0quxqrvr30pcxjr2h0ncxxgf72ufjjqtwumrl",
+                            "datum": null,
+                            "datumhash": "5a476573fe552cef37714c7e81ceef0918f631f5a2c7768897a611f66cf4a11d",
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                    "a066b8eefb237d": 6761972234044815323
+                                },
+                                "lovelace": 1331790
+                            }
+                        },
+                        "0800030104040603030002030604070006080201080001000301070800070302#24": {
+                            "address": "addr_test1wrcsr8klmdauuwnzq7gk0mgv26kzeyaxe8p4vd0t69k93gce20hrq",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                    "495bd1c245cb5109239f": 1
+                                },
+                                "lovelace": 1043020
+                            }
+                        },
+                        "0803020806060600040807040801030200030203020102040004030707030004#42": {
+                            "address": "addr_test1yqv7arkuruwt4sp0vzlxe3rasqcqs9nk73wu670e97mhng3phxz62rcyrrhtfkqyfsq0jaku5l2jkr3wu4z4v58rj0fsegvu7j",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "lovelace": 7500000000000000
                             }
                         }
-                    ],
+                    },
                     "version": 5
                 },
                 "tag": "Closed"
@@ -2863,7 +2935,7 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "ffe690dec944bf5d027cb16dddc2eb23143d43b80ebe2b962b5e810d934306382f76a20ea0ff0c5ae58cdce976ec85b48c305e25044212e6f021e25b9559e004"
+                                    "c505cd4d39a5afd510becc72d78cd90dbf4501ef9f41d41f83a1ffa07656ab0fb28d70114527c6ae26509fbcf1fc84fbc6fb612d66c407a1e0d96b83066bd60e"
                                 ]
                             },
                             "snapshot": {
@@ -3613,10 +3685,10 @@
                         "confirmedSnapshot": {
                             "signatures": {
                                 "multiSignature": [
-                                    "bf125da8d4cd35a524c74db4eeec9ff5f8166fe8e227888ae2a26cbbe14e4f5dc3577e36722a6e826ff4af5371016e0bbdf93d35912350b5db5f8fc37106830d",
-                                    "74f3cefe0b7c7f0f911237798d477faa5581f9c7f1d12a1b3d6edec66aa15c1a827518d24e8cc5b5107efc12aec46ed3abca876a197103513caf283138a9e10a",
-                                    "9ce5e436bfd3564e61ad8395022b25e90ef2181104df45ab060a9d761dba0f38111f7fbc3e1240a6f0d0b132a276e3fa1a9740d937280eb8bda85cab4d286c06",
-                                    "c8fccaf8101bc119b783cd8e7e680e5dbea428164ea1a9c664cf5392361cfc8b3ac1bb7786b616e8db88704fadf000cb03b4faeb1efa62dec5671183f76cf90e"
+                                    "e39e346a5b07877c469c44b0172420795e9759ccf4a56bf5e2938794bad3d2c26c6f3bc74050e003dab50b7035715821cf73261865a01ed12a118554ee2e7103",
+                                    "8eed0eb67f8188c755ed5fd5cb737316acd19772b25eeb45c3cfaaf4cba5543af195553e982b82614bcb0a55240bb2b60a315109f6e1c908ed8d16881ba4dc09",
+                                    "2a727a148e6f7eeffec29bbd2fded3f167c21c1237d4a0970e52001f3ce22b899cf380a777046e49e5812ed8e89094f72252b7249e577cda04db80b95619fb05",
+                                    "a71c126ae14f339c9925b337d23dad3633df562088f56f1d8b82c3642b43f6080fc9b273cab964a28fb889e7d2059d3e41f804243bc38af0391bc8a0dbe6c808"
                                 ]
                             },
                             "snapshot": {

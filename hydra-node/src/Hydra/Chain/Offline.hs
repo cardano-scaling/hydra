@@ -36,7 +36,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod, defaultDepositPeriod)
-import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
+import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot, snapshotUTxO)
 import Hydra.Utils (readJsonFileThrow)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
@@ -113,10 +113,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                       }
                 }
           _ -> pure ()
-      , checkNonADAAssets = \confirmedSnapshot -> do
-          let Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
-          let snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
-          checkNonADAAssetsUTxO snapshotUTxO
+      , checkNonADAAssets = checkNonADAAssetsUTxO . snapshotUTxO . getSnapshot
       }
 
   initializeOfflineHead = do

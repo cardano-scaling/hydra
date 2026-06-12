@@ -28,7 +28,7 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
-import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
+import Hydra.Cardano.Api (Coin)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -47,6 +47,7 @@ import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing.Utils (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.Crypto (getVerificationKey)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,

@@ -89,6 +89,7 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.Secret (mkSecret)
 import HydraNode (allocateHydraNodePortsFor, getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
@@ -363,11 +364,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let nodeSocket' = case opts of
                     Direct DirectOptions{nodeSocket} -> nodeSocket
                     _ -> error "Unexpected Blockfrost opts"
-              aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-              bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-              carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+              (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+              (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+              (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-              let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+              let cardanoKeys =
+                    [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+                    , (bobCardanoVk, mkSecret bobCardanoSk)
+                    , (carolCardanoVk, mkSecret carolCardanoSk)
+                    ]
                   hydraKeys = [aliceSk, bobSk, carolSk]
 
               let firstNodeId = clusterIx * 3
@@ -429,11 +434,15 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let nodeSocket' = case opts of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
                   _ -> error "Unexpected Blockfrost opts"
-            aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-            bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-            carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+            (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+            (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+            (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-            let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+            let cardanoKeys =
+                  [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+                  , (bobCardanoVk, mkSecret bobCardanoSk)
+                  , (carolCardanoVk, mkSecret carolCardanoSk)
+                  ]
                 hydraKeys = [aliceSk, bobSk, carolSk]
 
             let firstNodeId = clusterIx * 3
@@ -473,7 +482,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     mkSimpleTx
                       firstCommittedUTxO
                       (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
-                      bobExternalSk
+                      (mkSecret bobExternalSk)
 
               let unsign (Tx body _) = Tx body []
 
@@ -790,7 +799,7 @@ timedTx tmpDir tracer opts hydraScriptsTxId = do
           mkRangedTx
             (Prelude.head $ UTxO.toList utxoToDeposit)
             (inHeadAddress aliceExternalVk, lovelaceToValue lovelaceToSend)
-            aliceExternalSk
+            (mkSecret aliceExternalSk)
             (Just $ TxValidityLowerBound futureSlot, Nothing)
 
     -- First submission: invalid
@@ -813,11 +822,15 @@ timedTx tmpDir tracer opts hydraScriptsTxId = do
 
 initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> ChainBackendOptions -> [TxId] -> IO ()
 initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
-  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-  bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+  (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+  (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+  let cardanoKeys =
+        [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+        , (bobCardanoVk, mkSecret bobCardanoSk)
+        , (carolCardanoVk, mkSecret carolCardanoSk)
+        ]
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let firstNodeId = clusterIx * 3
@@ -863,7 +876,7 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
           mkSimpleTx
             firstCommittedUTxO
             (inHeadAddress bobExternalVk, lovelaceToValue paymentFromAliceToBob)
-            aliceExternalSk
+            (mkSecret aliceExternalSk)
     send n1 $ input "NewTx" ["transaction" .= tx]
     waitFor hydraTracer 10 [n1, n2, n3] $
       output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
@@ -942,7 +955,7 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
 -- the node automatically sequences PartialFanout transactions for large sets.
 fanoutWithNOutputs :: Integer -> FilePath -> Tracer IO EndToEndLog -> [TxId] -> ChainBackendOptions -> IO ()
 fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
-  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
+  (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
 
   let hydraTracer = contramap FromHydraNode tracer
   let nodeSocket' = case opts of
@@ -950,7 +963,7 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
         _ -> error "Unexpected Blockfrost opts"
   blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
-  withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId $ \nodes -> do
+  withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 [(aliceCardanoVk, mkSecret aliceCardanoSk)] [aliceSk] hydraScriptsTxId $ \nodes -> do
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
 
@@ -977,7 +990,7 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
                 mkSimpleTx
                   utxo
                   (inHeadAddress aliceExternalVk, lovelaceToValue (1_000_000 + fromInteger n))
-                  aliceExternalSk
+                  (mkSecret aliceExternalSk)
               Just out' = viaNonEmpty last (txOuts' tx)
               txId' = TxIn (txId tx) (toEnum 1)
               utxo' = (txId', toCtxUTxOTxOut out')

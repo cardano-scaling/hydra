@@ -5,32 +5,52 @@
 -- to `CardanoSigningKey`.
 module Hydra.Model.Payment where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (getVerificationKey)
 import Hydra.Prelude hiding (Any, label, toList)
 import Test.Hydra.Prelude
+import Text.Show qualified
 
 import Data.List qualified as List
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
+import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
-import Prelude qualified
 
--- NOTE: New type wrapper to add Ord and Eq instances to signing keys
-newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-  deriving stock (Show)
+-- | New type wrapper to add 'Ord' and 'Eq' instances to signing keys. The
+-- inner 'SigningKey PaymentKey' is wrapped in 'Secret': the @signingKey@
+-- field never exposes the raw key, mirroring the way Hydra signing keys
+-- are handled. The accompanying 'ToJSON' / 'FromJSON' / 'ToCBOR' /
+-- 'FromCBOR' bans are inherited from 'Secret'.
+newtype CardanoSigningKey = CardanoSigningKey {signingKey :: Secret (SigningKey PaymentKey)}
+
+instance Show CardanoSigningKey where
+  show (CardanoSigningKey sk) =
+    "CardanoSigningKey " <> show (verificationKeyHash (getVerificationKey sk))
 
 instance Eq CardanoSigningKey where
   CardanoSigningKey ska == CardanoSigningKey skb =
-    verificationKeyHash (getVerificationKey ska) == verificationKeyHash (getVerificationKey skb)
+    verificationKeyHash (getVerificationKey ska)
+      == verificationKeyHash (getVerificationKey skb)
 
 instance Ord CardanoSigningKey where
   CardanoSigningKey a <= CardanoSigningKey b = hashOf a <= hashOf b
    where
     hashOf = verificationKeyHash . getVerificationKey
 
+instance Arbitrary CardanoSigningKey where
+  arbitrary = CardanoSigningKey . mkSecret . snd <$> genKeyPair
+
+-- | 'CardanoSigningKey' wraps a 'Secret' internally, which makes any
+-- JSON / CBOR access via the 'Secret' value a compile-time 'TypeError'.
+-- 'IsTx Payment' below pulls in 'ToJSON' / 'FromJSON' / 'ToCBOR' /
+-- 'FromCBOR' as superclasses of its transaction type, so we provide
+-- placebo instances that error at runtime if accidentally called.
+-- 'Payment' is purely a test-model type and is never serialised in
+-- production.
 instance ToJSON CardanoSigningKey where
   toJSON = error "don't use"
 
@@ -43,9 +63,6 @@ instance ToCBOR CardanoSigningKey where
 instance FromCBOR CardanoSigningKey where
   fromCBOR = error "don't use"
 
-instance Arbitrary CardanoSigningKey where
-  arbitrary = CardanoSigningKey . snd <$> genKeyPair
-
 -- | A single Ada-payment only transaction in our model.
 data Payment = Payment
   { from :: CardanoSigningKey
@@ -54,6 +71,12 @@ data Payment = Payment
   }
   deriving stock (Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR Payment where
+  toCBOR = error "don't use"
+
+instance FromCBOR Payment where
+  fromCBOR = error "don't use"
 
 instance Show Payment where
   -- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting
@@ -66,12 +89,6 @@ instance Show Payment where
       <> ", value = "
       <> show value
       <> " }"
-
-instance ToCBOR Payment where
-  toCBOR = error "don't use"
-
-instance FromCBOR Payment where
-  fromCBOR = error "don't use"
 
 -- | Making `Payment` an instance of `IsTx` allows us to use it with `HeadLogic'`s messages.
 instance IsTx Payment where
@@ -95,11 +112,8 @@ instance IsTx Payment where
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
-
-  -- For Payment, filter UTxO by keeping entries whose output is in the given set
   filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
-
-  -- For Payment, just use show for serialization (consistent with hashUTxO)
+  removeOneOutputFromUTxO = List.delete
   utxoToElement = encodeUtf8 . show @Text
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment

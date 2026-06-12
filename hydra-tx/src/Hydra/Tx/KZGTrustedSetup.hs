@@ -95,9 +95,16 @@ data KZGSetupError
 maxAccumulatorSize :: Int
 maxAccumulatorSize = 4095
 
--- | Maximum number of UTxOs that can be fanned out in a single partial fanout transaction.
--- Constrained by the on-chain G2 CRS (65 points → 64-element batch) and by Cardano
--- execution budget. In practice the execution budget is the binding constraint.
+-- | Theoretical upper bound on partial fanout batch size, derived from the
+-- embedded EIP-4844 trusted setup: 65 G2 monomial points give room for a
+-- polynomial of degree 64 (one (X - sᵢ) factor per fanned-out element).
+--
+-- NOTE: this is the __ceiling__ implied by the trusted-setup file, not the
+-- __deployed__ cap. The on-chain CRS UTxO only embeds the first
+-- 'Hydra.Tx.Accumulator.defaultItems' G2 points, so the production batch
+-- limit is currently @defaultItems - 1@. Raising the deployed cap requires
+-- re-publishing the CRS UTxO with more G2 points (bounded above by this
+-- value).
 maxFanoutBatchSize :: Int
 maxFanoutBatchSize = 64
 

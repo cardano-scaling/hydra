@@ -96,6 +96,8 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport, evaluateTxWith)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx.Crypto (signTx)
+import Hydra.Tx.Secret (Secret)
 
 type Address = Ledger.Addr
 type TxIn = Ledger.TxIn
@@ -132,6 +134,8 @@ data TinyWallet m = TinyWallet
       m Bool
   -- ^ Check whether the serialised transaction fits within the maximum
   -- transaction size permitted by the current protocol parameters.
+  , getPParams :: m (PParams LedgerEra)
+  -- ^ Query current protocol parameters.
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -155,8 +159,9 @@ newTinyWallet ::
   Tracer IO TinyWalletLog ->
   -- | Network identifier to generate our address.
   NetworkId ->
-  -- | Credentials of the wallet.
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  -- | Credentials of the wallet. The signing-key half is wrapped in
+  -- 'Secret' to prevent accidental serialisation or logging.
+  (VerificationKey PaymentKey, Secret (SigningKey PaymentKey)) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
@@ -171,7 +176,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
     TinyWallet
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
-      , sign = Api.signTx sk
+      , sign = signTx sk
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
           WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
@@ -191,6 +196,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           pparams <- querySomePParams
           let txBytes = fromIntegral $ BS.length $ serialiseToCBOR tx
           pure $ txBytes <= pparams ^. ppMaxTxSizeL
+      , getPParams = querySomePParams
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header

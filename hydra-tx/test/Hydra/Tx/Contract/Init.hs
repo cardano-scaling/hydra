@@ -19,7 +19,7 @@ import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
-import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -43,6 +43,7 @@ healthyInitTx =
   tx =
     initTx
       testNetworkId
+      defaultPParams
       healthySeedInput
       healthyParticipants
       healthyHeadParameters

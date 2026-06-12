@@ -97,7 +97,6 @@ import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (HeadId, IsTx (balance), headIdToCurrencySymbol, headIdToPolicyId, txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
@@ -456,6 +455,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
+          , Head.headAdaOverhead = prevHeadAdaOverhead
           } = prevOpenDatum
 
     -- Decode D1's commits so we can build a snapshot whose
@@ -515,8 +515,8 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
-            , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         headOut' =
           fromCtxUTxOTxOut headOut
@@ -692,7 +692,6 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
-          , Head.utxoHash = prevUtxoHash
           } = prevOpenDatum
 
     pparams <- runBackend opts $ queryProtocolParameters QueryTip
@@ -716,14 +715,12 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             { Head.headId = headIdToCurrencySymbol headId
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
-            , Head.version = prevVersion -- mustNotChangeVersion
-            , Head.snapshotNumber = 0 -- CloseInitial requires
-            , Head.utxoHash = prevUtxoHash -- CloseInitial: utxoHash' == initialUtxoHash
-            , Head.alphaUTxOHash = toBuiltin (hashUTxO @CAPI.Tx mempty)
-            , Head.omegaUTxOHash = toBuiltin (hashUTxO @CAPI.Tx mempty)
+            , Head.version = prevVersion
+            , Head.snapshotNumber = 0
             , Head.contesters = []
             , Head.contestationDeadline = contestationDeadline
             , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty Nothing Nothing
+            , Head.headAdaOverhead = 0
             }
 
         headRedeemer = toScriptData (Close CloseInitial)
@@ -849,6 +846,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
+          , Head.headAdaOverhead = prevHeadAdaOverhead
           } = prevOpenDatum
 
     -- Snapshot covers ONLY the leader's own (small) deposit. This is
@@ -908,8 +906,8 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
-            , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         -- Head value grows by ONLY the leader's small deposit; the
         -- victim's value is siphoned to lootAddr.

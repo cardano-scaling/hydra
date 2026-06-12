@@ -10,6 +10,7 @@
 module Hydra.HeadLogicSpec where
 
 import Hydra.Prelude
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -928,9 +929,9 @@ spec =
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
-            ackFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
+            ackFrom :: Secret (Crypto.SigningKey Crypto.HydraKey) -> Party -> Input SimpleTx
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
-            invalidAckFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
+            invalidAckFrom :: Secret (Crypto.SigningKey Crypto.HydraKey) -> Party -> Input SimpleTx
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
                 AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
@@ -1869,7 +1870,7 @@ spec =
         -- as an error to the API client.
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, presettledUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
             outcome = update bobEnv ledger now st postTxError
         outcome `hasNoEffectSatisfying` \case
           ClientEffect{} -> True
@@ -2183,7 +2184,7 @@ spec =
               mkSimpleTx
                 utxo
                 (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
-                sk
+                (mkSecret sk)
                 & \case
                   Left _ -> Prelude.error "cannot generate deposit tx"
                   Right tx -> pure (uncurry UTxO.singleton utxo, tx)
@@ -2276,7 +2277,7 @@ spec =
           mkRangedTx
             utxo
             (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut)
-            sk
+            (mkSecret sk)
             (Nothing, Just $ TxValidityUpperBound slotNo)
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"

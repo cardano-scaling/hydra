@@ -25,6 +25,7 @@ import Data.Text qualified as T
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Secret (Secret)
 import Network.Socket (PortNumber)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
@@ -64,7 +65,7 @@ data WhichEtcd = EmbeddedEtcd | SystemEtcd
 data NetworkConfiguration = NetworkConfiguration
   { persistenceDir :: FilePath
   -- ^ Persistence directory
-  , signingKey :: SigningKey HydraKey
+  , signingKey :: Secret (SigningKey HydraKey)
   -- ^ This node's signing key. This is used to sign messages sent to peers.
   , otherParties :: [Party]
   -- ^ The list of peers `Party` known to this node.

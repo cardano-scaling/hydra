@@ -9,7 +9,7 @@ import Brick
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
-import Hydra.Cardano.Api hiding (Active)
+import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Client (Client (..))
 import Hydra.TUI.Config (Theme (..))
@@ -19,6 +19,7 @@ import Hydra.TUI.Drawing.MainTab (drawMainTab)
 import Hydra.TUI.Logging.Types (EventHistoryFilter (..))
 import Hydra.TUI.Model
 import Hydra.TUI.Style
+import Hydra.Tx.Crypto (getVerificationKey)
 
 import Lens.Micro ((^.), (^?))
 
