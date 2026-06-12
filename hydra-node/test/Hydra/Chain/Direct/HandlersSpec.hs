@@ -75,6 +75,7 @@ import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Fixture (defaultPParams)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
   NonNegative (..),
@@ -368,7 +369,7 @@ spec = do
                 if sizeOk
                   then \_ _ -> pure $ Right Map.empty
                   else \_ _ -> throwIO $ userError "evalCosts must not be called when size check fails"
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
@@ -385,11 +386,11 @@ spec = do
               evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
               evalCosts _ _ =
                 pure $ Left $ TransactionBudgetOverspent (ExecutionUnits 100 100) (ExecutionUnits 50 50)
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
-          -- Fits only when size passes AND eval succeeds; budget error means eval fails.
+          -- Budget overrun is transient; always False regardless of size.
           assert $ not result
 
     prop "returns False when report contains a script execution failure" $
@@ -403,7 +404,7 @@ spec = do
                 sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
                 evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
                 evalCosts _ _ = pure $ Right report
-            result <- run $ fitsTx sizeCheck evalCosts mempty tx
+            result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
             monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", report=" <> show report <> ", result=" <> show result
             monitor $ cover 40 sizeOk "size passes"
             monitor $ cover 40 (not sizeOk) "size fails"
@@ -419,7 +420,7 @@ spec = do
               sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
               evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
               evalCosts _ _ = pure $ Right Map.empty
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
@@ -438,7 +439,7 @@ spec = do
             evalOk = case evalResult of
               Right report -> all isRight (Map.elems report)
               Left _ -> False
-        result <- run $ fitsTx sizeCheck evalCosts mempty tx
+        result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
         monitor $
           counterexample $
             "txBytes="
@@ -455,53 +456,48 @@ spec = do
         assert $ result == (sizeOk && evalOk)
 
   describe "findLargestFitting" $ do
-    it "returns Nothing when upper bound is 0" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 0
-      result `shouldBe` Nothing
+    it "returns Left () when upper bound is 0" $ do
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 0
+      result `shouldBe` Left ()
 
-    it "returns Nothing when predicate never holds" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure False) 10
-      result `shouldBe` Nothing
+    it "returns Left () when tryTx never fits" $ do
+      result <- findLargestFitting (const $ pure Nothing :: Int -> IO (Maybe Int)) 10
+      result `shouldBe` Left ()
 
-    it "returns Just upper bound when predicate always holds" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 10
-      result `shouldBe` Just 10
+    it "returns Right upper bound when tryTx always fits" $ do
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 10
+      result `shouldBe` Right 10
 
-    prop "returns the largest n where the predicate holds" $
+    prop "returns the largest n where tryTx fits" $
       \(Positive maxChunk) (NonNegative threshold) ->
         -- k is the threshold in [0..maxChunk]: fits for [1..k], fails for [k+1..maxChunk]
         let k = threshold `mod` (maxChunk + 1)
          in monadicIO $ do
               monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
-              result <- run $ findLargestFitting (pure :: Int -> IO Int) (\n -> pure (n <= k)) maxChunk
-              let expected = if k == 0 then Nothing else Just k
+              result <- run $ findLargestFitting (\n -> pure $ if n <= k then Just n else Nothing) maxChunk
+              let expected = if k == 0 then Left () else Right k
               monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
               assert $ result == expected
 
     prop "uses at most ceil(log2 n) + 1 evaluations" $
       \(Positive maxChunk) ->
         -- (,) (Sum Int) is a Monad via the base Monoid-writer instance; each
-        -- fitsCheck call contributes Sum 1 so the fst accumulates the total.
+        -- tryTx call contributes Sum 1 so the fst accumulates the total.
         let (Sum count, _) =
               findLargestFitting
-                (pure :: Int -> (Sum Int, Int))
-                (const (Sum 1, True))
+                (\n -> (Sum 1, Just n))
                 maxChunk
             bound = (ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) :: Int) + 1
          in counterexample ("maxChunk=" <> show maxChunk <> ", evaluations=" <> show count <> ", bound=" <> show bound) $
               count <= bound
 
-    prop "throws immediately on construction failure without calling fitsCheck" $
+    prop "propagates exceptions thrown by tryTx" $
       \(Positive maxChunk) -> monadicIO $ do
-        let mkTx :: Int -> IO Int
-            mkTx _ = throwIO $ userError "structural failure"
-            -- If the short-circuit fails and fitsCheck is called, this throws a
-            -- different error, causing the shouldThrow predicate below to fail.
-            fitsCheck :: Int -> IO Bool
-            fitsCheck _ = throwIO $ userError "fitsCheck must not be called when mkTx throws"
+        let tryTx :: Int -> IO (Maybe Int)
+            tryTx _ = throwIO $ userError "structural failure"
         monitor $ counterexample $ "maxChunk=" <> show maxChunk
         run $
-          findLargestFitting mkTx fitsCheck maxChunk
+          findLargestFitting tryTx maxChunk
             `shouldThrow` \e -> ioeGetErrorString e == "structural failure"
 
     prop "take and drop split preserves all entries and sizes" $
@@ -534,11 +530,12 @@ spec = do
                     , coverFee = \_ tx -> pure (Right tx)
                     , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                     , isTxWithinSizeLimits = \_ -> pure True
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) mismatchedUTxO deadlineSlot
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) mismatchedUTxO mismatchedUTxO deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
@@ -555,11 +552,12 @@ spec = do
                 , coverFee = \_ tx -> pure (Right tx)
                 , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                 , isTxWithinSizeLimits = \_ -> pure True
+                , getPParams = pure defaultPParams
                 , reset = pure ()
                 , update = \_ _ -> pure ()
                 }
         run $
-          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn (Left ()) fullUTxO 1
+          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn (Left ()) fullUTxO fullUTxO 1
             `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
@@ -576,11 +574,12 @@ spec = do
                     , coverFee = \_ tx -> pure (Right tx)
                     , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                     , isTxWithinSizeLimits = \_ -> pure False
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) u0 deadlineSlot
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) u0 u0 deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "falls back to partial fanout when preferred tx doesn't fit" $
@@ -602,11 +601,12 @@ spec = do
                         first' <- readIORef isFirst
                         writeIORef isFirst False
                         pure (not first')
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
             -- Any exception thrown here will fail the test automatically.
-            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Right dummyTx) u0 deadlineSlot
+            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Right dummyTx) u0 u0 deadlineSlot
             assert True
 
 -- | Generate a byte-count limit that straddles the real serialised size of
@@ -719,7 +719,7 @@ genSequenceOfObservableBlocks = do
 
   stepInit ctx participants params = do
     seedTxIn <- lift genTxIn
-    let tx = initialize ctx seedTxIn participants params
+    let tx = initialize ctx defaultPParams seedTxIn participants params
     tx <$ putNextBlock tx
 
   stepDeposit networkId headId = do

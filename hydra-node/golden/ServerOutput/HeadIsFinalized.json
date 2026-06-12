@@ -1,7 +1,19 @@
 {
     "samples": [
         {
-            "finalizedUTxO": [],
+            "finalizedUTxO": {
+                "0100010001000101010001000001000101010001000001010101010101010000#22": {
+                    "address": "addr_test1xp2netdpm302h8x8xx9leh74ekyw9kjgmq942a0amsf25w2pwt8sexr436lkz8gh52rpm2eve009p4630q04ff5j3lws6n4ltm",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 969750
+                    }
+                }
+            },
             "headId": "00000000010100010001010100000100",
             "tag": "HeadIsFinalized"
         }

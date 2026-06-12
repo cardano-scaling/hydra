@@ -2,7 +2,7 @@
 
 module Hydra.Cluster.Faucet where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (getVerificationKey, signTx)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
@@ -32,6 +32,8 @@ import Hydra.Ledger.Cardano ()
 import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance, txId)
+import Hydra.Tx.Crypto (getVerificationKey, signTx)
+import Hydra.Tx.Secret (Secret, withSecret)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 
@@ -94,7 +96,7 @@ seedFromFaucetWithMinting opts receivingVerificationKey val tracer mintingScript
     runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] mintingScript) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
-        let signedTx = sign faucetSk $ getTxBody tx
+        let signedTx = sign faucetSk (getTxBody tx)
         runBackend opts $ submitTransaction signedTx
         pure signedTx
 
@@ -191,7 +193,7 @@ returnFundsToFaucet tracer opts sender = do
 returnFundsToFaucet' ::
   Tracer IO FaucetLog ->
   ChainBackendOptions ->
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   IO Coin
 returnFundsToFaucet' tracer opts senderSk = do
   (faucetVk, _) <- keysFor Faucet
@@ -237,7 +239,7 @@ createOutputAtAddress networkId opts atAddress datum val = do
       throwIO (ErrorAsException e)
     Right x -> do
       let body = getTxBody x
-      let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
+      let tx = withSecret faucetSk $ \rawSk -> makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey rawSk)] body
       runBackend opts $ submitTransaction tx
       newUtxo <- runBackend opts $ awaitTransaction tx faucetVk
       case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of

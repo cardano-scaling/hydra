@@ -94,15 +94,14 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
 -- not ideal but for now we want to keep track of both fields (de/commit) since
 -- we might want to support batch de/commits too in the future, but having both fields
 -- be Maybe UTxO introduces a lot of checks if the value is Nothing or mempty.
-data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving stock (Eq, Show)
+data IncrementalAction = ToCommit | ToDecommit | NoThing deriving stock (Eq, Show)
 
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 setIncrementalActionMaybe utxoToCommit utxoToDecommit =
   case (utxoToCommit, utxoToDecommit) of
     (Just _, Just _) -> Nothing
-    (Just _, Nothing) ->
-      ToCommit <$> utxoToCommit
-    (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
+    (Just _, Nothing) -> Just ToCommit
+    (Nothing, Just _) -> Just ToDecommit
     (Nothing, Nothing) -> Just NoThing
 
 -- | Find (if it exists) the head identifier contained in given `TxOut`.

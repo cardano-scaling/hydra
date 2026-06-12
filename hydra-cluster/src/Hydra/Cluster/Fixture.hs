@@ -10,13 +10,14 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Tx (Party, deriveParty)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Tx.Secret (Secret)
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk
 bob = deriveParty bobSk
 carol = deriveParty carolSk
 
-aliceSk, bobSk, carolSk :: SigningKey HydraKey
+aliceSk, bobSk, carolSk :: Secret (SigningKey HydraKey)
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 carolSk = generateSigningKey "carol"

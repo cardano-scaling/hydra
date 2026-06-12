@@ -56,6 +56,7 @@ library
     Hydra.Contract.HeadTokensError
     Hydra.Contract.MintAction
     Hydra.Contract.Util
+    Hydra.Contract.UtilError
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Plutus
@@ -103,6 +104,7 @@ test-suite tests
     Hydra.Plutus.GoldenSpec
 
   build-depends:
+    , bytestring
     , hspec
     , hydra-cardano-api
     , hydra-plutus
@@ -110,6 +112,7 @@ test-suite tests
     , hydra-prelude
     , hydra-test-utils
     , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
     , tasty
     , tasty-golden

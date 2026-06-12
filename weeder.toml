@@ -58,4 +58,10 @@ root-instances = [
   # test instances
   { module = "Hydra.ModelSpec", instance = "HasVariables" },
   { module = "Test.Hydra.Tx.Gen", instance = "Arbitrary HydraAccumulator" },
+  # Forbid-constrained instances are intentionally unreachable: their purpose
+  # is to emit a GHC TypeError if anyone tries to derive or call them.
+  { module = "Hydra.Tx.Crypto", instance = 'FromJSON \(SigningKey HydraKey\)' },
+  { module = "Hydra.Tx.Crypto", instance = 'FromCBOR \(SigningKey HydraKey\)' },
+  { module = "Hydra.Tx.Secret", instance = 'FromJSON \(Secret a\)' },
+  { module = "Hydra.Tx.Secret", instance = 'FromCBOR \(Secret a\)' },
 ]

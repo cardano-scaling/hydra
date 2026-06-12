@@ -37,6 +37,7 @@ import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Ledger.Cardano.Fixtures (epochInfo, pparams, slotLength, systemStart)
 import Test.Hydra.Prelude
 
@@ -46,8 +47,9 @@ alice = deriveParty aliceSk
 bob = deriveParty bobSk
 carol = deriveParty carolSk
 
--- | Hydra signing keys for 'alice', 'bob', and 'carol'.
-aliceSk, bobSk, carolSk :: SigningKey HydraKey
+-- | Hydra signing keys for 'alice', 'bob', and 'carol'. Wrapped in
+-- 'Secret' so the codebase never holds an unwrapped key.
+aliceSk, bobSk, carolSk :: Secret (SigningKey HydraKey)
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 -- NOTE: Using 'zcarol' as seed results in ordered 'deriveParty' values

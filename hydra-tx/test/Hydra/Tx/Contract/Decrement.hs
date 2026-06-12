@@ -23,7 +23,7 @@ import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
@@ -39,9 +39,9 @@ import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
@@ -99,7 +99,7 @@ somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
   elements healthyParticipants `generateWith` 42
 
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParticipants :: [VerificationKey PaymentKey]
@@ -143,14 +143,6 @@ healthyAccumulator =
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
 
-splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
-splitDecommitUTxO utxo =
-  case UTxO.toList utxo of
-    [] -> error "empty utxo in splitDecommitUTxO"
-    (decommit : _rest) ->
-      let decommitUTxO' = UTxO.fromList [decommit]
-       in (utxo `withoutUTxO` decommitUTxO', decommitUTxO')
-
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
   arbitrary `generateWith` 42
@@ -160,17 +152,16 @@ healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
-  let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
-   in Head.Open
-        Head.OpenDatum
-          { headSeed = toPlutusTxOutRef testSeedInput
-          , headId = toPlutusCurrencySymbol testPolicyId
-          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , parties = healthyOnChainParties
-          , contestationPeriod = toChain healthyContestationPeriod
-          , version = toInteger healthySnapshotVersion
-          , accumulatorHash = toBuiltin healthyAccumulatorHash
-          }
+  Head.Open
+    Head.OpenDatum
+      { headSeed = toPlutusTxOutRef testSeedInput
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , parties = healthyOnChainParties
+      , contestationPeriod = toChain healthyContestationPeriod
+      , version = toInteger healthySnapshotVersion
+      , accumulatorHash = toBuiltin healthyAccumulatorHash
+      , headAdaOverhead = 0
+      }
 
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output
@@ -232,7 +223,7 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeDecrementedValue <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeDecrementedValue <$> do
         let outs = txOuts' tx
         -- NOTE: Skip the first output since this is the Head output.
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
@@ -242,7 +233,7 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do

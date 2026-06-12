@@ -12,19 +12,34 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (transTxOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
+import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
+import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
+  AssetId (AdaAssetId),
+  CtxTx,
   Tx,
+  TxOutDatum,
   UTxO,
+  filterValue,
+  minUTxOValue,
+  mkTxOutDatumInline,
+  modifyTxOutDatum,
+  modifyTxOutValue,
+  selectLovelace,
   serialiseToRawBytesHexText,
   toLedgerTxOut,
+  toPlutusCurrencySymbol,
   toPlutusTxOut,
   toShelleyNetwork,
+  txOutValue,
+  txOuts',
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -35,24 +50,30 @@ import Hydra.Tx (
   partyToChain,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.Contract.Close.CloseAny (genCloseAnyMutation, healthyCloseAnyTx)
+import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, healthyCloseCommitPendingTx)
+import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
-import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
-import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Observe (observeDepositTx)
-import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
@@ -68,6 +89,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShrink,
   property,
+  resize,
   shuffle,
   (=/=),
   (===),
@@ -94,6 +116,34 @@ spec = parallel $ do
       propTransactionEvaluates healthyInitTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyInitTx genInitMutation
+    it "head output ADA covers worst-case min-UTxO through all contest rounds" $ do
+      let (tx, _) = healthyInitTx
+          headOut = fromJust $ txOuts' tx !!? 0
+          n = length healthyParticipants
+          HeadParameters{parties, contestationPeriod} = healthyHeadParameters
+          worstCaseDatum :: TxOutDatum CtxTx
+          worstCaseDatum =
+            mkTxOutDatumInline $
+              Head.Closed
+                Head.ClosedDatum
+                  { headId = toPlutusCurrencySymbol testPolicyId
+                  , parties = map partyToChain parties
+                  , contestationPeriod = toChain contestationPeriod
+                  , version = 0
+                  , snapshotNumber = 0
+                  , contesters = replicate (n - 1) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
+                  , contestationDeadline = 2_000_000_000_000
+                  , accumulatorCommitment =
+                      Accumulator.getAccumulatorCommitment $
+                        Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+                  , headAdaOverhead = 0
+                  }
+          -- minUTxOValue adds maxWord64 internally, so the base must have 0 lovelace
+          zeroAdaHead = modifyTxOutValue (filterValue (/= AdaAssetId)) headOut
+          worstCaseOut = modifyTxOutDatum (const worstCaseDatum) zeroAdaHead
+          worstCaseMinCoin = selectLovelace $ minUTxOValue defaultPParams worstCaseOut
+          headCoin = selectLovelace (txOutValue headOut)
+      headCoin `shouldSatisfy` (>= worstCaseMinCoin)
 
   describe "Increment" $ do
     prop "is healthy" $
@@ -134,32 +184,53 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseUnusedDec" $ do
+  describe "CloseUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseUsedDec" $ do
+  describe "CloseUsed" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+  describe "CloseCommitUnused" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCommitPendingTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCommitPendingTx genCloseCommitUnusedMutation
+  describe "CloseCommitUsed" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCommitAppliedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCommitAppliedTx genCloseCommitUsedMutation
+  describe "CloseAny" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseAnyTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseAnyTx genCloseAnyMutation
 
-  describe "ContestCurrent" $ do
+  describe "ContestUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
-  -- TODO: Add CloseAny and ContestCurrent examples too
-  describe "ContestDec" $ do
+  describe "ContestUsed" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestDecMutation
+  describe "ContestCommit" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyContestIncTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyContestIncTx genContestIncMutation
 
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFanoutTx
+    prop "accepts trailing wallet change output" $
+      propTransactionEvaluates healthyFanoutTxWithWalletChange
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
   describe "PartialFanout" $ do
@@ -248,23 +319,16 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, utxo, utxoToCommit, utxoToDecommit, version} :: Snapshot Tx) ->
-    forAll arbitrary $ \sks ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator} :: Snapshot Tx) ->
+    forAll (resize 3 arbitrary) $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-          utxoHash = toBuiltin $ hashUTxO utxo
-          utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-          utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-          accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator)) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)
-            & counterexample ("utxoHash: " <> show utxoHash)
-            & counterexample ("utxoToCommitHash: " <> show utxoToCommitHash)
-            & counterexample ("utxoToDecommitHash: " <> show utxoToDecommitHash)
             & counterexample ("off-chain message: " <> show (Base16.encode $ getSignableRepresentation snapshot))
             & counterexample ("signatures: " <> show signatures)

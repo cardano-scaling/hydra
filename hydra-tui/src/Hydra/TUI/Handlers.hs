@@ -26,7 +26,7 @@ import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
-import Hydra.Cardano.Api hiding (Active)
+import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Cardano.Api.Prelude ()
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
@@ -42,6 +42,7 @@ import Hydra.TUI.Model
 import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Snapshot (..))
+import Hydra.Tx.Crypto (getVerificationKey)
 import Lens.Micro ((^.), (^?), _Just)
 import Lens.Micro.Mtl (use, (%=), (.=))
 

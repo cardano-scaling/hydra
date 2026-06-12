@@ -9,8 +9,10 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
+import Hydra.Cardano.Api hiding (getVerificationKey, initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
+import Hydra.Tx.Crypto (getVerificationKey)
+import Hydra.Tx.Secret (Secret, withSecret)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))
@@ -148,7 +150,7 @@ mkTransferTx ::
   MonadFail m =>
   NetworkId ->
   UTxO ->
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   VerificationKey PaymentKey ->
   m Tx
 mkTransferTx networkId utxo sender recipient =
@@ -167,11 +169,11 @@ mkSimpleTx ::
   -- | Recipient address and amount.
   (AddressInEra, Value) ->
   -- | Sender's signing key.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   Either TxBodyError Tx
 mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  let witnesses = withSecret sk $ \rawSk -> [makeShelleyKeyWitness body (WitnessPaymentKey rawSk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =
@@ -200,12 +202,12 @@ mkRangedTx ::
   -- | Recipient address and amount.
   (AddressInEra, Value) ->
   -- | Sender's signing key.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) ->
   Either TxBodyError Tx
 mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk (validityLowerBound, validityUpperBound) = do
   body <- createAndValidateTransactionBody bodyContent
-  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  let witnesses = withSecret sk $ \rawSk -> [makeShelleyKeyWitness body (WitnessPaymentKey rawSk)]
   pure $ makeSignedTransaction witnesses body
  where
   bodyContent =

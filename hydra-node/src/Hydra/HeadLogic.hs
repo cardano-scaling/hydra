@@ -103,7 +103,7 @@ import Hydra.Tx.Crypto (
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot, snapshotUTxO)
 
 -- * The Coordinated Head protocol
 
@@ -339,8 +339,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
-                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    accumulator = Accumulator.buildFromSnapshotUTxOs snapshotUTxO mUtxoToCommit mUtxoToDecommit
+                let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+                    accumulator = Accumulator.buildFromSnapshotUTxOs nextUTxO mUtxoToCommit mUtxoToDecommit
                  in requireValidAccumulatorSize accumulator $ do
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here
@@ -350,16 +350,14 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               , version = version
                               , number = sn
                               , confirmed = requestedTxs
-                              , utxo = snapshotUTxO
+                              , utxo = nextUTxO
                               , utxoToCommit = mUtxoToCommit
                               , utxoToDecommit = mUtxoToDecommit
                               , accumulator
                               }
 
                       -- Spec: 𝜂 ← combine(𝑈)
-                      --       𝜂𝛼 ← combine(𝑈𝛼)
-                      --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η))
                       let snapshotSignature = sign signingKey nextSnapshot
                       -- Spec: multicast (ackSn, ŝ, σᵢ)
                       (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
@@ -550,20 +548,18 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
             let multisig = aggregateInOrder sigs' parties
             -- Spec: η ← combine(𝑈ˆ)
-            --       𝜂𝛼 ← combine(𝑈𝛼)
-            --       𝑈𝜔 ← outputs(tx𝜔 )
-            --       ηω ← combine(𝑈𝜔)
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
+            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
             requireVerifiedMultisignature multisig snapshotBytes $
               do
+                -- NOTE: Fix all the spec comments once specification is in place
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
                 newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
-                -- Spec: if η𝛼 ≠ ⊥
-                --         postTx (increment, v̂, ŝ, η, η𝛼, ηω)
+                -- Spec: if 𝑈𝛼 ≠ ⊥
+                --         postTx (increment, v̂, ŝ, η)
                 & maybePostIncrementTx snapshot multisig
                 -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
+                --         postTx (decrement, v̂, ŝ, η)
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
                 -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
@@ -1147,10 +1143,8 @@ onOpenClientClose ::
   Outcome tx
 onOpenClientClose st =
   -- Spec: η ← combine(̅S.𝑈)
-  --       η𝛼 ← combine(S.𝑈𝛼)
-  --       ηω ← combine(S.𝑈ω)
   --       ξ ← ̅S.σ
-  --       postTx (close, ̅S.v, ̅S.s, η, η𝛼, ηω,ξ)
+  --       postTx (close, ̅S.v, ̅S.s, η, ξ)
   cause
     OnChainEffect
       { postChainTx =
@@ -1194,10 +1188,8 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           -- that our last 'confirmedSnapshot' must match version or
           -- version-1. Assert this fact?
           -- Spec: η ← combine(̅S.𝑈)
-          --       η𝛼 ← combine(S.𝑈𝛼)
-          --       ηω ← combine(S.𝑈ω)
           --       ξ ← ̅S.σ
-          --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
+          --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
           <> cause
             OnChainEffect
               { postChainTx =
@@ -1317,10 +1309,8 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
         -- that our last 'confirmedSnapshot' must match version or
         -- version-1. Assert this fact?
         -- Spec: η ← combine(̅S.𝑈)
-        --       η𝛼 ← combine(S.𝑈𝛼)
-        --       ηω ← combine(S.𝑈ω)
         --       ξ ← ̅S.σ
-        --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
+        --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
           <> cause
             OnChainEffect
@@ -1367,7 +1357,7 @@ onClosedClientFanout ::
 onClosedClientFanout closedState@ClosedState{remainingFanoutOutputs} =
   case remainingFanoutOutputs of
     Just remaining -> emitNextFanoutStep FanoutInProgress remaining closedState
-    Nothing -> emitNextFanoutStep FreshFanout (Set.fromList $ outputsOfUTxO $ computeFullFanoutUTxO closedState) closedState
+    Nothing -> emitNextFanoutStep FreshFanout mempty closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -1384,9 +1374,7 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
   -- When partial fanouts preceded this final fanout, combine the output values
   -- distributed by each partial fanout with the final batch so clients receive
   -- the complete set.
-  let allOutputs =
-        distributedFanoutOutputs
-          <> Set.fromList (outputsOfUTxO fanoutUTxO)
+  let allOutputs = distributedFanoutOutputs <> fanoutUTxO
    in newState HeadFannedOut{headId, finalizedOutputs = allOutputs, chainState = newChainState}
  where
   ClosedState{headId, distributedFanoutOutputs} = closedState
@@ -1404,20 +1392,18 @@ onClosedChainPartialFanoutTx ::
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
-  -- | Output values that were distributed in this partial fanout
-  Set (TxOutType tx) ->
+  -- | UTxO distributed in this partial fanout (keyed by new TxIn; values preserve duplicates)
+  UTxOType tx ->
   Outcome tx
-onClosedChainPartialFanoutTx closedState newChainState distributedOutputs =
-  -- Compute the remaining outputs after removing the distributed ones.
-  -- Use content-based Set.difference so an adversary distributing non-prefix
-  -- items does not corrupt our tracking.
-  let fullOutputs = resolveRemainingOutputs closedState
-      remaining = Set.difference fullOutputs distributedOutputs
+onClosedChainPartialFanoutTx closedState newChainState observedDistributed =
+  let fullUTxO = resolveRemainingUTxO closedState
+      remaining = removeDistributedOutputs (outputsOfUTxO observedDistributed) fullUTxO
+      distributedUTxO = withoutUTxO fullUTxO remaining
       stateChange =
         newState
           HeadPartialFannedOut
             { headId
-            , distributedOutputs
+            , distributedOutputs = distributedUTxO
             , remainingOutputs = remaining
             , chainState = newChainState
             }
@@ -1446,16 +1432,19 @@ computeFullFanoutUTxO ClosedState{confirmedSnapshot, version} =
       then utxoToDecommit
       else Nothing
 
--- | Resolve the output set to fan out: the already-narrowed remaining set if a
--- partial fanout is in progress, or the full snapshot outputs otherwise.
-resolveRemainingOutputs ::
+removeDistributedOutputs :: IsTx tx => [TxOutType tx] -> UTxOType tx -> UTxOType tx
+removeDistributedOutputs = flip (foldl' (flip removeOneOutputFromUTxO))
+
+-- | Resolve the UTxO set to fan out: the already-narrowed remaining UTxO if a
+-- partial fanout is in progress, or the full snapshot UTxO otherwise.
+resolveRemainingUTxO ::
   IsTx tx =>
   ClosedState tx ->
-  Set (TxOutType tx)
-resolveRemainingOutputs closedState@ClosedState{remainingFanoutOutputs} =
+  UTxOType tx
+resolveRemainingUTxO closedState@ClosedState{remainingFanoutOutputs} =
   case remainingFanoutOutputs of
     Just remaining -> remaining
-    Nothing -> Set.fromList $ outputsOfUTxO $ computeFullFanoutUTxO closedState
+    Nothing -> computeFullFanoutUTxO closedState
 
 -- | Tracks whether a partial fanout has already been observed on-chain.
 -- Used to decide the final step: 'FanoutInProgress' heads go to
@@ -1469,7 +1458,7 @@ data PartialFanoutPhase = FreshFanout | FanoutInProgress
 emitNextFanoutStep ::
   IsTx tx =>
   PartialFanoutPhase ->
-  Set (TxOutType tx) ->
+  UTxOType tx ->
   ClosedState tx ->
   Outcome tx
 emitNextFanoutStep FreshFanout _ closedState =
@@ -1494,20 +1483,28 @@ emitNextFanoutStep FreshFanout _ closedState =
                     if snapshotVersion == version
                       then utxoToDecommit
                       else Nothing
+                , -- Always use the snapshot's original (unfiltered) full UTxO set
+                  -- to rebuild the accumulator that matches the closed datum.
+                  utxoForProof = snapshotUTxO (getSnapshot confirmedSnapshot)
                 , headSeed
                 , contestationDeadline
                 }
           }
-emitNextFanoutStep FanoutInProgress remaining closedState@ClosedState{headSeed, contestationDeadline} =
-  cause
-    OnChainEffect
-      { postChainTx =
-          FinalPartialFanoutTx
-            { utxoToDistribute = filterUTxOByOutputs (computeFullFanoutUTxO closedState) remaining
-            , headSeed
-            , contestationDeadline
-            }
-      }
+emitNextFanoutStep FanoutInProgress remaining closedState =
+  let ClosedState{confirmedSnapshot, headSeed, contestationDeadline} = closedState
+      -- Pre-settled elements: in the snapshot accumulator but never distributed
+      -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
+      presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) (computeFullFanoutUTxO closedState)
+   in cause
+        OnChainEffect
+          { postChainTx =
+              FinalPartialFanoutTx
+                { utxoToDistribute = remaining
+                , presettledUTxO = presettled
+                , headSeed
+                , contestationDeadline
+                }
+          }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.

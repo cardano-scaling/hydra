@@ -31,7 +31,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Data.Vector (Vector)
-import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx, txOutAddress, txOutValue)
+import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, lovelaceToValue, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -46,7 +46,8 @@ import Hydra.Logging (
 import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
-import Hydra.Tx.Crypto (generateSigningKey)
+import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
+import Hydra.Tx.Secret (Secret)
 import HydraNode (
   HydraClient,
   apiHost,
@@ -89,7 +90,9 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
-        let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
+        let cardanoKeys =
+              hydraNodeKeys dataset
+                <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
         scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \blockTime directOpts -> do
@@ -505,7 +508,7 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
     ChainBackendOptions ->
     MVar () ->
     HydraClient ->
-    SigningKey PaymentKey ->
+    Secret (SigningKey PaymentKey) ->
     UTxO ->
     Int ->
     TBQueue IO Tx ->
