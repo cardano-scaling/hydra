@@ -60,7 +60,12 @@ main = do
       summarizeResults outputDirectory [results]
     MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes} -> do
       (_, faucetSk) <- keysFor Faucet
-      workDir <- maybe (createTempDir "bench-matrix") checkEmpty outputDirectory
+      -- NOTE: Unlike a standalone matrix run, the docs pipeline points
+      -- --output-directory at the shared benchmarks/ directory that already
+      -- holds other reports (tx-cost, ledger-bench, end-to-end-benchmarks.md),
+      -- so we must not require it to be empty. Per-cell data goes into fresh
+      -- cell-N/ subdirs and the report is the distinct scenarios.md file.
+      workDir <- maybe (createTempDir "bench-matrix") ensureDirectory outputDirectory
       let cells =
             [ (cs, sh, im, wt)
             | cs <- clusterSizes
@@ -97,6 +102,10 @@ main = do
     listDirectory fp >>= \case
       [] -> pure fp
       _files -> die $ "ERROR: Output directory not empty: " <> fp
+
+  ensureDirectory fp = do
+    createDirectoryIfMissing True fp
+    pure fp
 
   runSingle ::
     Dataset ->
