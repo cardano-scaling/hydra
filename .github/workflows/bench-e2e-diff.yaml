@@ -1,0 +1,77 @@
+name: "Compute e2e benchmark differences"
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  pull-requests: write
+
+
+jobs:
+  # Run the single e2e benchmark on this branch and on master, then post the
+  # per-metric difference (TPS, confirmation time, ...) as a PR comment. Both
+  # runs happen on the same runner so the timing comparison is fair.
+  bench-e2e-diff:
+    name: Compute e2e benchmark differences
+    runs-on: ubuntu-latest
+    # Only run on PR
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: "Checkout the PR as the 'new' source"
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 📈 Benchmark (this branch)
+      working-directory: hydra-cluster
+      run: |
+        nix build .#hydra-cluster-bench
+        nix develop .#hydra-cluster-bench --command bench-e2e single \
+          datasets/1-node.json datasets/3-nodes.json \
+          --output-directory "$PWD/../bench-new" --timeout 1000s
+
+    - name: 📈 Benchmark (master)
+      working-directory: hydra-cluster
+      # Same committed datasets, so the workload is identical; only master's
+      # bench code differs from this branch.
+      run: |
+        nix develop "git+https://github.com/cardano-scaling/hydra?ref=master#hydra-cluster-bench" \
+          --command bench-e2e single \
+          datasets/1-node.json datasets/3-nodes.json \
+          --output-directory "$PWD/../bench-old" --timeout 1000s
+
+    - name: 🧮 Compute the difference markdown
+      run: |
+        python3 scripts/bench-e2e-diff.py \
+          bench-old/end-to-end-benchmarks.md \
+          bench-new/end-to-end-benchmarks.md > bench-e2e-diff.md
+
+    - name: 💾 Upload e2e bench diff artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bench-e2e-diff
+        path: bench-e2e-diff.md
+        if-no-files-found: error
+
+    - name: 🔎 Find Comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      uses: peter-evans/find-comment@v3
+      id: find-comment
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: End-to-end benchmark differences
+
+    - name: ✏ Create or update comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        edit-mode: replace
+        issue-number: ${{ github.event.pull_request.number }}
+        body-file: bench-e2e-diff.md
