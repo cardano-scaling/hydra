@@ -67,14 +67,12 @@ def fmt_num(x):
 
 
 def colored(body, delta, good_dir):
+    # We deliberately avoid GitHub's $$\color{...}$$ math trick: a literal '%'
+    # in math mode is a comment and GitHub's markdown pipeline mangles even an
+    # escaped '\%', truncating the cell. A colored emoji + plain text is robust
+    # everywhere (including mobile) and conveys the same green/red signal.
     improved = (delta > 0 and good_dir > 0) or (delta < 0 and good_dir < 0)
-    color = "green" if improved else "red"
-    # GitHub renders colored text via $$\color{...}$$ math. Wrap the body in
-    # \text{} so spaces/parens render as text, and escape '%' as '\%' since a
-    # bare '%' starts a comment in math mode and would swallow the closing
-    # braces (rendering error "missing close brace").
-    safe = body.replace("%", r"\%")
-    return "$${\\color{" + color + "}\\text{" + safe + "}}$$"
+    return f"{'🟢' if improved else '🔴'} {body}"
 
 
 def fmt_delta(delta, pct, good_dir, threshold):
@@ -124,7 +122,7 @@ def main():
         f"Comparing this PR (`new`) against `master` (`old`). Numbers come from "
         f"cloud VMs, so changes under {args.threshold:g}% are shown as `≈` and "
         f"are likely run-to-run noise rather than a real regression or "
-        f"improvement. Green = improvement, red = regression."
+        f"improvement. 🟢 = improvement, 🔴 = regression."
     )
     out.append("")
 
