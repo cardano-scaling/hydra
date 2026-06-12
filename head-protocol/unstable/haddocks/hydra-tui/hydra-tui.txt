@@ -4,7 +4,7 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 2.1.0
+@version 2.2.0
 
 module Hydra.TUI.Config
 data Theme
@@ -216,11 +216,11 @@ ApiInvalidInput :: InvalidInput -> AllPossibleAPIMessages tx
 
 -- | Handle to interact with Hydra node
 data Client tx m
-Client :: (ClientInput tx -> m ()) -> SigningKey PaymentKey -> (UTxO -> m ()) -> (TxId -> m ()) -> Client tx m
+Client :: (ClientInput tx -> m ()) -> Secret (SigningKey PaymentKey) -> (UTxO -> m ()) -> (TxId -> m ()) -> Client tx m
 
 -- | Send some input to the server.
 [sendInput] :: Client tx m -> ClientInput tx -> m ()
-[sk] :: Client tx m -> SigningKey PaymentKey
+[sk] :: Client tx m -> Secret (SigningKey PaymentKey)
 [externalCommit] :: Client tx m -> UTxO -> m ()
 [recoverCommit] :: Client tx m -> TxId -> m ()
 

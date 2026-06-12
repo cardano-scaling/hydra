@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node
-@version 2.1.0
+@version 2.2.0
 
 module Hydra.API.ClientInput
 data ClientInput tx
@@ -108,14 +108,16 @@ ContestTx :: HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot tx
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:openVersion:InitTx] :: PostChainTx tx -> SnapshotVersion
 [$sel:contestingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
-FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HeadSeed -> UTCTime -> PostChainTx tx
+FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxo:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:utxoToCommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
 [$sel:utxoToDecommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
+[$sel:utxoForProof:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
-FinalPartialFanoutTx :: UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+FinalPartialFanoutTx :: UTxOType tx -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
+[$sel:presettledUTxO:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
@@ -156,9 +158,9 @@ OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
 OnFanoutTx :: HeadId -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:fanoutUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnPartialFanoutTx :: HeadId -> Set (TxOutType tx) -> OnChainTx tx
+OnPartialFanoutTx :: HeadId -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
-[$sel:distributedOutputs:OnInitTx] :: OnChainTx tx -> Set (TxOutType tx)
+[$sel:distributedOutputs:OnInitTx] :: OnChainTx tx -> UTxOType tx
 
 -- | Exceptions thrown by <a>$sel:postTx:Chain</a>.
 data PostTxError tx
@@ -729,7 +731,7 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString
 --   <a>$sel:signableBytes:NoSeenSnapshot</a> from
 --   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
 --   stay in sync.
-mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+mkSeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -747,7 +749,7 @@ isCollectingAcks :: SeenSnapshot tx -> Bool
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Set (TxOutType tx)) -> Set (TxOutType tx) -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (UTxOType tx) -> UTxOType tx -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -760,13 +762,13 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
 
--- | Tracks remaining TxOut values to fan out after partial fanouts.
---   Nothing means no partial fanout has occurred yet.
-[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (Set (TxOutType tx))
+-- | Tracks remaining UTxO to fan out after partial fanouts. Nothing means
+--   no partial fanout has occurred yet.
+[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (UTxOType tx)
 
--- | Accumulates TxOut values distributed by partial fanout transactions.
---   Used to reconstruct the full output set in <tt>HeadFannedOut</tt>.
-[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> Set (TxOutType tx)
+-- | Accumulates UTxO distributed by partial fanout transactions. Used to
+--   reconstruct the full UTxO set in <tt>HeadFannedOut</tt>.
+[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> UTxOType tx
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.IdleState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
@@ -859,13 +861,13 @@ newLedgerEnv :: PParams LedgerEra -> LedgerEnv LedgerEra
 
 -- | Build a zero-fee transaction which spends the first output owned by
 --   given signing key and transfers it in full to given verification key.
-mkTransferTx :: MonadFail m => NetworkId -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> m Tx
+mkTransferTx :: MonadFail m => NetworkId -> UTxO -> Secret (SigningKey PaymentKey) -> VerificationKey PaymentKey -> m Tx
 
 -- | Build a zero-fee payment transaction.
-mkSimpleTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> SigningKey PaymentKey -> Either TxBodyError Tx
+mkSimpleTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> Secret (SigningKey PaymentKey) -> Either TxBodyError Tx
 
 -- | Create a zero-fee, payment cardano transaction with validity range.
-mkRangedTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> SigningKey PaymentKey -> (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) -> Either TxBodyError Tx
+mkRangedTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> Secret (SigningKey PaymentKey) -> (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) -> Either TxBodyError Tx
 data () => ShelleyGenesis
 ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> ShelleyGenesis
 [sgSystemStart] :: ShelleyGenesis -> !UTCTime
@@ -950,7 +952,7 @@ ClosedState :: UTxO -> HeadId -> TxIn -> UTCTime -> ClosedState
 
 -- | Construct an init transaction given some general <a>ChainContext</a>,
 --   the <a>HeadParameters</a> and a seed <a>TxIn</a> which will be spent.
-initialize :: ChainContext -> TxIn -> [OnChainId] -> HeadParameters -> Tx
+initialize :: ChainContext -> PParams LedgerEra -> TxIn -> [OnChainId] -> HeadParameters -> Tx
 data IncrementTxError
 InvalidHeadSeedInIncrement :: HeadSeed -> IncrementTxError
 [$sel:headSeed:InvalidHeadSeedInIncrement] :: IncrementTxError -> HeadSeed
@@ -1010,7 +1012,6 @@ MissingHeadDatumInContest :: ContestTxError
 MissingHeadRedeemerInContest :: ContestTxError
 WrongDatumInContest :: ContestTxError
 FailedToConvertFromScriptDataInContest :: ContestTxError
-BothCommitAndDecommitInContest :: ContestTxError
 
 -- | Construct a contest transaction based on the <a>ClosedState</a> and a
 --   confirmed snapshot. The given <a>PointInTime</a> will be used as an
@@ -1022,10 +1023,11 @@ MissingHeadDatumInFanout :: FanoutTxError
 WrongDatumInFanout :: FanoutTxError
 FailedToConvertFromScriptDataInFanout :: FanoutTxError
 BothCommitAndDecommitInFanout :: FanoutTxError
+FailedToCreateFanoutProof :: Text -> FanoutTxError
 
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
 --   off-chain agreed <a>UTxO</a> set to fan out.
-fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
+fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO -> SlotNo -> Either FanoutTxError Tx
 
 -- | Errors that can occur when constructing partial or final-partial
 --   fanout transactions.
@@ -1051,12 +1053,12 @@ CannotCreateProof :: Text -> PartialFanoutError
 --   current on-chain datum type. The first <tt>chunkSize</tt> UTxOs from
 --   <tt>remainingUTxO</tt> are distributed; the rest become the new
 --   remaining set.
-partialFanout :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+partialFanout :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Construct the final partial fanout transaction that distributes all
 --   remaining UTxOs and burns all head tokens. Reads FanoutProgressDatum
 --   from the head output.
-finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Read and decode the head state from a head script output.
 readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State
@@ -1088,9 +1090,9 @@ observeClose :: OpenState -> Tx -> Maybe (OnChainTx Tx, ClosedState)
 --   
 --   Do not use this in production code, but only for generating test data.
 data HydraContext
-HydraContext :: [VerificationKey PaymentKey] -> [SigningKey HydraKey] -> NetworkId -> ContestationPeriod -> ScriptRegistry -> HydraContext
+HydraContext :: [VerificationKey PaymentKey] -> [Secret (SigningKey HydraKey)] -> NetworkId -> ContestationPeriod -> ScriptRegistry -> HydraContext
 [$sel:ctxVerificationKeys:HydraContext] :: HydraContext -> [VerificationKey PaymentKey]
-[$sel:ctxHydraSigningKeys:HydraContext] :: HydraContext -> [SigningKey HydraKey]
+[$sel:ctxHydraSigningKeys:HydraContext] :: HydraContext -> [Secret (SigningKey HydraKey)]
 [$sel:ctxNetworkId:HydraContext] :: HydraContext -> NetworkId
 [$sel:ctxContestationPeriod:HydraContext] :: HydraContext -> ContestationPeriod
 [$sel:ctxScriptRegistry:HydraContext] :: HydraContext -> ScriptRegistry
@@ -1107,7 +1109,7 @@ unsafeClose :: HasCallStack => ChainContext -> UTxO -> HeadId -> HeadParameters 
 -- | Unsafe version of <a>contest</a> that throws an error if the
 --   transaction fails to build.
 unsafeContest :: HasCallStack => ChainContext -> UTxO -> HeadId -> ContestationPeriod -> SnapshotVersion -> ConfirmedSnapshot Tx -> PointInTime -> Tx
-unsafeFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Tx
+unsafeFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO -> SlotNo -> Tx
 unsafePartialFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> Tx
 unsafeFinalPartialFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Tx
 unsafeObserveInit :: HasCallStack => ChainContext -> [VerificationKey PaymentKey] -> Tx -> OpenState
@@ -1445,7 +1447,7 @@ type TxOut = TxOut LedgerEra
 --   <a>$sel:reset:TinyWallet</a>. Otherwise it can be fed blocks via
 --   <a>$sel:update:TinyWallet</a> as the chain rolls forward.
 data TinyWallet m
-TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTxO -> Tx -> m (Either ErrCoverFee Tx)) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> (Tx -> m Bool) -> m () -> (BlockHeader -> [Tx] -> m ()) -> TinyWallet m
+TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTxO -> Tx -> m (Either ErrCoverFee Tx)) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> (Tx -> m Bool) -> m (PParams LedgerEra) -> m () -> (BlockHeader -> [Tx] -> m ()) -> TinyWallet m
 
 -- | Return all known UTxO addressed to this wallet.
 [$sel:getUTxO:TinyWallet] :: TinyWallet m -> STM m (Map TxIn TxOut)
@@ -1465,6 +1467,9 @@ TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTx
 --   transaction size permitted by the current protocol parameters.
 [$sel:isTxWithinSizeLimits:TinyWallet] :: TinyWallet m -> Tx -> m Bool
 
+-- | Query current protocol parameters.
+[$sel:getPParams:TinyWallet] :: TinyWallet m -> m (PParams LedgerEra)
+
 -- | Re-initializ wallet against the latest tip of the node and start to
 --   ignore <a>$sel:update:TinyWallet</a> calls until reaching that tip.
 [$sel:reset:TinyWallet] :: TinyWallet m -> m ()
@@ -1482,7 +1487,7 @@ WalletInfoOnChain :: Map TxIn TxOut -> SystemStart -> ChainPoint -> WalletInfoOn
 type ChainQuery m = QueryPoint -> Address ShelleyAddr -> m WalletInfoOnChain
 
 -- | Create a new tiny wallet handle.
-newTinyWallet :: Tracer IO TinyWalletLog -> NetworkId -> (VerificationKey PaymentKey, SigningKey PaymentKey) -> ChainQuery IO -> IO (EpochInfo (Either Text)) -> IO (PParams ConwayEra) -> IO (TinyWallet IO)
+newTinyWallet :: Tracer IO TinyWalletLog -> NetworkId -> (VerificationKey PaymentKey, Secret (SigningKey PaymentKey)) -> ChainQuery IO -> IO (EpochInfo (Either Text)) -> IO (PParams ConwayEra) -> IO (TinyWallet IO)
 
 -- | Apply a block to our wallet. Does nothing if the transaction does not
 --   modify the UTXO set, or else, remove consumed utxos and add produced
@@ -1615,13 +1620,13 @@ ClusterIDMismatch :: Text -> Connectivity
 
 -- | Configuration for a <tt>Node</tt> network layer.
 data NetworkConfiguration
-NetworkConfiguration :: FilePath -> SigningKey HydraKey -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
+NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
 
 -- | Persistence directory
 [$sel:persistenceDir:NetworkConfiguration] :: NetworkConfiguration -> FilePath
 
 -- | This node's signing key. This is used to sign messages sent to peers.
-[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> SigningKey HydraKey
+[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> Secret (SigningKey HydraKey)
 
 -- | The list of peers <a>Party</a> known to this node.
 [$sel:otherParties:NetworkConfiguration] :: NetworkConfiguration -> [Party]
@@ -1766,7 +1771,7 @@ Authenticated :: msg -> Party -> Authenticated msg
 --   peers and verify signed messages upon receiving. Only verified
 --   messages are pushed downstream to the internal network for the node to
 --   consume and process. Non-verified messages get discarded.
-withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound) => Tracer m AuthLog -> SigningKey HydraKey -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
+withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound) => Tracer m AuthLog -> Secret (SigningKey HydraKey) -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
 
 -- | Smart constructor for <a>MessageDropped</a>
 mkAuthLog :: (ToJSON msg, Show signature) => msg -> signature -> Party -> AuthLog
@@ -2275,13 +2280,13 @@ module Hydra.Node.Network
 
 -- | Configuration for a <tt>Node</tt> network layer.
 data NetworkConfiguration
-NetworkConfiguration :: FilePath -> SigningKey HydraKey -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
+NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
 
 -- | Persistence directory
 [$sel:persistenceDir:NetworkConfiguration] :: NetworkConfiguration -> FilePath
 
 -- | This node's signing key. This is used to sign messages sent to peers.
-[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> SigningKey HydraKey
+[$sel:signingKey:NetworkConfiguration] :: NetworkConfiguration -> Secret (SigningKey HydraKey)
 
 -- | The list of peers <a>Party</a> known to this node.
 [$sel:otherParties:NetworkConfiguration] :: NetworkConfiguration -> [Party]
@@ -2448,11 +2453,11 @@ instance GHC.Real.Integral Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
 
 module Hydra.Node.Environment
 data Environment
-Environment :: Party -> SigningKey HydraKey -> [Party] -> [OnChainId] -> ContestationPeriod -> DepositPeriod -> UnsyncedPeriod -> Text -> Environment
+Environment :: Party -> Secret (SigningKey HydraKey) -> [Party] -> [OnChainId] -> ContestationPeriod -> DepositPeriod -> UnsyncedPeriod -> Text -> Environment
 
 -- | This is the p_i from the paper
 [$sel:party:Environment] :: Environment -> Party
-[$sel:signingKey:Environment] :: Environment -> SigningKey HydraKey
+[$sel:signingKey:Environment] :: Environment -> Secret (SigningKey HydraKey)
 [$sel:otherParties:Environment] :: Environment -> [Party]
 [$sel:participants:Environment] :: Environment -> [OnChainId]
 [$sel:contestationPeriod:Environment] :: Environment -> ContestationPeriod
@@ -2467,14 +2472,20 @@ Environment :: Party -> SigningKey HydraKey -> [Party] -> [OnChainId] -> Contest
 --   errors.
 [$sel:configuredPeers:Environment] :: Environment -> Text
 
+-- | Sentinel signing key used when an <a>Environment</a> has to be
+--   reconstructed without access to the real one (e.g. JSON roundtrip
+--   tests). Exported so <tt>Arbitrary</tt> generators can use the same
+--   value, keeping roundtrip <a>Eq</a> stable.
+placeholderSigningKey :: Secret (SigningKey HydraKey)
+
 -- | Make <a>HeadParameters</a> that are consistent with the given
 --   <a>Environment</a>.
 mkHeadParameters :: Environment -> HeadParameters
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Environment.Environment
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Environment.Environment
 instance GHC.Classes.Eq Hydra.Node.Environment.Environment
-instance GHC.Show.Show Hydra.Node.Environment.Environment
 instance GHC.Generics.Generic Hydra.Node.Environment.Environment
+instance GHC.Show.Show Hydra.Node.Environment.Environment
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Environment.Environment
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Environment.Environment
 instance Hydra.Tx.Party.HasParty Hydra.Node.Environment.Environment
 
 module Hydra.API.ServerOutput
@@ -2571,9 +2582,9 @@ HeadIsContested :: HeadId -> SnapshotNumber -> UTCTime -> ServerOutput tx
 [$sel:contestationDeadline:NetworkConnected] :: ServerOutput tx -> UTCTime
 ReadyToFanout :: HeadId -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-HeadIsFinalized :: HeadId -> Set (TxOutType tx) -> ServerOutput tx
+HeadIsFinalized :: HeadId -> UTxOType tx -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-[$sel:finalizedUTxO:NetworkConnected] :: ServerOutput tx -> Set (TxOutType tx)
+[$sel:finalizedUTxO:NetworkConnected] :: ServerOutput tx -> UTxOType tx
 
 -- | Given transaction has been seen as valid in the Head. It is expected
 --   to eventually be part of a <a>SnapshotConfirmed</a>.
@@ -2878,14 +2889,14 @@ HeadContested :: HeadId -> ChainStateType tx -> UTCTime -> SnapshotNumber -> Sta
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 HeadIsReadyToFanout :: HeadId -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-HeadFannedOut :: HeadId -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+HeadFannedOut :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadPartialFannedOut :: HeadId -> Set (TxOutType tx) -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+HeadPartialFannedOut :: HeadId -> UTxOType tx -> UTxOType tx -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
-[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
+[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 ChainRolledBack :: ChainStateType tx -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3400,11 +3411,7 @@ onClosedClientFanout :: IsTx tx => ClosedState tx -> Outcome tx
 --   back to PartialFanoutTx). <a>FanoutInProgress</a> →
 --   <a>FinalPartialFanoutTx</a> (head output already in FanoutProgress
 --   state).
-emitNextFanoutStep :: IsTx tx => PartialFanoutPhase -> Set (TxOutType tx) -> ClosedState tx -> Outcome tx
-
--- | Compute the full UTxO set to be fanned out, combining snapshot utxo
---   with utxoToCommit/utxoToDecommit based on version.
-computeFullFanoutUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
+emitNextFanoutStep :: IsTx tx => PartialFanoutPhase -> UTxOType tx -> ClosedState tx -> Outcome tx
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 --   clients about it.
@@ -3422,12 +3429,17 @@ onClosedChainFanoutTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> UTxOT
 --   
 --   <b>Off-chain model</b>: <a>ClosedState</a> → <a>ClosedState</a> (the
 --   on-chain state transitions to FanoutProgress)
-onClosedChainPartialFanoutTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> Set (TxOutType tx) -> Outcome tx
+onClosedChainPartialFanoutTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
 
--- | Resolve the output set to fan out: the already-narrowed remaining set
---   if a partial fanout is in progress, or the full snapshot outputs
+-- | Resolve the UTxO set to fan out: the already-narrowed remaining UTxO
+--   if a partial fanout is in progress, or the full snapshot UTxO
 --   otherwise.
-resolveRemainingOutputs :: IsTx tx => ClosedState tx -> Set (TxOutType tx)
+resolveRemainingUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
+removeDistributedOutputs :: IsTx tx => [TxOutType tx] -> UTxOType tx -> UTxOType tx
+
+-- | Compute the full UTxO set to be fanned out, combining snapshot utxo
+--   with utxoToCommit/utxoToDecommit based on version.
+computeFullFanoutUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
 
 -- | Detect our view of the chain going out of sync and issue a
 --   <a>NodeUnsynced</a> event when this is the case.
@@ -3637,7 +3649,7 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Set (TxOutType tx)) -> Set (TxOutType tx) -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (UTxOType tx) -> UTxOType tx -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -3650,13 +3662,13 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
 
--- | Tracks remaining TxOut values to fan out after partial fanouts.
---   Nothing means no partial fanout has occurred yet.
-[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (Set (TxOutType tx))
+-- | Tracks remaining UTxO to fan out after partial fanouts. Nothing means
+--   no partial fanout has occurred yet.
+[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (UTxOType tx)
 
--- | Accumulates TxOut values distributed by partial fanout transactions.
---   Used to reconstruct the full output set in <tt>HeadFannedOut</tt>.
-[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> Set (TxOutType tx)
+-- | Accumulates UTxO distributed by partial fanout transactions. Used to
+--   reconstruct the full UTxO set in <tt>HeadFannedOut</tt>.
+[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> UTxOType tx
 
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
@@ -3677,7 +3689,7 @@ isCollectingAcks :: SeenSnapshot tx -> Bool
 --   <a>$sel:signableBytes:NoSeenSnapshot</a> from
 --   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
 --   stay in sync.
-mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+mkSeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -3824,14 +3836,14 @@ HeadContested :: HeadId -> ChainStateType tx -> UTCTime -> SnapshotNumber -> Sta
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 HeadIsReadyToFanout :: HeadId -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-HeadFannedOut :: HeadId -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+HeadFannedOut :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadPartialFannedOut :: HeadId -> Set (TxOutType tx) -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+HeadPartialFannedOut :: HeadId -> UTxOType tx -> UTxOType tx -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
-[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
+[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 ChainRolledBack :: ChainStateType tx -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3892,7 +3904,11 @@ wait :: WaitReason tx -> Outcome tx
 instance GHC.Show.Show Hydra.HeadLogic.PartialFanoutPhase
 
 module Hydra.Node.Util
-readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+
+-- | Read a 'SigningKey PaymentKey' from a text-envelope file and return it
+--   wrapped in <a>Secret</a>. The verification key is the public
+--   projection so stays unwrapped.
+readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 readFileTextEnvelopeThrow :: HasTextEnvelope a => FilePath -> IO a
 
 -- | Filter and return any non-ADA assets as <a>Left</a> if they are
@@ -3978,21 +3994,22 @@ TimeConversionException :: SlotNo -> Text -> TimeConversionException
 --   <a>TimeHandle</a>.
 chainSyncHandler :: forall m. (MonadSTM m, MonadThrow m) => Tracer m CardanoChainLog -> ChainCallback Tx m -> GetTimeHandle m -> ChainContext -> LocalChainState m Tx -> ChainSyncHandler m
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
-prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> TinyWallet m -> ChainContext -> UTxOType Tx -> PostChainTx Tx -> STM m Tx
+prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> ChainContext -> UTxOType Tx -> PostChainTx Tx -> STM m Tx
 
 -- | Binary search for the largest chunk size in <tt>[1..maxChunk]</tt> for
---   which <tt>mkTx</tt> constructs a transaction and <tt>fitsCheck</tt>
---   returns <a>True</a>. Assumes the predicate is monotone: if size
---   <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit. Uses upper-mid so
---   the search terminates correctly when <tt>hi = lo + 1</tt>. Returns
---   <a>Nothing</a> if no size fits. <tt>mkTx</tt> may throw to abort the
---   search early.
-findLargestFitting :: Monad m => (Int -> m tx) -> (tx -> m Bool) -> Int -> m (Maybe tx)
+--   which <tt>tryTx</tt> returns <a>Just</a>. Assumes the predicate is
+--   monotone: if size <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit.
+--   Uses upper-mid so the search terminates correctly when <tt>hi = lo +
+--   1</tt>. Returns 'Left ()' if no size fits. <tt>tryTx</tt> may throw to
+--   abort the search early.
+findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Either () tx)
 
 -- | Check whether a transaction fits within protocol size and script
 --   execution limits. Size check is cheap so it short-circuits before the
---   expensive UPLC evaluation.
-fitsTx :: Monad m => (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> UTxO -> Tx -> m Bool
+--   expensive UPLC evaluation. Structural errors (script failures,
+--   protocol parameter conversion errors) are traced via the provided
+--   tracer; transient misses (size exceeded, budget overrun) are silent.
+fitsTx :: Monad m => Tracer m CardanoChainLog -> (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> UTxO -> Tx -> m Bool
 
 -- | Try the preferred transaction first; if it doesn't fit within the
 --   script execution budget or exceeds the maximum transaction size, fall
@@ -4007,7 +4024,7 @@ fitsTx :: Monad m => (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError 
 --   not resolve on retry). * No chunk fits within budget →
 --   <a>FailedToConstructPartialFanoutTx</a> (budget exhaustion; also not a
 --   race condition).
-findFittingFanoutTx :: forall m e. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Either e Tx -> UTxO -> SlotNo -> m Tx
+findFittingFanoutTx :: forall m e. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Either e Tx -> UTxO -> UTxO -> SlotNo -> m Tx
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a
 --   block. NOTE: This is highly depending on the network. If the security
@@ -4525,7 +4542,7 @@ module Hydra.Chain.ScriptRegistry
 --   
 --   Can throw at least <tt>NewScriptRegistryException</tt> on failure.
 queryScriptRegistry :: (ChainBackend m, MonadThrow m) => [TxId] -> m ScriptRegistry
-publishHydraScripts :: (ChainBackend m, MonadIO m, MonadCatch m) => SigningKey PaymentKey -> m [TxId]
+publishHydraScripts :: (ChainBackend m, MonadIO m, MonadCatch m) => Secret (SigningKey PaymentKey) -> m [TxId]
 handleError :: MonadThrow m => SomeException -> m a
 
 -- | Exception raised when publishing Hydra scripts.
@@ -4535,7 +4552,7 @@ FailedToBuildPublishingTx :: TxBodyErrorAutoBalance Era -> PublishScriptExceptio
 
 -- | Builds a chain of script publishing transactions. Throws:
 --   PublishScriptException
-buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> NetworkId -> EraHistory -> Set PoolId -> UTxO -> SigningKey PaymentKey -> m [Tx]
+buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> NetworkId -> EraHistory -> Set PoolId -> UTxO -> Secret (SigningKey PaymentKey) -> m [Tx]
 instance GHC.Show.Show Hydra.Chain.ScriptRegistry.PublishScriptException
 instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 

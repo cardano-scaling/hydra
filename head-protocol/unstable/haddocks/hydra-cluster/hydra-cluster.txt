@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 2.1.0
+@version 2.2.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -23,9 +23,9 @@ module Hydra.Cluster.Fixture
 alice :: Party
 bob :: Party
 carol :: Party
-aliceSk :: SigningKey HydraKey
-bobSk :: SigningKey HydraKey
-carolSk :: SigningKey HydraKey
+aliceSk :: Secret (SigningKey HydraKey)
+bobSk :: Secret (SigningKey HydraKey)
+carolSk :: Secret (SigningKey HydraKey)
 aliceVk :: VerificationKey HydraKey
 bobVk :: VerificationKey HydraKey
 carolVk :: VerificationKey HydraKey
@@ -145,12 +145,14 @@ module Hydra.Cluster.Util
 --   package's data path.
 readConfigFile :: FilePath -> IO ByteString
 
--- | Get the "well-known" keys for given actor.
-keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Get the "well-known" keys for given actor. The signing key is
+--   <a>Secret</a>-wrapped so callers cannot accidentally log or serialise
+--   it.
+keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 
--- | Create and save new signing key at the provided path. NOTE: Uses
---   <tt>TextEnvelope</tt> format.
-createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+-- | Create and save new signing key at the provided path, returning the
+--   key <a>Secret</a>-wrapped. NOTE: Uses <tt>TextEnvelope</tt> format.
+createAndSaveSigningKey :: FilePath -> IO (Secret (SigningKey PaymentKey))
 
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
@@ -213,7 +215,7 @@ seedFromFaucet_ :: ChainBackendOptions -> VerificationKey PaymentKey -> Coin -> 
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet :: Tracer IO FaucetLog -> ChainBackendOptions -> Actor -> IO ()
-returnFundsToFaucet' :: Tracer IO FaucetLog -> ChainBackendOptions -> SigningKey PaymentKey -> IO Coin
+returnFundsToFaucet' :: Tracer IO FaucetLog -> ChainBackendOptions -> Secret (SigningKey PaymentKey) -> IO Coin
 createOutputAtAddress :: NetworkId -> ChainBackendOptions -> AddressInEra -> TxOutDatum CtxTx -> Value -> IO (TxIn, TxOut CtxUTxO)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
@@ -249,17 +251,17 @@ networkId :: NetworkId
 --   <tt>HydraNode</tt>s. A dataset can optionally have a <a>title</a> and
 --   <a>description</a> which will be used to report results.
 data Dataset
-Dataset :: Tx -> [SigningKey PaymentKey] -> [ClientDataset] -> Maybe Text -> Maybe Text -> Dataset
+Dataset :: Tx -> [Secret (SigningKey PaymentKey)] -> [ClientDataset] -> Maybe Text -> Maybe Text -> Dataset
 [fundingTransaction] :: Dataset -> Tx
 
 -- | Cardano signing keys that will hold fuel.
-[hydraNodeKeys] :: Dataset -> [SigningKey PaymentKey]
+[hydraNodeKeys] :: Dataset -> [Secret (SigningKey PaymentKey)]
 [clientDatasets] :: Dataset -> [ClientDataset]
 [title] :: Dataset -> Maybe Text
 [description] :: Dataset -> Maybe Text
 data ClientDataset
-ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
-[paymentKey] :: ClientDataset -> SigningKey PaymentKey
+ClientDataset :: Secret (SigningKey PaymentKey) -> UTxO -> [Tx] -> ClientDataset
+[paymentKey] :: ClientDataset -> Secret (SigningKey PaymentKey)
 [initialUTxO] :: ClientDataset -> UTxO
 [txSequence] :: ClientDataset -> [Tx]
 
@@ -268,14 +270,28 @@ ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
 --   funds of the devnet (See <a>availableInitialFunds</a> and
 --   'genesis-shelley.json'). Then for a given number of clients a number
 --   of transactions are generated.
-generateConstantUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
-generateGrowingUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
+generateConstantUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+generateGrowingUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+
+-- | Generate a <a>Dataset</a> that grows the head's UTxO set for the first
+--   half of the tx sequence and contracts it again for the second half.
+--   Phase 1 reuses the same per-tx pattern as
+--   <a>generateGrowingUTxODataset</a> (1-in -&gt; 2-out via
+--   <a>mkSimpleTx</a> with reduced output value). Phase 2 issues 2-in
+--   -&gt; 1-out merges that consume two previously created outputs and
+--   produce a single combined output. End-state has a single UTxO again.
+generateMixedUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+
+-- | Build a zero-fee 2-in 1-out transaction that merges two of a sender's
+--   own outputs into one. Used by the Mixed generator to contract the UTxO
+--   set.
+mkMergeTx :: NetworkId -> SigningKey PaymentKey -> (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> Either TxBodyError Tx
 
 -- | Generate a <a>Dataset</a> from an already running network by querying
 --   available funds of the well-known 'faucet.sk' and assuming the
 --   hydra-nodes we connect to have fuel available. Then for a given number
 --   of clients a number of transactions are generated.
-generateDemoUTxODataset :: NetworkId -> SocketPath -> SigningKey PaymentKey -> Int -> Int -> IO Dataset
+generateDemoUTxODataset :: NetworkId -> SocketPath -> Secret (SigningKey PaymentKey) -> Int -> Int -> IO Dataset
 withInitialUTxO :: SigningKey PaymentKey -> Tx -> UTxO
 genClientFunds :: [SigningKey PaymentKey] -> Integer -> Gen [(VerificationKey PaymentKey, Coin)]
 generateClientDataset :: NetworkId -> Tx -> Int -> SigningKey PaymentKey -> Gen ClientDataset
@@ -576,7 +592,7 @@ postDecommit :: HydraClient -> Tx -> IO ()
 --   <tt>hydraNodeId</tt> and for every peer this node should connect to.
 --   Use <a>allocateHydraNodePortsFor</a> to build it for a cluster, or
 --   <a>allocateHydraNodePorts</a> + a singleton map for a standalone node.
-prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (Value -> Value) -> IO RunOptions
+prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (Value -> Value) -> IO RunOptions
 
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
@@ -600,7 +616,7 @@ waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 --   predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
-withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
+withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] -> [Secret (SigningKey HydraKey)] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node just like <a>withHydraNode</a>; but before running
 --   any action, observe a <tt>Greetings</tt> message with the node in sync
@@ -608,11 +624,11 @@ withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath
 --   will be lost; i.e. unobservable by subsequent <a>waitFor</a>s.
 --   
 --   See <a>prepareHydraNode</a> for how to build the port map.
-withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
+withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config and catching up with chain backend/.
-withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
+withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
@@ -620,20 +636,20 @@ withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> I
 -- | Convenience: run a single hydra-node with no peers and freshly
 --   allocated dynamic ports. Equivalent to <a>withHydraNode</a> with a
 --   singleton port map.
-withSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+withSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 
 -- | Convenience: <a>withHydraNodeCatchingUp</a> for a single node with
 --   freshly allocated dynamic ports.
-withSoloHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+withSoloHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/, but, importantly, do NOT wait for the sync status to be
 --   reported.
-withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
+withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Convenience: <a>withUnsyncedHydraNode</a> for a single node with
 --   freshly allocated dynamic ports.
-withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 waitNext :: HasCallStack => HydraClient -> IO Value
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 
@@ -718,7 +734,7 @@ hydraApiPort :: HydraClient -> Option scheme
 
 -- | Open a Hydra Head with only a single participant but some arbitrary
 --   UTxO committed.
-singlePartyOpenAHead :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> Maybe (Positive Natural) -> (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) -> IO a
+singlePartyOpenAHead :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> Maybe (Positive Natural) -> (HydraClient -> Secret (SigningKey PaymentKey) -> HeadId -> IO a) -> IO a
 
 -- | Single hydra-node where the deposit is done using some wallet UTxO.
 canDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
@@ -801,7 +817,7 @@ threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOp
 
 -- | Respend all outputs owned by a given key in the head every
 --   <tt>delay</tt> seconds, for <tt>numTimes</tt> times.
-respendNTimes :: HasCallStack => HydraClient -> SigningKey PaymentKey -> DiffTime -> Int -> IO ()
+respendNTimes :: HasCallStack => HydraClient -> Secret (SigningKey PaymentKey) -> DiffTime -> Int -> IO ()
 data EndToEndLog
 ClusterOptions :: Options -> EndToEndLog
 [$sel:options:ClusterOptions] :: EndToEndLog -> Options

@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx:tests
-@version 2.1.0
+@version 2.2.0
 
 module Hydra.Tx.AccumulatorSpec
 spec :: Spec
@@ -17,6 +17,11 @@ spec :: Spec
 module Hydra.Tx.Contract.Close.Healthy
 healthySeed :: Int
 healthyUTxO :: UTxO
+
+-- | The headAdaOverhead for healthy close tests. The test head output has
+--   only tokens (0 lovelace), so this equals the negation of the total
+--   UTxO lovelace.
+healthyHeadAdaOverhead :: Integer
 healthySplitUTxOInHead :: UTxO
 healthySplitUTxOToDecommit :: UTxO
 healthyCloseLowerBoundSlot :: SlotNo
@@ -26,10 +31,9 @@ healthyOpenHeadTxOut :: TxOutDatum CtxUTxO -> TxOut CtxUTxO
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationDeadline :: UTCTime
-healthyCloseUTxOHash :: BuiltinByteString
 healthyParticipants :: [VerificationKey PaymentKey]
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParties :: [Party]
 healthyOnChainParties :: [Party]
 healthySignature :: Snapshot Tx -> MultiSignature (Snapshot Tx)
@@ -89,16 +93,11 @@ MutateNoRequiredSigner :: CloseMutation
 --   the signer to not fail for SignerIsNotAParticipant).
 MutateMultipleRequiredSigner :: CloseMutation
 
--- | Invalidates the tx by changing the utxo hash in resulting head output.
+-- | Invalidates the tx by changing the accumulator commitment in the
+--   output datum.
 --   
 --   Ensures the output state is consistent with the redeemer.
 MutateCloseUTxOHash :: CloseMutation
-
--- | Invalidates the tx by changing the utxo to decommit hash in resulting
---   head output.
---   
---   Ensures the output state is consistent with the redeemer.
-MutateCloseUTxOToDecommitHash :: CloseMutation
 
 -- | Invalidates the tx by changing claimed closing type. i.e. claim the
 --   snapshot is current but provide signatures from an previous version
@@ -160,6 +159,7 @@ MutateValueInOutput :: CloseMutation
 
 -- | Invalidate the tx by changing the contestation period.
 MutateContestationPeriod :: CloseMutation
+MutateCloseHeadAdaOverhead :: CloseMutation
 genCloseOutdatedMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Generate not acceptable, but interesting deadlines.
@@ -178,6 +178,10 @@ healthyCurrentSnapshotVersion :: SnapshotVersion
 healthyCloseCurrentTx :: (Tx, UTxO)
 healthyCurrentSnapshot :: Snapshot Tx
 healthyCurrentAccumulatorHash :: Hash
+
+-- | Decommit is pending: decommitted UTxO is still in the head, so
+--   overhead is computed over both halves of healthyUTxO.
+healthyCloseUnusedHeadAdaOverhead :: Integer
 healthyCurrentOpenDatum :: State
 data CloseMutation
 
@@ -217,17 +221,6 @@ MutateNoRequiredSigner :: CloseMutation
 --   changing the signer used on the tx to have multiple signers (including
 --   the signer to not fail for SignerIsNotAParticipant).
 MutateMultipleRequiredSigner :: CloseMutation
-
--- | Invalidates the tx by changing the utxo hash in resulting head output.
---   
---   Ensures the output state is consistent with the redeemer.
-MutateCloseUTxOHash :: CloseMutation
-
--- | Invalidates the tx by changing the utxo to decommit hash in resulting
---   head output.
---   
---   Ensures the output state is consistent with the redeemer.
-MutateCloseUTxOToDecommitHash :: CloseMutation
 
 -- | Ensures parties do not change between head input datum and head output
 --   datum.
@@ -286,6 +279,7 @@ MutateContestationPeriod :: CloseMutation
 --   commitment and verifies the multi-signature against it, so a wrong
 --   commitment makes the signature check fail.
 MutateAccumulatorCommitment :: CloseMutation
+MutateCloseHeadAdaOverhead :: CloseMutation
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Generate not acceptable, but interesting deadlines.
@@ -301,6 +295,26 @@ MutateCloseContestationDeadline' :: CloseInitialMutation
 
 -- | Inject an unrelated v_deposit input into a healthy Close.
 CloseAbsorbForeignDeposit :: CloseInitialMutation
+
+-- | CloseInitial-specific: snapshotNumber must be 0 in closed datum.
+MutateSnapshotNumber :: CloseInitialMutation
+
+-- | CloseInitial-specific: version must be 0 in closed datum.
+MutateSnapshotVersion :: CloseInitialMutation
+
+-- | CloseInitial-specific: accumulatorCommitment must be the G1 generator.
+MutateAccumulatorCommitment :: CloseInitialMutation
+MutatePartiesInOutput :: CloseInitialMutation
+MutateHeadIdInOutput :: CloseInitialMutation
+MutateContestationPeriod :: CloseInitialMutation
+MutateInfiniteLowerBound :: CloseInitialMutation
+MutateInfiniteUpperBound :: CloseInitialMutation
+MutateValidityInterval :: CloseInitialMutation
+MutateTokenMintingOrBurning :: CloseInitialMutation
+MutateContesters :: CloseInitialMutation
+MutateValueInOutput :: CloseInitialMutation
+MutateRequiredSigner :: CloseInitialMutation
+MutateCloseHeadAdaOverhead :: CloseInitialMutation
 healthyCloseSnapshotVersion :: SnapshotVersion
 
 -- | Healthy close transaction for the specific case were we close a head
@@ -317,6 +331,161 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
 
+module Hydra.Tx.Contract.Close.CloseCommitUsed
+healthyCommitAppliedSnapshotNumber :: SnapshotNumber
+healthyCommitAppliedSnapshotVersion :: SnapshotVersion
+
+-- | Open state version after the increment was applied (one higher than
+--   snapshot version).
+healthyCommitAppliedOpenVersion :: SnapshotVersion
+
+-- | UTxO that was committed (deposit already merged into the head).
+healthyDepositUTxO :: UTxO
+
+-- | Snapshot with an applied commit: version is one lower than the open
+--   state version. Exercises the (ToCommit, False) branch of
+--   headAdaOverhead computation in closeTx.
+healthyCommitAppliedSnapshot :: Snapshot Tx
+healthyCommitAppliedAccumulatorHash :: Hash
+
+-- | Commit was applied: both healthySplitUTxOInHead and healthyDepositUTxO
+--   are in the head.
+healthyCommitAppliedHeadAdaOverhead :: Integer
+healthyCommitAppliedConfirmedSnapshot :: ConfirmedSnapshot Tx
+healthyCommitAppliedOpenDatum :: State
+
+-- | Healthy close transaction for the case of closing after a commit was
+--   applied. The snapshot version is lower than the open state version
+--   (increment was finalised), so the deposit value is already in the head
+--   — the CloseUsed redeemer is used.
+healthyCloseCommitAppliedTx :: (Tx, UTxO)
+data CloseMutation
+NotContinueContract :: CloseMutation
+MutateSignatureButNotSnapshotNumber :: CloseMutation
+MutateSnapshotNumberButNotSignature :: CloseMutation
+MutateSnapshotVersion :: CloseMutation
+SnapshotNotSignedByAllParties :: CloseMutation
+MutateRequiredSigner :: CloseMutation
+MutateNoRequiredSigner :: CloseMutation
+MutateMultipleRequiredSigner :: CloseMutation
+MutatePartiesInOutput :: CloseMutation
+MutateHeadIdInOutput :: CloseMutation
+MutateInfiniteLowerBound :: CloseMutation
+MutateInfiniteUpperBound :: CloseMutation
+MutateContestationDeadline :: CloseMutation
+MutateValidityInterval :: CloseMutation
+CloseFromDifferentHead :: CloseMutation
+MutateTokenMintingOrBurning :: CloseMutation
+MutateContesters :: CloseMutation
+MutateValueInOutput :: CloseMutation
+MutateContestationPeriod :: CloseMutation
+MutateAccumulatorCommitment :: CloseMutation
+MutateCloseSignatures :: CloseMutation
+MutateCloseType :: CloseMutation
+MutateCloseHeadAdaOverhead :: CloseMutation
+genCloseCommitUsedMutation :: (Tx, UTxO) -> Gen SomeMutation
+genMutatedDeadline :: Gen POSIXTime
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Close.CloseCommitUsed.CloseMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseCommitUsed.CloseMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseCommitUsed.CloseMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseCommitUsed.CloseMutation
+
+module Hydra.Tx.Contract.Close.CloseCommitUnused
+
+-- | UTxO being committed (deposit not yet merged into the head).
+healthyDepositUTxO :: UTxO
+healthyCommitPendingSnapshotNumber :: SnapshotNumber
+healthyCommitPendingSnapshotVersion :: SnapshotVersion
+
+-- | Snapshot with a pending commit: version matches the open state
+--   version. Exercises the (ToCommit, True) branch of headAdaOverhead
+--   computation in closeTx.
+healthyCommitPendingSnapshot :: Snapshot Tx
+healthyCommitPendingAccumulatorHash :: Hash
+healthyCommitPendingOpenDatum :: State
+
+-- | Healthy close transaction for the case of closing with a pending
+--   (unused) commit. The snapshot version equals the open state version,
+--   so the deposit has not yet been merged into the head — the CloseUnused
+--   redeemer is used.
+healthyCloseCommitPendingTx :: (Tx, UTxO)
+data CloseMutation
+NotContinueContract :: CloseMutation
+MutateSignatureButNotSnapshotNumber :: CloseMutation
+MutateSnapshotNumberButNotSignature :: CloseMutation
+MutateSnapshotVersion :: CloseMutation
+SnapshotNotSignedByAllParties :: CloseMutation
+MutateRequiredSigner :: CloseMutation
+MutateNoRequiredSigner :: CloseMutation
+MutateMultipleRequiredSigner :: CloseMutation
+MutatePartiesInOutput :: CloseMutation
+MutateHeadIdInOutput :: CloseMutation
+MutateInfiniteLowerBound :: CloseMutation
+MutateInfiniteUpperBound :: CloseMutation
+MutateContestationDeadline :: CloseMutation
+MutateValidityInterval :: CloseMutation
+CloseFromDifferentHead :: CloseMutation
+MutateTokenMintingOrBurning :: CloseMutation
+MutateContesters :: CloseMutation
+MutateValueInOutput :: CloseMutation
+MutateContestationPeriod :: CloseMutation
+MutateAccumulatorCommitment :: CloseMutation
+MutateCloseHeadAdaOverhead :: CloseMutation
+genCloseCommitUnusedMutation :: (Tx, UTxO) -> Gen SomeMutation
+genMutatedDeadline :: Gen POSIXTime
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Close.CloseCommitUnused.CloseMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseCommitUnused.CloseMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseCommitUnused.CloseMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseCommitUnused.CloseMutation
+
+module Hydra.Tx.Contract.Close.CloseAny
+healthyCloseAnySnapshotNumber :: SnapshotNumber
+healthyCloseAnySnapshotVersion :: SnapshotVersion
+
+-- | Snapshot with no incremental action at all. Exercises the NoThing
+--   branch of headAdaOverhead and the CloseAny redeemer path in closeTx.
+healthyCloseAnySnapshot :: Snapshot Tx
+healthyCloseAnyAccumulatorHash :: Hash
+healthyCloseAnyOpenDatum :: State
+
+-- | Healthy close transaction for the plain case: no incremental action,
+--   confirmed snapshot. This exercises the CloseAny redeemer path, which
+--   uniquely enforces snapshotNumber &gt; 0 on-chain.
+healthyCloseAnyTx :: (Tx, UTxO)
+data CloseMutation
+NotContinueContract :: CloseMutation
+
+-- | Unique to CloseAny: snapshotNumber must be &gt; 0. Setting it to 0
+--   fails the combined check (snapshotNumber &gt; 0 &amp;&amp;
+--   verifySignature) with FailedCloseAny.
+MutateSnapshotNumberToZero :: CloseMutation
+MutateSignatureButNotSnapshotNumber :: CloseMutation
+MutateSnapshotNumberButNotSignature :: CloseMutation
+MutateSnapshotVersion :: CloseMutation
+SnapshotNotSignedByAllParties :: CloseMutation
+MutateRequiredSigner :: CloseMutation
+MutateNoRequiredSigner :: CloseMutation
+MutateMultipleRequiredSigner :: CloseMutation
+MutatePartiesInOutput :: CloseMutation
+MutateHeadIdInOutput :: CloseMutation
+MutateInfiniteLowerBound :: CloseMutation
+MutateInfiniteUpperBound :: CloseMutation
+MutateContestationDeadline :: CloseMutation
+MutateValidityInterval :: CloseMutation
+CloseFromDifferentHead :: CloseMutation
+MutateTokenMintingOrBurning :: CloseMutation
+MutateContesters :: CloseMutation
+MutateValueInOutput :: CloseMutation
+MutateContestationPeriod :: CloseMutation
+MutateAccumulatorCommitment :: CloseMutation
+MutateCloseHeadAdaOverhead :: CloseMutation
+genCloseAnyMutation :: (Tx, UTxO) -> Gen SomeMutation
+genMutatedDeadline :: Gen POSIXTime
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Close.CloseAny.CloseMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseAny.CloseMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseAny.CloseMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseAny.CloseMutation
+
 module Hydra.Tx.Contract.Contest.Healthy
 
 -- | Healthy contest tx where the contester is the first one to contest and
@@ -331,9 +500,6 @@ splitUTxOInHead :: UTxO
 splitUTxOToDecommit :: UTxO
 healthyContestSnapshot :: Snapshot Tx
 healthyClosedState :: State
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOToDecommitHash :: BuiltinByteString
-healthyClosedUTxOHash :: BuiltinByteString
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthySlotNo :: SlotNo
 healthyClosedHeadTxIn :: TxIn
@@ -343,19 +509,47 @@ healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriodSeconds :: Integer
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyContesterVerificationKey :: VerificationKey PaymentKey
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParties :: [Party]
 healthyOnChainParties :: [Party]
 healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
 healthyContestationDeadline :: UTCTime
 
+module Hydra.Tx.Contract.Contest.ContestInc
+
+-- | UTxO being committed (deposit not yet merged into the head).
+healthyDepositedUTxO :: UTxO
+healthyContestIncSnapshotNumber :: SnapshotNumber
+
+-- | Snapshot with a pending commit, exercising the ToCommit accumulator
+--   path.
+healthyContestIncSnapshot :: Snapshot Tx
+healthyContestIncAccumulatorHash :: Hash
+
+-- | ClosedDatum whose accumulatorCommitment was derived from a commit-type
+--   snapshot.
+healthyContestIncClosedState :: State
+healthyContestIncClosedHeadTxOut :: TxOut CtxUTxO
+healthyContestIncTx :: (Tx, UTxO)
+healthyIncSignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
+data ContestIncMutation
+ContestUnusedIncAlterRedeemerCommitHash :: ContestIncMutation
+ContestUsedIncAlterAccumulatorCommitment :: ContestIncMutation
+ContestUnusedIncAlterAccumulatorCommitment :: ContestIncMutation
+ContestUsedIncMutateSnapshotVersion :: ContestIncMutation
+ContestUnusedIncMutateSnapshotVersion :: ContestIncMutation
+genContestIncMutation :: (Tx, UTxO) -> Gen SomeMutation
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestInc.ContestIncMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestInc.ContestIncMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Contest.ContestInc.ContestIncMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestInc.ContestIncMutation
+
 module Hydra.Tx.Contract.Contest.ContestDec
 healthyContestAccumulatorHash :: Hash
 data ContestDecMutation
-ContestUsedDecAlterRedeemerDecommitHash :: ContestDecMutation
 ContestUnusedDecAlterRedeemerDecommitHash :: ContestDecMutation
-ContestUsedDecAlterDatumomegaUTxOHash :: ContestDecMutation
-ContestUnusedDecAlterDatumomegaUTxOHash :: ContestDecMutation
+ContestUsedDecAlterAccumulatorCommitment :: ContestDecMutation
+ContestUnusedDecAlterAccumulatorCommitment :: ContestDecMutation
 ContestUsedDecMutateSnapshotVersion :: ContestDecMutation
 ContestUnusedDecMutateSnapshotVersion :: ContestDecMutation
 genContestDecMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -405,11 +599,6 @@ MutateNoRequiredSigner :: ContestMutation
 --   the signer used on the tx to have multiple signers (including the
 --   signer to not fail for SignerIsNotAParticipant).
 MutateMultipleRequiredSigner :: ContestMutation
-
--- | Invalidates the tx by changing the utxo hash in resulting head output.
---   
---   Ensures the output state is consistent with the redeemer.
-MutateContestUTxOHash :: ContestMutation
 
 -- | Ensures the contest snapshot is multisigned by all Head participants
 --   by changing the parties in the input head datum. If they do not align
@@ -475,6 +664,15 @@ ContestAbsorbForeignDeposit :: ContestMutation
 --   Ensures the on-chain validator binds the G2 commitment to the signed
 --   hash.
 MutateAccumulatorCommitment :: ContestMutation
+
+-- | Changing headAdaOverhead in the output ClosedDatum must be rejected.
+MutateHeadAdaOverhead :: ContestMutation
+
+-- | Adding extra ADA to the head output must be rejected.
+--   
+--   Ensures a malicious contester cannot inflate the head value, which
+--   would cause the strict-equality fanout check to fail (stuck head).
+ContestIncreaseHeadValue :: ContestMutation
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
@@ -484,7 +682,7 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestCurrent.ContestMu
 module Hydra.Tx.Contract.Decrement
 healthyDecrementTx :: (Tx, UTxO)
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParties :: [Party]
 healthyOnChainParties :: [Party]
@@ -494,7 +692,6 @@ healthySnapshotVersion :: SnapshotVersion
 healthySnapshot :: Snapshot Tx
 healthyAccumulator :: HydraAccumulator
 healthyAccumulatorHash :: ByteString
-splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 healthyContestationPeriod :: ContestationPeriod
 healthyUTxO :: UTxO
 healthyDatum :: State
@@ -570,7 +767,14 @@ instance GHC.Enum.Bounded Hydra.Tx.Contract.Deposit.DepositMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Deposit.DepositMutation
 
 module Hydra.Tx.Contract.FanOut
+scriptRegistry :: ScriptRegistry
 healthyFanoutTx :: (Tx, UTxO)
+
+-- | Variant of <a>healthyFanoutTx</a> with a trailing wallet change output
+--   appended, simulating a wallet-balanced transaction. The validator must
+--   still accept this because <tt>numberOfFanoutOutputs</tt> excludes the
+--   trailing output from the KZG check.
+healthyFanoutTxWithWalletChange :: (Tx, UTxO)
 healthyFanoutUTxO :: UTxO
 healthySlotNo :: SlotNo
 healthyContestationDeadline :: UTCTime
@@ -592,6 +796,18 @@ MutateDecommitOutputValue :: FanoutMutation
 
 -- | Inject an unrelated v_deposit input into a healthy Fanout.
 FanoutAbsorbForeignDeposit :: FanoutMutation
+
+-- | Change headAdaOverhead in the input ClosedDatum, breaking value
+--   conservation.
+MutateHeadAdaOverhead :: FanoutMutation
+
+-- | Supplying a fake CRS UTxO (no CRS reference script) should be
+--   rejected.
+MutateFanoutFakeCRS :: FanoutMutation
+
+-- | Correct CRS reference script hash but UTxO at an attacker-controlled
+--   address. Exposes that withCRSLookup must also validate txOutAddress.
+MutateFanoutWrongAddressCRS :: FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.FanOut.FanoutMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.FanOut.FanoutMutation
@@ -653,6 +869,14 @@ MutateFinalPartialFanoutStealAda :: FinalPartialFanoutMutation
 --   ADA go anywhere. mustHaveOutputs should reject this with
 --   FinalPartialFanoutZeroOutputs.
 MutateFinalPartialFanoutZeroOutputs :: FinalPartialFanoutMutation
+
+-- | Changing headAdaOverhead in the input FanoutProgressDatum breaks value
+--   conservation.
+MutateFinalPartialFanoutHeadAdaOverhead :: FinalPartialFanoutMutation
+
+-- | Correct CRS reference script hash but UTxO at an attacker-controlled
+--   address. Exposes that withCRSLookup must also validate txOutAddress.
+MutateFinalPartialFanoutWrongAddressCRS :: FinalPartialFanoutMutation
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
@@ -664,7 +888,7 @@ healthyIncrementTx :: (Tx, UTxO)
 healthyDepositInput :: TxIn
 healthyDeposited :: UTxO
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParties :: [Party]
 healthyOnChainParties :: [Party]
@@ -843,6 +1067,24 @@ MutatePartialFanoutWrongAccumulator :: PartialFanoutMutation
 -- | Supplying a fake CRS UTxO (no CRS reference script) should be
 --   rejected.
 MutatePartialFanoutFakeCRS :: PartialFanoutMutation
+
+-- | Redeemer claims zero distributed outputs. KZG degenerates to e(A,G2) =
+--   e(newAcc,G2), passing trivially when newAcc = A. Must be rejected by
+--   mustHaveOutputs.
+MutatePartialFanoutZeroOutputs :: PartialFanoutMutation
+
+-- | Output datum carries G1_generator as the new accumulator commitment,
+--   indicating all elements were distributed. Must use FinalPartialFanout
+--   instead to burn tokens.
+MutatePartialFanoutLastBatch :: PartialFanoutMutation
+
+-- | Changing headAdaOverhead in the continuing FanoutProgressDatum must be
+--   rejected.
+MutatePartialFanoutHeadAdaOverhead :: PartialFanoutMutation
+
+-- | Correct CRS reference script hash but UTxO at an attacker-controlled
+--   address. Exposes that withCRSLookup must also validate txOutAddress.
+MutatePartialFanoutWrongAddressCRS :: PartialFanoutMutation
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genMutatedDeadline :: Gen POSIXTime
 instance GHC.Enum.Bounded Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
@@ -893,6 +1135,33 @@ roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
 module Hydra.Tx.KZGTrustedSetupSpec
 spec :: Spec
 toInt :: ByteString -> Integer
+
+
+-- | Compile-fail checks for <a>Secret</a> and the <tt>SigningKey
+--   HydraKey</tt> wrapper in <a>Crypto</a>. Each spec passes a
+--   deliberately ill-typed expression to <a>shouldFailToTypecheck</a>;
+--   GHC's '-fdefer-type-errors' lifts the would-be compile error into a
+--   runtime exception, which we catch.
+--   
+--   We use a local helper (not the 'should-not-typecheck' package) because
+--   our <tt>Forbid</tt>-bearing instances throw <a>TypeError</a>
+--   explicitly from their unreachable bodies. The helper catches both
+--   <tt>TypeError</tt> (raw "no instance" cases under deferral) and any
+--   other exception thrown from those bodies.
+--   
+--   This module is isolated so the defer flag stays scoped to expressions
+--   that intentionally fail to type-check. Do not add positive tests here.
+module Hydra.Tx.SecretNegativeSpec
+
+-- | Assert that evaluating an expression raises an exception. Used to
+--   detect both deferred <tt>TypeError</tt>s (from '-fdefer-type-errors')
+--   and the explicit throws inside <tt>Forbid</tt>-bearing instance bodies
+--   in <a>Secret</a>.
+shouldFailToTypecheck :: NFData a => a -> Expectation
+spec :: Spec
+
+module Hydra.Tx.SecretSpec
+spec :: Spec
 
 module Main
 main :: IO ()

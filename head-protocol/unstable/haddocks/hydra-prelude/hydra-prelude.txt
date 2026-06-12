@@ -4,7 +4,7 @@
 
 -- | Custom Hydra Prelude used across other Hydra packages.
 @package hydra-prelude
-@version 2.1.0
+@version 2.2.0
 
 module Hydra.Prelude
 

@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 2.1.0
+@version 2.2.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -351,9 +351,16 @@ spec :: Spec
 --   <a>Payment</a> is a simple transaction type that moves some amount of
 --   ADAs between to <a>CardanoSigningKey</a>.
 module Hydra.Model.Payment
+
+-- | New type wrapper to add <a>Ord</a> and <a>Eq</a> instances to signing
+--   keys. The inner 'SigningKey PaymentKey' is wrapped in <a>Secret</a>:
+--   the <tt>signingKey</tt> field never exposes the raw key, mirroring the
+--   way Hydra signing keys are handled. The accompanying <a>ToJSON</a> <i>
+--   <a>FromJSON</a> </i> <a>ToCBOR</a> / <a>FromCBOR</a> bans are
+--   inherited from <a>Secret</a>.
 newtype CardanoSigningKey
-CardanoSigningKey :: SigningKey PaymentKey -> CardanoSigningKey
-[$sel:signingKey:CardanoSigningKey] :: CardanoSigningKey -> SigningKey PaymentKey
+CardanoSigningKey :: Secret (SigningKey PaymentKey) -> CardanoSigningKey
+[$sel:signingKey:CardanoSigningKey] :: CardanoSigningKey -> Secret (SigningKey PaymentKey)
 
 -- | A single Ada-payment only transaction in our model.
 data Payment
@@ -363,22 +370,22 @@ Payment :: CardanoSigningKey -> CardanoSigningKey -> Value -> Payment
 [$sel:value:Payment] :: Payment -> Value
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 genAdaValue :: Gen Value
-instance GHC.Show.Show Hydra.Model.Payment.CardanoSigningKey
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Model.Payment.Payment
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Model.Payment.Payment
 instance GHC.Generics.Generic Hydra.Model.Payment.Payment
 instance GHC.Classes.Eq Hydra.Model.Payment.Payment
-instance GHC.Show.Show Hydra.Model.Payment.Payment
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Model.Payment.Payment
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Model.Payment.Payment
+instance GHC.Show.Show Hydra.Model.Payment.Payment
 instance Hydra.Tx.IsTx.IsTx Hydra.Model.Payment.Payment
+instance GHC.Show.Show Hydra.Model.Payment.CardanoSigningKey
 instance GHC.Classes.Eq Hydra.Model.Payment.CardanoSigningKey
 instance GHC.Classes.Ord Hydra.Model.Payment.CardanoSigningKey
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Model.Payment.CardanoSigningKey
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Model.Payment.CardanoSigningKey
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Model.Payment.CardanoSigningKey
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Model.Payment.CardanoSigningKey
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Model.Payment.CardanoSigningKey
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Model.Payment.CardanoSigningKey
 instance GHC.Classes.Ord Cardano.Api.Value.Internal.Value
 instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Value.Internal.Value
 instance Cardano.Binary.ToCBOR.ToCBOR Cardano.Api.Value.Internal.Value
@@ -519,7 +526,7 @@ runToCompletion :: IsChainState tx => HydraNode tx IO -> IO ()
 -- | Creates a full <a>HydraNode</a> with given parameters and primed
 --   <a>Input</a>s. Note that this node is <a>notConnect</a>ed to any
 --   components.
-testHydraNode :: (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) => Tracer m (HydraNodeLog SimpleTx) -> SigningKey HydraKey -> [Party] -> ContestationPeriod -> [Input SimpleTx] -> m (HydraNode SimpleTx m)
+testHydraNode :: (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) => Tracer m (HydraNodeLog SimpleTx) -> Secret (SigningKey HydraKey) -> [Party] -> ContestationPeriod -> [Input SimpleTx] -> m (HydraNode SimpleTx m)
 
 -- | A lot shorter than the real world ttl which requires to be long to
 --   overcome some longer chain observation delays, but would just make
@@ -707,10 +714,10 @@ createMockNetworkWithDelay :: (MonadAsync m, MonadDelay m) => DiffTime -> DraftH
 toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 nothingHappensFor :: (MonadTimer m, MonadThrow m, IsChainState tx) => TestHydraClient tx m -> NominalDiffTime -> m ()
-withHydraNode :: forall s a. SigningKey HydraKey -> [Party] -> SimulatedChainNetwork SimpleTx (IOSim s) -> (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) -> IOSim s a
-withHydraNode' :: DepositPeriod -> SigningKey HydraKey -> [Party] -> SimulatedChainNetwork SimpleTx (IOSim s) -> (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) -> IOSim s b
+withHydraNode :: forall s a. Secret (SigningKey HydraKey) -> [Party] -> SimulatedChainNetwork SimpleTx (IOSim s) -> (TestHydraClient SimpleTx (IOSim s) -> IOSim s a) -> IOSim s a
+withHydraNode' :: DepositPeriod -> Secret (SigningKey HydraKey) -> [Party] -> SimulatedChainNetwork SimpleTx (IOSim s) -> (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) -> IOSim s b
 createTestHydraClient :: MonadSTM m => TQueue m (ServerOutput tx) -> TQueue m (ClientMessage tx) -> TVar m [ServerOutput tx] -> HydraNode tx m -> TestHydraClient tx m
-createHydraNode :: (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) => Tracer m (HydraNodeLog tx) -> Ledger tx -> ChainStateType tx -> SigningKey HydraKey -> [Party] -> TQueue m (ServerOutput tx) -> TQueue m (ClientMessage tx) -> TVar m [ServerOutput tx] -> SimulatedChainNetwork tx m -> ContestationPeriod -> DepositPeriod -> m (HydraNode tx m)
+createHydraNode :: (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) => Tracer m (HydraNodeLog tx) -> Ledger tx -> ChainStateType tx -> Secret (SigningKey HydraKey) -> [Party] -> TQueue m (ServerOutput tx) -> TQueue m (ClientMessage tx) -> TVar m [ServerOutput tx] -> SimulatedChainNetwork tx m -> ContestationPeriod -> DepositPeriod -> m (HydraNode tx m)
 openHead :: TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
 openHead2 :: TestHydraClient SimpleTx (IOSim s) -> TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
 depositHead :: SimulatedChainNetwork SimpleTx (IOSim s) -> [TestHydraClient SimpleTx (IOSim s)] -> UTxOType SimpleTx -> IOSim s ()
@@ -718,8 +725,11 @@ headIsClosed :: HeadId -> ServerOutput tx -> Bool
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> ServerOutput tx -> m ()
 
--- | Provide a quick and dirty to way to label stuff from a signing key
-shortLabel :: SigningKey HydraKey -> String
+-- | Provide a quick and dirty way to label stuff from a signing key. Uses
+--   the *verification* key (which is public) for the label, since
+--   <a>Show</a> on a 'SigningKey HydraKey' is forbidden by the type
+--   system.
+shortLabel :: Secret (SigningKey HydraKey) -> String
 
 -- | Get the head <tt>UTxO</tt> from open <a>HeadState</a>.
 getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)
@@ -738,7 +748,7 @@ module Hydra.Model.MockChain
 --   <a>$sel:onRollForward:ChainSyncHandler</a> on every <tt>blockTime</tt>
 --   and performs <a>$sel:rollbackAndForward:SimulatedChainNetwork</a>
 --   every couple blocks.
-mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(SigningKey HydraKey, CardanoSigningKey)] -> m (SimulatedChainNetwork Tx m)
+mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> m (SimulatedChainNetwork Tx m)
 
 -- | Construct fixed <a>TimeHandle</a> that starts from 0 and has the era
 --   horizon far in the future. This is used in our <tt>Model</tt> tests
@@ -754,7 +764,7 @@ scriptLedger :: Ledger Tx
 --   lookup. This is a bit cumbersome and a tribute to the fact the
 --   <a>HydraNode</a> itself has no direct knowledge of the cardano keys
 --   which are stored only at the <tt>ChainComponent</tt> level.
-findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
+findOwnCardanoKey :: Party -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
 createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
 data MockHydraNode m
 MockHydraNode :: HydraNode Tx m -> ChainSyncHandler m -> MockHydraNode m
@@ -788,11 +798,11 @@ module Hydra.Model
 
 -- | State maintained by the model.
 data WorldState
-WorldState :: [(SigningKey HydraKey, CardanoSigningKey)] -> GlobalState -> UTxOType Payment -> WorldState
+WorldState :: [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> GlobalState -> UTxOType Payment -> WorldState
 
 -- | List of parties identified by both signing keys required to run
 --   protocol. This list must not contain any duplicated key.
-[$sel:hydraParties:WorldState] :: WorldState -> [(SigningKey HydraKey, CardanoSigningKey)]
+[$sel:hydraParties:WorldState] :: WorldState -> [(Secret (SigningKey HydraKey), CardanoSigningKey)]
 
 -- | Expected consensus state All nodes should be in the same state.
 [$sel:hydraState:WorldState] :: WorldState -> GlobalState
@@ -836,13 +846,13 @@ OffChainState :: UTxOType Payment -> OffChainState
 type ActualCommitted = UTxOType Payment
 genSeed :: Gen (Action WorldState ())
 genContestationPeriod :: Gen ContestationPeriod
-genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
+genInit :: [(Secret (SigningKey HydraKey), b)] -> Gen (Action WorldState HeadId)
 genPayment :: WorldState -> Gen (Party, Payment)
 unsafeConstructorName :: Show a => a -> String
 
 -- | Generate a list of pairs of Hydra/Cardano signing keys. All the keys
 --   in this list are guaranteed to be unique.
-partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
+partyKeys :: Gen [(Secret (SigningKey HydraKey), CardanoSigningKey)]
 
 -- | Concrete state needed to run actions against the implementation. This
 --   state is used and might be updated when actually <a>perform</a>ing
@@ -888,7 +898,7 @@ sortTxOuts :: [TxOut ctx] -> [TxOut ctx]
 
 -- | Deposit period used by all nodes and the <a>performDeposit</a>.
 testDepositPeriod :: DepositPeriod
-seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(SigningKey HydraKey, CardanoSigningKey)] -> ContestationPeriod -> RunMonad m ()
+seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> ContestationPeriod -> RunMonad m ()
 performDeposit :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) => HeadId -> [(CardanoSigningKey, Value)] -> RunMonad m ()
 performDecommit :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) => Party -> Payment -> RunMonad m ()
 performNewTx :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> Payment -> RunMonad m Payment
@@ -906,7 +916,7 @@ sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad 
 getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
 performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
-performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m (Set (TxOut CtxUTxO))
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
 stopTheWorld :: MonadAsync m => RunMonad m ()
