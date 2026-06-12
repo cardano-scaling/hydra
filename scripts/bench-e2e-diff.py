@@ -69,7 +69,12 @@ def fmt_num(x):
 def colored(body, delta, good_dir):
     improved = (delta > 0 and good_dir > 0) or (delta < 0 and good_dir < 0)
     color = "green" if improved else "red"
-    return f"$${{\\color{{{color}}}{body}}}$$"
+    # GitHub renders colored text via $$\color{...}$$ math. Wrap the body in
+    # \text{} so spaces/parens render as text, and escape '%' as '\%' since a
+    # bare '%' starts a comment in math mode and would swallow the closing
+    # braces (rendering error "missing close brace").
+    safe = body.replace("%", r"\%")
+    return "$${\\color{" + color + "}\\text{" + safe + "}}$$"
 
 
 def fmt_delta(delta, pct, good_dir, threshold):
