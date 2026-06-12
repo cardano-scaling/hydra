@@ -18,7 +18,7 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
@@ -33,8 +33,6 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyClosedState,
   healthyContestSnapshot,
   healthyContestSnapshotNumber,
-  healthyContestUTxOHash,
-  healthyContestUTxOToDecommitHash,
   healthyContestationDeadline,
   healthyContesterVerificationKey,
   healthyOnChainContestationPeriod,
@@ -70,13 +68,12 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
-  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUTxOHash,
  )
 import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
@@ -119,10 +116,6 @@ data ContestMutation
     -- used on the tx to have multiple signers (including the signer to not fail for
     -- SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
-  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateContestUTxOHash
   | -- | Ensures the contest snapshot is multisigned by all Head participants by
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
@@ -171,6 +164,13 @@ data ContestMutation
     --
     -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
     MutateAccumulatorCommitment
+  | -- | Changing headAdaOverhead in the output ClosedDatum must be rejected.
+    MutateHeadAdaOverhead
+  | -- | Adding extra ADA to the head output must be rejected.
+    --
+    -- Ensures a malicious contester cannot inflate the head value, which would
+    -- cause the strict-equality fanout check to fail (stuck head).
+    ContestIncreaseHeadValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -179,11 +179,11 @@ genContestMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode FailedContestCurrent) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedContestUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            Head.ContestCurrent
+            Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
               }
@@ -202,7 +202,7 @@ genContestMutation (tx, _utxo) =
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  Head.ContestCurrent
+                  Head.ContestUnused
                     { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
@@ -214,7 +214,7 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (pure $ toErrorCode FailedContestCurrent) ContestFromDifferentHead <$> do
+      SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
         pure $
           Changes
@@ -225,7 +225,7 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          Head.ContestCurrent
+                          Head.ContestUnused
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
@@ -240,18 +240,6 @@ genContestMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
         let signerAndOthers = healthyContesterVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-        pure $
-          modifyInlineDatum
-            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
-            headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- arbitrary `suchThat` (/= healthyContestUTxOToDecommitHash)
-        pure $
-          modifyInlineDatum
-            (replaceOmegaUTxOHash mutatedUTxOHash)
-            headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
@@ -334,6 +322,12 @@ genContestMutation (tx, _utxo) =
         -- was derived from the healthy one, so this G2 point won't match.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ContestIncreaseHeadValue <$> do
+        extraLovelace <- lovelaceToValue . Coin <$> choose (1, 10_000_000)
+        pure $ ChangeOutput 0 (modifyTxOutValue (<> extraLovelace) headTxOut)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

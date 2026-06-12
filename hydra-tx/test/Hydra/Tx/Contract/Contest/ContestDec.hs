@@ -15,8 +15,6 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyContestSnapshot,
-  healthyContestSnapshotNumber,
-  healthySignature,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Snapshot (Snapshot (..))
@@ -25,7 +23,7 @@ import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   modifyInlineDatum,
-  replaceOmegaUTxOHash,
+  replaceAccumulatorCommitment,
   replaceSnapshotVersion,
  )
 import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
@@ -36,10 +34,9 @@ healthyContestAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
 data ContestDecMutation
-  = ContestUsedDecAlterRedeemerDecommitHash
-  | ContestUnusedDecAlterRedeemerDecommitHash
-  | ContestUsedDecAlterDatumomegaUTxOHash
-  | ContestUnusedDecAlterDatumomegaUTxOHash
+  = ContestUnusedDecAlterRedeemerDecommitHash
+  | ContestUsedDecAlterAccumulatorCommitment
+  | ContestUnusedDecAlterAccumulatorCommitment
   | ContestUsedDecMutateSnapshotVersion
   | ContestUnusedDecMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
@@ -47,39 +44,20 @@ data ContestDecMutation
 genContestDecMutation :: (Tx, UTxO) -> Gen SomeMutation
 genContestDecMutation (tx, _utxo) =
   oneof
-    [ SomeMutation (pure $ toErrorCode FailedContestUsedDec) ContestUsedDecAlterRedeemerDecommitHash <$> do
-        pure $
-          ChangeHeadRedeemer $
-            Head.Contest
-              Head.ContestUsedDec
-                { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
-                , alreadyDecommittedUTxOHash = mempty
-                , accumulatorHash = healthyContestAccumulatorHash
-                }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterRedeemerDecommitHash . ChangeHeadRedeemer <$> do
+    [ SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterRedeemerDecommitHash . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            Head.ContestUnusedDec
+            Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
               }
-    , SomeMutation (pure $ toErrorCode FailedContestUsedDec) ContestUsedDecAlterRedeemerDecommitHash <$> do
-        mutatedHash <- arbitrary `suchThat` (/= mempty)
-        pure $
-          ChangeHeadRedeemer $
-            Head.Contest
-              Head.ContestUsedDec
-                { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
-                , alreadyDecommittedUTxOHash = mutatedHash
-                , accumulatorHash = healthyContestAccumulatorHash
-                }
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUsedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
-        mutatedHash <- arbitrary `suchThat` (/= mempty)
-        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
-        mutatedHash <- arbitrary `suchThat` (/= mempty)
-        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUsedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedDecMutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut

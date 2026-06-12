@@ -99,6 +99,8 @@ instance IsTx SimpleTx where
 
   filterUTxOByOutputs = Set.intersection
 
+  removeOneOutputFromUTxO = Set.delete
+
   utxoToElement = toStrict . serialise . unSimpleTxOut
 
 -- * Simple chain state

@@ -90,10 +90,10 @@ observeTx networkId utxo tx =
 
 observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [HeadObservation])
 observeAll networkId utxo txs =
-  second reverse $ foldr go (utxo, []) txs
+  second reverse $ foldl' go (utxo, []) txs
  where
-  go :: Tx -> (UTxO, [HeadObservation]) -> (UTxO, [HeadObservation])
-  go tx (utxo'', observations) =
+  go :: (UTxO, [HeadObservation]) -> Tx -> (UTxO, [HeadObservation])
+  go (utxo'', observations) tx =
     case observeTx networkId utxo'' tx of
       (utxo', Nothing) -> (utxo', observations)
       (utxo', Just observation) -> (utxo', observation : observations)

@@ -21,7 +21,7 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
   let txOuts = toList $ ledgerBody ^. outputsTxBodyL
       txIns =
         [ Ledger.TxIn (toShelleyTxId $ getTxId body) ix
-        | ix <- [Ledger.TxIx 0 .. toEnum (length txOuts)]
+        | ix <- [Ledger.TxIx 0 ..]
         ]
    in UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
 

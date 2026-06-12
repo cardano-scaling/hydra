@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain (PostChainTx (..), maximumNumberOfParties)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -44,6 +44,7 @@ import Hydra.Chain.Direct.State (
   ctxParticipants,
   finalPartialFanout,
   getKnownUTxO,
+  initialChainState,
   initialize,
   partialFanout,
   unsafeIncrement,
@@ -51,6 +52,7 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (txInToHeadSeed)
@@ -69,6 +71,7 @@ import Hydra.Tx.Observe (
   observeHeadTx,
   observeIncrementTx,
   observeInitTx,
+  observePartialFanoutTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Utils (splitUTxO)
@@ -76,9 +79,14 @@ import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Chain.Direct.State (
   ChainTransition,
+  findFittingPartialChunk,
   genChainStateWithTx,
   genCloseTx,
   genClosedStateForFanout,
+  genClosedStateWithAppliedDecommit,
+  genClosedStateWithDuplicateTxOuts,
+  genClosedStateWithPendingCommit,
+  genClosedStateWithUnconfirmedCommit,
   genContestTx,
   genDecrementTx,
   genDepositTx,
@@ -94,7 +102,7 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
+import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -147,7 +155,7 @@ spec = parallel $ do
         vk <- pickBlind arbitrary
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
-        let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+        let tx = initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton seedInput seedTxOut
         let (tx', utxo') = applyMutation mutation (tx, utxo)
@@ -249,27 +257,111 @@ spec = parallel $ do
               Left err ->
                 property False
                   & counterexample ("Evaluation failed within 90% budget: " <> show err)
-    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
+    prop "returns StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _u0) ->
-          -- Pass empty UTxO so the accumulator commitment won't match
-          partialFanout ctx spendableUTxO seedTxIn 1 mempty deadlineSlotNo
+          partialFanout ctx spendableUTxO seedTxIn 1 mempty mempty deadlineSlotNo
             === Left StaleChainState
+    prop "decommit paid out before close: batch tx can be built" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo
+            `shouldSatisfy` isRight
+    prop "decommit paid out before close: batch tx evaluates on-chain" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          let evalUTxO = spendableUTxO <> getKnownUTxO ctx
+           in case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
+                Left err -> counterexample ("partialFanout build failed: " <> show err) False
+                Right tx -> propTransactionEvaluates (tx, evalUTxO)
+    prop "pending deposit not confirmed on-chain: batch tx can be built" $
+      forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo
+            `shouldSatisfy` isRight
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
     propIsValid forAllFinalPartialFanout
-    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
-      -- Use genClosedStateForFanout and build the fanoutProgressUTxO manually to
-      -- avoid eagerly evaluating the (potentially crashing) final fanout tx from
-      -- genFinalPartialFanoutTx.
+    prop "returns StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
           let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn 1 u0 deadlineSlotNo
-           in -- Pass empty UTxO so the accumulator commitment won't match
-              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
+           in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty mempty deadlineSlotNo of
                 Left StaleChainState -> property True
                 other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
+    prop "deposit confirmed on-chain before close: final batch distributes it" $
+      forAll (genClosedStateWithPendingCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          let fullUTxO = u0 <> commitUTxO
+              evalUTxO = spendableUTxO <> getKnownUTxO ctx
+              (_, partialTx) = findFittingPartialChunk evalUTxO ctx spendableUTxO seedTxIn fullUTxO deadlineSlotNo
+              fanoutProgressUTxO = utxoFromTx partialTx
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO mempty deadlineSlotNo
+                `shouldSatisfy` isRight
+    prop "decommit paid out before close: final batch succeeds after initial batch" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
+            Left err -> counterexample ("partialFanout failed: " <> show err) False
+            Right partialTx ->
+              let fanoutProgressUTxO = utxoFromTx partialTx
+                  remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining decommitUTxO deadlineSlotNo of
+                    Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
+                    Right _ -> property True
+    prop "pending deposit not confirmed on-chain: final batch succeeds after initial batch" $
+      forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo of
+            Left err -> counterexample ("partialFanout failed: " <> show err) False
+            Right partialTx ->
+              let fanoutProgressUTxO = utxoFromTx partialTx
+                  remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining commitUTxO deadlineSlotNo of
+                    Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
+                    Right _ -> property True
+    prop "succeeds when snapshot UTxO has duplicate TxOut values" $
+      forAll (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
+        \(_hctx, ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0WithDups, chunkSize, _confirmed) ->
+          let partialTx = unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize u0WithDups deadlineSlotNo
+              fanoutProgressUTxO = utxoFromTx partialTx
+              remaining = UTxO.fromList (drop chunkSize (UTxO.toList u0WithDups))
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining mempty deadlineSlotNo
+                `shouldSatisfy` isRight
+    prop "HeadLogic computes non-empty remaining UTxO when snapshot contains duplicate TxOut values" $
+      forAllBlind (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
+        \(hctx, cctx, stClosed, spendableUTxO, deadlineSlotNo, u0WithDups, chunkSize, confirmed) ->
+          let partialTx = unsafePartialFanout cctx spendableUTxO stClosed.seedTxIn chunkSize u0WithDups deadlineSlotNo
+              evalUTxO = spendableUTxO <> getKnownUTxO cctx
+           in case observePartialFanoutTx evalUTxO partialTx of
+                Nothing -> counterexample "observePartialFanoutTx returned Nothing" False
+                Just PartialFanoutObservation{distributedOutputs} ->
+                  let hlClosedState =
+                        HL.ClosedState
+                          { parameters = ctxHeadParameters hctx
+                          , confirmedSnapshot = confirmed
+                          , contestationDeadline = stClosed.contestationDeadline
+                          , readyToFanoutSent = False
+                          , chainState = initialChainState
+                          , headId = stClosed.headId
+                          , headSeed = txInToHeadSeed stClosed.seedTxIn
+                          , version = 0
+                          , remainingFanoutOutputs = Nothing
+                          , distributedFanoutOutputs = mempty
+                          }
+                      outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
+                      expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups
+                      fanoutUTxOs =
+                        [ utxo
+                        | HL.OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute = utxo}} <-
+                            case outcome of
+                              HL.Continue{effects} -> effects
+                              _ -> []
+                        ]
+                   in counterexample
+                        ("Expected FinalPartialFanoutTx{utxoToDistribute = " <> show expectedRemaining <> "}")
+                        (fanoutUTxOs === [expectedRemaining])
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
@@ -417,7 +509,7 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutputFor (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
+        let tx = initialize cctx defaultPParams seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
             utxo = UTxO.singleton seedIn seedOut <> getKnownUTxO cctx
          in action utxo tx
               & classify
@@ -484,8 +576,8 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, _, tx, sn) ->
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, _, utxo', tx, sn) ->
+    let utxo = utxo' <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
 
@@ -534,8 +626,8 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, stClosed, _, tx) ->
-    let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
+  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, _stClosed, spendableUTxO, tx) ->
+    let utxo = spendableUTxO <> getKnownUTxO ctx
      in action utxo tx
           & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where

@@ -153,7 +153,7 @@ renderServerOutput time output raw = case output of
       time
       "Head finalized"
       [ fld "Head ID" (prettyHeadId headId)
-      , fld "Distributed outputs" (show (length finalizedUTxO))
+      , fld "Distributed outputs" (show (UTxO.size finalizedUTxO))
       ]
       raw
   TxValid{headId, transactionId} ->

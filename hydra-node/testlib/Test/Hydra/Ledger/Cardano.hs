@@ -10,6 +10,7 @@ import Data.ByteString qualified as BS
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano (mkTransferTx)
 import Hydra.Tx (IsTx (..))
+import Hydra.Tx.Secret (mkSecret)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (testNetworkId)
@@ -34,7 +35,7 @@ genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
 
 go :: SigningKey PaymentKey -> (UTxO, [Tx]) -> Int -> Gen (UTxO, [Tx])
 go sk (utxo, txs) _ = do
-  case mkTransferTx testNetworkId utxo sk (getVerificationKey sk) of
+  case mkTransferTx testNetworkId utxo (mkSecret sk) (getVerificationKey sk) of
     Left err -> error $ "mkTransferTx failed: " <> err
     Right tx -> pure (utxoFromTx tx, tx : txs)
 

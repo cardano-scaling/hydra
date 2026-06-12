@@ -4,7 +4,8 @@
 
 module Test.Hydra.Chain.Direct.State where
 
-import Hydra.Prelude hiding (init)
+import Data.List (head, last)
+import Hydra.Prelude hiding (head, init, last)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -21,6 +22,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   modifyTxOutValue,
+  negateValue,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (maximumNumberOfParties)
@@ -140,7 +142,7 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+    let tx = initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
     pure (cctx, Idle, mempty, tx, Init)
 
   genDepositWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
@@ -263,7 +265,7 @@ genInitTx ::
 genInitTx ctx = do
   cctx <- pickChainContext ctx
   seedInput <- genTxIn
-  pure $ initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+  pure $ initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
 genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do
@@ -357,7 +359,12 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let utxo = getKnownUTxO stOpen
+  -- genStOpen inflated the head by u0Value; adjust so the head holds exactly
+  -- headAdaOverhead + confirmedUTxOValue + decommitValue at close time.
+  let u0Value = UTxO.totalValue u0
+      confirmedUTxOValue = UTxO.totalValue confirmedUTxO
+      decommitValue = maybe mempty UTxO.totalValue utxoToDecommit
+  let utxo = UTxO.map (modifyTxOutValue (<> confirmedUTxOValue <> decommitValue <> negateValue u0Value)) $ getKnownUTxO stOpen
   pure (cctx, stOpen, utxo, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
@@ -384,24 +391,35 @@ genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genFanoutTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  n <- elements [1 .. 10]
-  toCommit' <- Just <$> genUTxOAdaOnlyOfSize n
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
+  -- Only generate commit UTxO when version differs so the accumulator commitment
+  -- in the closed datum matches what fanoutTx builds. Size bounded for KZG budget
+  -- with maximumNumberOfParties: u0 ≤ 5, commit ≤ 5, total ≤ 10 outputs.
+  n <- elements [1 .. 5]
+  toCommit' <-
+    if openVersion /= version
+      then Just <$> genUTxOAdaOnlyOfSize n
+      else pure Nothing
   confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  -- When increment was applied (openVersion /= version), the head already holds the
+  -- committed UTxOs' value. Enrich the open UTxO before close so headAdaOverhead is
+  -- computed correctly as non-negative.
+  let commitEnrichment = if openVersion /= version then maybe mempty UTxO.totalValue toCommit' else mempty
+  let openUTxO = UTxO.map (modifyTxOutValue (<> commitEnrichment)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
-  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
+  let spendableUTxO = getKnownUTxO stClosed
+  let utxoForProof = toFanout <> fold toCommit
+  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing utxoForProof deadlineSlotNo)
 
 genPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genPartialFanoutTx numParties = do
@@ -440,15 +458,140 @@ genClosedStateForFanout numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  -- Enrich the open head output with u0Value BEFORE building the close tx so that
+  -- headAdaOverhead (= headLovelace - snapshotLovelace) is non-negative and correct.
+  -- genStOpen already inflated the head with a small u0; we add the snapshot u0 here.
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  -- The init tx head output has only tokens (0 ADA). We add the full UTxO value
-  -- so the head output can cover all outputs distributed across fanout steps.
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
+
+-- | Generate a closed state where a decommit was applied on-chain before close,
+-- i.e. @ClosedState.version > snapshot.version@. The closed datum accumulator
+-- includes the decommit UTxOs; the distribution set (u0) excludes them.
+genClosedStateWithAppliedDecommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithAppliedDecommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (11, 18 :: Int)
+  u0 <- genUTxOAdaOnlyOfSize n
+  nDecommit <- choose (1, 3 :: Int)
+  decommitUTxO <- genUTxOAdaOnlyOfSize nDecommit
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 1
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 Nothing (Just decommitUTxO) (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let u0Value = UTxO.totalValue u0
-  let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
-  pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, u0)
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, decommitUTxO)
+
+-- | Generate a closed state where a commit (IncrementTx) was applied on-chain
+-- AFTER the last confirmed snapshot, i.e. @ClosedState.version > snapshot.version@.
+-- The closed datum accumulator includes both the snapshot UTxOs and the pending
+-- commit UTxO; the commit UTxO is NOT yet incorporated into the confirmed snapshot
+-- (it lives in 'utxoToCommit').  Returns @(ctx, closedState, spendableUTxO,
+-- deadlineSlotNo, u0, commitUTxO)@ where @commitUTxO@ is guaranteed to sort last
+-- among all fanout outputs so that a single @PartialFanoutTx@ can distribute @u0@
+-- and leave @commitUTxO@ as the sole remaining output for @FinalPartialFanoutTx@.
+genClosedStateWithPendingCommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithPendingCommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (5, 12 :: Int)
+  -- Generate n+1 UTxOs as one sorted pool; take the last as the pending deposit
+  -- so it is always the largest TxOutRef and therefore always the remaining output
+  -- after a PartialFanoutTx distributes the first n.
+  allUTxO <- genUTxOAdaOnlyOfSize (n + 1)
+  let sorted = UTxO.toList allUTxO
+      commitUTxO = UTxO.fromList [last sorted]
+      u0 = UTxO.fromList (take (length sorted - 1) sorted)
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 1
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let u0Value = UTxO.totalValue u0 <> UTxO.totalValue commitUTxO
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
+
+-- | Generate a closed state where a commit (IncrementTx) was snapshot-included
+-- but NOT yet confirmed on-chain, i.e. @ClosedState.version == snapshot.version@.
+-- The closed datum accumulator includes 'commitUTxO' (it is in 'snapshotUTxO') but
+-- 'computeFullFanoutUTxO' excludes it, so it is pre-settled (in accumulator, never
+-- distributed).  Returns @(ctx, closedState, spendableUTxO, deadlineSlotNo, u0,
+-- commitUTxO)@.
+genClosedStateWithUnconfirmedCommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithUnconfirmedCommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (5, 12 :: Int)
+  allUTxO <- genUTxOAdaOnlyOfSize (n + 1)
+  let sorted = UTxO.toList allUTxO
+      commitUTxO = UTxO.fromList [last sorted]
+      u0 = UTxO.fromList (take (length sorted - 1) sorted)
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 0 -- same as snapshotVersion: IncrementTx NOT confirmed
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  -- The deposit was never moved into the head (IncrementTx not confirmed),
+  -- so head value only contains u0.
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
+
+-- | Like 'genClosedStateForFanout' but creates a snapshot UTxO where the last
+-- entry (by TxIn sort order) shares its TxOut value with the first entry.
+-- With @chunkSize = n - 1@, the partial fanout distributes all-but-last, leaving
+-- the duplicate-TxOut entry as the sole remaining output for @FinalPartialFanoutTx@.
+genClosedStateWithDuplicateTxOuts ::
+  Int ->
+  Gen (HydraContext, ChainContext, ClosedState, UTxO, SlotNo, UTxO, Int, ConfirmedSnapshot Tx)
+genClosedStateWithDuplicateTxOuts numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (3, 12 :: Int)
+  u0_base <- genUTxOAdaOnlyOfSize n
+  let entries = UTxO.toList u0_base
+      (_, firstTxOut) = head entries
+      (lastTxIn, _) = last entries
+      -- Replace the last entry's TxOut with a copy of the first entry's TxOut.
+      -- After sorting by TxIn, positions 0..n-2 have unique TxOuts, and
+      -- position n-1 (lastTxIn) has the same TxOut as position 0 — the duplicate.
+      u0WithDups = UTxO.fromList $ take (n - 1) entries ++ [(lastTxIn, firstTxOut)]
+      chunkSize = n - 1 -- distribute first n-1; duplicate stays in rest
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let version = 0
+  confirmed <- genConfirmedSnapshot headId version 1 u0WithDups Nothing Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let u0Value = UTxO.totalValue u0WithDups
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (ctx, cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0WithDups, chunkSize, confirmed)
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
@@ -477,13 +620,12 @@ genClosedStateForFanoutWithComplexUTxO numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  let u0Value = UTxO.totalValue u0
-  let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
-  pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, u0)
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
 
 -- | Like 'genPartialFanoutTx' but uses complex UTxO with multi-asset tokens.
 -- Applies the dynamic chunk-size algorithm using a 90% safety budget, so the
@@ -522,7 +664,12 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   cctx <- pickChainContext ctx
   let stOpen = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-  pure (mempty, stOpen)
+  n <- elements [1 .. 5]
+  u0 <- genUTxOAdaOnlyOfSize n
+  -- Init head output carries only tokens (0 ADA); inflate it so fanout can cover u0 outputs.
+  let u0Value = UTxO.totalValue u0
+  let stOpen' = stOpen{openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) (openUTxO stOpen)}
+  pure (u0, stOpen')
 
 genStClosed ::
   HydraContext ->

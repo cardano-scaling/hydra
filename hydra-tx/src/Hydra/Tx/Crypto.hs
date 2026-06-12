@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign
@@ -14,13 +15,22 @@
 -- including aggregate keys.
 module Hydra.Tx.Crypto (
   -- * Cardano Key interface
-  Key (..),
+
+  --
+
+  -- | NOTE: We re-export 'Key' but deliberately *omit* its
+  -- 'getVerificationKey' method. The polymorphic 'getVerificationKey'
+  -- exported below (via 'HasVerificationKey') subsumes it and additionally
+  -- accepts 'Secret'-wrapped signing keys.
+  Key (deterministicSigningKey, deterministicSigningKeySeedSize, verificationKeyHash),
 
   -- * Hydra specifics
   Hash (HydraKeyHash),
   AsType (AsHydraKey),
   SigningKey (HydraSigningKey),
   VerificationKey (HydraVerificationKey),
+  HasVerificationKey (getVerificationKey),
+  CanSignTx (signTx),
   module Hydra.Tx.Crypto,
 
   -- * Re-exports
@@ -29,6 +39,7 @@ module Hydra.Tx.Crypto (
 
 import Hydra.Prelude hiding (Key, show)
 
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.DSIGN (
   ContextDSIGN,
   Ed25519DSIGN,
@@ -54,6 +65,7 @@ import Cardano.Crypto.Hash qualified as Crypto
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
+import Control.Exception (TypeError (..), throw)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
@@ -64,16 +76,20 @@ import Hydra.Cardano.Api (
   HasTextEnvelope (..),
   HasTypeProxy (..),
   Hash,
-  Key (..),
+  Key (deterministicSigningKey, deterministicSigningKeySeedSize, verificationKeyHash),
   ScriptData (..),
-  SerialiseAsCBOR,
+  SerialiseAsCBOR (..),
   SerialiseAsRawBytes (..),
   SerialiseAsRawBytesError (..),
+  SigningKey,
   TxId (..),
   UsingRawBytesHex (..),
+  VerificationKey,
   serialiseToRawBytesHexText,
  )
+import Hydra.Cardano.Api qualified as Cardano
 import Hydra.Contract.HeadState qualified as OnChain
+import Hydra.Tx.Secret (Forbid, Secret, mkSecret, withSecret)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Text.Show (Show (..))
 
@@ -130,20 +146,32 @@ instance Key HydraKey where
 
   -- Hydra signing key which can be used to 'sign' messages and 'aggregate'
   -- multi-signatures or 'deriveVerificationKey'.
+  --
+  -- No 'Show', 'ToJSON', 'FromJSON', 'ToCBOR' or 'FromCBOR' is provided:
+  -- those are the channels through which a key could accidentally leak
+  -- (logs, API responses, on-disk persistence). They are forbidden via
+  -- 'Forbid'-bearing 'TypeError' instances further down, so any caller
+  -- that tries to use one gets a precise compile error.
+  --
+  -- Wrap in 'Hydra.Tx.Secret.Secret' at the field level to extend the
+  -- ban to enclosing records (their @deriving stock (Show)@ /
+  -- @deriving anyclass (ToJSON)@ then propagates to the same custom
+  -- error).
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
     deriving stock (Eq, Ord)
-    deriving (Show, IsString) via UsingRawBytesHex (SigningKey HydraKey)
-    deriving newtype (ToCBOR, FromCBOR)
-    deriving anyclass (SerialiseAsCBOR)
+    deriving (IsString) via UsingRawBytesHex (SigningKey HydraKey)
 
   -- Get the 'VerificationKey' for a given 'SigningKey'.
   getVerificationKey (HydraSigningKey sk) =
     HydraVerificationKey $ deriveVerKeyDSIGN sk
 
-  -- Create a new 'SigningKey' from a 'Seed'. See 'generateSigningKey'
-  deterministicSigningKey AsHydraKey =
-    generateSigningKey . getSeedBytes
+  -- Create a new 'SigningKey' from a 'Seed'. The 'cardano-api' 'Key'
+  -- class returns a raw 'SigningKey'; callers (in tests / setup paths)
+  -- should immediately wrap the result with 'mkSecret'. The
+  -- public-facing 'generateSigningKey' below already does this.
+  deterministicSigningKey AsHydraKey seed =
+    HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes (getSeedBytes seed)
 
   -- Get the number of bytes required to seed a signing key with
   -- 'deterministicSigningKey'.
@@ -154,6 +182,32 @@ instance Key HydraKey where
   -- info on the used hashing algorithm.
   verificationKeyHash (HydraVerificationKey vk) =
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
+
+-- | Polymorphic 'getVerificationKey' that works on either a raw
+-- 'SigningKey k' or a 'Secret'-wrapped 'Secret (SigningKey k)'. This
+-- subsumes the cardano-api 'Key' class method of the same name and is
+-- what 'Hydra.Tx.Crypto' re-exports. Callers can write
+-- @getVerificationKey sk@ regardless of whether @sk@ is wrapped.
+class HasVerificationKey s k | s -> k where
+  getVerificationKey :: s -> VerificationKey k
+
+instance (Key k, HasTypeProxy k) => HasVerificationKey (SigningKey k) k where
+  getVerificationKey = Cardano.getVerificationKey
+
+instance (Key k, HasTypeProxy k) => HasVerificationKey (Secret (SigningKey k)) k where
+  getVerificationKey s = withSecret s Cardano.getVerificationKey
+
+-- | Polymorphic 'signTx' that accepts either a raw 'SigningKey PaymentKey'
+-- or a 'Secret'-wrapped one. Production paths thread 'Secret' here and
+-- benefit from the wrap-free call shape; tests can still pass raw keys.
+class CanSignTx s where
+  signTx :: s -> Cardano.Tx -> Cardano.Tx
+
+instance CanSignTx (SigningKey Cardano.PaymentKey) where
+  signTx = Cardano.signTx
+
+instance CanSignTx (Secret (SigningKey Cardano.PaymentKey)) where
+  signTx s tx = withSecret s (`Cardano.signTx` tx)
 
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
@@ -205,23 +259,46 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
     "HydraVerificationKey_"
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
-instance ToJSON (SigningKey HydraKey) where
-  toJSON = toJSON . serialiseToRawBytesHexText
+-- | CBOR encode by delegating to the inner 'SignKeyDSIGN' (which has its own
+-- 'ToCBOR' / 'FromCBOR'). This keeps the on-disk text-envelope format
+-- identical to the previous newtype-derived encoding, while leaving
+-- 'ToCBOR' / 'FromCBOR' on 'SigningKey HydraKey' itself forbidden.
+instance SerialiseAsCBOR (SigningKey HydraKey) where
+  serialiseToCBOR (HydraSigningKey sk) = serialize' sk
+  deserialiseFromCBOR _ bs = HydraSigningKey <$> decodeFull' bs
 
-instance FromJSON (SigningKey HydraKey) where
-  parseJSON = Aeson.withText "SigningKey" $ decodeBase16 >=> deserialiseKey
-   where
-    deserialiseKey =
-      maybe
-        (fail "unable to deserialize SigningKey, wrong length")
-        (pure . HydraSigningKey)
-        . rawDeserialiseSignKeyDSIGN
+-- Refuse 'ToJSON', 'FromJSON', 'ToCBOR' and 'FromCBOR' on raw signing
+-- keys. No 'Show' instance is provided either: every holder of a
+-- signing key in this codebase wraps it in 'Hydra.Tx.Secret.Secret', so
+-- the rendering / serialisation goes through Secret's instances (Secret
+-- has a redacting 'Show' and 'TypeError'-bearing JSON/CBOR instances).
+-- Any code that tries to Show / JSON / CBOR a raw 'SigningKey HydraKey'
+-- gets either a "no instance" or a 'Forbid' custom error from GHC.
 
--- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
--- not random and insecure, so don't use this in production code!
-generateSigningKey :: ByteString -> SigningKey HydraKey
+-- The bodies below mirror the pattern in 'Hydra.Tx.Secret': the 'Forbid'
+-- constraint fires at normal compile time, so the bodies are unreachable.
+-- Under '-fdefer-type-errors' they get reached: throw a
+-- 'Control.Exception.TypeError' so the runtime exception type matches
+-- what the negative-spec helpers look for.
+instance Forbid "encode to JSON" => ToJSON (SigningKey HydraKey) where
+  toJSON _ = throw (TypeError "Refusing to encode SigningKey HydraKey to JSON")
+
+instance Forbid "decode from JSON" => FromJSON (SigningKey HydraKey) where
+  parseJSON _ = throw (TypeError "Refusing to decode SigningKey HydraKey from JSON")
+
+instance Forbid "CBOR-encode" => ToCBOR (SigningKey HydraKey) where
+  toCBOR _ = throw (TypeError "Refusing to CBOR-encode SigningKey HydraKey")
+
+instance Forbid "CBOR-decode" => FromCBOR (SigningKey HydraKey) where
+  fromCBOR = throw (TypeError "Refusing to CBOR-decode SigningKey HydraKey")
+
+-- | Create a new 'SigningKey' from a 'ByteString' seed, wrapped in
+-- 'Secret'. The public API never returns a raw 'SigningKey HydraKey'.
+-- The created keys are not random and insecure, so don't use this in
+-- production code!
+generateSigningKey :: ByteString -> Secret (SigningKey HydraKey)
 generateSigningKey seed =
-  HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
+  mkSecret . HydraSigningKey . genKeyDSIGN $ mkSeedFromBytes hashOfSeed
  where
   hashOfSeed = digest (Proxy :: Proxy SHA256) seed
 
@@ -255,10 +332,13 @@ instance FromJSON a => FromJSON (Signature a) where
       (pure . HydraSignature)
       $ rawDeserialiseSigDSIGN bs
 
--- | Sign some value 'a' with the provided 'SigningKey'.
-sign :: SignableRepresentation a => SigningKey HydraKey -> a -> Signature a
-sign (HydraSigningKey sk) a =
-  HydraSignature $ signDSIGN ctx a sk
+-- | Sign some value 'a' with the provided 'Secret'-wrapped 'SigningKey'.
+-- The unwrap is internal: callers don't need a 'withSecret' at the call
+-- site, so the noisy continuation pattern is hidden where it matters.
+sign :: SignableRepresentation a => Secret (SigningKey HydraKey) -> a -> Signature a
+sign secret a =
+  withSecret secret $ \(HydraSigningKey sk) ->
+    HydraSignature (signDSIGN ctx a sk)
  where
   ctx = () :: ContextDSIGN Ed25519DSIGN
 

@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
@@ -102,7 +103,7 @@ instance ChainBackend BlockfrostBackend where
   getBlockTime = withProject $ \_ prj -> do
     Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    pure $ fromInteger _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+    pure $ CardanoClient.computeBlockTime (fromInteger _genesisSlotLength) _genesisActiveSlotsCoefficient
 
   getQueryDelay = BlockfrostBackend $ do
     BlockfrostOptions{queryTimeout} <- ask
@@ -160,7 +161,7 @@ withBlockfrostChain opts tracer config ctx wallet chainStateHistory callback act
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj prefix handler wallet
+          blockfrostChain tracer queue prj prefix handler wallet (runBlockfrostBackend opts getBlockTime)
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
@@ -201,12 +202,13 @@ blockfrostChain ::
   NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
+  m NominalDiffTime ->
   m ()
-blockfrostChain tracer queue prj prefix handler wallet = do
+blockfrostChain tracer queue prj prefix handler wallet queryBlockTime = do
   forever $
     raceLabelled_
       ("blockfrost-chain-follow", blockfrostChainFollow tracer prj prefix handler wallet)
-      ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
+      ("blockfrost-submission", blockfrostSubmissionClient prj tracer queryBlockTime queue)
 
 blockfrostChainFollow ::
   forall m.
@@ -370,9 +372,12 @@ blockfrostSubmissionClient ::
   (MonadIO m, MonadDelay m, MonadSTM m) =>
   Blockfrost.Project ->
   Tracer m CardanoChainLog ->
+  -- | Action returning the chain's average block time (seconds), used to size
+  -- the delay before reporting 'PostTxError'.
+  m NominalDiffTime ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   m ()
-blockfrostSubmissionClient prj tracer queue = bfClient
+blockfrostSubmissionClient prj tracer queryBlockTime queue = bfClient
  where
   bfClient = do
     (tx, response) <- atomically $ readTQueue queue
@@ -383,7 +388,8 @@ blockfrostSubmissionClient prj tracer queue = bfClient
       Left err -> do
         let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
         traceWith tracer PostingFailed{tx, postTxError}
-        threadDelay 1
+        blockTime <- queryBlockTime
+        threadDelay (realToFrac blockTime)
         atomically (putTMVar response (Just postTxError))
       Right _ -> do
         traceWith tracer PostedTx{txId}

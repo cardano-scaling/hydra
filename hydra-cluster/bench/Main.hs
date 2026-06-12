@@ -5,13 +5,15 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench, benchDemo)
+import Bench.EndToEnd (BenchRunOptions (..), bench, benchDemo)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
-import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
+import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Data.List qualified as List
+import Data.Text qualified as T
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset, generateMixedUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
@@ -23,10 +25,10 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps, waitForTxValid} -> do
       datasets <- forM datasetFiles loadDataset
       putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
-      let action = bench startingNodeId timeoutSeconds
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
       results <- forM datasets $ \dataset ->
         withTempDir "bench-dataset" $ \dir -> do
           threadDelay 10
@@ -38,16 +40,17 @@ main = do
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
-          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False}
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
-      let action = bench startingNodeId timeoutSeconds
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
       dataset <- generate $ case datasetUTxO of
         Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
         Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+        Mixed -> generateMixedUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
       results <- do
@@ -55,7 +58,40 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
+    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes} -> do
+      (_, faucetSk) <- keysFor Faucet
+      workDir <- maybe (createTempDir "bench-matrix") checkEmpty outputDirectory
+      let cells =
+            [ (cs, sh, im, wt)
+            | cs <- clusterSizes
+            , sh <- utxoShapes
+            , im <- incrementalModes
+            , wt <- waitForTxValidModes
+            ]
+      putStrLn $ "Running matrix with " <> show (length cells) <> " cells"
+      results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im, wt)) -> do
+        let cellDir = workDir </> ("cell-" <> show i)
+        createDirectoryIfMissing True cellDir
+        dataset <- generate $ case sh of
+          Constant -> generateConstantUTxODataset faucetSk (fromIntegral cs) numberOfTxs
+          Growing -> generateGrowingUTxODataset faucetSk (fromIntegral cs) numberOfTxs
+          Mixed -> generateMixedUTxODataset faucetSk (fromIntegral cs) numberOfTxs
+        let labelled = dataset{title = Just (matrixCellTitle cs sh im wt)}
+        saveDataset (cellDir </> "dataset.json") labelled
+        threadDelay 10
+        let nodeIdOffset = startingNodeId + i * fromIntegral (List.maximum clusterSizes)
+        let action = bench nodeIdOffset timeoutSeconds BenchRunOptions{incrementalOps = im, waitForTxValid = wt}
+        runSingle labelled cellDir action
+      summarizeMatrixResults outputDirectory results
  where
+  matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Bool -> Text
+  matrixCellTitle cs sh im wt =
+    "Nodes="
+      <> T.pack (show cs)
+      <> ", "
+      <> T.pack (show sh)
+      <> (if im then ", incremental ops on" else ", incremental ops off")
+      <> (if wt then ", wait for tx valid" else ", fire and forget")
   checkEmpty fp = do
     createDirectoryIfMissing True fp
     listDirectory fp >>= \case
@@ -86,6 +122,23 @@ main = do
           writeBenchmarkReport outputDirectory [(summary, [])]
           benchmarkFailedWith dir exc
         exitFailure
+
+  summarizeMatrixResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
+  summarizeMatrixResults outputDirectory results = do
+    -- For the matrix runner, include failed cells in the report with their
+    -- error summaries so the reader can see which scenarios did not complete.
+    -- A single flaky cell is logged but doesn't fail the matrix step; the
+    -- generated scenarios.md keeps the remaining cells' useful data.
+    let cells =
+          flip map results $ \case
+            Left (_, _, summary, _) -> (summary, [])
+            Right s -> s
+    writeMatrixReport outputDirectory cells
+    forM_ (lefts results) $ \(_, dir, _, exc) -> benchmarkFailedWith dir exc
+    let okCount = length (rights results)
+        total = length results
+    putStrLn $ "Matrix summary: " <> show okCount <> "/" <> show total <> " cells succeeded"
+    when (okCount == 0) exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
@@ -133,5 +186,18 @@ writeBenchmarkReport outputDirectory summaries = do
     putStrLn $ "Writing report to: " <> reportPath
     now <- getCurrentTime
     let report = markdownReport now summaries
+    createDirectoryIfMissing True outputDir
+    writeFileBS reportPath . encodeUtf8 $ unlines report
+
+writeMatrixReport :: Maybe FilePath -> [(Summary, SystemStats)] -> IO ()
+writeMatrixReport outputDirectory summaries = do
+  mapM_ putTextLn (concatMap textReport summaries)
+  whenJust outputDirectory writeReport
+ where
+  writeReport outputDir = do
+    let reportPath = outputDir </> "scenarios.md"
+    putStrLn $ "Writing matrix report to: " <> reportPath
+    now <- getCurrentTime
+    let report = matrixMarkdownReport now summaries
     createDirectoryIfMissing True outputDir
     writeFileBS reportPath . encodeUtf8 $ unlines report

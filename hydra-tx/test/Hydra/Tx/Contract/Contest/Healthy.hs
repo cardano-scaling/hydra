@@ -20,16 +20,15 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
+import Hydra.Tx.Secret (Secret)
+
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (
-  IncrementalAction (..),
-  setIncrementalActionMaybe,
   splitUTxO,
   verificationKeyToOnChainId,
  )
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
@@ -65,9 +64,6 @@ healthyContestTx =
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
-      incrementalAction
-
-  incrementalAction = fromMaybe NoThing $ setIncrementalActionMaybe (utxoToCommit healthyContestSnapshot) (utxoToDecommit healthyContestSnapshot)
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   closedThreadOutput =
@@ -77,6 +73,7 @@ healthyContestTx =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       , closedContesters = []
+      , closedHeadAdaOverhead = 0
       }
 
 healthyContestSnapshotNumber :: SnapshotNumber
@@ -121,9 +118,6 @@ healthyClosedState =
   Head.Closed
     Head.ClosedDatum
       { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-      , utxoHash = healthyClosedUTxOHash
-      , alphaUTxOHash = mempty
-      , omegaUTxOHash = mempty
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
       , contestationPeriod = healthyOnChainContestationPeriod
@@ -131,19 +125,8 @@ healthyClosedState =
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
+      , headAdaOverhead = 0
       }
-
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOInHead
-
-healthyContestUTxOToDecommitHash :: BuiltinByteString
-healthyContestUTxOToDecommitHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3
@@ -179,7 +162,7 @@ healthyContesterVerificationKey :: VerificationKey PaymentKey
 healthyContesterVerificationKey =
   elements healthyParticipants `generateWith` 42
 
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]

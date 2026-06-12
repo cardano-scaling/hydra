@@ -14,10 +14,9 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -31,6 +30,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
   , closedContesters :: [Plutus.PubKeyHash]
+  , closedHeadAdaOverhead :: Integer
   }
   deriving stock (Eq, Show, Generic)
 
@@ -55,9 +55,8 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
-  IncrementalAction ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput incrementalAction =
+contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -67,13 +66,14 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit, accumulator} = snapshot
+  Snapshot{number, version, accumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
     , closedParties
     , closedContestationDeadline
     , closedContesters
+    , closedHeadAdaOverhead
     } = closedThreadOutput
 
   headWitness =
@@ -87,38 +87,9 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
 
   contestRedeemer =
-    case incrementalAction of
-      ToCommit utxo' ->
-        if version == openVersion
-          then
-            Head.ContestUnusedInc
-              { signature = toPlutusSignatures sig
-              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-              , accumulatorHash = accHash
-              }
-          else
-            Head.ContestUsedInc
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-      ToDecommit utxo' ->
-        if version == openVersion
-          then
-            Head.ContestUnusedDec
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-          else
-            Head.ContestUsedDec
-              { signature = toPlutusSignatures sig
-              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-              , accumulatorHash = accHash
-              }
-      NoThing ->
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
-          , accumulatorHash = accHash
-          }
+    if version == openVersion
+      then Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash}
+      else Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash}
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
@@ -139,17 +110,6 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       Head.Closed
         Head.ClosedDatum
           { snapshotNumber = toInteger number
-          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , alphaUTxOHash =
-              case contestRedeemer of
-                Head.ContestUsedInc{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-                _ -> toBuiltin $ hashUTxO @Tx mempty
-          , omegaUTxOHash =
-              case contestRedeemer of
-                Head.ContestUnusedDec{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-                _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod
@@ -157,6 +117,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , headAdaOverhead = closedHeadAdaOverhead
           }
 
 -- * Observation
@@ -170,7 +131,7 @@ data ContestObservation = ContestObservation
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
--- | Identify a close tx by lookup up the input spending the Head output and
+-- | Identify a contest tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeContestTx ::
   -- | A UTxO set to lookup tx inputs

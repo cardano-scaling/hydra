@@ -16,6 +16,7 @@ import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
@@ -29,18 +30,19 @@ import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genMintedOrBurnedValue, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
+  changeMintedTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotVersion,
@@ -102,7 +104,7 @@ somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
   elements healthyParticipants `generateWith` 42
 
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParticipants :: [VerificationKey PaymentKey]
@@ -154,13 +156,13 @@ healthyDatum :: Head.State
 healthyDatum =
   Head.Open
     Head.OpenDatum
-      { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-      , parties = healthyOnChainParties
+      { parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
       , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , version = toInteger healthySnapshotVersion
       , accumulatorHash = toBuiltin healthyAccumulatorHash
+      , headAdaOverhead = 0
       }
 
 data IncrementMutation
@@ -185,6 +187,8 @@ data IncrementMutation
   | -- | Add a second v_deposit input alongside an attacker-controlled
     -- output that redirects its value away from the head's continuation.
     IncrementAddExtraDepositInput
+  | -- | Minting or burning of tokens should not be possible in increment.
+    MutateTokenMintingOrBurning
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -229,7 +233,7 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode DepositInputNotFound) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
         invalidDepositRef <- genTxIn
         pure $
           Head.Increment
@@ -257,6 +261,8 @@ genIncrementMutation (tx, utxo) =
             [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
             , AppendOutput attackerOut
             ]
+    , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

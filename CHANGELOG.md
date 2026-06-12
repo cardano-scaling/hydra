@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
+  per-snapshot quantiles), a new `Mixed` UTxO generator that grows then contracts
+  the head state, an opt-in interleaved incremental commit/decommit cycle
+  (`--incremental-ops`), and a new `matrix` sub-command that iterates over
+  cluster sizes, UTxO shapes, and incremental modes. CI publishes the matrix
+  output as a new
+  [scenario benchmarks](https://hydra.family/head-protocol/benchmarks/scenarios)
+  page.
+
 - Heads with large UTxO sets can now be fanned out in multiple steps using
   `PartialFanoutTx` and `FinalPartialFanoutTx` transactions [#2324](https://github.com/cardano-scaling/hydra/pull/2324).
   Each step distributes as many outputs as fit in a single transaction (determined
@@ -49,6 +58,16 @@ the state of a newly opened head.
 - Fix a bug where a recovered incremental-commit deposit could reappear in the
   L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
   L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
+
+- Add `mustNotMintOrBurn` guard to `Increment` and `Decrement` validator
+  transitions, consistent with all other head transitions
+  [#2697](https://github.com/cardano-scaling/hydra/issues/2697).
+
+- The node now dynamically determines the largest chunk of UTxOs it can
+distribute in a single partial fanout step, replacing a hardcoded limit.
+`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
+preferred transaction first, falling back to progressively smaller chunks until
+one fits within the script [#2619](https://github.com/cardano-scaling/hydra/pull/2619)
 
 ## [2.1.0] - 2026.05.13
 

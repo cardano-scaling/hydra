@@ -24,7 +24,6 @@ import Hydra.Cardano.Api (
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
-  GenesisParameters (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
@@ -131,10 +130,8 @@ instance ChainBackend DirectBackend where
   awaitTransaction tx _ = withNodeConn $ \ci ->
     CardanoClient.awaitTransaction ci tx
 
-  getBlockTime = withNodeConn $ \ci -> do
-    GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
-      CardanoClient.queryGenesisParameters ci CardanoClient.QueryTip
-    pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
+  getBlockTime = withNodeConn $ \ci ->
+    CardanoClient.queryBlockTime ci CardanoClient.QueryTip
 
   getQueryDelay = pure 0
 
@@ -216,7 +213,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
   clientProtocols prefix queue handler =
     LocalNodeClientProtocols
       { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet prefix
-      , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
+      , localTxSubmissionClient = Just $ txSubmissionClient tracer (runDirectBackend opts getBlockTime) queue
       , localStateQueryClient = Nothing
       , localTxMonitoringClient = Nothing
       }
@@ -355,9 +352,13 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m, MonadDelay m) =>
   Tracer m CardanoChainLog ->
+  -- | Action returning the chain's average block time (seconds), used to size
+  -- the delay before reporting 'PostTxError' so the observing side has a chance
+  -- to process a competing transaction.
+  m NominalDiffTime ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
-txSubmissionClient tracer queue =
+txSubmissionClient tracer queryBlockTime queue =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle TxInMode TxValidationErrorInCardanoMode m ())
@@ -378,11 +379,11 @@ txSubmissionClient tracer queue =
               -- possible because of missing data constructors from cardano-api
               let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
               traceWith tracer PostingFailed{tx, postTxError}
-              -- NOTE: Delay callback in case our transaction got invalidated
-              -- because of a transaction seen in a block. This gives the
-              -- observing side of the chain layer time to process the
-              -- transaction and business logic might even ignore this error.
-              threadDelay 1
+              -- NOTE: Delay callback for one block time so the observing side
+              -- has a chance to process a competing transaction; business
+              -- logic might then ignore this error.
+              blockTime <- queryBlockTime
+              threadDelay (realToFrac blockTime)
               atomically (putTMVar response (Just postTxError))
               clientStIdle
         )

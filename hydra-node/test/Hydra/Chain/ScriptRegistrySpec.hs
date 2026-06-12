@@ -4,6 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
+import Hydra.Tx.Secret (mkSecret)
 
 import Hydra.Cardano.Api (
   Address,
@@ -47,12 +48,12 @@ spec = describe "publishHydraScripts" $ do
                 TxOutDatumNone
                 ReferenceScriptNone
             )
-    txIds <- runSuccessfulBackend (vk, utxo) $ publishHydraScripts sk
+    txIds <- runSuccessfulBackend (vk, utxo) $ publishHydraScripts (mkSecret sk)
     length txIds `shouldBe` 2
 
   it "throws PublishingFundsMissing error if no UTxO is found for the given address" $ do
     (vk, sk) <- generate genKeyPair
-    runATestBackend vk (publishHydraScripts sk) `shouldThrow` \case
+    runATestBackend vk (publishHydraScripts (mkSecret sk)) `shouldThrow` \case
       PublishingFundsMissing{} -> True
       _ -> False
 

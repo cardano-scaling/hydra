@@ -34,6 +34,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
+import Hydra.Chain.CardanoClient (computeBlockTime)
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Cluster.Faucet (FaucetLog, publishOrReuseHydraScripts)
 import Hydra.Cluster.Fixture qualified as Fixture
@@ -498,7 +499,7 @@ withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
   withLogFile logFilePath $ \out -> do
     hSetBuffering out NoBuffering
-    withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe} $
+    withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe, close_fds = True} $
       \_stdin _stdout mError processHandle ->
         (`finally` cleanupSocketFile) $
           raceLabelled
@@ -543,12 +544,6 @@ getShelleyGenesisBlockTime json = do
   let slotLength = json ^?! key "slotLength" . _Number
   let activeSlotsCoeff = json ^?! key "activeSlotsCoeff" . _Number
   computeBlockTime (realToFrac slotLength) (toRational activeSlotsCoeff)
-
--- | Compute the block time (expected time between blocks) given a slot length
--- as diff time and active slot coefficient.
-computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
-computeBlockTime slotLength activeSlotsCoeff =
-  slotLength / realToFrac activeSlotsCoeff
 
 -- | Wait until the node is fully caught up with the network. This can take a
 -- while!

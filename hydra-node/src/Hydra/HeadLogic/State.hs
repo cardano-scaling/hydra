@@ -202,7 +202,6 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
 -- | Smart constructor for 'SeenSnapshot' that computes and caches
 -- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
 mkSeenSnapshot ::
-  IsTx tx =>
   Snapshot tx ->
   Map Party (Signature (Snapshot tx)) ->
   SeenSnapshot tx
@@ -249,12 +248,12 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
-  , remainingFanoutOutputs :: Maybe (Set (TxOutType tx))
-  -- ^ Tracks remaining TxOut values to fan out after partial fanouts.
+  , remainingFanoutOutputs :: Maybe (UTxOType tx)
+  -- ^ Tracks remaining UTxO to fan out after partial fanouts.
   --   Nothing means no partial fanout has occurred yet.
-  , distributedFanoutOutputs :: Set (TxOutType tx)
-  -- ^ Accumulates TxOut values distributed by partial fanout transactions.
-  --   Used to reconstruct the full output set in 'HeadFannedOut'.
+  , distributedFanoutOutputs :: UTxOType tx
+  -- ^ Accumulates UTxO distributed by partial fanout transactions.
+  --   Used to reconstruct the full UTxO set in 'HeadFannedOut'.
   }
   deriving stock (Generic)
 

@@ -24,7 +24,7 @@ import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (IsTx (..), TxOutType)
+import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
@@ -157,7 +157,7 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
-  | HeadIsFinalized {headId :: HeadId, finalizedUTxO :: Set (TxOutType tx)}
+  | HeadIsFinalized {headId :: HeadId, finalizedUTxO :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx}

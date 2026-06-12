@@ -5,7 +5,7 @@ module HydraNode (
   HydraNodeLog (..),
 ) where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (getVerificationKey)
 import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
@@ -32,7 +32,8 @@ import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.Secret (Secret, withSecret)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -47,6 +48,7 @@ import System.Process.Typed (
   createPipe,
   getStderr,
   proc,
+  setCloseFds,
   setStderr,
   setStdout,
   useHandleOpen,
@@ -286,8 +288,8 @@ withHydraCluster ::
   -- This sets the starting point for assigning ports
   Int ->
   -- | NOTE: This decides on the size of the cluster!
-  [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
-  [SigningKey HydraKey] ->
+  [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] ->
+  [Secret (SigningKey HydraKey)] ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   (NonEmpty HydraClient -> IO a) ->
@@ -302,7 +304,7 @@ withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys 
     let vkFile = File $ workDir </> show ix <.> "vk"
     let skFile = File $ workDir </> show ix <.> "sk"
     void $ writeFileTextEnvelope vkFile Nothing vk
-    void $ writeFileTextEnvelope skFile Nothing sk
+    void $ withSecret sk (writeFileTextEnvelope skFile Nothing)
   nodePorts <- allocateHydraNodePortsFor allNodeIds
   startNodes nodePorts [] allNodeIds
  where
@@ -314,7 +316,8 @@ withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys 
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVerificationKeys = map getVerificationKey $ filter (/= hydraSigningKey) hydraKeys
+          hydraVerificationKeys =
+            [getVerificationKey sk | sk <- hydraKeys, sk /= hydraSigningKey]
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
@@ -483,7 +486,7 @@ prepareHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   Map Int HydraNodePorts ->
   (Aeson.Value -> Aeson.Value) ->
@@ -500,7 +503,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
   let hydraSigningKey = stateDir </> "me.sk"
-  void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
+  void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
     let filepath = stateDir </> ("other-" <> show i <> ".vk")
     filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
@@ -555,6 +558,7 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
+            & setCloseFds True
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
@@ -597,7 +601,7 @@ withSoloHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   (HydraClient -> IO a) ->
   IO a
@@ -613,7 +617,7 @@ withUnsyncedSoloHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   (HydraClient -> IO a) ->
   IO a
@@ -629,7 +633,7 @@ withSoloHydraNodeCatchingUp ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   (HydraClient -> IO a) ->
   IO a
@@ -650,7 +654,7 @@ withHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->
@@ -672,7 +676,7 @@ withUnsyncedHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->
@@ -689,7 +693,7 @@ withHydraNodeCatchingUp ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
   Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->

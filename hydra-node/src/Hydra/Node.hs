@@ -53,6 +53,7 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx.Secret (mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -60,7 +61,9 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 -- | Initialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
-  sk <- readFileTextEnvelopeThrow hydraSigningKey
+  -- Wrap the raw key as soon as it leaves disk: every in-process holder
+  -- after this point sees only a 'Secret'.
+  sk <- mkSecret <$> readFileTextEnvelopeThrow hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   participants <- getParticipants
   pure $

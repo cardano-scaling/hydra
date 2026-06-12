@@ -3,7 +3,7 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api hiding (Network)
+import Hydra.Cardano.Api hiding (Network, getVerificationKey)
 import Hydra.Prelude hiding (Any, label)
 import Test.Hydra.Prelude
 
@@ -73,10 +73,11 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
@@ -101,7 +102,7 @@ mockChainAndNetwork ::
   , MonadTime m
   ) =>
   Tracer m CardanoChainLog ->
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
+  [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   m (SimulatedChainNetwork Tx m)
 mockChainAndNetwork tr seedKeys = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
@@ -138,7 +139,7 @@ mockChainAndNetwork tr seedKeys = do
   -- Consequently the identifiers of participants need to be derived from
   -- the real keys.
   updateEnvironment env = do
-    let vks = getVerificationKey . signingKey . snd <$> seedKeys
+    let vks = (\(_, CardanoSigningKey sk) -> getVerificationKey sk) <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
   connectNode nodes chain queue draftNode = do
@@ -353,10 +354,12 @@ scriptLedger =
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
 -- direct knowledge of the cardano keys which are stored only at the `ChainComponent` level.
-findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
-findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
-  csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
-  pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
+findOwnCardanoKey :: Party -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
+findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in seed-keys of size " <> show (length seedKeys)) $ do
+  csk <- vkOf . snd <$> find ((== me) . deriveParty . fst) seedKeys
+  pure (csk, filter (/= csk) $ map (vkOf . snd) seedKeys)
+ where
+  vkOf (CardanoSigningKey sk) = getVerificationKey sk
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
@@ -396,6 +399,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , coverFee = \_ tx -> pure (Right tx)
           , evaluateScriptCosts = \tx utxo -> pure $ evaluateTx tx utxo
           , isTxWithinSizeLimits = \_ -> pure True
+          , getPParams = pure defaultPParams
           , reset = pure ()
           , update = \_ _ -> pure ()
           }

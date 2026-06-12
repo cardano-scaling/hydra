@@ -388,11 +388,11 @@ broadcastMessages tracer config ourHost queue = do
     msg <- peekPersistentQueue queue
     (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue queue msg)
       `catch` \case
-        GrpcException{grpcError, grpcErrorMessage}
-          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+        e@GrpcException{grpcError, grpcErrorMessage}
+          | isTransientGrpcError grpcError -> do
               traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
               threadDelay 1
-        e -> throwIO e
+          | otherwise -> throwIO e
  where
   -- Same retry shape as the broadcast loop: keep trying through
   -- transient connection errors so we can survive an etcd cluster that
@@ -400,12 +400,12 @@ broadcastMessages tracer config ourHost queue = do
   retryInitQuery =
     queryInitialModRev tracer config ourHost
       `catch` \case
-        GrpcException{grpcError, grpcErrorMessage}
-          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+        e@GrpcException{grpcError, grpcErrorMessage}
+          | isTransientGrpcError grpcError -> do
               traceWith tracer $ BroadcastFailed{reason = fromMaybe "init query failed" grpcErrorMessage}
               threadDelay 1
               retryInitQuery
-        e -> throwIO e
+          | otherwise -> throwIO e
 
 -- | Query etcd for the current 'mod_revision' of this peer's broadcast key.
 -- Returns 0 if the key does not yet exist. Used by 'broadcastMessages' to
@@ -635,12 +635,12 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
         threadDelay 1
         aliveLoop seenAliveVar keepAlive
 
-  onGrpcException seenAliveVar GrpcException{grpcError}
-    | grpcError `elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled] = do
+  onGrpcException seenAliveVar e@GrpcException{grpcError}
+    | isTransientGrpcError grpcError = do
         onConnectivity NetworkDisconnected
         atomically $ writeTVar seenAliveVar []
         threadDelay 1
-  onGrpcException _ e = throwIO e
+    | otherwise = throwIO e
 
   createLease = withGrpcContext "createLease" $ do
     leaseResponse <-
@@ -684,6 +684,19 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
               }
           pure Nothing
         Right x -> pure $ Just x
+
+-- | Predicate for gRPC errors that we treat as transient — connection blips
+-- or etcd-side disruption from which a retry is expected to recover. Anything
+-- outside this set is escalated by re-throwing.
+--
+-- 'GrpcNotFound' is included specifically for lease loss: when etcd's RAFT
+-- leader changes under network stress, in-flight leases are revoked, and the
+-- next operation referencing one ('pollConnectivity.writeAlive') comes back
+-- with NOT_FOUND. The recovery is to mark the network as disconnected and let
+-- the outer loop recreate the lease, not crash the node.
+isTransientGrpcError :: GrpcError -> Bool
+isTransientGrpcError =
+  (`elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled, GrpcNotFound])
 
 -- | Add context to the 'grpcErrorMessage' of any 'GrpcException' raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a

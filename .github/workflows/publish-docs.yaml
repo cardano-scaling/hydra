@@ -71,6 +71,13 @@ jobs:
           hydra-cluster/datasets/1-node.json \
           hydra-cluster/datasets/3-nodes.json \
           --output-directory $out/benchmarks
+        nix develop .#hydra-cluster-bench --command -- \
+          bench-e2e \
+          matrix \
+          --output-directory $out/benchmarks \
+          --number-of-txs 30 \
+          --timeout 3600s \
+          --incremental-modes False
 
     - name: 👉 Create redirects
       run: |

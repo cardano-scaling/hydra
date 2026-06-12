@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Hydra.Tx.Accumulator (
-  HydraAccumulator (..),
+  HydraAccumulator,
+  unHydraAccumulator,
   getAccumulatorHash,
   getAccumulatorCommitment,
   accumulatorSize,
@@ -48,11 +49,27 @@ import PlutusTx.Builtins (
 
 -- * HydraAccumulator
 
-newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
-  deriving newtype (Eq, Show)
+data HydraAccumulator = HydraAccumulator
+  { unHydraAccumulator :: Accumulator
+  , _cachedHash :: ByteString
+  -- ^ Lazy thunk: blake2b-256 of the compressed G1 commitment. Forced once on
+  -- first access; subsequent reads return the memoized value, avoiding repeated
+  -- BLS12-381 multi-scalar multiplications for the same accumulator.
+  }
+  deriving stock (Show)
+
+instance Eq HydraAccumulator where
+  a == b = unHydraAccumulator a == unHydraAccumulator b
+
+mkHydraAccumulator :: Accumulator -> HydraAccumulator
+mkHydraAccumulator acc = HydraAccumulator acc cachedHash
+ where
+  cachedHash =
+    digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $
+      computeG1Commitment acc
 
 build :: [ByteString] -> HydraAccumulator
-build = HydraAccumulator . Accumulator.buildAccumulator
+build = mkHydraAccumulator . Accumulator.buildAccumulator
 
 -- | Build an accumulator from a UTxO by serializing each individual TxOut.
 --
@@ -123,13 +140,15 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
 -- Hashing the compressed G1 point (rather than the serialized map) binds the
 -- signed hash to the exact G1 point stored in 'ClosedDatum.accumulatorCommitment',
 -- allowing the on-chain validator to verify their consistency.
+--
+-- The result is cached inside 'HydraAccumulator' as a lazy thunk and computed
+-- at most once per value, regardless of how many times this function is called.
 getAccumulatorHash :: HydraAccumulator -> ByteString
-getAccumulatorHash acc =
-  digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $ getAccumulatorCommitment acc
+getAccumulatorHash = _cachedHash
 
 -- | Number of UTxOs tracked by the accumulator.
 accumulatorSize :: HydraAccumulator -> Int
-accumulatorSize (HydraAccumulator acc) = sum (map snd $ Map.elems acc)
+accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
 
 -- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
 maxAccumulatorSize :: Int
@@ -146,7 +165,10 @@ fromKZGSetup :: Either KZG.KZGSetupError a -> a
 fromKZGSetup = either (\e -> error $ "KZG trusted setup invariant violated: " <> show e) id
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
-getAccumulatorCommitment (HydraAccumulator acc) =
+getAccumulatorCommitment = computeG1Commitment . unHydraAccumulator
+
+computeG1Commitment :: Accumulator -> BuiltinBLS12_381_G1_Element
+computeG1Commitment acc =
   let expandedElems = concatMap (\(hash, count) -> replicate count hash) $ Map.elems acc
       n = length expandedElems
    in if n > KZG.maxAccumulatorSize
@@ -170,6 +192,21 @@ crsG1Points n = take n $ fromKZGSetup KZG.g1Points
 crsG2Points :: Int -> [Point2]
 crsG2Points n = take n $ fromKZGSetup KZG.g2Points
 
+-- | Number of G2 points published in the on-chain CRS UTxO datum.
+--
+-- This is the __deployed__ G2 CRS length. It directly caps the largest
+-- subset that can be verified in a single fanout / partial-fanout pairing
+-- check: a subset of N elements yields a polynomial of degree N (one
+-- @(X - sᵢ)@ factor per element), and the on-chain MSM to evaluate
+-- @P_S(τ)·G2@ needs N+1 G2 points. With @defaultItems = 30@ the deployed
+-- batch limit is therefore __29__.
+--
+-- The trusted-setup file embeds 65 G2 points (see
+-- 'KZGTrustedSetup.maxFanoutBatchSize'); only the first 'defaultItems'
+-- are written into the CRS UTxO at script-registry publication time
+-- (see 'Hydra.Chain.ScriptRegistry.buildScriptPublishingTxs'). Raising
+-- 'defaultItems' requires re-publishing the CRS UTxO and is bounded
+-- above by @KZGTrustedSetup.maxFanoutBatchSize + 1@.
 defaultItems :: Int
 defaultItems = 30
 
@@ -178,7 +215,7 @@ defaultItems = 30
 -- @[G1, τ·G1, ..., τⁿ·G1]@ to compute the commitment A(τ)·G1 and proofs.
 -- n is the total element count including duplicates (sum of all counts).
 requiredCRSPointCount :: HydraAccumulator -> Int
-requiredCRSPointCount (HydraAccumulator acc) = sum (map snd $ Map.elems acc) + 1
+requiredCRSPointCount ha = sum (map snd $ Map.elems $ unHydraAccumulator ha) + 1
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -200,8 +237,8 @@ createMembershipProof ::
   [Point1] ->
   -- | Returns the compressed proof point, or an error if elements are missing or CRS is too short
   Either Text ByteString
-createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
-  bimap toText blsCompress $ getPolyCommitOverG1 subsetElements fullAcc crs
+createMembershipProof subsetElements fullAcc crs =
+  bimap toText blsCompress $ getPolyCommitOverG1 subsetElements (unHydraAccumulator fullAcc) crs
 
 -- | Create a membership proof from a UTxO subset.
 --
