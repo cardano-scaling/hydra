@@ -84,4 +84,3 @@ data NetworkLog
   | Etcd EtcdLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
-  deriving anyclass (FromJSON)

@@ -1,9 +1,9 @@
 cabal-version: 3.0
-name:          visualize-logs
+name:          head-state-viewer
 version:       0.22.4
-synopsis:      Visualize Hydra node logs
+synopsis:      Interactive HeadLogic step-through visualizer
 author:        IOG
-copyright:     2022 IOG
+copyright:     2026 IOG
 license:       Apache-2.0
 
 common project-config
@@ -34,28 +34,53 @@ common project-config
 library
   import:          project-config
   hs-source-dirs:  src
-  exposed-modules: VisualizeLogs
+  exposed-modules:
+    HydraVis.Compare
+    HydraVis.History
+    HydraVis.Multi
+    HydraVis.Sample
+    HydraVis.SampleDb
+    HydraVis.Server
+    HydraVis.Smoke
+    HydraVis.Trace
+    HydraVis.UI
+
+  other-modules:
+    HydraVis.UI.Flow
+    HydraVis.UI.Model
+    HydraVis.UI.Panels
+    HydraVis.UI.Timeline
+    HydraVis.UI.Update
+    HydraVis.UI.Widgets
+
   build-depends:
     , aeson
-    , attoparsec
     , base
-    , conduit
-    , hydra-cardano-api
+    , bytestring
+    , containers
     , hydra-node
     , hydra-prelude
-    , lens
-    , lens-aeson
-    , optparse-applicative
+    , hydra-tx
+    , hydra-tx:testlib
+    , jsaddle-warp
+    , miso              ^>=1.8
+    , sqlite-simple
     , text
+    , vector
 
   ghc-options:     -haddock
 
-executable visualize-logs
-  import:        project-config
-  main-is:       Main.hs
+executable head-state-viewer
+  import:         project-config
+  main-is:        Main.hs
+  hs-source-dirs: app
   build-depends:
+    , filepath
+    , head-state-viewer
+    , hydra-node
     , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
     , optparse-applicative
-    , visualize-logs
 
-  ghc-options:   -threaded -rtsopts -with-rtsopts=-N4
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4

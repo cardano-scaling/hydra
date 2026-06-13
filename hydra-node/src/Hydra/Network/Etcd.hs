@@ -821,4 +821,4 @@ data EtcdLog
     -- committed server-side. No second put was issued.
     BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)

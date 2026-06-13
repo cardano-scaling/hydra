@@ -4,8 +4,12 @@
 
 { self, ... }: {
 
-  perSystem = { pkgs, hsPkgs, compiler, self', ... }:
+  perSystem = { pkgs, hsPkgs, compiler, self', inputs', ... }:
     let
+      # Clean nixpkgs (no haskell.nix / nix-npm-buildpackage overlays). The
+      # overlaid `pkgs` routes node packages through nix-npm-buildpackage,
+      # which fails to build playwright-test, so take it from upstream instead.
+      cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
         # To compile hydra scripts
@@ -153,6 +157,24 @@
         ];
       };
 
+      # Shell for driving the head-state-viewer web UI with
+      # Playwright: screenshots and click-through of the jsaddle-warp app,
+      # whose DOM is built over a websocket and so cannot be captured by a
+      # one-shot headless screenshot. Browsers come from the NixOS-patched
+      # playwright-driver so nothing is downloaded at runtime.
+      headStateUIShell = pkgs.mkShell {
+        name = "hydra-head-state-ui-shell";
+        buildInputs = [
+          pkgs.nodejs
+          cleanPkgs.playwright-test
+        ];
+        # Make `@playwright/test` and `playwright` importable from scripts.
+        NODE_PATH = "${cleanPkgs.playwright-test}/lib/node_modules";
+        PLAYWRIGHT_BROWSERS_PATH = "${cleanPkgs.playwright-driver.browsers}";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+      };
+
       # If you want to modify `Python` code add `libtmux` and pyyaml to the
       # `buildInputs` then enter it and then run `Python` module directly so you
       # have fast devel cycle.
@@ -168,6 +190,7 @@
         exes = exeShell;
         demo = demoShell;
         ci = ciShell;
+        headStateUI = headStateUIShell;
       };
     };
 }
