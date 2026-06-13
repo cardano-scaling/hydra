@@ -96,7 +96,11 @@ Some of us use [direnv](https://direnv.net/) and [nix-direnv](https://github.com
 
 In addition to these general build instructions, individual components might have additional steps and useful tools documented in their `README.md` files. For example, see the documentation for [docs](./docs/README.md) or [hydra-cluster](./hydra-cluster/README.md).
 
-While warnings are not treated as errors during builds, CI will check for them before we merge any contributions.
+Nix builds of our own packages (`nix build`, `nix develop .#*-tests`,
+`nix-fast-build`) treat warnings as errors (`-Werror`). Plain `cabal build` /
+`cabal repl` in the dev shell stay lenient, so day-to-day iteration is
+unaffected; `just lint` runs the equivalent strict cabal build when you want to
+check warnings without nix.
 
 #### Code quality
 
