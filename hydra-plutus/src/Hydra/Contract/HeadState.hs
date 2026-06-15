@@ -97,7 +97,13 @@ data State
   | FanoutProgress FanoutProgressDatum
   deriving stock (Generic, Show)
 
-PlutusTx.unstableMakeIsData ''State
+PlutusTx.makeIsDataIndexed
+  ''State
+  [ ('Open, 0)
+  , ('Closed, 1)
+  , ('Final, 2)
+  , ('FanoutProgress, 3)
+  ]
 
 -- | Sub-type for close transition with auxiliary data as needed.
 data CloseRedeemer
@@ -125,7 +131,13 @@ data CloseRedeemer
       }
   deriving stock (Show, Generic)
 
-PlutusTx.unstableMakeIsData ''CloseRedeemer
+PlutusTx.makeIsDataIndexed
+  ''CloseRedeemer
+  [ ('CloseInitial, 0)
+  , ('CloseAny, 1)
+  , ('CloseUnused, 2)
+  , ('CloseUsed, 3)
+  ]
 
 -- | Sub-type for contest transition with auxiliary data as needed.
 data ContestRedeemer
@@ -145,7 +157,11 @@ data ContestRedeemer
       }
   deriving stock (Show, Generic)
 
-PlutusTx.unstableMakeIsData ''ContestRedeemer
+PlutusTx.makeIsDataIndexed
+  ''ContestRedeemer
+  [ ('ContestUnused, 0)
+  , ('ContestUsed, 1)
+  ]
 
 -- | Sub-type for increment transition
 data IncrementRedeemer = IncrementRedeemer
