@@ -1,5 +1,5 @@
 {
     "type": "PaymentSigningKeyShelley_ed25519",
     "description": "",
-    "cborHex": "58205f686966b16a41ad252ad86ca29e97314899b764d137a5dfce090583701fd57f"
+    "cborHex": "5820f3a97dd38d33e49980c980cc722a23f94727c79aa6bdaab9b7b1211899a7cf0a"
 }

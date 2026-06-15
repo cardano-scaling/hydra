@@ -329,6 +329,7 @@ type ConfirmingRadioFieldForm e n = Form Bool e n
 data OpenScreen
 OpenHome :: OpenScreen
 LoadingUTxOForIncrement :: OpenScreen
+NoUTxOToIncrement :: OpenScreen
 SelectingUTxO :: UTxORadioFieldForm (HydraEvent Tx) Name -> OpenScreen
 [$sel:selectingUTxOForm:OpenHome] :: OpenScreen -> UTxORadioFieldForm (HydraEvent Tx) Name
 SelectingUTxOToDecommit :: UTxORadioFieldForm (HydraEvent Tx) Name -> OpenScreen

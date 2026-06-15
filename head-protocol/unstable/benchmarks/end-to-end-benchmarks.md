@@ -13,7 +13,7 @@ Please note that these results are approximate  as they are currently produced f
 
 :::
 
-_Generated at_  2026-06-15 12:42:33.441724786 UTC
+_Generated at_  2026-06-15 15:03:09.433551594 UTC
 
 
 ## Baseline Scenario
@@ -23,15 +23,15 @@ _Generated at_  2026-06-15 12:42:33.441724786 UTC
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 300 |
-| _Avg. Confirmation Time (ms)_ | 550.5 |
-| _P99_ | 575.2ms |
-| _P95_ | 574.9ms |
-| _P50_ | 556.0ms |
-| _End-to-end TPS_ | 518.51 tx/s |
+| _Avg. Confirmation Time (ms)_ | 597.5 |
+| _P99_ | 623.9ms |
+| _P95_ | 623.9ms |
+| _P50_ | 603.7ms |
+| _End-to-end TPS_ | 478.49 tx/s |
 | _Snapshots observed_ | 4 |
-| _Per-snapshot TPS P50_ | 2351.96 tx/s |
-| _Per-snapshot TPS P95_ | 4617.97 tx/s |
-| _Per-snapshot TPS max_ | 4864.38 tx/s |
+| _Per-snapshot TPS P50_ | 2241.94 tx/s |
+| _Per-snapshot TPS P95_ | 4440.67 tx/s |
+| _Per-snapshot TPS max_ | 4699.42 tx/s |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 0 |
       
@@ -43,15 +43,15 @@ _Generated at_  2026-06-15 12:42:33.441724786 UTC
 | Number of nodes |  3 | 
 | -- | -- |
 | _Number of txs_ | 900 |
-| _Avg. Confirmation Time (ms)_ | 3387.9 |
-| _P99_ | 3872.7ms |
-| _P95_ | 3855.8ms |
-| _P50_ | 3499.2ms |
-| _End-to-end TPS_ | 231.90 tx/s |
+| _Avg. Confirmation Time (ms)_ | 3071.8 |
+| _P99_ | 3528.1ms |
+| _P95_ | 3516.6ms |
+| _P50_ | 3168.5ms |
+| _End-to-end TPS_ | 254.61 tx/s |
 | _Snapshots observed_ | 10 |
-| _Per-snapshot TPS P50_ | 547.85 tx/s |
-| _Per-snapshot TPS P95_ | 1707.47 tx/s |
-| _Per-snapshot TPS max_ | 1964.80 tx/s |
+| _Per-snapshot TPS P50_ | 557.40 tx/s |
+| _Per-snapshot TPS P95_ | 1942.22 tx/s |
+| _Per-snapshot TPS max_ | 2349.97 tx/s |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 0 |
       
