@@ -24,6 +24,8 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Contract.CRS qualified as CRS
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -70,6 +72,24 @@ tests =
         case toData incrementInput of
           Constr n _ -> n @?= 0
           _ -> assertFailure "Increment redeemer did not serialise to a Constr"
+    , testCase "Deposit redeemer constructor indices match deposit.ak" $ do
+        -- deposit.ak redefines the deposit 'Redeemer' type structurally and
+        -- matches on its constructors. If these indices ever drift, deposit
+        -- and recover validation break. Keep in sync with Hydra.Contract.Deposit.
+        case toData Deposit.Claim of
+          Constr n _ -> n @?= 0
+          _ -> assertFailure "Claim did not serialise to a Constr"
+        case toData (Deposit.Recover 1) of
+          Constr n _ -> n @?= 1
+          _ -> assertFailure "Recover did not serialise to a Constr"
+    , testCase "Commit has constructor index 0 (deposit.ak invariant)" $ do
+        -- deposit.ak redefines 'Commit' structurally and hashes its fields, so
+        -- its constructor index must stay 0.
+        let someRef = TxOutRef (TxId . toBuiltin $ BS.replicate 32 0) 0
+            commit = Commit.Commit someRef (toBuiltin BS.empty)
+        case toData commit of
+          Constr n _ -> n @?= 0
+          _ -> assertFailure "Commit did not serialise to a Constr"
     , goldenScript "Head validator script" "vHead" Head.validatorScript
     , goldenScript
         "Head minting policy script"
