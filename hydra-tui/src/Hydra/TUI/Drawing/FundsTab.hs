@@ -89,7 +89,9 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
       , drawPendingIncrement ownAddress pendingIncrements now
       ]
   LoadingUTxOForIncrement ->
-    padAll 1 $ withAttr neutral $ txt "Querying Cardano node for available UTxO…"
+    padAll 1 $ withAttr neutral $ txt "Refreshing L1 UTxO…"
+  NoUTxOToIncrement ->
+    padAll 1 $ withAttr neutral $ txt "No known L1 funds. Press [U] to refresh."
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
   SelectingUTxOToIncrement x -> renderForm x

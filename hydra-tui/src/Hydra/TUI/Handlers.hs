@@ -68,6 +68,10 @@ handleEvent cardanoClient client chan = \case
     syncEventHistoryList
     refreshRecoveryForm
     case e of
+      ClientConnected ->
+        triggerL1Query cardanoClient client chan
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.HeadIsOpen{}}) ->
+        triggerL1Query cardanoClient client chan
       Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecorded{}}) ->
         triggerL1Query cardanoClient client chan
       Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitFinalized{}}) ->
@@ -90,17 +94,16 @@ handleEvent cardanoClient client chan = \case
     pendingActionL .= Just "Update complete"
   AppEvent (TxBuildError msg) -> pendingActionL .= Just msg
   AppEvent (UTxOQueryResult utxo) -> do
+    l1UTxOL .= Just utxo
     pendingActionL .= Nothing
     openScreen <- useOpenScreen
     case openScreen of
       Just LoadingUTxOForIncrement -> case utxoRadioField utxo of
         Just form ->
           zoomOpenScreen $ put $ SelectingUTxOToIncrement form
-        Nothing -> do
-          -- Empty or failed query — close modal, return to previous tab, show message
-          zoomOpenScreen $ put OpenHome
-          leaveModal
-          pendingActionL .= Just "No L1 funds available to increment."
+        Nothing ->
+          -- Still no L1 funds; keep the modal open offering another refresh.
+          zoomOpenScreen $ put NoUTxOToIncrement
       Nothing -> do
         -- Head is no longer Open (e.g. it closed mid-query). If we're still
         -- stuck on the loading modal, return the user to their previous tab.
@@ -182,6 +185,24 @@ handleEvent cardanoClient client chan = \case
         setPendingAction e
         zoom (connectedStateL . connectionL . headStateL) $
           handleVtyEventsHeadState cardanoClient client chan e
+      EvKey (KChar 'i') [] | not modalOpen -> do
+        -- Increment reads the cached L1 UTxO ('l1UTxOL') for a snappy modal
+        -- rather than querying the cardano-node. With an empty/unloaded cache
+        -- we show 'NoUTxOToIncrement', which offers a manual refresh. 'i' is
+        -- overloaded: when the head is Idle it inits the head, so delegate any
+        -- non-'OpenHome' state to the per-head handler.
+        screen <- useOpenScreen
+        case screen of
+          Just OpenHome -> do
+            l1 <- use l1UTxOL
+            case l1 >>= \m -> if Map.null m then Nothing else utxoRadioField m of
+              Just form -> zoomOpenScreen $ put $ SelectingUTxOToIncrement form
+              Nothing -> zoomOpenScreen $ put NoUTxOToIncrement
+            enterModal
+          _ -> do
+            setPendingAction e
+            zoom (connectedStateL . connectionL . headStateL) $
+              handleVtyEventsHeadState cardanoClient client chan e
       EvKey (KChar 'r') [] | not modalOpen -> do
         -- Recovery is a single modal flow regardless of head state. The form
         -- is stored in 'recoveryFormL' (not the per-head 'openState') so the
@@ -432,10 +453,8 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           case utxoRadioField utxo' of
             Just form -> put (SelectingUTxOToDecommit form)
             Nothing -> liftIO $ writeBChan chan (TxBuildError "No L2 UTxO available to decommit.")
-        EvKey (KChar 'i') [] -> do
-          put LoadingUTxOForIncrement
-          let myAddr = mkMyAddress cardanoClient hydraClient
-          liftIO $ queryL1UTxOAsync cardanoClient myAddr chan UTxOQueryResult "L1 UTxO query failed"
+        -- 'i' (increment) is handled at the outer event loop so it can read the
+        -- cached L1 UTxO from 'RootState' (see 'EvKey (KChar 'i')' in handleEvent).
         -- 'r' (recover) is handled at the outer event loop as a top-level
         -- modal flow (see 'EvKey (KChar 'r')' in handleEvent), not as an
         -- 'OpenScreen' transition.
@@ -445,6 +464,11 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
     LoadingUTxOForIncrement ->
       case e of
         EvKey KEsc [] -> put OpenHome
+        _ -> pure ()
+    NoUTxOToIncrement ->
+      case e of
+        EvKey KEsc [] -> put OpenHome
+        EvKey (KChar 'u') [] -> refreshUTxOForIncrement
         _ -> pure ()
     ConfirmingClose i ->
       case e of
@@ -489,6 +513,7 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           let commitUTxO = uncurry UTxO.singleton utxoSelected
           liftIO $ externalCommitAsync hydraClient chan commitUTxO
           put OpenHome
+        EvKey (KChar 'u') [] -> refreshUTxOForIncrement
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
       case e of
@@ -564,6 +589,14 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
 
   parseAddress =
     fmap ShelleyAddressInEra . deserialiseAddress (AsAddress AsShelleyAddr)
+
+  -- Re-query the L1 UTxO for the increment modal, showing the loading spinner
+  -- meanwhile. The result is delivered as a 'UTxOQueryResult' event, which
+  -- rebuilds the selection form (or 'NoUTxOToIncrement' when still empty).
+  refreshUTxOForIncrement = do
+    put LoadingUTxOForIncrement
+    let myAddr = mkMyAddress cardanoClient hydraClient
+    liftIO $ queryL1UTxOAsync cardanoClient myAddr chan UTxOQueryResult "L1 UTxO query failed"
 
 handleVtyEventsFanoutPossible :: Client Tx IO -> Vty.Event -> EventM Name s ()
 handleVtyEventsFanoutPossible hydraClient e = do
@@ -661,9 +694,8 @@ setPendingAction e = do
         pendingActionL .= Just "Sending Init…"
       (Active (ActiveLink{activeHeadState = FanoutPossible}), EvKey (KChar 'f') []) ->
         pendingActionL .= Just "Sending Fanout…"
-      -- Note: 'i' on Open OpenHome does not set a pending-action message —
-      -- the modal panel itself shows "Querying Cardano node for available
-      -- UTxO…" while LoadingUTxOForIncrement, which is enough.
+      -- Note: 'i' on Open OpenHome is handled at the outer event loop (it reads
+      -- the cached L1 UTxO) and does not flow through here.
       (Active (ActiveLink{activeHeadState = Open{openState}}), EvKey KEnter []) ->
         case openState of
           SelectingUTxOToDecommit _ ->

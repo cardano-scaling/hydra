@@ -90,6 +90,7 @@ type ConfirmingRadioFieldForm e n = Form Bool e n
 data OpenScreen
   = OpenHome
   | LoadingUTxOForIncrement
+  | NoUTxOToIncrement
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}

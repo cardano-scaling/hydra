@@ -78,6 +78,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , appStartEvent = do
           vty <- getVtyHandle
           liftIO $ setMode (outputIface vty) Mouse True
+          triggerL1Query cardanoClient hydraClient chan
       , appAttrMap = \s -> case s ^. themeL of
           DarkTheme -> darkStyle s
           LightTheme -> lightStyle s

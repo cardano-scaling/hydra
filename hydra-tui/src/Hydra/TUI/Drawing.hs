@@ -70,6 +70,7 @@ modalTabLabel s
   | isJust (s ^. recoveryFormL) = "Recover"
   | otherwise = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL of
       Just LoadingUTxOForIncrement -> "Increment"
+      Just NoUTxOToIncrement -> "Increment"
       Just (SelectingUTxOToIncrement _) -> "Increment"
       Just (SelectingUTxOToDecommit _) -> "Decommit"
       Just (SelectingUTxO _) -> "New Tx"
@@ -128,7 +129,8 @@ drawActionBar s =
             Just _ -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
             Nothing -> case activeHeadState of
               Open{openState} -> case openState of
-                SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
+                SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("U", " refresh"), ("Esc/C", " cancel")]
+                NoUTxOToIncrement -> [("U", " refresh"), ("Esc/C", " cancel")]
                 SelectingUTxOToDecommit _ -> [("↑↓/Space", " choose"), ("Enter", " decommit"), ("Esc/C", " cancel")]
                 SelectingUTxO _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
                 EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
