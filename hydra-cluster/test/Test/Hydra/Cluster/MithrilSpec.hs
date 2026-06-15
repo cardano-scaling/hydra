@@ -7,6 +7,7 @@ import Control.Concurrent.Class.MonadSTM (readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson.Lens (key)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Cluster.Fixture qualified as Fixture
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
@@ -19,6 +20,8 @@ spec = parallel $ do
     forEachKnownNetwork "invokes mithril-client correctly" $ \network -> do
       let blockfrostNetworks = [BlockfrostPreview, BlockfrostPreprod, BlockfrostMainnet]
       when (network `elem` blockfrostNetworks) $ pendingWith "Blockfrost doesn't need mithril to run"
+      -- TODO: re-enable once the release-preprod aggregator is reachable again
+      when (network == Fixture.Preproduction) $ pendingWith "release-preprod mithril aggregator is unreachable"
       (tracer, getTraces) <- captureTracer "MithrilSpec"
       withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
         let dbPath = tmpDir </> "db"
