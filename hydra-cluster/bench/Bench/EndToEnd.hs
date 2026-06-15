@@ -193,10 +193,9 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   putTextLn "Initializing Head"
   send leader $ input "Init" []
   headId :: HeadId <-
-    -- Opening the Head needs L1 Init + CollectCom round-trips whose wall-clock
+    -- Opening the Head needs L1 Init round-trips whose wall-clock
     -- cost is dominated by fixed overhead (tx building, observation, etcd), not
-    -- block time. A bare `5 * blockTime` is 0.5s on the 0.1s-block devnet and
-    -- flakily times out before HeadIsOpen, so add a fixed overhead budget.
+    -- block time.
     waitForAllMatch (60 + 5 * blockTime) clients $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsOpen"
       v ^? key "headId" . _JSON
