@@ -141,10 +141,14 @@ spec = do
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Open"
-          -- Start an increment: queries L1 UTxO, opens the increment modal.
+          -- Start an increment: opens the modal from the cached L1 UTxO.
           sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 3
+          threadDelay 1
           shouldRender "Increment"
+          -- Force a refresh ('u') so the UTxO list is populated regardless of
+          -- whether the background cache warm-up has completed yet.
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
           -- Commit the first available UTxO.
           sendInputEvent $ EvKey KEnter []
           -- Wait for the chain follower to observe the deposit and emit
@@ -220,8 +224,12 @@ spec = do
           shouldRender "Open"
           -- Make a pending deposit so there is something to recover.
           sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 3
+          threadDelay 1
           shouldRender "Increment"
+          -- Force a refresh ('u') so the UTxO list is populated regardless of
+          -- whether the background cache warm-up has completed yet.
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
           sendInputEvent $ EvKey KEnter []
           threadDelay 8
           shouldRender "Deposit recorded"
