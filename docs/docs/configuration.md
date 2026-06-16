@@ -1,5 +1,9 @@
 # Configuration
 
+```mdx-code-block
+import TerminalWindow from '@site/src/components/TerminalWindow';
+```
+
 Running a Hydra head involves operating a Hydra node connected to other Hydra nodes and a Cardano node. The entire configuration of the `hydra-node` is managed through command-line options. Use the `--help` option to see a full list of available commands:
 
 ```shell
