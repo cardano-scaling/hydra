@@ -26,7 +26,11 @@ data DepositRedeemer
   | -- | Recovers m number of deposited outputs.
     Recover Integer
 
-PlutusTx.unstableMakeIsData ''DepositRedeemer
+-- NOTE: These indices are load-bearing across languages: @validators/deposit.ak@
+-- redefines this redeemer structurally and matches on @Claim@/@Recover@, so
+-- reordering the constructors here silently breaks deposit/recover validation
+-- with no compile error on either side. Keep in sync with @deposit.ak@.
+PlutusTx.makeIsDataIndexed ''DepositRedeemer [('Claim, 0), ('Recover, 1)]
 
 -- | Deposit datum containing HeadId, deadline and a list of deposits.
 type DepositDatum = (CurrencySymbol, POSIXTime, [Commit])

@@ -193,7 +193,10 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   putTextLn "Initializing Head"
   send leader $ input "Init" []
   headId :: HeadId <-
-    waitForAllMatch (5 * blockTime) clients $ \v -> do
+    -- Opening the Head needs L1 Init round-trips whose wall-clock
+    -- cost is dominated by fixed overhead (tx building, observation, etcd), not
+    -- block time.
+    waitForAllMatch (60 + 5 * blockTime) clients $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsOpen"
       v ^? key "headId" . _JSON
 
@@ -235,7 +238,9 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   putTextLn "Closing the Head"
   send leader $ input "Close" []
 
-  deadline <- waitMatch (20 * blockTime) leader $ \v -> do
+  -- Same reasoning as the HeadIsOpen wait above: add a fixed overhead budget so
+  -- the timeout does not collapse to 2s on the fast-block devnet.
+  deadline <- waitMatch (60 + 20 * blockTime) leader $ \v -> do
     guard $ v ^? key "tag" == Just "HeadIsClosed"
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON

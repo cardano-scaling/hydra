@@ -124,6 +124,7 @@
           self'.packages.hydra-cluster
           pkgs.cardano-node
           pkgs.cardano-cli
+          pkgs.etcd
           pkgs.mithril-client-cli
         ];
       };
