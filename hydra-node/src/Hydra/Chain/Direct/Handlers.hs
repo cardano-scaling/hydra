@@ -646,7 +646,7 @@ data StartingDecision
       -- but ignored, because it was older than persisted points.
       }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
@@ -660,4 +660,4 @@ data CardanoChainLog
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
   | PartialFanoutFailed {reason :: Text}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)

@@ -35,7 +35,6 @@
               hydra-chain-observer.writeHieFiles = true;
               hydra-cluster.writeHieFiles = true;
               hydra-node.writeHieFiles = true;
-              visualize-logs.writeHieFiles = true;
               hydra-plutus.writeHieFiles = true;
               hydra-plutus-extras.writeHieFiles = true;
               hydra-prelude.writeHieFiles = true;
@@ -43,8 +42,8 @@
               hydra-tx.writeHieFiles = true;
               hydra-tui.writeHieFiles = true;
               hydraw.writeHieFiles = true;
+              head-state-viewer.writeHieFiles = true;
               hydra-node.dontStrip = false;
-              visualize-logs.dontStrip = false;
               hydra-tui.dontStrip = false;
               hydraw.dontStrip = false;
             };
@@ -71,8 +70,9 @@
               hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydra-tui.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydra-chain-observer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
-              visualize-logs.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydraw.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+              # Links hydra-node, so it needs the same static-snappy flag.
+              head-state-viewer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
             };
           }
           {

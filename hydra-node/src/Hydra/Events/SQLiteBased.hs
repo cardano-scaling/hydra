@@ -78,7 +78,7 @@ data SQLiteLog
   | MigrationSkipped {legacyFile :: FilePath}
   | MigrationComplete {legacyFile :: FilePath}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON)
 
 -- | Items in the write-behind queue: either an event row to insert or a flush
 -- marker that the writer thread signals after processing all preceding items.

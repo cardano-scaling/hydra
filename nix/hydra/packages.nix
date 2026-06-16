@@ -85,11 +85,6 @@
             "hydra-chain-observer"
             paddedRevision;
 
-          visualize-logs-static = embedRevision
-            musl64Pkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
-            paddedRevision;
-
           hydra-tui-static = embedRevision
             musl64Pkgs.hydra-tui.components.exes.hydra-tui
             "hydra-tui"
@@ -116,12 +111,6 @@
             "hydra-chain-observer"
             paddedRevision;
 
-        visualize-logs =
-          embedRevision
-            nativePkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
-            paddedRevision;
-
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
           export PATH=$PATH:${hydra-node}/bin
           ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
@@ -134,6 +123,9 @@
             nativePkgs.hydra-tui.components.exes.hydra-tui
             "hydra-tui"
             paddedRevision;
+
+        # The HeadLogic state viewer; exposed so it can be `nix run`.
+        inherit (nativePkgs.head-state-viewer.components.exes) head-state-viewer;
 
         inherit (nativePkgs.hydraw.components.exes) hydraw;
 
