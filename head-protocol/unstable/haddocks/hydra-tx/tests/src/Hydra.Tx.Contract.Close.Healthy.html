@@ -50,8 +50,8 @@ forall a. Gen a -&gt; Int -&gt; a
 </span><span id="line-42"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyHeadAdaOverhead"><span class="hs-identifier hs-type">healthyHeadAdaOverhead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
 </span><span id="line-43"></span><span id="healthyHeadAdaOverhead"><span class="annot"><span class="annottext">healthyHeadAdaOverhead :: Integer
 </span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyHeadAdaOverhead"><span class="hs-identifier hs-var hs-var">healthyHeadAdaOverhead</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-44"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span id="local-6989586621679459812"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679459812"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Coin
+</span><span id="line-44"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coin</span></span><span> </span><span id="local-6989586621679459816"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679459816"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Coin
 </span><span class="hs-identifier hs-var">selectLovelace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; Value
 forall era. UTxO era -&gt; Value
 </span><span class="hs-identifier hs-var">UTxO.totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
@@ -59,7 +59,7 @@ forall era. UTxO era -&gt; Value
 </span><span id="line-45"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer
 forall a. Num a =&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#negate"><span class="hs-identifier hs-var">negate</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679459812"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679459816"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-46"></span><span>
 </span><span id="line-47"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySplitUTxOInHead"><span class="hs-identifier hs-type">healthySplitUTxOInHead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
 </span><span id="line-48"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySplitUTxOToDecommit"><span class="hs-identifier hs-type">healthySplitUTxOToDecommit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
@@ -194,8 +194,8 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span id="line-97"></span><span>
 </span><span id="line-98"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySignature"><span class="hs-identifier hs-type">healthySignature</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MultiSignature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span>
 </span><span id="line-99"></span><span id="healthySignature"><span class="annot"><span class="annottext">healthySignature :: Snapshot Tx -&gt; MultiSignature (Snapshot Tx)
-</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySignature"><span class="hs-identifier hs-var hs-var">healthySignature</span></a></span></span><span> </span><span id="local-6989586621679459836"><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679459836"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Signature (Snapshot Tx)] -&gt; MultiSignature (Snapshot Tx)
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySignature"><span class="hs-identifier hs-var hs-var">healthySignature</span></a></span></span><span> </span><span id="local-6989586621679459840"><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679459840"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Signature (Snapshot Tx)] -&gt; MultiSignature (Snapshot Tx)
 forall {k} (a :: k). [Signature a] -&gt; MultiSignature a
 </span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
 -&gt; Snapshot Tx -&gt; Signature (Snapshot Tx)
@@ -203,23 +203,23 @@ forall a.
 SignableRepresentation a =&gt;
 Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
-</span><a href="#local-6989586621679459837"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679459836"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679459837"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
-</span><a href="#local-6989586621679459837"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey HydraKey)]
+</span><a href="#local-6989586621679459841"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679459840"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679459841"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621679459841"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey HydraKey)]
 </span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-var">healthySigningKeys</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-100"></span><span>
 </span><span id="line-101"></span><span class="annot"><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyConfirmedSnapshot"><span class="hs-identifier hs-type">healthyConfirmedSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
 </span><span id="line-102"></span><span id="healthyConfirmedSnapshot"><span class="annot"><span class="annottext">healthyConfirmedSnapshot :: Snapshot Tx -&gt; ConfirmedSnapshot Tx
-</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyConfirmedSnapshot"><span class="hs-identifier hs-var hs-var">healthyConfirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621679459839"><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679459839"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthyConfirmedSnapshot"><span class="hs-identifier hs-var hs-var">healthyConfirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621679459843"><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679459843"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-103"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span>
 </span><span id="line-104"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
 snapshot :: Snapshot Tx
 $sel:snapshot:InitialSnapshot :: Snapshot Tx
-</span><a href="#local-6989586621679459839"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span><span>
+</span><a href="#local-6989586621679459843"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span><span>
 </span><span id="line-105"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:signatures:InitialSnapshot :: MultiSignature (Snapshot Tx)
 </span><span class="hs-identifier hs-var">signatures</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot Tx -&gt; MultiSignature (Snapshot Tx)
 </span><a href="Hydra.Tx.Contract.Close.Healthy.html#healthySignature"><span class="hs-identifier hs-var">healthySignature</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679459839"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><a href="#local-6989586621679459843"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
 </span><span id="line-106"></span><span>    </span><span class="hs-special">}</span><span>
 </span><span id="line-107"></span></pre></body></html>

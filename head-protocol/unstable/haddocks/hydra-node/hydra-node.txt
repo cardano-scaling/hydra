@@ -1264,7 +1264,6 @@ instance GHC.Generics.Generic (Hydra.Logging.Envelope a)
 instance GHC.Show.Show a => GHC.Show.Show (Hydra.Logging.Envelope a)
 instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Logging.Envelope a)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Envelope a)
-instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Logging.Envelope a)
 
 
 -- | A SQLite-backed event source and sink.
@@ -1422,7 +1421,6 @@ insertEvent :: Connection -> (Word64, ByteString) -> IO ()
 insertEvents :: Connection -> [(Word64, ByteString)] -> IO ()
 deleteAllEvents :: Connection -> IO ()
 instance GHC.Show.Show Hydra.Events.SQLiteBased.EventDecodingException
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Events.SQLiteBased.SQLiteLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Events.SQLiteBased.SQLiteLog
 instance GHC.Generics.Generic Hydra.Events.SQLiteBased.SQLiteLog
 instance GHC.Show.Show Hydra.Events.SQLiteBased.SQLiteLog
@@ -1547,7 +1545,6 @@ instance GHC.Show.Show Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Generics.Generic Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Classes.Eq Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Wallet.TinyWalletLog
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.Wallet.TinyWalletLog
 
 
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other
@@ -1734,15 +1731,12 @@ instance GHC.Show.Show Hydra.API.APIServerLog.PathInfo
 instance GHC.Classes.Eq Hydra.API.APIServerLog.PathInfo
 instance GHC.Show.Show Hydra.API.APIServerLog.Method
 instance GHC.Classes.Eq Hydra.API.APIServerLog.Method
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.APIServerLog.APIServerLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.APIServerLog.APIServerLog
 instance GHC.Generics.Generic Hydra.API.APIServerLog.APIServerLog
 instance GHC.Show.Show Hydra.API.APIServerLog.APIServerLog
 instance GHC.Classes.Eq Hydra.API.APIServerLog.APIServerLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.APIServerLog.Method
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.APIServerLog.Method
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.APIServerLog.PathInfo
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.APIServerLog.PathInfo
 
 
 -- | A <a>NetworkComponent</a> that handles authentication of sent and
@@ -1932,11 +1926,9 @@ instance GHC.Generics.Generic (Hydra.HeadLogic.Error.LogicError tx)
 instance (GHC.Classes.Eq (Hydra.HeadLogic.State.HeadState tx), GHC.Classes.Eq (Hydra.HeadLogic.Input.Input tx), GHC.Classes.Eq (Hydra.HeadLogic.Error.RequirementFailure tx), GHC.Classes.Eq (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)) => GHC.Classes.Eq (Hydra.HeadLogic.Error.LogicError tx)
 instance (GHC.Show.Show (Hydra.HeadLogic.State.HeadState tx), GHC.Show.Show (Hydra.HeadLogic.Input.Input tx), GHC.Show.Show (Hydra.HeadLogic.Error.RequirementFailure tx), GHC.Show.Show (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)) => GHC.Show.Show (Hydra.HeadLogic.Error.LogicError tx)
 instance (Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.HeadState tx), Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Input.Input tx), Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.RequirementFailure tx), Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.LogicError tx)
-instance (Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.HeadState tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Input.Input tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.RequirementFailure tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.LogicError tx)
 instance GHC.Classes.Eq (Hydra.Tx.IsTx.TxIdType tx) => GHC.Classes.Eq (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance GHC.Show.Show (Hydra.Tx.IsTx.TxIdType tx) => GHC.Show.Show (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.TxIdType tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.RequirementFailure tx)
-instance Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.TxIdType tx) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx) => GHC.Classes.Eq (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx) => GHC.Show.Show (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
@@ -2210,7 +2202,6 @@ WatchMessagesFallbackTo :: Int64 -> EtcdLog
 BroadcastDeduped :: Int64 -> Int64 -> EtcdLog
 [$sel:previousModRev:EtcdLog] :: EtcdLog -> Int64
 [$sel:observedModRev:EtcdLog] :: EtcdLog -> Int64
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.Etcd.EtcdLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.Etcd.EtcdLog
 instance GHC.Generics.Generic Hydra.Network.Etcd.EtcdLog
 instance GHC.Show.Show Hydra.Network.Etcd.EtcdLog
@@ -2310,7 +2301,6 @@ NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> H
 --   <tt>Network</tt> to its continuation.
 withNetwork :: forall tx. IsTx tx => Tracer IO NetworkLog -> NetworkConfiguration -> NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
 data NetworkLog
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Network.NetworkLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Network.NetworkLog
 instance GHC.Generics.Generic Hydra.Node.Network.NetworkLog
 instance GHC.Show.Show Hydra.Node.Network.NetworkLog
@@ -2336,7 +2326,6 @@ PartiesMismatch :: [Party] -> [Party] -> ParamMismatch
 [$sel:configuredParties:ContestationPeriodMismatch] :: ParamMismatch -> [Party]
 SavedNetworkPartiesInconsistent :: Int -> ParamMismatch
 [$sel:numberOfParties:ContestationPeriodMismatch] :: ParamMismatch -> Int
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.ParameterMismatch.ParamMismatch
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.ParameterMismatch.ParamMismatch
 instance GHC.Show.Show Hydra.Node.ParameterMismatch.ParamMismatch
 instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParamMismatch
@@ -2976,7 +2965,6 @@ instance GHC.Generics.Generic (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.Effect tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.Effect tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.Effect tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.Effect tx)
 instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Node.State.NodeState tx), GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Node.State.NodeState tx), GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.StateChanged tx)
@@ -2984,11 +2972,9 @@ instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.IsTx tx, Data.Ae
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.Outcome tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.Outcome tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.Outcome.WaitReason tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.WaitReason tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.WaitReason tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.WaitReason tx)
 instance GHC.Base.Semigroup (Hydra.HeadLogic.Outcome.Outcome tx)
 
 module Hydra.HeadLogic.StateEvent
@@ -4065,12 +4051,10 @@ PartialFanoutFailed :: Text -> CardanoChainLog
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.Handlers.StartingDecision
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Handlers.StartingDecision
 instance GHC.Generics.Generic Hydra.Chain.Direct.Handlers.StartingDecision
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.StartingDecision
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.StartingDecision
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance GHC.Generics.Generic Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.CardanoChainLog
@@ -4841,7 +4825,6 @@ instance GHC.Generics.Generic (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.HydraNodeLog tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Tx.Party.HasParty (Hydra.Node.DraftHydraNode tx m)
 
 
@@ -4873,7 +4856,6 @@ instance GHC.Generics.Generic (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx) => GHC.Classes.Eq (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Show.Show (Hydra.Node.HydraNodeLog tx) => GHC.Show.Show (Hydra.Logging.Messages.HydraLog tx)
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.HydraNodeLog tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Messages.HydraLog tx)
-instance Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.HydraNodeLog tx) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Logging.Messages.HydraLog tx)
 
 
 -- | Provides Prometheus-based metrics server based on <a>Tracer</a>
