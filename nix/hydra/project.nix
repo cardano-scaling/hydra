@@ -1,7 +1,7 @@
 { self, ... }: {
-  perSystem = { compiler, inputMap, pkgs, ... }:
+  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, ... }:
     let
-      hsPkgs = pkgs.haskell-nix.project {
+      mkProject = extraModules: pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
           name = "hydra";
           src = self;
@@ -109,11 +109,33 @@
             packages.ouroboros-network.doHaddock = false;
             packages.hydra-cardano-api.doHaddock = false;
           }
-        ];
+        ] ++ extraModules;
       };
+
+      # Native project, built with -Werror for our own packages. This is the
+      # single warning gate for nix builds: `.#packages`, `.#devShells.*-tests`
+      # and `.#checks` all share these derivations, so there is no separate
+      # -Werror rebuild (cf. the old werrorwolf checks). Scoped per-package so
+      # upstream dependencies keep coming from the binary cache. `cabal
+      # build`/repl in the dev shell ignore these ghcOptions, so day-to-day
+      # iteration stays lenient; `just lint` is the cabal-side -Werror gate.
+      hsPkgs = mkProject [
+        {
+          packages = pkgs.lib.genAttrs localHaskellPackageNames (_: {
+            ghcOptions = [ "-Werror" ];
+          });
+        }
+      ];
+
+      # Base project, no -Werror. Consumed only by packages.nix for the
+      # musl/static cross build, so the static release stays lenient, matching
+      # the previous werrorwolf scope. Dependency derivations are identical to
+      # hsPkgs (the -Werror module only touches our own packages), so this does
+      # not cause duplicate dependency builds.
+      hsPkgsBase = mkProject [ ];
 
     in
     {
-      _module.args = { inherit hsPkgs; };
+      _module.args = { inherit hsPkgs hsPkgsBase; };
     };
 }

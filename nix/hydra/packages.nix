@@ -1,7 +1,7 @@
 # A set of buildables we typically build for releases
 
 { self, ... }: {
-  perSystem = { pkgs, system, lib, asZip, hsPkgs, ... }: {
+  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, ... }: {
     packages =
       let
         # Creates a fixed length string by padding with given filler as suffix.
@@ -63,7 +63,8 @@
 
         nativePkgs = hsPkgs;
         # Allow reinstallation of terminfo as it's not installed with cross compilers.
-        patchedForCrossProject = hsPkgs.appendModule
+        # Derive from hsPkgsBase (no -Werror) so the static release stays lenient.
+        patchedForCrossProject = hsPkgsBase.appendModule
           ({ lib, ... }: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
         musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 
