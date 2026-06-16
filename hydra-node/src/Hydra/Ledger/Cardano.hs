@@ -31,7 +31,7 @@ import Cardano.Ledger.Conway.Rules (
   ConwayUtxowPredFailure (UtxoFailure),
  )
 import Cardano.Ledger.Conway.State (ConwayAccountState (..))
-import Cardano.Ledger.Plutus (debugPlutus, defaultPlutusDebugOverrides)
+import Cardano.Ledger.Plutus (debugPlutusUnbounded, defaultPlutusDebugOverrides, pdoExUnitsEnforced)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
@@ -41,12 +41,9 @@ import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as T
-import Data.Text.Encoding qualified as Text
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
-import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- * Ledger
 
@@ -144,14 +141,11 @@ cardanoLedger globals ledgerEnv =
   toValidationError :: ApplyTxError LedgerEra -> ValidationError
   toValidationError (ConwayApplyTxError (e :| _)) = case e of
     (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
-      ValidationError $
-        "Plutus validation failed: "
-          <> msg
-          <> "Debug info: "
-          -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
-          -- action. It only re-evaluates the script and does not have any
-          -- side-effects.
-          <> show (unsafeDupablePerformIO $ debugPlutus (T.unpack $ Text.decodeUtf8 ctx) maxBound defaultPlutusDebugOverrides)
+        ValidationError $
+          "Plutus validation failed: "
+            <> msg
+            <> "Debug info: "
+            <> show (debugPlutusUnbounded (decodeUtf8 ctx) (defaultPlutusDebugOverrides {pdoExUnitsEnforced = True}))
     _ -> ValidationError $ show e
 
 -- * LedgerEnv
