@@ -31,6 +31,8 @@ changes.
   recovery via the `/commits` endpoint remains available after a head closes,
   in Idle state, and even while a new head is running. [#2743](https://github.com/cardano-scaling/hydra/pull/2743)
 
+- Fix Blockfrost chain backend error handling and resilience [#2729](https://github.com/cardano-scaling/hydra/pull/2729)
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
