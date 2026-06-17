@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
@@ -420,30 +421,9 @@ retryOnBlockfrostError tracer maxRetryCount =
     [ \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: APIBlockfrostError) -> do
         traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
         pure True
-    , \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: Blockfrost.APIBlockfrostError) -> do
-        traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
-        pure True
     ]
 
 -- * Helpers
-
-data APIBlockfrostError
-  = BlockfrostError Text
-  | DecodeError Text
-  | NotEnoughBlockConfirmations Blockfrost.BlockHash
-  | MissingBlockNo Blockfrost.BlockHash
-  | MissingBlockSlot (Maybe Blockfrost.Slot)
-  | MissingNextBlockHash Blockfrost.BlockHash
-  deriving stock (Show)
-  deriving anyclass (Exception)
-
-isRetryable :: APIBlockfrostError -> Bool
-isRetryable (BlockfrostError _) = True
-isRetryable (DecodeError _) = True
-isRetryable (NotEnoughBlockConfirmations _) = True
-isRetryable (MissingBlockNo _) = True
-isRetryable (MissingBlockSlot _) = True
-isRetryable (MissingNextBlockHash _) = True
 
 toTx :: MonadThrow m => Blockfrost.TransactionCBOR -> m Tx
 toTx (Blockfrost.TransactionCBOR txCbor) =
