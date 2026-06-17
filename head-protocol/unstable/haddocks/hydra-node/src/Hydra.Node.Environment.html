@@ -38,7 +38,7 @@
 </span><a href="Hydra.Node.Environment.html#%24sel%3AconfiguredPeers%3AEnvironment"><span class="hs-identifier hs-var hs-var">configuredPeers</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Configured peers for the network layer, used for comparison on etcd errors.</span></span><span>
 </span><span id="line-32"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680420457"><span id="local-6989586621680420459"><span class="annot"><span class="annottext">(forall x. Environment -&gt; Rep Environment x)
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680421010"><span id="local-6989586621680421012"><span class="annot"><span class="annottext">(forall x. Environment -&gt; Rep Environment x)
 -&gt; (forall x. Rep Environment x -&gt; Environment)
 -&gt; Generic Environment
 forall x. Rep Environment x -&gt; Environment
@@ -49,7 +49,7 @@ $cfrom :: forall x. Environment -&gt; Rep Environment x
 from :: forall x. Environment -&gt; Rep Environment x
 $cto :: forall x. Rep Environment x -&gt; Environment
 to :: forall x. Rep Environment x -&gt; Environment
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420463"><span id="local-6989586621680420482"><span class="annot"><span class="annottext">Environment -&gt; Environment -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421016"><span id="local-6989586621680421035"><span class="annot"><span class="annottext">Environment -&gt; Environment -&gt; Bool
 (Environment -&gt; Environment -&gt; Bool)
 -&gt; (Environment -&gt; Environment -&gt; Bool) -&gt; Eq Environment
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -62,27 +62,27 @@ $c/= :: Environment -&gt; Environment -&gt; Bool
 </span><span id="line-35"></span><span class="hs-comment">-- Stock-derived 'Show' would attempt to 'show' the 'Secret'-wrapped</span><span>
 </span><span id="line-36"></span><span class="hs-comment">-- 'signingKey' field, which is a 'TypeError'. The hand-rolled instance</span><span>
 </span><span id="line-37"></span><span class="hs-comment">-- below simply omits it.</span><span>
-</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680420489"><span id="local-6989586621680420494"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-39"></span><span>  </span><span id="local-6989586621680420537"><span class="annot"><span class="annottext">show :: Environment -&gt; String
-</span><a href="#local-6989586621680420537"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680420539"><span class="annot"><span class="annottext">Party
+</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680421042"><span id="local-6989586621680421047"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621680421090"><span class="annot"><span class="annottext">show :: Environment -&gt; String
+</span><a href="#local-6989586621680421090"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680421092"><span class="annot"><span class="annottext">Party
 $sel:party:Environment :: Environment -&gt; Party
 party :: Party
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420540"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421093"><span class="annot"><span class="annottext">[Party]
 $sel:otherParties:Environment :: Environment -&gt; [Party]
 otherParties :: [Party]
-</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420541"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421094"><span class="annot"><span class="annottext">[OnChainId]
 $sel:participants:Environment :: Environment -&gt; [OnChainId]
 participants :: [OnChainId]
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420542"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421095"><span class="annot"><span class="annottext">ContestationPeriod
 $sel:contestationPeriod:Environment :: Environment -&gt; ContestationPeriod
 contestationPeriod :: ContestationPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420543"><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421096"><span class="annot"><span class="annottext">DepositPeriod
 $sel:depositPeriod:Environment :: Environment -&gt; DepositPeriod
 depositPeriod :: DepositPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AdepositPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420544"><span class="annot"><span class="annottext">UnsyncedPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AdepositPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421097"><span class="annot"><span class="annottext">UnsyncedPeriod
 $sel:unsyncedPeriod:Environment :: Environment -&gt; UnsyncedPeriod
 unsyncedPeriod :: UnsyncedPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AunsyncedPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420545"><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Node.Environment.html#%24sel%3AunsyncedPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421098"><span class="annot"><span class="annottext">Text
 $sel:configuredPeers:Environment :: Environment -&gt; Text
 configuredPeers :: Text
 </span><a href="Hydra.Node.Environment.html#%24sel%3AconfiguredPeers%3AEnvironment"><span class="hs-identifier hs-var hs-var">configuredPeers</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -93,7 +93,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680420539"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680421092"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-42"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -103,7 +103,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680420540"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
+</span><a href="#local-6989586621680421093"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
 </span><span id="line-44"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -113,7 +113,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[OnChainId] -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">[OnChainId]
-</span><a href="#local-6989586621680420541"><span class="hs-identifier hs-var">participants</span></a></span><span>
+</span><a href="#local-6989586621680421094"><span class="hs-identifier hs-var">participants</span></a></span><span>
 </span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -123,7 +123,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621680420542"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421095"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
 </span><span id="line-48"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -133,7 +133,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DepositPeriod -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
-</span><a href="#local-6989586621680420543"><span class="hs-identifier hs-var">depositPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421096"><span class="hs-identifier hs-var">depositPeriod</span></a></span><span>
 </span><span id="line-50"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -143,7 +143,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod
-</span><a href="#local-6989586621680420544"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421097"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
 </span><span id="line-52"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -153,7 +153,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680420545"><span class="hs-identifier hs-var">configuredPeers</span></a></span><span>
+</span><a href="#local-6989586621680421098"><span class="hs-identifier hs-var">configuredPeers</span></a></span><span>
 </span><span id="line-54"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -162,27 +162,27 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span id="line-56"></span><span class="hs-comment">-- | 'ToJSON' deliberately omits 'signingKey' from the serialised output:</span><span>
 </span><span id="line-57"></span><span class="hs-comment">-- the WebSocket API sends 'Environment' to clients as part of 'Greetings',</span><span>
 </span><span id="line-58"></span><span class="hs-comment">-- and the signing key must never appear on the wire.</span><span>
-</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680420548"><span id="local-6989586621680420552"><span id="local-6989586621680420555"><span id="local-6989586621680420558"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-60"></span><span>  </span><span id="local-6989586621680420594"><span class="annot"><span class="annottext">toJSON :: Environment -&gt; Value
-</span><a href="#local-6989586621680420594"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680420596"><span class="annot"><span class="annottext">Party
+</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680421101"><span id="local-6989586621680421105"><span id="local-6989586621680421108"><span id="local-6989586621680421111"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621680421147"><span class="annot"><span class="annottext">toJSON :: Environment -&gt; Value
+</span><a href="#local-6989586621680421147"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680421149"><span class="annot"><span class="annottext">Party
 $sel:party:Environment :: Environment -&gt; Party
 party :: Party
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420597"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421150"><span class="annot"><span class="annottext">[Party]
 $sel:otherParties:Environment :: Environment -&gt; [Party]
 otherParties :: [Party]
-</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420598"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421151"><span class="annot"><span class="annottext">[OnChainId]
 $sel:participants:Environment :: Environment -&gt; [OnChainId]
 participants :: [OnChainId]
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420599"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparticipants%3AEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421152"><span class="annot"><span class="annottext">ContestationPeriod
 $sel:contestationPeriod:Environment :: Environment -&gt; ContestationPeriod
 contestationPeriod :: ContestationPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420600"><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421153"><span class="annot"><span class="annottext">DepositPeriod
 $sel:depositPeriod:Environment :: Environment -&gt; DepositPeriod
 depositPeriod :: DepositPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AdepositPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420601"><span class="annot"><span class="annottext">UnsyncedPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AdepositPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421154"><span class="annot"><span class="annottext">UnsyncedPeriod
 $sel:unsyncedPeriod:Environment :: Environment -&gt; UnsyncedPeriod
 unsyncedPeriod :: UnsyncedPeriod
-</span><a href="Hydra.Node.Environment.html#%24sel%3AunsyncedPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420602"><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Node.Environment.html#%24sel%3AunsyncedPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421155"><span class="annot"><span class="annottext">Text
 $sel:configuredPeers:Environment :: Environment -&gt; Text
 configuredPeers :: Text
 </span><a href="Hydra.Node.Environment.html#%24sel%3AconfiguredPeers%3AEnvironment"><span class="hs-identifier hs-var hs-var">configuredPeers</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -193,43 +193,43 @@ configuredPeers :: Text
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680420596"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680421149"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-63"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;otherParties&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; [Party] -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680420597"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
+</span><a href="#local-6989586621680421150"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;participants&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; [OnChainId] -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">[OnChainId]
-</span><a href="#local-6989586621680420598"><span class="hs-identifier hs-var">participants</span></a></span><span>
+</span><a href="#local-6989586621680421151"><span class="hs-identifier hs-var">participants</span></a></span><span>
 </span><span id="line-65"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;contestationPeriod&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; ContestationPeriod -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621680420599"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421152"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
 </span><span id="line-66"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;depositPeriod&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; DepositPeriod -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
-</span><a href="#local-6989586621680420600"><span class="hs-identifier hs-var">depositPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421153"><span class="hs-identifier hs-var">depositPeriod</span></a></span><span>
 </span><span id="line-67"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;unsyncedPeriod&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; UnsyncedPeriod -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod
-</span><a href="#local-6989586621680420601"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
+</span><a href="#local-6989586621680421154"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
 </span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;configuredPeers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680420602"><span class="hs-identifier hs-var">configuredPeers</span></a></span><span>
+</span><a href="#local-6989586621680421155"><span class="hs-identifier hs-var">configuredPeers</span></a></span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-70"></span><span>
 </span><span id="line-71"></span><span class="hs-comment">-- | 'FromJSON' is provided only so that types embedding 'Environment'</span><span>
@@ -238,17 +238,17 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span id="line-74"></span><span class="hs-comment">-- placeholder, NOT the real key: real signing keys must always be loaded</span><span>
 </span><span id="line-75"></span><span class="hs-comment">-- from disk via the text-envelope path. Tests that compare values for</span><span>
 </span><span id="line-76"></span><span class="hs-comment">-- equality should use the same placeholder via the 'Arbitrary' instance.</span><span>
-</span><span id="line-77"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680420605"><span id="local-6989586621680420609"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-78"></span><span>  </span><span id="local-6989586621680420645"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser Environment
-</span><a href="#local-6989586621680420645"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-77"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680421158"><span id="local-6989586621680421162"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621680421198"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser Environment
+</span><a href="#local-6989586621680421198"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; (Object -&gt; Parser Environment) -&gt; Value -&gt; Parser Environment
 forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;Environment&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser Environment) -&gt; Value -&gt; Parser Environment)
 -&gt; (Object -&gt; Parser Environment) -&gt; Value -&gt; Parser Environment
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680420647"><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680421200"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">Party
 -&gt; Secret (SigningKey HydraKey)
 -&gt; [Party]
@@ -280,7 +280,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
       -&gt; Environment)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Party
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Party
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;party&quot;</span></span><span>
@@ -329,7 +329,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [Party]
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [Party]
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;otherParties&quot;</span></span><span>
@@ -347,7 +347,7 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [OnChainId]
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [OnChainId]
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;participants&quot;</span></span><span>
@@ -359,7 +359,7 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser ContestationPeriod
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser ContestationPeriod
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;contestationPeriod&quot;</span></span><span>
@@ -369,7 +369,7 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser DepositPeriod
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser DepositPeriod
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;depositPeriod&quot;</span></span><span>
@@ -378,7 +378,7 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser UnsyncedPeriod
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser UnsyncedPeriod
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;unsyncedPeriod&quot;</span></span><span>
@@ -386,7 +386,7 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680420647"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
+</span><a href="#local-6989586621680421200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;configuredPeers&quot;</span></span><span>
@@ -402,30 +402,30 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-string">&quot;placeholder&quot;</span></span><span>
 </span><span id="line-95"></span><span>
 </span><span id="line-96"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasParty</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-97"></span><span>  </span><span id="local-6989586621680420653"><span class="annot"><span class="annottext">getParty :: Environment -&gt; Party
-</span><a href="#local-6989586621680420653"><span class="hs-identifier hs-var hs-var hs-var hs-var">getParty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment -&gt; Party
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621680421206"><span class="annot"><span class="annottext">getParty :: Environment -&gt; Party
+</span><a href="#local-6989586621680421206"><span class="hs-identifier hs-var hs-var hs-var hs-var">getParty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment -&gt; Party
 </span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-98"></span><span>
 </span><span id="line-99"></span><span class="annot"><span class="hs-comment">-- | Make 'HeadParameters' that are consistent with the given 'Environment'.</span></span><span>
 </span><span id="line-100"></span><span class="annot"><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-type">mkHeadParameters</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
 </span><span id="line-101"></span><span id="mkHeadParameters"><span class="annot"><span class="annottext">mkHeadParameters :: Environment -&gt; HeadParameters
-</span><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-var hs-var">mkHeadParameters</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680420657"><span class="annot"><span class="annottext">Party
+</span><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-var hs-var">mkHeadParameters</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680421210"><span class="annot"><span class="annottext">Party
 $sel:party:Environment :: Environment -&gt; Party
 party :: Party
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420658"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421211"><span class="annot"><span class="annottext">[Party]
 $sel:otherParties:Environment :: Environment -&gt; [Party]
 otherParties :: [Party]
-</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420659"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421212"><span class="annot"><span class="annottext">ContestationPeriod
 $sel:contestationPeriod:Environment :: Environment -&gt; ContestationPeriod
 contestationPeriod :: ContestationPeriod
 </span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-102"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ContestationPeriod
 contestationPeriod :: ContestationPeriod
 $sel:contestationPeriod:HeadParameters :: ContestationPeriod
-</span><a href="#local-6989586621680420659"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
+</span><a href="#local-6989586621680421212"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
 </span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680420657"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
+</span><a href="#local-6989586621680421210"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680420658"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680421211"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-103"></span></pre></body></html>

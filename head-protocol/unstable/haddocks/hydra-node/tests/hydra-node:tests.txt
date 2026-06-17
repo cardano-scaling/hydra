@@ -599,6 +599,8 @@ roundtripPParams :: PParams LedgerEra -> Property
 applyTransactionsEquivalence :: Property
 appliesValidTransaction :: Property
 appliesValidTransactionFromJSON :: Property
+reapplyEquivalence :: Property
+reapplyRejectsExpired :: Property
 
 -- | A transaction or transaction output can usually only contain a
 --   realistic number of native asset entries. This property checks a

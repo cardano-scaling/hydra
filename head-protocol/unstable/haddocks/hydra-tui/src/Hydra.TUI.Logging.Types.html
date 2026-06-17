@@ -10,7 +10,7 @@
 </span><span id="line-10"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Success"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span></span><span>
 </span><span id="line-11"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Info"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Info"><span class="hs-identifier hs-var">Info</span></a></span></span><span>
 </span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Error"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span></span><span>
-</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491408"><span id="local-6989586621679491410"><span class="annot"><span class="annottext">Severity -&gt; Severity -&gt; Bool
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491407"><span id="local-6989586621679491409"><span class="annot"><span class="annottext">Severity -&gt; Severity -&gt; Bool
 (Severity -&gt; Severity -&gt; Bool)
 -&gt; (Severity -&gt; Severity -&gt; Bool) -&gt; Eq Severity
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -18,7 +18,7 @@ $c== :: Severity -&gt; Severity -&gt; Bool
 == :: Severity -&gt; Severity -&gt; Bool
 $c/= :: Severity -&gt; Severity -&gt; Bool
 /= :: Severity -&gt; Severity -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491415"><span id="local-6989586621679491417"><span id="local-6989586621679491421"><span class="annot"><span class="annottext">Int -&gt; Severity -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491414"><span id="local-6989586621679491416"><span id="local-6989586621679491420"><span class="annot"><span class="annottext">Int -&gt; Severity -&gt; ShowS
 [Severity] -&gt; ShowS
 Severity -&gt; String
 (Int -&gt; Severity -&gt; ShowS)
@@ -31,7 +31,7 @@ $cshow :: Severity -&gt; String
 show :: Severity -&gt; String
 $cshowList :: [Severity] -&gt; ShowS
 showList :: [Severity] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491425"><span id="local-6989586621679491427"><span class="annot"><span class="annottext">(forall x. Severity -&gt; Rep Severity x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491424"><span id="local-6989586621679491426"><span class="annot"><span class="annottext">(forall x. Severity -&gt; Rep Severity x)
 -&gt; (forall x. Rep Severity x -&gt; Severity) -&gt; Generic Severity
 forall x. Rep Severity x -&gt; Severity
 forall x. Severity -&gt; Rep Severity x
@@ -56,7 +56,7 @@ to :: forall x. Rep Severity x -&gt; Severity
 </span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="rawJson"><span class="annot"><span class="annottext">LogMessage -&gt; Text
 </span><a href="Hydra.TUI.Logging.Types.html#rawJson"><span class="hs-identifier hs-var hs-var">rawJson</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-22"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491437"><span id="local-6989586621679491446"><span class="annot"><span class="annottext">LogMessage -&gt; LogMessage -&gt; Bool
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491436"><span id="local-6989586621679491445"><span class="annot"><span class="annottext">LogMessage -&gt; LogMessage -&gt; Bool
 (LogMessage -&gt; LogMessage -&gt; Bool)
 -&gt; (LogMessage -&gt; LogMessage -&gt; Bool) -&gt; Eq LogMessage
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -64,7 +64,7 @@ $c== :: LogMessage -&gt; LogMessage -&gt; Bool
 == :: LogMessage -&gt; LogMessage -&gt; Bool
 $c/= :: LogMessage -&gt; LogMessage -&gt; Bool
 /= :: LogMessage -&gt; LogMessage -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491450"><span id="local-6989586621679491461"><span id="local-6989586621679491465"><span class="annot"><span class="annottext">Int -&gt; LogMessage -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491449"><span id="local-6989586621679491460"><span id="local-6989586621679491464"><span class="annot"><span class="annottext">Int -&gt; LogMessage -&gt; ShowS
 [LogMessage] -&gt; ShowS
 LogMessage -&gt; String
 (Int -&gt; LogMessage -&gt; ShowS)
@@ -79,7 +79,7 @@ $cshow :: LogMessage -&gt; String
 show :: LogMessage -&gt; String
 $cshowList :: [LogMessage] -&gt; ShowS
 showList :: [LogMessage] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491468"><span id="local-6989586621679491470"><span class="annot"><span class="annottext">(forall x. LogMessage -&gt; Rep LogMessage x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491467"><span id="local-6989586621679491469"><span class="annot"><span class="annottext">(forall x. LogMessage -&gt; Rep LogMessage x)
 -&gt; (forall x. Rep LogMessage x -&gt; LogMessage) -&gt; Generic LogMessage
 forall x. Rep LogMessage x -&gt; LogMessage
 forall x. LogMessage -&gt; Rep LogMessage x
@@ -93,7 +93,7 @@ to :: forall x. Rep LogMessage x -&gt; LogMessage
 </span><span id="line-24"></span><span>
 </span><span id="line-25"></span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#EventHistoryFilter"><span class="hs-identifier hs-type">EventHistoryFilter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Type"><span class="hs-identifier hs-type">Type</span></a></span><span>
 </span><span id="line-26"></span><span class="hs-keyword">data</span><span> </span><span id="EventHistoryFilter"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#EventHistoryFilter"><span class="hs-identifier hs-var">EventHistoryFilter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ShowAll"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#ShowAll"><span class="hs-identifier hs-var">ShowAll</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="ErrorsOnly"><span class="annot"><a href="Hydra.TUI.Logging.Types.html#ErrorsOnly"><span class="hs-identifier hs-var">ErrorsOnly</span></a></span></span><span>
-</span><span id="line-27"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491475"><span id="local-6989586621679491477"><span class="annot"><span class="annottext">EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
+</span><span id="line-27"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679491474"><span id="local-6989586621679491476"><span class="annot"><span class="annottext">EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
 (EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool)
 -&gt; (EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool)
 -&gt; Eq EventHistoryFilter
@@ -102,7 +102,7 @@ $c== :: EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
 == :: EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
 $c/= :: EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
 /= :: EventHistoryFilter -&gt; EventHistoryFilter -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491481"><span id="local-6989586621679491483"><span id="local-6989586621679491487"><span class="annot"><span class="annottext">Int -&gt; EventHistoryFilter -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491480"><span id="local-6989586621679491482"><span id="local-6989586621679491486"><span class="annot"><span class="annottext">Int -&gt; EventHistoryFilter -&gt; ShowS
 [EventHistoryFilter] -&gt; ShowS
 EventHistoryFilter -&gt; String
 (Int -&gt; EventHistoryFilter -&gt; ShowS)
@@ -117,7 +117,7 @@ $cshow :: EventHistoryFilter -&gt; String
 show :: EventHistoryFilter -&gt; String
 $cshowList :: [EventHistoryFilter] -&gt; ShowS
 showList :: [EventHistoryFilter] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491490"><span id="local-6989586621679491492"><span class="annot"><span class="annottext">(forall x. EventHistoryFilter -&gt; Rep EventHistoryFilter x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679491489"><span id="local-6989586621679491491"><span class="annot"><span class="annottext">(forall x. EventHistoryFilter -&gt; Rep EventHistoryFilter x)
 -&gt; (forall x. Rep EventHistoryFilter x -&gt; EventHistoryFilter)
 -&gt; Generic EventHistoryFilter
 forall x. Rep EventHistoryFilter x -&gt; EventHistoryFilter
