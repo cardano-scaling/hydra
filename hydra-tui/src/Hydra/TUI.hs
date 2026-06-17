@@ -23,6 +23,7 @@ import Hydra.Chain.Blockfrost.Client as BF
 import Hydra.Chain.CardanoClient as CC
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..), withClient)
+import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (BlockfrostOptions (..), defaultBFQueryTimeout, defaultBFRetryTimeout)
 import Hydra.TUI.Config (Theme (..), TuiConfig (..), readConfig)
 import Hydra.TUI.Drawing
@@ -59,16 +60,17 @@ mkBFClient networkId bfProject =
     }
 
 runWithVty :: IO Vty -> Options -> IO RootState
-runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConnection} = do
+runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConnection, fuelVerificationKey} = do
   cfg <- readConfig
   eventChan <- newBChan 10
+  fuelVk <- traverse readFileTextEnvelopeThrow fuelVerificationKey
   withAsyncLabelled ("run-vty-timer", timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
     withClient @Tx options (writeBChan eventChan . NodeEvent) $ \hydraClient -> do
       initialVty <- buildVty
       now <- getCurrentTime
       tz <- getCurrentTimeZone
-      customMain initialVty buildVty (Just eventChan) (app hydraClient eventChan) (initialState now tz cfg)
+      customMain initialVty buildVty (Just eventChan) (app hydraClient eventChan) (initialState now tz cfg fuelVk)
  where
   app hydraClient chan =
     App
@@ -83,7 +85,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
           DarkTheme -> darkStyle s
           LightTheme -> lightStyle s
       }
-  initialState now tz cfg =
+  initialState now tz cfg fuelVk =
     RootState
       { nodeHost = hydraNodeHost
       , now
@@ -95,6 +97,8 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , eventHistoryList = emptyEventHistoryList
       , pendingAction = Nothing
       , l1UTxO = Nothing
+      , fuelVk
+      , fuelUTxO = Nothing
       , previousTab = MainTab
       , theme = cfg.theme
       , recoveryForm = Nothing
