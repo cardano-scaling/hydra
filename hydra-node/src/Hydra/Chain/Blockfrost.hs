@@ -220,26 +220,19 @@ blockfrostChainFollow ::
   TinyWallet m ->
   m ()
 blockfrostChainFollow tracer prj prefix handler wallet = do
-  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
-    Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
-
-  let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
-
-  -- Start from the latest point and fall back to older ones (best effort)
-  -- If none of them can be resolved, we fall back to the tip of the chain.
-  blockHash <- resolvePrefixPoints (toList prefix)
-
-  stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
-
-  -- Catch-up with retry protection
-  void $
-    retryOnBlockfrostError
-      tracer
-      maxRetries
-      ( \_ -> do
-          currentHash <- readTVarIO stateTVar
-          catchUpToLatest currentHash stateTVar
-      )
+  -- Genesis query and initial catch-up are both wrapped in retry to survive
+  -- transient HTTP errors (e.g. 403 rate limiting, connection resets).
+  (blockTime, stateTVar) <-
+    retryOnBlockfrostError tracer maxRetries $ \_ -> do
+      Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
+        Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
+      let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+      -- Start from the latest point and fall back to older ones (best effort)
+      -- If none of them can be resolved, we fall back to the tip of the chain.
+      blockHash <- resolvePrefixPoints (toList prefix)
+      stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
+      void $ catchUpToLatest blockHash stateTVar
+      pure (blockTime, stateTVar)
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
@@ -425,6 +418,9 @@ retryOnBlockfrostError tracer maxRetryCount =
   recovering
     (fullJitterBackoff 2_000 <> limitRetries maxRetryCount)
     [ \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: APIBlockfrostError) -> do
+        traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
+        pure True
+    , \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: Blockfrost.APIBlockfrostError) -> do
         traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
         pure True
     ]
