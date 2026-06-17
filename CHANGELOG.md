@@ -23,6 +23,8 @@ changes.
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
+- Fix Blockfrost chain backend error handling and resilience [#2729](https://github.com/cardano-scaling/hydra/pull/2729)
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
