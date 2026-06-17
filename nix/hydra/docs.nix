@@ -1,5 +1,5 @@
 { self, inputs, ... }: {
-  perSystem = { self', pkgs, lib, system, ... }: {
+  perSystem = { self', pkgs, lib, ... }: {
     packages = rec {
       docs =
         let
@@ -30,7 +30,7 @@
           # outputs, but they must be present for the docusaurus build.
           preBuild = ''
             mkdir -p static
-            cp ${inputs.hydra-spec.packages.${system}.default}/hydra-spec.pdf static/
+            cp ${self'.packages.spec}/hydra-spec.pdf static/
             cp -rL ${self'.packages.haddocks} static/haddocks
             chmod -R u+w static/haddocks
           '';

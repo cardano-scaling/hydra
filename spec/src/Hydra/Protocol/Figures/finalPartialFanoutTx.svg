@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 10 560 295">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+  <rect width="560" height="305" fill="white"/>
+  <!-- ν_head input box (blue, FanoutProgressDatum) -->
+  <rect x="15" y="80" width="200" height="82" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="15" y="80" width="200" height="24" rx="14" fill="#9DD6FE"/>
+  <rect x="15" y="90" width="200" height="14" fill="#9DD6FE"/>
+  <line x1="15" y1="104" x2="215" y2="104" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="15" y1="126" x2="215" y2="126" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="115" y="97" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <text x="115" y="120" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">val<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <text x="115" y="138" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a">fprogress, cid, k̃<tspan baseline-shift="-25%" font-size="8">H</tspan>,</text>
+  <text x="115" y="152" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a">t<tspan baseline-shift="-25%" font-size="8">final</tspan>, η, ₳<tspan baseline-shift="-25%" font-size="8">o</tspan></text>
+  <!-- finalPartialFanoutTx box -->
+  <rect x="285" y="20" width="250" height="258" rx="2" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="286" y="21" width="248" height="27" rx="0" fill="#FFEA94" stroke="none" stroke-width="0"/>
+  <text x="410" y="39" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-weight="bold">finalPartialFanoutTx</text>
+  <line x1="285" y1="48" x2="535" y2="48" stroke="#1a1a1a" stroke-width="1.5"/>
+  <line x1="385" y1="48" x2="385" y2="192" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="335" y="64" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">finalPartial</text>
+  <text x="335" y="78" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Fanout</text>
+  <text x="335" y="92" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">m, π, crsRef</text>
+  <text x="460" y="70" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">o<tspan baseline-shift="-25%" font-size="8">1</tspan></text>
+  <line x1="285" y1="84" x2="535" y2="84" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="460" y="110" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">…</text>
+  <line x1="285" y1="124" x2="535" y2="124" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="460" y="160" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">o<tspan baseline-shift="-25%" font-size="8">m</tspan></text>
+  <line x1="285" y1="192" x2="535" y2="192" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="410" y="208" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">t<tspan baseline-shift="-25%" font-size="8">min</tspan>, t<tspan baseline-shift="-25%" font-size="8">max</tspan></text>
+  <line x1="285" y1="216" x2="535" y2="216" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="410" y="232" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">κ = {k<tspan dy="4" font-size="7">i</tspan><tspan dy="-9" font-size="7">#</tspan><tspan dy="5">}</tspan></text>
+  <line x1="285" y1="240" x2="535" y2="240" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="410" y="256" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">mint = {ST, PT₁…PT<tspan baseline-shift="-25%" font-size="7">n</tspan>}⁻¹ :: cid</text>
+  <!-- arrow from input to tx box -->
+  <path d="M215,121 C242,121 265,110 285,110" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+</svg>
