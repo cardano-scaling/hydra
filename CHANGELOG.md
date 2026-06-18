@@ -10,10 +10,14 @@ changes.
 
 ## [UNRELEASED]
 
+- --deposit-period is now a protocol parameter embedded on-chain at Init time.
+  All nodes in a head must configure the same value; a mismatch causes the node
+  to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
+
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
   path and noticeably increases sustained in-head throughput for script-heavy
-  workloads. [2717](https://github.com/cardano-scaling/hydra/pull/2717)
+  workloads. [#2717](https://github.com/cardano-scaling/hydra/pull/2717)
 
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
