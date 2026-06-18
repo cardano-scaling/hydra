@@ -70,6 +70,10 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
 
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
+- --deposit-period is now a protocol parameter embedded on-chain at Init time.
+  All nodes in a head must configure the same value; a mismatch causes the node
+  to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
+
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
   path and noticeably increases sustained in-head throughput for script-heavy
