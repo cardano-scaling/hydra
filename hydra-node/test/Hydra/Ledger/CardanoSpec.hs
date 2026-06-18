@@ -6,6 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Slotting.EpochInfo (EpochInfo, epochInfoSlotToRelativeTime, fixedEpochInfo, hoistEpochInfo)
@@ -16,12 +17,14 @@ import Data.Aeson.Lens (key)
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyCons, NonEmptyOne))
 import Data.Text (unpack)
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Ledger (applyTransactions, reapplyTransactions)
+import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx)
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.Secret (mkSecret)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -41,8 +44,8 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Gen.Cardano.Api.Typed (genChainPoint)
 import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
-import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
-import Test.Hydra.Tx.Gen (genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams, testNetworkId)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -145,6 +148,8 @@ spec =
       prop "works with valid transaction" appliesValidTransaction
       prop "works with valid transaction deserialised from JSON" appliesValidTransactionFromJSON
       prop "is equivalent to folding applyTxTo for valid transactions" applyTransactionsEquivalence
+      prop "reapplyTransactions produces same UTxO as applyTransactions for valid transactions" reapplyEquivalence
+      prop "reapplyTransactions still rejects expired transactions" reapplyRejectsExpired
 
     describe "Generators" $ do
       propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
@@ -218,6 +223,35 @@ appliesValidTransactionFromJSON =
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
           & counterexample ("Initial UTxO: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON utxo))
+
+reapplyEquivalence :: Property
+reapplyEquivalence =
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+        slot = ChainSlot 0
+     in applyTransactions ledger slot utxo txs
+          === reapplyTransactions ledger slot utxo txs
+
+reapplyRejectsExpired :: Property
+reapplyRejectsExpired =
+  forAllBlind genExpiringTransaction $ \(utxo, tx) ->
+    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+        expiredSlot = ChainSlot 1000
+     in applyTransactions ledger expiredSlot utxo [tx]
+          === reapplyTransactions ledger expiredSlot utxo [tx]
+ where
+  genExpiringTransaction = do
+    (vk, sk) <- genKeyPair
+    txOut <- genOutputFor vk
+    txIn <- genTxIn
+    mkRangedTx
+      (txIn, txOut)
+      (mkVkAddress testNetworkId vk, txOutValue txOut)
+      (mkSecret sk)
+      (Nothing, Just $ TxValidityUpperBound (SlotNo 10))
+      & \case
+        Left _ -> error "cannot generate expiring tx"
+        Right tx -> pure (UTxO.singleton txIn txOut, tx)
 
 -- | A transaction or transaction output can usually only contain a realistic
 -- number of native asset entries. This property checks a realistic order of
