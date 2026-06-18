@@ -28,6 +28,9 @@ data Options = Options
   , cardanoNetworkId :: NetworkId
   , cardanoSigningKey :: FilePath
   -- ^ User key used by the tui client to commit
+  , fuelVerificationKey :: Maybe FilePath
+  -- ^ Optional verification key of the hydra-node's internal wallet, used only
+  -- to display the node's available fuel. Never used for committing.
   }
   deriving stock (Eq, Show)
 
@@ -38,6 +41,7 @@ parseOptions =
       <*> parsecardanoConnection
       <*> networkIdParser
       <*> parseCardanoSigningKey
+      <*> parseFuelVerificationKey
   )
     <**> versionInfo
  where
@@ -99,3 +103,12 @@ parseCardanoSigningKey =
         <> value "me.sk"
         <> showDefault
     )
+
+parseFuelVerificationKey :: Parser (Maybe FilePath)
+parseFuelVerificationKey =
+  optional $
+    strOption
+      ( long "fuel-key"
+          <> metavar "FILE"
+          <> help "The path to the verification key file of the hydra-node's internal wallet. When provided, the Funds tab shows the node's available fuel (UTxO usable to pay for layer 1 protocol transactions). This fuel is display-only and never used to commit. Uses the same 'TextEnvelope' format as cardano-cli."
+      )

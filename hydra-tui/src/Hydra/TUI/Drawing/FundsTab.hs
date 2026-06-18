@@ -6,7 +6,7 @@ import Hydra.Prelude hiding (Down, State)
 
 import Brick
 import Brick.Forms (Form, formState, renderForm)
-import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel)
+import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel, vBorder)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Hydra.Cardano.Api hiding (Active, getVerificationKey)
@@ -39,9 +39,15 @@ drawFundsTab CardanoClient{networkId} Client{sk} s =
           scrollableViewport fundsL2ViewportName $
             padLeftRight 1 drawL2
       , hBorderWithLabel (withAttr neutral $ txt " L1 Wallet ")
-      , scrollableViewport fundsL1ViewportName $
-          padLeftRight 1 $
-            drawL1WalletPanel (s ^. l1UTxOL) ownAddress (s ^. nowL)
+      , hBox
+          [ scrollableViewport fundsL1ViewportName $
+              padLeftRight 1 $
+                drawWalletColumn "Funds" ownAddress (s ^. l1UTxOL) (s ^. nowL)
+          , vBorder
+          , scrollableViewport fundsFuelViewportName $
+              padLeftRight 1 $
+                drawFuelColumn networkId (s ^. fuelVkL) (s ^. fuelUTxOL) (s ^. nowL)
+          ]
       ]
  where
   vk = getVerificationKey sk
@@ -50,18 +56,33 @@ drawFundsTab CardanoClient{networkId} Client{sk} s =
     Disconnected -> withAttr neutral $ txt "Not connected."
     Connected k -> drawFocusPanel networkId vk (s ^. nowL) k
 
--- | Render the L1 wallet panel: a spinner while the L1 query is in flight,
--- otherwise the UTxO listing (or a placeholder when empty).
-drawL1WalletPanel :: Maybe (Map TxIn (TxOut CtxUTxO)) -> AddressInEra -> UTCTime -> Widget Name
-drawL1WalletPanel Nothing _ now =
-  withAttr neutral $ padAll 1 $ txt (spinnerFrame now <> " Refreshing…")
-drawL1WalletPanel (Just utxo) ownAddress _
-  | Map.null utxo = withAttr neutral $ padAll 1 $ txt "No UTxO found."
-  | otherwise =
-      vBox
-        [ withAttr neutral $ txt "Wallet UTxO"
-        , drawUTxO (highlightOwnAddress ownAddress) (UTxO.fromMap utxo)
-        ]
+-- | Render one L1 wallet column under the given header: a spinner while the L1
+-- query is in flight, otherwise the UTxO listing (or a placeholder when empty).
+drawWalletColumn :: Text -> AddressInEra -> Maybe (Map TxIn (TxOut CtxUTxO)) -> UTCTime -> Widget Name
+drawWalletColumn title _ Nothing now =
+  vBox
+    [ withAttr neutral $ txt title
+    , withAttr neutral $ padAll 1 $ txt (spinnerFrame now <> " Refreshing…")
+    ]
+drawWalletColumn title ownAddress (Just utxo) _ =
+  vBox
+    [ withAttr neutral $ txt title
+    , if Map.null utxo
+        then withAttr neutral $ padAll 1 $ txt "No UTxO found."
+        else drawUTxO (highlightOwnAddress ownAddress) (UTxO.fromMap utxo)
+    ]
+
+-- | Render the Fuel column: the node's internal-wallet UTxO usable to pay for
+-- layer 1 protocol transactions. Display-only; never used to commit. Shows a
+-- hint when no fuel key was configured (no @--fuel-key@).
+drawFuelColumn :: NetworkId -> Maybe (VerificationKey PaymentKey) -> Maybe (Map TxIn (TxOut CtxUTxO)) -> UTCTime -> Widget Name
+drawFuelColumn _ Nothing _ _ =
+  vBox
+    [ withAttr neutral $ txt "Fuel"
+    , withAttr neutral $ padAll 1 $ txt "No fuel key configured."
+    ]
+drawFuelColumn networkId (Just fuelVk) mUtxo now =
+  drawWalletColumn "Fuel" (mkVkAddress networkId fuelVk) mUtxo now
 
 -- | The focus panel shows the active head state in detail.
 -- Used by both the Funds tab (L2 section) and the Modal tab.

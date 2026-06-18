@@ -171,11 +171,15 @@ spec = do
           shouldRender "Connected"
           -- MainTab is the default and renders the recent-events strip.
           shouldRender "Recent events"
-          -- Press 2: FundsTab shows the L2 State / L1 Wallet labels.
+          -- Press 2: FundsTab shows the L2 State / L1 Wallet labels and the
+          -- side-by-side Funds/Fuel columns. No --fuel-key was configured here,
+          -- so the Fuel column shows its not-configured hint.
           sendInputEvent $ EvKey (KChar '2') []
           threadDelay 1
           shouldRender "L2 State"
           shouldRender "L1 Wallet"
+          shouldRender "Fuel"
+          shouldRender "No fuel key configured."
           -- Press 3: EventHistoryTab shows the Event History panel and Detail
           -- pane.
           sendInputEvent $ EvKey (KChar '3') []
@@ -421,6 +425,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                 , cardanoNetworkId =
                     networkId
                 , cardanoSigningKey = externalKeyFilePath
+                , fuelVerificationKey = Nothing
                 }
         )
         ( "action-brick-test"
@@ -474,6 +479,7 @@ setupNodeAndTUI' hostname lovelace action =
                     , cardanoNetworkId =
                         networkId
                     , cardanoSigningKey = externalKeyFilePath
+                    , fuelVerificationKey = Nothing
                     }
               )
               ("action-brick-test", action brickTest)

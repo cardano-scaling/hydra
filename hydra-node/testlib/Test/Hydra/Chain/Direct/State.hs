@@ -285,7 +285,10 @@ genRecoverTx = do
   (_, _, _, txDeposit) <- genDepositTx maximumNumberOfParties
   let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
-  slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
+  -- NOTE: Strictly after the deadline: the deposit validator's recover branch
+  -- requires the tx lower-validity bound to be > deadline, and the deadline
+  -- lands exactly on a slot boundary here, so deadlineSlot itself would fail.
+  slotAfterDeadline <- chooseEnum (deadlineSlot + 1, deadlineSlot + 86400)
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
   pure (utxoFromTx txDeposit, tx)
 

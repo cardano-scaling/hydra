@@ -217,6 +217,10 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
 ```
 
+The `hydra-tui` can display this fuel alongside the commit funds on the `Funds`
+tab: pass the internal wallet's verification key via `--fuel-key cardano.vk`.
+The fuel listing is display-only and is never used when committing.
+
 While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to deposit **funds** into an open Hydra head. The `hydra-node` provides an HTTP endpoint at `POST /commit`, allowing you to specify either:
  - A set of `UTXO` outputs to deposit (belonging to public keys), or
  - A _blueprint_ transaction along with the `UTXO` that resolves it.
