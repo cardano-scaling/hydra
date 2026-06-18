@@ -86,12 +86,15 @@ handleEvent cardanoClient client chan = \case
         recoveryFormL .= Nothing
         pendingActionL .= Nothing
         l1UTxOL .= Nothing
+        fuelUTxOL .= Nothing
         tab <- use activeTabL
         when (tab == ModalTab) leaveModal
       _ -> pure ()
   AppEvent (L1UTxORefresh utxo) -> do
     l1UTxOL .= Just utxo
     pendingActionL .= Just "Update complete"
+  AppEvent (FuelUTxORefresh utxo) ->
+    fuelUTxOL .= Just utxo
   AppEvent (TxBuildError msg) -> pendingActionL .= Just msg
   AppEvent (UTxOQueryResult utxo) -> do
     l1UTxOL .= Just utxo
@@ -178,6 +181,7 @@ handleEvent cardanoClient client chan = \case
         case tab of
           FundsTab -> do
             l1UTxOL .= Nothing
+            fuelUTxOL .= Nothing
             pendingActionL .= Just "Updating L1 wallet…"
             triggerL1Query cardanoClient client chan
           _ -> pure ()
@@ -671,6 +675,14 @@ mkMyAddress cardanoClient hydraClient =
     (PaymentCredentialByKey . verificationKeyHash $ getVerificationKey $ sk hydraClient)
     NoStakeAddress
 
+-- | Derive the node's internal-wallet (fuel) address from its verification key.
+mkFuelAddress :: CardanoClient -> VerificationKey PaymentKey -> Address ShelleyAddr
+mkFuelAddress cardanoClient fuelVk =
+  makeShelleyAddress
+    (networkId cardanoClient)
+    (PaymentCredentialByKey $ verificationKeyHash fuelVk)
+    NoStakeAddress
+
 -- | Convert a user-entered ADA amount to lovelace. The TUI accepts amounts
 -- as 'Double' for usability (typing decimals), so any precision finer than
 -- one lovelace is silently rounded. 'Double' represents integers exactly up
@@ -816,6 +828,11 @@ triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM
 triggerL1Query cardanoClient client chan = do
   let myAddr = mkMyAddress cardanoClient client
   liftIO $ queryL1UTxOAsync cardanoClient myAddr chan L1UTxORefresh "L1 wallet refresh failed"
+  -- When a fuel key is configured, also refresh the node's internal-wallet
+  -- UTxO. This is display-only and is never used for committing.
+  mFuelVk <- use fuelVkL
+  forM_ mFuelVk $ \fuelVk ->
+    liftIO $ queryL1UTxOAsync cardanoClient (mkFuelAddress cardanoClient fuelVk) chan FuelUTxORefresh "Fuel wallet refresh failed"
 
 triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1IfNeeded cardanoClient client chan = do

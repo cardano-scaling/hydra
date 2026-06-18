@@ -35,6 +35,7 @@ data TUIEvent tx
   = NodeEvent (HydraEvent tx)
   | UTxOQueryResult (Map TxIn (TxOut CtxUTxO))
   | L1UTxORefresh (Map TxIn (TxOut CtxUTxO))
+  | FuelUTxORefresh (Map TxIn (TxOut CtxUTxO))
   | TxBuildError Text
 
 data RootState = RootState
@@ -48,6 +49,11 @@ data RootState = RootState
   , eventHistoryList :: BrickList.List Name LogMessage
   , pendingAction :: Maybe Text
   , l1UTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
+  , fuelVk :: Maybe (VerificationKey PaymentKey)
+  -- ^ Verification key of the node's internal wallet, if a fuel key was
+  -- configured. Used to derive the fuel address and highlight its outputs.
+  , fuelUTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
+  -- ^ Last queried UTxO at the fuel address. Display-only; never committed.
   , previousTab :: ActiveTab
   , theme :: Theme
   , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
@@ -185,6 +191,8 @@ makeLensesFor
   , ("eventHistoryList", "eventHistoryListL")
   , ("pendingAction", "pendingActionL")
   , ("l1UTxO", "l1UTxOL")
+  , ("fuelVk", "fuelVkL")
+  , ("fuelUTxO", "fuelUTxOL")
   , ("previousTab", "previousTabL")
   , ("theme", "themeL")
   , ("recoveryForm", "recoveryFormL")
@@ -231,6 +239,9 @@ fundsL2ViewportName = "funds-l2"
 
 fundsL1ViewportName :: Name
 fundsL1ViewportName = "funds-l1"
+
+fundsFuelViewportName :: Name
+fundsFuelViewportName = "funds-fuel"
 
 emptyEventHistoryList :: BrickList.List Name LogMessage
 emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1

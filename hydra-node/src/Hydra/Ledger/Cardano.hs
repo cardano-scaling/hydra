@@ -141,11 +141,11 @@ cardanoLedger globals ledgerEnv =
   toValidationError :: ApplyTxError LedgerEra -> ValidationError
   toValidationError (ConwayApplyTxError (e :| _)) = case e of
     (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
-        ValidationError $
-          "Plutus validation failed: "
-            <> msg
-            <> "Debug info: "
-            <> show (debugPlutusUnbounded (decodeUtf8 ctx) (defaultPlutusDebugOverrides {pdoExUnitsEnforced = True}))
+      ValidationError $
+        "Plutus validation failed: "
+          <> msg
+          <> "Debug info: "
+          <> show (debugPlutusUnbounded (decodeUtf8 ctx) (defaultPlutusDebugOverrides{pdoExUnitsEnforced = True}))
     _ -> ValidationError $ show e
 
 -- * LedgerEnv
