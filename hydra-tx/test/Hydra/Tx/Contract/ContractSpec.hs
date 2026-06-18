@@ -70,6 +70,7 @@ import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyIn
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Observe (observeDepositTx)
 import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
@@ -120,7 +121,7 @@ spec = parallel $ do
       let (tx, _) = healthyInitTx
           headOut = fromJust $ txOuts' tx !!? 0
           n = length healthyParticipants
-          HeadParameters{parties, contestationPeriod} = healthyHeadParameters
+          HeadParameters{parties, contestationPeriod, depositPeriod} = healthyHeadParameters
           worstCaseDatum :: TxOutDatum CtxTx
           worstCaseDatum =
             mkTxOutDatumInline $
@@ -129,6 +130,7 @@ spec = parallel $ do
                   { headId = toPlutusCurrencySymbol testPolicyId
                   , parties = map partyToChain parties
                   , contestationPeriod = toChain contestationPeriod
+                  , depositPeriod = DP.toChain depositPeriod
                   , version = 0
                   , snapshotNumber = 0
                   , contesters = replicate (n - 1) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)

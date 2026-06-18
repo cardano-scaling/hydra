@@ -693,6 +693,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
           { Head.headSeed = _prevHeadSeed
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
+          , Head.depositPeriod = prevDepositPeriod
           , Head.version = prevVersion
           } = prevOpenDatum
 
@@ -717,6 +718,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             { Head.headId = headIdToCurrencySymbol headId
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
+            , Head.depositPeriod = prevDepositPeriod
             , Head.version = prevVersion
             , Head.snapshotNumber = 0
             , Head.contesters = []

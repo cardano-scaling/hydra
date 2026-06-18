@@ -25,13 +25,14 @@ import Hydra.Plutus.Orphans ()
 import Hydra.Tx (ScriptRegistry (..), mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
@@ -118,6 +119,7 @@ healthyFanoutDatum =
           partyToChain <$> healthyParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0

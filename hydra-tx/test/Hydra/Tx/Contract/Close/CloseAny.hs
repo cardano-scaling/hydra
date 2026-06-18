@@ -143,6 +143,7 @@ healthyCloseAnyTx =
       { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
+      , openDepositPeriod = DP.toChain Fixture.dperiod
       }
 
 data CloseMutation

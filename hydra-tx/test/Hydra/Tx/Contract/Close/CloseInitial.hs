@@ -134,6 +134,7 @@ healthyCloseInitialTx =
       { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut initialDatum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
+      , openDepositPeriod = DP.toChain Fixture.dperiod
       }
 
   headId = mkHeadId Fixture.testPolicyId
