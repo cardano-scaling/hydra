@@ -58,6 +58,7 @@ import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAd
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (NodeState (..))
+import Hydra.Options (defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
@@ -272,6 +273,7 @@ instance StateModel WorldState where
                   HeadParameters
                     { parties = idleParties
                     , contestationPeriod = contestationPeriod
+                    , depositPeriod = defaultDepositPeriod
                     }
               , offChainState = OffChainState{confirmedUTxO = mempty}
               , committed = mempty

@@ -142,17 +142,20 @@ checkHeadState tracer env headState = do
   paramsMismatch =
     maybe [] validateParameters $ getHeadParameters headState
 
-  validateParameters HeadParameters{contestationPeriod = loadedCp, parties} =
+  validateParameters HeadParameters{contestationPeriod = loadedCp, depositPeriod = loadedDp, parties} =
     execWriter $ do
       when (loadedCp /= configuredCp) $
         tell [ContestationPeriodMismatch{loadedCp, configuredCp}]
+
+      when (loadedDp /= configuredDp) $
+        tell [DepositPeriodMismatch{loadedDp, configuredDp}]
 
       let loadedParties = sort parties
           configuredParties = sort (party : otherParties)
       when (loadedParties /= configuredParties) $
         tell [PartiesMismatch{loadedParties, configuredParties}]
 
-  Environment{contestationPeriod = configuredCp, otherParties, party} = env
+  Environment{contestationPeriod = configuredCp, depositPeriod = configuredDp, otherParties, party} = env
 
 -- * Create and run a hydra node
 

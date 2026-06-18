@@ -35,6 +35,7 @@ import Test.Hydra.Tx.Fixture (
   carol,
   cperiod,
   deriveOnChainId,
+  dperiod,
   testHeadId,
   testHeadSeed,
  )
@@ -97,6 +98,7 @@ sampleOnInitTx =
             , headParameters =
                 HeadParameters
                   { contestationPeriod = cperiod
+                  , depositPeriod = dperiod
                   , parties = [alice, bob, carol]
                   }
             , participants = deriveOnChainId <$> [alice, bob, carol]

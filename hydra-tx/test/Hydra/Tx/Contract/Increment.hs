@@ -26,6 +26,7 @@ import Hydra.Tx.Contract.Deposit (healthyDeadline)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Deposit qualified as Deposit
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (incrementTx)
@@ -38,7 +39,7 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genMintedOrBurnedValue, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -76,6 +77,7 @@ healthyIncrementTx =
     HeadParameters
       { parties = healthyParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = dperiod
       }
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -159,6 +161,7 @@ healthyDatum =
     Head.OpenDatum
       { parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , version = toInteger healthySnapshotVersion

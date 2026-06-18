@@ -131,8 +131,9 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                 , headParameters =
                     HeadParameters
                       { parties = sort (party : otherParties)
-                      , -- NOTE: This is irrelevant in offline mode.
+                      , -- NOTE: These are irrelevant in offline mode.
                         contestationPeriod = defaultContestationPeriod
+                      , depositPeriod = defaultDepositPeriod
                       }
                 , participants = []
                 }

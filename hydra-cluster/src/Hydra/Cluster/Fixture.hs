@@ -10,6 +10,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Tx (Party, deriveParty)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.Secret (Secret)
 
 alice, bob, carol :: Party
@@ -32,6 +33,9 @@ cperiod = UnsafeContestationPeriod 10
 
 blockfrostcperiod :: ContestationPeriod
 blockfrostcperiod = UnsafeContestationPeriod 200
+
+dperiod :: DepositPeriod
+dperiod = DepositPeriod 3600
 
 -- NOTE: This is hard-coded and needs to correspond to the initial funds set in
 -- the genesis-shelley.json file.

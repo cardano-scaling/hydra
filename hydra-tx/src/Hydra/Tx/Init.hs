@@ -11,7 +11,8 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.ContestationPeriod (fromChain, toChain)
+import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
@@ -63,7 +64,7 @@ initTx networkId pparams seedTxIn participants parameters =
         Head.ClosedDatum
           { headId = toPlutusCurrencySymbol tokenPolicyId
           , parties = map partyToChain parties
-          , contestationPeriod = toChain contestationPeriod
+          , contestationPeriod = ContestationPeriod.toChain contestationPeriod
           , version = toInteger (maxBound @Word64)
           , snapshotNumber = toInteger (maxBound @Word64)
           , contesters = replicate (length participants) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
@@ -83,13 +84,14 @@ initTx networkId pparams seedTxIn participants parameters =
           { headSeed = toPlutusTxOutRef seedTxIn
           , headId = toPlutusCurrencySymbol tokenPolicyId
           , parties = map partyToChain parties
-          , contestationPeriod = toChain contestationPeriod
+          , contestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , depositPeriod = DepositPeriod.toChain depositPeriod
           , version = 0
           , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
           , headAdaOverhead = let Coin n = selectLovelace worstCaseMinLovelace in n
           }
 
-  HeadParameters{contestationPeriod, parties} = parameters
+  HeadParameters{contestationPeriod, depositPeriod, parties} = parameters
 
 mkHeadOutput :: NetworkId -> PolicyId -> [OnChainId] -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId participants datum =
@@ -138,10 +140,10 @@ observeInitTx tx = do
     findFirst matchHeadOutput (txOuts' tx) ?> NoHeadOutput
 
   -- check that we have a proper head
-  (pid, contestationPeriod, onChainParties, seedTxIn) <- case headState of
-    Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod} -> do
+  (pid, contestationPeriod, depositPeriod, onChainParties, seedTxIn) <- case headState of
+    Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod, depositPeriod} -> do
       pid <- fromPlutusCurrencySymbol headId ?> NotAHeadPolicy
-      pure (pid, fromChain contestationPeriod, parties, fromPlutusTxOutRef headSeed)
+      pure (pid, ContestationPeriod.fromChain contestationPeriod, DepositPeriod.fromChain depositPeriod, parties, fromPlutusTxOutRef headSeed)
     _ -> Left NotAHeadDatum
 
   -- Check minted value to distinguish from increment/decrement
@@ -166,7 +168,7 @@ observeInitTx tx = do
     InitObservation
       { headId = mkHeadId pid
       , headSeed = txInToHeadSeed seedTxIn
-      , headParameters = HeadParameters{contestationPeriod, parties}
+      , headParameters = HeadParameters{contestationPeriod, depositPeriod, parties}
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where
