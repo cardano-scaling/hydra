@@ -1,0 +1,36 @@
+\begin{figure}[t!]
+  \centering
+  \begin{tikzpicture}[>=stealth,auto,node distance=2.8cm, initial text=$\mathsf{deposit}$, every
+    state/.style={text width=10mm, align=center}]
+    \node[state, initial, text width=12mm] (pending) {$\mathsf{pending}$};
+    \node[state, accepting] (final) [right of=pending] {$\mathsf{final}$};
+
+    \path[->] (pending) edge [bend right=20, below] node {$\mathsf{increment}$} (final);
+    \path[->] (pending) edge [bend left=20] node {$\mathsf{recover}$} (final);
+  \end{tikzpicture}
+  \newline
+  \newline
+  \begin{tikzpicture}[>=stealth,auto,node distance=2.8cm, initial text=$\mathsf{init}$, every
+    state/.style={text width=10mm, align=center}]
+    \node[state, initial] (open) {$\stOpen$};
+    \node[state] (closed) [right of=open] {$\stClosed$};
+    \node[state, accepting] (final) [right of=closed] {$\stFinal$};
+    \node[state] (fprogress) [below of=closed,node distance=5cm] {$\stFanoutProgress$};
+
+    \path[->] (open) edge [bend left=20] node {$\stClose$} (closed);
+    \path[->] (open) edge [loop above] node {$\mathsf{increment}$} (open);
+    \path[->] (open) edge [loop below] node {$\mathsf{decrement}$} (open);
+    \path[->] (closed) edge [bend left=20] node {$\stFanout$} (final);
+    \path[->] (closed) edge [loop above] node {$\stContest$} (closed);
+      \path[->] (fprogress) edge [bend right=20] node [sloped] {$\stFinalPartialFanout$} (final);
+      \path[->] (closed) edge [bend right=20] node [sloped] {} (fprogress);
+      \path[->] (fprogress) edge [loop below] node {$\stPartialFanout$} (fprogress);
+  \end{tikzpicture}
+
+  \caption{Mainchain state diagram for this version of the Hydra protocol.}\label{fig:head-protocol-states}
+\end{figure}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End:

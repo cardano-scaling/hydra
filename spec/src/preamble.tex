@@ -1,0 +1,75 @@
+% Common packages and settings
+% Many things here are from the original hydra paper or from the formal-ledger-specifications
+
+\usepackage{amsfonts,amsmath,amssymb,amsthm}
+\usepackage[normalem]{ulem} % temporary for strikeout math
+\usepackage{enumerate}
+\usepackage[shortlabels,inline]{enumitem}
+\usepackage{wrapfig}
+
+\usepackage[lined,noend]{algorithm2e}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\usepackage{adjustbox}
+\DontPrintSemicolon
+
+\PassOptionsToPackage{hyphens}{url}
+\usepackage{fullpage}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{xifthen}
+% Keep figures in same section
+\usepackage[section]{placeins}
+\usepackage{float}
+\usepackage{pifont}
+\usepackage{multirow}
+\usepackage{tikz}
+\usetikzlibrary{automata, arrows}
+\usepackage{pgfplots}
+\usepackage[framemethod=tikz]{mdframed} % and thus tikz
+\usepackage[font=small]{caption}
+\usepackage[many]{tcolorbox}    	% for COLORED BOXES
+
+\usepackage{svg}
+\svgsetup{inkscapelatex=false}
+\usepackage{authblk}
+
+% footnotes in table and tabular
+\usepackage{footnote}
+\makesavenoteenv{tabular}
+\makesavenoteenv{table}
+% NOTE: figure savenote env conflicts with float's [H] specifier, leaking a
+% group per figure; figures here carry no footnotes, so it is not registered.
+
+\usepackage{stmaryrd} % fancy double square brackets
+\usepackage{todonotes}
+
+\setcounter{tocdepth}{2} % Override LLNCS
+
+% Highlighted agda code
+\usepackage[links]{agda}
+
+% Use a font that works well with agda
+% NOTE: Vendored from formal-ledger-specifications
+\usepackage{fontspec}
+\newcommand\agdaFont{StrippedJuliaMono}
+\newcommand\agdaFontOptions{
+Path=fonts/,
+Extension=.ttf,
+UprightFont=*-Regular,
+BoldFont=*-Bold,
+ItalicFont=*-RegularItalic,
+BoldItalicFont=*-BoldItalic,
+Scale=0.80
+}
+\newfontfamily{\AgdaSerifFont}{\agdaFont}[\agdaFontOptions]
+\newfontfamily{\AgdaSansSerifFont}{\agdaFont}[\agdaFontOptions]
+\newfontfamily{\AgdaTypewriterFont}{\agdaFont}[\agdaFontOptions]
+\renewcommand{\AgdaFontStyle}[1]{{\AgdaSansSerifFont{}#1}}
+\renewcommand{\AgdaKeywordFontStyle}[1]{{\AgdaSansSerifFont{}#1}}
+\renewcommand{\AgdaStringFontStyle}[1]{{\AgdaTypewriterFont{}#1}}
+\renewcommand{\AgdaCommentFontStyle}[1]{{\AgdaTypewriterFont{}#1}}
+\renewcommand{\AgdaBoundFontStyle}[1]{{\emph{\AgdaTypewriterFont{}#1}}}
+
+% Also use unicode compatible math fonts
+\usepackage{unicode-math}
