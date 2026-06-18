@@ -186,17 +186,22 @@ drawHeadFinalizedMessage :: UTxO -> Widget n
 
 module Hydra.TUI.Options
 data Options
-Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Options
+Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Maybe FilePath -> Options
 [hydraNodeHost] :: Options -> Host
 [cardanoConnection] :: Options -> Either FilePath SocketPath
 [cardanoNetworkId] :: Options -> NetworkId
 
 -- | User key used by the tui client to commit
 [cardanoSigningKey] :: Options -> FilePath
+
+-- | Optional verification key of the hydra-node's internal wallet, used
+--   only to display the node's available fuel. Never used for committing.
+[fuelVerificationKey] :: Options -> Maybe FilePath
 parseOptions :: Parser Options
 parsecardanoConnection :: Parser (Either FilePath SocketPath)
 parseNodeHost :: Parser Host
 parseCardanoSigningKey :: Parser FilePath
+parseFuelVerificationKey :: Parser (Maybe FilePath)
 instance GHC.Show.Show Hydra.TUI.Options.Options
 instance GHC.Classes.Eq Hydra.TUI.Options.Options
 
@@ -275,9 +280,10 @@ data TUIEvent tx
 NodeEvent :: HydraEvent tx -> TUIEvent tx
 UTxOQueryResult :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
 L1UTxORefresh :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
+FuelUTxORefresh :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
 TxBuildError :: Text -> TUIEvent tx
 data RootState
-RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> ActiveTab -> Bool -> List Name LogMessage -> Maybe Text -> Maybe (Map TxIn (TxOut CtxUTxO)) -> ActiveTab -> Theme -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -> EventHistoryFilter -> RootState
+RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> ActiveTab -> Bool -> List Name LogMessage -> Maybe Text -> Maybe (Map TxIn (TxOut CtxUTxO)) -> Maybe (VerificationKey PaymentKey) -> Maybe (Map TxIn (TxOut CtxUTxO)) -> ActiveTab -> Theme -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -> EventHistoryFilter -> RootState
 [$sel:nodeHost:RootState] :: RootState -> Host
 [$sel:now:RootState] :: RootState -> UTCTime
 [$sel:timeZone:RootState] :: RootState -> TimeZone
@@ -288,6 +294,13 @@ RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> Active
 [$sel:eventHistoryList:RootState] :: RootState -> List Name LogMessage
 [$sel:pendingAction:RootState] :: RootState -> Maybe Text
 [$sel:l1UTxO:RootState] :: RootState -> Maybe (Map TxIn (TxOut CtxUTxO))
+
+-- | Verification key of the node's internal wallet, if a fuel key was
+--   configured. Used to derive the fuel address and highlight its outputs.
+[$sel:fuelVk:RootState] :: RootState -> Maybe (VerificationKey PaymentKey)
+
+-- | Last queried UTxO at the fuel address. Display-only; never committed.
+[$sel:fuelUTxO:RootState] :: RootState -> Maybe (Map TxIn (TxOut CtxUTxO))
 [$sel:previousTab:RootState] :: RootState -> ActiveTab
 [$sel:theme:RootState] :: RootState -> Theme
 [$sel:recoveryForm:RootState] :: RootState -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
@@ -407,6 +420,8 @@ nowL :: Lens' RootState UTCTime
 nodeHostL :: Lens' RootState Host
 logStateL :: Lens' RootState LogState
 l1UTxOL :: Lens' RootState (Maybe (Map TxIn (TxOut CtxUTxO)))
+fuelVkL :: Lens' RootState (Maybe (VerificationKey PaymentKey))
+fuelUTxOL :: Lens' RootState (Maybe (Map TxIn (TxOut CtxUTxO)))
 eventHistoryListL :: Lens' RootState (List Name LogMessage)
 eventHistoryFilterL :: Lens' RootState EventHistoryFilter
 eventDetailRawL :: Lens' RootState Bool
@@ -429,6 +444,7 @@ eventHistoryListName :: Name
 mainUTxOViewportName :: Name
 fundsL2ViewportName :: Name
 fundsL1ViewportName :: Name
+fundsFuelViewportName :: Name
 emptyEventHistoryList :: List Name LogMessage
 emptyConnection :: Connection
 newActiveLink :: [Party] -> HeadId -> ActiveLink
@@ -474,6 +490,10 @@ applyEventHistoryFilter :: EventHistoryFilter -> [LogMessage] -> [LogMessage]
 toggleEventHistoryFilter :: EventHistoryFilter -> EventHistoryFilter
 myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
 mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
+
+-- | Derive the node's internal-wallet (fuel) address from its verification
+--   key.
+mkFuelAddress :: CardanoClient -> VerificationKey PaymentKey -> Address ShelleyAddr
 
 -- | Convert a user-entered ADA amount to lovelace. The TUI accepts amounts
 --   as <a>Double</a> for usability (typing decimals), so any precision
@@ -570,9 +590,15 @@ module Hydra.TUI.Drawing.FundsTab
 --   refresh panel.
 drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 
--- | Render the L1 wallet panel: a spinner while the L1 query is in flight,
---   otherwise the UTxO listing (or a placeholder when empty).
-drawL1WalletPanel :: Maybe (Map TxIn (TxOut CtxUTxO)) -> AddressInEra -> UTCTime -> Widget Name
+-- | Render one L1 wallet column under the given header: a spinner while
+--   the L1 query is in flight, otherwise the UTxO listing (or a
+--   placeholder when empty).
+drawWalletColumn :: Text -> AddressInEra -> Maybe (Map TxIn (TxOut CtxUTxO)) -> UTCTime -> Widget Name
+
+-- | Render the Fuel column: the node's internal-wallet UTxO usable to pay
+--   for layer 1 protocol transactions. Display-only; never used to commit.
+--   Shows a hint when no fuel key was configured (no <tt>--fuel-key</tt>).
+drawFuelColumn :: NetworkId -> Maybe (VerificationKey PaymentKey) -> Maybe (Map TxIn (TxOut CtxUTxO)) -> UTCTime -> Widget Name
 
 -- | The focus panel shows the active head state in detail. Used by both
 --   the Funds tab (L2 section) and the Modal tab.

@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.d959eb6e.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.6ab631c6.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.13eea07c.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.5aec8dcc.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -121,6 +121,9 @@ than half the contestation period to remain in sync.</li>
 <p>Transactions driving the head lifecycle (<code>Init</code>, <code>Close</code>, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the <code>--cardano-signing-key</code> provided to the <code>hydra-node</code> can be used to pay fees or serve as collateral for these transactions. We refer to this as <strong>fuel</strong>.</p>
 <p>Consequently, sending some ada to the address of this &#x27;internal wallet&#x27; is required. To get the address for the Cardano keys as generated above, one can use, for example, the <code>cardano-cli</code>:</p>
 <div class="language-shell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-shell codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">cardano-cli address build --verification-key-file cardano.vk --mainnet</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain"># addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
+<p>The <code>hydra-tui</code> can display this fuel alongside the commit funds on the <code>Funds</code>
+tab: pass the internal wallet&#x27;s verification key via <code>--fuel-key cardano.vk</code>.
+The fuel listing is display-only and is never used when committing.</p>
 <p>While the <code>hydra-node</code> needs to pay fees for protocol transactions, any wallet can be used to deposit <strong>funds</strong> into an open Hydra head. The <code>hydra-node</code> provides an HTTP endpoint at <code>POST /commit</code>, allowing you to specify either:</p>
 <ul>
 <li>A set of <code>UTXO</code> outputs to deposit (belonging to public keys), or</li>
