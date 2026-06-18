@@ -2,6 +2,8 @@ module Hydra.Tx.DepositPeriod where
 
 import Hydra.Prelude hiding (Show, show)
 
+import Data.Ratio ((%))
+import Data.Time (secondsToNominalDiffTime)
 import Hydra.Data.DepositPeriod qualified as OnChain
 import Text.Show (Show (..))
 
@@ -28,4 +30,7 @@ toChain (DepositPeriod dt) = OnChain.depositPeriodFromDiffTime dt
 -- | Convert an on-chain deposit period to its off-chain representation.
 -- NOTE: Truncates to whole milliseconds.
 fromChain :: OnChain.DepositPeriod -> DepositPeriod
-fromChain = DepositPeriod . OnChain.depositPeriodToDiffTime
+fromChain dp =
+  DepositPeriod
+    . secondsToNominalDiffTime
+    $ fromRational (toInteger (OnChain.milliseconds dp) % 1000)
