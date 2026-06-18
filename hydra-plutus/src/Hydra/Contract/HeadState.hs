@@ -54,6 +54,8 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: kH
   , contestationPeriod :: ContestationPeriod
   -- ^ Spec: T
+  , depositPeriod :: DepositPeriod
+  -- ^ Must match the --deposit-period of all participating nodes.
   , version :: SnapshotVersion
   -- ^ Spec: v
   , snapshotNumber :: SnapshotNumber

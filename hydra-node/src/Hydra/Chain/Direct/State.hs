@@ -76,6 +76,7 @@ import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Deposit (observeDepositTxOut)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Fanout (fanoutTx, finalPartialFanoutTx, partialFanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
@@ -386,7 +387,7 @@ close ::
   -- | 'Tx' validity upper bound
   PointInTime ->
   Either CloseTxError Tx
-close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
+close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod, depositPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
@@ -395,6 +396,7 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
         OpenThreadOutput
           { openThreadUTxO = headUTxO
           , openContestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , openDepositPeriod = DepositPeriod.toChain depositPeriod
           , openParties = partyToChain <$> parties
           }
 
@@ -446,7 +448,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
 
     case datum of
-      Head.Closed Head.ClosedDatum{contesters, parties, contestationDeadline, headAdaOverhead} -> do
+      Head.Closed Head.ClosedDatum{contesters, parties, contestationDeadline, headAdaOverhead, depositPeriod} -> do
         let closedThreadUTxO = headUTxO
             closedParties = parties
             closedContestationDeadline = contestationDeadline
@@ -458,6 +460,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
             , closedContestationDeadline
             , closedContesters
             , closedHeadAdaOverhead = headAdaOverhead
+            , closedDepositPeriod = depositPeriod
             }
       _ -> Left WrongDatumInContest
 

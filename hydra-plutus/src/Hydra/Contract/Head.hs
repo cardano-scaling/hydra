@@ -38,6 +38,7 @@ import Hydra.Contract.HeadState (
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
+import Hydra.Data.DepositPeriod (DepositPeriod)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusCore.Version (plcVersion110)
@@ -117,7 +118,7 @@ checkIncrement ::
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
   mustNotMintOrBurn txInfo
-    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId) (prevDepositPeriod, nextDepositPeriod)
     && mustIncreaseVersion
     && mustPreserveValue
     && mustBeSignedByParticipant ctx prevHeadId
@@ -189,6 +190,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   OpenDatum
     { parties = prevParties
     , contestationPeriod = prevCperiod
+    , depositPeriod = prevDepositPeriod
     , headId = prevHeadId
     , version = prevVersion
     , headAdaOverhead = prevHeadAdaOverhead
@@ -197,6 +199,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   OpenDatum
     { parties = nextParties
     , contestationPeriod = nextCperiod
+    , depositPeriod = nextDepositPeriod
     , headId = nextHeadId
     , version = nextVersion
     , accumulatorHash = nextAccumulatorHash
@@ -213,7 +216,7 @@ checkDecrement ::
   Bool
 checkDecrement ctx openBefore redeemer =
   mustNotMintOrBurn txInfo
-    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId) (prevDepositPeriod, nextDepositPeriod)
     && mustIncreaseVersion
     && checkSnapshotSignature
     && mustDecreaseValue
@@ -244,6 +247,7 @@ checkDecrement ctx openBefore redeemer =
   OpenDatum
     { parties = prevParties
     , contestationPeriod = prevCperiod
+    , depositPeriod = prevDepositPeriod
     , headId = prevHeadId
     , version = prevVersion
     , headAdaOverhead = prevHeadAdaOverhead
@@ -252,6 +256,7 @@ checkDecrement ctx openBefore redeemer =
   OpenDatum
     { parties = nextParties
     , contestationPeriod = nextCperiod
+    , depositPeriod = nextDepositPeriod
     , headId = nextHeadId
     , version = nextVersion
     , accumulatorHash = nextAccumulatorHash
@@ -297,13 +302,14 @@ checkClose ctx openBefore redeemer =
     && mustBeValidSnapshot
     && mustInitializeContesters
     && mustPreserveHeadValue ctx
-    && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId) (dperiod', dperiod)
     && mustBindAccumulatorCommitment
     && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
  where
   OpenDatum
     { parties
     , contestationPeriod = cperiod
+    , depositPeriod = dperiod
     , headId
     , version
     , headAdaOverhead
@@ -318,6 +324,7 @@ checkClose ctx openBefore redeemer =
     , parties = parties'
     , contestationDeadline = deadline
     , contestationPeriod = cperiod'
+    , depositPeriod = dperiod'
     , headId = headId'
     , contesters = contesters'
     , version = version'
@@ -410,7 +417,7 @@ checkContest ctx closedDatum redeemer =
     && mustBeWithinContestationPeriod
     && mustUpdateContesters
     && mustPushDeadline
-    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
+    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId) (depositPeriod', depositPeriod)
     && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
     && mustPreserveHeadValue ctx
     && mustBindAccumulatorCommitment
@@ -461,6 +468,7 @@ checkContest ctx closedDatum redeemer =
   ClosedDatum
     { contestationDeadline
     , contestationPeriod
+    , depositPeriod
     , parties
     , snapshotNumber
     , contesters
@@ -474,6 +482,7 @@ checkContest ctx closedDatum redeemer =
     , parties = parties'
     , contestationDeadline = contestationDeadline'
     , contestationPeriod = contestationPeriod'
+    , depositPeriod = depositPeriod'
     , headId = headId'
     , contesters = contesters'
     , version = version'
@@ -748,12 +757,14 @@ mustNotChangeParameters ::
   ([Party], [Party]) ->
   (ContestationPeriod, ContestationPeriod) ->
   (CurrencySymbol, CurrencySymbol) ->
+  (DepositPeriod, DepositPeriod) ->
   Bool
-mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId) =
+mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId) (depositPeriod', depositPeriod) =
   traceIfFalse $(errorCode ChangedParameters) $
     parties' == parties
       && contestationPeriod' == contestationPeriod
       && headId' == headId
+      && depositPeriod' == depositPeriod
 {-# INLINEABLE mustNotChangeParameters #-}
 
 mustPreserveHeadAdaOverhead :: Integer -> Integer -> Bool

@@ -65,6 +65,7 @@ initTx networkId pparams seedTxIn participants parameters =
           { headId = toPlutusCurrencySymbol tokenPolicyId
           , parties = map partyToChain parties
           , contestationPeriod = ContestationPeriod.toChain contestationPeriod
+          , depositPeriod = DepositPeriod.toChain depositPeriod
           , version = toInteger (maxBound @Word64)
           , snapshotNumber = toInteger (maxBound @Word64)
           , contesters = replicate (length participants) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
