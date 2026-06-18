@@ -42,6 +42,7 @@ import Hydra.Cluster.Fixture (
   bob,
   carol,
   cperiod,
+  dperiod,
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming, modifyConfig, readConfigFile)
 import Hydra.Ledger.Cardano (Tx)
@@ -82,7 +83,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@CardanoChainTest{} -> do
             -- Scenario
             participants <- loadParticipants [Alice, Bob, Carol]
-            let headParameters = HeadParameters cperiod [alice, bob, carol]
+            let headParameters = HeadParameters cperiod dperiod [alice, bob, carol]
             postTx $ InitTx{participants, headParameters}
             (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
             (bobHeadId, bobHeadSeed) <- bobChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
@@ -103,7 +104,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod dperiod [alice]
             postTx $ InitTx{participants, headParameters}
             (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -174,7 +175,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp (Direct directOpts) hydraScriptsTxId [] timing
         participants <- loadParticipants [Alice]
-        let headParameters = HeadParameters cperiod [alice]
+        let headParameters = HeadParameters cperiod dperiod [alice]
         -- Scenario
         tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
@@ -245,7 +246,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet (Direct directOpts) aliceExternalVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod dperiod [alice]
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 

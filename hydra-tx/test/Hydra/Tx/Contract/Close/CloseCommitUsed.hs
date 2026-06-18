@@ -44,6 +44,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
@@ -124,6 +125,7 @@ healthyCommitAppliedOpenDatum =
     Head.OpenDatum
       { parties = healthyOnChainParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = DP.toChain Fixture.dperiod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCommitAppliedOpenVersion

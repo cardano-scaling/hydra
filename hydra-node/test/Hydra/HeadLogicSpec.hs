@@ -188,7 +188,7 @@ spec =
           now <- getCurrentTime
           otherHeadId :: HeadId <- generate arbitrary
           let depositTime = plusTime now
-              deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+              deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
               deposit1 = Deposit{headId = otherHeadId, deposited = utxoRef 1, created = depositTime 1, deadline, status = Active}
               deposit2 = Deposit{headId = testHeadId, deposited = utxoRef 2, created = depositTime 2, deadline, status = Active}
               -- open state with pending deposits from another head
@@ -222,7 +222,7 @@ spec =
           now <- getCurrentTime
           let party = [alice]
               depositTime = plusTime now
-          let deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+          let deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
               deposit1 = OnDepositTx{headId = testHeadId, depositTxId = 1, deposited = utxoRef 1, created = depositTime 1, deadline}
               deposit2 = OnDepositTx{headId = testHeadId, depositTxId = 2, deposited = utxoRef 2, created = depositTime 2, deadline}
               deposit3 = OnDepositTx{headId = testHeadId, depositTxId = 3, deposited = utxoRef 3, created = depositTime 3, deadline}
@@ -235,7 +235,7 @@ spec =
 
           -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
           -- so deposits are considered Active
-          let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+          let chainTime = depositTime 4 `plusTime` toNominalDiffTime aliceEnv.depositPeriod
           let input = ChainInput $ Tick{chainTime, chainPoint = 4}
 
           let outcome = update aliceEnv ledger now nodeState input
@@ -1209,7 +1209,7 @@ spec =
             getState
 
           -- Step 2: Tick to activate deposit and trigger ReqSn
-          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime aliceEnv'.depositPeriod
               tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
           s2 <- runHeadLogic aliceEnv' ledger s1 $ do
             step tickInput
@@ -1346,7 +1346,7 @@ spec =
             step (observeTxAtSlot 1 deposit)
             getState
 
-          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime aliceEnv'.depositPeriod
               tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
           s2 <- runHeadLogic aliceEnv' ledger s1 $ do
             step tickInput
@@ -1523,7 +1523,7 @@ spec =
               inOpenState' threeParties $
                 coordinatedHeadState{confirmedSnapshot = latestConfirmedSnapshot}
             deadline = arbitrary `generateWith` 42
-            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters $ headState s0)
+            params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters $ headState s0)
         runHeadLogic bobEnv ledger s0 $ do
           o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
           lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
@@ -1539,7 +1539,7 @@ spec =
             latestConfirmedSnapshot = ConfirmedSnapshot snapshot2 (Crypto.aggregate [])
             s0 = inClosedState' threeParties latestConfirmedSnapshot
             deadline = arbitrary `generateWith` 42
-            params = fromMaybe (HeadParameters defaultContestationPeriod threeParties) (getHeadParameters (headState s0))
+            params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters (headState s0))
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
@@ -2174,7 +2174,7 @@ spec =
         let singleParty = [alice]
             plusTime = flip addUTCTime
             depositTime = plusTime now
-        let deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+        let deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
         -- party payment keys
         (vk, sk) <- pick genKeyPair
         -- helper to build deposit tx
@@ -2193,7 +2193,7 @@ spec =
               inSync $
                 Open
                   OpenState
-                    { parameters = HeadParameters defaultContestationPeriod singleParty
+                    { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod singleParty
                     , coordinatedHeadState =
                         CoordinatedHeadState
                           { localUTxO = mempty
@@ -2240,7 +2240,7 @@ spec =
 
         -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
         -- so deposits are considered Active
-        let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+        let chainTime = depositTime 4 `plusTime` toNominalDiffTime aliceEnv.depositPeriod
         blockHash' <- pick (hedgehog genBlockHeaderHash)
         let input = ChainInput $ Tick{chainTime, chainPoint = ChainPoint 4 blockHash'}
 
@@ -2288,7 +2288,7 @@ spec =
                 { headState =
                     Open
                       OpenState
-                        { parameters = HeadParameters defaultContestationPeriod threeParties
+                        { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties
                         , coordinatedHeadState =
                             CoordinatedHeadState
                               { localUTxO = uncurry UTxO.singleton utxo
@@ -2335,7 +2335,7 @@ spec =
               { headState =
                   Open
                     OpenState
-                      { parameters = HeadParameters defaultContestationPeriod threeParties
+                      { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties
                       , coordinatedHeadState =
                           CoordinatedHeadState
                             { localUTxO = mempty
@@ -2386,12 +2386,13 @@ prop_ignoresUnrelatedOnInitTx =
   genUnrelatedInit env =
     oneof
       [ genOnInitWithDifferentContestationPeriod env
+      , genOnInitWithDifferentDepositPeriod env
       , genOnInitWithoutParty env
       , genOnInitWithoutOnChainId env
       ]
 
   genOnInitWithDifferentContestationPeriod :: Environment -> Gen (OnChainTx tx)
-  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod, participants} = do
+  genOnInitWithDifferentContestationPeriod Environment{party, contestationPeriod, depositPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
     cp <- arbitrary `suchThat` (/= contestationPeriod)
@@ -2400,12 +2401,26 @@ prop_ignoresUnrelatedOnInitTx =
       OnInitTx
         { headId
         , headSeed
-        , headParameters = HeadParameters{contestationPeriod = cp, parties}
+        , headParameters = HeadParameters{contestationPeriod = cp, depositPeriod, parties}
+        , participants
+        }
+
+  genOnInitWithDifferentDepositPeriod :: Environment -> Gen (OnChainTx tx)
+  genOnInitWithDifferentDepositPeriod Environment{party, contestationPeriod, depositPeriod, participants} = do
+    headId <- arbitrary
+    headSeed <- arbitrary
+    dp <- arbitrary `suchThat` (/= depositPeriod)
+    parties <- shuffle =<< (arbitrary <&> (party :))
+    pure
+      OnInitTx
+        { headId
+        , headSeed
+        , headParameters = HeadParameters{contestationPeriod, depositPeriod = dp, parties}
         , participants
         }
 
   genOnInitWithoutParty :: Environment -> Gen (OnChainTx tx)
-  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod, participants} = do
+  genOnInitWithoutParty Environment{party, otherParties, contestationPeriod, depositPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
     allParties <- shuffle (party : otherParties)
@@ -2415,12 +2430,12 @@ prop_ignoresUnrelatedOnInitTx =
       OnInitTx
         { headId
         , headSeed
-        , headParameters = HeadParameters{contestationPeriod, parties = differentParties}
+        , headParameters = HeadParameters{contestationPeriod, depositPeriod, parties = differentParties}
         , participants
         }
 
   genOnInitWithoutOnChainId :: Environment -> Gen (OnChainTx tx)
-  genOnInitWithoutOnChainId Environment{party, otherParties, contestationPeriod, participants} = do
+  genOnInitWithoutOnChainId Environment{party, otherParties, contestationPeriod, depositPeriod, participants} = do
     headId <- arbitrary
     headSeed <- arbitrary
     differentParticipants <- case participants of
@@ -2432,7 +2447,7 @@ prop_ignoresUnrelatedOnInitTx =
       OnInitTx
         { headId
         , headSeed
-        , headParameters = HeadParameters{contestationPeriod, parties = party : otherParties}
+        , headParameters = HeadParameters{contestationPeriod, depositPeriod, parties = party : otherParties}
         , participants = differentParticipants
         }
 
@@ -2523,7 +2538,7 @@ inOpenState' parties coordinatedHeadState =
         , headSeed = testHeadSeed
         }
  where
-  parameters = HeadParameters defaultContestationPeriod parties
+  parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties
 
 -- XXX: This is always called with 'threeParties'
 inClosedState :: [Party] -> NodeState SimpleTx
@@ -2548,7 +2563,7 @@ inClosedState' parties confirmedSnapshot =
         , distributedFanoutOutputs = mempty
         }
  where
-  parameters = HeadParameters defaultContestationPeriod parties
+  parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
 
@@ -2575,7 +2590,7 @@ inClosedStateWithRemaining parties remaining =
         , distributedFanoutOutputs = mempty
         }
  where
-  parameters = HeadParameters defaultContestationPeriod parties
+  parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties
   contestationDeadline = arbitrary `generateWith` 42
 
 getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)

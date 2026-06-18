@@ -55,7 +55,7 @@ The following restrictions apply when **depositing** funds into a Hydra head (vi
 
 ### Deposit periods
 
-The `--deposit-period` allows an individual `hydra-node` operator to decide how long they want a deposit to have settled at least. However, differences bigger than [`defaultTTL * waitDelay`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay) (currently 10 minutes) result in non-approved snapshots. This is due to the way the `HeadLogic` is implemented and snapshot requests are not retried currently. See [hydra#1999](https://github.com/cardano-scaling/hydra/issues/1999) for more context.
+All `hydra-node` operators in a head must configure the same `--deposit-period`. The value is embedded on-chain in the head's `Init` transaction and validated by each node — a node with a mismatching value will ignore the head. See the [configuration documentation](./configuration#deposit-period) for details.
 
 ### Known bugs
 

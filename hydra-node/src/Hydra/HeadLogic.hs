@@ -147,6 +147,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
   | configuredParties == initializedParties
       && party `member` initializedParties
       && configuredContestationPeriod == contestationPeriod
+      && configuredDepositPeriod == depositPeriod
       && Set.fromList configuredParticipants == Set.fromList participants =
       newState
         HeadOpened
@@ -169,12 +170,13 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
 
   configuredParties = Set.fromList (party : otherParties)
 
-  HeadParameters{parties, contestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
 
   Environment
     { party
     , otherParties
     , contestationPeriod = configuredContestationPeriod
+    , depositPeriod = configuredDepositPeriod
     , participants = configuredParticipants
     } = env
 

@@ -269,7 +269,7 @@ This option only applies when connected to a Cardano chain. In [offline mode](#o
 
 ### Deposit period
 
-While not a protocol parameter, the deposit period (DP) can be set by any `hydra-node` to configure incremental commits to a head:
+The deposit period (DP) is a **protocol parameter** that must be agreed upon by all participants before opening a head. It is embedded in the on-chain head state when the head is initialized, and each `hydra-node` validates that its configured `--deposit-period` matches the on-chain value when it observes an `Init` transaction. A node with a mismatching value will ignore the head entirely.
 
 ```
 hydra-node --deposit-period 7200s

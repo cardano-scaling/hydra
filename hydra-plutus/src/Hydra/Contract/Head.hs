@@ -200,7 +200,6 @@ checkDecrement ctx openBefore redeemer =
     && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
-    -- && mustPreserveValue
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
     && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead

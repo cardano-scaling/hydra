@@ -43,6 +43,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Utils (IncrementalAction (..), adaOnly, setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
@@ -146,6 +147,7 @@ healthyInitialOpenDatum =
     Head.OpenDatum
       { parties = healthyOnChainParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = DP.toChain Fixture.dperiod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0

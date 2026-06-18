@@ -75,6 +75,7 @@ import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Deposit (observeDepositTxOut)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.Fanout (fanoutTx, finalPartialFanoutTx, partialFanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
@@ -736,6 +737,7 @@ data HydraContext = HydraContext
   , ctxHydraSigningKeys :: [Secret (SigningKey HydraKey)]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod
+  , ctxDepositPeriod :: DepositPeriod
   , ctxScriptRegistry :: ScriptRegistry
   }
   deriving stock (Show)
@@ -749,8 +751,8 @@ ctxParticipants = map verificationKeyToOnChainId . ctxVerificationKeys
 ctxHeadParameters ::
   HydraContext ->
   HeadParameters
-ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
-  HeadParameters ctxContestationPeriod (ctxParties ctx)
+ctxHeadParameters ctx@HydraContext{ctxContestationPeriod, ctxDepositPeriod} =
+  HeadParameters ctxContestationPeriod ctxDepositPeriod (ctxParties ctx)
 
 -- ** Danger zone
 

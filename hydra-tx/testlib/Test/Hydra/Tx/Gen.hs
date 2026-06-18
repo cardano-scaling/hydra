@@ -36,6 +36,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
@@ -422,6 +423,9 @@ instance Arbitrary ContestationPeriod where
     oneMonth = oneDay * 30
     oneYear = oneDay * 365
 
+instance Arbitrary DepositPeriod where
+  arbitrary = DepositPeriod . fromInteger <$> choose (1, 86400)
+
 -- | Parameter here is the contestation period (cp) so we need to generate
 -- start (tMin) and end (tMax) tx validity bound such that their difference
 -- is not higher than the cp.
@@ -503,8 +507,8 @@ instance Arbitrary Party where
 instance Arbitrary HeadParameters where
   arbitrary = dedupParties <$> genericArbitrary
    where
-    dedupParties HeadParameters{contestationPeriod, parties} =
-      HeadParameters{contestationPeriod, parties = nub parties}
+    dedupParties HeadParameters{contestationPeriod, depositPeriod, parties} =
+      HeadParameters{contestationPeriod, depositPeriod, parties = nub parties}
 
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
   arbitrary = do
