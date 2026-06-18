@@ -1,5 +1,5 @@
 {
     "type": "PaymentVerificationKeyShelley_ed25519",
     "description": "",
-    "cborHex": "58208312fcf9b2a26be0798196ff0da560cfe5ba39fc4b33225add5ad3fdf14f412a"
+    "cborHex": "5820996881ff66fe33285d865b76304458263e9314b7d20a47c08f04a72e8a1678ef"
 }
