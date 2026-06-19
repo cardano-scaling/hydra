@@ -129,10 +129,13 @@ open OpsInc public
 
 -- increment: version bumps (`VersionNotIncremented`) AND head value grows by the deposit
 -- (`mustPreserveValue`): on the lovelace component, adaIn + adaDelta ≡ adaOut. Crypto injected.
+-- The lovelace equality uses the BUILTIN `_==_` (extracts to native Integer equality): the
+-- structural `_==ᵇ_` is O(n) unary recursion, which is pathological on lovelace-scale values
+-- (millions), so it must NOT be used here. The version bump stays on `_==ᵇ_` (versions are small).
 incRefᵇ : OpsInc → IncIOᶜ → Bool
 incRefᵇ ops i =
      (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i))
-  && ((IncIOᶜ.adaIn i + IncIOᶜ.adaDelta i) ==ᵇ IncIOᶜ.adaOut i)
+  && ((IncIOᶜ.adaIn i + IncIOᶜ.adaDelta i) == IncIOᶜ.adaOut i)
   && incCryptoOK ops i
 
 -- decrement: same transition shape (version bumps); its value conservation removes the decommit,
