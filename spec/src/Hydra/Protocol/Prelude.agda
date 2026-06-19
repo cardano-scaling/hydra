@@ -1,0 +1,77 @@
+-- Project-wide Agda foundation for the Hydra specification.
+--
+-- This module is pure plumbing: it is type-checked by Agda (imported by
+-- Hydra.Protocol.Main) but is NOT part of the rendered Typst document (build.sh
+-- only stages .lagda.typ files). It re-exports the libraries the spec builds on
+-- and fixes the opaque base types. Crypto primitives are postulated here for now
+-- and refined into proper interfaces in Step 2 of the Agda adoption plan.
+
+module Hydra.Protocol.Prelude where
+
+-- Finite sets (ℙ_), finite maps (_⇀_), singletons, ∅ˢ, mapˢ, … on a concrete
+-- list-based model. This backs the spec's sets of inputs/outputs and UTxO maps.
+open import abstract-set-theory.FiniteSetTheory public
+
+-- Standard-library essentials used throughout the spec's notation.
+open import Data.Nat using (ℕ; zero; suc; _≤_; _<_; _+_; _∸_; _≟_) public
+open import Data.Integer using (ℤ) public
+open import Data.Bool using (Bool; true; false; if_then_else_) public
+open import Data.Empty using (⊥) public
+open import Data.Unit using (⊤) public
+open import Relation.Nullary using (¬_) public
+open import Relation.Nullary.Decidable using (⌊_⌋) public
+open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
+open import Data.Maybe using (Maybe; just; nothing) public
+open import Data.List using (List; []; _∷_; length) public
+-- List membership, renamed to avoid clashing with the set-theory `_∈_`.
+open import Data.List.Membership.Propositional using () renaming (_∈_ to _∈ˡ_) public
+open import Data.Product using (_×_; _,_; proj₁; proj₂) public
+open import Data.Sum using (_⊎_; inj₁; inj₂) public
+
+-- Spec notation: 𝔹 = booleans, ℍ = byte strings (hashes, keys), Data = Plutus Data.
+𝔹 : Set
+𝔹 = Bool
+
+postulate
+  ℍ      : Set         -- byte strings (spec's tyBytes); hashes and keys live here
+  Data   : Set         -- Plutus Data (spec's tyData)
+  Script : Set         -- validator/minting scripts 𝒱; outputs store their hash
+  VKey   : Set         -- verification keys (elements of 𝒦)
+
+-- On-chain payload types carried in datums/redeemers. Kept abstract; the
+-- accumulator commitment η is deliberately distinct from its hash η# = hash η.
+postulate
+  AccCommitment : Set  -- accumulator commitment η (NOT its hash)
+  PartySig      : Set  -- individual party signature σⱼ (NOT the aggregate)
+  AggSig        : Set  -- aggregate multi-signature ξ (= msComb of the σⱼ)
+  AccWitness    : Set  -- accumulator membership/exclusion witness π
+
+-- Serialisation / hashing (spec §3.1). Kept abstract.
+postulate
+  concat : List ℍ → ℍ              -- ℍ* → ℍ
+  bytes  : ∀ {A : Set} → A → ℍ     -- invertible serialisation to bytes
+  hash   : ∀ {A : Set} → A → ℍ     -- collision-resistant hash; x# = hash x
+
+-- Aggregate multisignature verification (the §3.2 scheme's MS-Verify, instantiated
+-- at the protocol's key/message/signature types). Kept abstract (EdDSA-based).
+postulate
+  msVfy : VKey → ℍ → AggSig → Bool  -- aggregate key, message, aggregate signature
+
+-- Multi-asset values (spec's 𝖵𝖺𝗅): a finite map from (policy, token) to a
+-- signed quantity (negative quantities express burning when minting).
+CId Token : Set
+CId   = ℍ
+Token = ℍ
+
+Quantity : Set
+Quantity = ℤ
+
+Value : Set
+Value = (CId × Token) ⇀ Quantity
+
+-- Multi-asset value arithmetic. Kept abstract (the pointwise definitions over the
+-- map are not needed to state the validator's value conditions).
+postulate
+  εᵛ   : Value                  -- the empty/zero value
+  _+ᵛ_ : Value → Value → Value  -- value addition (multiset union of assets)
+  _≤ᵛ_ : Value → Value → Set    -- "contained in" (the head value is preserved/grows)
