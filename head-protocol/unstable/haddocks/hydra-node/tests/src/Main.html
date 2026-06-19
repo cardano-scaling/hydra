@@ -16,195 +16,200 @@
 </span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.TxTraceSpec.html"><span class="hs-identifier">Hydra.Chain.Direct.TxTraceSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
 </span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.WalletSpec.html"><span class="hs-identifier">Hydra.Chain.Direct.WalletSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
 </span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html"><span class="hs-identifier">Hydra.Chain.ScriptRegistrySpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.CryptoSpec.html"><span class="hs-identifier">Hydra.CryptoSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.RotationSpec.html"><span class="hs-identifier">Hydra.Events.RotationSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.S3Spec.html"><span class="hs-identifier">Hydra.Events.S3Spec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html"><span class="hs-identifier">Hydra.Events.SQLiteBasedSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.UDPSpec.html"><span class="hs-identifier">Hydra.Events.UDPSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSnapshotSpec.html"><span class="hs-identifier">Hydra.HeadLogicSnapshotSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html"><span class="hs-identifier">Hydra.HeadLogicSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.JSONSchemaSpec.html"><span class="hs-identifier">Hydra.JSONSchemaSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.TimeSpec.html"><span class="hs-identifier">Hydra.Ledger.Cardano.TimeSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.CardanoSpec.html"><span class="hs-identifier">Hydra.Ledger.CardanoSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.SimpleSpec.html"><span class="hs-identifier">Hydra.Ledger.SimpleSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.MonitoringSpec.html"><span class="hs-identifier">Hydra.Logging.MonitoringSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html"><span class="hs-identifier">Hydra.LoggingSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Model.MockChainSpec.html"><span class="hs-identifier">Hydra.Model.MockChainSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.ModelSpec.html"><span class="hs-identifier">Hydra.ModelSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html"><span class="hs-identifier">Hydra.Network.AuthenticateSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NetworkSpec.html"><span class="hs-identifier">Hydra.NetworkSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NetworkVersionsSpec.html"><span class="hs-identifier">Hydra.NetworkVersionsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.InputQueueSpec.html"><span class="hs-identifier">Hydra.Node.InputQueueSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.RunSpec.html"><span class="hs-identifier">Hydra.Node.RunSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NodeSpec.html"><span class="hs-identifier">Hydra.NodeSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.OptionsSpec.html"><span class="hs-identifier">Hydra.OptionsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.PartySpec.html"><span class="hs-identifier">Hydra.PartySpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.PersistentQueueSpec.html"><span class="hs-identifier">Hydra.PersistentQueueSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.UtilsSpec.html"><span class="hs-identifier">Hydra.UtilsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.TastyMain</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">defaultMainHydra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testSpec</span></span><span class="hs-special">)</span><span>
-</span><span id="line-45"></span><span>
-</span><span id="line-46"></span><span class="annot"><a href="Main.html#main"><span class="hs-identifier hs-type">main</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-47"></span><span id="main"><span class="annot"><span class="annottext">IO ()
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.ConfigSpec.html"><span class="hs-identifier">Hydra.ConfigSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.CryptoSpec.html"><span class="hs-identifier">Hydra.CryptoSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.RotationSpec.html"><span class="hs-identifier">Hydra.Events.RotationSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.S3Spec.html"><span class="hs-identifier">Hydra.Events.S3Spec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html"><span class="hs-identifier">Hydra.Events.SQLiteBasedSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.UDPSpec.html"><span class="hs-identifier">Hydra.Events.UDPSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSnapshotSpec.html"><span class="hs-identifier">Hydra.HeadLogicSnapshotSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html"><span class="hs-identifier">Hydra.HeadLogicSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.JSONSchemaSpec.html"><span class="hs-identifier">Hydra.JSONSchemaSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.TimeSpec.html"><span class="hs-identifier">Hydra.Ledger.Cardano.TimeSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.CardanoSpec.html"><span class="hs-identifier">Hydra.Ledger.CardanoSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.SimpleSpec.html"><span class="hs-identifier">Hydra.Ledger.SimpleSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.MonitoringSpec.html"><span class="hs-identifier">Hydra.Logging.MonitoringSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html"><span class="hs-identifier">Hydra.LoggingSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Model.MockChainSpec.html"><span class="hs-identifier">Hydra.Model.MockChainSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.ModelSpec.html"><span class="hs-identifier">Hydra.ModelSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html"><span class="hs-identifier">Hydra.Network.AuthenticateSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NetworkSpec.html"><span class="hs-identifier">Hydra.NetworkSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NetworkVersionsSpec.html"><span class="hs-identifier">Hydra.NetworkVersionsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.InputQueueSpec.html"><span class="hs-identifier">Hydra.Node.InputQueueSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.RunSpec.html"><span class="hs-identifier">Hydra.Node.RunSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.NodeSpec.html"><span class="hs-identifier">Hydra.NodeSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.OptionsSpec.html"><span class="hs-identifier">Hydra.OptionsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.PartySpec.html"><span class="hs-identifier">Hydra.PartySpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.PersistentQueueSpec.html"><span class="hs-identifier">Hydra.PersistentQueueSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.UtilsSpec.html"><span class="hs-identifier">Hydra.UtilsSpec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.TastyMain</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">defaultMainHydra</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testSpec</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="annot"><a href="Main.html#main"><span class="hs-identifier hs-type">main</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span id="main"><span class="annot"><span class="annottext">IO ()
 </span><a href="Main.html#main"><span class="hs-identifier hs-var hs-var hs-var">main</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-48"></span><span>  </span><span class="annot"><span class="annottext">TestName -&gt; [IO TestTree] -&gt; IO ()
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="annottext">TestName -&gt; [IO TestTree] -&gt; IO ()
 </span><span class="hs-identifier hs-var">defaultMainHydra</span></span><span>
-</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">TestName
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;hydra-node&quot;</span></span><span>
-</span><span id="line-50"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-51"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;API.ClientInput&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.API.ClientInputSpec.html#spec"><span class="hs-identifier hs-var">Hydra.API.ClientInputSpec.spec</span></a></span><span>
-</span><span id="line-51"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;API.HTTPServer&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.API.HTTPServerSpec.html#spec"><span class="hs-identifier hs-var">Hydra.API.HTTPServerSpec.spec</span></a></span><span>
-</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;API.ServerOutput&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.API.ServerOutputSpec.html#spec"><span class="hs-identifier hs-var">Hydra.API.ServerOutputSpec.spec</span></a></span><span>
-</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-54"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;API.Server&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.API.ServerSpec.html#spec"><span class="hs-identifier hs-var">Hydra.API.ServerSpec.spec</span></a></span><span>
-</span><span id="line-54"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-55"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Behavior&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.BehaviorSpec.html#spec"><span class="hs-identifier hs-var">Hydra.BehaviorSpec.spec</span></a></span><span>
-</span><span id="line-55"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Blockfrost&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.BlockfrostSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.BlockfrostSpec.spec</span></a></span><span>
-</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.Handlers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.HandlersSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.HandlersSpec.spec</span></a></span><span>
-</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-58"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.ScriptRegistry&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.ScriptRegistrySpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.ScriptRegistrySpec.spec</span></a></span><span>
-</span><span id="line-58"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.State&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.StateSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.StateSpec.spec</span></a></span><span>
-</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.TimeHandle&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.TimeHandleSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.TimeHandleSpec.spec</span></a></span><span>
-</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.Tx&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.TxSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.TxSpec.spec</span></a></span><span>
-</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.TxTrace&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.TxTraceSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.TxTraceSpec.spec</span></a></span><span>
-</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.Direct.Wallet&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.Direct.WalletSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.Direct.WalletSpec.spec</span></a></span><span>
-</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-64"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Chain.ScriptRegistry&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Chain.ScriptRegistrySpec.html#spec"><span class="hs-identifier hs-var">Hydra.Chain.ScriptRegistrySpec.spec</span></a></span><span>
-</span><span id="line-64"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
+</span><span class="hs-string">&quot;Config&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
+</span><a href="Hydra.ConfigSpec.html#spec"><span class="hs-identifier hs-var">Hydra.ConfigSpec.spec</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Crypto&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.CryptoSpec.html#spec"><span class="hs-identifier hs-var">Hydra.CryptoSpec.spec</span></a></span><span>
-</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Events.Rotation&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Events.RotationSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Events.RotationSpec.spec</span></a></span><span>
-</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Events.S3&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Events.S3Spec.html#spec"><span class="hs-identifier hs-var">Hydra.Events.S3Spec.spec</span></a></span><span>
-</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-69"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Events.SQLiteBased&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Events.SQLiteBasedSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Events.SQLiteBasedSpec.spec</span></a></span><span>
-</span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-70"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Events.UDP&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Events.UDPSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Events.UDPSpec.spec</span></a></span><span>
-</span><span id="line-69"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;HeadLogicSnapshot&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.HeadLogicSnapshotSpec.html#spec"><span class="hs-identifier hs-var">Hydra.HeadLogicSnapshotSpec.spec</span></a></span><span>
-</span><span id="line-70"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-72"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;HeadLogic&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.HeadLogicSpec.html#spec"><span class="hs-identifier hs-var">Hydra.HeadLogicSpec.spec</span></a></span><span>
-</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-73"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;JSONSchema&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.JSONSchemaSpec.html#spec"><span class="hs-identifier hs-var">Hydra.JSONSchemaSpec.spec</span></a></span><span>
-</span><span id="line-72"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Ledger.Cardano&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Ledger.CardanoSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Ledger.CardanoSpec.spec</span></a></span><span>
-</span><span id="line-73"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-75"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Ledger.Cardano.Time&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Ledger.Cardano.TimeSpec.spec</span></a></span><span>
-</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-76"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Ledger.Simple&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Ledger.SimpleSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Ledger.SimpleSpec.spec</span></a></span><span>
-</span><span id="line-75"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-77"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Logging.Monitoring&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Logging.MonitoringSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Logging.MonitoringSpec.spec</span></a></span><span>
-</span><span id="line-76"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-78"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Logging&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.LoggingSpec.html#spec"><span class="hs-identifier hs-var">Hydra.LoggingSpec.spec</span></a></span><span>
-</span><span id="line-77"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-79"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Model.MockChain&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Model.MockChainSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Model.MockChainSpec.spec</span></a></span><span>
-</span><span id="line-78"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-80"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Model&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.ModelSpec.html#spec"><span class="hs-identifier hs-var">Hydra.ModelSpec.spec</span></a></span><span>
-</span><span id="line-79"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-81"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Network.Authenticate&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Network.AuthenticateSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Network.AuthenticateSpec.spec</span></a></span><span>
-</span><span id="line-80"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-82"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Network&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.NetworkSpec.html#spec"><span class="hs-identifier hs-var">Hydra.NetworkSpec.spec</span></a></span><span>
-</span><span id="line-81"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-83"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;NetworkVersions&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.NetworkVersionsSpec.html#spec"><span class="hs-identifier hs-var">Hydra.NetworkVersionsSpec.spec</span></a></span><span>
-</span><span id="line-82"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-84"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Node.InputQueue&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Node.InputQueueSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Node.InputQueueSpec.spec</span></a></span><span>
-</span><span id="line-83"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-85"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Node.Run&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.Node.RunSpec.html#spec"><span class="hs-identifier hs-var">Hydra.Node.RunSpec.spec</span></a></span><span>
-</span><span id="line-84"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-86"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Node&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.NodeSpec.html#spec"><span class="hs-identifier hs-var">Hydra.NodeSpec.spec</span></a></span><span>
-</span><span id="line-85"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-87"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Options&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.OptionsSpec.html#spec"><span class="hs-identifier hs-var">Hydra.OptionsSpec.spec</span></a></span><span>
-</span><span id="line-86"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-88"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Party&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.PartySpec.html#spec"><span class="hs-identifier hs-var">Hydra.PartySpec.spec</span></a></span><span>
-</span><span id="line-87"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-89"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;PersistentQueue&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.PersistentQueueSpec.html#spec"><span class="hs-identifier hs-var">Hydra.PersistentQueueSpec.spec</span></a></span><span>
-</span><span id="line-88"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
+</span><span id="line-90"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TestName -&gt; Spec -&gt; IO TestTree
 </span><span class="hs-identifier hs-var">testSpec</span></span><span> </span><span class="annot"><span class="annottext">TestName
 </span><span class="hs-string">&quot;Utils&quot;</span></span><span> </span><span class="annot"><span class="annottext">Spec
 </span><a href="Hydra.UtilsSpec.html#spec"><span class="hs-identifier hs-var">Hydra.UtilsSpec.spec</span></a></span><span>
-</span><span id="line-89"></span><span>    </span><span class="hs-special">]</span><span>
-</span><span id="line-90"></span></pre></body></html>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-92"></span></pre></body></html>

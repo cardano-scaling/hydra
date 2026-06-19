@@ -224,6 +224,17 @@ instance GHC.Base.Functor Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
 instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
 instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.ATestBackend
 
+module Hydra.ConfigSpec
+spec :: Spec
+
+-- | Parse args as <a>RunOptions</a>, or fail the test.
+parseRunOptions :: [String] -> IO RunOptions
+
+-- | Write YAML content to a temporary file and run the action with its
+--   path and the directory containing it (for constructing expected
+--   resolved paths).
+withYaml :: String -> (FilePath -> FilePath -> IO a) -> IO a
+
 
 -- | Tests for the AWS S3 example event source and sink.
 module Hydra.Events.S3Spec
@@ -661,11 +672,12 @@ Node :: Natural -> NodeId
 --   <a>$sel:waitForNext:TestHydraClient</a>, access all outputs and inject
 --   events through the test chain.
 data TestHydraClient tx m
-TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientMessage tx) -> (ChainEvent tx -> m ()) -> m [ServerOutput tx] -> m (NodeState tx) -> TestHydraClient tx m
+TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientMessage tx) -> (ChainEvent tx -> m ()) -> (Party -> Message tx -> m ()) -> m [ServerOutput tx] -> m (NodeState tx) -> TestHydraClient tx m
 [$sel:send:TestHydraClient] :: TestHydraClient tx m -> ClientInput tx -> m ()
 [$sel:waitForNext:TestHydraClient] :: TestHydraClient tx m -> m (ServerOutput tx)
 [$sel:waitForNextMessage:TestHydraClient] :: TestHydraClient tx m -> m (ClientMessage tx)
 [$sel:injectChainEvent:TestHydraClient] :: TestHydraClient tx m -> ChainEvent tx -> m ()
+[$sel:injectNetworkInput:TestHydraClient] :: TestHydraClient tx m -> Party -> Message tx -> m ()
 [$sel:serverOutputs:TestHydraClient] :: TestHydraClient tx m -> m [ServerOutput tx]
 [$sel:queryState:TestHydraClient] :: TestHydraClient tx m -> m (NodeState tx)
 
@@ -674,13 +686,14 @@ TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientM
 --   can also <a>$sel:rollbackAndForward:SimulatedChainNetwork</a> any
 --   number of these "transactions".
 data SimulatedChainNetwork tx m
-SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (HeadId -> UTxOType tx -> m ()) -> (Party -> m ()) -> SimulatedChainNetwork tx m
+SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (HeadId -> UTxOType tx -> m ()) -> (Party -> m ()) -> m [ChainEvent tx] -> SimulatedChainNetwork tx m
 [$sel:connectNode:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> DraftHydraNode tx m -> m (HydraNode tx m)
 [$sel:tickThread:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Async m ()
 [$sel:rollbackAndForward:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Natural -> m ()
 [$sel:simulateDeposit:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
 [$sel:simulatePartialFanout:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> m ()
 [$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Party -> m ()
+[$sel:getChainHistory:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> m [ChainEvent tx]
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 
 -- | With-pattern wrapper around <tt>simulatedChainAndNetwork</tt> which

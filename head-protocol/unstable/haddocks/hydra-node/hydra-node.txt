@@ -1585,6 +1585,12 @@ Host :: Text -> PortNumber -> Host
 [$sel:port:Host] :: Host -> PortNumber
 newtype ProtocolVersion
 ProtocolVersion :: Natural -> ProtocolVersion
+newtype NodeId
+NodeId :: Text -> NodeId
+[$sel:nodeId:NodeId] :: NodeId -> Text
+data WhichEtcd
+EmbeddedEtcd :: WhichEtcd
+SystemEtcd :: WhichEtcd
 
 -- | Interface from network layer to the application. XXX: Reliably
 --   delivering a message in the crash-recovery fault model is tricky.
@@ -1656,15 +1662,9 @@ NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> H
 
 -- | Whether to use the system etcd (on the path) or the embedded one.
 [$sel:whichEtcd:NetworkConfiguration] :: NetworkConfiguration -> WhichEtcd
-data WhichEtcd
-EmbeddedEtcd :: WhichEtcd
-SystemEtcd :: WhichEtcd
-newtype NodeId
-NodeId :: Text -> NodeId
-[$sel:nodeId:NodeId] :: NodeId -> Text
 readHost :: MonadFail m => String -> m Host
-readPort :: MonadFail m => String -> m PortNumber
 showHost :: Host -> String
+readPort :: MonadFail m => String -> m PortNumber
 data () => IP
 data () => PortNumber
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.WhichEtcd
@@ -2229,9 +2229,18 @@ module Hydra.Node.InputQueue
 --   "fed". NOTE(SN): handle pattern, but likely not required as there is
 --   no need for an alternative implementation
 data InputQueue m e
-InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> m (Queued e) -> m Bool -> InputQueue m e
+InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> (Queued e -> m ()) -> m () -> m (Queued e) -> m Bool -> InputQueue m e
 [$sel:enqueue:InputQueue] :: InputQueue m e -> e -> m ()
 [$sel:reenqueue:InputQueue] :: InputQueue m e -> DiffTime -> Queued e -> m ()
+
+-- | Hold an item aside without re-enqueuing it, until
+--   <a>$sel:releaseParked:InputQueue</a> moves it back onto the queue.
+--   Used for inputs that can't be processed until the node is in sync.
+--   Parked items do not count towards <a>$sel:isEmpty:InputQueue</a>.
+[$sel:park:InputQueue] :: InputQueue m e -> Queued e -> m ()
+
+-- | Move all parked items back onto the queue, preserving their order.
+[$sel:releaseParked:InputQueue] :: InputQueue m e -> m ()
 [$sel:dequeue:InputQueue] :: InputQueue m e -> m (Queued e)
 [$sel:isEmpty:InputQueue] :: InputQueue m e -> m Bool
 data Queued a
@@ -3061,7 +3070,7 @@ HeadInitializationDetails :: UTCTime -> SlotNo -> HeadInitializationDetails
 jsonContent :: ResponseHeaders
 
 -- | Hydra HTTP server
-httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
+httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Value -> Chain tx IO -> Environment -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
 
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
@@ -4084,6 +4093,26 @@ data Command
 Run :: RunOptions -> Command
 Publish :: PublishOptions -> Command
 GenHydraKey :: GenerateKeyPair -> Command
+data RunOptions
+RunOptions :: Verbosity -> NodeId -> Host -> Maybe Host -> [Host] -> IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> Maybe PortNumber -> FilePath -> [FilePath] -> FilePath -> Maybe (Positive Natural) -> ChainConfig -> LedgerConfig -> WhichEtcd -> ApiTransactionTimeout -> RunOptions
+[$sel:verbosity:RunOptions] :: RunOptions -> Verbosity
+[$sel:nodeId:RunOptions] :: RunOptions -> NodeId
+[$sel:listen:RunOptions] :: RunOptions -> Host
+[$sel:advertise:RunOptions] :: RunOptions -> Maybe Host
+[$sel:peers:RunOptions] :: RunOptions -> [Host]
+[$sel:apiHost:RunOptions] :: RunOptions -> IP
+[$sel:apiPort:RunOptions] :: RunOptions -> PortNumber
+[$sel:tlsCertPath:RunOptions] :: RunOptions -> Maybe FilePath
+[$sel:tlsKeyPath:RunOptions] :: RunOptions -> Maybe FilePath
+[$sel:monitoringPort:RunOptions] :: RunOptions -> Maybe PortNumber
+[$sel:hydraSigningKey:RunOptions] :: RunOptions -> FilePath
+[$sel:hydraVerificationKeys:RunOptions] :: RunOptions -> [FilePath]
+[$sel:persistenceDir:RunOptions] :: RunOptions -> FilePath
+[$sel:persistenceRotateAfter:RunOptions] :: RunOptions -> Maybe (Positive Natural)
+[$sel:chainConfig:RunOptions] :: RunOptions -> ChainConfig
+[$sel:ledgerConfig:RunOptions] :: RunOptions -> LedgerConfig
+[$sel:whichEtcd:RunOptions] :: RunOptions -> WhichEtcd
+[$sel:apiTransactionTimeout:RunOptions] :: RunOptions -> ApiTransactionTimeout
 data BlockfrostOptions
 BlockfrostOptions :: FilePath -> Int -> Int -> BlockfrostOptions
 
@@ -4137,35 +4166,15 @@ OfflineChainConfig :: HeadSeed -> FilePath -> Maybe FilePath -> OfflineChainConf
 -- | Path to a shelley genesis file with slot lengths used by the
 --   offline-mode chain.
 [$sel:ledgerGenesisFile:OfflineChainConfig] :: OfflineChainConfig -> Maybe FilePath
-data RunOptions
-RunOptions :: Verbosity -> NodeId -> Host -> Maybe Host -> [Host] -> IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> Maybe PortNumber -> FilePath -> [FilePath] -> FilePath -> Maybe (Positive Natural) -> ChainConfig -> LedgerConfig -> WhichEtcd -> ApiTransactionTimeout -> RunOptions
-[$sel:verbosity:RunOptions] :: RunOptions -> Verbosity
-[$sel:nodeId:RunOptions] :: RunOptions -> NodeId
-[$sel:listen:RunOptions] :: RunOptions -> Host
-[$sel:advertise:RunOptions] :: RunOptions -> Maybe Host
-[$sel:peers:RunOptions] :: RunOptions -> [Host]
-[$sel:apiHost:RunOptions] :: RunOptions -> IP
-[$sel:apiPort:RunOptions] :: RunOptions -> PortNumber
-[$sel:tlsCertPath:RunOptions] :: RunOptions -> Maybe FilePath
-[$sel:tlsKeyPath:RunOptions] :: RunOptions -> Maybe FilePath
-[$sel:monitoringPort:RunOptions] :: RunOptions -> Maybe PortNumber
-[$sel:hydraSigningKey:RunOptions] :: RunOptions -> FilePath
-[$sel:hydraVerificationKeys:RunOptions] :: RunOptions -> [FilePath]
-[$sel:persistenceDir:RunOptions] :: RunOptions -> FilePath
-[$sel:persistenceRotateAfter:RunOptions] :: RunOptions -> Maybe (Positive Natural)
-[$sel:chainConfig:RunOptions] :: RunOptions -> ChainConfig
-[$sel:ledgerConfig:RunOptions] :: RunOptions -> LedgerConfig
-[$sel:whichEtcd:RunOptions] :: RunOptions -> WhichEtcd
-[$sel:apiTransactionTimeout:RunOptions] :: RunOptions -> ApiTransactionTimeout
 data ChainConfig
 Offline :: OfflineChainConfig -> ChainConfig
 Cardano :: CardanoChainConfig -> ChainConfig
-data InvalidOptions
-MaximumNumberOfPartiesExceeded :: InvalidOptions
-CardanoAndHydraKeysMismatch :: InvalidOptions
 newtype LedgerConfig
 CardanoLedgerConfig :: FilePath -> LedgerConfig
 [$sel:cardanoLedgerProtocolParametersFile:CardanoLedgerConfig] :: LedgerConfig -> FilePath
+data InvalidOptions
+MaximumNumberOfPartiesExceeded :: InvalidOptions
+CardanoAndHydraKeysMismatch :: InvalidOptions
 newtype GenerateKeyPair
 GenerateKeyPair :: FilePath -> GenerateKeyPair
 [$sel:outputFile:GenerateKeyPair] :: GenerateKeyPair -> FilePath
@@ -4200,6 +4209,12 @@ toArgs :: RunOptions -> [String]
 --   <a>https://github.com/cardano-scaling/hydra/issues/2389</a>
 defaultContestationPeriod :: ContestationPeriod
 defaultDepositPeriod :: DepositPeriod
+defaultBlockfrostOptions :: BlockfrostOptions
+defaultCardanoChainConfig :: CardanoChainConfig
+
+-- | Default options as they should also be provided by
+--   <a>runOptionsParser</a>.
+defaultRunOptions :: RunOptions
 
 -- | Validate cmd line arguments for hydra-node and check if they make
 --   sense before actually running the node. Rules we apply: - Check if
@@ -4209,6 +4224,15 @@ defaultDepositPeriod :: DepositPeriod
 --   keys match with the number of loaded cardano keys (by comparing
 --   lengths of the two lists)
 validateRunOptions :: RunOptions -> Either InvalidOptions ()
+
+-- | Subcommand names recognized by <a>commandParser</a>.
+--   
+--   Derived from the same string literals used to register the subcommands
+--   below, so that <a>hs</a> can't drift out of sync with the parser when
+--   a new subcommand is added.
+subcommandNames :: [String]
+publishScriptsName :: String
+genHydraKeyName :: String
 commandParser :: Parser Command
 
 -- | Parser for running the cardano-node with all its <a>RunOptions</a>.
@@ -4220,17 +4244,22 @@ outputFileParser :: Parser FilePath
 --   <a>runOptionsParser</a>.
 defaultPublishOptions :: PublishOptions
 defaultDirectOptions :: DirectOptions
-defaultBlockfrostOptions :: BlockfrostOptions
 defaultBFQueryTimeout :: Int
 defaultBFRetryTimeout :: Int
 chainBackendOptionsParser :: Parser ChainBackendOptions
 cardanoSigningKeyFileParser :: Parser FilePath
-
--- | Default options as they should also be provided by
---   <a>runOptionsParser</a>.
-defaultRunOptions :: RunOptions
-defaultCardanoChainConfig :: CardanoChainConfig
 defaultLedgerConfig :: LedgerConfig
+
+-- | Use <tt>cli</tt> if it differs from <tt>def</tt>, otherwise keep
+--   <tt>base</tt>.
+--   
+--   Note: if the user explicitly passes a CLI flag whose value happens to
+--   equal the default (e.g. <tt>--api-port 4001</tt> when 4001 is the
+--   default), the config file value wins. This is a known limitation of
+--   inferring intent from equality with the default; a proper fix would
+--   require tracking which flags were explicitly set (e.g. via
+--   <tt>Maybe</tt>-wrapped parser results).
+overrideField :: Eq a => a -> a -> a -> a
 verbosityParser :: Parser Verbosity
 nodeIdParser :: Parser NodeId
 listenParser :: Parser Host
@@ -4249,6 +4278,7 @@ chainConfigParser :: Parser ChainConfig
 ledgerConfigParser :: Parser LedgerConfig
 whichEtcdParser :: Parser WhichEtcd
 apiTransactionTimeoutParser :: Parser ApiTransactionTimeout
+configFileParser :: Parser FilePath
 cardanoChainConfigParser :: Parser CardanoChainConfig
 offlineChainConfigParser :: Parser OfflineChainConfig
 networkIdParser :: Parser NetworkId
@@ -4275,12 +4305,11 @@ unsyncedPeriodParser :: Parser UnsyncedPeriod
 defaultApiTransactionTimeout :: ApiTransactionTimeout
 hydraNodeCommand :: ParserInfo Command
 
--- | Parse command-line arguments into a <tt>Option</tt> or exit with
---   failure and error message.
-parseHydraCommand :: IO Command
-
 -- | Pure parsing of <tt>Option</tt> from a list of arguments.
 parseHydraCommandFromArgs :: [String] -> ParserResult Command
+
+-- | Parse the given list of arguments, exiting on failure.
+parseHydraCommandFromArgsWith :: [String] -> IO Command
 toArgApiPort :: PortNumber -> [String]
 toArgNetworkId :: NetworkId -> [String]
 toArgNodeSocket :: SocketPath -> [String]
@@ -4339,8 +4368,15 @@ instance GHC.Show.Show Hydra.Options.BlockfrostChainConfig
 instance GHC.Classes.Eq Hydra.Options.BlockfrostChainConfig
 instance GHC.Show.Show Hydra.Options.InvalidOptions
 instance GHC.Classes.Eq Hydra.Options.InvalidOptions
+instance GHC.Base.Semigroup Hydra.Options.RunOptions
+instance GHC.Base.Semigroup Hydra.Options.ChainConfig
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Options.ChainConfig
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Options.ChainConfig
+instance GHC.Base.Semigroup Hydra.Options.CardanoChainConfig
+instance GHC.Base.Semigroup Hydra.Options.LedgerConfig
+instance GHC.Base.Semigroup Hydra.Options.ChainBackendOptions
+instance GHC.Base.Semigroup Hydra.Options.BlockfrostOptions
+instance GHC.Base.Semigroup Hydra.Options.DirectOptions
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Test.QuickCheck.Modifiers.Positive a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Test.QuickCheck.Modifiers.Positive a)
 
@@ -4655,6 +4691,89 @@ withCardanoChain :: forall a. Tracer IO CardanoChainLog -> CardanoChainConfig ->
 loadChainContext :: forall m. (ChainBackend m, MonadIO m) => CardanoChainConfig -> Party -> m ChainContext
 mkTinyWallet :: forall m. (ChainBackend m, Monad m) => (forall b. m b -> IO b) -> Tracer IO CardanoChainLog -> CardanoChainConfig -> IO (TinyWallet IO)
 
+
+-- | YAML-based configuration file support for hydra-node.
+--   
+--   This module provides a user-friendly configuration file format that
+--   mirrors the CLI flag names (kebab-case). A configuration file can be
+--   used instead of CLI flags by passing <tt>--config FILE</tt> to
+--   hydra-node.
+--   
+--   Example configuration:
+--   
+--   <pre>
+--   node-id: hydra-node-1
+--   listen: "0.0.0.0:5001"
+--   peers:
+--     - address: "peer1:5001"
+--       cardano-verification-key: peer1.cardano.vk
+--       hydra-verification-key: peer1-hydra.vk
+--   api-host: "127.0.0.1"
+--   api-port: 4001
+--   hydra-signing-key: hydra.sk
+--   persistence-dir: "./"
+--   ledger-protocol-parameters: protocol-parameters.json
+--   chain:
+--     mode: cardano
+--     network: preview
+--     cardano-signing-key: cardano.sk
+--     contestation-period: 43200
+--     deposit-period: 3600
+--     backend:
+--       mode: direct
+--       testnet-magic: 2
+--       node-socket: node.socket
+--   </pre>
+module Hydra.Config
+
+-- | Load <a>RunOptions</a> from a YAML configuration file.
+--   
+--   Keys use kebab-case matching the CLI flag names, e.g.
+--   <tt>node-id</tt>, <tt>api-host</tt>. Missing keys fall back to the
+--   same defaults as the CLI.
+--   
+--   Relative file paths in the config are resolved relative to the
+--   directory containing the config file, not the current working
+--   directory.
+loadConfig :: FilePath -> IO RunOptions
+
+-- | Make all relative <a>FilePath</a> fields in <a>RunOptions</a> absolute
+--   by resolving them against <tt>dir</tt> (the directory containing the
+--   config file). Absolute paths are left unchanged.
+resolvePaths :: FilePath -> RunOptions -> RunOptions
+
+-- | Render <a>RunOptions</a> as a JSON document whose structure matches
+--   the YAML config file format (kebab-case keys, same hierarchy). This is
+--   the inverse of <a>loadConfig</a> and is served at the <tt>GET
+--   /config</tt> HTTP endpoint so operators can inspect the effective
+--   configuration the node is running with.
+renderConfig :: RunOptions -> Value
+
+-- | Does the given peer address refer to the same node as us, given our
+--   <a>$sel:listen:RunOptions</a> and optional
+--   <a>$sel:advertise:RunOptions</a> hosts?
+--   
+--   The comparison normalizes wildcard/loopback variants:
+--   
+--   <ul>
+--   <li>If <a>$sel:advertise:RunOptions</a> is set, the peer must match it
+--   exactly (same host, same port) — we trust the operator's explicit
+--   choice.</li>
+--   <li>Otherwise, same-port peers are self when:</li>
+--   <li>the host string is identical to the listen host (even if it's
+--   <tt>0.0.0.0</tt>, matching the "self-entry with same address"
+--   convention);</li>
+--   <li>the listen host is a wildcard (<tt>0.0.0.0</tt>, <tt>::</tt>,
+--   <tt>*</tt>) and the peer host is a loopback (<tt>127.0.0.1</tt>,
+--   <tt>localhost</tt>, <tt>::1</tt>); or</li>
+--   <li>both are loopback in some combination.</li>
+--   </ul>
+--   
+--   We deliberately do *not* treat wildcard listen as matching arbitrary
+--   remote peers on the same port — those may be legitimate other-host
+--   participants.
+isSelfAddress :: Host -> Maybe Host -> Host -> Bool
+
 module Hydra.API.WSServer
 wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
 
@@ -4673,7 +4792,7 @@ APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTr
 [$sel:tlsCertPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:tlsKeyPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:apiTransactionTimeout:APIServerConfig] :: APIServerConfig -> ApiTransactionTimeout
-withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
+withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
 --   as context.
