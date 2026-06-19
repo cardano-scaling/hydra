@@ -179,6 +179,7 @@ test-suite tests
     Hydra.Tx.Contract.Close.CloseUnused
     Hydra.Tx.Contract.Close.CloseUsed
     Hydra.Tx.Contract.Close.Healthy
+    Hydra.Tx.Contract.CloseDifferential
     Hydra.Tx.Contract.Contest.ContestCurrent
     Hydra.Tx.Contract.Contest.ContestDec
     Hydra.Tx.Contract.Contest.ContestInc
@@ -186,6 +187,7 @@ test-suite tests
     Hydra.Tx.Contract.ContractSpec
     Hydra.Tx.Contract.Decrement
     Hydra.Tx.Contract.Deposit
+    Hydra.Tx.Contract.Differential
     Hydra.Tx.Contract.FanOut
     Hydra.Tx.Contract.FinalPartialFanout
     Hydra.Tx.Contract.Increment
@@ -216,6 +218,7 @@ test-suite tests
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
+    , hydra-agda
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus

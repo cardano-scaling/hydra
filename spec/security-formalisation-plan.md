@@ -1,79 +1,127 @@
 # D4 — Plan: formalising the §7 security properties in Agda
 
-Status: **P0 complete; P1 (Consistency) + P2 (Soundness, Completeness) PROVED** (single-confirmed-chain
-model). Only P3 (Liveness) remains, needing the temporal/fairness layer. As of the latest pass,
-`Security.lagda.typ` defines the ledger-application operation (`applyTxs`/`Applicable`, with
-the `applyTxs-nil` law), the global `System` state (party vectors for local states and the
-honest/corrupt partition, the on-chain `HeadDatum`, the in-flight network buffer, `U₀`), a
-**concrete** step relation `_⟶ˢ_` with constructors `deliver` (an honest party handles a
-delivered in-flight message via `_handles_↝_`), `inject` (network adversary (re)delivers), and
-`corrupt` (active adversary corrupts a party), a **concrete** `Initial` predicate (all honest,
-nothing in flight, nothing confirmed), and `Reachable`. **Consistency** is a concrete
-proposition over `Reachable`; its **base case is proved** (`consistency-base`), and the full
-`consistency` is postulated with the inductive (step) case open (`TODO(D4-P1)`).
-Soundness/Completeness/Liveness remain abstract (`TODO(D4-P2)`/`TODO(D4-P3)`).
+Status: **P0 complete. P1-real DONE: the §7 safety core is now fully DERIVED from a signature model,
+not assumed.** `Security.lagda.typ` was rebuilt: the global `System` records each party's individual
+signatures (`sigs : List (Fin parties × Snapshot)`, no pre-ordained chain); a snapshot is `Certified`
+only once EVERY party signed it (the coordinated head's full multisignature); the step relation
+`_⟶ˢ_` has `signHonest` (an honest party signs only an *applicable* snapshot, at most one per number,
+**extending its own confirmed snapshot**), `signCorrupt` (a corrupt party signs arbitrarily),
+`confirm` (adopt a certified snapshot), and `corrupt`. From these the machine-checked invariant
+`invariant` DERIVES all three safety lemmas:
 
-**Confirmation is now modelled.** `_handles_↝_` (in `OffChain.lagda.typ`) gained `ackSn-collect`
-(records a party's signature) and `ackSn-confirm` (the round completes: the seen snapshot becomes
-the confirmed snapshot `S̄`, with `S̄.T = T̂` and `S̄.s = ŝ`). So a party's confirmed set now
-genuinely changes, making the Consistency step case non-trivial. `reqTx-preserves-confirmed`
-proves the `reqTx`/`ackSn-collect`/`inject`/`corrupt` moves leave confirmed sets untouched; the
-open obligation is the `ackSn-confirm` case, which needs the §7 invariant that confirmation only
-fires for a snapshot every honest party signed and whose txs are jointly applicable to `U₀`.
+- **L1** (`agree`): two certified snapshots of the same number are equal.
+- **L3** (`conf-applicable`): every honest party's confirmed snapshot is applicable to `U₀`.
+- **L2** (`confirmed-nest`, via `cert-nest`): confirmed snapshots nest by number, proved by a gap
+  induction using L1 + the extend-your-own-confirmed guard.
 
-**Consistency is now PROVED OUTRIGHT (no postulate)** via the single-confirmed-chain model.
-`System` carries one agreed chain `chainTxs : ℕ → List Data` (cumulative confirmed transactions by
-snapshot number); modelling one shared chain — rather than independent per-party confirmed sets —
-captures the protocol's agreement guarantee (a snapshot confirms only via a full multisignature, so
-every honest party confirms along the same chain). The step relation has a dedicated `confirm` move
-whose premise `Snapshot.txs snap ≡ chainTxs (Snapshot.number snap)` keeps confirming parties on the
-chain, and `deliver` carries a `confirmed-unchanged` premise (so it covers only the non-confirming
-reqTx/ackSn-collect handlers). The carried invariant `Inv` — (1) every chain prefix is applicable to
-`U₀`, (2) each honest party's confirmed txs equal the chain at its confirmed number — is proved to
-hold at every reachable system (`invariant`, a real safety induction: base unfolds `Initial`;
-inject/corrupt leave the chain in place, corrupt via `honest-mono`; deliver keeps the confirmed
-snapshot; confirm lands on the chain by its premise). `consistency` is then immediate: a party's
-confirmed set is `chainTxs (ŝᵢ)`, so two honest parties' sets are nested prefixes whose union is
-`chainTxs (ŝᵢ ⊔ ŝⱼ)`, and that prefix applies to `U₀` by invariant (1). The §7 cryptographic
-content is now the explicit `Initial` premise "every prefix of the agreed chain is applicable to
-`U₀`", which faithfully encodes "honest parties only ever sign applicable snapshots". A corollary
-`confirmed-on-chain` ties the abstract chain back to each party's confirmed transactions.
+**Consistency** (`consistency`), **Soundness** (`soundness`) and **Completeness** (`completeness`)
+all follow with NO further safety assumption. The only residual postulates are the ledger semantics
+(`applyTxs`/`applyTxs-nil`), the bridge glue (`outsOf`), and `Liveness` (P3); the multisignature is
+*modelled* abstractly as the all-parties-signed `Certified` relation (swapping in EdDSA unforgeability
+over `(cid‖v‖s‖η)` is a refinement, not a gap in the safety argument). The whole tree and
+`nix build .#spec` are green.
 
-This closes **P1 (Consistency)** for the coordinated model.
+This REPLACES the earlier single-confirmed-chain model, which simply *assumed* the agreed chain is
+applicable (the entire §7 safety guarantee) as an `Initial` premise. That blanket assumption is gone:
+applicability AND agreement AND nesting are now theorems about the protocol's signing discipline.
 
-**P2 (Soundness + Completeness) is also PROVED.** The final on-chain UTxO is modelled as
-`Ufinal sys sf = applyTxs U₀ (chainTxs sf)` for the finalized (closed/fanned-out) snapshot number
-`sf` — a position on the agreed chain. *Soundness* (`soundness`): `Ufinal = U₀ ∘ T̃` with
-`T̃ = chainTxs sf` is conflict-free (`∃ U, Ufinal ≡ just U`), proved from the chain-applicability
-invariant via a `≢nothing→just` Maybe lemma; `confirmed-on-chain` ties `T̃` to the parties (the
-"`T̃ ⊆ ⋂ honest seen`" strengthening needs explicit seen-set modelling and is the remaining
-refinement). *Completeness* (`completeness`): every honest party's confirmed set `T̄ᵢ ⊆ T̃` whenever
-`ŝᵢ ≤ sf` (the contest guarantee), proved from a chain-monotonicity invariant (`chainMono`, added to
-`Initial`/`Inv`: `k ≤ k' → chainTxs k ⊆ chainTxs k'`) and `confirmed-on-chain`.
+**The signature model (P1-real substrate).** `System` records each party's individual signatures as
+`sigs : List (Fin parties × Snapshot)`. `Signed sys i snap = (i , snap) ∈ sigs`, and a snapshot is
+`Certified sys snap = ∀ i → Signed sys i snap` (EVERY party signed it — the coordinated head's full
+multisignature). The step relation `_⟶ˢ_`:
+- `signHonest` (honest `i` signs `snap`): guarded by `Applicable U₀ (txs snap)` (the reqSn 'wait'
+  guard — an honest party signs only an applicable snapshot) and "`i` has not signed any snapshot of
+  this number" (one signature per round);
+- `signCorrupt` (corrupt `i` signs any `snap`): no guard (the adversary forges nothing *honest*);
+- `confirm` (party adopts a `Certified` snapshot as its confirmed snapshot);
+- `corrupt` (honest set only shrinks).
+`Initial`: no signatures, every party's confirmed snapshot is the genesis (number 0, txs `[]`).
 
-**The two Agda halves are now linked.** `Security.lagda.typ` carries a `Reflects sys sf` bridge —
-the on-chain head datum's snapshot number is `sf` and its accumulator `OC.ηOf (onChain sys)` commits
-(`OC.accUTxO`) to the off-chain final UTxO `U₀ ∘ chainTxs(sf)` (range glued by a posited
-`outsOf : UTxO → ℙ Output`). On top of it: `reflect-sound` / `reflect-complete` re-express Soundness
-/ Completeness on the on-chain datum, and `reflect-fanout-⊆` proves the on-chain fanout distributes
-only outputs of the off-chain final UTxO (`OC.fanoutMembersOK ⇒ outs ⊆ outsOf U`), using a new
-**accumulator law** in `OnChain.lagda.typ`. We do not model KZG; we posit its specifying laws:
-`accUTxO-∅` (empty set commits to `G₁`), `accVerify-sound` (a verified witness attests a genuine
-subset), and `accVerify-complete` (genuine subsets have witnesses). This closes the
-"two-halves-disconnected" gap from the critical assessment; the bridge `Reflects` is the linking
-hypothesis (on-chain established by `closeValid`/`fanoutValid`).
+**L3 + L1 are DERIVED (machine-checked invariant `invariant`).** `Inv` bundles three properties,
+each maintained across every step: `sigApp` (every honest signature is on an applicable snapshot —
+from `signHonest`'s guard), `sigDed` (an honest party signs ≤1 snapshot per number — from
+`signHonest`'s guard), and `confApp` (**L3**: every honest party's confirmed snapshot is applicable
+to `U₀`). `confApp`'s `confirm` case is the crux and is genuinely derived: the confirmer adopts a
+`Certified` snapshot, so it carries the confirmer's OWN signature; the confirmer is honest, so by
+`sigApp` that snapshot is applicable. Corollaries: `conf-applicable` (L3), `cert-applicable`
+(certified ⇒ applicable, via any honest signer), and `agree` (**L1**: two certified snapshots of the
+same number are equal — from `sigDed`, since an honest party signed both). Unforgeability needs no
+axiom: `Certified` *means* every party signed, so the honest confirmer's signature is present by
+construction.
 
-Remaining work: **P3 (Liveness)** — the temporal/fairness layer (eventual delivery under a network
-adversary + head stays open). Optional refinements: tie `sf` to an explicit on-chain close+fanout
-*move* (and the contest-max) rather than asserting the `Reflects` bridge; derive `chainTxs`'s
-applicability/monotonicity from the per-snapshot reqSn validity guard rather than asserting them at
-`Initial`; model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`. The whole thing keeps
-`nix build .#spec` green. This is the long-tail "D4" item from
-`discrepancies-and-fixes.md`. The validator-level (on-chain) checks are already encoded
-as type-level predicates and per-transaction validity bundles; the §7 security
-properties are different in kind — they are statements about **whole protocol
-executions** in the presence of an **adversary**, so they need an execution/adversary
-model that does not yet exist in the formalisation.
+**Consistency / Soundness / Completeness.** `consistency`: for honest `i, j`, their confirmed sets
+are each applicable (`conf-applicable`, derived) and nested (`confirmed-nest`, the L2 assumption), so
+the union is the larger applicable set — no conflict. `soundness`: a certified finalized snapshot is
+applicable (`cert-applicable`), so `Ufinal = U₀ ∘ (txs snap) ≠ ⊥` — fully derived, NO further
+assumption. `completeness` IS `confirmed-nest` (a more-advanced honest party's confirmed set contains
+a less-advanced one's).
+
+**L2 — the one remaining honest-core assumption** (`confirmed-nest`, a postulate): honest parties'
+confirmed snapshots nest by number. This is the snapshot-extension discipline (a snapshot of number
+`suc m` extends the certified snapshot of number `m`). To DERIVE it, `signHonest` must record each
+signature's predecessor snapshot (so the extension is checkable against the signer's confirmed
+snapshot locally), and the invariant must thread cross-party nesting via `agree`. That operational
+step is the remaining P1-real work; everything else above is now derived, not assumed.
+
+**The two Agda halves remain linked.** `Reflects sys snap` (rebased from a chain index to a finalized
+snapshot): the on-chain datum's snapshot number matches `snap` and its accumulator `OC.ηOf` commits
+(`OC.accUTxO`) to `U₀ ∘ (txs snap)`. `reflect-sound` re-expresses Soundness on the on-chain datum;
+`reflect-fanout-⊆` proves the on-chain fanout distributes only outputs of the off-chain final UTxO
+(`OC.fanoutMembersOK ⇒ outs ⊆ outsOf U`) via the accumulator soundness law in `OnChain.lagda.typ`
+(`accUTxO-∅`/`accVerify-sound`/`accVerify-complete`; KZG itself not modelled, only its laws).
+
+Remaining work: **L2** (`confirmed-nest`, operationalize as above) and **P3 (Liveness)** — the
+temporal/fairness layer (eventual delivery under a network adversary + head stays open). Also:
+model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`. The whole thing keeps
+`nix build .#spec` green. The §7 security properties are statements about **whole protocol
+executions** in the presence of an **adversary**, so they need this execution/adversary model
+(distinct from the validator-level type predicates / per-transaction validity bundles).
+
+## P1-real: deriving the agreement premise (the actual Consistency content)
+
+This was the substantive safety work: instead of *assuming* the coordinated head's agreement (the old
+`chainTxs` model asserted "the confirmed chain is applicable" as an `Initial` premise and propagated
+it trivially), DERIVE it from the protocol's signing/quorum rules. **Status: DONE** (L1, L2, L3,
+Consistency, Soundness, Completeness all derived; no safety postulate remains). What was built:
+
+**Model (P1a — done).** Replaced the assumed single chain with a signature model:
+1. **Per-party confirmed sets** (`LocalState.confirmed`); `chainTxs` dropped entirely.
+2. **Real certification.** `System` records signatures `sigs : List (Fin parties × Snapshot)`;
+   `Certified sys snap = ∀ i → Signed sys i snap` (full multisignature). Unforgeability is then *not*
+   a separate axiom — a certified snapshot carries every party's signature, including the confirmer's
+   own honest one. The `confirm` move requires `Certified`. (A future refinement can replace the
+   "every party signed" relation with the `MultiSignatureScheme` record + EdDSA unforgeability over
+   `(cid‖v‖s‖η)`; the abstract version suffices for the proofs.)
+3. **Honest-signing rule.** `signHonest` requires the signed snapshot be `Applicable U₀ (txs snap)`
+   (the reqSn "wait" guard), that the signer has not signed any snapshot of that number (dedup), AND
+   that it is number `suc` of and extends (`txs ⊆`) the signer's own confirmed snapshot (the chain
+   discipline that yields L2). `signCorrupt` lets corrupt parties sign arbitrarily.
+
+**Lemmas — status.**
+
+- **L1 — Agreement (DONE, `agree`).** Two certified snapshots of the same number are equal: an honest
+  witness signed both (by `Certified`), and signs ≤1 per number (by the derived `sigDed` invariant).
+- **L3 — Applicability (DONE, `conf-applicable` / `cert-applicable`).** Every honest party's confirmed
+  snapshot is applicable to `U₀`: it is certified, so it carries the (honest) confirmer's signature,
+  and honest signatures are only on applicable snapshots (the derived `sigApp` invariant). This is the
+  property the old model simply *assumed*; it is now machine-checked in `invariant`'s `confirm` case.
+- **L2 — Monotone nesting (DONE, `confirmed-nest` via `cert-nest`).** Honest parties' confirmed
+  snapshots nest by number. Derived: the invariant `sigChain` records, for each honest signature, an
+  extending certified-or-genesis predecessor one number below (from `signHonest`'s extend-own-confirmed
+  guard + `confCert`); `cert-nest` then runs a gap induction (on `number s2 ∸ number s1`), at each step
+  descending to the certified predecessor (by L1 the unique snapshot at that number) and composing
+  `txs ⊆`; the genesis case is ruled out by `cert-pos` (certified ⇒ number > 0). No predecessor field
+  was needed in `System` — the fact is carried as the `sigChain` invariant.
+- **Consistency (DONE, `consistency`).** Derived applicability (L3) + nesting (L2) ⇒ the two honest
+  confirmed sets' union is the larger, applicable, set. **Soundness (DONE, `soundness`)** uses only
+  L3 (a certified finalized snapshot is applicable). **Completeness (DONE, `completeness`)** is L2.
+
+**Residual assumptions** (no longer including any safety property): the ledger `applyTxs` semantics +
+nil law; the bridge glue `outsOf`; and the abstract `Certified` (all-parties-signed) model of the
+multisignature — swapping in EdDSA unforgeability over `(cid‖v‖s‖η)` is a refinement, not a gap.
+
+**Remaining (post-P1-real):** the multisignature refinement above (cosmetic for safety), and **P3
+(Liveness)**.
 
 ## What §7 asks us to prove
 
@@ -161,12 +209,17 @@ Liveness     : Fair trace → LivenessCondition trace → HonestEnters i tx trac
 
 ## Phasing, milestones, effort
 
-- **P0 — substrate** (`_∘_`, finish `_handles_↝_`, `System`, `Reachable`). Enables everything.
-- **P1 — Consistency** (state invariant; pure safety induction). *First real proof.*
-- **P2 — Soundness + Completeness** (tie to the on-chain bundles).
-- **P3 — Liveness** (build `Eventually`/fairness; prove `reqconf` → `eternal` → liveness).
+- **P0 — substrate** (`_∘_`, finish `_handles_↝_`, `System`, `Reachable`). *Done.* Enables everything.
+- **P1 — Consistency reduction** (state invariant over the single-confirmed-chain model). *Done, but
+  assumes the agreement premise.*
+- **P2 — Soundness + Completeness** (over the same model). *Done, on the same premise.*
+- **P1-real — derive the agreement premise** (signature model + honest-sign rule). *Done:* L1
+  (agreement at a number), L3 (applicability of confirmed snapshots) and L2 (cross-number nesting,
+  `confirmed-nest` via `cert-nest`) are all machine-checked derivations; Consistency, Soundness and
+  Completeness follow with no safety postulate.
+- **P3 — Liveness** (build `Eventually`/fairness; prove `reqconf` → `eternal` → liveness). *Open.*
 
-Effort: P0 medium, P1 medium, P2 medium-large, P3 large (temporal reasoning). This is
+Effort: P0/P1/P2/P1-real done (safety fully derived); P3 large (temporal reasoning). This is
 multi-week, research-flavoured work — much larger than the validator predicates.
 
 ## P3 (Liveness): what it would take (deferred)

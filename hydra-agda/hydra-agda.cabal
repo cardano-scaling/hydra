@@ -1,0 +1,39 @@
+cabal-version: 3.0
+name:          hydra-agda
+version:       2.2.0
+synopsis:
+  Agda-extracted decidable reference checker for the Hydra on-chain validator.
+
+description:
+  The on-chain validity conditions are specified in Agda (spec/). The
+  decidable core (`spec/src/Hydra/Protocol/Reference.agda`) is extracted to
+  Haskell via MAlonzo and exposed here through a thin shim
+  ('Hydra.Agda.Reference'). It is used as a second oracle in the hydra-tx
+  differential tests, so the real Plutus validator and the spec are checked
+  to agree. The 'generated/' tree is MAlonzo output — do not edit it by hand;
+  run 'regenerate.sh' (which re-extracts from the Agda) to refresh it.
+
+author:        IOG
+license:       Apache-2.0
+build-type:    Simple
+
+library
+  default-language: GHC2021
+  hs-source-dirs:   src generated
+
+  -- Silence warnings in the generated MAlonzo tree (it is checked -Werror-clean
+  -- by Agda's own GHC backend; we do not lint it as first-party code).
+  ghc-options:      -w
+  exposed-modules:  Hydra.Agda.Reference
+  other-modules:
+    MAlonzo.Code.Agda.Builtin.Bool
+    MAlonzo.Code.Agda.Builtin.List
+    MAlonzo.Code.Agda.Builtin.Nat
+    MAlonzo.Code.Agda.Primitive
+    MAlonzo.Code.Hydra.Protocol.Reference
+    MAlonzo.RTE
+    MAlonzo.RTE.Float
+
+  build-depends:
+    , base
+    , text

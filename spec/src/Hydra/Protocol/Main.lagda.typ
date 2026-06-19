@@ -26,6 +26,10 @@ import Hydra.Protocol.Setup
 import Hydra.Protocol.OnChain
 import Hydra.Protocol.OffChain
 import Hydra.Protocol.Security
+-- Extractable decidable reference checker + the bridge proving it reflects the on-chain
+-- validity bundles (Tier 2 differential-testing; not rendered in the document).
+import Hydra.Protocol.Reference
+import Hydra.Protocol.ReferenceBridge
 ```
 
 #include "Introduction.typ"

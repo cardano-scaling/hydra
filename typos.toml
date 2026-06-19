@@ -11,3 +11,8 @@
 "Compactible" = "Compactible"
 # 2[nd] ordinal suffix macro in spec/src/macros.tex
 "nd" = "nd"
+
+[default.extend-identifiers]
+# `sigDed` = the signature-dedup invariant in Security.lagda.typ (camelCase tokenizes
+# to "Ded", which typos would otherwise "correct" to "Dead").
+"sigDed" = "sigDed"
