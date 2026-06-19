@@ -55,6 +55,9 @@ data RequirementFailure tx
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | ReqSnDecommitNotSettled
   | ReqSnCommitNotSettled
+  | -- | Spec §6.4 reqSn: @require tx_ω = ⊥ ∨ tx_α = ⊥@. A snapshot must not
+    -- carry both a pending commit (deposit) and a pending decommit at once.
+    ReqSnDepositAndDecommit
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
