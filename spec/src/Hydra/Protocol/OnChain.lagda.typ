@@ -65,10 +65,10 @@ data HeadDatum : Set where
   Final : HeadDatum
 
 data HeadRedeemer : Set where
-  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef) → HeadRedeemer
-  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ)           → HeadRedeemer
-  Close              : CloseType                            → HeadRedeemer
-  Contest            : ContestType                          → HeadRedeemer
+  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef)     → HeadRedeemer
+  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ)               → HeadRedeemer
+  Close              : CloseType                                  → HeadRedeemer
+  Contest            : ContestType                                → HeadRedeemer
   Fanout             : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
   PartialFanout      : (m : ℕ) (crs : OutputRef)                  → HeadRedeemer
   FinalPartialFanout : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
