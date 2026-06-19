@@ -108,9 +108,16 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   system (`invariant`), and joint applicability of two honest parties follows since their confirmed
   sets are nested prefixes whose union is `chainTxs (ŝᵢ ⊔ ŝⱼ)`. The §7 guarantee is the explicit
   `Initial` premise "every prefix of the agreed chain is applicable to `U₀`" (encoding "honest
-  parties only sign applicable snapshots"). Soundness/Completeness (P2) and Liveness (P3) remain
-  abstract (`TODO(D4-P2)`/`TODO(D4-P3)`). `SnapshotMonotone` is a concrete example property.
-  (`P1 done — P2/P3 open`)
+  parties only sign applicable snapshots"). **Soundness + Completeness (P2) are also proved**
+  (`soundness`, `completeness`): `Ufinal = U₀ ∘ chainTxs(sf)` is conflict-free (from
+  chain-applicability), and every honest party's confirmed set is `⊆ chainTxs(sf)` when `ŝᵢ ≤ sf`
+  (from a `chainMono` monotonicity invariant). **The on-chain and off-chain halves are now linked**
+  (`Reflects` bridge + `reflect-sound`/`reflect-complete`/`reflect-fanout-⊆`): the on-chain Closed
+  datum's accumulator commits to the off-chain final UTxO `U₀ ∘ chainTxs(sf)`, and the on-chain
+  fanout distributes only its outputs — via posited accumulator laws (`accUTxO-∅`, `accVerify-sound`,
+  `accVerify-complete`; KZG itself not modelled, only its specifying laws). Only Liveness (P3)
+  remains abstract (`TODO(D4-P3)`), needing a temporal/fairness layer. `SnapshotMonotone` is a
+  concrete example property. (`P1+P2 done, halves linked — P3 open`)
 
 - **Code-vs-spec (implementation alignment):** tracked separately in
   [`code-spec-discrepancies.md`](./code-spec-discrepancies.md) (off-chain `HeadLogic.hs`) and
