@@ -97,27 +97,31 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   the head/deposit/decommit values in the `Context`) is abstracted by postulated extractors
   (`headValue`, `headValueIn`, `depositValue`, `decommitValue`); replacing those with concrete
   output-search over `Context.outputs` is the remaining refinement.
-- **D4 — security lemmas (§7):** *P0 done; P1 (Consistency) PROVED; plan in
+- **D4 — security lemmas (§7):** *P0 done; P1-real DONE: the §7 safety core is now fully DERIVED from
+  a signature model, not assumed; plan in
   [`security-formalisation-plan.md`](./security-formalisation-plan.md).*
-  `Security.lagda.typ` carries the full P0 substrate (`applyTxs`/`Applicable`, the global `System`
-  with a single agreed confirmed chain `chainTxs`, a concrete step relation `_⟶ˢ_` with
-  `deliver`/`confirm`/`inject`/`corrupt`, concrete `Initial`, and `Reachable`). Confirmation is
-  modelled in the off-chain `_handles_↝_` (`ackSn-collect`/`ackSn-confirm`). **Consistency is proved
-  outright** (`consistency`, no postulate): the carried invariant `Inv` (every chain prefix applies
-  to `U₀`; each honest party's confirmed txs equal the chain at its number) holds at every reachable
-  system (`invariant`), and joint applicability of two honest parties follows since their confirmed
-  sets are nested prefixes whose union is `chainTxs (ŝᵢ ⊔ ŝⱼ)`. The §7 guarantee is the explicit
-  `Initial` premise "every prefix of the agreed chain is applicable to `U₀`" (encoding "honest
-  parties only sign applicable snapshots"). **Soundness + Completeness (P2) are also proved**
-  (`soundness`, `completeness`): `Ufinal = U₀ ∘ chainTxs(sf)` is conflict-free (from
-  chain-applicability), and every honest party's confirmed set is `⊆ chainTxs(sf)` when `ŝᵢ ≤ sf`
-  (from a `chainMono` monotonicity invariant). **The on-chain and off-chain halves are now linked**
-  (`Reflects` bridge + `reflect-sound`/`reflect-complete`/`reflect-fanout-⊆`): the on-chain Closed
-  datum's accumulator commits to the off-chain final UTxO `U₀ ∘ chainTxs(sf)`, and the on-chain
-  fanout distributes only its outputs — via posited accumulator laws (`accUTxO-∅`, `accVerify-sound`,
-  `accVerify-complete`; KZG itself not modelled, only its specifying laws). Only Liveness (P3)
-  remains abstract (`TODO(D4-P3)`), needing a temporal/fairness layer. `SnapshotMonotone` is a
-  concrete example property. (`P1+P2 done, halves linked — P3 open`)
+  `Security.lagda.typ` was rebuilt around a signature model: the global `System` records individual
+  signatures (`sigs : List (Fin parties × Snapshot)`, no `chainTxs`); a snapshot is `Certified` once
+  EVERY party signed it (full multisignature); the step relation `_⟶ˢ_` is `signHonest` (an honest
+  party signs only an *applicable* snapshot, ≤1 per number, **extending its own confirmed snapshot**),
+  `signCorrupt` (corrupt parties sign arbitrarily), `confirm` (adopt a certified snapshot), `corrupt`.
+  The machine-checked `invariant` now **DERIVES** all three safety lemmas (no longer assumes any):
+  (L1) two certified snapshots of the same number are equal (`agree`, from the "≤1 per number" guard);
+  (L3) every honest party's confirmed snapshot is applicable to `U₀` (`conf-applicable` — the `confirm`
+  case discharges it from the "sign only applicable" guard, since a certified snapshot carries the
+  confirmer's own signature); and (L2) confirmed snapshots nest by number (`confirmed-nest` via
+  `cert-nest` — a gap induction using the `sigChain` invariant + L1 + `cert-pos`; **no longer a
+  postulate**). **Consistency** (`consistency`), **Soundness** (`soundness`) and **Completeness**
+  (`completeness`) all follow with NO safety postulate. Unforgeability needs NO axiom (`Certified`
+  *means* all signed). Residual postulates: only the ledger `applyTxs`/nil, the bridge glue `outsOf`,
+  and `Liveness`; the multisignature is *modelled* by the all-signed `Certified` relation (EdDSA
+  unforgeability is a refinement, not a safety gap). **The on-chain and off-chain halves remain
+  linked** (`Reflects` rebased to a finalized snapshot + `reflect-sound`/`reflect-fanout-⊆`): the
+  on-chain Closed datum's accumulator commits to `U₀ ∘ (txs snap)` and the fanout distributes only its
+  outputs — via posited accumulator laws (`accUTxO-∅`, `accVerify-sound`, `accVerify-complete`; KZG not
+  modelled). This REPLACES the earlier single-chain model that simply assumed the confirmed chain is
+  applicable. Liveness (P3) remains abstract (`TODO(D4-P3)`). `SnapshotMonotone` is a concrete example
+  property. (`P1-real DONE: L1/L2/L3 + Consistency/Soundness/Completeness all derived — only P3 open`)
 
 - **Code-vs-spec (implementation alignment):** tracked separately in
   [`code-spec-discrepancies.md`](./code-spec-discrepancies.md) (off-chain `HeadLogic.hs`) and

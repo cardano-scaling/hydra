@@ -308,6 +308,15 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- Validity bundles for the remaining transactions: each conjoins the state-machine
 -- step with the checks expressible from the datums/redeemer/context. They are only
 -- inhabited for genuinely valid transactions.
+--
+-- SCOPE CAVEAT: what these bundles TYPE-ENFORCE is the state-machine shape, the
+-- version discipline, contester growth/dedup, the deadline equations and close-inits-∅.
+-- The value / signature / accumulator CONTENT is *postulated*, not modelled: the bundles
+-- reference opaque extractors (`headValue`/`headValueIn`/`depositValue`/`decommitValue`),
+-- crypto (`msVfy`/`snapshotSigOK`/`signedByParticipant`) and accumulator ops
+-- (`accVerify`/`accVerifyExclude`/`accUTxO`) whose semantics are assumed via postulated
+-- laws. So "the validator is modelled in Agda" means its structural logic is; its
+-- cryptographic/value soundness is assumed, not verified.
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
 contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
     (d ⟶⟨ Contest ct ⟩ d') × contestDeadlineOK d d' × noMint ctx

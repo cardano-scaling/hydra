@@ -27,6 +27,40 @@ transition-for-transition). Every substantive validator check has a faithful cou
 both directions. Two findings are worth acting on (one Agda-side modelling note, one Plutus
 code gap), plus several benign abstraction boundaries; none is a fund-loss/double-spend hole.
 
+### Mechanization status
+
+The **decidable core** of this correspondence is now machine-checked rather than reviewed by
+hand. A decidable reference checker (`spec/src/Hydra/Protocol/Reference.agda`) mirrors the
+unit-robust, structural conjuncts of the validity bundles (version discipline, snapshot
+ordering, contester initialisation, the fanout `m > 0` guard); a typecheck-only bridge
+(`ReferenceBridge.agda`) proves each bundle *implies* its reference accepts. The checker is
+extracted to Haskell via MAlonzo (the `hydra-agda` package) and run as a second oracle in the
+`hydra-tx` mutation tests (`Hydra.Tx.Contract.CloseDifferential`,
+`Hydra.Tx.Contract.Differential`), asserting *reference-reject ⇒ validator-reject* across the
+close / increment / decrement / contest / fanout families. A future validator change that drops
+a decidable spec check fails these tests (demonstrated: deleting `mustNotChangeVersion` makes
+the close differential fail). The crypto / value / accumulator / deadline conjuncts remain
+injected as mocked operations and are *not* covered by this mechanization; they are still
+matched by manual review (below).
+
+**Scope — what the differential test does and does not establish (do not over-sell):**
+
+- *Catches:* a validator that silently drops one of the **structural** conjuncts, i.e. close: version /
+  contestation-period preservation, contesters initialised empty, `closeInitial⇒v=0∧s=0`,
+  `closeAny⇒0<s`; increment/decrement: version `= suc`; contest: version preserved + snapshot
+  strictly increases + exactly one contester appended; fanout: `0 < m`. One end-to-end drift-catch
+  is demonstrated (close `mustNotChangeVersion`).
+- *Does NOT catch (mocked `const True`):* signature/multisig validity, value conservation,
+  accumulator membership/exclusion, token-burn count, deadline checks. A validator could forge any of
+  these and the test would still pass.
+- *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
+  only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
+  mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
+  generated mutations land in the reference's `Just False` branch.
+- *The `spec ⇒ real-Plutus-validator` link is hand-reviewed prose* (this document, §3), not
+  mechanized; only `bundle ⇒ reference` (`ReferenceBridge.agda`) and `reference ⇒ validator`
+  (the differential test, structural layer) are machine-checked.
+
 ---
 
 ## 1. Datum and redeemer types
