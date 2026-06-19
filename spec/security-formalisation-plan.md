@@ -117,7 +117,7 @@ multi-week, research-flavoured work — much larger than the validator predicate
 - **Liveness is the cliff.** Temporal/fairness reasoning in Agda is involved; P1/P2 (safety)
   deliver most of the value and should land first.
 - **Keep the build green.** Each phase ends with `agda` + `nix build .#spec` passing;
-  unproven lemmas stay `postulate`d with a `-- TODO(D4-Pn)` until discharged.
+  unproven lemmas stay `postulate`d with a `-- TODO(D4)` phase marker until discharged.
 
 ## Definition of done
 

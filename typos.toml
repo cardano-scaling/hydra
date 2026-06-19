@@ -1,4 +1,6 @@
 [default.extend-words]
+# Typst file extension (.typ / .lagda.typ), referenced throughout the spec.
+"typ" = "typ"
 # [F]anout
 "anout" = "anout"
 # [I]ncrement
