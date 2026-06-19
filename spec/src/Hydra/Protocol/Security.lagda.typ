@@ -3,6 +3,15 @@ module Hydra.Protocol.Security where
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.OffChain
+open import Data.Fin using (Fin)
+open import Data.Nat using (_⊔_)
+open import Data.Vec using (Vec; lookup; _[_]≔_)
+open import Data.Vec.Properties using (lookup∘update; lookup∘update′)
+import Data.Fin.Properties as FinP
+open import Relation.Nullary using (yes; no)
+open import Relation.Binary.PropositionalEquality using (trans; sym; cong; subst)
+open import Data.Empty using (⊥-elim)
+import Hydra.Protocol.OnChain as OC
 ```
 
 #import "/template.typ": *
@@ -103,12 +112,189 @@ lemmas below are declared as Agda statements whose proofs are future work:
 SnapshotMonotone : LocalState → LocalState → Set
 SnapshotMonotone st st' =
   Snapshot.number (LocalState.confirmed st) ≤ Snapshot.number (LocalState.confirmed st')
+```
 
+The §7 properties quantify over whole multi-party executions in the presence of an
+adversary, so they are stated over an explicit execution model. This is Phase P0 of the
+plan in #raw("security-formalisation-plan.md"): a ledger-application operation, a global
+$sans("System")$ state (the party vector, the on-chain datum, the in-flight network
+messages, and the honest/corrupt partition), and a $sans("Reachable")$ relation. The
+initial systems and the single-step relation are postulated for now; the concrete
+adversary/honest moves are the remaining P0 work.
+
+```agda
+-- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict).
 postulate
-  Consistency  : Set   -- confirmed UTxO sets of honest parties are jointly applicable
-  Soundness    : Set
-  Completeness : Set
-  Liveness     : Set   -- under the liveness condition (network adversary, head stays open)
+  applyTxs : UTxO → List Data → Maybe UTxO
+
+-- A transaction list is jointly applicable to U when applying it does not conflict (≠ ⊥).
+Applicable : UTxO → List Data → Set
+Applicable U txs = ¬ (applyTxs U txs ≡ nothing)
+
+-- T̄ᵢ: a party's confirmed transactions (the confirmed snapshot's tx list). Refining
+-- this to the cumulative confirmed set across snapshots is later D4 work.
+confirmedTxs : LocalState → List Data
+confirmedTxs st = Snapshot.txs (LocalState.confirmed st)
+
+-- A party's confirmed snapshot number ŝ.
+confirmedNo : LocalState → ℕ
+confirmedNo st = Snapshot.number (LocalState.confirmed st)
+
+-- Global system state. Besides the per-party local states, on-chain datum, in-flight network
+-- messages and honest/corrupt partition, the coordinated head has a SINGLE agreed confirmed
+-- snapshot chain `chainTxs` (cumulative confirmed transactions indexed by snapshot number).
+-- Modelling one shared chain — rather than independent per-party confirmed sets — captures the
+-- protocol's agreement guarantee: a snapshot confirms only via a full multisignature, so every
+-- honest party confirms along the same chain. Party-indexed data are vectors for clean updates.
+record System : Set where
+  field
+    parties  : ℕ
+    localOf  : Vec LocalState parties
+    onChain  : OC.HeadDatum
+    inFlight : List (Fin parties × Fin parties × Message)
+    honest   : Vec Bool parties
+    U₀       : UTxO
+    chainTxs : ℕ → List Data
+open System
+
+-- The single-step relation _⟶ˢ_:
+--   • deliver  — an honest party handles a delivered (non-confirming) in-flight message via
+--                `_handles_↝_`; its confirmed snapshot is unchanged (so reqTx/ackSn-collect).
+--   • confirm  — an honest party advances its confirmed snapshot to one drawn from the agreed
+--                chain (its transactions are the chain's at that number). This is the only move
+--                that changes a confirmed set, and it stays on the shared chain by construction.
+--   • inject   — the network adversary injects / re-delivers a message.
+--   • corrupt  — the active adversary corrupts a party (honest parties only ever shrink).
+-- The chain `chainTxs` and `U₀` are never modified by a step.
+data _⟶ˢ_ : System → System → Set where
+  deliver : ∀ {sys i st'} {sender : Fin (parties sys)} {msg : Message}
+    → (sender , i , msg) ∈ˡ inFlight sys
+    → lookup (honest sys) i ≡ true
+    → lookup (localOf sys) i handles msg ↝ st'
+    → LocalState.confirmed st' ≡ LocalState.confirmed (lookup (localOf sys) i)  -- non-confirming
+    → sys ⟶ˢ record sys { localOf = localOf sys [ i ]≔ st' }
+
+  confirm : ∀ {sys i snap}
+    → lookup (honest sys) i ≡ true
+    → Snapshot.txs snap ≡ chainTxs sys (Snapshot.number snap)   -- the confirmed snapshot is the chain's
+    → sys ⟶ˢ record sys
+        { localOf = localOf sys [ i ]≔ record (lookup (localOf sys) i) { confirmed = snap } }
+
+  inject : ∀ {sys} (m : Fin (parties sys) × Fin (parties sys) × Message)
+    → sys ⟶ˢ record sys { inFlight = m ∷ inFlight sys }
+
+  corrupt : ∀ {sys} (i : Fin (parties sys))
+    → sys ⟶ˢ record sys { honest = honest sys [ i ]≔ false }
+
+-- An initial system: nothing in flight, nobody has confirmed past snapshot 0, the chain starts
+-- empty, and — the protocol safety guarantee — every prefix of the agreed chain is applicable to
+-- U₀ (honest parties only ever sign applicable snapshots, so the confirmed chain never conflicts).
+Initial : System → Set
+Initial sys =
+    (inFlight sys ≡ [])
+  × (∀ i → confirmedTxs (lookup (localOf sys) i) ≡ [])
+  × (∀ i → confirmedNo (lookup (localOf sys) i) ≡ 0)
+  × (chainTxs sys 0 ≡ [])
+  × (∀ k → Applicable (U₀ sys) (chainTxs sys k))
+
+-- Reachable = reflexive-transitive closure of _⟶ˢ_ from an initial system.
+data Reachable : System → Set where
+  base : ∀ {s}    → Initial s → Reachable s
+  step : ∀ {s s'} → Reachable s → s ⟶ˢ s' → Reachable s'
+
+-- The invariant carried through every reachable system:
+--   (1) every prefix of the agreed chain is applicable to U₀, and
+--   (2) each honest party's confirmed transactions are exactly the chain at its confirmed number
+--       (the parties stay on the shared chain).
+Inv : System → Set
+Inv sys =
+    (∀ k → Applicable (U₀ sys) (chainTxs sys k))
+  × (∀ i → lookup (honest sys) i ≡ true
+       → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i)))
+
+-- Vec/Fin helper: corruption only ever removes honest parties, so an honest party in the
+-- post-state was honest in the pre-state.
+honest-mono : ∀ {n} (v : Vec Bool n) (i k : Fin n)
+  → lookup (v [ i ]≔ false) k ≡ true → lookup v k ≡ true
+honest-mono v i k h with i FinP.≟ k
+... | no  i≢k  = trans (sym (lookup∘update′ (λ e → i≢k (sym e)) v false)) h
+... | yes refl = ⊥-elim (bool-absurd (trans (sym h) (lookup∘update i v false)))
+  where
+    bool-absurd : true ≡ false → ⊥
+    bool-absurd ()
+
+-- The invariant holds at every reachable system. This is the real safety induction: the base
+-- case unfolds the initial conditions; inject/corrupt leave the chain and the confirmed sets in
+-- place (corrupt via honest-mono); deliver keeps each party's confirmed snapshot (its hypothesis);
+-- and confirm moves party i onto the chain — exactly what its `Snapshot.txs ≡ chainTxs …` premise
+-- records. No postulate is needed: the §7 content is the `Initial` premise that the agreed chain
+-- is applicable, which the proof propagates.
+invariant : ∀ sys → Reachable sys → Inv sys
+invariant sys (base (_ , ct≡[] , cn≡0 , c0≡[] , chApp)) = chApp , poc
+  where
+    poc : ∀ i → lookup (honest sys) i ≡ true
+        → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i))
+    poc i _ = trans (ct≡[] i) (sym (trans (cong (chainTxs sys) (cn≡0 i)) c0≡[]))
+invariant sys (step {s} r tr) = invStep tr (invariant s r)
+  where
+    P : System → LocalState → Set
+    P sys₀ w = confirmedTxs w ≡ chainTxs sys₀ (confirmedNo w)
+
+    invStep : ∀ {a b} → a ⟶ˢ b → Inv a → Inv b
+    invStep (inject m)            (chApp , poc) = chApp , poc
+    invStep {a} (corrupt i)       (chApp , poc) =
+      chApp , λ k hk → poc k (honest-mono (honest a) i k hk)
+    invStep {a} (deliver {i = i} {st' = st'} _ _ _ conf≡) (chApp , poc) =
+      chApp , poc'
+      where
+        poc' : ∀ k → lookup (honest a) k ≡ true → P a (lookup (localOf a [ i ]≔ st') k)
+        poc' k hk with i FinP.≟ k
+        ... | no  i≢k  = subst (P a) (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (poc k hk)
+        ... | yes refl = subst (P a) (sym (lookup∘update i (localOf a) st'))
+              (trans (cong Snapshot.txs conf≡)
+                     (trans (poc k hk) (cong (chainTxs a) (sym (cong Snapshot.number conf≡)))))
+    invStep {a} (confirm {i = i} {snap = snap} _ tx≡) (chApp , poc) =
+      chApp , poc'
+      where
+        st' = record (lookup (localOf a) i) { confirmed = snap }
+        poc' : ∀ k → lookup (honest a) k ≡ true → P a (lookup (localOf a [ i ]≔ st') k)
+        poc' k hk with i FinP.≟ k
+        ... | no  i≢k  = subst (P a) (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (poc k hk)
+        ... | yes refl = subst (P a) (sym (lookup∘update i (localOf a) st')) tx≡
+
+-- The per-system Consistency property, §7. Under the agreement invariant a party's confirmed set
+-- is `chainTxs (confirmedNo i)`, so two honest parties' confirmed sets are nested prefixes of the
+-- one chain and their union T̄ᵢ ∪ T̄ⱼ is `chainTxs (ŝᵢ ⊔ ŝⱼ)` (the longer prefix); joint
+-- applicability is exactly that this prefix applies to U₀.
+HoldsAt : System → Set
+HoldsAt sys =
+  ∀ (i j : Fin (parties sys))
+  → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
+  → Applicable (U₀ sys)
+      (chainTxs sys (confirmedNo (lookup (localOf sys) i) ⊔ confirmedNo (lookup (localOf sys) j)))
+
+Consistency : Set
+Consistency = ∀ (sys : System) → Reachable sys → HoldsAt sys
+
+-- Consistency now holds OUTRIGHT (no postulate): it is the chain-applicability component of the
+-- invariant, instantiated at the larger of the two parties' confirmed snapshot numbers.
+consistency : Consistency
+consistency sys reach i j _ _ =
+  proj₁ (invariant sys reach)
+    (confirmedNo (lookup (localOf sys) i) ⊔ confirmedNo (lookup (localOf sys) j))
+
+-- Corollary tying the abstract chain back to the parties: every honest party's confirmed
+-- transactions are exactly the agreed chain at its confirmed snapshot number.
+confirmed-on-chain : ∀ sys → Reachable sys → ∀ i → lookup (honest sys) i ≡ true
+  → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i))
+confirmed-on-chain sys reach = proj₂ (invariant sys reach)
+
+-- Soundness / Completeness (chain, P2) and Liveness (head; needs the temporal/fairness
+-- layer, P3) remain abstract for now; see security-formalisation-plan.md.
+postulate
+  Soundness    : Set   -- TODO(D4-P2)
+  Completeness : Set   -- TODO(D4-P2)
+  Liveness     : Set   -- TODO(D4-P3): under the liveness condition
 ```
 
 #dparagraph[Consistency.]

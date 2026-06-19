@@ -97,12 +97,24 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   the head/deposit/decommit values in the `Context`) is abstracted by postulated extractors
   (`headValue`, `headValueIn`, `depositValue`, `decommitValue`); replacing those with concrete
   output-search over `Context.outputs` is the remaining refinement.
-- **D4 — security lemmas (§7):** *scoped as future work; detailed plan in
+- **D4 — security lemmas (§7):** *P0 done; P1 (Consistency) PROVED; plan in
   [`security-formalisation-plan.md`](./security-formalisation-plan.md).*
-  Consistency/Soundness/Completeness/Liveness are `postulate`d propositions; discharging them needs a
-  full multi-party execution + adversary model (traces, message scheduling, corruption), built in
-  phases P0–P3 (safety first, liveness last). Out of scope for the predicate-level validator checks done
-  here. `SnapshotMonotone` is a concrete example property. (`open — needs execution model`)
+  `Security.lagda.typ` carries the full P0 substrate (`applyTxs`/`Applicable`, the global `System`
+  with a single agreed confirmed chain `chainTxs`, a concrete step relation `_⟶ˢ_` with
+  `deliver`/`confirm`/`inject`/`corrupt`, concrete `Initial`, and `Reachable`). Confirmation is
+  modelled in the off-chain `_handles_↝_` (`ackSn-collect`/`ackSn-confirm`). **Consistency is proved
+  outright** (`consistency`, no postulate): the carried invariant `Inv` (every chain prefix applies
+  to `U₀`; each honest party's confirmed txs equal the chain at its number) holds at every reachable
+  system (`invariant`), and joint applicability of two honest parties follows since their confirmed
+  sets are nested prefixes whose union is `chainTxs (ŝᵢ ⊔ ŝⱼ)`. The §7 guarantee is the explicit
+  `Initial` premise "every prefix of the agreed chain is applicable to `U₀`" (encoding "honest
+  parties only sign applicable snapshots"). Soundness/Completeness (P2) and Liveness (P3) remain
+  abstract (`TODO(D4-P2)`/`TODO(D4-P3)`). `SnapshotMonotone` is a concrete example property.
+  (`P1 done — P2/P3 open`)
+
+- **Code-vs-spec (implementation alignment):** tracked separately in
+  [`code-spec-discrepancies.md`](./code-spec-discrepancies.md) (off-chain `HeadLogic.hs`) and
+  [`agda-haskell-alignment.md`](./agda-haskell-alignment.md) (on-chain Agda ↔ Plutus `νHead`).
 
 ## How discrepancies are caught going forward
 

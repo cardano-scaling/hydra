@@ -155,6 +155,9 @@ data FanoutMutation
   | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
     -- Exposes that withCRSLookup must also validate txOutAddress.
     MutateFanoutWrongAddressCRS
+  | -- | Fanout claiming zero distributed outputs must be rejected, matching the
+    -- partial/final-partial fanout guards (and the Agda 'fanoutValid' 0 < m).
+    MutateFanoutZeroOutputs
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -260,6 +263,15 @@ genFanoutMutation (tx, _utxo) =
             , AddScript depositValidatorScript
             , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
             ]
+    , pure $
+        SomeMutation (pure $ toErrorCode FanoutZeroOutputs) MutateFanoutZeroOutputs $
+          let crsRef = toPlutusTxOutRef (fst (crsReference scriptRegistry))
+           in ChangeHeadRedeemer
+                Head.Fanout
+                  { Head.numberOfFanoutOutputs = 0
+                  , Head.proof = fanoutProof
+                  , Head.crsRef = crsRef
+                  }
     ]
  where
   burntTokens =

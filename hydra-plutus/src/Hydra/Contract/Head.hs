@@ -492,11 +492,20 @@ headIsFinalizedWith ::
   TxOutRef ->
   Bool
 headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
-  mustBurnAllHeadTokens minted headId parties
+  mustHaveOutputs
+    && mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
     && mustConserveValue
  where
+  -- Guard against numberOfFanoutOutputs = 0: as in 'checkPartialFanout'/
+  -- 'checkFinalPartialFanout', an empty subset degenerates the KZG membership
+  -- check (e(A,G2) = e(proof,G2), trivially satisfied by proof = A). Value
+  -- conservation already prevents fund theft, but the zero-output path is
+  -- semantically meaningless; reject it for consistency with the partial paths.
+  mustHaveOutputs =
+    traceIfFalse $(errorCode FanoutZeroOutputs) $
+      numberOfFanoutOutputs > 0
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 
   minted = txInfoMint txInfo
