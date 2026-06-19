@@ -24,7 +24,7 @@ jobs:
             arch: aarch64-linux
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0
@@ -67,7 +67,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         # Also ensure we have all history with all tags
         fetch-depth: 0

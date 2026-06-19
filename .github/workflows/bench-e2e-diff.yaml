@@ -20,7 +20,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
     - name: "Checkout the PR as the 'new' source"
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup

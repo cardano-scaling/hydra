@@ -42,7 +42,7 @@ jobs:
             os: ubuntu-24.04-arm
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -123,7 +123,7 @@ jobs:
             options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s --incremental-modes False'
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
