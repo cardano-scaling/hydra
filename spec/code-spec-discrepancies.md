@@ -87,7 +87,10 @@ compensation.
 **Consequence.** Off-chain/on-chain divergence after deep rollbacks; potentially a stuck head.
 Systemic and acknowledged in-code; fixing it is a larger piece of work (the history Ω).
 
-**Status: open** (not fixed in this pass — out of scope for the targeted HIGH fix).
+**Status: open** (not fixed in this pass — out of scope for the targeted HIGH fix). Re-confirmed in
+the six-direction consistency audit (2026-06-19) and deliberately kept as a deferred follow-up note:
+the full per-chain-point history Ω restore is a large, self-contained change and is not bundled into
+the spec/Agda consistency work.
 
 ---
 
@@ -105,7 +108,10 @@ bug now**. But it is unchecked; a future change that broke it would post a conte
 signature verifies against the wrong version → rejected by L1 → the head could not be
 defended/contested in time. Worth converting the `XXX` into a real `assert`.
 
-**Status: open** (latent; no current bug).
+**Status: open** (latent; no current bug). Re-confirmed in the six-direction consistency audit
+(2026-06-19) and kept as a deferred follow-up note. Recommended fix when taken up: convert the `XXX`
+into a runtime assertion (`confirmedSnapshot.version ∈ {version, version-1}`) with a regression test,
+in a focused PR rather than bundled into the consistency work.
 
 ---
 

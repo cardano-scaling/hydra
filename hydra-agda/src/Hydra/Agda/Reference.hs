@@ -16,6 +16,7 @@ module Hydra.Agda.Reference (
   OpsInc,
   mkOpsInc,
   checkInc,
+  checkDec,
 
   -- * contest
   HsContestIO (..),
@@ -55,34 +56,40 @@ checkClose :: Ops -> HsOpen -> HsClosed -> HsCloseTag -> Bool
 checkClose = M.d_closeRef'7495'_80
 
 -- | Injected boundary for increment\/decrement.
-type OpsInc = M.T_OpsInc_110
+type OpsInc = M.T_OpsInc_122
 
 mkOpsInc :: (HsIncIO -> Bool) -> OpsInc
-mkOpsInc = M.C_OpsInc'46'constructor_1997
+mkOpsInc = M.C_OpsInc'46'constructor_2081
 
--- | Decidable increment\/decrement checker: the produced version is @suc@ the input version
--- (the validator's @VersionNotIncremented@). Crypto\/value delegated to @OpsInc@.
+-- | Decidable increment checker: the produced version is @suc@ the input version
+-- (@VersionNotIncremented@) AND the head value grows by the deposit on the lovelace component
+-- (@adaIn + adaDelta == adaOut@, the validator's @mustPreserveValue@). Crypto delegated to @OpsInc@.
 checkInc :: OpsInc -> HsIncIO -> Bool
-checkInc = M.d_incRef'7495'_116
+checkInc = M.d_incRef'7495'_128
+
+-- | Decidable decrement checker: version discipline only (its decommit value is not yet supplied as
+-- an extractable lovelace); the @HsIncIO@ ada fields are ignored. Crypto\/value delegated.
+checkDec :: OpsInc -> HsIncIO -> Bool
+checkDec = M.d_decRef'7495'_134
 
 -- | Injected boundary for contest.
-type OpsContest = M.T_OpsContest_150
+type OpsContest = M.T_OpsContest_168
 
 mkOpsContest :: (HsContestIO -> Bool) -> OpsContest
-mkOpsContest = M.C_OpsContest'46'constructor_2207
+mkOpsContest = M.C_OpsContest'46'constructor_2359
 
 -- | Decidable contest checker: version preserved, snapshot strictly increases
 -- (@TooOldSnapshot@), exactly one contester appended. Crypto\/value\/deadline delegated.
 checkContest :: OpsContest -> HsContestIO -> Bool
-checkContest = M.d_contestRef'7495'_156
+checkContest = M.d_contestRef'7495'_174
 
 -- | Injected boundary for fanout\/finalPartialFanout.
-type OpsFanout = M.T_OpsFanout_170
+type OpsFanout = M.T_OpsFanout_188
 
 mkOpsFanout :: (HsFanout -> Bool) -> OpsFanout
-mkOpsFanout = M.C_OpsFanout'46'constructor_2301
+mkOpsFanout = M.C_OpsFanout'46'constructor_2453
 
 -- | Decidable fanout checker: @0 < m@ outputs (the validator's @FanoutZeroOutputs@, the §5.8
 -- m>0 guard). Accumulator\/value\/burn\/deadline delegated to @OpsFanout@.
 checkFanout :: OpsFanout -> HsFanout -> Bool
-checkFanout = M.d_fanoutRef'7495'_176
+checkFanout = M.d_fanoutRef'7495'_194

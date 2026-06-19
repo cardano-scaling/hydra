@@ -201,8 +201,10 @@ one signer = the contester" identity is substantive; the Agda abstracts it. Wort
   `Open`; init is described only in the spec prose (§init). The fanout **burn** of `n+1`
   tokens *is* modelled (`burnAllTokensOK`).
 - **Deposit/recover** (`deposit.ak` / `Deposit.hs`): the deposit deadline, the
-  redeemer-index coupling that ties a deposit `Claim` to an `Increment`, and recovery. Agda's
-  increment passes a deposit `ref` but does not model the deposit validator.
+  redeemer-index coupling that ties a deposit `Claim` to an `Increment`, and recovery. The νDeposit
+  validator itself is not modelled. (As of the six-direction audit, Agda's `incrementValid` now DOES
+  check the claimed deposit `ref` is spent — `depositSpentOK ctx ref`, matching Plutus
+  `claimedDepositIsSpent` and §5.4 — but the νDeposit-side checks remain out of scope.)
 - **CRS reference-input mechanics** (`withCRSLookup`/`resolveCRS`/`CRS.hs`): the Agda `crs :
   OutputRef` redeemer parameter is inert; Plutus enforces the CRS reference script hash,
   address, and non-empty datum, and derives subset scalars by hashing outputs. Pure

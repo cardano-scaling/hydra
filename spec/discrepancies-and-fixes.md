@@ -112,10 +112,12 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   confirmer's own signature); and (L2) confirmed snapshots nest by number (`confirmed-nest` via
   `cert-nest` — a gap induction using the `sigChain` invariant + L1 + `cert-pos`; **no longer a
   postulate**). **Consistency** (`consistency`), **Soundness** (`soundness`) and **Completeness**
-  (`completeness`) all follow with NO safety postulate. Unforgeability needs NO axiom (`Certified`
-  *means* all signed). Residual postulates: only the ledger `applyTxs`/nil, the bridge glue `outsOf`,
-  and `Liveness`; the multisignature is *modelled* by the all-signed `Certified` relation (EdDSA
-  unforgeability is a refinement, not a safety gap). **The on-chain and off-chain halves remain
+  (`completeness`) all follow with NO safety postulate. `confirm` checks the §3.2 aggregate
+  multisignature via the scheme's verifier `msVfy` (`AggVerified snap = msVfy aggKey (msgOf snap)
+  (sigOf snap) ≡ true`), and the named axiom `ms-unforgeable : AggVerified snap → Certified sys snap`
+  (the scheme's unforgeability) bridges that operational check to "every party signed". Residual
+  postulates: only the ledger `applyTxs`/nil, the bridge glue `outsOf`, `ms-unforgeable`, and
+  `Liveness`. **The on-chain and off-chain halves remain
   linked** (`Reflects` rebased to a finalized snapshot + `reflect-sound`/`reflect-fanout-⊆`): the
   on-chain Closed datum's accumulator commits to `U₀ ∘ (txs snap)` and the fanout distributes only its
   outputs — via posited accumulator laws (`accUTxO-∅`, `accVerify-sound`, `accVerify-complete`; KZG not
@@ -123,9 +125,106 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   applicable. Liveness (P3) remains abstract (`TODO(D4-P3)`). `SnapshotMonotone` is a concrete example
   property. (`P1-real DONE: L1/L2/L3 + Consistency/Soundness/Completeness all derived — only P3 open`)
 
+- **D5 — Agda deepening (post-audit, 2026-06-19):** three on-chain coverage gaps narrowed.
+  - **Value conservation made real:** `headValue`/`headValueIn` are no longer postulated — they are
+    DERIVED by summing the value at the validated script (`Context.ownHash`) over the produced outputs
+    / resolved inputs (`valueAtOut`/`valueAtIn`), à la Plutus `valueLockedBy`. Needed enriching
+    `Input` with its `resolved : Output` and `Context` with `ownHash : ℍ` (+ inputs as a `List`, +
+    `_≟ℍ_` decidable hash equality in the Prelude). So **close/contest value conservation is now fully
+    real** (`valHead' ⊇ valHead` over real values), and increment/decrement are real **modulo**
+    `depositValue`/`decommitValue`, which stay postulated (concretizable next via the resolved inputs +
+    the increment `ref`). The value *arithmetic* (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ`) is still the abstract `Value`
+    algebra.
+  - **§5.1 init / μHead modelled:** new `initValid` creation predicate — `cid = hash(μHead(seed))`,
+    seed spent (`depositSpentOK`), `mintedCount = n+1`, produced Open initial (`v=0`, `η=accUTxO ∅`).
+    (Token placement into the head value left abstract.)
+  - **§5.2–5.3 deposit/recover (νDeposit) modelled:** `DepositDatum`/`DepositRedeemer`, `recoverValid`
+    (post-deadline `t_recover < txValidityMin` concrete; the recovered-outputs hash-equality abstracted
+    as `recoveredMatchesDeposited`), and `depositClaimedBy` linking a Claim to its head's increment.
+  - Remaining (next): concretize `depositValue`/`decommitValue`; extend the extractable `Reference.agda`
+    + differential test with a real value-conservation `Op` (needs a value representation at the
+    MAlonzo boundary); off-chain handler model; P3 Liveness.
+
 - **Code-vs-spec (implementation alignment):** tracked separately in
   [`code-spec-discrepancies.md`](./code-spec-discrepancies.md) (off-chain `HeadLogic.hs`) and
   [`agda-haskell-alignment.md`](./agda-haskell-alignment.md) (on-chain Agda ↔ Plutus `νHead`).
+
+## Six-direction consistency audit (Spec ↔ Agda ↔ Haskell, both ways)
+
+A bidirectional audit across all three artifacts (parallel pass per direction). Verdict: **no HIGH
+unresolved inconsistency.** Agda→Haskell found every Agda conjunct enforced by the validator;
+Haskell→Agda found one real Agda gap (now fixed) plus documented scope boundaries. Findings:
+
+- **AUDIT-1 [fixed]:** §5.4 increment "claimed deposit is spent" (`txOutRef_increment = txOutRef_deposit`)
+  is required by the spec and enforced by Plutus (`claimedDepositIsSpent`) but was MISSING from the
+  Agda `incrementValid` (the `ref` field was unused). **Fix:** added a concrete `depositSpentOK ctx ref`
+  conjunct (`∃ input spending ref`) to `incrementValid`.
+- **AUDIT-2 [false alarm]:** an audit pass flagged `headAdaOverhead`/`adaO` preservation as missing from
+  Agda. It is NOT missing — the `_⟶⟨_⟩_` rules reuse the same `ada` variable in source and target, so
+  preservation is type-enforced (matches spec §5.x `adaO' = adaO` and Plutus `mustPreserveHeadAdaOverhead`).
+- **AUDIT-3 [clarified]:** §5.6/§5.7 present the per-case unified-accumulator construction
+  (`accUTxO(U')` / `accCombine(accUTxO(U'), η_Δ)`) as if on-chain checks. They are OFF-CHAIN
+  constructions authenticated by the multisignature; on-chain (Plutus AND Agda `closeValid`) verifies
+  only `msVfy` + `(η')# = hash(η')` (and the Initial-case constant). Added an "Implementation note
+  (accumulator construction)" to §5.6 making this explicit. So Agda and Haskell are consistent here.
+  (The HeadLogic snapshot-creation comments `η ← combine(U)` accurately describe that off-chain
+  construction; the close/contest-*posting* comments are the separate cosmetic staleness C4 below.)
+- **AUDIT-4 [clarified]:** the §7 security model's `signHonest` discipline (sign the snapshot one above
+  your own confirmed, extending it, ≤1 per number) is a faithful but more-explicit statement of §6.2's
+  operational snapshot regime. Added a "Modelling note (honest signing discipline)" to §7.
+- **AUDIT-5 [by-design]:** close/contest head-value check is `valHead' ⊇ valHead` in BOTH the spec
+  (§5.6 prose) and the Agda (`≤ᵛ`); Plutus enforces the stronger `==`. Stronger impl = safe; no change.
+- **Documented scope boundaries (no fix, by design):** Deposit/Recover validators (νDeposit) and the
+  init minting policy are not in the Agda (on-chain head state machine first); off-chain `_handles_↝_`
+  is illustrative (the §6.4 figure is normative); the off-chain `requireValidAccumulatorSize` DoS bound
+  and deposit lifecycle are protocol-liveness, not consensus-safety. KZG is abstracted (laws only).
+- **Reaffirmed known gaps (tracked in `code-spec-discrepancies.md`, NOT changed here):** C2 (rollback
+  does not restore full off-chain state history Ω — pre-existing, acknowledged in `State.hs`), and C3
+  (close/contest rely on the unchecked invariant `confirmedSnapshot.version ∈ {version, version-1}`;
+  holds today, recommend a runtime assertion in a focused follow-up rather than bundling here).
+
+## Security review (deposit/recover + increment value conservation)
+
+A targeted theft/lockout/coverage pass over the three artifacts (Typst spec, Agda, extracted
+reference checker), prompted by three HIGH deposit-theft hypotheses. All three hypotheses are
+REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfaced (AUDIT-6).
+
+- **Cross-head deposit claim [refuted]:** `deposit.ak` Claim gates on
+  `expect_increment_redeemer(self, datum.head_id)`: the deposit datum's `head_id` (a PolicyId) must
+  match a tx input holding that head's `hydra_head_v2` NFT, spent with the Increment redeemer. A
+  deposit cannot be claimed into a different head (different μHead currency symbol). The Agda models
+  this exactly via `depositClaimedBy (cid ≡ hcid)`.
+- **Recover destination pinning [refuted]:** `deposit.ak recover_outputs` requires
+  `hash_tx_outs(take n outputs) == hashPreSerializedCommits(datum.commits)`; each committed
+  `preSerializedOutput` is the full serialised `Output` (address + value + datum), so the recovered
+  outputs are byte-pinned to the original owner's address. Modeled by `recoveredMatchesDeposited` +
+  the after-deadline bound `tRec < validity.lo`.
+- **Multiple-deposit value siphon [refuted]:** `Head.hs mustPreserveValue` requires
+  `headInValue <> totalNonHeadInputValue == headOutValue`, where `totalNonHeadInputValue` sums the
+  value of ALL non-head SCRIPT inputs (deposits are script inputs; pub-key/fee inputs excluded). The
+  exact equality forbids routing any extra spent deposit to an attacker-controlled output: every
+  non-head script input's value must land in the head output. No external theft vector.
+- **AUDIT-6 [modeling gap, safe, NOT fixed]:** the Agda `incrementValueOK` models head-value growth
+  as `headValueIn +ᵛ depositValue(ref) ≡ headValue` (the SINGLE redeemer-referenced deposit), whereas
+  Plutus `mustPreserveValue` sums ALL non-head script inputs. The Agda is a faithful model of the
+  honest single-deposit increment and Plutus is strictly stronger (safe), but the Agda value
+  conjunct is weaker than the validator: it does not express the all-inputs sum that is what actually
+  forbids the siphon on-chain. A full fix needs modeling the input multiset; deferred. (Analogous to
+  AUDIT-5's ≤ᵛ-vs-== for close/contest.)
+- **Concurrent-deposit dilution [upstream observation, out of scope, unconfirmed end-to-end]:**
+  because `mustPreserveValue` forces all non-head script-input value INTO the head output while
+  `checkSnapshotSignature` binds only the accumulator hash, a malicious participant could include a
+  second pending same-head deposit (its Claim passes: same `head_id`, before deadline) so its value
+  enters the head UNCREDITED (no accumulator entry). Not external theft and not introduced by this
+  PR; the fanout consequence is not fully traced here. The single-deposit Agda model does not express
+  this. Flag for upstream awareness only.
+- **Coverage:** init (μHead), increment, decrement, close, contest, fanout, partial/finalPartial
+  fanout, recover are modeled. abort/commit/collectCom are NOT modeled (this coordinated-head variant
+  inits directly to Open with incremental commits via deposit/increment; intent worth confirming).
+- **Lockout:** deposits are recoverable after the deadline (Recover, byte-matching the committed
+  outputs); before the deadline only Claim (needs an increment). No permanent lockout, only the
+  inherent pre-deadline wait. Known trust boundary unchanged: the off-chain PT key-hash check is a
+  MEDIUM boundary mitigated by the honest quorum (see security-formalisation-plan.md).
 
 ## How discrepancies are caught going forward
 

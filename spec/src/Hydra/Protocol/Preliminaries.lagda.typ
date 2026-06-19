@@ -244,13 +244,17 @@ ledger model~@eutxo-2@ledger-shelley-spec.
   $
     txContext in tyContext = (tyInputs times tyOutputs times tyValue times cal(S)^(<->) times cal(K))
   $
-  where $txInputs in tyInputs$ is a *set* of inputs,
+  where $txInputs in tyInputs$ is a (ledger-level) set of _resolved_ inputs --- each carries the
+  spent output (its value, address and datum), as in the eUTxO ledger --- modelled in Agda as a
+  *list* so the value locked at a given script can be summed;
   $txOutputs in tyOutputs$ is a *list* of outputs,
   $txMint in tyValue$ is the minted (or burned) value,
   $(txValidityMin, txValidityMax) in tyValidity$ are the lower and upper
   validity bounds where $txValidityMin <= txValidityMax$, and
   $txKeys in cal(K)$ is the set of verification keys which signed the
-  transaction.
+  transaction. The context additionally exposes the hash of the validator script currently being
+  run ($sans("ownHash")$), against which a state-machine validator identifies its own continuing
+  input and output (and hence the head value in/out).
   // TODO: tyValidity undefined, define time, periods and intervals?
 ]
 
@@ -273,6 +277,7 @@ record OutputRef : Set where
 record Input : Set where
   field
     outputRef : OutputRef
+    resolved  : Output      -- the spent output (value/address/datum), as in Plutus 'TxInInfo'
     redeemer  : Data
 
 record ValidityInterval : Set where
@@ -282,7 +287,9 @@ record ValidityInterval : Set where
 
 record Context : Set where
   field
-    inputs   : ℙ Input      -- a set of inputs
+    ownHash  : ℍ            -- hash of the validator script being run (e.g. νHead)
+    inputs   : List Input   -- the transaction's resolved inputs (a set at the ledger level;
+                            -- modelled as a list so per-script value can be summed, cf. Plutus)
     outputs  : List Output  -- a list of outputs
     mint     : Value
     validity : ValidityInterval

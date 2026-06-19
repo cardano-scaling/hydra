@@ -15,11 +15,12 @@ only once EVERY party signed it (the coordinated head's full multisignature); th
   induction using L1 + the extend-your-own-confirmed guard.
 
 **Consistency** (`consistency`), **Soundness** (`soundness`) and **Completeness** (`completeness`)
-all follow with NO further safety assumption. The only residual postulates are the ledger semantics
-(`applyTxs`/`applyTxs-nil`), the bridge glue (`outsOf`), and `Liveness` (P3); the multisignature is
-*modelled* abstractly as the all-parties-signed `Certified` relation (swapping in EdDSA unforgeability
-over `(cid‖v‖s‖η)` is a refinement, not a gap in the safety argument). The whole tree and
-`nix build .#spec` are green.
+all follow with NO further safety assumption. `confirm` checks the §3.2 aggregate multisignature
+via the scheme's verifier `msVfy` (`AggVerified snap = msVfy aggKey (msgOf snap) (sigOf snap) ≡ true`),
+and the named **unforgeability** axiom `ms-unforgeable : AggVerified snap → Certified sys snap` bridges
+that operational check to "every party signed". The only residual postulates are then the ledger
+semantics (`applyTxs`/`applyTxs-nil`), the bridge glue (`outsOf`), `ms-unforgeable` (the irreducible
+crypto assumption), and `Liveness` (P3). The whole tree and `nix build .#spec` are green.
 
 This REPLACES the earlier single-confirmed-chain model, which simply *assumed* the agreed chain is
 applicable (the entire §7 safety guarantee) as an `Initial` premise. That blanket assumption is gone:
@@ -86,12 +87,14 @@ Consistency, Soundness, Completeness all derived; no safety postulate remains). 
 
 **Model (P1a — done).** Replaced the assumed single chain with a signature model:
 1. **Per-party confirmed sets** (`LocalState.confirmed`); `chainTxs` dropped entirely.
-2. **Real certification.** `System` records signatures `sigs : List (Fin parties × Snapshot)`;
-   `Certified sys snap = ∀ i → Signed sys i snap` (full multisignature). Unforgeability is then *not*
-   a separate axiom — a certified snapshot carries every party's signature, including the confirmer's
-   own honest one. The `confirm` move requires `Certified`. (A future refinement can replace the
-   "every party signed" relation with the `MultiSignatureScheme` record + EdDSA unforgeability over
-   `(cid‖v‖s‖η)`; the abstract version suffices for the proofs.)
+2. **Certification + the §3.2 multisignature.** `System` records signatures
+   `sigs : List (Fin parties × Snapshot)`; `Certified sys snap = ∀ i → Signed sys i snap` is the
+   SEMANTIC condition (every party signed) the proofs reason with. Operationally, `confirm` checks the
+   AGGREGATE multisignature via the §3.2 verifier `msVfy`: `AggVerified snap = msVfy aggKey (msgOf snap)
+   (sigOf snap) ≡ true`. The named axiom `ms-unforgeable : AggVerified snap → Certified sys snap`
+   (the scheme's unforgeability — a verifying aggregate signature implies every party signed) bridges
+   the two; `confirm`'s invariant case obtains `Certified` from it. So the model uses the real `msVfy`
+   check, and unforgeability is the single explicit crypto assumption rather than something baked in.
 3. **Honest-signing rule.** `signHonest` requires the signed snapshot be `Applicable U₀ (txs snap)`
    (the reqSn "wait" guard), that the signer has not signed any snapshot of that number (dedup), AND
    that it is number `suc` of and extends (`txs ⊆`) the signer's own confirmed snapshot (the chain
@@ -117,8 +120,9 @@ Consistency, Soundness, Completeness all derived; no safety postulate remains). 
   L3 (a certified finalized snapshot is applicable). **Completeness (DONE, `completeness`)** is L2.
 
 **Residual assumptions** (no longer including any safety property): the ledger `applyTxs` semantics +
-nil law; the bridge glue `outsOf`; and the abstract `Certified` (all-parties-signed) model of the
-multisignature — swapping in EdDSA unforgeability over `(cid‖v‖s‖η)` is a refinement, not a gap.
+nil law; the bridge glue `outsOf`; and the §3.2 multisignature's **unforgeability** (`ms-unforgeable`,
+relating the `msVfy` aggregate check `AggVerified` to all-parties-signed `Certified`). These are the
+irreducible crypto/ledger axioms.
 
 **Remaining (post-P1-real):** the multisignature refinement above (cosmetic for safety), and **P3
 (Liveness)**.

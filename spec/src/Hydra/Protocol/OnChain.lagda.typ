@@ -147,12 +147,51 @@ postulate
   -- completeness: any genuine subset has a membership witness that verifies
   accVerify-complete : ∀ {U S} → S ⊆ U → ∃[ π ] (accVerify (accUTxO U) S π ≡ true)
 
--- Values read off the validation context (head-output identification — finding the
--- output paying to νHead and the spent deposit/decommit outputs — is abstracted).
+-- Sum the value of all outputs / resolved inputs paying to a given script hash (cf. the Plutus
+-- `valueLockedBy`/`valueSpent` idiom of folding the tx outputs/inputs at `ownHash`). `ℍ` has
+-- decidable equality (`_≟ℍ_`, Prelude), so the per-output membership test is concrete.
+valueAtOut : ℍ → List Output → Value
+valueAtOut h []       = εᵛ
+valueAtOut h (o ∷ os) =
+  if ⌊ Output.address o ≟ℍ h ⌋ then Output.value o +ᵛ valueAtOut h os else valueAtOut h os
+
+valueAtIn : ℍ → List Input → Value
+valueAtIn h []       = εᵛ
+valueAtIn h (i ∷ is) =
+  if ⌊ Output.address (Input.resolved i) ≟ℍ h ⌋
+    then Output.value (Input.resolved i) +ᵛ valueAtIn h is
+    else valueAtIn h is
+
+-- Head value in/out, now DERIVED from the context: the value at the νHead script (`Context.ownHash`)
+-- among the spent inputs / produced outputs (§5.x head-output identification). No longer postulated.
+headValueIn : Context → Value
+headValueIn ctx = valueAtIn (Context.ownHash ctx) (Context.inputs ctx)
+
+headValue : Context → Value
+headValue ctx = valueAtOut (Context.ownHash ctx) (Context.outputs ctx)
+
+-- Decidable equality of output references (txId + index), from `_≟ℍ_` and `_≟_`.
+outputRef-eqᵇ : OutputRef → OutputRef → Bool
+outputRef-eqᵇ a b = ⌊ OutputRef.txId a ≟ℍ OutputRef.txId b ⌋ ∧ ⌊ OutputRef.index a ≟ OutputRef.index b ⌋
+
+-- Value of the resolved input spending a given output reference (there is exactly one such input).
+inputValueAt : OutputRef → List Input → Value
+inputValueAt ref []       = εᵛ
+inputValueAt ref (i ∷ is) =
+  if outputRef-eqᵇ (Input.outputRef i) ref
+    then Output.value (Input.resolved i) +ᵛ inputValueAt ref is
+    else inputValueAt ref is
+
+-- DERIVED (increment): the value of the spent deposit is the value of the resolved input at the
+-- claimed deposit reference `ref` (the same `ref` the increment redeemer carries / `depositSpentOK`
+-- requires spent). No longer postulated.
+depositValue : Context → OutputRef → Value
+depositValue ctx ref = inputValueAt ref (Context.inputs ctx)
+
+-- Still abstracted (decrement): the total decommitted value is the value of the specific decommit
+-- outputs. Identifying them among the produced outputs (vs fee/change) needs output-role tagging the
+-- abstract context lacks, so this stays postulated.
 postulate
-  headValueIn   : Context → Value  -- value of the spent head input
-  headValue     : Context → Value  -- value of the produced head output
-  depositValue  : Context → Value  -- value of the spent deposit output (increment)
   decommitValue : Context → Value  -- total value of the decommitted outputs (decrement)
 
 -- Further obligations whose witnesses involve searching the context value/keys;
@@ -309,14 +348,16 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- step with the checks expressible from the datums/redeemer/context. They are only
 -- inhabited for genuinely valid transactions.
 --
--- SCOPE CAVEAT: what these bundles TYPE-ENFORCE is the state-machine shape, the
--- version discipline, contester growth/dedup, the deadline equations and close-inits-∅.
--- The value / signature / accumulator CONTENT is *postulated*, not modelled: the bundles
--- reference opaque extractors (`headValue`/`headValueIn`/`depositValue`/`decommitValue`),
--- crypto (`msVfy`/`snapshotSigOK`/`signedByParticipant`) and accumulator ops
--- (`accVerify`/`accVerifyExclude`/`accUTxO`) whose semantics are assumed via postulated
--- laws. So "the validator is modelled in Agda" means its structural logic is; its
--- cryptographic/value soundness is assumed, not verified.
+-- SCOPE CAVEAT: what these bundles TYPE-ENFORCE is the state-machine shape, the version discipline,
+-- contester growth/dedup, the deadline equations, close-inits-∅, the head value in/out (DERIVED:
+-- `headValue`/`headValueIn` sum the value at `ownHash` over the produced outputs / resolved inputs)
+-- and the increment deposit value (DERIVED: `depositValue` reads the resolved input at the claimed
+-- ref). What remains abstracted: the value ARITHMETIC laws (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` on the opaque
+-- `Value`), the decrement `decommitValue` (needs decommit-output role tagging), crypto
+-- (`msVfy`/`snapshotSigOK`/`signedByParticipant`) and accumulator ops
+-- (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value CONSERVATION is now
+-- stated over real head (and increment-deposit) values (modulo the abstract value algebra); signature/accumulator
+-- soundness is still assumed.
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
 contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
     (d ⟶⟨ Contest ct ⟩ d') × contestDeadlineOK d d' × noMint ctx
@@ -328,11 +369,19 @@ contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
   × signedByParticipant ctx
 contestValid _ _ _ _ = ⊥
 
+-- The claimed deposit OutputRef is actually spent by the transaction (§5.4: txOutRef_increment =
+-- txOutRef_deposit). Unlike the postulated value/crypto extractors this is a STRUCTURAL check over
+-- the context's inputs, so it is defined concretely. (The νDeposit validator's own checks remain
+-- out of scope; see the deposit/recover note.)
+depositSpentOK : Context → OutputRef → Set
+depositSpentOK ctx ref = ∃[ i ] (i ∈ˡ Context.inputs ctx) × (Input.outputRef i ≡ ref)
+
 incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
 incrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s ref =
     (d ⟶⟨ Increment ξ s ref ⟩ d') × noMint ctx
   × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
-  × incrementValueOK (headValueIn ctx) (depositValue ctx) (headValue ctx)
+  × incrementValueOK (headValueIn ctx) (depositValue ctx ref) (headValue ctx)
+  × depositSpentOK ctx ref                              -- claimed deposit is spent (§5.4)
   × signedByParticipant ctx
 incrementValid _ _ _ _ _ _ = ⊥
 
@@ -367,6 +416,59 @@ finalPartialFanoutValid ctx d outs m π crs =
   × fanoutMembersOK (ηOf d) outs π
   × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
   × fanoutValueOK ctx
+
+-- ── §5.1 init (μHead minting policy) ────────────────────────────────────────────────────────────
+-- A head is created by the seed-parameterised μHead policy. `cid` is the seed-derived policy id, the
+-- seed is spent (so the EUTxO ledger guarantees `cid` is unique), exactly n+1 tokens of `cid` are
+-- minted (1 ST + n PTs), and the produced head output is a well-formed initial Open (version 0,
+-- η = accUTxO ∅). Init has no predecessor datum, so it is a creation PREDICATE, not a `_⟶⟨_⟩_` step.
+-- Token PLACEMENT into the head output (st, ptᵢ ∈ valHead) and the participant key-hash correctness
+-- are value-membership checks, left abstract (cf. `signedByParticipant`).
+postulate
+  μHead       : OutputRef → Script  -- the seed-parameterised minting policy script
+  mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)
+
+initValid : Context → OutputRef → HeadDatum → Set
+initValid ctx seed (Open cid hk n cp v η ada) =
+    (cid ≡ hash (μHead seed))        -- cid = hash(μHead(seed)) (§5.1)
+  × depositSpentOK ctx seed          -- the seed output is spent (uniqueness of cid)
+  × (mintedCount ctx cid ≡ suc n)    -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
+  × (v ≡ 0)                          -- initial snapshot version
+  × (η ≡ accUTxO ∅ˢ)                 -- accumulator commits to the empty initial UTxO set
+initValid _ _ _ = ⊥
+
+-- ── §5.2–5.3 deposit / recover (νDeposit) ───────────────────────────────────────────────────────
+-- A deposit locks funds for later collection into the head via increment. The datum records the
+-- target head `cid`, a recover deadline, and the committed outputs C (refs + serialised outputs).
+record DepositDatum : Set where
+  constructor mkDepositDatum
+  field
+    depCid    : ℍ                      -- target head currency id
+    tRecover  : ℕ                      -- deadline after which the deposit can be recovered
+    committed : List (OutputRef × ℍ)   -- C: deposited output refs + their serialisations
+
+data DepositRedeemer : Set where
+  claim   : DepositRedeemer
+  recover : ℕ → DepositRedeemer        -- m = number of outputs to recover
+
+-- The deposit transaction itself has NO on-chain verification (§5.2: any payment to νDeposit is a
+-- deposit; eligibility is an off-chain check), so there is no `depositValid`. §5.3 recover: νDeposit,
+-- on `recover m`, checks the recovered outputs match the deposited ones (a serialisation-hash
+-- equality, abstracted) and that the transaction is posted strictly after the recover deadline.
+postulate
+  recoveredMatchesDeposited : Context → List (OutputRef × ℍ) → ℕ → Set  -- §5.3.1 hash(⊕oⱼ)=hash(C)
+
+recoverValid : Context → DepositDatum → ℕ → Set
+recoverValid ctx (mkDepositDatum cid tRec C) m =
+    recoveredMatchesDeposited ctx C m                        -- outputs recovered exactly as deposited
+  × (tRec < ValidityInterval.lo (Context.validity ctx))      -- §5.3.2: txValidityMin > t_recover
+
+-- §5.2 Claim: a deposit is collected by an increment of its OWN head. νDeposit defers authorisation
+-- to νHead, whose `incrementValid` checks the deposit ref is spent (`depositSpentOK`) and the
+-- snapshot multisignature; here we record the head-binding the claim requires.
+depositClaimedBy : DepositDatum → HeadDatum → Set
+depositClaimedBy (mkDepositDatum cid _ _) (Open hcid _ _ _ _ _ _) = cid ≡ hcid
+depositClaimedBy _ _ = ⊥
 ```
 
 == Init transaction <sec:init-tx>
@@ -447,6 +549,10 @@ However, it is *crucial* that all head members check:
 - That the head output contains an $st$ token of policy $cid$ which satisfies $cid = hash(muHead(seed))$. The $seed$ spent by this transaction can be used to determine this.
 - That the correct verification key hashes are used in the $pt$s and the open state is consistent with parameters agreed during setup.
 See the initialTx behavior in @fig:off-chain-prot for details about these checks.
+The decidable core of these checks is formalised as the `initValid` predicate (a _creation_
+predicate --- init has no predecessor datum, so it is not a `_⟶⟨_⟩_` step): $cid = hash(muHead(seed))$,
+the seed is spent, exactly $nop + 1$ tokens of $cid$ are minted, and the produced Open is initial
+($v = 0$, $eta = accUTxO(emptyset)$). Token placement into the head value is left abstract.
 
 #figure(initTx-diagram, caption: [$mtxInit$ transaction spending a seed UTxO and producing the head output directly in state $stOpen$.]) <fig:initTx>
 
@@ -501,6 +607,13 @@ to recover, and checks:
   $ hash(plus.o.big_(j=1)^(m) bytes(o_j)) = hash(sans("concat")(sortOn(1, C)^(arrow.b 2))) $
 + Transaction is posted after the deadline
   $ txValidityMin > t_(sans("recover")) $
+
+The deposit datum and redeemer are formalised as `DepositDatum` / `DepositRedeemer`, and the recover
+checks as the `recoverValid` predicate: the recovered outputs match the deposited ones
+(`recoveredMatchesDeposited`, the §5.3.1 serialisation-hash equality, abstracted) and the transaction
+is posted strictly after the deadline (`t_recover < txValidityMin`, concrete). A deposit's collection
+into the head (Claim) is authorised by the `incrementValid` predicate's `depositSpentOK` check (§5.4);
+`depositClaimedBy` records that the deposit's `cid` must match the head it is claimed into.
 
 #figure(recoverTx-diagram, caption: [$mtxRecover$ transaction restoring UTxO of a deposit output.]) <fig:recoverTx>
 
@@ -653,6 +766,17 @@ transaction checks:
 + The ADA overhead $adaO$ is propagated unchanged from the open datum to the closed datum:
   $ adaO' = adaO $
   where $adaO$ is the ADA in the head UTxO not belonging to any L2 UTxO (minimum-UTxO overhead), set at initialisation time and unchanged for the head's lifetime. On fanout, the on-chain value conservation check treats $adaO$ as released from the head UTxO without requiring it in any distributed output, so it flows to whoever submits the fanout transaction as change (offsetting their transaction fee).
+
+#dparagraph[Implementation note (accumulator construction).]
+The per-case formulas for $eta'$ above ($accUTxO(U')$ for $sans("Any")$/$sans("Unused")$,
+$accCombine(accUTxO(U'), eta_Delta)$ for $sans("Used")$) describe how the closing party constructs the
+unified accumulator _off-chain_ before signing: $nuHead$ has neither $U'$ nor $eta_Delta$ and does not
+recompute them. On-chain it verifies only the multisignature $xi$ over $cid || v || s' || (eta')^(\#)$
+and the binding $(eta')^(\#) = hash(eta')$; the $sans("Initial")$ case additionally fixes $eta' =
+accUTxO(emptyset) = G_1$ (a constant). The Agda `closeValid` bundle mirrors exactly this on-chain
+view --- `closeSigOK` (the multisignature, at $v$ or $v-1$ for $sans("Used")$), `closeηOK`
+($(eta')^(\#) = hash(eta')$), and `closeInitialOK` ($eta = accUTxO(emptyset)$) --- and likewise does
+not recompute the off-chain $accUTxO$/$accCombine$ constructions, which are authenticated by $xi$.
 
 #figure(closeTx-diagram, caption: [$mtxClose$ transaction spending the $stOpen$ head output and producing a $stClosed$ head output with unified accumulator $eta'$.]) <fig:closeTx>
 
