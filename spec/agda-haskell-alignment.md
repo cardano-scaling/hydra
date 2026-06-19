@@ -1,4 +1,6 @@
-# Agda on-chain spec vs Plutus implementation: alignment report
+# Agda spec vs implementation: alignment report
+
+*(Part A: on-chain Agda vs the Plutus `νHead` validator. Part B: off-chain Agda vs `HeadLogic.hs`.)*
 
 This report compares the **Agda on-chain model** (`spec/src/Hydra/Protocol/OnChain.lagda.typ`:
 `HeadDatum`, `HeadRedeemer`, the transition relation `_⟶⟨_⟩_`, and the per-transaction
@@ -12,8 +14,10 @@ function (three independent expert passes), then cross-checked. The Agda is deli
 concise; the Plutus carries extra "noise" (datum decoding, error codes, CRS plumbing). The
 comparison judges agreement on the **substantive checks**.
 
-Counterpart for the **off-chain** Agda (`OffChain.lagda.typ` vs `HeadLogic.hs`) is tracked
-separately in [`code-spec-discrepancies.md`](./code-spec-discrepancies.md).
+The **off-chain** Agda (`OffChain.lagda.typ`) vs the Haskell off-chain implementation
+(`HeadLogic.hs` and friends) is covered in Part B below; the off-chain *spec figure* vs
+`HeadLogic.hs` (which found the C1 mutual-exclusion bug etc.) is in
+[`code-spec-discrepancies.md`](./code-spec-discrepancies.md).
 
 ## Verdict
 
@@ -187,3 +191,52 @@ one signer = the contester" identity is substantive; the Agda abstracts it. Wort
 | increment / decrement checks | full match (deposit deadline/claim out of scope) |
 | fanout / partial / final-partial checks | full match (the `0 < m` gap in full fanout, B, now fixed) |
 | `μHead` init/abort, deposit validator, CRS | not modelled in Agda (coverage boundary) |
+
+---
+
+# Part B: off-chain Agda (`OffChain.lagda.typ`) vs `HeadLogic.hs`
+
+Direct, field-by-field / rule-by-rule comparison of the off-chain Agda **data structures and the
+`_handles_↝_` relation** against the Haskell types and handlers
+(`HeadLogic.hs`, `HeadLogic/State.hs`, `HeadLogic/Input.hs`, `Hydra.Network.Message`,
+`Hydra.Tx.Snapshot`, `Hydra.Node.State`). (Distinct from `code-spec-discrepancies.md`, which
+compares the off-chain *spec figure* against `HeadLogic.hs`.)
+
+**Verdict: substantive agreement, no HIGH-severity divergence.** Every Agda field maps to a Haskell
+field with the expected meaning; every `Message` constructor maps to a Haskell one with matching
+payloads (deposit and decommit are in the correct semantic slots on both sides — no repeat of C1);
+and the three `_handles_↝_` rules (`reqTx-pending`, `ackSn-collect`, `ackSn-confirm`) are *faithful
+abstractions* — reshaped for the §7 Consistency proof, they assert nothing the handlers contradict,
+and their elisions (the `L̂∘tx≠⊥` guard, the all-signed/multisig-verify tests, the post-confirm
+posts) are explicitly documented in the Agda.
+
+Structural mapping (all MATCH or MATCH-different-form): Agda `Snapshot` ↔ `Hydra.Tx.Snapshot`
+(`txs↔confirmed`, `utxoInc↔utxoToCommit`, `utxoDec↔utxoToDecommit`, `etaHash`↔ the hash projected
+from `accumulator`, `sig`↔ `ConfirmedSnapshot.signatures`); Agda `LocalState` ↔ the Haskell state
+split across `CoordinatedHeadState` + `OpenState` + `Environment` + the threaded `PendingDeposits`
+map (`seenVersion↔version`, `pending↔localTxs`, `confirmed↔confirmedSnapshot`,
+`pendingDeposit↔currentDepositTxId`, `pendingDecrement↔decommitTx`, `deposits↔PendingDeposits`,
+`seenSigs`↔`SeenSnapshot.signatories`); Agda `Message` ↔ `Hydra.Network.Message` constructors.
+
+Clarity notes (no bugs; documentation only):
+
+- **B-off-1 (MED, addressed in-line):** Agda `reqSn`'s payload lists deposit `txα` before decommit
+  `txω` (matching the §6 figure); the Haskell `ReqSn` record lists `decommitTx` before
+  `depositTxId`. By-name, so no wire bug, but a positional read could pair them wrongly — this is the slot
+  the C1 bug confused. A comment now on the Agda `reqSn` constructor states the by-name
+  correspondence (`txα↔depositTxId`, `txω↔decommitTx`).
+- **B-off-2 (MED):** `Snapshot.headId` / `cid` is omitted from the Agda `Snapshot` record but is the
+  first signed component in Haskell and appears as `cid` in the figure's signing message.
+- **B-off-3 (MED):** Agda `etaHash : Maybe ℍ` collapses Haskell's always-present `HydraAccumulator`
+  plus the separately-tracked signing status (`SeenSnapshot` vs `ConfirmedSnapshot`).
+- **B-off-4 (MED):** `CoordinatedHeadState.allTxs` (commented `Spec: Tall` in `State.hs`) has no
+  counterpart in the off-chain Agda `LocalState` or the figure — it is an implementation-only index
+  for resolving tx-ids in `ReqSn`.
+- **B-off-5 (MED):** the four-state `SeenSnapshot` ADT (incl. the in-flight `RequestedSnapshot`
+  used by `snapshotInFlight`) is flattened in the Agda into `seenVersion`/`seenNumber`/`seenSigs`.
+- **B-off-6 (LOW):** Agda `pendingDeposit : Maybe Data` is a tx; Haskell `currentDepositTxId` is a
+  tx-id. Both sides already note the spec-says-tx / impl-uses-id gap.
+- **B-off-7 (LOW):** `reqTx-pending` prepends to `pending` (`tx ∷`) while the handler appends
+  (`Seq.|>`); irrelevant to the current abstraction, but flag if the Consistency proof ever depends
+  on `pending` ordering. Also: `_handles_↝_` has rules only for `reqTx`/`ackSn`; `reqSn`, `reqDec`
+  and the chain observations live only in the figure (intended illustrative scope).

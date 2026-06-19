@@ -3,11 +3,14 @@ module Hydra.Protocol.Security where
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.OffChain
+open import Hydra.Protocol.Preliminaries using (Output)
 open import Data.Fin using (Fin)
 open import Data.Nat using (_⊔_)
 open import Data.Vec using (Vec; lookup; _[_]≔_)
 open import Data.Vec.Properties using (lookup∘update; lookup∘update′)
 import Data.Fin.Properties as FinP
+open import Data.Product using (Σ-syntax)
+open import Data.List.Relation.Binary.Subset.Propositional using () renaming (_⊆_ to _⊆ˡ_)
 open import Relation.Nullary using (yes; no)
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong; subst)
 open import Data.Empty using (⊥-elim)
@@ -103,24 +106,30 @@ Note that the original version of the coordinated head satisfies a stronger vers
 
 == Proofs
 
-The security properties are stated over the protocol model. Where the current
-(Iteration 1) model allows, a property is a concrete proposition; the named
-lemmas below are declared as Agda statements whose proofs are future work:
+The security properties are stated over the protocol model below. Three of the four are now
+*machine-checked* in Agda: #propName[Consistency] (`consistency`), #propName[Soundness]
+(`soundness`) and #propName[Completeness] (`completeness`) are proved over the explicit
+execution model; #propName[Liveness] remains a postulate pending the temporal/fairness layer
+(see #raw("security-formalisation-plan.md"), P3). The prose lemmas further below give the
+informal arguments these formal proofs mirror.
 
 ```agda
--- A confirmed snapshot's number never decreases across a well-formed step.
+-- An illustrative standalone proposition (not part of the proved properties below): a
+-- confirmed snapshot's number does not decrease from one local state to another.
 SnapshotMonotone : LocalState → LocalState → Set
 SnapshotMonotone st st' =
   Snapshot.number (LocalState.confirmed st) ≤ Snapshot.number (LocalState.confirmed st')
 ```
 
 The §7 properties quantify over whole multi-party executions in the presence of an
-adversary, so they are stated over an explicit execution model. This is Phase P0 of the
-plan in #raw("security-formalisation-plan.md"): a ledger-application operation, a global
-$sans("System")$ state (the party vector, the on-chain datum, the in-flight network
-messages, and the honest/corrupt partition), and a $sans("Reachable")$ relation. The
-initial systems and the single-step relation are postulated for now; the concrete
-adversary/honest moves are the remaining P0 work.
+adversary, so they are stated over an explicit execution model (see
+#raw("security-formalisation-plan.md")): a ledger-application operation `applyTxs`, a global
+$sans("System")$ state, a concrete single-step relation $sans("_⟶ˢ_")$ (honest delivery, snapshot
+confirmation, and the network/active adversary's message injection and party corruption), and the
+$sans("Reachable")$ closure from an initial system. The coordinated head's _agreement_ is modelled
+by a single shared confirmed-snapshot chain that all honest parties advance along. Over this model
+*Consistency*, *Soundness* and *Completeness* are proved outright (below); *Liveness* additionally
+needs a temporal/fairness layer and is still future work.
 
 ```agda
 -- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict).
@@ -196,6 +205,7 @@ Initial sys =
   × (∀ i → confirmedNo (lookup (localOf sys) i) ≡ 0)
   × (chainTxs sys 0 ≡ [])
   × (∀ k → Applicable (U₀ sys) (chainTxs sys k))
+  × (∀ {k k'} → k ≤ k' → chainTxs sys k ⊆ˡ chainTxs sys k')   -- chain grows monotonically (snapshots accumulate)
 
 -- Reachable = reflexive-transitive closure of _⟶ˢ_ from an initial system.
 data Reachable : System → Set where
@@ -209,6 +219,7 @@ data Reachable : System → Set where
 Inv : System → Set
 Inv sys =
     (∀ k → Applicable (U₀ sys) (chainTxs sys k))
+  × (∀ {k k'} → k ≤ k' → chainTxs sys k ⊆ˡ chainTxs sys k')
   × (∀ i → lookup (honest sys) i ≡ true
        → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i)))
 
@@ -230,7 +241,7 @@ honest-mono v i k h with i FinP.≟ k
 -- records. No postulate is needed: the §7 content is the `Initial` premise that the agreed chain
 -- is applicable, which the proof propagates.
 invariant : ∀ sys → Reachable sys → Inv sys
-invariant sys (base (_ , ct≡[] , cn≡0 , c0≡[] , chApp)) = chApp , poc
+invariant sys (base (_ , ct≡[] , cn≡0 , c0≡[] , chApp , chMono)) = chApp , chMono , poc
   where
     poc : ∀ i → lookup (honest sys) i ≡ true
         → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i))
@@ -241,11 +252,11 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
     P sys₀ w = confirmedTxs w ≡ chainTxs sys₀ (confirmedNo w)
 
     invStep : ∀ {a b} → a ⟶ˢ b → Inv a → Inv b
-    invStep (inject m)            (chApp , poc) = chApp , poc
-    invStep {a} (corrupt i)       (chApp , poc) =
-      chApp , λ k hk → poc k (honest-mono (honest a) i k hk)
-    invStep {a} (deliver {i = i} {st' = st'} _ _ _ conf≡) (chApp , poc) =
-      chApp , poc'
+    invStep (inject m)            (chApp , chMono , poc) = chApp , chMono , poc
+    invStep {a} (corrupt i)       (chApp , chMono , poc) =
+      chApp , chMono , λ k hk → poc k (honest-mono (honest a) i k hk)
+    invStep {a} (deliver {i = i} {st' = st'} _ _ _ conf≡) (chApp , chMono , poc) =
+      chApp , chMono , poc'
       where
         poc' : ∀ k → lookup (honest a) k ≡ true → P a (lookup (localOf a [ i ]≔ st') k)
         poc' k hk with i FinP.≟ k
@@ -253,8 +264,8 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | yes refl = subst (P a) (sym (lookup∘update i (localOf a) st'))
               (trans (cong Snapshot.txs conf≡)
                      (trans (poc k hk) (cong (chainTxs a) (sym (cong Snapshot.number conf≡)))))
-    invStep {a} (confirm {i = i} {snap = snap} _ tx≡) (chApp , poc) =
-      chApp , poc'
+    invStep {a} (confirm {i = i} {snap = snap} _ tx≡) (chApp , chMono , poc) =
+      chApp , chMono , poc'
       where
         st' = record (lookup (localOf a) i) { confirmed = snap }
         poc' : ∀ k → lookup (honest a) k ≡ true → P a (lookup (localOf a [ i ]≔ st') k)
@@ -287,14 +298,96 @@ consistency sys reach i j _ _ =
 -- transactions are exactly the agreed chain at its confirmed snapshot number.
 confirmed-on-chain : ∀ sys → Reachable sys → ∀ i → lookup (honest sys) i ≡ true
   → confirmedTxs (lookup (localOf sys) i) ≡ chainTxs sys (confirmedNo (lookup (localOf sys) i))
-confirmed-on-chain sys reach = proj₂ (invariant sys reach)
+confirmed-on-chain sys reach = proj₂ (proj₂ (invariant sys reach))
 
--- Soundness / Completeness (chain, P2) and Liveness (head; needs the temporal/fairness
--- layer, P3) remain abstract for now; see security-formalisation-plan.md.
+-- ── P2: Soundness and Completeness (Chain) ─────────────────────────────────────────────────
+-- The final on-chain UTxO set is the head's closed/fanned-out snapshot applied to U₀. The closed
+-- snapshot number sf is a position on the agreed chain (chosen on-chain by close, possibly raised
+-- by contest), so Ufinal = U₀ ∘ T̃ with T̃ = chainTxs sf.
+Ufinal : System → ℕ → Maybe UTxO
+Ufinal sys sf = applyTxs (U₀ sys) (chainTxs sys sf)
+
+-- A non-⊥ Maybe is some `just`.
+≢nothing→just : ∀ {A : Set} (m : Maybe A) → ¬ (m ≡ nothing) → Σ[ x ∈ A ] (m ≡ just x)
+≢nothing→just (just x) _  = x , refl
+≢nothing→just nothing  ¬n = ⊥-elim (¬n refl)
+
+-- Soundness (Chain), §7 (core): the final UTxO results from applying the confirmed-chain prefix
+-- T̃ = chainTxs sf to U₀ and is conflict-free (Ufinal = U₀ ∘ T̃ ≠ ⊥). T̃ is the agreed confirmed
+-- chain, so (by `confirmed-on-chain`) it contains every honest party's confirmed transactions; the
+-- "T̃ ⊆ ⋂ honest *seen*" strengthening needs explicit seen-set modelling and is the remaining part.
+Soundness : Set
+Soundness = ∀ sys → Reachable sys → ∀ sf → Σ[ U ∈ UTxO ] (Ufinal sys sf ≡ just U)
+
+soundness : Soundness
+soundness sys reach sf = ≢nothing→just (Ufinal sys sf) (proj₁ (invariant sys reach) sf)
+
+-- Completeness (Chain), §7: every transaction an honest party confirmed (T̄ᵢ) is included in the
+-- finalized result T̃ = chainTxs sf, whenever the finalized snapshot number sf is at least the
+-- party's confirmed number ŝᵢ (which contest guarantees on-chain for honest contesters). Proved
+-- from chain monotonicity and `confirmed-on-chain`.
+Completeness : Set
+Completeness = ∀ sys → Reachable sys → ∀ sf i
+  → lookup (honest sys) i ≡ true
+  → confirmedNo (lookup (localOf sys) i) ≤ sf
+  → confirmedTxs (lookup (localOf sys) i) ⊆ˡ chainTxs sys sf
+
+completeness : Completeness
+completeness sys reach sf i hi le =
+  subst (_⊆ˡ chainTxs sys sf)
+    (sym (confirmed-on-chain sys reach i hi))
+    (proj₁ (proj₂ (invariant sys reach)) le)
+
+-- ── Linking the two Agda halves: off-chain confirmed chain ↔ on-chain close/fanout ─────────────
+-- The on-chain model (OnChain.lagda.typ) describes the head datum and the close/fanout validity
+-- bundles; the off-chain model here describes the confirmed transaction chain. They meet at
+-- finalization: when the head closes/fans out, the on-chain Closed datum's accumulator commits to
+-- exactly the off-chain final UTxO U₀ ∘ chainTxs(sf). We make that bridge explicit and connect the
+-- on-chain accumulator/fanout to the off-chain Soundness/Completeness.
+
+-- Glue: the set of outputs held in a UTxO map (its range). Basic, assumed (not modelled in detail).
 postulate
-  Soundness    : Set   -- TODO(D4-P2)
-  Completeness : Set   -- TODO(D4-P2)
-  Liveness     : Set   -- TODO(D4-P3): under the liveness condition
+  outsOf : UTxO → ℙ Output
+
+-- Bridge predicate: the on-chain head datum REFLECTS the off-chain confirmed chain at snapshot
+-- number sf — its snapshot number is sf and its stored accumulator commits (`OC.accUTxO`) to the
+-- off-chain final UTxO Ufinal = U₀ ∘ chainTxs(sf). On-chain this is established by a close/fanout
+-- satisfying `OC.closeValid`/`OC.fanoutValid` (OnChain §5.6–5.8); here it is the linking hypothesis.
+Reflects : System → ℕ → Set
+Reflects sys sf = Σ[ U ∈ UTxO ]
+    (Ufinal sys sf ≡ just U)                                   -- the final UTxO is conflict-free
+  × (OC.snapNum (onChain sys) ≡ sf)                            -- on-chain snapshot number = sf
+  × (OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U))             -- on-chain accumulator commits to it
+
+-- Reflected Soundness: when the on-chain datum reflects the chain at sf, its committed accumulator
+-- commits to a conflict-free UTxO that is exactly U₀ ∘ chainTxs(sf) (off-chain Soundness, on-chain).
+reflect-sound : ∀ sys → Reachable sys → ∀ {sf} → Reflects sys sf
+  → Σ[ U ∈ UTxO ] (applyTxs (U₀ sys) (chainTxs sys sf) ≡ just U)
+                × (OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U))
+reflect-sound sys reach (U , uf≡ , _ , η≡) = U , uf≡ , η≡
+
+-- Reflected Completeness: every honest party's confirmed transactions are included in the finalized
+-- chain prefix, at the on-chain finalized number (off-chain Completeness, on-chain).
+reflect-complete : ∀ sys → Reachable sys → ∀ {sf} → Reflects sys sf
+  → ∀ i → lookup (honest sys) i ≡ true → confirmedNo (lookup (localOf sys) i) ≤ sf
+  → confirmedTxs (lookup (localOf sys) i) ⊆ˡ chainTxs sys sf
+reflect-complete sys reach {sf} _ i hi le = completeness sys reach sf i hi le
+
+-- The key link: the on-chain fanout distributes only outputs of the off-chain final UTxO. Its
+-- membership-verified outputs (`OC.fanoutMembersOK`, i.e. `accVerify η outs π ≡ true`) are, by the
+-- accumulator soundness law and the reflection bridge, a subset of outsOf(Ufinal). This ties the
+-- on-chain `fanoutValid` distribution to the off-chain Soundness UTxO U₀ ∘ chainTxs(sf).
+reflect-fanout-⊆ : ∀ sys → ∀ {U outs π}
+  → OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U)
+  → OC.fanoutMembersOK (OC.ηOf (onChain sys)) outs π
+  → outs ⊆ outsOf U
+reflect-fanout-⊆ sys {U} {outs} {π} η≡ mem =
+  OC.accVerify-sound (subst (λ z → OC.accVerify z outs π ≡ true) η≡ mem)
+
+-- Liveness (head; needs the temporal/fairness layer, P3) remains abstract; see
+-- security-formalisation-plan.md.
+postulate
+  Liveness : Set   -- TODO(D4-P3): under the liveness condition
 ```
 
 #dparagraph[Consistency.]
@@ -312,6 +405,8 @@ postulate
   $Uinit applytx That_i != bot$. Thus, since $Tbar_i union Tbar_j subset.eq That_i$
   it follows that
   $Uinit applytx (Tbar_i union Tbar_j) != bot$
+
+  _Machine-checked as #raw("consistency") (over the single-confirmed-chain model) above._
 ]
 
 #dparagraph[Oblivious Liveness.]
@@ -387,6 +482,10 @@ We call this the _liveness condition_.
   Furthermore, since honest signatures are only issued for valid transaction,
   $Ufinal != bot$ (i.e., $Ufinal$ is a valid state), and soundness
   follows.
+
+  _Machine-checked as #raw("soundness") above ($Ufinal = U_0 applytx tilde(T) != bot$ with
+  $tilde(T) = sans("chainTxs")(s_f)$); the $tilde(T) subset.eq inter.big_(i in honest) That_i$
+  strengthening awaits seen-set modelling._
 ]
 
 
@@ -400,4 +499,7 @@ We call this the _liveness condition_.
   $Ufinal . s >= max_(p_i in Hcont) (bars_i)$, and thus that
   $union.big_(p_i in Hcont) Tbar_i subset.eq inter.big_(p_i in honest) That_i$,
   and completeness follows.
+
+  _Machine-checked as #raw("completeness") above (each honest party's $Tbar_i subset.eq
+  tilde(T)$ whenever $bars_i <= s_f$, from chain monotonicity)._
 ]

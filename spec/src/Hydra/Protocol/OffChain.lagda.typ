@@ -180,7 +180,11 @@ record LocalState : Set where      -- a party's local state (besides setup param
 data Message : Set where           -- network messages of the coordinated head (§6)
   reqTx  : (tx : Data)                          → Message  -- hpRT
   reqDec : (tx : Data)                          → Message  -- hpRD
-  reqSn  : (v s : ℕ) (txReq txα txω : Data)     → Message  -- hpRS (full payload)
+  -- hpRS (full payload). NB the payload order here (deposit txα before decommit txω) follows
+  -- the §6 figure; the Haskell `ReqSn` record (Hydra.Network.Message) lists the same fields by
+  -- NAME as txReq↔transactionIds, txα↔depositTxId, txω↔decommitTx, with decommit before deposit
+  -- — match them by name, not position (this is the deposit/decommit slot the C1 bug confused).
+  reqSn  : (v s : ℕ) (txReq txα txω : Data)     → Message
   ackSn  : (s : ℕ) (σ : PartySig)                    → Message  -- hpAS (σⱼ, an individual signature)
 
 -- Handling a message updates a party's local state (spec §6.4, Protocol flow).

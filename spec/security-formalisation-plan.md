@@ -1,7 +1,7 @@
 # D4 — Plan: formalising the §7 security properties in Agda
 
-Status: **P0 substrate complete; P1 (Consistency) PROVED outright** (single-confirmed-chain model).
-As of the latest pass,
+Status: **P0 complete; P1 (Consistency) + P2 (Soundness, Completeness) PROVED** (single-confirmed-chain
+model). Only P3 (Liveness) remains, needing the temporal/fairness layer. As of the latest pass,
 `Security.lagda.typ` defines the ledger-application operation (`applyTxs`/`Applicable`, with
 the `applyTxs-nil` law), the global `System` state (party vectors for local states and the
 honest/corrupt partition, the on-chain `HeadDatum`, the in-flight network buffer, `U₀`), a
@@ -39,13 +39,36 @@ content is now the explicit `Initial` premise "every prefix of the agreed chain 
 `U₀`", which faithfully encodes "honest parties only ever sign applicable snapshots". A corollary
 `confirmed-on-chain` ties the abstract chain back to each party's confirmed transactions.
 
-Remaining work: this closes **P1 (Consistency)** for the coordinated model. Next is P2
-(Soundness/Completeness — tie the chain's final state to the on-chain close/fanout bundles) and P3
-(Liveness — the temporal/fairness layer). Optionally enrich the model further: derive `chainTxs`'s
-applicability from the per-snapshot reqSn validity guard rather than asserting it at `Initial`
-(pushing the guarantee one level deeper), tie signatures to snapshots explicitly, and add the
-on-chain-posting/tick moves. The whole thing keeps `nix build .#spec` green. This is the long-tail
-"D4" item from
+This closes **P1 (Consistency)** for the coordinated model.
+
+**P2 (Soundness + Completeness) is also PROVED.** The final on-chain UTxO is modelled as
+`Ufinal sys sf = applyTxs U₀ (chainTxs sf)` for the finalized (closed/fanned-out) snapshot number
+`sf` — a position on the agreed chain. *Soundness* (`soundness`): `Ufinal = U₀ ∘ T̃` with
+`T̃ = chainTxs sf` is conflict-free (`∃ U, Ufinal ≡ just U`), proved from the chain-applicability
+invariant via a `≢nothing→just` Maybe lemma; `confirmed-on-chain` ties `T̃` to the parties (the
+"`T̃ ⊆ ⋂ honest seen`" strengthening needs explicit seen-set modelling and is the remaining
+refinement). *Completeness* (`completeness`): every honest party's confirmed set `T̄ᵢ ⊆ T̃` whenever
+`ŝᵢ ≤ sf` (the contest guarantee), proved from a chain-monotonicity invariant (`chainMono`, added to
+`Initial`/`Inv`: `k ≤ k' → chainTxs k ⊆ chainTxs k'`) and `confirmed-on-chain`.
+
+**The two Agda halves are now linked.** `Security.lagda.typ` carries a `Reflects sys sf` bridge —
+the on-chain head datum's snapshot number is `sf` and its accumulator `OC.ηOf (onChain sys)` commits
+(`OC.accUTxO`) to the off-chain final UTxO `U₀ ∘ chainTxs(sf)` (range glued by a posited
+`outsOf : UTxO → ℙ Output`). On top of it: `reflect-sound` / `reflect-complete` re-express Soundness
+/ Completeness on the on-chain datum, and `reflect-fanout-⊆` proves the on-chain fanout distributes
+only outputs of the off-chain final UTxO (`OC.fanoutMembersOK ⇒ outs ⊆ outsOf U`), using a new
+**accumulator law** in `OnChain.lagda.typ`. We do not model KZG; we posit its specifying laws:
+`accUTxO-∅` (empty set commits to `G₁`), `accVerify-sound` (a verified witness attests a genuine
+subset), and `accVerify-complete` (genuine subsets have witnesses). This closes the
+"two-halves-disconnected" gap from the critical assessment; the bridge `Reflects` is the linking
+hypothesis (on-chain established by `closeValid`/`fanoutValid`).
+
+Remaining work: **P3 (Liveness)** — the temporal/fairness layer (eventual delivery under a network
+adversary + head stays open). Optional refinements: tie `sf` to an explicit on-chain close+fanout
+*move* (and the contest-max) rather than asserting the `Reflects` bridge; derive `chainTxs`'s
+applicability/monotonicity from the per-snapshot reqSn validity guard rather than asserting them at
+`Initial`; model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`. The whole thing keeps
+`nix build .#spec` green. This is the long-tail "D4" item from
 `discrepancies-and-fixes.md`. The validator-level (on-chain) checks are already encoded
 as type-level predicates and per-transaction validity bundles; the §7 security
 properties are different in kind — they are statements about **whole protocol
@@ -145,6 +168,77 @@ Liveness     : Fair trace → LivenessCondition trace → HonestEnters i tx trac
 
 Effort: P0 medium, P1 medium, P2 medium-large, P3 large (temporal reasoning). This is
 multi-week, research-flavoured work — much larger than the validator predicates.
+
+## P3 (Liveness): what it would take (deferred)
+
+Liveness is categorically different from the three safety properties already proved. Consistency /
+Soundness / Completeness are **invariants over reachable states** ("in every reachable state X
+holds") — `Reachable` (a finite reflexive-transitive closure) is exactly the right tool and the
+proofs are inductions over it. Liveness is **a temporal property over fair, infinite executions**
+("*eventually* the tx is confirmed or universally conflicting"). That `eventually` cannot be
+expressed against `Reachable` at all (reachability says what *can* happen, not what *must*), and it
+is only true relative to a fairness assumption (against a message-dropping adversary it is simply
+false). So most of P3 is **new machinery and model enrichment**, not a proof on top of what we have.
+
+What is missing, in order of weight:
+
+1. **A temporal layer (traces + "eventually").** Move from states to runs: a trace `σ : ℕ → System`
+   with `σ n ⟶ˢ σ (suc n)` and `Initial (σ 0)` (an ℕ-indexed run is likely simpler in Agda than
+   coinductive streams here), then `Eventually P σ = Σ[ n ] P (σ n)`, and probably `leads-to`
+   (`P ⇝ Q`) and `Always`.
+
+2. **Fairness / the liveness condition (a hypothesis on the trace).** The honest core is that
+   liveness holds only under the network adversary's fairness: *eventual delivery* (every message
+   put in `inFlight` is eventually consumed by its recipient — `∀ n m, m ∈ inFlight (σ n) → ∃ k ≥ n,
+   "m delivered at k"`), *no corruption* (for oblivious liveness everyone stays honest, so `corrupt`
+   is excluded), and *head stays open* "long enough" (no `close` in the window). Encoding `Fair σ`
+   is the central new definition and is what powers every "eventually".
+
+3. **Model enrichments (the largest piece).** Our model was built for safety, so its dynamics are
+   deliberately permissive/abstract; liveness needs them made operational:
+   - *Message delivery is untracked* — `deliver` reads from `inFlight` but does not remove the
+     message (at-least-once); fairness needs sent-but-undelivered messages tracked precisely.
+   - *No proactive honest sending* — we only have the adversary's `inject`; liveness needs honest
+     parties to *generate* the protocol's messages (leader sends `reqSn` after a snapshot confirms,
+     every party `ackSn`s, …): "good things happen because honest parties act".
+   - *`confirm` is "magic"* — any honest party can currently confirm any chain-aligned snapshot; for
+     liveness, confirmation must be the *result* of a completed round (`reqSn` → all `ackSn` →
+     `confirm`) so the round can be shown to *complete* under fairness (track collected signatures,
+     fire `confirm` when all are in). The single-chain agreement might then be *derived* rather than
+     assumed.
+   - *No leader schedule* — `eternal` needs `leader(s) = s mod n`, honest leaders, and the next
+     leader requesting the next snapshot.
+   - *No time / "head open" notion* — the liveness condition references a time window; we have
+     neither time nor a `close` move.
+   - *`localLedger`/`pending` dynamics and `L̂ ∘ tx`* — the final "confirmed *or* conflicting"
+     dichotomy rests on the local-ledger applicability check, which we abstracted (`applyTxs`) and do
+     not connect to per-party `pending`/`L̂`.
+
+4. **The three-lemma proof (on top of the above).** Mirrors the §7 sketch: `reqconf` (under fairness
+   a requested snapshot is eventually confirmed by everyone — needs eventual delivery + the round
+   model), `eternal` (while new txs are issued, every snapshot number `k` is eventually confirmed —
+   induction on `k` using `reqconf` + leader rotation + head-stays-open), then liveness itself (the
+   party re-issues `reqTx tx`; by `eternal` snapshots advance unboundedly, so `tx` is eventually in a
+   confirmed snapshot, or it never applies and is universally conflicting — needs the `L̂ ∘ tx`
+   dichotomy).
+
+What we can reuse: the state structure (`System`, the single confirmed chain, the existing moves as
+a starting point) and — load-bearing — the **safety results** themselves (liveness arguments lean on
+"confirmation never produces a conflict" and on the chain/agreement invariant). So P1/P2 are
+premises for P3, not throwaway.
+
+Rough scale: P3 ≈ a small temporal-logic library (traces / `Eventually` / `leads-to`) + a fairness
+model + an operational refactor of the message/round/leader dynamics + the three-lemma proof. The
+model refactor is the bulk (arguably as much as P0–P2 combined); the temporal/fairness scaffolding
+is genuinely new. Sensible sequencing: start with **oblivious** liveness (the party re-enters the tx
+after each snapshot, avoiding the wait-queue), build the trace + `Eventually` + `Fair` layer, make
+the snapshot round operational, then prove `reqconf` → `eternal` → liveness. Decide the abstraction
+level (synchronous rounds vs asynchronous-with-fairness) up front. Honest caveat: just as the safety
+proofs rest on a clearly-localized `Initial` premise (the agreed chain is applicable), a liveness
+proof rests on a clearly-localized `Fair`/liveness-condition premise — the value is making that
+assumption explicit and showing progress genuinely follows from it.
+
+**Status: deferred.** `Liveness` stays `postulate`d (`TODO(D4-P3)`) until this is taken on.
 
 ## Reuse / tooling
 

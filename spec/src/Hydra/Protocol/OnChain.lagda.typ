@@ -3,6 +3,7 @@ module Hydra.Protocol.OnChain where
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
+open import Data.Product using (∃-syntax)
 ```
 
 #import "/template.typ": *
@@ -135,6 +136,16 @@ postulate
   accVerify        : AccCommitment → ℙ Output → AccWitness → Bool
   accVerifyExclude : AccCommitment → ℙ Output → AccCommitment → Bool
   G₁               : AccCommitment
+
+-- We do NOT model the KZG construction; we only assume the scheme functions correctly, via
+-- these specifying laws (used to connect the on-chain accumulator to the off-chain UTxO sets):
+postulate
+  -- the empty set commits to the generator (the "empty accumulator" G₁)
+  accUTxO-∅       : accUTxO ∅ˢ ≡ G₁
+  -- soundness: a verified membership witness attests a genuine subset (no proving non-members)
+  accVerify-sound : ∀ {U S π} → accVerify (accUTxO U) S π ≡ true → S ⊆ U
+  -- completeness: any genuine subset has a membership witness that verifies
+  accVerify-complete : ∀ {U S} → S ⊆ U → ∃[ π ] (accVerify (accUTxO U) S π ≡ true)
 
 -- Values read off the validation context (head-output identification — finding the
 -- output paying to νHead and the spent deposit/decommit outputs — is abstracted).
