@@ -1,0 +1,780 @@
+```
+module Hydra.Protocol.OnChain where
+
+open import Hydra.Protocol.Prelude
+open import Hydra.Protocol.Preliminaries
+```
+
+#import "/template.typ": *
+#import "/macros.typ": *
+#import "/diagrams.typ": transition-arrow, initTx-diagram, depositTx-diagram, recoverTx-diagram, incrementTx-diagram, decrementTx-diagram, closeTx-diagram, contestTx-diagram, fanoutTx-diagram, partialFanoutTx-diagram, finalPartialFanoutTx-diagram
+
+#pagebreak()
+= On-chain Protocol <sec:on-chain>
+#todo[Update figures]
+
+The following sections describe the _on-chain_ protocol
+controlling the life-cycle of a Hydra head, which can be intuitively described
+as a state machine (see @fig:head-protocol-states). Each transition
+in this state machine is represented and caused by a corresponding Hydra
+protocol transaction
+on-chain: $mtxInit$~@sec:init-tx, $mtxIncrement$~@sec:increment-tx, $mtxDecrement$~@sec:decrement-tx, $mtxClose$~@sec:close-tx, $mtxContest$~@sec:contest-tx, $mtxFanout$~@sec:fanout-tx, $mtxPartialFanout$~@sec:partial-fanout-tx, and $mtxFinalPartialFanout$~@sec:final-partial-fanout-tx.
+
+The protocol uses KZG accumulators (see @sec:accumulators) to enable partial fanout when UTxO sets exceed transaction size limits. When all UTxOs fit in a single transaction, $mtxFanout$ distributes them all at once. When UTxO sets are too large, $mtxPartialFanout$ distributes subsets across multiple transactions using membership witnesses, transitioning through an intermediate $stFanoutProgress$ state, until $mtxFinalPartialFanout$ completes the distribution.
+
+Besides the main state transitions of the head protocol, there is
+the related "deposit protocol" with two transactions in support of
+$mtxIncrement$: $mtxDeposit$~@sec:deposit-tx and $mtxRecover$~@sec:recover-tx.
+There is also a $mtxDecrement$ transaction~@sec:decrement-tx that allows for taking funds from the Head back to L1.
+
+The head protocol defines one minting policy script and one
+validator script:
+- $muHead$ governs minting of state and participation tokens in
+  $mtxInit$ and burning of these tokens in $mtxFanout$.
+- $nuHead$ represents the main protocol state machine logic and ensures
+  contract continuity throughout $mtxIncrement$, $mtxDecrement$,
+  $mtxClose$, $mtxContest$, $mtxFanout$, $mtxPartialFanout$ and $mtxFinalPartialFanout$.
+
+The deposit protocol defines one validator script:
+- $nuDeposit$ controls that $mtxDeposit$ transaction output is
+  claimed correctly into a head via $mtxIncrement$ or recovered after
+  the deadline has passed in a $mtxRecover$ transaction.
+
+The head output datum $datumHead$ ranges over the protocol states. The state
+machine and its per-state fields (as enumerated in the transitions below) are
+captured by the following Agda type, with the redeemer $redeemerHead$ selecting
+the $nuHead$ transition:
+
+```agda
+-- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
+data CloseType : Set where
+  closeInitial                  : CloseType
+  closeAny closeUnused closeUsed : (ξ : AggSig) (ηhash : ℍ) → CloseType
+
+data ContestType : Set where
+  contestUnused contestUsed : (ξ : AggSig) (ηhash : ℍ) → ContestType
+
+data HeadDatum : Set where
+  Open : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (contestationPeriod : ℕ)
+         (version : ℕ) (η : AccCommitment) (ada : Value) → HeadDatum
+  Closed : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (contestationPeriod : ℕ)
+           (version : ℕ) (snapshotNumber : ℕ) (η : AccCommitment)
+           (contesters : List VKey) (tfinal : ℕ) (ada : Value) → HeadDatum
+  FanoutProgress : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (tfinal : ℕ)
+                   (η : AccCommitment) (ada : Value) → HeadDatum
+  Final : HeadDatum
+
+data HeadRedeemer : Set where
+  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef) → HeadRedeemer
+  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ)           → HeadRedeemer
+  Close              : CloseType                            → HeadRedeemer
+  Contest            : ContestType                          → HeadRedeemer
+  Fanout             : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
+  PartialFanout      : (m : ℕ) (crs : OutputRef)                  → HeadRedeemer
+  FinalPartialFanout : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
+```
+
+The admissible $nuHead$ state transitions are captured as a typed relation
+$d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"). The relation
+encodes the *state-machine shape* and the *version discipline* in the types:
+$sans("increment")$/$sans("decrement")$ bump the version (`suc v`),
+$sans("close")$/$sans("contest")$ preserve it (the same `v` reappears),
+$sans("close")$ initialises the contester list to the empty list, $sans("contest")$
+requires the new $keyHash in.not contesters$ (so the list grows by exactly one), and
+the partial-fanout rules thread the intermediate $stFanoutProgress$ state through to
+$stFinal$. A rule violating any of *these* would fail to type-check. The
+remaining per-transaction conditions (signatures, value conservation, deadlines)
+are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK` below) applied
+alongside it.
+
+```agda
+data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
+
+  increment : ∀ {cid hk n cp v η ada η' ξ s ref}
+    → Open cid hk n cp v η ada ⟶⟨ Increment ξ s ref ⟩ Open cid hk n cp (suc v) η' ada
+
+  decrement : ∀ {cid hk n cp v η ada η' ξ s m}
+    → Open cid hk n cp v η ada ⟶⟨ Decrement ξ s m ⟩ Open cid hk n cp (suc v) η' ada
+
+  close : ∀ {cid hk n cp v η ada s' η' tfin ct}
+    → Open cid hk n cp v η ada ⟶⟨ Close ct ⟩ Closed cid hk n cp v s' η' [] tfin ada
+
+  contest : ∀ {cid hk n cp v s η C tfin ada s' η' kh tfin' ct}
+    → ¬ (kh ∈ˡ C)                                 -- the contester has not already contested
+    → Closed cid hk n cp v s η C tfin ada
+        ⟶⟨ Contest ct ⟩ Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada
+
+  fanout : ∀ {cid hk n cp v s η C tfin ada m π crs}
+    → Closed cid hk n cp v s η C tfin ada ⟶⟨ Fanout m π crs ⟩ Final
+
+  partialFanoutStart : ∀ {cid hk n cp v s η C tfin ada η' m crs}
+    → Closed cid hk n cp v s η C tfin ada
+        ⟶⟨ PartialFanout m crs ⟩ FanoutProgress cid hk n tfin η' ada
+
+  partialFanoutStep : ∀ {cid hk n tfin η ada η' m crs}
+    → FanoutProgress cid hk n tfin η ada
+        ⟶⟨ PartialFanout m crs ⟩ FanoutProgress cid hk n tfin η' ada
+
+  finalPartialFanout : ∀ {cid hk n tfin η ada m π crs}
+    → FanoutProgress cid hk n tfin η ada ⟶⟨ FinalPartialFanout m π crs ⟩ Final
+```
+
+Beyond the state-machine shape, individual $nuHead$ *checks* are stated as
+predicates over the validation $sans("Context")$ and the datums. For example,
+the close transaction (@sec:close-tx) requires the recorded contestation
+deadline to be the transaction's upper validity bound extended by the
+contestation period; as a checkable proposition referencing the context and the
+produced datum:
+
+```agda
+-- spec §3.4/§5.8 accumulator operations (the §3.4 Accumulator scheme at the
+-- protocol's commitment/output/witness types), kept abstract, plus the G1
+-- generator representing the empty accumulator.
+postulate
+  accUTxO          : ℙ Output → AccCommitment   -- commitment to a UTxO set
+  accVerify        : AccCommitment → ℙ Output → AccWitness → Bool
+  accVerifyExclude : AccCommitment → ℙ Output → AccCommitment → Bool
+  G₁               : AccCommitment
+
+-- Values read off the validation context (head-output identification — finding the
+-- output paying to νHead and the spent deposit/decommit outputs — is abstracted).
+postulate
+  headValueIn   : Context → Value  -- value of the spent head input
+  headValue     : Context → Value  -- value of the produced head output
+  depositValue  : Context → Value  -- value of the spent deposit output (increment)
+  decommitValue : Context → Value  -- total value of the decommitted outputs (decrement)
+
+-- Further obligations whose witnesses involve searching the context value/keys;
+-- abstracted as predicates here.
+postulate
+  -- a participant signed: some PT keyHash in the head value is in txKeys (§5.4–5.7)
+  signedByParticipant : Context → Set
+  -- value conservation for (final) fan-out: in = Σ outputs ⊕ burned ⊕ adaO (§5.8/§5.8.2)
+  fanoutValueOK       : Context → Set
+  -- value conservation for an intermediate partial fan-out: in = out ⊕ Σ outputs (§5.8.1)
+  partialFanoutValueOK : Context → Set
+
+-- spec §5.6 (close): the recorded contestation deadline is the transaction's
+-- upper validity bound extended by the contestation period, tfinal = txValidityMax
+-- + T_contest, and close must produce a Closed datum. (Contest's deadline update
+-- in §5.7 is conditional — tfinal' = tfinal if all parties contested, else
+-- tfinal + T — and is left to a separate predicate.)
+closeDeadlineOK : Context → HeadDatum → Set
+closeDeadlineOK ctx (Closed cid hk n cp v s η C tfinal ada) =
+  tfinal ≡ ValidityInterval.hi (Context.validity ctx) + cp
+closeDeadlineOK ctx _ = ⊥
+
+-- spec §5.6/§5.7: close and contest mint or burn nothing.
+noMint : Context → Set
+noMint ctx = Context.mint ctx ≡ εᵛ
+
+-- spec §5.6, CloseType = Initial case: closing on the initial snapshot requires
+-- version 0, snapshot number 0, and η' = accUTxO(∅). The other close types impose
+-- no such constraint.
+closeInitialOK : CloseType → HeadDatum → Set
+closeInitialOK closeInitial (Closed _ _ _ _ v s η _ _ _) = (v ≡ 0) × (s ≡ 0) × (η ≡ accUTxO ∅ˢ)
+closeInitialOK _            _                            = ⊤
+
+-- Value conservation (additive, §5.4/§5.5). The head value grows by the deposit
+-- on increment and shrinks by the decommitted value on decrement.
+incrementValueOK : (valHead valDeposit valHead' : Value) → Set
+incrementValueOK vh vd vh' = vh +ᵛ vd ≡ vh'
+
+decrementValueOK : (valHead valHead' valDecommit : Value) → Set
+decrementValueOK vh vh' vdec = vh' +ᵛ vdec ≡ vh
+
+-- spec §5.4–5.7: the snapshot multisignature ξ verifies, under the aggregate
+-- hydra key, over the message cid ‖ v ‖ s ‖ η# (shared by increment, decrement,
+-- close and contest).
+snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# : ℍ) (ξ : AggSig) → Set
+snapshotSigOK hydraKey cid v s η# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η#) ξ ≡ true
+
+-- spec §5.7: contest updates the deadline conditionally — it stays at the previous
+-- tfinal once all parties have contested (|contesters'| = n), otherwise it extends
+-- by the contestation period T (= cp). Now fully computed: contesters is a List, so
+-- the cardinality is `length`, and n is carried in the datum.
+contestDeadlineOK : HeadDatum → HeadDatum → Set
+contestDeadlineOK (Closed _ _ _ _ _ _ _ _ tfinal _) (Closed _ _ n cp _ _ _ C' tfinal' _) =
+  tfinal' ≡ (if ⌊ length C' ≟ n ⌋ then tfinal else tfinal + cp)
+contestDeadlineOK _ _ = ⊥
+
+-- spec §5.8: (final) fan-out burns all n+1 head tokens (1 ST + n PTs) of policy
+-- cid. The number of burned tokens is abstracted by `burnedCount`; the law is the
+-- n+1 equality, with n taken from the (FanoutProgress/Closed) datum.
+postulate
+  burnedCount : Context → ℍ → ℕ  -- count of policy-cid tokens burnt (mint quantity -1)
+
+burnAllTokensOK : Context → HeadDatum → Set
+burnAllTokensOK ctx (Closed cid _ n _ _ _ _ _ _ _)      = burnedCount ctx cid ≡ suc n
+burnAllTokensOK ctx (FanoutProgress cid _ n _ _ _)      = burnedCount ctx cid ≡ suc n
+burnAllTokensOK ctx _                                    = ⊥
+
+-- All distributed outputs are members of the unified accumulator η
+-- (fanout §5.8 and final partial fanout §5.8.2).
+fanoutMembersOK : (η : AccCommitment) (outs : ℙ Output) (π : AccWitness) → Set
+fanoutMembersOK η outs π = accVerify η outs π ≡ true
+
+-- η' is the correct accumulator after excluding the distributed batch S (§5.8.1).
+fanoutExcludeOK : (η : AccCommitment) (S : ℙ Output) (η' : AccCommitment) → Set
+fanoutExcludeOK η S η' = accVerifyExclude η S η' ≡ true
+
+-- An intermediate partial fan-out has not yet removed everything (η' ≠ G₁); the
+-- last batch must use finalPartialFanout instead (§5.8.1).
+partialFanoutNotDoneOK : (η' : AccCommitment) → Set
+partialFanoutNotDoneOK η' = ¬ (η' ≡ G₁)
+
+-- Signature obligation of a close redeemer: the Initial type carries no signature;
+-- the other types must verify a multisignature over cid ‖ v ‖ s ‖ η#.
+-- Field extractors used by the validity bundles below.
+snapNum : HeadDatum → ℕ
+snapNum (Closed _ _ _ _ _ s _ _ _ _) = s
+snapNum _ = 0
+
+ηOf : HeadDatum → AccCommitment
+ηOf (Open _ _ _ _ _ η _)             = η
+ηOf (Closed _ _ _ _ _ _ η _ _ _)     = η
+ηOf (FanoutProgress _ _ _ _ η _)     = η
+ηOf Final                            = G₁
+
+tfinalOf : HeadDatum → ℕ
+tfinalOf (Closed _ _ _ _ _ _ _ _ t _) = t
+tfinalOf (FanoutProgress _ _ _ t _ _) = t
+tfinalOf _ = 0
+
+-- The redeemer-supplied η# must equal the hash of the accumulator η' actually
+-- stored in the produced datum (spec §5.6/§5.7: (η')# = hash(η')) — otherwise the
+-- signature would attest to an accumulator unrelated to the on-chain state.
+closeηOK : CloseType → HeadDatum → Set
+closeηOK closeInitial       _  = ⊤
+closeηOK (closeAny _ η#)    d' = η# ≡ hash (ηOf d')
+closeηOK (closeUnused _ η#) d' = η# ≡ hash (ηOf d')
+closeηOK (closeUsed _ η#)   d' = η# ≡ hash (ηOf d')
+
+contestηOK : ContestType → HeadDatum → Set
+contestηOK (contestUnused _ η#) d' = η# ≡ hash (ηOf d')
+contestηOK (contestUsed _ η#)   d' = η# ≡ hash (ηOf d')
+
+-- spec §5.6, Any case: the closing snapshot number is positive (s' > 0).
+closeAnyOK : CloseType → HeadDatum → Set
+closeAnyOK (closeAny _ _) d' = 0 < snapNum d'
+closeAnyOK _              _  = ⊤
+
+-- The Used case refers to the *previous* state version v-1 (a pending delta is
+-- applied in the snapshot); the others use the current v (spec §5.6).
+closeSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → CloseType → Set
+closeSigOK _  _   _ _ closeInitial       = ⊤
+closeSigOK hk cid v s (closeAny ξ η#)    = snapshotSigOK hk cid v s η# ξ
+closeSigOK hk cid v s (closeUnused ξ η#) = snapshotSigOK hk cid v s η# ξ
+closeSigOK hk cid v s (closeUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) s η# ξ
+
+-- A close is *valid* when the state-machine step holds together with all the close
+-- checks: the contestation deadline (§5.6), no minting/burning, the Initial-case
+-- constraint, and the snapshot signature. The head key/id/version come from the
+-- source Open datum, the snapshot number from the produced Closed datum, and the
+-- signature/η# from the CloseType redeemer — so the predicate is only inhabited for
+-- genuinely valid close transactions. Value is preserved (§5.6: valHead' ⊇ valHead).
+closeValid : Context → HeadDatum → HeadDatum → CloseType → Set
+closeValid ctx d@(Open cid hk n cp v η ada) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct =
+    (d ⟶⟨ Close ct ⟩ d')
+  × closeDeadlineOK ctx d'
+  × noMint ctx
+  × closeInitialOK ct d'
+  × closeSigOK hk cid v s' ct
+  × closeηOK ct d'
+  × closeAnyOK ct d'
+  × (headValueIn ctx ≤ᵛ headValue ctx)
+  × signedByParticipant ctx
+  -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
+  × (ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp)
+closeValid _ _ _ _ = ⊥
+
+-- Contest signature obligation (both ContestType cases must verify).
+-- As for close, the Used case verifies against the previous version v-1 (§5.7).
+contestSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → ContestType → Set
+contestSigOK hk cid v s (contestUnused ξ η#) = snapshotSigOK hk cid v s η# ξ
+contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) s η# ξ
+
+-- Validity bundles for the remaining transactions: each conjoins the state-machine
+-- step with the checks expressible from the datums/redeemer/context. They are only
+-- inhabited for genuinely valid transactions.
+contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
+contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
+    (d ⟶⟨ Contest ct ⟩ d') × contestDeadlineOK d d' × noMint ctx
+  × contestSigOK hk cid v (snapNum d') ct
+  × contestηOK ct d'                                    -- η# bound to stored η' (§5.7)
+  × (s < snapNum d')                                    -- snapshot strictly increases (§5.7)
+  × (ValidityInterval.hi (Context.validity ctx) ≤ tfin) -- posted before the deadline
+  × (headValueIn ctx ≤ᵛ headValue ctx)                  -- value preserved (§5.7)
+  × signedByParticipant ctx
+contestValid _ _ _ _ = ⊥
+
+incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
+incrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s ref =
+    (d ⟶⟨ Increment ξ s ref ⟩ d') × noMint ctx
+  × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
+  × incrementValueOK (headValueIn ctx) (depositValue ctx) (headValue ctx)
+  × signedByParticipant ctx
+incrementValid _ _ _ _ _ _ = ⊥
+
+decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → Set
+decrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s m =
+    (d ⟶⟨ Decrement ξ s m ⟩ d') × noMint ctx
+  × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
+  × decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx)
+  × signedByParticipant ctx
+decrementValid _ _ _ _ _ _ = ⊥
+
+-- Fan-out is posted after the deadline (txValidityMin > tfinal), distributes m > 0
+-- outputs that are members of η, conserves value, and burns all n+1 tokens (§5.8).
+fanoutValid : Context → HeadDatum → (outs : ℙ Output) → ℕ → AccWitness → OutputRef → Set
+fanoutValid ctx d outs m π crs =
+    (d ⟶⟨ Fanout m π crs ⟩ Final) × burnAllTokensOK ctx d
+  × fanoutMembersOK (ηOf d) outs π
+  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
+  × fanoutValueOK ctx
+
+partialFanoutValid : Context → HeadDatum → HeadDatum → (S : ℙ Output) → ℕ → OutputRef → Set
+partialFanoutValid ctx d d'@(FanoutProgress _ _ _ _ η' _) S m crs =
+    (d ⟶⟨ PartialFanout m crs ⟩ d')
+  × fanoutExcludeOK (ηOf d) S η' × partialFanoutNotDoneOK η'
+  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
+  × noMint ctx × partialFanoutValueOK ctx
+partialFanoutValid _ _ _ _ _ _ = ⊥
+
+finalPartialFanoutValid : Context → HeadDatum → (outs : ℙ Output) → ℕ → AccWitness → OutputRef → Set
+finalPartialFanoutValid ctx d outs m π crs =
+    (d ⟶⟨ FinalPartialFanout m π crs ⟩ Final) × burnAllTokensOK ctx d
+  × fanoutMembersOK (ηOf d) outs π
+  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
+  × fanoutValueOK ctx
+```
+
+== Init transaction <sec:init-tx>
+
+The $mtxInit$ transaction creates a head instance and establishes the initial
+state of the protocol and is shown in @fig:initTx. The head
+instance is represented by the unique currency identifier $cid$ created by
+minting tokens using the $muHead$ minting policy script which is parameterized
+by a single output reference parameter $seed in tyOutRef$:
+$ cid = hash(muHead(seed)) $
+
+#todo[Update initTx.svg to show direct Open output with all tokens.]
+
+Two kinds of tokens are minted:
+- A single _State Thread (ST)_ token marking the head output. This
+  output contains the state of the protocol on-chain and the token ensures
+  contract continuity. The token name is the well known string
+  `HydraHeadV2`, i.e.
+  $st = {cid |-> #raw("HydraHeadV2") |-> 1}$.
+- One _Participation Token (PT)_ per participant
+  $i in {1 dots.h |hydraKeys|}$ to be used for authenticating further
+  transactions. The token name is the participant's verification key hash
+  $keyHash_i = hash(msVK_i)$ of the verification key as received
+  during protocol setup, i.e.
+  $pt_i = {cid |-> keyHash_i |-> 1}$.
+
+All minted tokens ($st$ and all $pt_i$) are placed directly into
+the head output, which is created in the $stOpen$ state with an empty UTxO set.
+Consequently, the $mtxInit$ transaction
+- has at least input $seed$,
+- mints the state thread token $st$, and one $pt$ for each of the $|hydraKeys|$
+  participants with policy $cid$,
+- has one head output
+  $o_(sans("head"))$, which captures
+  the open state of the protocol in the datum, i.e. the `Open` constructor of
+  `HeadDatum` (defined above) instantiated with
+  - $stOpen$ is the state identifier,
+  - $cid'$ is the unique currency id of this instance,
+  - $hydraKeys$ are the off-chain multi-signature keys from the setup
+    phase,
+  - $nop$ is the number of participants,
+  - $Tcontest$ is the contestation period,
+  - $v = 0$ is the initial snapshot version,
+  - $eta = accUTxO(emptyset)$ is the accumulator commitment to the (empty) initial
+    UTxO set (its hash $eta^(\#) = hash(eta)$ is what later snapshot signatures attest to).
+
+The $muHead(seed)$ minting policy is the only script that verifies
+init transactions and can be redeemed with either a $sans("Mint")$ or
+$sans("Burn")$ redeemer:
+- When evaluated with the $sans("Mint")$ redeemer,
+  + The seed output is spent in this transaction. This guarantees uniqueness of the policy $cid$ because the EUTxO ledger ensures that $seed$ cannot be spent twice in the same chain.
+    $(seed, dot.c) in txInputs$
+  + All entries of $txMint$ are of this policy and of single quantity $forall {c |-> dot.c |-> q} in txMint : c = cid and q = 1$
+  + Right number of tokens are minted $|txMint| = |hydraKeys| + 1$
+  + State token is sent to the head validator $st in valHead$
+  + All participation tokens are sent to the head output alongside the state token $forall i in [1 dots.h |hydraKeys|] : pt_i in valHead$
+  + The $datum_(sans("head"))$ contains own currency id $cid = cid'$ and the right seed reference $seed = seed'$
+- When evaluated with the $sans("Burn")$ redeemer,
+  + All tokens for this policy in $txMint$ need to be of negative quantity
+    $forall {cid |-> dot.c |-> q} in txMint : q < 0$.
+
+*Important:* The $muHead$ minting policy only ensures
+uniqueness of $cid$ and that the right amount of tokens have been minted and
+sent to $nuHead$, while $nuHead$ in turn ensures continuity of the contract.
+However, it is *crucial* that all head members check:
+- That the transaction mints exactly the correct tokens: one $st$ token and one $pt$ for each head member (total $|hydraKeys| + 1$ tokens). This distinguishes $mtxInit$ from $mtxIncrement$ and $mtxDecrement$ transactions, which only move tokens without minting.
+- That the head output contains an $st$ token of policy $cid$ which satisfies $cid = hash(muHead(seed))$. The $seed$ spent by this transaction can be used to determine this.
+- That the correct verification key hashes are used in the $pt$s and the open state is consistent with parameters agreed during setup.
+See the initialTx behavior in @fig:off-chain-prot for details about these checks.
+
+#figure(initTx-diagram, caption: [$mtxInit$ transaction spending a seed UTxO and producing the head output directly in state $stOpen$.]) <fig:initTx>
+
+== Deposit Transaction <sec:deposit-tx>
+
+The $mtxDeposit$ transaction locks funds in $nuDeposit$ for later
+collection into the head via an $mtxIncrement$ transaction. Any transaction
+paying to $nuDeposit$ is a $mtxDeposit$ transaction as there is no on-chain
+verification in $mtxDeposit$ transactions. Consequently, protocol actors
+*must ensure off-chain* that a valid datum is used when paying to the
+$nuDeposit$ validator.#todo[explain why this is enough?]
+
+A valid deposit output is governed by $nuDeposit$ with value $valDeposit$ and datum
+$ datumDeposit = (cid, t_(sans("recover")), C) $
+where
+- $cid$ is the currency id of the target head protocol instance (see~@sec:init-tx),
+- $t_(sans("recover"))$ is a deadline after which the deposit can be recovered, and
+- $C in (txInputs times tyBytes)^(*)$ is a list of transaction output
+  references with along with serialized outputs that should become available in
+  the head.
+
+Head protocol participants determine *off-chain* whether a
+deposit output $o_(sans("deposit"))$ is eligible for their head by checking
++ $cid$ matches their head identifier,
++ $t_(sans("recover"))$ is reasonably far in the future, and#todo[explain; relate to contestation period?]
++ $valDeposit$ contains the value of all decoded outputs of $C$ from $datumDeposit$.
+
+An example transaction which records all its spent inputs in a deposit output is
+shown in @fig:depositTx. The $j in {1 dots.h m}$ inputs of this example with reference $txOutRef_(sans("deposited")_j)$ each spend output $o_(sans("deposited")_j)$ with $val_(sans("deposited")_j)$ would be recorded in the output datum as
+$ C = forall j in {1 dots.h m} : [(txOutRef_(sans("deposited")_j), bytes(o_(sans("deposited")_j)))] $
+and the value check would need to satisfy
+$ valDeposit supset.eq union.big_(j=1)^(m) val_(sans("deposited")_j) $
+
+#figure(depositTx-diagram, caption: [$mtxDeposit$ transaction spending multiple UTxO into a deposit output.]) <fig:depositTx>
+
+== Recover Transaction <sec:recover-tx>
+
+If a $mtxDeposit$ transaction output (see~@sec:deposit-tx) was
+not collected into a head by an $mtxIncrement$
+transaction~@sec:increment-tx, the $mtxRecover$ transaction
+(@fig:recoverTx) allows for restoring the UTxO as recorded in the
+deposit after the deadline has passed. It consists of
+- one input spending from $nuDeposit$ with datum $datumDeposit = (cid, t_(sans("recover")), C)$, and
+- outputs $o_1 dots.h o_m$ to recover UTxOs.
+
+The script validator $nuDeposit$ is spent with redeemer
+$redeemerDeposit = (sans("Recover"), m)$, where $m$ is the number of outputs
+to recover, and checks:
++ All UTxOs are recovered exactly as they were deposited. This is done by
+  comparing hashes of serialised representations of the $m$ recovering outputs
+  $o_1 dots.h o_m$ with the canonically combined deposited UTxOs in $C$:
+  $ hash(plus.o.big_(j=1)^(m) bytes(o_j)) = hash(sans("concat")(sortOn(1, C)^(arrow.b 2))) $
++ Transaction is posted after the deadline
+  $ txValidityMin > t_(sans("recover")) $
+
+#figure(recoverTx-diagram, caption: [$mtxRecover$ transaction restoring UTxO of a deposit output.]) <fig:recoverTx>
+
+== Increment Transaction <sec:increment-tx>
+
+The $mtxIncrement$ transaction (@fig:incrementTx) allows
+a participant to add a $mtxDeposit$ output~@sec:deposit-tx to an already
+open head using a snapshot that approves inclusion. Consequently this
+transaction consists of:
+
+- one input spending from $nuHead$ with value $valHead$ holding the
+  $st$ and datum $datumHead$,
+- one input $txOutRef_(sans("deposit"))$ spending from $nuDeposit$ with value $valDeposit$ and datum
+  $datumDeposit = (cid_(sans("deposit")), t_(sans("recover")), C)$,
+- one output paying to $nuHead$ with value $valHead'$ and datum
+  $datumHead'$.
+
+The deposit validator $nuDeposit$ is spent with
+$redeemerDeposit = sans("Claim")$ and ensures:
++ Claiming head id matches the deposit datum
+  $ cid = cid_(sans("deposit")) $
++ Transaction is posted before the deadline
+  $ txValidityMax <= t_(sans("recover")) $
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("increment"), xi, s, txOutRef_(sans("increment")))$,
+where $xi$ is a multi-signature of the increment snapshot which authorizes
+addition of deposited UTxO, $s$ is the snapshot number and
+$txOutRef_(sans("deposit"))$ points to the claimed deposit. The validator
+checks:
++ State is advanced from $datumHead tilde stOpen$ to
+  $datumHead' tilde stOpen$, parameters $cid, hydraKeys, Tcontest$
+  stay unchanged and the new state is governed again by $nuHead$:
+  #transition-arrow("increment")
+  (the `increment` rule of `_⟶⟨_⟩_`; the version is bumped, $v |-> v + 1$).
++ New version $v'$ is incremented correctly
+  $ v' = v + 1 $
++ Claimed deposit is spent
+  $ txOutRef_(sans("increment")) = txOutRef_(sans("deposit")) $
++ $xi$ is a valid multi-signature of the new head state $eta'$
+  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#)), xi) = mtrue $
+  where $(eta')^(\#) = hash(eta')$ is the hash of the new accumulator commitment $eta'$
+  stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs.
++ The value in the head output is increased accordingly
+  $ valHead plus.o valDeposit = valHead' $
++ Transaction is signed by a participant
+  $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ The ADA overhead $adaO$ is preserved across the state transition:
+  $ adaO' = adaO $
+
+#figure(incrementTx-diagram, caption: [$mtxIncrement$ transaction spending an open head output, producing a new head output which includes the new UTxO.]) <fig:incrementTx>
+
+== Decrement Transaction <sec:decrement-tx>
+
+The $mtxDecrement$ transaction (@fig:decrementTx) allows
+a party to remove a UTxO from an already open head and consists of:
+
+- one input spending from $nuHead$ holding the $st$ with $datumHead$,
+- one output paying to $nuHead$ with value $valHead'$ and
+  datum $datumHead'$,
+- one or more decommit outputs $o_2 dots.h o_(m+1)$ with values $val_2 dots.h val_(m+1)$.
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("decrement"), xi, s, m)$, where $xi$ is a multi-signature of
+the decrement snapshot which authorizes removal of some UTxO, $s$ is the
+used snapshot number and $m$ is the number of outputs to distribute. The
+validator checks:
++ State is advanced from $datumHead tilde stOpen$ to
+  $datumHead' tilde stOpen$, parameters $cid, hydraKeys, nop, Tcontest$ stay
+  unchanged and the new state is governed again by $nuHead$
+  #transition-arrow("decrement")
+  (the `decrement` rule of `_⟶⟨_⟩_`; the version is bumped, $v |-> v + 1$).
++ New version $v'$ is incremented correctly
+  $ v' = v + 1 $
++ $xi$ is a valid multi-signature of the new snapshot state $eta'$
+  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#)), xi) = mtrue $
+  where $(eta')^(\#) = hash(eta')$ is the hash of the new accumulator commitment $eta'$
+  stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs.
++ The value in the head output is decreased accordingly
+  $ valHead' plus.o (plus.o.big_(j=2)^(m+1) val_j) = valHead $
++ Transaction is signed by a participant
+  $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ The ADA overhead $adaO$ is preserved across the state transition:
+  $ adaO' = adaO $
+
+#figure(decrementTx-diagram, caption: [$mtxDecrement$ transaction spending an open head output, producing a new head output and multiple decommitted outputs.]) <fig:decrementTx>
+
+== Close Transaction <sec:close-tx>
+
+In order to close a head, a head member may post the $mtxClose$ transaction
+(see @fig:closeTx). This transaction has
+- one input spending from $nuHead$ holding the $st$ with $datumHead$,
+- one output paying to $nuHead$ with value $valHead'$ and
+  datum $datumHead'$.
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("close"), sans("CloseType"))$, where
+$sans("CloseType")$ is a hint against which open state to close. (The closing
+party posts $sans("postTx")(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
+off-chain; on-chain the redeemer carries only $(xi, (eta')^(\#))$ in
+$sans("CloseType")$, while the version $v$ and snapshot number $s$ are
+authenticated by the multisignature $xi$ over $cid || v || s || (eta')^(\#)$ and
+recorded in the datum, rather than being separate redeemer fields.) The
+transaction checks:
++ State is advanced from $datumHead tilde stOpen$ to
+  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, Tcontest$
+  stay unchanged and the new state is governed again by $nuHead$
+  #transition-arrow("close")
+  (the `close` rule of `_⟶⟨_⟩_`; the version is preserved, $v' = v$).
+  The closed state carries a single unified accumulator $eta'$ that combines the snapshotted UTxO set with any pending increment or decrement UTxOs using $accCombine$.
++ Last known open state version is recorded in closed state
+  $ v' = v $
+
++ Based on the redeemer $sans("CloseType") = sans("Initial") union (sans("Any"), xi, (eta')^(\#)) union (sans("Unused"), xi, (eta')^(\#)) union (sans("Used"), xi, (eta')^(\#))$, where $xi$ is a multi-signature of the closing snapshot and $(eta')^(\#)$ is the hash of the unified accumulator commitment stored in the output datum, four cases are distinguished. In each case the closed state carries a single unified accumulator $eta'$:
+  + $sans("Initial")$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
+    $ v = 0 $
+    $ s' = 0 $
+    $ eta' = accUTxO(emptyset) $
+  + $sans("Any")$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. The unified accumulator is simply the snapshotted state:
+    $ eta' = accUTxO(U') $
+    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = hash(eta') $
+  + $sans("Unused")$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is _not_ applied in the snapshot. The unified accumulator is the snapshotted state only:
+    $ eta' = accUTxO(U') $
+    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = hash(eta') $
+  + $sans("Used")$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement _is_ applied in the snapshot. The unified accumulator combines the snapshotted UTxOs with the pending delta:
+    $ eta' = accCombine(accUTxO(U'), eta_Delta) $
+    $ msVfy(hydraKeys, (cid || v - 1 || s' || (eta')^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = hash(eta') $
+    where $eta_Delta$ is the accumulator commitment of the pending delta UTxOs.
+
++ Initializes the set of contesters
+  $ contesters = emptyset $
+  This allows the closing party to also contest and is required for use
+  cases where pre-signed, valid in the future, close transactions are
+  used to delegate head closing.
+
++ Correct contestation deadline is set
+  $ tfinal = txValidityMax + T $
++ Transaction validity range is bounded by
+  $ txValidityMax - txValidityMin <= T $
+  to ensure the contestation deadline $tfinal$ is at most $2*T$ in the future.
++ Value in the head is preserved
+  $ valHead' supset.eq valHead $
++ Transaction is signed by a participant
+  $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ No minting or burning
+  $ txMint = emptyset $
++ The ADA overhead $adaO$ is propagated unchanged from the open datum to the closed datum:
+  $ adaO' = adaO $
+  where $adaO$ is the ADA in the head UTxO not belonging to any L2 UTxO (minimum-UTxO overhead), set at initialisation time and unchanged for the head's lifetime. On fanout, the on-chain value conservation check treats $adaO$ as released from the head UTxO without requiring it in any distributed output, so it flows to whoever submits the fanout transaction as change (offsetting their transaction fee).
+
+#figure(closeTx-diagram, caption: [$mtxClose$ transaction spending the $stOpen$ head output and producing a $stClosed$ head output with unified accumulator $eta'$.]) <fig:closeTx>
+
+== Contest Transaction <sec:contest-tx>
+
+The $mtxContest$ transaction (see @fig:contestTx) is posted by a
+party to prove the currently $stClosed$ state is not the latest one. This
+transaction has
+- one input spending from $nuHead$ holding the $st$ with $datumHead$,
+- one output paying to $nuHead$ with value $valHead'$ and
+  datum $datumHead'$.
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("contest"), sans("ContestType"))$, where
+$sans("ContestType")$ is a hint how to verify the snapshot and checks:
++ State is advanced from $datumHead tilde stClosed$ to
+  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, Tcontest$
+  stay unchanged and the new state is governed again by $nuHead$
+  #transition-arrow("contest")
+  (the `contest` rule of `_⟶⟨_⟩_`; the version is preserved and the contester set
+  grows by one key, $contesters' = contesters union { keyHash }$).
+  The closed state carries a single unified accumulator $eta'$ computed using $accCombine$ based on the contest type.
+
++ Last known open state version stays recorded in closed state
+  $ v' = v $
+
++ Contested snapshot number $s'$ is higher than the currently stored snapshot number $s$
+  $ s' > s $
++ Based on the redeemer $sans("ContestType") = (sans("Unused"), xi, (eta')^(\#)) union (sans("Used"), xi, (eta')^(\#))$, where $xi$ is a multi-signature of the contesting snapshot and $(eta')^(\#) = hash(eta')$ is the hash of the unified accumulator commitment stored in the output datum, two cases are distinguished:
+
+  + $sans("Unused")$: Contesting snapshot refers to current state version $v$ (pending delta not applied in snapshot). The unified accumulator reflects only the snapshotted UTxOs:
+    $ eta' = accUTxO(U') $
+    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = hash(eta') $
+  + $sans("Used")$: Contesting snapshot refers to the previous state version $v - 1$ (pending delta applied in snapshot). The unified accumulator combines the snapshotted UTxOs with the pending delta:
+    $ eta' = accCombine(accUTxO(U'), eta_Delta) $
+    $ msVfy(hydraKeys, (cid || v - 1 || s' || (eta')^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = hash(eta') $
+    where $eta_Delta$ is the accumulator commitment of the pending delta UTxOs.
+
++ The single signer ${keyHash} = txKeys$ has not already contested and is added to the set of contesters
+  $ keyHash in.not contesters $
+  $ contesters' = contesters union keyHash $
++ Transaction is posted before deadline
+  $ txValidityMax <= tfinal $
++ Contestation deadline is updated correctly to
+  $ tfinal' = cases(
+    tfinal & upright("if") ~ |contesters'| = n",",
+    tfinal + T & upright("otherwise.")
+  ) $
++ Value in the head is preserved
+  $ valHead' supset.eq valHead $
++ Transaction is signed by a participant
+  $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ No minting or burning
+  $ txMint = emptyset $
++ The ADA overhead $adaO$ is preserved in the output closed datum:
+  $ adaO' = adaO $
+
+#figure(contestTx-diagram, caption: [$mtxContest$ transaction spending the $stClosed$ head output and producing a different $stClosed$ head output.]) <fig:contestTx>
+
+== Fan-Out Transaction <sec:fanout-tx>
+
+Once the contestation phase is over, a head may be finalized by posting a
+$mtxFanout$ transaction (see @fig:fanoutTx), which
+distributes all UTxOs from the head according to the unified accumulator in the closed state. A fanout transaction consists of
+- one input spending from $nuHead$ holding the $st$, and
+- outputs $o_1 dots.h o_m$ to distribute all UTxOs.
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("fanout"), m, pi, sans("crsRef"))$, where:
+- $m$ is the number of outputs to distribute from the $stClosed$ state,
+- $pi$ is the KZG membership witness,
+- $sans("crsRef")$ is the output reference of the reference input holding the Common Reference String (CRS).
+The validator checks:
++ State is advanced from $datumHead tilde stClosed$ to terminal state $stFinal$:
+  #transition-arrow("fanout")
+  (the `fanout` rule of `_⟶⟨_⟩_`; a $stClosed$ datum steps to the terminal state).
++ All $m$ outputs are verified as members of the unified accumulator $eta$ using the membership witness $pi$:
+  $ accVerify(eta, {o_1, dots.h, o_m}, pi) = mtrue $
++ Transaction is posted after contestation deadline $txValidityMin > tfinal$.
++ All tokens are burnt
+  $|{cid |-> dot.c |-> -1} in txMint| = n + 1$.
++ The head input value is fully conserved:
+  $ val_(sans("head"))^(sans("in")) = plus.o.big_(i=1)^(m) val(o_i) plus.o val_(sans("burned")) plus.o adaO $
+  where $adaO$ is the ADA overhead carried from the closed datum, and $val_(sans("burned"))$ is the value of all burned head tokens.
+
+#figure(fanoutTx-diagram, caption: [$mtxFanout$ transaction spending the $stClosed$ head output with unified accumulator $eta$ and distributing funds with outputs $o_1 dots.h o_m$.]) <fig:fanoutTx>
+
+=== Intermediate Partial Fan-Out Transaction <sec:partial-fanout-tx>
+
+When UTxO sets exceed transaction size limits, the protocol distributes UTxOs across
+multiple transactions using partial fanout. Each intermediate step distributes a subset of UTxOs and
+transitions the head into the $stFanoutProgress$ state, which carries only the fields needed for
+subsequent steps:
+$ (stFanoutProgress, cid, hydraKeys, nop, tfinal, eta, adaO) $
+where $nop$ is the number of participants, $tfinal$ is the contestation deadline (carried from $stClosed$), $eta$ is the
+current accumulator commitment, and $adaO$ is the ADA overhead in the head UTxO not
+belonging to any L2 UTxO (propagated from the closed datum).
+
+An intermediate partial fanout transaction (see @fig:partialFanoutTx) consists of:
+- one input spending from $nuHead$ in state $stClosed$ or $stFanoutProgress$, and
+- a continuing head output at index 0 in state $stFanoutProgress$ with updated accumulator, and
+- outputs $o_1 dots.h o_m$ at indices $1 dots.h m$ distributing a subset of UTxOs.
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("partialFanout"), m, sans("crsRef"))$, where $m$ is the number of UTxO outputs to distribute in this step and $sans("crsRef")$ is the output reference of the reference input holding the CRS.
+The validator checks:
++ $m > 0$ (no zero-output batches).
++ State transitions into $stFanoutProgress$ with updated accumulator. For a $stClosed$ input:
+  #transition-arrow("partialFanoutStart")
+  (the `partialFanoutStart` rule of `_⟶⟨_⟩_`; $stClosed$ steps to $stFanoutProgress$).
+  For a $stFanoutProgress$ input:
+  #transition-arrow("partialFanoutStep")
+  (the `partialFanoutStep` rule of `_⟶⟨_⟩_`; $stFanoutProgress$ steps to itself).
++ The new accumulator $eta'$ (from the output datum) is not the G1 generator -- all elements have _not_ yet been removed (use $stFinalPartialFanout$ for the last batch):
+  $ eta' != G_1 $
++ No minting or burning $txMint = emptyset$.
++ Transaction is posted after contestation deadline $txValidityMin > tfinal$.
++ Parameters $cid$, $hydraKeys$, $tfinal$, and $adaO$ are preserved in the output $stFanoutProgress$ datum.
++ Value is conserved: head input value equals head output value plus all distributed outputs:
+  $ val_(sans("head"))^(sans("in")) = val_(sans("head"))^(sans("out")) plus.o plus.o.big_(i=1)^(m) val(o_i) $
++ The new accumulator $eta'$ from the output datum correctly represents the remaining UTxOs after removing $S = {o_1, dots.h, o_m}$. The output datum value serves as the exclusion witness:
+  $ accVerifyExclude(eta, S, eta') = mtrue $
+
+#figure(partialFanoutTx-diagram, caption: [$mtxPartialFanout$ transaction spending the $stFanoutProgress$ head output, distributing outputs $o_1 dots.h o_m$, and producing a new $stFanoutProgress$ head output with updated accumulator $eta'$.]) <fig:partialFanoutTx>
+
+=== Final Partial Fan-Out Transaction <sec:final-partial-fanout-tx>
+
+Once all UTxOs except the last batch have been distributed via $stPartialFanout$ steps,
+the final step burns all head tokens and distributes the remaining UTxOs.
+A final partial fanout transaction (see @fig:finalPartialFanoutTx) consists of:
+- one input spending from $nuHead$ in state $stFanoutProgress$, and
+- outputs $o_1 dots.h o_m$ distributing the remaining UTxOs (no continuing head output).
+
+The state-machine validator $nuHead$ is spent with
+$redeemerHead = (sans("finalPartialFanout"), m, pi, sans("crsRef"))$, where $m$ is the number of UTxO outputs, $pi$ is the KZG membership witness, and $sans("crsRef")$ is the CRS reference.
+The validator checks:
++ $m > 0$ (prevents fund theft via a zero-output proof bypass).
++ State is advanced from $stFanoutProgress$ to terminal state $stFinal$:
+  #transition-arrow("finalPartialFanout")
+  (the `finalPartialFanout` rule of `_⟶⟨_⟩_`; $stFanoutProgress$ steps to the terminal state).
++ All head tokens are burnt
+  $|{cid |-> dot.c |-> -1} in txMint| = n + 1$.
++ Transaction is posted after contestation deadline $txValidityMin > tfinal$.
++ The $m$ distributed outputs are verified as members of the accumulator $eta$ using the membership witness $pi$:
+  $ accVerify(eta, {o_1, dots.h, o_m}, pi) = mtrue $
++ Value is conserved:
+  $ val_(sans("head"))^(sans("in")) = plus.o.big_(i=1)^(m) val(o_i) plus.o val_(sans("burned")) plus.o adaO $
+
+#figure(finalPartialFanoutTx-diagram, caption: [$mtxFinalPartialFanout$ transaction spending the $stFanoutProgress$ head output, distributing the final batch of UTxOs $o_1 dots.h o_m$, and burning all head tokens to reach $stFinal$.]) <fig:finalPartialFanoutTx>
+
+The $muHead(seed)$ minting policy governs the burning of tokens via
+redeemer $sans("burn")$ that:
++ All tokens in $txMint$ need to be of negative quantity
+  $forall {cid |-> dot.c |-> q} in txMint : q < 0$.
