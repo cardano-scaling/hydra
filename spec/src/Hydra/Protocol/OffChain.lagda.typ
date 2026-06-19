@@ -185,16 +185,35 @@ data Message : Set where           -- network messages of the coordinated head (
 
 -- Handling a message updates a party's local state (spec §6.4, Protocol flow).
 -- This relation is ILLUSTRATIVE, not normative: the figure below (`Protocol flow`)
--- is the authoritative transcription of all §6.4 handlers. Only one rule is given
--- concretely here (reqTx); the remaining handlers (reqDec/reqSn/ackSn and the chain
--- observations deposit/recover/tick/increment/decrement/close/contest) are added as
--- they are formalised. NOTE: this reqTx rule is a SIMPLIFICATION — the full §6.4
--- handler first waits on applicability (L̂ ∘ tx ≠ ⊥) and updates the local ledger L̂;
--- that guard and update need a model of `applytx` and are deferred.
+-- is the authoritative transcription of all §6.4 handlers. The rules given concretely
+-- here cover reqTx and the ackSn confirmation round; the remaining handlers
+-- (reqDec/reqSn and the chain observations deposit/recover/tick/increment/decrement/
+-- close/contest) are added as they are formalised. NOTE: the reqTx rule is a
+-- SIMPLIFICATION — the full §6.4 handler first waits on applicability (L̂ ∘ tx ≠ ⊥) and
+-- updates the local ledger L̂; that guard and update need a model of `applytx` and are
+-- deferred. Likewise the ackSn rules abstract the signature collection, the all-signed
+-- test, and the multisignature verification.
 data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- on (reqTx, tx): record tx in the pending set T̂ (applicability guard elided).
   reqTx-pending : ∀ {st tx}
     → st handles (reqTx tx) ↝ record st { pending = tx ∷ LocalState.pending st }
+
+  -- on (ackSn, s, σ) before the round completes: record party j's signature in Σ̂; the
+  -- confirmed snapshot S̄ is unchanged. (Sender index j and the (j,·)∉Σ̂ guard abstracted.)
+  ackSn-collect : ∀ {st s σ j}
+    → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
+
+  -- on (ackSn, s, σ) completing the round: every party has signed and the aggregate
+  -- multisignature verified, so the seen snapshot becomes the new confirmed snapshot S̄,
+  -- whose transactions are the seen set T̂ and whose number is ŝ. The agreed snapshot is
+  -- taken as `snap` with those shape constraints; the all-signed/verify guards are
+  -- abstracted. Faithfully, completion requires EVERY party (hence every honest party) to
+  -- have signed — the fact the §7 Consistency proof relies on (no transaction is confirmed
+  -- unless all honest parties signed it, and honest parties never sign conflicting txs).
+  ackSn-confirm : ∀ {st s σ snap}
+    → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
+    → Snapshot.number snap ≡ LocalState.seenNumber st    -- S̄'.s = ŝ
+    → st handles (ackSn s σ) ↝ record st { confirmed = snap }
 ```
 
 == Protocol flow

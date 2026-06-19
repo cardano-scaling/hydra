@@ -1,6 +1,51 @@
 # D4 — Plan: formalising the §7 security properties in Agda
 
-Status: **planned** (not started). This is the long-tail "D4" item from
+Status: **P0 substrate complete; P1 (Consistency) PROVED outright** (single-confirmed-chain model).
+As of the latest pass,
+`Security.lagda.typ` defines the ledger-application operation (`applyTxs`/`Applicable`, with
+the `applyTxs-nil` law), the global `System` state (party vectors for local states and the
+honest/corrupt partition, the on-chain `HeadDatum`, the in-flight network buffer, `U₀`), a
+**concrete** step relation `_⟶ˢ_` with constructors `deliver` (an honest party handles a
+delivered in-flight message via `_handles_↝_`), `inject` (network adversary (re)delivers), and
+`corrupt` (active adversary corrupts a party), a **concrete** `Initial` predicate (all honest,
+nothing in flight, nothing confirmed), and `Reachable`. **Consistency** is a concrete
+proposition over `Reachable`; its **base case is proved** (`consistency-base`), and the full
+`consistency` is postulated with the inductive (step) case open (`TODO(D4-P1)`).
+Soundness/Completeness/Liveness remain abstract (`TODO(D4-P2)`/`TODO(D4-P3)`).
+
+**Confirmation is now modelled.** `_handles_↝_` (in `OffChain.lagda.typ`) gained `ackSn-collect`
+(records a party's signature) and `ackSn-confirm` (the round completes: the seen snapshot becomes
+the confirmed snapshot `S̄`, with `S̄.T = T̂` and `S̄.s = ŝ`). So a party's confirmed set now
+genuinely changes, making the Consistency step case non-trivial. `reqTx-preserves-confirmed`
+proves the `reqTx`/`ackSn-collect`/`inject`/`corrupt` moves leave confirmed sets untouched; the
+open obligation is the `ackSn-confirm` case, which needs the §7 invariant that confirmation only
+fires for a snapshot every honest party signed and whose txs are jointly applicable to `U₀`.
+
+**Consistency is now PROVED OUTRIGHT (no postulate)** via the single-confirmed-chain model.
+`System` carries one agreed chain `chainTxs : ℕ → List Data` (cumulative confirmed transactions by
+snapshot number); modelling one shared chain — rather than independent per-party confirmed sets —
+captures the protocol's agreement guarantee (a snapshot confirms only via a full multisignature, so
+every honest party confirms along the same chain). The step relation has a dedicated `confirm` move
+whose premise `Snapshot.txs snap ≡ chainTxs (Snapshot.number snap)` keeps confirming parties on the
+chain, and `deliver` carries a `confirmed-unchanged` premise (so it covers only the non-confirming
+reqTx/ackSn-collect handlers). The carried invariant `Inv` — (1) every chain prefix is applicable to
+`U₀`, (2) each honest party's confirmed txs equal the chain at its confirmed number — is proved to
+hold at every reachable system (`invariant`, a real safety induction: base unfolds `Initial`;
+inject/corrupt leave the chain in place, corrupt via `honest-mono`; deliver keeps the confirmed
+snapshot; confirm lands on the chain by its premise). `consistency` is then immediate: a party's
+confirmed set is `chainTxs (ŝᵢ)`, so two honest parties' sets are nested prefixes whose union is
+`chainTxs (ŝᵢ ⊔ ŝⱼ)`, and that prefix applies to `U₀` by invariant (1). The §7 cryptographic
+content is now the explicit `Initial` premise "every prefix of the agreed chain is applicable to
+`U₀`", which faithfully encodes "honest parties only ever sign applicable snapshots". A corollary
+`confirmed-on-chain` ties the abstract chain back to each party's confirmed transactions.
+
+Remaining work: this closes **P1 (Consistency)** for the coordinated model. Next is P2
+(Soundness/Completeness — tie the chain's final state to the on-chain close/fanout bundles) and P3
+(Liveness — the temporal/fairness layer). Optionally enrich the model further: derive `chainTxs`'s
+applicability from the per-snapshot reqSn validity guard rather than asserting it at `Initial`
+(pushing the guarantee one level deeper), tie signatures to snapshots explicitly, and add the
+on-chain-posting/tick moves. The whole thing keeps `nix build .#spec` green. This is the long-tail
+"D4" item from
 `discrepancies-and-fixes.md`. The validator-level (on-chain) checks are already encoded
 as type-level predicates and per-transaction validity bundles; the §7 security
 properties are different in kind — they are statements about **whole protocol

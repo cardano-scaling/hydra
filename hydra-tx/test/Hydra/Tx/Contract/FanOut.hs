@@ -154,6 +154,9 @@ data FanoutMutation
     -- A substituted powers-of-tau setup lets a crafted fanout forge membership
     -- proofs and redirect funds, so the CRS datum content must be validated.
     MutateFanoutNonCanonicalCRS
+  | -- | Fanout claiming zero distributed outputs must be rejected, matching the
+    -- partial/final-partial fanout guards (and the Agda 'fanoutValid' 0 < m).
+    MutateFanoutZeroOutputs
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -254,6 +257,15 @@ genFanoutMutation (tx, _utxo) =
             , AddScript depositValidatorScript
             , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
             ]
+    , pure $
+        SomeMutation (pure $ toErrorCode FanoutZeroOutputs) MutateFanoutZeroOutputs $
+          let crsRef = toPlutusTxOutRef (fst (crsReference scriptRegistry))
+           in ChangeHeadRedeemer
+                Head.Fanout
+                  { Head.numberOfFanoutOutputs = 0
+                  , Head.proof = fanoutProof
+                  , Head.crsRef = crsRef
+                  }
     ]
  where
   burntTokens =

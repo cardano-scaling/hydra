@@ -393,6 +393,17 @@ Consequently, the $mtxInit$ transaction
   - $eta = accUTxO(emptyset)$ is the accumulator commitment to the (empty) initial
     UTxO set (its hash $eta^(\#) = hash(eta)$ is what later snapshot signatures attest to).
 
+#block(inset: (left: 1em), {
+  emph[Implementation note (datum representation).]
+  [ The Agda `Open` datum carries the accumulator _commitment_ $eta$, whereas the on-chain
+  implementation stores only its _hash_ $eta^(\#)$ in the open state (the
+  `OpenDatum.accumulatorHash` field); the full commitment is materialised only in the
+  $stClosed$ / $stFanoutProgress$ states, where fan-out membership proofs require it. The
+  two coincide for every open-state check, since those reference $eta$ only through
+  $hash(eta)$ (e.g. the close / increment / decrement signature over
+  $cid || v || s || eta^(\#)$).]
+})
+
 The $muHead(seed)$ minting policy is the only script that verifies
 init transactions and can be redeemed with either a $sans("Mint")$ or
 $sans("Burn")$ redeemer:
