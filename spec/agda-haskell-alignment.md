@@ -47,12 +47,17 @@ matched by manual review (below).
 
 - *Catches:* a validator that silently drops one of the **structural** conjuncts, i.e. close: version /
   contestation-period preservation, contesters initialised empty, `closeInitial⇒v=0∧s=0`,
-  `closeAny⇒0<s`; increment/decrement: version `= suc`; contest: version preserved + snapshot
-  strictly increases + exactly one contester appended; fanout: `0 < m`. One end-to-end drift-catch
-  is demonstrated (close `mustNotChangeVersion`).
-- *Does NOT catch (mocked `const True`):* signature/multisig validity, value conservation,
-  accumulator membership/exclusion, token-burn count, deadline checks. A validator could forge any of
-  these and the test would still pass.
+  `closeAny⇒0<s`; increment: version `= suc` **and lovelace value conservation**
+  (`adaIn + adaDelta == adaOut`: head input + claimed deposit = head output on the ada component, read
+  live off the tx); decrement: version `= suc`; contest: version preserved + snapshot strictly
+  increases + exactly one contester appended; fanout: `0 < m`. One end-to-end drift-catch is
+  demonstrated (close `mustNotChangeVersion`). (The increment lovelace check uses the builtin `_==_`,
+  extracted to native integer equality; the structural `_==ᵇ_` is O(n) unary recursion and hangs on
+  lovelace-scale values. Its bridge reflection rests on the `==-sound` postulate in `ReferenceBridge.agda`.)
+- *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
+  token-burn count, deadline checks, and the **non-lovelace** parts of value conservation (multi-asset
+  value, and decrement's decommit value, which is passed as 0). A validator could forge any of these and
+  the test would still pass.
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of

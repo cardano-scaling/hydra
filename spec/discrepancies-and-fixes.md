@@ -223,7 +223,7 @@ REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfac
   - Potential LOCKOUT (liveness): the off-chain `observeIncrementTx` reads only the FIRST deposit
     input (`findTxOutByScript`), so honest nodes never credit the extra deposit; the head value stays
     permanently above its accumulator; fanout `mustConserveValue` can then never balance (the surplus
-    is not an accumulator member) → the head may be un-fanoutable, locking funds (the extra
+    is not an accumulator member) → the head may be impossible to fan out, locking funds (the extra
     depositor's, and potentially everyone's). Requires a malicious participant; costs nothing if a
     victim's pending deposit is reused. A cooperative corrective decrement MIGHT recover, untraced.
   Production behaviour, NOT introduced by this PR; a LIVENESS property (deferred P3). The single-deposit
