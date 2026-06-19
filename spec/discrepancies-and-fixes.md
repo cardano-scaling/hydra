@@ -211,13 +211,25 @@ REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfac
   conjunct is weaker than the validator: it does not express the all-inputs sum that is what actually
   forbids the siphon on-chain. A full fix needs modeling the input multiset; deferred. (Analogous to
   AUDIT-5's ≤ᵛ-vs-== for close/contest.)
-- **Concurrent-deposit dilution [upstream observation, out of scope, unconfirmed end-to-end]:**
-  because `mustPreserveValue` forces all non-head script-input value INTO the head output while
-  `checkSnapshotSignature` binds only the accumulator hash, a malicious participant could include a
-  second pending same-head deposit (its Claim passes: same `head_id`, before deadline) so its value
-  enters the head UNCREDITED (no accumulator entry). Not external theft and not introduced by this
-  PR; the fanout consequence is not fully traced here. The single-deposit Agda model does not express
-  this. Flag for upstream awareness only.
+- **Concurrent-deposit dilution → potential lockout [upstream, out of scope, traced; NOT theft]:**
+  `mustPreserveValue` forces ALL non-head script-input value INTO the head output, while
+  `checkSnapshotSignature` binds only the accumulator hash and `claimedDepositIsSpent` checks only the
+  ONE redeemer-referenced deposit. So a malicious participant can spend a second pending same-head
+  deposit (its Claim passes: same `head_id`, before deadline) and on-chain validation forces that
+  value into the head UNCREDITED (no accumulator entry). Traced consequences:
+  - NOT theft: increment `mustPreserveValue` (==), close `mustPreserveHeadValue`, and fanout
+    `mustConserveValue` (==, outputs must be accumulator members via the KZG subset proof) together
+    forbid extracting the surplus to any party. The attacker gains nothing.
+  - Potential LOCKOUT (liveness): the off-chain `observeIncrementTx` reads only the FIRST deposit
+    input (`findTxOutByScript`), so honest nodes never credit the extra deposit; the head value stays
+    permanently above its accumulator; fanout `mustConserveValue` can then never balance (the surplus
+    is not an accumulator member) → the head may be un-fanoutable, locking funds (the extra
+    depositor's, and potentially everyone's). Requires a malicious participant; costs nothing if a
+    victim's pending deposit is reused. A cooperative corrective decrement MIGHT recover, untraced.
+  Production behaviour, NOT introduced by this PR; a LIVENESS property (deferred P3). The single-deposit
+  Agda model abstracts it away (see AUDIT-6). Recommend upstream confirmation (known accepted risk vs
+  fix: e.g. an on-chain "exactly the snapshot's deposits are consumed" / value-matches-accumulator-delta
+  check at increment).
 - **Coverage:** init (μHead), increment, decrement, close, contest, fanout, partial/finalPartial
   fanout, recover are modeled. abort/commit/collectCom are NOT modeled (this coordinated-head variant
   inits directly to Open with incremental commits via deposit/increment; intent worth confirming).

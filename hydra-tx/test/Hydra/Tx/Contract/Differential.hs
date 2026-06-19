@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   Coin (..),
   Tx,
   TxIn,
+  TxOut,
   UTxO,
   fromCtxUTxOTxOut,
   selectLovelace,
@@ -86,6 +87,7 @@ incRefVerdict (tx, utxo) = do
       (Ref.mkOpsInc (const True))
       (Ref.MkIncIO od.version od'.version (lovelace headInOut) (lovelace depositOut) (lovelace headOut))
  where
+  lovelace :: TxOut ctx -> Integer
   lovelace o = let Coin n = selectLovelace (txOutValue o) in n
 
 -- Decrement steps Open→Open too; its decommit value is not yet supplied as an extractable lovelace,

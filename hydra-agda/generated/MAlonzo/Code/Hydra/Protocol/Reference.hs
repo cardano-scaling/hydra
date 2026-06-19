@@ -288,7 +288,7 @@ d_incRef'7495'_128 v0 v1
       (coe
          d__'38''38'__54
          (coe
-            d__'61''61''7495'__58
+            eqInt
             (coe
                addInt (coe d_adaDelta_116 (coe v1)) (coe d_adaIn_114 (coe v1)))
             (coe d_adaOut_118 (coe v1)))
