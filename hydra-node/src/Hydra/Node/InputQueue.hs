@@ -7,6 +7,7 @@ import Control.Concurrent.Class.MonadSTM (
   isEmptyTBQueue,
   modifyTVar',
   readTBQueue,
+  swapTVar,
   writeTBQueue,
  )
 
@@ -16,6 +17,12 @@ import Control.Concurrent.Class.MonadSTM (
 data InputQueue m e = InputQueue
   { enqueue :: e -> m ()
   , reenqueue :: DiffTime -> Queued e -> m ()
+  , park :: Queued e -> m ()
+  -- ^ Hold an item aside without re-enqueuing it, until 'releaseParked' moves
+  -- it back onto the queue. Used for inputs that can't be processed until the
+  -- node is in sync. Parked items do not count towards 'isEmpty'.
+  , releaseParked :: m ()
+  -- ^ Move all parked items back onto the queue, preserving their order.
   , dequeue :: m (Queued e)
   , isEmpty :: m Bool
   }
@@ -31,6 +38,7 @@ createInputQueue ::
 createInputQueue = do
   numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
   nextId <- newLabelledTVarIO "nex-id" 0
+  parked <- newLabelledTVarIO "parked-queue" []
   -- XXX: We bound the _input_ queue by the _logging_ queue size! This is a
   -- hack; but we do it because it seems that the logging queue blocking
   -- prevents further processing, _unless_ the input queue is also bounded.
@@ -51,6 +59,18 @@ createInputQueue = do
             atomically $ do
               modifyTVar' numThreads pred
               writeTBQueue q e
+      , park = \e -> atomically $ modifyTVar' parked (<> [e])
+      , releaseParked = do
+          ps <- atomically $ swapTVar parked []
+          -- Write the items back from a separate thread (as 'reenqueue' does),
+          -- and one at a time, so a full queue can't deadlock the single
+          -- consumer that calls this. 'numThreads' keeps them visible to
+          -- 'isEmpty' until they are all back on the queue.
+          unless (null ps) $ do
+            atomically $ modifyTVar' numThreads succ
+            void . asyncLabelled "input-queue-release-parked" $ do
+              forM_ ps $ atomically . writeTBQueue q
+              atomically $ modifyTVar' numThreads pred
       , dequeue =
           atomically $ readTBQueue q
       , isEmpty = do

@@ -31,6 +31,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Config (renderConfig)
 import Hydra.Events (EventSink (..), EventSource (..), mkEventSink)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -46,6 +47,7 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
+import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
@@ -84,6 +86,7 @@ withAPIServer ::
   forall tx.
   IsChainState tx =>
   APIServerConfig ->
+  RunOptions ->
   Environment ->
   Party ->
   EventSource (StateEvent tx) IO ->
@@ -95,7 +98,7 @@ withAPIServer ::
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
+withAPIServer config runOptions env party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -145,6 +148,7 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
               (wsApp env party tracer chain historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
+                  (renderConfig runOptions)
                   chain
                   env
                   pparams

@@ -1,0 +1,34 @@
+# Demo config for alice (signing peer 1 of 3).
+#
+# The "peers:" block is identical in alice.yaml, bob.yaml, and carol.yaml —
+# each node drops its own entry via the self-filter (listen/advertise equals
+# the peer address), so the same block can be shared across participants.
+# Paths are resolved relative to this file's directory (demo/configs/).
+node-id: "1"
+listen: "127.0.0.1:5001"
+advertise: "127.0.0.1:5001"
+api-port: 4001
+monitoring-port: 6001
+hydra-signing-key: "../alice.sk"
+peers:
+  - address: "127.0.0.1:5001" # self — keys here are ignored (filtered out)
+    hydra-verification-key: "../alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "../bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "../carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
+  - address: "127.0.0.1:5004" # alice-mirror: observer peer (no keys)
+ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
+persistence-dir: "../../devnet/persistence/alice"
+chain:
+  mode: cardano
+  cardano-signing-key: "../../hydra-cluster/config/credentials/alice.sk"
+  contestation-period: 3
+  deposit-period: 10
+  backend:
+    mode: direct
+    testnet-magic: 42
+    node-socket: "../../devnet/node.socket"

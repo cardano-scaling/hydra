@@ -227,6 +227,7 @@ apiServerSpec = do
         ( return $
             httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -253,12 +254,38 @@ apiServerSpec = do
                 { matchBody = matchJSON defaultPParams
                 }
 
+    describe "GET /config" $ do
+      let configDoc = object ["node-id" .= ("test-node" :: Text)]
+      responseChannel <- runIO newTChanIO
+      with
+        ( return $
+            httpApp @SimpleTx
+              nullTracer
+              configDoc
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              getNodeState
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+        )
+        $ do
+          it "returns the config doc verbatim" $
+            get "/config"
+              `shouldRespondWith` 200
+                { matchBody = matchJSON configDoc
+                }
+
     describe "GET /head" $ do
       responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \nodeState -> do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -292,6 +319,7 @@ apiServerSpec = do
             withApplication
               ( httpApp @Tx
                   nullTracer
+                  Aeson.Null
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
@@ -317,6 +345,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -337,6 +366,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -360,6 +390,7 @@ apiServerSpec = do
             withApplication
               ( httpApp @Tx
                   nullTracer
+                  Aeson.Null
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
@@ -387,6 +418,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -414,6 +446,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -435,6 +468,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -463,6 +497,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -485,6 +520,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -505,6 +541,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -532,6 +569,7 @@ apiServerSpec = do
             withApplication
               ( httpApp @Tx
                   nullTracer
+                  Aeson.Null
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
@@ -570,6 +608,7 @@ apiServerSpec = do
           withApplication
             ( httpApp @Tx
                 nullTracer
+                Aeson.Null
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
@@ -605,6 +644,7 @@ apiServerSpec = do
         withApplication
           ( httpApp
               nullTracer
+              Aeson.Null
               workingChainHandle
               testEnvironment
               defaultPParams
@@ -641,6 +681,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -678,6 +719,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -709,6 +751,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -728,6 +771,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -748,6 +792,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -774,6 +819,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -800,6 +846,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -820,6 +867,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -839,6 +887,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @Tx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -860,6 +909,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -887,6 +937,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams
@@ -908,6 +959,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
+              Aeson.Null
               dummyChainHandle
               testEnvironment
               defaultPParams

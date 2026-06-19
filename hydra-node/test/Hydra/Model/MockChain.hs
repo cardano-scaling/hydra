@@ -118,6 +118,7 @@ mockChainAndNetwork tr seedKeys = do
       , simulateDeposit = simulateDeposit nodes
       , simulatePartialFanout = \_ _ -> error "simulatePartialFanout not implemented for MockChain"
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
+      , getChainHistory = pure []
       }
  where
   initialUTxO = seedUTxO <> registryUTxO scriptRegistry

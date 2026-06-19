@@ -37,7 +37,7 @@ import Hydra.HeadLogic (
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
@@ -320,21 +320,40 @@ stepHydraNode now node = do
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{stateChanges} -> do
+      releaseParkedWhenSynced stateChanges
+    Wait{reason, stateChanges} -> do
       processStateChanges node stateChanges
-      maybeReenqueue i
+      maybeReenqueue reason i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
  where
-  maybeReenqueue q@Queued{queuedId, queuedItem} =
+  maybeReenqueue reason q@Queued{queuedId, queuedItem} =
     case queuedItem of
+      -- While the node is catching up it can't process any network message
+      -- yet, so re-enqueuing here would just spin (and never terminate if the
+      -- node stays out of sync). Park the message instead and replay it once
+      -- the node is in sync (see 'releaseParkedWhenSynced'). This also avoids
+      -- burning the message's retry budget during sync, which would otherwise
+      -- drop e.g. ReqTx before catch-up completes.
+      NetworkInput _ _
+        | WaitOnNodeInSync{} <- reason -> park q
       NetworkInput ttl msg
         | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
+  -- Replay parked network inputs once the node transitions into sync, so
+  -- messages received during catch-up are processed rather than lost.
+  releaseParkedWhenSynced stateChanges =
+    when (any isNodeSynced stateChanges) releaseParked
+
+  isNodeSynced :: StateChanged tx -> Bool
+  isNodeSynced = \case
+    NodeSynced{} -> True
+    _ -> False
+
   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue, park, releaseParked}, env} = node
 
 -- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
 -- outcome.

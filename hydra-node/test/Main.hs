@@ -16,6 +16,7 @@ import Hydra.Chain.Direct.TxSpec qualified
 import Hydra.Chain.Direct.TxTraceSpec qualified
 import Hydra.Chain.Direct.WalletSpec qualified
 import Hydra.Chain.ScriptRegistrySpec qualified
+import Hydra.ConfigSpec qualified
 import Hydra.CryptoSpec qualified
 import Hydra.Events.RotationSpec qualified
 import Hydra.Events.S3Spec qualified
@@ -61,6 +62,7 @@ main =
     , testSpec "Chain.Direct.TxTrace" Hydra.Chain.Direct.TxTraceSpec.spec
     , testSpec "Chain.Direct.Wallet" Hydra.Chain.Direct.WalletSpec.spec
     , testSpec "Chain.ScriptRegistry" Hydra.Chain.ScriptRegistrySpec.spec
+    , testSpec "Config" Hydra.ConfigSpec.spec
     , testSpec "Crypto" Hydra.CryptoSpec.spec
     , testSpec "Events.Rotation" Hydra.Events.RotationSpec.spec
     , testSpec "Events.S3" Hydra.Events.S3Spec.spec

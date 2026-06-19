@@ -211,6 +211,20 @@ spec = parallel $ do
         runToCompletion node
         getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
+    it "parks network inputs received while catching up instead of looping forever" $
+      -- Regression test: while a node is still catching up, network inputs are
+      -- rejected with 'WaitOnNodeInSync'. They must be held until the node is
+      -- in sync rather than re-enqueued in a tight loop forever (which hung the
+      -- node, and timed out CI after 6h). We deliberately omit 'primeWithTime'
+      -- so the node stays in 'NodeCatchingUp'.
+      failAfter 1 $
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          node <-
+            hydrate tracer testEnvironment simpleLedger 0 (mockEventStore []) []
+              >>= notConnect
+              >>= primeWith [receiveMessage ReqTx{transaction = aValidTx 1}]
+          runToCompletion node
+
     it "rotates snapshot leaders" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let tx1 = SimpleTx{txSimpleId = 1, txInputs = mempty, txOutputs = utxoRefs [4]}
