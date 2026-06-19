@@ -15,10 +15,10 @@ open import abstract-set-theory.FiniteSetTheory public
 -- Standard-library essentials used throughout the spec's notation.
 open import Data.Nat using (ℕ; zero; suc; _≤_; _<_; _+_; _∸_; _≟_) public
 open import Data.Integer using (ℤ) public
-open import Data.Bool using (Bool; true; false; if_then_else_) public
+open import Data.Bool using (Bool; true; false; if_then_else_; _∧_) public
 open import Data.Empty using (⊥) public
 open import Data.Unit using (⊤) public
-open import Relation.Nullary using (¬_) public
+open import Relation.Nullary using (¬_; Dec) public
 open import Relation.Nullary.Decidable using (⌊_⌋) public
 open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
 open import Data.Maybe using (Maybe; just; nothing) public
@@ -51,6 +51,7 @@ postulate
   concat : List ℍ → ℍ              -- ℍ* → ℍ
   bytes  : ∀ {A : Set} → A → ℍ     -- invertible serialisation to bytes
   hash   : ∀ {A : Set} → A → ℍ     -- collision-resistant hash; x# = hash x
+  _≟ℍ_   : (x y : ℍ) → Dec (x ≡ y) -- hashes are byte strings: decidable equality
 
 -- Aggregate multisignature verification (the §3.2 scheme's MS-Verify, instantiated
 -- at the protocol's key/message/signature types). Kept abstract (EdDSA-based).
@@ -75,3 +76,8 @@ postulate
   εᵛ   : Value                  -- the empty/zero value
   _+ᵛ_ : Value → Value → Value  -- value addition (multiset union of assets)
   _≤ᵛ_ : Value → Value → Set    -- "contained in" (the head value is preserved/grows)
+  -- Lovelace (ada) projection: the ada quantity of a value. Additive, so it commutes with `_+ᵛ_`.
+  -- This is the homomorphism the differential test exploits to check value conservation on the
+  -- (extractable) lovelace component.
+  adaOf    : Value → ℕ
+  adaOf-+ᵛ : ∀ a b → adaOf (a +ᵛ b) ≡ adaOf a + adaOf b

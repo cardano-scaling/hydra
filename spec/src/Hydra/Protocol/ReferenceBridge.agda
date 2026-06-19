@@ -19,6 +19,7 @@ open import Hydra.Protocol.OnChain
 import Hydra.Protocol.Reference as R
 
 open import Data.Nat using (z≤n; s≤s)
+open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 
 -- ── reflection lemmas: the Bool checks of Reference reflect the propositional relations ──────
 ==ᵇ-refl : ∀ n → (n R.==ᵇ n) ≡ true
@@ -89,15 +90,24 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η#)
 trueOpsInc : R.OpsInc
 trueOpsInc = record { incCryptoOK = λ _ → true }
 
+-- Increment: version bumps AND the head value grows by the deposit. The reference's lovelace check
+-- `adaIn + adaDelta ≡ adaOut` follows from `incrementValueOK` (headValueIn +ᵛ depositValue ≡ headValue)
+-- via the `adaOf` additivity law — so a reference value-reject implies the spec rejects.
 incrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref
   → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref
-  → R.incRefᵇ trueOpsInc (R.mkIncIOᶜ v (suc v)) ≡ true
-incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref (increment , _) =
-  &&-intro (==ᵇ-refl (suc v)) refl
+  → R.incRefᵇ trueOpsInc
+       (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (depositValue ctx ref)) (adaOf (headValue ctx)))
+     ≡ true
+incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref (increment , _ , _ , valOK , _) =
+  &&-intro (==ᵇ-refl (suc v))
+ (&&-intro (≡→==ᵇ (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositValue ctx ref))) (cong adaOf valOK)))
+           refl)
 
+-- Decrement: the reference checks the version discipline only (its decommit value is not yet supplied
+-- as an extractable lovelace), so the ada fields are passed as 0 and ignored by `decRefᵇ`.
 decrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m
   → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m
-  → R.incRefᵇ trueOpsInc (R.mkIncIOᶜ v (suc v)) ≡ true
+  → R.decRefᵇ trueOpsInc (R.mkIncIOᶜ v (suc v) 0 0 0) ≡ true
 decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m (decrement , _) =
   &&-intro (==ᵇ-refl (suc v)) refl
 

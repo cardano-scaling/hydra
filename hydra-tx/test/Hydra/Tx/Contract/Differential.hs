@@ -22,10 +22,13 @@ import Hydra.Prelude
 
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
+  Coin (..),
   Tx,
   TxIn,
   UTxO,
   fromCtxUTxOTxOut,
+  selectLovelace,
+  txOutValue,
   txOuts',
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
@@ -33,6 +36,7 @@ import Hydra.Cardano.Api.TxBody (findRedeemerSpending)
 import Hydra.Cardano.Api.TxOut (findTxOutByScript)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
@@ -64,22 +68,36 @@ outputState (tx, _) = do
   fromScriptData =<< txOutScriptData headOut
 
 -- ── increment / decrement ─────────────────────────────────────────────────────────────────
--- Both step Open→Open; the reference reads the input and output versions.
-incLikeRefVerdict :: (HS.Input -> Bool) -> (Tx, UTxO) -> Maybe Bool
-incLikeRefVerdict isExpected m = do
+-- Increment steps Open→Open; the reference now checks the version bump AND lovelace value
+-- conservation (adaIn + adaDelta == adaOut), reading the real head-input / deposit / head-output
+-- lovelace off the tx — so a value-breaking validator change is caught, not just version drift.
+incRefVerdict :: (Tx, UTxO) -> Maybe Bool
+incRefVerdict (tx, utxo) = do
+  (headIn, headInOut) <- findTxOutByScript utxo Head.validatorScript
+  inSt <- fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headInOut)
+  HS.Open od <- Just (inSt :: HS.State)
+  headOut <- txOuts' tx !!? 0
+  outSt <- fromScriptData =<< txOutScriptData headOut
+  HS.Open od' <- Just (outSt :: HS.State)
+  HS.Increment{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  (_, depositOut) <- findTxOutByScript utxo depositValidatorScript
+  pure $
+    Ref.checkInc
+      (Ref.mkOpsInc (const True))
+      (Ref.MkIncIO od.version od'.version (lovelace headInOut) (lovelace depositOut) (lovelace headOut))
+ where
+  lovelace o = let Coin n = selectLovelace (txOutValue o) in n
+
+-- Decrement steps Open→Open too; its decommit value is not yet supplied as an extractable lovelace,
+-- so the reference checks the version discipline only (ada fields ignored by `checkDec`).
+decRefVerdict :: (Tx, UTxO) -> Maybe Bool
+decRefVerdict m@(tx, _) = do
   (inSt, headIn) <- inputState m
   HS.Open od <- Just inSt
   outSt <- outputState m
   HS.Open od' <- Just outSt
-  red <- findRedeemerSpending (fst m) headIn :: Maybe HS.Input
-  guard (isExpected red)
-  pure (Ref.checkInc (Ref.mkOpsInc (const True)) (Ref.MkIncIO od.version od'.version))
-
-incRefVerdict :: (Tx, UTxO) -> Maybe Bool
-incRefVerdict = incLikeRefVerdict $ \case HS.Increment{} -> True; _ -> False
-
-decRefVerdict :: (Tx, UTxO) -> Maybe Bool
-decRefVerdict = incLikeRefVerdict $ \case HS.Decrement{} -> True; _ -> False
+  HS.Decrement{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  pure (Ref.checkDec (Ref.mkOpsInc (const True)) (Ref.MkIncIO od.version od'.version 0 0 0))
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 contestRefVerdict :: (Tx, UTxO) -> Maybe Bool

@@ -23,7 +23,7 @@ import qualified MAlonzo.Code.Agda.Builtin.Bool
 data HsCloseTag = CloseInitialT | CloseAnyT | CloseUnusedT | CloseUsedT
 data HsOpen = MkOpen Integer Integer
 data HsClosed = MkClosed Integer Integer Integer Integer
-data HsIncIO = MkIncIO Integer Integer
+data HsIncIO = MkIncIO Integer Integer Integer Integer Integer
 data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer
 data HsFanout = MkFanout Integer
 -- Hydra.Protocol.Reference.CloseTagᶜ
@@ -228,159 +228,195 @@ du_anyOK_96 v0 v1
 -- Hydra.Protocol.Reference.IncIOᶜ
 d_IncIO'7580'_98 = ()
 type T_IncIO'7580'_98 = HsIncIO
-pattern C_mkIncIO'7580'_108 a0 a1 = MkIncIO a0 a1
-check_mkIncIO'7580'_108 :: Integer -> Integer -> T_IncIO'7580'_98
-check_mkIncIO'7580'_108 = MkIncIO
+pattern C_mkIncIO'7580'_120 a0 a1 a2 a3 a4 = MkIncIO a0 a1 a2 a3 a4
+check_mkIncIO'7580'_120 ::
+  Integer ->
+  Integer -> Integer -> Integer -> Integer -> T_IncIO'7580'_98
+check_mkIncIO'7580'_120 = MkIncIO
 cover_IncIO'7580'_98 :: HsIncIO -> ()
 cover_IncIO'7580'_98 x
   = case x of
-      MkIncIO _ _ -> ()
+      MkIncIO _ _ _ _ _ -> ()
 -- Hydra.Protocol.Reference.IncIOᶜ.versionIn
-d_versionIn_104 :: T_IncIO'7580'_98 -> Integer
-d_versionIn_104 v0
+d_versionIn_110 :: T_IncIO'7580'_98 -> Integer
+d_versionIn_110 v0
   = case coe v0 of
-      C_mkIncIO'7580'_108 v1 v2 -> coe v1
+      C_mkIncIO'7580'_120 v1 v2 v3 v4 v5 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.IncIOᶜ.versionOut
-d_versionOut_106 :: T_IncIO'7580'_98 -> Integer
-d_versionOut_106 v0
+d_versionOut_112 :: T_IncIO'7580'_98 -> Integer
+d_versionOut_112 v0
   = case coe v0 of
-      C_mkIncIO'7580'_108 v1 v2 -> coe v2
+      C_mkIncIO'7580'_120 v1 v2 v3 v4 v5 -> coe v2
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.IncIOᶜ.adaIn
+d_adaIn_114 :: T_IncIO'7580'_98 -> Integer
+d_adaIn_114 v0
+  = case coe v0 of
+      C_mkIncIO'7580'_120 v1 v2 v3 v4 v5 -> coe v3
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.IncIOᶜ.adaDelta
+d_adaDelta_116 :: T_IncIO'7580'_98 -> Integer
+d_adaDelta_116 v0
+  = case coe v0 of
+      C_mkIncIO'7580'_120 v1 v2 v3 v4 v5 -> coe v4
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.IncIOᶜ.adaOut
+d_adaOut_118 :: T_IncIO'7580'_98 -> Integer
+d_adaOut_118 v0
+  = case coe v0 of
+      C_mkIncIO'7580'_120 v1 v2 v3 v4 v5 -> coe v5
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.OpsInc
-d_OpsInc_110 = ()
-newtype T_OpsInc_110
-  = C_OpsInc'46'constructor_1997 (T_IncIO'7580'_98 -> Bool)
+d_OpsInc_122 = ()
+newtype T_OpsInc_122
+  = C_OpsInc'46'constructor_2081 (T_IncIO'7580'_98 -> Bool)
 -- Hydra.Protocol.Reference.OpsInc.incCryptoOK
-d_incCryptoOK_114 :: T_OpsInc_110 -> T_IncIO'7580'_98 -> Bool
-d_incCryptoOK_114 v0
+d_incCryptoOK_126 :: T_OpsInc_122 -> T_IncIO'7580'_98 -> Bool
+d_incCryptoOK_126 v0
   = case coe v0 of
-      C_OpsInc'46'constructor_1997 v1 -> coe v1
+      C_OpsInc'46'constructor_2081 v1 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.incRefᵇ
-d_incRef'7495'_116 :: T_OpsInc_110 -> T_IncIO'7580'_98 -> Bool
-d_incRef'7495'_116 v0 v1
+d_incRef'7495'_128 :: T_OpsInc_122 -> T_IncIO'7580'_98 -> Bool
+d_incRef'7495'_128 v0 v1
   = coe
       d__'38''38'__54
       (coe
-         d__'61''61''7495'__58 (coe d_versionOut_106 (coe v1))
-         (coe addInt (coe (1 :: Integer)) (coe d_versionIn_104 (coe v1))))
-      (coe d_incCryptoOK_114 v0 v1)
--- Hydra.Protocol.Reference.ContestIOᶜ
-d_ContestIO'7580'_122 = ()
-type T_ContestIO'7580'_122 = HsContestIO
-pattern C_mkContestIO'7580'_148 a0 a1 a2 a3 a4 a5 = MkContestIO a0 a1 a2 a3 a4 a5
-check_mkContestIO'7580'_148 ::
-  Integer ->
-  Integer ->
-  Integer -> Integer -> Integer -> Integer -> T_ContestIO'7580'_122
-check_mkContestIO'7580'_148 = MkContestIO
-cover_ContestIO'7580'_122 :: HsContestIO -> ()
-cover_ContestIO'7580'_122 x
-  = case x of
-      MkContestIO _ _ _ _ _ _ -> ()
--- Hydra.Protocol.Reference.ContestIOᶜ.versionInK
-d_versionInK_136 :: T_ContestIO'7580'_122 -> Integer
-d_versionInK_136 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v1
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.ContestIOᶜ.versionOutK
-d_versionOutK_138 :: T_ContestIO'7580'_122 -> Integer
-d_versionOutK_138 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v2
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.ContestIOᶜ.snapIn
-d_snapIn_140 :: T_ContestIO'7580'_122 -> Integer
-d_snapIn_140 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v3
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.ContestIOᶜ.snapOut
-d_snapOut_142 :: T_ContestIO'7580'_122 -> Integer
-d_snapOut_142 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v4
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.ContestIOᶜ.contesterLenIn
-d_contesterLenIn_144 :: T_ContestIO'7580'_122 -> Integer
-d_contesterLenIn_144 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v5
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.ContestIOᶜ.contesterLenOut
-d_contesterLenOut_146 :: T_ContestIO'7580'_122 -> Integer
-d_contesterLenOut_146 v0
-  = case coe v0 of
-      C_mkContestIO'7580'_148 v1 v2 v3 v4 v5 v6 -> coe v6
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.OpsContest
-d_OpsContest_150 = ()
-newtype T_OpsContest_150
-  = C_OpsContest'46'constructor_2207 (T_ContestIO'7580'_122 -> Bool)
--- Hydra.Protocol.Reference.OpsContest.contestCryptoOK
-d_contestCryptoOK_154 ::
-  T_OpsContest_150 -> T_ContestIO'7580'_122 -> Bool
-d_contestCryptoOK_154 v0
-  = case coe v0 of
-      C_OpsContest'46'constructor_2207 v1 -> coe v1
-      _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.contestRefᵇ
-d_contestRef'7495'_156 ::
-  T_OpsContest_150 -> T_ContestIO'7580'_122 -> Bool
-d_contestRef'7495'_156 v0 v1
-  = coe
-      d__'38''38'__54
-      (coe
-         d__'61''61''7495'__58 (coe d_versionInK_136 (coe v1))
-         (coe d_versionOutK_138 (coe v1)))
+         d__'61''61''7495'__58 (coe d_versionOut_112 (coe v1))
+         (coe addInt (coe (1 :: Integer)) (coe d_versionIn_110 (coe v1))))
       (coe
          d__'38''38'__54
          (coe
-            d__'60''7495'__70 (coe d_snapIn_140 (coe v1))
-            (coe d_snapOut_142 (coe v1)))
+            d__'61''61''7495'__58
+            (coe
+               addInt (coe d_adaDelta_116 (coe v1)) (coe d_adaIn_114 (coe v1)))
+            (coe d_adaOut_118 (coe v1)))
+         (coe d_incCryptoOK_126 v0 v1))
+-- Hydra.Protocol.Reference.decRefᵇ
+d_decRef'7495'_134 :: T_OpsInc_122 -> T_IncIO'7580'_98 -> Bool
+d_decRef'7495'_134 v0 v1
+  = coe
+      d__'38''38'__54
+      (coe
+         d__'61''61''7495'__58 (coe d_versionOut_112 (coe v1))
+         (coe addInt (coe (1 :: Integer)) (coe d_versionIn_110 (coe v1))))
+      (coe d_incCryptoOK_126 v0 v1)
+-- Hydra.Protocol.Reference.ContestIOᶜ
+d_ContestIO'7580'_140 = ()
+type T_ContestIO'7580'_140 = HsContestIO
+pattern C_mkContestIO'7580'_166 a0 a1 a2 a3 a4 a5 = MkContestIO a0 a1 a2 a3 a4 a5
+check_mkContestIO'7580'_166 ::
+  Integer ->
+  Integer ->
+  Integer -> Integer -> Integer -> Integer -> T_ContestIO'7580'_140
+check_mkContestIO'7580'_166 = MkContestIO
+cover_ContestIO'7580'_140 :: HsContestIO -> ()
+cover_ContestIO'7580'_140 x
+  = case x of
+      MkContestIO _ _ _ _ _ _ -> ()
+-- Hydra.Protocol.Reference.ContestIOᶜ.versionInK
+d_versionInK_154 :: T_ContestIO'7580'_140 -> Integer
+d_versionInK_154 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.ContestIOᶜ.versionOutK
+d_versionOutK_156 :: T_ContestIO'7580'_140 -> Integer
+d_versionOutK_156 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v2
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.ContestIOᶜ.snapIn
+d_snapIn_158 :: T_ContestIO'7580'_140 -> Integer
+d_snapIn_158 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v3
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.ContestIOᶜ.snapOut
+d_snapOut_160 :: T_ContestIO'7580'_140 -> Integer
+d_snapOut_160 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v4
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.ContestIOᶜ.contesterLenIn
+d_contesterLenIn_162 :: T_ContestIO'7580'_140 -> Integer
+d_contesterLenIn_162 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v5
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.ContestIOᶜ.contesterLenOut
+d_contesterLenOut_164 :: T_ContestIO'7580'_140 -> Integer
+d_contesterLenOut_164 v0
+  = case coe v0 of
+      C_mkContestIO'7580'_166 v1 v2 v3 v4 v5 v6 -> coe v6
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.OpsContest
+d_OpsContest_168 = ()
+newtype T_OpsContest_168
+  = C_OpsContest'46'constructor_2359 (T_ContestIO'7580'_140 -> Bool)
+-- Hydra.Protocol.Reference.OpsContest.contestCryptoOK
+d_contestCryptoOK_172 ::
+  T_OpsContest_168 -> T_ContestIO'7580'_140 -> Bool
+d_contestCryptoOK_172 v0
+  = case coe v0 of
+      C_OpsContest'46'constructor_2359 v1 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.contestRefᵇ
+d_contestRef'7495'_174 ::
+  T_OpsContest_168 -> T_ContestIO'7580'_140 -> Bool
+d_contestRef'7495'_174 v0 v1
+  = coe
+      d__'38''38'__54
+      (coe
+         d__'61''61''7495'__58 (coe d_versionInK_154 (coe v1))
+         (coe d_versionOutK_156 (coe v1)))
+      (coe
+         d__'38''38'__54
+         (coe
+            d__'60''7495'__70 (coe d_snapIn_158 (coe v1))
+            (coe d_snapOut_160 (coe v1)))
          (coe
             d__'38''38'__54
             (coe
-               d__'61''61''7495'__58 (coe d_contesterLenOut_146 (coe v1))
+               d__'61''61''7495'__58 (coe d_contesterLenOut_164 (coe v1))
                (coe
-                  addInt (coe (1 :: Integer)) (coe d_contesterLenIn_144 (coe v1))))
-            (coe d_contestCryptoOK_154 v0 v1)))
+                  addInt (coe (1 :: Integer)) (coe d_contesterLenIn_162 (coe v1))))
+            (coe d_contestCryptoOK_172 v0 v1)))
 -- Hydra.Protocol.Reference.Fanoutᶜ
-d_Fanout'7580'_162 = ()
-type T_Fanout'7580'_162 = HsFanout
-pattern C_mkFanout'7580'_168 a0 = MkFanout a0
-check_mkFanout'7580'_168 :: Integer -> T_Fanout'7580'_162
-check_mkFanout'7580'_168 = MkFanout
-cover_Fanout'7580'_162 :: HsFanout -> ()
-cover_Fanout'7580'_162 x
+d_Fanout'7580'_180 = ()
+type T_Fanout'7580'_180 = HsFanout
+pattern C_mkFanout'7580'_186 a0 = MkFanout a0
+check_mkFanout'7580'_186 :: Integer -> T_Fanout'7580'_180
+check_mkFanout'7580'_186 = MkFanout
+cover_Fanout'7580'_180 :: HsFanout -> ()
+cover_Fanout'7580'_180 x
   = case x of
       MkFanout _ -> ()
 -- Hydra.Protocol.Reference.Fanoutᶜ.numOutputsF
-d_numOutputsF_166 :: T_Fanout'7580'_162 -> Integer
-d_numOutputsF_166 v0
+d_numOutputsF_184 :: T_Fanout'7580'_180 -> Integer
+d_numOutputsF_184 v0
   = case coe v0 of
-      C_mkFanout'7580'_168 v1 -> coe v1
+      C_mkFanout'7580'_186 v1 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.OpsFanout
-d_OpsFanout_170 = ()
-newtype T_OpsFanout_170
-  = C_OpsFanout'46'constructor_2301 (T_Fanout'7580'_162 -> Bool)
+d_OpsFanout_188 = ()
+newtype T_OpsFanout_188
+  = C_OpsFanout'46'constructor_2453 (T_Fanout'7580'_180 -> Bool)
 -- Hydra.Protocol.Reference.OpsFanout.fanoutCryptoOK
-d_fanoutCryptoOK_174 ::
-  T_OpsFanout_170 -> T_Fanout'7580'_162 -> Bool
-d_fanoutCryptoOK_174 v0
+d_fanoutCryptoOK_192 ::
+  T_OpsFanout_188 -> T_Fanout'7580'_180 -> Bool
+d_fanoutCryptoOK_192 v0
   = case coe v0 of
-      C_OpsFanout'46'constructor_2301 v1 -> coe v1
+      C_OpsFanout'46'constructor_2453 v1 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.fanoutRefᵇ
-d_fanoutRef'7495'_176 ::
-  T_OpsFanout_170 -> T_Fanout'7580'_162 -> Bool
-d_fanoutRef'7495'_176 v0 v1
+d_fanoutRef'7495'_194 ::
+  T_OpsFanout_188 -> T_Fanout'7580'_180 -> Bool
+d_fanoutRef'7495'_194 v0 v1
   = coe
       d__'38''38'__54
       (coe
          d__'60''7495'__70 (coe (0 :: Integer))
-         (coe d_numOutputsF_166 (coe v1)))
-      (coe d_fanoutCryptoOK_174 v0 v1)
+         (coe d_numOutputsF_184 (coe v1)))
+      (coe d_fanoutCryptoOK_192 v0 v1)

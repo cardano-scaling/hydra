@@ -108,22 +108,39 @@ closeRefᵇ ops o c tag =
 -- discipline: the produced Open datum carries `suc v` (transition `Open … v … ⟶ Open … (suc v)`),
 -- which the validator enforces as `VersionNotIncremented`. Crypto/value are injected.
 
--- The version fields of the input and produced Open datums.
+-- The version fields of the input/produced Open datums, plus the lovelace (ada) amounts the
+-- value-conservation check needs: `adaIn`/`adaOut` are the head input/output lovelace, `adaDelta`
+-- the deposit (increment) lovelace. (The full multi-asset `Value` is not extractable; lovelace —
+-- a plain Integer — is the boundary-friendly component the differential test can supply for real.)
 record IncIOᶜ : Set where
   constructor mkIncIOᶜ
   field
     versionIn  : Nat
     versionOut : Nat
-{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer #-}
+    adaIn      : Nat
+    adaDelta   : Nat
+    adaOut     : Nat
+{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC IncIOᶜ = data HsIncIO (MkIncIO) #-}
 
 record OpsInc : Set where
   field incCryptoOK : IncIOᶜ → Bool
 open OpsInc public
 
--- Shared by increment and decrement (identical transition shape).
+-- increment: version bumps (`VersionNotIncremented`) AND head value grows by the deposit
+-- (`mustPreserveValue`): on the lovelace component, adaIn + adaDelta ≡ adaOut. Crypto injected.
 incRefᵇ : OpsInc → IncIOᶜ → Bool
 incRefᵇ ops i =
+     (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i))
+  && ((IncIOᶜ.adaIn i + IncIOᶜ.adaDelta i) ==ᵇ IncIOᶜ.adaOut i)
+  && incCryptoOK ops i
+
+-- decrement: same transition shape (version bumps); its value conservation removes the decommit,
+-- which the differential test cannot yet supply as an extractable lovelace independently, so the
+-- decrement reference checks the version discipline only (value/crypto injected). Takes the same
+-- boundary type; the ada fields are ignored here.
+decRefᵇ : OpsInc → IncIOᶜ → Bool
+decRefᵇ ops i =
   (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i)) && incCryptoOK ops i
 
 -- ══ contest ═══════════════════════════════════════════════════════════════════════════════
