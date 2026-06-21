@@ -17,42 +17,11 @@ open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.OnChain
 import Hydra.Protocol.Reference as R
-
-open import Agda.Builtin.Nat using (_==_) renaming (_<_ to _<ᴮ_)
-open import Data.Nat using (z≤n; s≤s)
+-- The Bool-check ⇄ proposition reflection lemmas (==ᵇ-refl, ≡→==ᵇ, ≤→≤ᵇ, <→<ᵇ, &&-intro) and the
+-- builtin-soundness postulates (==-sound, <ᴮ-sound) live in `RefReflection`; this module is just the
+-- `*Valid → ref` correspondence.
+open import Hydra.Protocol.RefReflection
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
-
--- Soundness of the BUILTIN Nat equality `_==_` w.r.t. propositional equality. `incRefᵇ` checks the
--- lovelace conjunct with `_==_` (native Integer equality at extraction) rather than the structural
--- `_==ᵇ_` (which is O(n) unary recursion, pathological on lovelace-scale values). The builtin does
--- not reduce on open terms, so this reflection lemma is postulated; it is trivially true and lives
--- in the same trust category as the builtin arithmetic (`_+_`) the bridge already relies on.
-postulate
-  ==-sound : ∀ {m n} → m ≡ n → (m == n) ≡ true
-
--- Soundness of the BUILTIN Nat strict-less-than `_<ᴮ_` w.r.t. the standard-library `_<_`. `recoverRefᵇ`
--- checks the after-deadline conjunct with the builtin `_<_` (native Integer `<` at extraction) rather
--- than the structural `_<ᵇ_` (O(n) unary recursion, pathological on POSIXTime-ms deadlines). Same trust
--- category as `==-sound`: the builtin does not reduce on open terms, but trivially agrees with `_<_`.
-  <ᴮ-sound : ∀ {m n} → m < n → (m <ᴮ n) ≡ true
-
--- ── reflection lemmas: the Bool checks of Reference reflect the propositional relations ──────
-==ᵇ-refl : ∀ n → (n R.==ᵇ n) ≡ true
-==ᵇ-refl zero    = refl
-==ᵇ-refl (suc n) = ==ᵇ-refl n
-
-≡→==ᵇ : ∀ {m n} → m ≡ n → (m R.==ᵇ n) ≡ true
-≡→==ᵇ {m} refl = ==ᵇ-refl m
-
-≤→≤ᵇ : ∀ {m n} → m ≤ n → (m R.≤ᵇ n) ≡ true
-≤→≤ᵇ z≤n     = refl
-≤→≤ᵇ (s≤s p) = ≤→≤ᵇ p
-
-<→<ᵇ : ∀ {m n} → m < n → (m R.<ᵇ n) ≡ true
-<→<ᵇ p = ≤→≤ᵇ p
-
-&&-intro : ∀ {a b} → a ≡ true → b ≡ true → (a R.&& b) ≡ true
-&&-intro refl q = q
 
 -- abstraction map: abstract close-redeemer tag → concrete Reference tag.
 -- (Matches the Haskell mirror's `tagOf` in CloseDifferential.hs.)

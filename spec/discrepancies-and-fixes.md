@@ -345,6 +345,16 @@ suite at 15/15; the Haskell workspace builds `-Werror` clean.
   `sgn→signer`, the `cert-nest-aux` glyph-soup, one shared `trueNotFalse`). Adversarially verified
   semantics-preserving (the 6 `Inv` fields are pairwise-distinct propositions, so the green typecheck
   rules out any field swap). `HoldsAt`/`Soundness` Σ-results left as-is (they are §7 theorem statements).
+- **Helper-file split [NEW]:** boilerplate factored into typecheck-only `.agda` helpers (imported by
+  `Main`, NOT rendered): (1) `RefReflection` — the Bool-check⇄proposition reflection lemmas
+  (`==ᵇ-refl`/`≡→==ᵇ`/`≤→≤ᵇ`/`<→<ᵇ`/`&&-intro` + the `==-sound`/`<ᴮ-sound` postulates) moved out of
+  `ReferenceBridge`, which now reads as just the `*Valid → ref` correspondence; (2) `SecurityProofs` —
+  the §7 machine-checked PROOF TERMS (the `invariant` + L1/L2/L3 corollaries,
+  `consistency`/`soundness`/`completeness`, the once-honest-then-corrupt extension, `sigSeen-inv`, and
+  the `reflects` bridge) moved out of `Security.lagda.typ` (944 → 611 lines). The rendered §7 now shows
+  the model + the property STATEMENTS + the human-readable proof prose; the proof terms are still
+  verified by `nix build` (a prose note points to the module). The literate §5 OnChain accessors/value
+  helpers were left inline (they are normative value-computation, entangled with the rendered datum).
 - **Readability + honesty docs:** added a "Reading the Agda (for Haskell programmers)" primer
   (@sec:reading-agda) that, among other idioms, flags `postulate` as ASSUMPTION (the rendered PDF does
   not otherwise distinguish assumed from proved); added a §7 "Scope" note stating plainly that the
