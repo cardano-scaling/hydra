@@ -1,5 +1,10 @@
 # D4 — Plan: formalising the §7 security properties in Agda
 
+> The single canonical list of all outstanding items (across the whole PR) lives in
+> [`discrepancies-and-fixes.md` → "Still open (scoped)"](./discrepancies-and-fixes.md). This doc holds
+> the §7 security detail (Liveness/P3, the multisignature refinement, def-of-done residuals) for the
+> items the canonical list points here for.
+
 Status: **P0 complete. P1-real DONE: the §7 safety core is now fully DERIVED from a signature model,
 not assumed.** `Security.lagda.typ` was rebuilt: the global `System` records each party's individual
 signatures (`sigs : List (Fin parties × Snapshot)`, no pre-ordained chain); a snapshot is `Certified`
@@ -62,10 +67,10 @@ an assumption and the plan to discharge it; that plan is now executed: `confirme
 (`cert-nest` gap-induction from the `signHonest` extend-own-confirmed guard + agreement). Kept for
 provenance._ `confirmed-nest`: honest parties'
 confirmed snapshots nest by number. This is the snapshot-extension discipline (a snapshot of number
-`suc m` extends the certified snapshot of number `m`). To DERIVE it, `signHonest` must record each
+`suc m` extends the certified snapshot of number `m`). To DERIVE it, `signHonest` records each
 signature's predecessor snapshot (so the extension is checkable against the signer's confirmed
-snapshot locally), and the invariant must thread cross-party nesting via `agree`. That operational
-step is the remaining P1-real work; everything else above is now derived, not assumed.
+snapshot locally), and the invariant threads cross-party nesting via `agree`. That operational
+step is DONE (`cert-nest`/`confirmed-nest`); everything above is now derived, not assumed.
 
 **The two Agda halves are linked, and the link is now CONSTRUCTED (not assumed).** `Reflects sys snap`:
 the on-chain datum's snapshot number matches `snap` and its accumulator `OC.ηOf` commits
@@ -84,8 +89,9 @@ laws). Also: `msgOf` is now `snapMsg (version, number, η#)`, so the verified me
 the snapshot's identifying fields (the signature↔snapshot binding itself is carried by `ms-unforgeable`).
 
 Remaining work: **P3 (Liveness)** --- the temporal/fairness layer (eventual delivery under a network
-adversary + head stays open). Also: model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`;
-discharging `ηEq` constructively would need an on-chain accumulator recomputation νHead does not
+adversary + head stays open). (The seen-set discipline that completes Soundness's `T̃ ⊆ ⋂ honest seen`
+is DONE: A3 added a `seen` field, a `signHonest` seen-guard, a `see` step, and `sigSeen-inv`.)
+Discharging `ηEq` constructively would need an on-chain accumulator recomputation νHead does not
 perform (so it stays a signature-trust hypothesis). L2 (`confirmed-nest`) is DONE (derived, no longer a postulate). The whole thing keeps
 `nix build .#spec` green. The §7 security properties are statements about **whole protocol
 executions** in the presence of an **adversary**, so they need this execution/adversary model
@@ -249,9 +255,9 @@ Liveness     : Fair trace → LivenessCondition trace → HonestEnters i tx trac
 ## Phasing, milestones, effort
 
 - **P0 — substrate** (`_∘_`, finish `_handles_↝_`, `System`, `Reachable`). *Done.* Enables everything.
-- **P1 — Consistency reduction** (state invariant over the single-confirmed-chain model). *Done, but
-  assumes the agreement premise.*
-- **P2 — Soundness + Completeness** (over the same model). *Done, on the same premise.*
+- **P1 — Consistency reduction** (state invariant over the single-confirmed-chain model). *Done —
+  SUPERSEDED by P1-real, which no longer assumes the agreement premise.*
+- **P2 — Soundness + Completeness** (over the same model). *Done — likewise superseded by P1-real.*
 - **P1-real — derive the agreement premise** (signature model + honest-sign rule). *Done:* L1
   (agreement at a number), L3 (applicability of confirmed snapshots) and L2 (cross-number nesting,
   `confirmed-nest` via `cert-nest`) are all machine-checked derivations; Consistency, Soundness and

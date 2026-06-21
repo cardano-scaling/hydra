@@ -11,6 +11,10 @@ discrepancies).
 The audit keyed off the `-- Spec:` correspondence comments the code already carries, then
 verified each suspected gap by tracing the relevant handlers and aggregation.
 
+> The single canonical list of all outstanding items lives in
+> [`discrepancies-and-fixes.md` → "Still open (scoped)"](./discrepancies-and-fixes.md); the
+> implementation-alignment items here are referenced from it as `impl-C2`/`impl-C3`/`impl-C4`.
+
 ## Severity legend
 
 - **HIGH** — the code admits something the protocol forbids: fund loss, double-spend, or a
