@@ -301,7 +301,14 @@ d_decRef'7495'_134 v0 v1
       (coe
          d__'61''61''7495'__58 (coe d_versionOut_112 (coe v1))
          (coe addInt (coe (1 :: Integer)) (coe d_versionIn_110 (coe v1))))
-      (coe d_incCryptoOK_126 v0 v1)
+      (coe
+         d__'38''38'__54
+         (coe
+            eqInt
+            (coe
+               addInt (coe d_adaOut_118 (coe v1)) (coe d_adaDelta_116 (coe v1)))
+            (coe d_adaIn_114 (coe v1)))
+         (coe d_incCryptoOK_126 v0 v1))
 -- Hydra.Protocol.Reference.ContestIOᶜ
 d_ContestIO'7580'_140 = ()
 type T_ContestIO'7580'_140 = HsContestIO
@@ -354,13 +361,13 @@ d_contesterLenOut_164 v0
 -- Hydra.Protocol.Reference.OpsContest
 d_OpsContest_168 = ()
 newtype T_OpsContest_168
-  = C_OpsContest'46'constructor_2359 (T_ContestIO'7580'_140 -> Bool)
+  = C_OpsContest'46'constructor_2377 (T_ContestIO'7580'_140 -> Bool)
 -- Hydra.Protocol.Reference.OpsContest.contestCryptoOK
 d_contestCryptoOK_172 ::
   T_OpsContest_168 -> T_ContestIO'7580'_140 -> Bool
 d_contestCryptoOK_172 v0
   = case coe v0 of
-      C_OpsContest'46'constructor_2359 v1 -> coe v1
+      C_OpsContest'46'constructor_2377 v1 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.contestRefᵇ
 d_contestRef'7495'_174 ::
@@ -402,13 +409,13 @@ d_numOutputsF_184 v0
 -- Hydra.Protocol.Reference.OpsFanout
 d_OpsFanout_188 = ()
 newtype T_OpsFanout_188
-  = C_OpsFanout'46'constructor_2453 (T_Fanout'7580'_180 -> Bool)
+  = C_OpsFanout'46'constructor_2471 (T_Fanout'7580'_180 -> Bool)
 -- Hydra.Protocol.Reference.OpsFanout.fanoutCryptoOK
 d_fanoutCryptoOK_192 ::
   T_OpsFanout_188 -> T_Fanout'7580'_180 -> Bool
 d_fanoutCryptoOK_192 v0
   = case coe v0 of
-      C_OpsFanout'46'constructor_2453 v1 -> coe v1
+      C_OpsFanout'46'constructor_2471 v1 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.fanoutRefᵇ
 d_fanoutRef'7495'_194 ::

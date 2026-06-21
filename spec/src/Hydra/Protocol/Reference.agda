@@ -138,13 +138,16 @@ incRefᵇ ops i =
   && ((IncIOᶜ.adaIn i + IncIOᶜ.adaDelta i) == IncIOᶜ.adaOut i)
   && incCryptoOK ops i
 
--- decrement: same transition shape (version bumps); its value conservation removes the decommit,
--- which the differential test cannot yet supply as an extractable lovelace independently, so the
--- decrement reference checks the version discipline only (value/crypto injected). Takes the same
--- boundary type; the ada fields are ignored here.
+-- decrement: same transition shape (version bumps) AND head value SHRINKS by the decommit
+-- (`mustDecreaseValue`): on the lovelace component, adaOut + adaDelta ≡ adaIn (head output + the
+-- decommitted outputs ≡ head input). Note the equation differs from increment's (which grows): here
+-- the deposit field `adaDelta` carries the decommit lovelace and the head INPUT is the larger side.
+-- Uses the BUILTIN `_==_` (native Integer equality) on the lovelace, as in `incRefᵇ`. Crypto injected.
 decRefᵇ : OpsInc → IncIOᶜ → Bool
 decRefᵇ ops i =
-  (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i)) && incCryptoOK ops i
+     (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i))
+  && ((IncIOᶜ.adaOut i + IncIOᶜ.adaDelta i) == IncIOᶜ.adaIn i)
+  && incCryptoOK ops i
 
 -- ══ contest ═══════════════════════════════════════════════════════════════════════════════
 -- Decidable conjuncts of `contestValid` (transition `Closed … v s … C … ⟶ Closed … v s' … (kh ∷ C)`):

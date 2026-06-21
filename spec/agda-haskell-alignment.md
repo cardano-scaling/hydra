@@ -49,15 +49,19 @@ matched by manual review (below).
   contestation-period preservation, contesters initialised empty, `closeInitial⇒v=0∧s=0`,
   `closeAny⇒0<s`; increment: version `= suc` **and lovelace value conservation**
   (`adaIn + adaDelta == adaOut`: head input + claimed deposit = head output on the ada component, read
-  live off the tx); decrement: version `= suc`; contest: version preserved + snapshot strictly
-  increases + exactly one contester appended; fanout: `0 < m`. One end-to-end drift-catch is
-  demonstrated (close `mustNotChangeVersion`). (The increment lovelace check uses the builtin `_==_`,
-  extracted to native integer equality; the structural `_==ᵇ_` is O(n) unary recursion and hangs on
-  lovelace-scale values. Its bridge reflection rests on the `==-sound` postulate in `ReferenceBridge.agda`.)
+  live off the tx); decrement: version `= suc` **and lovelace value conservation**
+  (`adaOut + adaDelta == adaIn`: head output + decommitted outputs = head input, the decommit outputs
+  read as `take numberOfDecommitOutputs (tail outputs)` off the tx, with a deterministic
+  lovelace-perturbing mutation `DecrementChangeHeadLovelace` ensuring the catch fires); contest:
+  version preserved + snapshot strictly increases + exactly one contester appended; fanout: `0 < m`.
+  One end-to-end drift-catch is demonstrated (close `mustNotChangeVersion`). (The increment/decrement
+  lovelace checks use the builtin `_==_`, extracted to native integer equality; the structural `_==ᵇ_`
+  is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
+  `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
   token-burn count, deadline checks, and the **non-lovelace** parts of value conservation (multi-asset
-  value, and decrement's decommit value, which is passed as 0). A validator could forge any of these and
-  the test would still pass.
+  token quantities in the head/deposit/decommit values, which the lovelace component does not see).
+  A validator could forge any of these and the test would still pass.
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of

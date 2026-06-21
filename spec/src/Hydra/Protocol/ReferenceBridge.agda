@@ -99,26 +99,35 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η#)
 trueOpsInc : R.OpsInc
 trueOpsInc = record { incCryptoOK = λ _ → true }
 
--- Increment: version bumps AND the head value grows by the deposit. The reference's lovelace check
--- `adaIn + adaDelta ≡ adaOut` follows from `incrementValueOK` (headValueIn +ᵛ depositValue ≡ headValue)
--- via the `adaOf` additivity law — so a reference value-reject implies the spec rejects.
+-- Increment: version bumps AND the head value grows by ALL deposits. The reference's lovelace check
+-- `adaIn + adaDelta ≡ adaOut` follows from `incrementValueOK` (headValueIn +ᵛ depositsValue ≡ headValue)
+-- via the `adaOf` additivity law — so a reference value-reject implies the spec rejects. `adaDelta` is
+-- the lovelace of ALL spent deposits (`depositsValue`, Plutus `totalNonHeadInputValue`), which is what
+-- makes the differential catch the multi-deposit siphon.
 incrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref
   → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref
   → R.incRefᵇ trueOpsInc
-       (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (depositValue ctx ref)) (adaOf (headValue ctx)))
+       (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (depositsValue ctx)) (adaOf (headValue ctx)))
      ≡ true
 incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref (increment , _ , _ , valOK , _) =
   &&-intro (==ᵇ-refl (suc v))
- (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositValue ctx ref))) (cong adaOf valOK)))
+ (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositsValue ctx))) (cong adaOf valOK)))
            refl)
 
--- Decrement: the reference checks the version discipline only (its decommit value is not yet supplied
--- as an extractable lovelace), so the ada fields are passed as 0 and ignored by `decRefᵇ`.
+-- Decrement: version bumps AND the head value shrinks by the decommit. The reference's lovelace check
+-- `adaOut + adaDelta ≡ adaIn` follows from `decrementValueOK` (headValue +ᵛ decommitValue ≡ headValueIn)
+-- via the `adaOf` additivity law -- so a reference value-reject implies the spec rejects. The ada
+-- fields carry: adaIn = head input, adaDelta = decommit value, adaOut = head output (the larger side
+-- is the head INPUT, unlike increment).
 decrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m
   → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m
-  → R.decRefᵇ trueOpsInc (R.mkIncIOᶜ v (suc v) 0 0 0) ≡ true
-decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m (decrement , _) =
-  &&-intro (==ᵇ-refl (suc v)) refl
+  → R.decRefᵇ trueOpsInc
+       (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (decommitValue ctx m)) (adaOf (headValue ctx)))
+     ≡ true
+decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m (decrement , _ , _ , valOK , _) =
+  &&-intro (==ᵇ-refl (suc v))
+ (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m))) (cong adaOf valOK)))
+           refl)
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- Version preserved (both v), snapshot strictly increases (s < s′ from the bundle), one contester

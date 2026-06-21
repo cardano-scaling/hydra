@@ -28,13 +28,14 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   fromCtxUTxOTxOut,
+  resolveInputsUTxO,
   selectLovelace,
   txOutValue,
   txOuts',
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Cardano.Api.TxBody (findRedeemerSpending)
-import Hydra.Cardano.Api.TxOut (findTxOutByScript)
+import Hydra.Cardano.Api.TxOut (findTxOutByScript, findTxOutsByScript)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
 import Hydra.Plutus (depositValidatorScript)
@@ -81,25 +82,38 @@ incRefVerdict (tx, utxo) = do
   outSt <- fromScriptData =<< txOutScriptData headOut
   HS.Open od' <- Just (outSt :: HS.State)
   HS.Increment{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
-  (_, depositOut) <- findTxOutByScript utxo depositValidatorScript
+  -- Sum EVERY spent deposit input (not just the redeemer's claimed one): mirrors the Agda
+  -- `depositsValue` / Plutus `totalNonHeadInputValue`, so a multi-deposit siphon (an extra deposit
+  -- whose value is routed away) makes adaIn + Σdeposits ≠ adaOut and the reference rejects.
+  let depositLovelace = sum (lovelace . snd <$> findTxOutsByScript (resolveInputsUTxO utxo tx) depositValidatorScript)
   pure $
     Ref.checkInc
       (Ref.mkOpsInc (const True))
-      (Ref.MkIncIO od.version od'.version (lovelace headInOut) (lovelace depositOut) (lovelace headOut))
- where
-  lovelace :: TxOut ctx -> Integer
-  lovelace o = let Coin n = selectLovelace (txOutValue o) in n
+      (Ref.MkIncIO od.version od'.version (lovelace headInOut) depositLovelace (lovelace headOut))
 
--- Decrement steps Open→Open too; its decommit value is not yet supplied as an extractable lovelace,
--- so the reference checks the version discipline only (ada fields ignored by `checkDec`).
+-- | Lovelace (ada) component of a tx output's value, as the plain Integer the reference boundary takes.
+lovelace :: TxOut ctx -> Integer
+lovelace o = let Coin n = selectLovelace (txOutValue o) in n
+
+-- Decrement steps Open→Open and SHRINKS the head value by the decommit. Like increment, the reference
+-- now checks lovelace conservation (adaOut + adaDelta == adaIn): head output + the decommitted outputs
+-- == head input. The decommitted outputs are @take numberOfDecommitOutputs (tail (txOuts' tx))@ (head
+-- output is index 0), mirroring the validator's @decommitOutputs@ in @checkDecrement@.
 decRefVerdict :: (Tx, UTxO) -> Maybe Bool
-decRefVerdict m@(tx, _) = do
-  (inSt, headIn) <- inputState m
-  HS.Open od <- Just inSt
-  outSt <- outputState m
-  HS.Open od' <- Just outSt
-  HS.Decrement{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
-  pure (Ref.checkDec (Ref.mkOpsInc (const True)) (Ref.MkIncIO od.version od'.version 0 0 0))
+decRefVerdict (tx, utxo) = do
+  (headIn, headInOut) <- findTxOutByScript utxo Head.validatorScript
+  inSt <- fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headInOut)
+  HS.Open od <- Just (inSt :: HS.State)
+  headOut <- txOuts' tx !!? 0
+  outSt <- fromScriptData =<< txOutScriptData headOut
+  HS.Open od' <- Just (outSt :: HS.State)
+  HS.Decrement HS.DecrementRedeemer{HS.numberOfDecommitOutputs} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  let decommitOuts = take (fromIntegral numberOfDecommitOutputs) (drop 1 (txOuts' tx))
+      decommitLovelace = sum (lovelace <$> decommitOuts)
+  pure $
+    Ref.checkDec
+      (Ref.mkOpsInc (const True))
+      (Ref.MkIncIO od.version od'.version (lovelace headInOut) decommitLovelace (lovelace headOut))
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 contestRefVerdict :: (Tx, UTxO) -> Maybe Bool

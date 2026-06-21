@@ -189,11 +189,15 @@ A targeted theft/lockout/coverage pass over the three artifacts (Typst spec, Agd
 reference checker), prompted by three HIGH deposit-theft hypotheses. All three hypotheses are
 REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfaced (AUDIT-6).
 
-- **Cross-head deposit claim [refuted]:** `deposit.ak` Claim gates on
+- **Cross-head deposit claim [refuted on-chain; NOT enforced in Agda]:** `deposit.ak` Claim gates on
   `expect_increment_redeemer(self, datum.head_id)`: the deposit datum's `head_id` (a PolicyId) must
   match a tx input holding that head's `hydra_head_v2` NFT, spent with the Increment redeemer. A
-  deposit cannot be claimed into a different head (different μHead currency symbol). The Agda models
-  this exactly via `depositClaimedBy (cid ≡ hcid)`.
+  deposit cannot be claimed into a different head (different μHead currency symbol). CORRECTION (was
+  previously overstated here): the Agda does NOT model this. `incrementValid` enforces only
+  `depositSpentOK ctx ref` (the claimed ref is spent); the predicate `depositClaimedBy (cid ≡ hcid)`
+  IS defined in OnChain.lagda.typ but is never a conjunct of any validity bundle (dead/documentary
+  only). So the deposit→head binding is enforced by the real validator (deposit.ak) but is currently
+  unmodelled in Agda. Safe (Plutus is the enforcing oracle), but a faithfulness gap, not a match.
 - **Recover destination pinning [refuted]:** `deposit.ak recover_outputs` requires
   `hash_tx_outs(take n outputs) == hashPreSerializedCommits(datum.commits)`; each committed
   `preSerializedOutput` is the full serialised `Output` (address + value + datum), so the recovered
@@ -245,3 +249,35 @@ REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfac
   head-state **diagram** matches the Agda `_⟶⟨_⟩_` relation.
 - The known gap: prose math and predicate-level conditions are only checked once *encoded* in Agda
   — see section D for what remains.
+
+## Formalisation deepening (remediation of the wholistic-review findings)
+
+A pass closing several review findings. All keep `nix build .#spec` green and the hydra-tx differential
+suite at 15/15; the Haskell workspace builds `-Werror` clean.
+
+- **AUDIT-5 [RESOLVED]:** close/contest value preservation strengthened from `headValueIn ≤ᵛ headValue`
+  (containment) to `≡` (exact), matching Plutus `mustPreserveHeadValue`. Prose updated to `=`.
+- **AUDIT-6 [RESOLVED]:** `incrementValid` value conservation now uses `depositsValue` = the value at
+  the νDeposit script (`Context.depHash`) summed over ALL spent inputs, mirroring Plutus
+  `totalNonHeadInputValue`, instead of the single redeemer-referenced deposit. The differential
+  `incRefVerdict` correspondingly sums every deposit input (`findTxOutsByScript`), so the multi-deposit
+  siphon mutation is now caught rather than abstained.
+- **Deposit→head binding [RESOLVED, correctly placed]:** added `claimValid` (νDeposit Claim path):
+  `depositClaimedBy` (deposit datum's `cid` ≡ the claimed head's `cid`, now LIVE, mirroring deposit.ak
+  `expect_increment_redeemer`) + the Claim deadline (`txValidityMax ≤ tRecover`, deposit.ak
+  `before_deadline`). These are νDeposit checks, NOT head-validator checks, so they live in `claimValid`,
+  not `incrementValid` (which correctly checks only `depositSpentOK` + value + sig, per Head.hs).
+- **Value algebra [DEEPENED]:** `Prelude` now postulates the commutative-monoid + partial-order laws
+  for `_+ᵛ_`/`_≤ᵛ_`/`εᵛ` (assoc, comm, identities, ≤ᵛ refl/trans/antisym, +ᵛ-monoˡ) -- the algebra the
+  value-conservation predicates reason over. (NB quantities are ℤ, so `a ≤ᵛ a +ᵛ b` is deliberately NOT
+  a law: values may be negative.)
+- **Security model [DEEPENED]:** `Reflects` constructed (not assumed) via a `finalize` step + the
+  per-call `ηEq` hypothesis; `msgOf` made content-derived (`snapMsg`); the unused `snapMsg-inj`
+  postulate deleted; and `AggVerified`/`ms-unforgeable` made system-relative (`aggSigOf : System →
+  Snapshot → AggSig`) to remove the confirmation-layer model-vacuity (so an execution can genuinely
+  confirm past genesis). See `security-formalisation-plan.md`.
+- **Still open (scoped, not done here):** seen-sets for full Soundness (A3); Consistency over
+  once-honest-then-corrupt parties (A5); a fully concrete `aggSigOf`/per-signature unforgeability (A2);
+  μHead/token-placement modelling (D2); unmocking the differential deadline checks (C2); constraining
+  the accumulator η' (B6); formalising the off-chain HeadLogic + deriving `signHonest` (A4/D1);
+  mechanizing spec⇒Plutus (C3, recommended to stay prose); and Liveness (P3).

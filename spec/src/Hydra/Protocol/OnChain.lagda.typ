@@ -188,11 +188,30 @@ inputValueAt ref (i ∷ is) =
 depositValue : Context → OutputRef → Value
 depositValue ctx ref = inputValueAt ref (Context.inputs ctx)
 
--- Still abstracted (decrement): the total decommitted value is the value of the specific decommit
--- outputs. Identifying them among the produced outputs (vs fee/change) needs output-role tagging the
--- abstract context lacks, so this stays postulated.
-postulate
-  decommitValue : Context → Value  -- total value of the decommitted outputs (decrement)
+-- DERIVED (increment, all deposits): the total value of EVERY spent deposit input -- the value at the
+-- νDeposit script (`Context.depHash`) summed over the resolved inputs. This mirrors Plutus
+-- `totalNonHeadInputValue` in `checkIncrement` (the sum over every non-head script input, which the
+-- non-head SPENT inputs of an increment are exactly the claimed deposits), and is what the value
+-- conservation must account for -- forbidding the multi-deposit siphon (an extra deposit whose value
+-- is routed away would leave `headValueIn +ᵛ depositsValue ≠ headValue`). For a single-deposit
+-- increment it coincides with `depositValue ctx ref`.
+depositsValue : Context → Value
+depositsValue ctx = valueAtIn (Context.depHash ctx) (Context.inputs ctx)
+
+-- DERIVED (decrement): the decommitted value is the total value of the `m` outputs FOLLOWING the head
+-- output (output 0), mirroring Plutus `decommitOutputs = take numberOfDecommitOutputs (tail outputs)`
+-- in `checkDecrement`. `m` is the decrement redeemer's output count (the same `m` carried by
+-- `Decrement ξ s m`). No longer postulated. (The head output is identified positionally as output 0,
+-- as on-chain; change/fee outputs sit beyond index `m` and are excluded by the `take`.)
+takeSumᵛ : ℕ → List Output → Value
+takeSumᵛ zero    _        = εᵛ
+takeSumᵛ (suc _) []       = εᵛ
+takeSumᵛ (suc k) (o ∷ os) = Output.value o +ᵛ takeSumᵛ k os
+
+decommitValue : Context → ℕ → Value
+decommitValue ctx m with Context.outputs ctx
+... | []     = εᵛ
+... | _ ∷ os = takeSumᵛ m os
 
 -- Further obligations whose witnesses involve searching the context value/keys;
 -- abstracted as predicates here.
@@ -332,7 +351,7 @@ closeValid ctx d@(Open cid hk n cp v η ada) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct
   × closeSigOK hk cid v s' ct
   × closeηOK ct d'
   × closeAnyOK ct d'
-  × (headValueIn ctx ≤ᵛ headValue ctx)
+  × (headValueIn ctx ≡ headValue ctx)                   -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
   × signedByParticipant ctx
   -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
   × (ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp)
@@ -350,14 +369,15 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 --
 -- SCOPE CAVEAT: what these bundles TYPE-ENFORCE is the state-machine shape, the version discipline,
 -- contester growth/dedup, the deadline equations, close-inits-∅, the head value in/out (DERIVED:
--- `headValue`/`headValueIn` sum the value at `ownHash` over the produced outputs / resolved inputs)
--- and the increment deposit value (DERIVED: `depositValue` reads the resolved input at the claimed
--- ref). What remains abstracted: the value ARITHMETIC laws (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` on the opaque
--- `Value`), the decrement `decommitValue` (needs decommit-output role tagging), crypto
--- (`msVfy`/`snapshotSigOK`/`signedByParticipant`) and accumulator ops
--- (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value CONSERVATION is now
--- stated over real head (and increment-deposit) values (modulo the abstract value algebra); signature/accumulator
--- soundness is still assumed.
+-- `headValue`/`headValueIn` sum the value at `ownHash` over the produced outputs / resolved inputs),
+-- the increment deposit value (DERIVED: `depositsValue` sums the value at the νDeposit script
+-- `depHash` over ALL spent inputs, as Plutus `totalNonHeadInputValue`) and the decrement decommit
+-- value (DERIVED: `decommitValue` sums the `m` outputs after the head output, as Plutus
+-- `take m (tail outputs)`). What remains abstracted: the value ARITHMETIC laws
+-- (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` on the opaque `Value`), crypto (`msVfy`/`snapshotSigOK`/`signedByParticipant`)
+-- and accumulator ops (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value
+-- CONSERVATION is now stated over real head, increment-deposit AND decrement-decommit values (modulo
+-- the abstract value algebra); signature/accumulator soundness is still assumed.
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
 contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
     (d ⟶⟨ Contest ct ⟩ d') × contestDeadlineOK d d' × noMint ctx
@@ -365,7 +385,7 @@ contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
   × contestηOK ct d'                                    -- η# bound to stored η' (§5.7)
   × (s < snapNum d')                                    -- snapshot strictly increases (§5.7)
   × (ValidityInterval.hi (Context.validity ctx) ≤ tfin) -- posted before the deadline
-  × (headValueIn ctx ≤ᵛ headValue ctx)                  -- value preserved (§5.7)
+  × (headValueIn ctx ≡ headValue ctx)                   -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
   × signedByParticipant ctx
 contestValid _ _ _ _ = ⊥
 
@@ -380,7 +400,7 @@ incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → Outp
 incrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s ref =
     (d ⟶⟨ Increment ξ s ref ⟩ d') × noMint ctx
   × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
-  × incrementValueOK (headValueIn ctx) (depositValue ctx ref) (headValue ctx)
+  × incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
   × depositSpentOK ctx ref                              -- claimed deposit is spent (§5.4)
   × signedByParticipant ctx
 incrementValid _ _ _ _ _ _ = ⊥
@@ -389,7 +409,7 @@ decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ 
 decrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s m =
     (d ⟶⟨ Decrement ξ s m ⟩ d') × noMint ctx
   × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
-  × decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx)
+  × decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
   × signedByParticipant ctx
 decrementValid _ _ _ _ _ _ = ⊥
 
@@ -463,12 +483,23 @@ recoverValid ctx (mkDepositDatum cid tRec C) m =
     recoveredMatchesDeposited ctx C m                        -- outputs recovered exactly as deposited
   × (tRec < ValidityInterval.lo (Context.validity ctx))      -- §5.3.2: txValidityMin > t_recover
 
--- §5.2 Claim: a deposit is collected by an increment of its OWN head. νDeposit defers authorisation
--- to νHead, whose `incrementValid` checks the deposit ref is spent (`depositSpentOK`) and the
--- snapshot multisignature; here we record the head-binding the claim requires.
+-- §5.2 Claim: a deposit is collected by an increment of its OWN head. The head-binding `cid = hcid`:
 depositClaimedBy : DepositDatum → HeadDatum → Set
 depositClaimedBy (mkDepositDatum cid _ _) (Open hcid _ _ _ _ _ _) = cid ≡ hcid
 depositClaimedBy _ _ = ⊥
+
+-- §5.2 Claim validity (νDeposit), mirroring `deposit.ak`'s Claim arm: a deposit output may be spent on
+-- `claim` only if (i) it is consumed by an increment of ITS OWN head -- the deposit datum's `cid`
+-- equals the head datum `hd` being spent in the same transaction (deposit.ak
+-- `expect_increment_redeemer(self, datum.head_id)`, modelled here as `depositClaimedBy`), and (ii) the
+-- transaction is posted strictly BEFORE the recover deadline (deposit.ak `before_deadline`:
+-- txValidityMax ≤ tRecover). These are the two checks νDeposit performs that νHead does NOT; the
+-- "spent with the Increment redeemer" half is enforced head-side by `incrementValid`/`depositSpentOK`.
+-- (claim carries no payload, so `claimValid` takes the head datum directly rather than via a redeemer.)
+claimValid : Context → DepositDatum → HeadDatum → Set
+claimValid ctx dd hd =
+    depositClaimedBy dd hd
+  × (ValidityInterval.hi (Context.validity ctx) ≤ DepositDatum.tRecover dd)
 ```
 
 == Init transaction <sec:init-tx>
