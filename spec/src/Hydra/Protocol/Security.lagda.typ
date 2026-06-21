@@ -147,6 +147,20 @@ with genuine confirmations exists. #propName[Liveness] remains a postulate pendi
 temporal/fairness layer (P3). The prose lemmas
 further below give the informal arguments these proofs mirror.
 
+#dparagraph[Scope (what these proofs do and do not cover).] To avoid over-reading the word "unified":
+these §7 proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
+are *two distinct formalizations that meet only at datum-field accessors*. The security model reads the
+on-chain datum only through `OC.snapNum`/`OC.ηOf`/`OC.accUTxO`; the `finalize` step admits *any*
+datum with a matching snapshot number, so no safety theorem ever consumes a bundle's value-conservation,
+deadline, signature or contester checks. Those bundles are instead cross-checked against the real Plutus
+validator by the extracted differential oracle (the `Reference`/`ReferenceBridge` modules and
+`agda-haskell-alignment.md`), not by these theorems. Two further honesty notes: (i) *non-vacuity* (that some confirmation is reachable) is a
+meta-level model-existence argument, not machine-checked, because `msVfy` is an abstract postulate so no
+closed term proves `AggVerified`; (ii) the `ηEq` accumulator-commitment is supplied by the finalizer, not
+enforced by the model, so `Reflects` is conditional on the finalizer having posted the η it signed. The
+νDeposit validator (`deposit.ak`) and the off-chain handlers are likewise hand-reviewed coverage
+boundaries (see `claimTxValid`), not part of any machine-checked theorem here.
+
 ```agda
 -- An illustrative standalone proposition (not part of the proved properties below): a
 -- confirmed snapshot's number does not decrease from one local state to another.

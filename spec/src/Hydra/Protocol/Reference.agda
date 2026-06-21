@@ -43,7 +43,8 @@ record Closedᶜ : Set where
     cpC           : Nat
     snapshotC     : Nat
     contesterLenC : Nat
-{-# FOREIGN GHC data HsClosed = MkClosed Integer Integer Integer Integer #-}
+    tfinalC       : Nat   -- the recorded contestation deadline (POSIXTime ms)
+{-# FOREIGN GHC data HsClosed = MkClosed Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC Closedᶜ = data HsClosed (MkClosed) #-}
 
 -- Injected operations: the conjuncts the decidable layer does not model — crypto/value/
@@ -86,15 +87,20 @@ isNull (_ ∷ _) = false
 --   • contesters initialised to [] (length 0)
 --   • closeInitial ⇒ Open.v ≡ 0 ∧ Closed.s ≡ 0   (the η ≡ accUTxO ∅ part is in `Ops`)
 --   • closeAny    ⇒ 0 < Closed.s
--- conjoined with the injected (mock) op (crypto/value + deadline/bounded-validity, deferred).
-closeRefᵇ : Ops → Openᶜ → Closedᶜ → CloseTagᶜ → Bool
-closeRefᵇ ops o c tag =
+--   • the recorded deadline is the tx upper validity bound + the contestation period: tfinal ≡
+--     validityHi + cp (`closeDeadlineOK`, Plutus `checkDeadline`/`makeContestationDeadline`). Uses the
+--     BUILTIN `_==_` (native Integer eq) and `_+_`: the values are POSIXTime ms, far too large for the
+--     structural `_==ᵇ_` (which is O(n) unary recursion). `validityHi` is the tx upper bound in ms.
+-- The remaining crypto/value/bounded-validity conjuncts are injected (mock).
+closeRefᵇ : Ops → Openᶜ → Closedᶜ → CloseTagᶜ → Nat → Bool
+closeRefᵇ ops o c tag validityHi =
       (Openᶜ.versionO o ==ᵇ Closedᶜ.versionC c)
    && (Openᶜ.cpO o ==ᵇ Closedᶜ.cpC c)
    && (Closedᶜ.contesterLenC c ==ᵇ zero)
    && initialOK tag
    && anyOK tag
    && closeCryptoOK ops o c tag
+   && (Closedᶜ.tfinalC c == (validityHi + Openᶜ.cpO o))
   where
     initialOK : CloseTagᶜ → Bool
     initialOK closeInitialᶜ = (Openᶜ.versionO o ==ᵇ zero) && (Closedᶜ.snapshotC c ==ᵇ zero)
@@ -196,3 +202,51 @@ open OpsFanout public
 fanoutRefᵇ : OpsFanout → Fanoutᶜ → Bool
 fanoutRefᵇ ops f =
   (zero <ᵇ Fanoutᶜ.numOutputsF f) && fanoutCryptoOK ops f
+
+-- ══ deposit recover (νDeposit, Recover redeemer) ══════════════════════════════════════════════
+-- The decidable conjunct of `recoverValid` (deposit.ak's Recover arm, §5.3.2): the recover tx is
+-- posted strictly AFTER the recover deadline — txValidityMin > tRecover, i.e. `tRecover < lo`. Uses
+-- the BUILTIN `_<_` (native Integer `<` at extraction): the deadline is a POSIXTime in milliseconds,
+-- far too large for the structural `_<ᵇ_` (O(n) unary recursion), exactly as on the close deadline.
+-- The recovered-outputs hash equality (deposit.ak `recover_outputs`, the serialisation-hash match) is
+-- crypto/serialisation and is injected (mock), as the close/inc crypto conjuncts are.
+record RecoverIOᶜ : Set where
+  constructor mkRecoverIOᶜ
+  field
+    tRecoverR   : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
+    validityLoR : Nat   -- the recover tx's lower validity bound (POSIXTime ms)
+{-# FOREIGN GHC data HsRecoverIO = MkRecoverIO Integer Integer #-}
+{-# COMPILE GHC RecoverIOᶜ = data HsRecoverIO (MkRecoverIO) #-}
+
+record OpsRecover : Set where
+  field recoverHashOK : RecoverIOᶜ → Bool
+open OpsRecover public
+
+recoverRefᵇ : OpsRecover → RecoverIOᶜ → Bool
+recoverRefᵇ ops r =
+  (RecoverIOᶜ.tRecoverR r < RecoverIOᶜ.validityLoR r) && recoverHashOK ops r
+
+-- ══ init (μHead minting policy: token COUNT) ══════════════════════════════════════════════════
+-- The decidable conjunct of `initValid` / the μHead policy (`HeadTokens.validateTokensMinting`): the
+-- transaction mints EXACTLY `n + 1` tokens of the head policy — one ST + one PT per party
+-- (`checkNumberOfTokens`: `mintedTokenCount == nParties + 1`). `mintedCount` is the SUM of the head
+-- policy's mint quantities; this is a small count (parties + 1), but the BUILTIN `_==_` is used so a
+-- mutation injecting a large mint quantity cannot make the structural `_==ᵇ_` diverge. The remaining
+-- μHead checks — seed-input spent, the single ST and the `n` unique PTs PLACED in the head output, and
+-- the datum `headId`/`seed` binding — need multi-asset token-name lookup (the value-map API the spec
+-- abstracts over) and are injected (mock); they remain a hand-reviewed / type-encoded boundary.
+record MintIOᶜ : Set where
+  constructor mkMintIOᶜ
+  field
+    numPartiesM  : Nat   -- n: the number of parties (from the head datum)
+    mintedCountM : Nat   -- the head policy's total minted token quantity
+{-# FOREIGN GHC data HsMintIO = MkMintIO Integer Integer #-}
+{-# COMPILE GHC MintIOᶜ = data HsMintIO (MkMintIO) #-}
+
+record OpsInit : Set where
+  field initPlacementOK : MintIOᶜ → Bool
+open OpsInit public
+
+initRefᵇ : OpsInit → MintIOᶜ → Bool
+initRefᵇ ops m =
+  (MintIOᶜ.mintedCountM m == suc (MintIOᶜ.numPartiesM m)) && initPlacementOK ops m

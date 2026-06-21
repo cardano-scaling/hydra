@@ -218,10 +218,26 @@ decommitValue ctx m with Context.outputs ctx
 postulate
   -- a participant signed: some PT keyHash in the head value is in txKeys (§5.4–5.7)
   signedByParticipant : Context → Set
-  -- value conservation for (final) fan-out: in = Σ outputs ⊕ burned ⊕ adaO (§5.8/§5.8.2)
-  fanoutValueOK       : Context → Set
-  -- value conservation for an intermediate partial fan-out: in = out ⊕ Σ outputs (§5.8.1)
-  partialFanoutValueOK : Context → Set
+  -- total value of the tokens burned by the transaction (the n+1 νHead PTs + ST at fan-out). The
+  -- mint multiset is not modelled, so the burned VALUE stays abstract (the burned COUNT is
+  -- `burnedCount` / `burnAllTokensOK`); only the OUTPUT-distribution half of conservation is concrete.
+  burnedValue : Context → Value
+
+-- §5.8 value conservation for (final) fan-out (DERIVED output-sum): the head input value equals the
+-- sum of the `m` distributed (fanned-out) outputs PLUS the burned tokens PLUS the ada overhead --
+-- mirroring Plutus `mustConserveValue` (`headInValue == Σ fanoutOutputs <> mintValueBurned <> ada`).
+-- The distributed outputs are the first `m` (`takeSumᵛ m outputs`, as on-chain `take m txInfoOutputs`,
+-- since a full fan-out has no continuing head output); `burnedValue` is the only piece left abstract.
+fanoutValueOK : Context → Value → ℕ → Set
+fanoutValueOK ctx ada m =
+  headValueIn ctx ≡ (takeSumᵛ m (Context.outputs ctx) +ᵛ (burnedValue ctx +ᵛ ada))
+
+-- §5.8.1 value conservation for an intermediate partial fan-out (DERIVED, no burn yet): the head input
+-- value equals the CONTINUING head output (the `FanoutProgress` output at the νHead script) plus the
+-- `m` distributed outputs after it -- exactly the decrement shape (`headValue +ᵛ decommit ≡ headValueIn`).
+partialFanoutValueOK : Context → ℕ → Set
+partialFanoutValueOK ctx m =
+  headValueIn ctx ≡ (headValue ctx +ᵛ decommitValue ctx m)
 
 -- spec §5.6 (close): the recorded contestation deadline is the transaction's
 -- upper validity bound extended by the contestation period, tfinal = txValidityMax
@@ -309,6 +325,13 @@ tfinalOf : HeadDatum → ℕ
 tfinalOf (Closed _ _ _ _ _ _ _ _ t _) = t
 tfinalOf (FanoutProgress _ _ _ t _ _) = t
 tfinalOf _ = 0
+
+-- The ada-overhead value stored in the datum (the head-UTxO lovelace not part of any L2 UTxO, §5.8).
+headAda : HeadDatum → Value
+headAda (Open _ _ _ _ _ _ ada)             = ada
+headAda (Closed _ _ _ _ _ _ _ _ _ ada)     = ada
+headAda (FanoutProgress _ _ _ _ _ ada)     = ada
+headAda Final                              = εᵛ
 
 -- The redeemer-supplied η# must equal the hash of the accumulator η' actually
 -- stored in the produced datum (spec §5.6/§5.7: (η')# = hash(η')) — otherwise the
@@ -420,14 +443,14 @@ fanoutValid ctx d outs m π crs =
     (d ⟶⟨ Fanout m π crs ⟩ Final) × burnAllTokensOK ctx d
   × fanoutMembersOK (ηOf d) outs π
   × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × fanoutValueOK ctx
+  × fanoutValueOK ctx (headAda d) m
 
 partialFanoutValid : Context → HeadDatum → HeadDatum → (S : ℙ Output) → ℕ → OutputRef → Set
 partialFanoutValid ctx d d'@(FanoutProgress _ _ _ _ η' _) S m crs =
     (d ⟶⟨ PartialFanout m crs ⟩ d')
   × fanoutExcludeOK (ηOf d) S η' × partialFanoutNotDoneOK η'
   × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × noMint ctx × partialFanoutValueOK ctx
+  × noMint ctx × partialFanoutValueOK ctx m
 partialFanoutValid _ _ _ _ _ _ = ⊥
 
 finalPartialFanoutValid : Context → HeadDatum → (outs : ℙ Output) → ℕ → AccWitness → OutputRef → Set
@@ -435,7 +458,7 @@ finalPartialFanoutValid ctx d outs m π crs =
     (d ⟶⟨ FinalPartialFanout m π crs ⟩ Final) × burnAllTokensOK ctx d
   × fanoutMembersOK (ηOf d) outs π
   × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × fanoutValueOK ctx
+  × fanoutValueOK ctx (headAda d) m
 
 -- ── §5.1 init (μHead minting policy) ────────────────────────────────────────────────────────────
 -- A head is created by the seed-parameterised μHead policy. `cid` is the seed-derived policy id, the
@@ -452,7 +475,9 @@ initValid : Context → OutputRef → HeadDatum → Set
 initValid ctx seed (Open cid hk n cp v η ada) =
     (cid ≡ hash (μHead seed))        -- cid = hash(μHead(seed)) (§5.1)
   × depositSpentOK ctx seed          -- the seed output is spent (uniqueness of cid)
-  × (mintedCount ctx cid ≡ suc n)    -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
+  × (mintedCount ctx cid ≡ suc n)    -- mints exactly n+1 tokens of policy cid (1 ST + n PTs);
+                                      -- bridged + differentially tested (`initValid→ref`, the
+                                      -- `InitDifferential` suite). Token PLACEMENT stays abstract.
   × (v ≡ 0)                          -- initial snapshot version
   × (η ≡ accUTxO ∅ˢ)                 -- accumulator commits to the empty initial UTxO set
 initValid _ _ _ = ⊥
@@ -478,6 +503,9 @@ data DepositRedeemer : Set where
 postulate
   recoveredMatchesDeposited : Context → List (OutputRef × ℍ) → ℕ → Set  -- §5.3.1 hash(⊕oⱼ)=hash(C)
 
+-- The after-deadline conjunct is bridged + differentially tested (`recoverValid→ref` in
+-- `ReferenceBridge`, exercised by the `DepositDifferential` hydra-tx suite); the hash-equality conjunct
+-- stays abstracted (injected mock in the differential), as for the close/inc crypto conjuncts.
 recoverValid : Context → DepositDatum → ℕ → Set
 recoverValid ctx (mkDepositDatum cid tRec C) m =
     recoveredMatchesDeposited ctx C m                        -- outputs recovered exactly as deposited
@@ -500,6 +528,22 @@ claimValid : Context → DepositDatum → HeadDatum → Set
 claimValid ctx dd hd =
     depositClaimedBy dd hd
   × (ValidityInterval.hi (Context.validity ctx) ≤ DepositDatum.tRecover dd)
+
+-- A deposit is collected by an INCREMENT transaction that spends both the head and the deposit. Such a
+-- transaction must satisfy BOTH validators run in it: νHead's `incrementValid` (version/value/signature)
+-- AND νDeposit's `claimValid` for the claimed deposit datum `dd` (its `cid` binds to the head, and the
+-- claim is before the recover deadline). Conjoining them here makes the deposit→head binding a
+-- type-enforced part of a valid claim transaction, rather than a documentary predicate -- mirroring
+-- that on-chain BOTH scripts must pass. (`dd` is supplied like `recoverValid`'s, not decoded here.)
+-- NB: this type-ENCODES the joint requirement (so `depositClaimedBy`/`claimValid` are no longer dead);
+-- the Claim arm is not yet PROVED-against-Plutus -- there is no `claimTxValid→ref` bridge lemma and no
+-- Claim-path differential test, so deposit.ak's Claim arm remains a hand-reviewed coverage boundary.
+-- (The Recover arm IS bridged + differentially tested: `recoverValid→ref` + the `DepositDifferential`
+-- suite cover deposit.ak's after-deadline check.)
+claimTxValid : Context → DepositDatum → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
+claimTxValid ctx dd headIn headOut ξ s ref =
+    incrementValid ctx headIn headOut ξ s ref
+  × claimValid ctx dd headIn
 ```
 
 == Init transaction <sec:init-tx>

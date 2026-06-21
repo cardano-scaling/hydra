@@ -208,13 +208,13 @@ REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfac
   value of ALL non-head SCRIPT inputs (deposits are script inputs; pub-key/fee inputs excluded). The
   exact equality forbids routing any extra spent deposit to an attacker-controlled output: every
   non-head script input's value must land in the head output. No external theft vector.
-- **AUDIT-6 [modeling gap, safe, NOT fixed]:** the Agda `incrementValueOK` models head-value growth
-  as `headValueIn +ᵛ depositValue(ref) ≡ headValue` (the SINGLE redeemer-referenced deposit), whereas
-  Plutus `mustPreserveValue` sums ALL non-head script inputs. The Agda is a faithful model of the
-  honest single-deposit increment and Plutus is strictly stronger (safe), but the Agda value
-  conjunct is weaker than the validator: it does not express the all-inputs sum that is what actually
-  forbids the siphon on-chain. A full fix needs modeling the input multiset; deferred. (Analogous to
-  AUDIT-5's ≤ᵛ-vs-== for close/contest.)
+- **AUDIT-6 [SUPERSEDED — see "AUDIT-6 [RESOLVED]" in the deepening section below]:** originally the
+  Agda `incrementValueOK` summed only the SINGLE redeemer-referenced deposit. It now sums `depositsValue`
+  (all νDeposit-script inputs), so this gap is closed; the text here is kept only for provenance.
+  NB even the fix is a SUBSET of Plutus's check: Plutus `totalNonHeadInputValue` sums every non-head
+  SCRIPT input (`isScriptInput`), whereas `depositsValue` sums inputs at the νDeposit script only — a
+  strictly weaker (abstain-safe) condition, since a non-deposit script input would be counted by the
+  validator but not the model.
 - **Concurrent-deposit dilution → potential lockout [upstream, out of scope, traced; NOT theft]:**
   `mustPreserveValue` forces ALL non-head script-input value INTO the head output, while
   `checkSnapshotSignature` binds only the accumulator hash and `claimedDepositIsSpent` checks only the
@@ -258,10 +258,12 @@ suite at 15/15; the Haskell workspace builds `-Werror` clean.
 - **AUDIT-5 [RESOLVED]:** close/contest value preservation strengthened from `headValueIn ≤ᵛ headValue`
   (containment) to `≡` (exact), matching Plutus `mustPreserveHeadValue`. Prose updated to `=`.
 - **AUDIT-6 [RESOLVED]:** `incrementValid` value conservation now uses `depositsValue` = the value at
-  the νDeposit script (`Context.depHash`) summed over ALL spent inputs, mirroring Plutus
-  `totalNonHeadInputValue`, instead of the single redeemer-referenced deposit. The differential
-  `incRefVerdict` correspondingly sums every deposit input (`findTxOutsByScript`), so the multi-deposit
-  siphon mutation is now caught rather than abstained.
+  the νDeposit script (`Context.depHash`) summed over all spent deposit inputs, instead of the single
+  redeemer-referenced deposit. The differential `incRefVerdict` correspondingly sums every deposit
+  input (`findTxOutsByScript`), so the multi-deposit siphon mutation is now caught rather than
+  abstained. NB this is a SUBSET of Plutus `totalNonHeadInputValue` (which sums every non-head
+  *script* input via `isScriptInput`, not only νDeposit-script inputs) — a strictly weaker,
+  abstain-safe condition, not exact parity.
 - **Deposit→head binding [RESOLVED, correctly placed]:** added `claimValid` (νDeposit Claim path):
   `depositClaimedBy` (deposit datum's `cid` ≡ the claimed head's `cid`, now LIVE, mirroring deposit.ak
   `expect_increment_redeemer`) + the Claim deadline (`txValidityMax ≤ tRecover`, deposit.ak
@@ -276,8 +278,57 @@ suite at 15/15; the Haskell workspace builds `-Werror` clean.
   postulate deleted; and `AggVerified`/`ms-unforgeable` made system-relative (`aggSigOf : System →
   Snapshot → AggSig`) to remove the confirmation-layer model-vacuity (so an execution can genuinely
   confirm past genesis). See `security-formalisation-plan.md`.
-- **Still open (scoped, not done here):** seen-sets for full Soundness (A3); Consistency over
-  once-honest-then-corrupt parties (A5); a fully concrete `aggSigOf`/per-signature unforgeability (A2);
-  μHead/token-placement modelling (D2); unmocking the differential deadline checks (C2); constraining
-  the accumulator η' (B6); formalising the off-chain HeadLogic + deriving `signHonest` (A4/D1);
-  mechanizing spec⇒Plutus (C3, recommended to stay prose); and Liveness (P3).
+- **Security model [DEEPENED further]:** seen-sets for full §7 Soundness `T̃ ⊆ ⋂ honest seen` (A3, via
+  `sigSeen-inv` + a `signHonest` seen guard + `see` step); Consistency extended to once-honest-then-
+  corrupt parties (A5, `consistency-uncorrupted` via `confCert-all`); aggregate unforgeability now a
+  DERIVED theorem factored through per-signature EUF-CMA `sigUnforge` + n-of-n decomposition `aggSound`
+  (A2). All adversarially verified.
+- **Fanout value conservation [DEEPENED]:** `fanoutValueOK`/`partialFanoutValueOK` were fully postulated
+  `Context → Set`; now CONCRETE — `headValueIn ≡ Σ(first m outputs) +ᵛ burnedValue +ᵛ ada` (full/final,
+  mirroring Plutus `mustConserveValue`) and `headValueIn ≡ headValue +ᵛ decommitValue m` (partial). Only
+  the burned-token VALUE (`burnedValue`) stays abstract (mint multiset not modelled).
+- **νDeposit binding made live:** `claimValid`/`depositClaimedBy` were dead; added `claimTxValid`
+  (conjoins νHead `incrementValid` with νDeposit `claimValid` for the claimed deposit), so the cid-binding
+  + Claim deadline are type-enforced conjuncts of a valid claim tx. NB type-ENCODED, not yet bridged or
+  differentially tested (`deposit.ak` remains a hand-reviewed coverage boundary).
+- **Close deadline differential [UNMOCKED, C2]:** the close-deadline conjunct was previously absorbed
+  into the reference's mock `Ops`. Now `Closedᶜ` carries `tfinalC` and `closeRefᵇ` takes a `validityHi`
+  param and checks `tfinalC ≡ validityHi + cp` (builtin `_==_`/`_+_`, since POSIXTime ms is far too
+  large for the structural `_==ᵇ_`). The bridge `closeValid→ref` discharges it from `closeDeadlineOK`
+  (the 2nd `closeValid` conjunct) via `==-sound`, in all four close cases. The differential
+  (`CloseDifferential.hs`) supplies the real datum deadline and the real tx upper validity bound
+  (`posixFromUTCTime ∘ slotNoToUTCTime systemStart slotLength`, proven bit-identical to the validator's
+  `makeContestationDeadline`/`tMax` under the fixture `fixedEpochInfo`), abstaining when the bound is
+  infinite. A deterministic 1ms-drift test shows BOTH reference and validator reject (non-vacuity).
+  Adversarially verified: no false-reject scenario exists under the linear fixture epoch map.
+- **νDeposit Recover differential [NEW, cdeposit]:** added an extractable `recoverRefᵇ` (deposit.ak
+  Recover arm) checking the decidable after-deadline conjunct `tRecover < validityLo` (builtin `_<_`,
+  POSIXTime ms), bridged from `recoverValid`'s `tRec < lo` conjunct (`recoverValid→ref` via a new
+  `<ᴮ-sound` postulate, same trust tier as `==-sound`); the recovered-outputs hash equality stays the
+  injected mock. New `DepositDifferential.hs` hydra-tx suite (`recoverRefVerdict` reads the deposit
+  datum deadline + the tx lower validity bound, abstains if no finite lower bound) with a deterministic
+  equal-boundary demo (lower bound pulled onto the deadline slot → BOTH reference and validator reject,
+  `DepositPeriodNotReached`). Adversarially verified: no false-reject; lower-bound slot→POSIXTime is
+  bit-identical to the ledger's translation. The Claim arm (`claimTxValid`) stays type-encoded only.
+- **μHead init token-count differential [NEW, D2 partial]:** added an extractable `initRefᵇ` checking
+  the decidable μHead conjunct `mintedCount == suc n` (exactly n+1 tokens minted: 1 ST + n PTs, the
+  policy's `checkNumberOfTokens`), bridged from `initValid`'s 3rd conjunct (`initValid→ref` via
+  `==-sound`, builtin `_==_` so a large-quantity mutation can't hang the structural `_==ᵇ_`). New
+  `InitDifferential.hs` hydra-tx suite (`initRefVerdict` reads `n` from the head datum + sums the unique
+  mint policy's quantities) with a deterministic extra-PT demo (mint n+2 → BOTH reference and policy
+  reject, `WrongNumberOfTokensMinted`). Adversarially verified: `reference_verdict ≡ validator's
+  checkNumberOfTokens` structurally (same count, same `n`), so no false-reject. SCOPE: only the token
+  COUNT is modelled; token PLACEMENT (ST/PT into the head output) + seed-spent + datum binding need the
+  multi-asset Value-map lookup the spec deliberately abstracts over, so they stay injected/mock (the
+  spec does not expose Axiom.Set.Map's lookup/membership on `Value = (CId × Token) ⇀ Quantity`).
+- **Readability + honesty docs:** added a "Reading the Agda (for Haskell programmers)" primer
+  (@sec:reading-agda) that, among other idioms, flags `postulate` as ASSUMPTION (the rendered PDF does
+  not otherwise distinguish assumed from proved); added a §7 "Scope" note stating plainly that the
+  safety proofs and the on-chain validity bundles meet only at datum-field accessors (`finalize` admits
+  an arbitrary datum), that non-vacuity is a meta-level argument, and that νDeposit/off-chain are
+  coverage boundaries.
+- **Still open (scoped):** μHead token-PLACEMENT (ST/PT into the head output) — needs the Value-map
+  lookup ops the spec deliberately avoids; the token COUNT is now bridged + differentially tested. The
+  νDeposit **Claim** arm differential (`claimTxValid` is type-encoded but not bridged; the Recover arm
+  is now bridged + differentially tested). Formalising the off-chain HeadLogic + deriving `signHonest`
+  (A4/D1); mechanizing spec⇒Plutus (C3, recommended to stay prose); and Liveness (P3).

@@ -51,13 +51,16 @@ axiom: `Certified` *means* every party signed, so the honest confirmer's signatu
 construction.
 
 **Consistency / Soundness / Completeness.** `consistency`: for honest `i, j`, their confirmed sets
-are each applicable (`conf-applicable`, derived) and nested (`confirmed-nest`, the L2 assumption), so
-the union is the larger applicable set — no conflict. `soundness`: a certified finalized snapshot is
-applicable (`cert-applicable`), so `Ufinal = U₀ ∘ (txs snap) ≠ ⊥` — fully derived, NO further
-assumption. `completeness` IS `confirmed-nest` (a more-advanced honest party's confirmed set contains
-a less-advanced one's).
+are each applicable (`conf-applicable`, derived) and nested (`confirmed-nest`, L2 — now DERIVED, see
+the note below; it is no longer a postulate), so the union is the larger applicable set — no conflict.
+`soundness`: a certified finalized snapshot is applicable (`cert-applicable`), so `Ufinal = U₀ ∘ (txs
+snap) ≠ ⊥` — fully derived, NO further assumption. `completeness` IS `confirmed-nest` (a more-advanced
+honest party's confirmed set contains a less-advanced one's).
 
-**L2 — the one remaining honest-core assumption** (`confirmed-nest`, a postulate): honest parties'
+**L2 (SUPERSEDED — now DERIVED, not a postulate).** _The paragraph below records how L2 was originally
+an assumption and the plan to discharge it; that plan is now executed: `confirmed-nest` is a proof
+(`cert-nest` gap-induction from the `signHonest` extend-own-confirmed guard + agreement). Kept for
+provenance._ `confirmed-nest`: honest parties'
 confirmed snapshots nest by number. This is the snapshot-extension discipline (a snapshot of number
 `suc m` extends the certified snapshot of number `m`). To DERIVE it, `signHonest` must record each
 signature's predecessor snapshot (so the extension is checkable against the signer's confirmed
