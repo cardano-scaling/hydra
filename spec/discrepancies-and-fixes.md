@@ -330,6 +330,21 @@ suite at 15/15; the Haskell workspace builds `-Werror` clean.
   COUNT is modelled; token PLACEMENT (ST/PT into the head output) + seed-spent + datum binding need the
   multi-asset Value-map lookup the spec deliberately abstracts over, so they stay injected/mock (the
   spec does not expose Axiom.Set.Map's lookup/membership on `Value = (CId × Token) ⇀ Quantity`).
+- **Readability refactor [NEW]:** the 11 on-chain validity bundles in `OnChain.lagda.typ` were anonymous
+  `×`-products destructured positionally in `ReferenceBridge` (`(close , dl , _ , ini , _ , …)` — a reader
+  had to count commas). They are now RECORDS with one named field per conjunct (`CloseValid`,
+  `IncrementValid`, …, `ClaimTxValid`); the bridge projects `b .deadlineOK` / matches `record { step =
+  close ; … }`. Paper notation (η/cp/v/s/cid/…) is deliberately KEPT (it is the rendered-spec/paper symbol
+  set). Adversarially verified semantics-preserving (every conjunct retained, field types identical, no-⊥
+  records uninhabited for wrong shapes via the `step` field). `Reference.agda` field order untouched (FFI
+  fence → no MAlonzo regen). The "Reading the Agda" primer's bundle paragraph was updated to match. A
+  follow-up pass also record-ified the §7 `Security.lagda.typ` proof internals: the `Inv` invariant
+  (6-way `×` with up-to-5-deep `proj` towers → `record Inv` + `Inv.field` extractors), its `sigChain`
+  predecessor witness (`record PredecessorWitness`, parameterised by the `Certified` predicate so it
+  carries across non-`sigs` steps), and the `Reflects` Σ; plus binder renames (`sigDed→sigDedup`,
+  `sgn→signer`, the `cert-nest-aux` glyph-soup, one shared `trueNotFalse`). Adversarially verified
+  semantics-preserving (the 6 `Inv` fields are pairwise-distinct propositions, so the green typecheck
+  rules out any field swap). `HoldsAt`/`Soundness` Σ-results left as-is (they are §7 theorem statements).
 - **Readability + honesty docs:** added a "Reading the Agda (for Haskell programmers)" primer
   (@sec:reading-agda) that, among other idioms, flags `postulate` as ASSUMPTION (the rendered PDF does
   not otherwise distinguish assumed from proved); added a §7 "Scope" note stating plainly that the
@@ -398,3 +413,10 @@ modelled); findings D (`headSeed` absent from Agda `Open`) and E (Plutus single-
 `signedByParticipant`) and the B-off-2..7 off-chain clarity notes are documented coverage boundaries;
 `abort`/`commit`/`collectCom` are not modelled (this variant inits directly to `Open` — confirm intent);
 the concurrent-deposit dilution/lockout is an upstream liveness concern (deferred, confirm upstream).
+
+**F. Agda↔prose discrepancy surfaced by the readability audit (OWNER DECISION needed, not silently
+changed):** `closeValid`/`contestValid` type-enforce `headValueIn ctx ≡ headValue ctx` (value preserved
+EXACTLY, matching Plutus `mustPreserveHeadValue`'s `==`), but the rendered prose for close (§5.6) and
+contest (§5.7) states `valHead' ⊇ valHead` (superset/monotone). The Agda is the STRONGER (correct)
+statement; the prose is looser. Likely the prose should be tightened to `=`, but that is a normative
+spec wording change, so it is logged here rather than edited during the readability pass.

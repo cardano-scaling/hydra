@@ -85,9 +85,12 @@ and the security model uses a step relation `_⟶ˢ_` with its reflexive-transit
 closure `Reachable`. A value of such a type is a _proof_ that a particular step (or
 run) is allowed; the proofs in @sec:security are inductions over these.
 
-#dparagraph[Validity bundles.] A validator's requirements are written as a big `_×_`
-of conjuncts (`(step) × (deadline ok) × (value preserved) × …`); each conjunct is one
-checkable condition, and the bundle type is inhabited exactly for valid transactions.
+#dparagraph[Validity bundles.] A validator's requirements are written as a `record`
+(e.g. `CloseValid`) with one named field per checkable condition (`step`, `deadlineOK`,
+`valuePreserved`, …) — like a Haskell record of proofs. The bundle is inhabited exactly for
+valid transactions, and a proof reads a condition by its field name (`b .deadlineOK`) rather
+than by tuple position. (The lowercase `closeValid ctx d d' ct` is the predicate that returns
+this record for well-shaped datums, and is empty otherwise.)
 
 #dparagraph[Extraction.] The decidable checker in `Reference.agda` is compiled to
 Haskell by Agda's GHC backend (MAlonzo) and run in the `hydra-tx` test suite as a

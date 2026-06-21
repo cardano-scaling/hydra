@@ -55,15 +55,16 @@ postulate
 &&-intro refl q = q
 
 -- abstraction map: abstract close-redeemer tag → concrete Reference tag.
-⌊_⌋ᴋ : CloseType → R.CloseTagᶜ
-⌊ closeInitial   ⌋ᴋ = R.closeInitialᶜ
-⌊ closeAny _ _   ⌋ᴋ = R.closeAnyᶜ
-⌊ closeUnused _ _ ⌋ᴋ = R.closeUnusedᶜ
-⌊ closeUsed _ _  ⌋ᴋ = R.closeUsedᶜ
+-- (Matches the Haskell mirror's `tagOf` in CloseDifferential.hs.)
+closeTagOf : CloseType → R.CloseTagᶜ
+closeTagOf closeInitial     = R.closeInitialᶜ
+closeTagOf (closeAny _ _)   = R.closeAnyᶜ
+closeTagOf (closeUnused _ _) = R.closeUnusedᶜ
+closeTagOf (closeUsed _ _)  = R.closeUsedᶜ
 
 -- The injected boundary, mocked to `true` (the differential test supplies the same).
-trueOps : R.Ops
-trueOps = record { closeCryptoOK = λ _ _ _ → true }
+mockOps : R.Ops
+mockOps = record { closeCryptoOK = λ _ _ _ → true }
 
 -- ── the bridge ──────────────────────────────────────────────────────────────────────────────
 -- For any spec-valid close (the produced Closed datum shares the preserved parameters, as the
@@ -73,26 +74,29 @@ trueOps = record { closeCryptoOK = λ _ _ _ → true }
 -- `closeDeadlineOK` (the 2nd conjunct `dl`) via `==-sound`. The conjunct holds in all four close cases.
 closeValid→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
   → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct
-  → R.closeRefᵇ trueOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin) ⌊ ct ⌋ᴋ
+  → R.closeRefᵇ mockOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin) (closeTagOf ct)
        (ValidityInterval.hi (Context.validity ctx)) ≡ true
+-- Record-pattern destructuring: `step = close` matches the close rule's constructor, which refines
+-- the produced contesters `C` to `[]` (the rule's output) — so the reference's `length C ==ᵇ zero`
+-- discharges by `refl`. The named fields (`deadlineOK`, `initialOK`, `anyOK`) replace positional access.
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
-  (close , dl , _ , ini , _ , _ , _ , _ , _ , _) =
+  record { step = close ; deadlineOK = dl ; initialOK = (v≡0 , s≡0 , _) } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
-   (&&-intro (&&-intro (≡→==ᵇ (proj₁ ini)) (≡→==ᵇ (proj₁ (proj₂ ini))))
+   (&&-intro (&&-intro (≡→==ᵇ v≡0) (≡→==ᵇ s≡0))
    (&&-intro refl
    (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η#)
-  (close , dl , _ , _ , _ , _ , any , _ , _ , _) =
+  record { step = close ; deadlineOK = dl ; anyOK = anyOK } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
    (&&-intro refl
-   (&&-intro (<→<ᵇ any)
+   (&&-intro (<→<ᵇ anyOK)
    (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η#)
-  (close , dl , _ , _ , _ , _ , _ , _ , _ , _) =
+  record { step = close ; deadlineOK = dl } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
@@ -100,7 +104,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η#)
    (&&-intro refl
    (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η#)
-  (close , dl , _ , _ , _ , _ , _ , _ , _ , _) =
+  record { step = close ; deadlineOK = dl } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
@@ -110,8 +114,8 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η#)
 
 -- ── increment / decrement ───────────────────────────────────────────────────────────────────
 -- The produced Open datum carries `suc v`; the reference's `versionOut ==ᵇ suc versionIn` holds.
-trueOpsInc : R.OpsInc
-trueOpsInc = record { incCryptoOK = λ _ → true }
+mockOpsInc : R.OpsInc
+mockOpsInc = record { incCryptoOK = λ _ → true }
 
 -- Increment: version bumps AND the head value grows by ALL deposits. The reference's lovelace check
 -- `adaIn + adaDelta ≡ adaOut` follows from `incrementValueOK` (headValueIn +ᵛ depositsValue ≡ headValue)
@@ -120,12 +124,13 @@ trueOpsInc = record { incCryptoOK = λ _ → true }
 -- makes the differential catch the multi-deposit siphon.
 incrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref
   → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref
-  → R.incRefᵇ trueOpsInc
+  → R.incRefᵇ mockOpsInc
        (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (depositsValue ctx)) (adaOf (headValue ctx)))
      ≡ true
-incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref (increment , _ , _ , valOK , _) =
+incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref b =
   &&-intro (==ᵇ-refl (suc v))
- (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositsValue ctx))) (cong adaOf valOK)))
+ (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositsValue ctx)))
+                            (cong adaOf (IncrementValid.valueOK b))))
            refl)
 
 -- Decrement: version bumps AND the head value shrinks by the decommit. The reference's lovelace check
@@ -135,49 +140,47 @@ incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref (increment , _ , _ 
 -- is the head INPUT, unlike increment).
 decrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m
   → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m
-  → R.decRefᵇ trueOpsInc
+  → R.decRefᵇ mockOpsInc
        (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (decommitValue ctx m)) (adaOf (headValue ctx)))
      ≡ true
-decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m (decrement , _ , _ , valOK , _) =
+decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m b =
   &&-intro (==ᵇ-refl (suc v))
- (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m))) (cong adaOf valOK)))
+ (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m)))
+                            (cong adaOf (DecrementValid.valueOK b))))
            refl)
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- Version preserved (both v), snapshot strictly increases (s < s′ from the bundle), one contester
 -- appended (output contesters ≡ kh ∷ C, so length ≡ suc (length C)).
-trueOpsContest : R.OpsContest
-trueOpsContest = record { contestCryptoOK = λ _ → true }
+mockOpsContest : R.OpsContest
+mockOpsContest = record { contestCryptoOK = λ _ → true }
 
 contestValid→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct
   → contestValid ctx (Closed cid hk n cp v s η C tfin ada)
                      (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct
-  → R.contestRefᵇ trueOpsContest
+  → R.contestRefᵇ mockOpsContest
        (R.mkContestIOᶜ v v s s′ (length C) (length (kh ∷ C))) ≡ true
-contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct
-  (contest _ , _ , _ , _ , _ , s<s′ , _ , _ , _) =
+contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b =
     &&-intro (==ᵇ-refl v)
-   (&&-intro (<→<ᵇ s<s′)
+   (&&-intro (<→<ᵇ (ContestValid.snapIncreases b))
    (&&-intro (==ᵇ-refl (suc (length C))) refl))
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
 -- The reference's `0 <ᵇ m` holds from the bundle's `0 < m` (the §5.8 m>0 guard).
-trueOpsFanout : R.OpsFanout
-trueOpsFanout = record { fanoutCryptoOK = λ _ → true }
+mockOpsFanout : R.OpsFanout
+mockOpsFanout = record { fanoutCryptoOK = λ _ → true }
 
 fanoutValid→ref : ∀ ctx cid hk n cp v s η C tfin ada outs m π crs
   → fanoutValid ctx (Closed cid hk n cp v s η C tfin ada) outs m π crs
-  → R.fanoutRefᵇ trueOpsFanout (R.mkFanoutᶜ m) ≡ true
-fanoutValid→ref ctx cid hk n cp v s η C tfin ada outs m π crs
-  (fanout , _ , _ , 0<m , _ , _) =
-    &&-intro (<→<ᵇ 0<m) refl
+  → R.fanoutRefᵇ mockOpsFanout (R.mkFanoutᶜ m) ≡ true
+fanoutValid→ref ctx cid hk n cp v s η C tfin ada outs m π crs b =
+    &&-intro (<→<ᵇ (FanoutValid.outputsPositive b)) refl
 
 finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
   → finalPartialFanoutValid ctx (FanoutProgress cid hk n tfin η ada) outs m π crs
-  → R.fanoutRefᵇ trueOpsFanout (R.mkFanoutᶜ m) ≡ true
-finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs
-  (finalPartialFanout , _ , _ , 0<m , _ , _) =
-    &&-intro (<→<ᵇ 0<m) refl
+  → R.fanoutRefᵇ mockOpsFanout (R.mkFanoutᶜ m) ≡ true
+finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
+    &&-intro (<→<ᵇ (FinalPartialFanoutValid.outputsPositive b)) refl
 
 -- ── deposit recover (νDeposit) ────────────────────────────────────────────────────────────────
 -- The reference's after-deadline check `tRecover <ᴮ validityLo` holds from the bundle's
@@ -185,15 +188,15 @@ finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs
 -- `<ᴮ-sound`. The recovered-outputs hash equality (`recoveredMatchesDeposited`) is the injected (mock)
 -- `recoverHashOK`, matching the differential. So a reference deadline-reject ⇒ the spec rejects ⇒ (by
 -- the deposit.ak Recover arm) the validator rejects (`DepositPeriodNotReached`).
-trueOpsRecover : R.OpsRecover
-trueOpsRecover = record { recoverHashOK = λ _ → true }
+mockOpsRecover : R.OpsRecover
+mockOpsRecover = record { recoverHashOK = λ _ → true }
 
 recoverValid→ref : ∀ ctx cid tRec C m
   → recoverValid ctx (mkDepositDatum cid tRec C) m
-  → R.recoverRefᵇ trueOpsRecover
+  → R.recoverRefᵇ mockOpsRecover
        (R.mkRecoverIOᶜ tRec (ValidityInterval.lo (Context.validity ctx))) ≡ true
-recoverValid→ref ctx cid tRec C m (_ , tRec<lo) =
-  &&-intro (<ᴮ-sound tRec<lo) refl
+recoverValid→ref ctx cid tRec C m b =
+  &&-intro (<ᴮ-sound (RecoverValid.afterRecoverDeadline b)) refl
 
 -- ── init (μHead minting policy: token count) ────────────────────────────────────────────────────
 -- The reference's count check `mintedCount == suc n` holds from the bundle's `mintedCount ctx cid ≡
@@ -201,11 +204,11 @@ recoverValid→ref ctx cid tRec C m (_ , tRec<lo) =
 -- remaining μHead conjuncts (seed-spent, ST/PT placement, datum binding) are the injected (mock)
 -- `initPlacementOK`. So a reference count-reject ⇒ the spec rejects ⇒ the μHead policy rejects
 -- (`WrongNumberOfTokensMinted`).
-trueOpsInit : R.OpsInit
-trueOpsInit = record { initPlacementOK = λ _ → true }
+mockOpsInit : R.OpsInit
+mockOpsInit = record { initPlacementOK = λ _ → true }
 
 initValid→ref : ∀ ctx seed cid hk n cp v η ada
   → initValid ctx seed (Open cid hk n cp v η ada)
-  → R.initRefᵇ trueOpsInit (R.mkMintIOᶜ n (mintedCount ctx cid)) ≡ true
-initValid→ref ctx seed cid hk n cp v η ada (_ , _ , mintOK , _ , _) =
-  &&-intro (==-sound mintOK) refl
+  → R.initRefᵇ mockOpsInit (R.mkMintIOᶜ n (mintedCount ctx cid)) ≡ true
+initValid→ref ctx seed cid hk n cp v η ada b =
+  &&-intro (==-sound (InitValid.mintedCountOK b)) refl

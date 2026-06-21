@@ -185,8 +185,8 @@ inputValueAt ref (i ∷ is) =
 -- DERIVED (increment): the value of the spent deposit is the value of the resolved input at the
 -- claimed deposit reference `ref` (the same `ref` the increment redeemer carries / `depositSpentOK`
 -- requires spent). No longer postulated.
-depositValue : Context → OutputRef → Value
-depositValue ctx ref = inputValueAt ref (Context.inputs ctx)
+depositValueAt : Context → OutputRef → Value
+depositValueAt ctx ref = inputValueAt ref (Context.inputs ctx)
 
 -- DERIVED (increment, all deposits): the total value of EVERY spent deposit input -- the value at the
 -- νDeposit script (`Context.depHash`) summed over the resolved inputs. This mirrors Plutus
@@ -194,7 +194,7 @@ depositValue ctx ref = inputValueAt ref (Context.inputs ctx)
 -- non-head SPENT inputs of an increment are exactly the claimed deposits), and is what the value
 -- conservation must account for -- forbidding the multi-deposit siphon (an extra deposit whose value
 -- is routed away would leave `headValueIn +ᵛ depositsValue ≠ headValue`). For a single-deposit
--- increment it coincides with `depositValue ctx ref`.
+-- increment it coincides with `depositValueAt ctx ref` (the single-deposit value above).
 depositsValue : Context → Value
 depositsValue ctx = valueAtIn (Context.depHash ctx) (Context.inputs ctx)
 
@@ -365,19 +365,27 @@ closeSigOK hk cid v s (closeUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) s η
 -- source Open datum, the snapshot number from the produced Closed datum, and the
 -- signature/η# from the CloseType redeemer — so the predicate is only inhabited for
 -- genuinely valid close transactions. Value is preserved (§5.6: valHead' ⊇ valHead).
+-- The thin `closeValid` function destructures the source `Open` and produced `Closed` datums
+-- (binding the head key/id/version/contestation-period and the produced snapshot number) and is ⊥ for
+-- any other shapes; each close check is then a named field of `CloseValid`.
+record CloseValid (ctx : Context) (hk : VKey) (cid : ℍ) (v cp s' : ℕ)
+                  (d d' : HeadDatum) (ct : CloseType) : Set where
+  constructor mkCloseValid
+  field
+    step              : d ⟶⟨ Close ct ⟩ d'
+    deadlineOK        : closeDeadlineOK ctx d'             -- tfinal = validity.hi + cp (§5.6)
+    mintEmpty         : noMint ctx
+    initialOK         : closeInitialOK ct d'              -- closeInitial ⇒ v=0 ∧ s=0 ∧ η=accUTxO(∅)
+    sigOK             : closeSigOK hk cid v s' ct
+    etaOK             : closeηOK ct d'                    -- η# bound to stored η'
+    anyOK             : closeAnyOK ct d'                  -- closeAny ⇒ 0 < s
+    valuePreserved    : headValueIn ctx ≡ headValue ctx   -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
+    participantSigned : signedByParticipant ctx
+    -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
+    validityBounded   : ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp
+
 closeValid : Context → HeadDatum → HeadDatum → CloseType → Set
-closeValid ctx d@(Open cid hk n cp v η ada) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct =
-    (d ⟶⟨ Close ct ⟩ d')
-  × closeDeadlineOK ctx d'
-  × noMint ctx
-  × closeInitialOK ct d'
-  × closeSigOK hk cid v s' ct
-  × closeηOK ct d'
-  × closeAnyOK ct d'
-  × (headValueIn ctx ≡ headValue ctx)                   -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
-  × signedByParticipant ctx
-  -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
-  × (ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp)
+closeValid ctx d@(Open cid hk _ cp v _ _) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct = CloseValid ctx hk cid v cp s' d d' ct
 closeValid _ _ _ _ = ⊥
 
 -- Contest signature obligation (both ContestType cases must verify).
@@ -401,15 +409,25 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- and accumulator ops (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value
 -- CONSERVATION is now stated over real head, increment-deposit AND decrement-decommit values (modulo
 -- the abstract value algebra); signature/accumulator soundness is still assumed.
+-- A contest replaces the closed snapshot with a more recent one and appends the contester. The thin
+-- `contestValid` function destructures the source `Closed` datum (binding its key/id/version/snapshot/
+-- deadline) and is ⊥ for any other source shape.
+record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
+                    (d d' : HeadDatum) (ct : ContestType) : Set where
+  constructor mkContestValid
+  field
+    step              : d ⟶⟨ Contest ct ⟩ d'
+    deadlineOK        : contestDeadlineOK d d'
+    mintEmpty         : noMint ctx
+    sigOK             : contestSigOK hk cid v (snapNum d') ct
+    etaOK             : contestηOK ct d'                      -- η# bound to stored η' (§5.7)
+    snapIncreases     : s < snapNum d'                        -- snapshot strictly increases (§5.7)
+    beforeDeadline    : ValidityInterval.hi (Context.validity ctx) ≤ tfin  -- posted before the deadline
+    valuePreserved    : headValueIn ctx ≡ headValue ctx       -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
+    participantSigned : signedByParticipant ctx
+
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
-contestValid ctx d@(Closed cid hk n cp v s η C tfin ada) d' ct =
-    (d ⟶⟨ Contest ct ⟩ d') × contestDeadlineOK d d' × noMint ctx
-  × contestSigOK hk cid v (snapNum d') ct
-  × contestηOK ct d'                                    -- η# bound to stored η' (§5.7)
-  × (s < snapNum d')                                    -- snapshot strictly increases (§5.7)
-  × (ValidityInterval.hi (Context.validity ctx) ≤ tfin) -- posted before the deadline
-  × (headValueIn ctx ≡ headValue ctx)                   -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
-  × signedByParticipant ctx
+contestValid ctx d@(Closed cid hk _ _ v s _ _ tfin _) d' ct = ContestValid ctx hk cid v s tfin d d' ct
 contestValid _ _ _ _ = ⊥
 
 -- The claimed deposit OutputRef is actually spent by the transaction (§5.4: txOutRef_increment =
@@ -419,46 +437,85 @@ contestValid _ _ _ _ = ⊥
 depositSpentOK : Context → OutputRef → Set
 depositSpentOK ctx ref = ∃[ i ] (i ∈ˡ Context.inputs ctx) × (Input.outputRef i ≡ ref)
 
+-- Increment: a confirmed deposit is collected into the head (version bumps to `suc v`, head value
+-- grows by ALL spent deposits). The thin `incrementValid` function destructures the source `Open`
+-- datum to feed the head key/id/version into the record, and is ⊥ for any other source shape.
+record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (ref : OutputRef) : Set where
+  constructor mkIncrementValid
+  field
+    step              : d ⟶⟨ Increment ξ s ref ⟩ d'
+    mintEmpty         : noMint ctx
+    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) ξ
+    valueOK           : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
+    depositSpent      : depositSpentOK ctx ref            -- claimed deposit is spent (§5.4)
+    participantSigned : signedByParticipant ctx
+
 incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
-incrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s ref =
-    (d ⟶⟨ Increment ξ s ref ⟩ d') × noMint ctx
-  × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
-  × incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
-  × depositSpentOK ctx ref                              -- claimed deposit is spent (§5.4)
-  × signedByParticipant ctx
+incrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s ref = IncrementValid ctx hk cid v d d' ξ s ref
 incrementValid _ _ _ _ _ _ = ⊥
 
+-- Decrement: a decommit removes the `m` outputs after the head output (version bumps, head value
+-- shrinks by the decommit). Same source-shape dispatch as increment.
+record DecrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (m : ℕ) : Set where
+  constructor mkDecrementValid
+  field
+    step              : d ⟶⟨ Decrement ξ s m ⟩ d'
+    mintEmpty         : noMint ctx
+    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) ξ
+    valueOK           : decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
+    participantSigned : signedByParticipant ctx
+
 decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → Set
-decrementValid ctx d@(Open cid hk n cp v η ada) d' ξ s m =
-    (d ⟶⟨ Decrement ξ s m ⟩ d') × noMint ctx
-  × snapshotSigOK hk cid v s (hash (ηOf d')) ξ
-  × decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
-  × signedByParticipant ctx
+decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m = DecrementValid ctx hk cid v d d' ξ s m
 decrementValid _ _ _ _ _ _ = ⊥
 
 -- Fan-out is posted after the deadline (txValidityMin > tfinal), distributes m > 0
 -- outputs that are members of η, conserves value, and burns all n+1 tokens (§5.8).
-fanoutValid : Context → HeadDatum → (outs : ℙ Output) → ℕ → AccWitness → OutputRef → Set
-fanoutValid ctx d outs m π crs =
-    (d ⟶⟨ Fanout m π crs ⟩ Final) × burnAllTokensOK ctx d
-  × fanoutMembersOK (ηOf d) outs π
-  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × fanoutValueOK ctx (headAda d) m
+record FanoutValid (ctx : Context) (d : HeadDatum) (outs : ℙ Output) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
+  constructor mkFanoutValid
+  field
+    step            : d ⟶⟨ Fanout m π crs ⟩ Final
+    burnAllTokens   : burnAllTokensOK ctx d                    -- burns the n+1 tokens (§5.8)
+    membersOK       : fanoutMembersOK (ηOf d) outs π           -- distributed outputs ∈ η
+    outputsPositive : 0 < m
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
+    valueOK         : fanoutValueOK ctx (headAda d) m
 
-partialFanoutValid : Context → HeadDatum → HeadDatum → (S : ℙ Output) → ℕ → OutputRef → Set
-partialFanoutValid ctx d d'@(FanoutProgress _ _ _ _ η' _) S m crs =
-    (d ⟶⟨ PartialFanout m crs ⟩ d')
-  × fanoutExcludeOK (ηOf d) S η' × partialFanoutNotDoneOK η'
-  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × noMint ctx × partialFanoutValueOK ctx m
-partialFanoutValid _ _ _ _ _ _ = ⊥
+fanoutValid : Context → HeadDatum → ℙ Output → ℕ → AccWitness → OutputRef → Set
+fanoutValid = FanoutValid
 
-finalPartialFanoutValid : Context → HeadDatum → (outs : ℙ Output) → ℕ → AccWitness → OutputRef → Set
-finalPartialFanoutValid ctx d outs m π crs =
-    (d ⟶⟨ FinalPartialFanout m π crs ⟩ Final) × burnAllTokensOK ctx d
-  × fanoutMembersOK (ηOf d) outs π
-  × (0 < m) × (tfinalOf d < ValidityInterval.lo (Context.validity ctx))
-  × fanoutValueOK ctx (headAda d) m
+-- A *partial* fan-out distributes m > 0 of the still-locked outputs and carries the head on to a
+-- `FanoutProgress`. Each conjunct is a named field; the `step` field forces d' to be a `FanoutProgress`
+-- (so `ηOf d'` is its accumulator η'), which is why no wrong-shape ⊥ case is needed.
+record PartialFanoutValid (ctx : Context) (d d' : HeadDatum) (S : ℙ Output) (m : ℕ) (crs : OutputRef) : Set where
+  constructor mkPartialFanoutValid
+  field
+    step            : d ⟶⟨ PartialFanout m crs ⟩ d'
+    excludeOK       : fanoutExcludeOK (ηOf d) S (ηOf d')      -- distributed outputs removed from η (→ η')
+    notDoneOK       : partialFanoutNotDoneOK (ηOf d')          -- η' still non-empty (more to fan out)
+    outputsPositive : 0 < m                                   -- §5.8 no zero-output batch
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)  -- posted after tfinal
+    mintEmpty       : noMint ctx
+    valueOK         : partialFanoutValueOK ctx m              -- value conserved (modulo abstract algebra)
+
+partialFanoutValid : Context → HeadDatum → HeadDatum → ℙ Output → ℕ → OutputRef → Set
+partialFanoutValid = PartialFanoutValid
+
+-- The last batch of a multi-step fan-out: like `FanoutValid` but from a `FanoutProgress` source.
+record FinalPartialFanoutValid (ctx : Context) (d : HeadDatum) (outs : ℙ Output) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
+  constructor mkFinalPartialFanoutValid
+  field
+    step            : d ⟶⟨ FinalPartialFanout m π crs ⟩ Final
+    burnAllTokens   : burnAllTokensOK ctx d
+    membersOK       : fanoutMembersOK (ηOf d) outs π
+    outputsPositive : 0 < m
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
+    valueOK         : fanoutValueOK ctx (headAda d) m
+
+finalPartialFanoutValid : Context → HeadDatum → ℙ Output → ℕ → AccWitness → OutputRef → Set
+finalPartialFanoutValid = FinalPartialFanoutValid
 
 -- ── §5.1 init (μHead minting policy) ────────────────────────────────────────────────────────────
 -- A head is created by the seed-parameterised μHead policy. `cid` is the seed-derived policy id, the
@@ -471,15 +528,20 @@ postulate
   μHead       : OutputRef → Script  -- the seed-parameterised minting policy script
   mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)
 
+-- `mintedCountOK` is bridged + differentially tested (`initValid→ref`, the `InitDifferential` suite);
+-- token PLACEMENT into the head output stays abstract. The thin `initValid` function dispatches on the
+-- produced `Open` head datum (binding its cid/n/v/η) and is ⊥ for any other produced shape.
+record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η : AccCommitment) : Set where
+  constructor mkInitValid
+  field
+    cidIsSeedHash : cid ≡ hash (μHead seed)        -- cid = hash(μHead(seed)) (§5.1)
+    seedSpent     : depositSpentOK ctx seed         -- the seed output is spent (uniqueness of cid)
+    mintedCountOK : mintedCount ctx cid ≡ suc n     -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
+    versionZero   : v ≡ 0                           -- initial snapshot version
+    etaEmpty      : η ≡ accUTxO ∅ˢ                   -- accumulator commits to the empty initial UTxO set
+
 initValid : Context → OutputRef → HeadDatum → Set
-initValid ctx seed (Open cid hk n cp v η ada) =
-    (cid ≡ hash (μHead seed))        -- cid = hash(μHead(seed)) (§5.1)
-  × depositSpentOK ctx seed          -- the seed output is spent (uniqueness of cid)
-  × (mintedCount ctx cid ≡ suc n)    -- mints exactly n+1 tokens of policy cid (1 ST + n PTs);
-                                      -- bridged + differentially tested (`initValid→ref`, the
-                                      -- `InitDifferential` suite). Token PLACEMENT stays abstract.
-  × (v ≡ 0)                          -- initial snapshot version
-  × (η ≡ accUTxO ∅ˢ)                 -- accumulator commits to the empty initial UTxO set
+initValid ctx seed (Open cid hk n cp v η ada) = InitValid ctx seed cid n v η
 initValid _ _ _ = ⊥
 
 -- ── §5.2–5.3 deposit / recover (νDeposit) ───────────────────────────────────────────────────────
@@ -506,10 +568,14 @@ postulate
 -- The after-deadline conjunct is bridged + differentially tested (`recoverValid→ref` in
 -- `ReferenceBridge`, exercised by the `DepositDifferential` hydra-tx suite); the hash-equality conjunct
 -- stays abstracted (injected mock in the differential), as for the close/inc crypto conjuncts.
+record RecoverValid (ctx : Context) (dd : DepositDatum) (m : ℕ) : Set where
+  constructor mkRecoverValid
+  field
+    recoveredMatches     : recoveredMatchesDeposited ctx (DepositDatum.committed dd) m  -- recovered exactly as deposited
+    afterRecoverDeadline : DepositDatum.tRecover dd < ValidityInterval.lo (Context.validity ctx)  -- §5.3.2: txValidityMin > t_recover
+
 recoverValid : Context → DepositDatum → ℕ → Set
-recoverValid ctx (mkDepositDatum cid tRec C) m =
-    recoveredMatchesDeposited ctx C m                        -- outputs recovered exactly as deposited
-  × (tRec < ValidityInterval.lo (Context.validity ctx))      -- §5.3.2: txValidityMin > t_recover
+recoverValid = RecoverValid
 
 -- §5.2 Claim: a deposit is collected by an increment of its OWN head. The head-binding `cid = hcid`:
 depositClaimedBy : DepositDatum → HeadDatum → Set
@@ -524,10 +590,14 @@ depositClaimedBy _ _ = ⊥
 -- txValidityMax ≤ tRecover). These are the two checks νDeposit performs that νHead does NOT; the
 -- "spent with the Increment redeemer" half is enforced head-side by `incrementValid`/`depositSpentOK`.
 -- (claim carries no payload, so `claimValid` takes the head datum directly rather than via a redeemer.)
+record ClaimValid (ctx : Context) (dd : DepositDatum) (hd : HeadDatum) : Set where
+  constructor mkClaimValid
+  field
+    claimedByOwnHead      : depositClaimedBy dd hd             -- deposit's cid binds to the head's (deposit.ak `expect_increment_redeemer`)
+    beforeRecoverDeadline : ValidityInterval.hi (Context.validity ctx) ≤ DepositDatum.tRecover dd  -- deposit.ak `before_deadline`
+
 claimValid : Context → DepositDatum → HeadDatum → Set
-claimValid ctx dd hd =
-    depositClaimedBy dd hd
-  × (ValidityInterval.hi (Context.validity ctx) ≤ DepositDatum.tRecover dd)
+claimValid = ClaimValid
 
 -- A deposit is collected by an INCREMENT transaction that spends both the head and the deposit. Such a
 -- transaction must satisfy BOTH validators run in it: νHead's `incrementValid` (version/value/signature)
@@ -540,10 +610,15 @@ claimValid ctx dd hd =
 -- Claim-path differential test, so deposit.ak's Claim arm remains a hand-reviewed coverage boundary.
 -- (The Recover arm IS bridged + differentially tested: `recoverValid→ref` + the `DepositDifferential`
 -- suite cover deposit.ak's after-deadline check.)
+record ClaimTxValid (ctx : Context) (dd : DepositDatum) (headIn headOut : HeadDatum)
+                    (ξ : AggSig) (s : ℕ) (ref : OutputRef) : Set where
+  constructor mkClaimTxValid
+  field
+    headSideOK    : incrementValid ctx headIn headOut ξ s ref  -- νHead: version / value / signature
+    depositSideOK : claimValid ctx dd headIn                   -- νDeposit: cid-binding + before-deadline
+
 claimTxValid : Context → DepositDatum → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
-claimTxValid ctx dd headIn headOut ξ s ref =
-    incrementValid ctx headIn headOut ξ s ref
-  × claimValid ctx dd headIn
+claimTxValid = ClaimTxValid
 ```
 
 == Init transaction <sec:init-tx>
