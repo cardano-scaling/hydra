@@ -26,6 +26,8 @@ import Hydra.Protocol.Setup
 import Hydra.Protocol.OnChain
 import Hydra.Protocol.OffChain
 import Hydra.Protocol.Security
+-- The machine-checked §7 proof terms (typecheck-only; the rendered §7 shows the model + statements).
+import Hydra.Protocol.SecurityProofs
 -- Extractable decidable reference checker + the bridge proving it reflects the on-chain
 -- validity bundles (Tier 2 differential-testing; not rendered in the document).
 import Hydra.Protocol.Reference
