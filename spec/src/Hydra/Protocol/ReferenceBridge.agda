@@ -18,7 +18,7 @@ open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.OnChain
 import Hydra.Protocol.Reference as R
 
-open import Agda.Builtin.Nat using (_==_)
+open import Agda.Builtin.Nat using (_==_) renaming (_<_ to _<ᴮ_)
 open import Data.Nat using (z≤n; s≤s)
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 
@@ -29,6 +29,12 @@ open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 -- in the same trust category as the builtin arithmetic (`_+_`) the bridge already relies on.
 postulate
   ==-sound : ∀ {m n} → m ≡ n → (m == n) ≡ true
+
+-- Soundness of the BUILTIN Nat strict-less-than `_<ᴮ_` w.r.t. the standard-library `_<_`. `recoverRefᵇ`
+-- checks the after-deadline conjunct with the builtin `_<_` (native Integer `<` at extraction) rather
+-- than the structural `_<ᵇ_` (O(n) unary recursion, pathological on POSIXTime-ms deadlines). Same trust
+-- category as `==-sound`: the builtin does not reduce on open terms, but trivially agrees with `_<_`.
+  <ᴮ-sound : ∀ {m n} → m < n → (m <ᴮ n) ≡ true
 
 -- ── reflection lemmas: the Bool checks of Reference reflect the propositional relations ──────
 ==ᵇ-refl : ∀ n → (n R.==ᵇ n) ≡ true
@@ -62,37 +68,45 @@ trueOps = record { closeCryptoOK = λ _ _ _ → true }
 -- ── the bridge ──────────────────────────────────────────────────────────────────────────────
 -- For any spec-valid close (the produced Closed datum shares the preserved parameters, as the
 -- `close` rule guarantees), the reference checker accepts.
+-- `validityHi := ValidityInterval.hi (Context.validity ctx)` and the Closed datum's deadline `tfin`
+-- now feed the reference's deadline conjunct `tfinalC ≡ validityHi + cp`, discharged from the bundle's
+-- `closeDeadlineOK` (the 2nd conjunct `dl`) via `==-sound`. The conjunct holds in all four close cases.
 closeValid→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
   → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct
-  → R.closeRefᵇ trueOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C)) ⌊ ct ⌋ᴋ ≡ true
+  → R.closeRefᵇ trueOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin) ⌊ ct ⌋ᴋ
+       (ValidityInterval.hi (Context.validity ctx)) ≡ true
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
-  (close , _ , _ , ini , _ , _ , _ , _ , _ , _) =
+  (close , dl , _ , ini , _ , _ , _ , _ , _ , _) =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
    (&&-intro (&&-intro (≡→==ᵇ (proj₁ ini)) (≡→==ᵇ (proj₁ (proj₂ ini))))
-   (&&-intro refl refl))))
+   (&&-intro refl
+   (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η#)
-  (close , _ , _ , _ , _ , _ , any , _ , _ , _) =
+  (close , dl , _ , _ , _ , _ , any , _ , _ , _) =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
    (&&-intro refl
-   (&&-intro (<→<ᵇ any) refl))))
+   (&&-intro (<→<ᵇ any)
+   (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η#)
-  (close , _ , _ , _ , _ , _ , _ , _ , _ , _) =
+  (close , dl , _ , _ , _ , _ , _ , _ , _ , _) =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
    (&&-intro refl
-   (&&-intro refl refl))))
+   (&&-intro refl
+   (&&-intro refl (==-sound dl))))))
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η#)
-  (close , _ , _ , _ , _ , _ , _ , _ , _ , _) =
+  (close , dl , _ , _ , _ , _ , _ , _ , _ , _) =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==ᵇ-refl cp)
    (&&-intro refl
    (&&-intro refl
-   (&&-intro refl refl))))
+   (&&-intro refl
+   (&&-intro refl (==-sound dl))))))
 
 -- ── increment / decrement ───────────────────────────────────────────────────────────────────
 -- The produced Open datum carries `suc v`; the reference's `versionOut ==ᵇ suc versionIn` holds.
@@ -164,3 +178,34 @@ finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
 finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs
   (finalPartialFanout , _ , _ , 0<m , _ , _) =
     &&-intro (<→<ᵇ 0<m) refl
+
+-- ── deposit recover (νDeposit) ────────────────────────────────────────────────────────────────
+-- The reference's after-deadline check `tRecover <ᴮ validityLo` holds from the bundle's
+-- `tRec < ValidityInterval.lo (validity ctx)` (§5.3.2 `txValidityMin > t_recover`), discharged via
+-- `<ᴮ-sound`. The recovered-outputs hash equality (`recoveredMatchesDeposited`) is the injected (mock)
+-- `recoverHashOK`, matching the differential. So a reference deadline-reject ⇒ the spec rejects ⇒ (by
+-- the deposit.ak Recover arm) the validator rejects (`DepositPeriodNotReached`).
+trueOpsRecover : R.OpsRecover
+trueOpsRecover = record { recoverHashOK = λ _ → true }
+
+recoverValid→ref : ∀ ctx cid tRec C m
+  → recoverValid ctx (mkDepositDatum cid tRec C) m
+  → R.recoverRefᵇ trueOpsRecover
+       (R.mkRecoverIOᶜ tRec (ValidityInterval.lo (Context.validity ctx))) ≡ true
+recoverValid→ref ctx cid tRec C m (_ , tRec<lo) =
+  &&-intro (<ᴮ-sound tRec<lo) refl
+
+-- ── init (μHead minting policy: token count) ────────────────────────────────────────────────────
+-- The reference's count check `mintedCount == suc n` holds from the bundle's `mintedCount ctx cid ≡
+-- suc n` (the μHead `checkNumberOfTokens`, exactly n+1 tokens minted), discharged via `==-sound`. The
+-- remaining μHead conjuncts (seed-spent, ST/PT placement, datum binding) are the injected (mock)
+-- `initPlacementOK`. So a reference count-reject ⇒ the spec rejects ⇒ the μHead policy rejects
+-- (`WrongNumberOfTokensMinted`).
+trueOpsInit : R.OpsInit
+trueOpsInit = record { initPlacementOK = λ _ → true }
+
+initValid→ref : ∀ ctx seed cid hk n cp v η ada
+  → initValid ctx seed (Open cid hk n cp v η ada)
+  → R.initRefᵇ trueOpsInit (R.mkMintIOᶜ n (mintedCount ctx cid)) ≡ true
+initValid→ref ctx seed cid hk n cp v η ada (_ , _ , mintOK , _ , _) =
+  &&-intro (==-sound mintOK) refl

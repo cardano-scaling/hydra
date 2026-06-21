@@ -14,12 +14,18 @@ module Hydra.Tx.Contract.CloseDifferential (spec) where
 
 import Hydra.Prelude
 
+import Data.Maybe (fromJust)
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
+  SlotNo,
   Tx,
   UTxO,
   fromCtxUTxOTxOut,
+  getTxBody,
+  getTxBodyContent,
   txOuts',
+  txValidityUpperBound,
+  pattern TxValidityUpperBound,
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Cardano.Api.TxBody (findRedeemerSpending)
@@ -27,10 +33,14 @@ import Hydra.Cardano.Api.TxOut (findTxOutByScript)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
 import Hydra.Data.ContestationPeriod (milliseconds)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
+import Hydra.Tx.Contract.Close.Healthy (healthyContestationDeadline)
+import PlutusLedgerApi.V3 (getPOSIXTime)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, modifyInlineDatum, replaceContestationDeadline)
 import Test.QuickCheck (Property, forAll, property, (===))
 
 -- | Does the real Plutus validator accept @(tx, utxo)@ (phase-2 success, no script error)?
@@ -52,6 +62,11 @@ closeRefVerdict (tx, utxo) = do
   outSt <- fromScriptData =<< txOutScriptData headOut
   HS.Closed cd <- Just (outSt :: HS.State)
   HS.Close cr <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  -- The reference's deadline conjunct `tfinal == validityHi + cp` needs the tx upper validity
+  -- bound as POSIXTime ms (`makeContestationDeadline`/`addContestationPeriod`). When the tx has
+  -- no finite upper bound the validator rejects (`InfiniteUpperBound`) but the reference cannot
+  -- represent an infinite bound, so it abstains (the differential imposes no constraint there).
+  validityHi <- txUpperBoundPOSIX tx
   let hsOpen =
         Ref.MkOpen
           od.version
@@ -62,13 +77,41 @@ closeRefVerdict (tx, utxo) = do
           (toInteger (milliseconds cd.contestationPeriod))
           cd.snapshotNumber
           (fromIntegral (length cd.contesters))
-  pure (Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr))
+          (getPOSIXTime cd.contestationDeadline)
+  pure (Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr) validityHi)
  where
   tagOf = \case
     HS.CloseInitial -> Ref.CloseInitialT
     HS.CloseAny{} -> Ref.CloseAnyT
     HS.CloseUnused{} -> Ref.CloseUnusedT
     HS.CloseUsed{} -> Ref.CloseUsedT
+
+-- | The healthy close tx with the output datum's recorded contestation deadline shifted by 1ms off
+-- the correct `validityHi + cp`, so the reference's deadline conjunct (and the real validator's
+-- `IncorrectClosedContestationDeadline`) must reject it.
+deadlineDriftTx :: (Tx, UTxO)
+deadlineDriftTx =
+  applyMutation
+    (ChangeOutput 0 (modifyInlineDatum (replaceContestationDeadline driftedDeadline) headTxOut))
+    healthyCloseCurrentTx
+ where
+  headTxOut = fromJust $ txOuts' (fst healthyCloseCurrentTx) !!? 0
+  driftedDeadline = posixFromUTCTime healthyContestationDeadline + 1
+
+-- | The tx upper validity bound as POSIXTime milliseconds, matching the slot→time translation the
+-- ledger applies for the Plutus context (fixture @systemStart@/@slotLength@), or 'Nothing' if the
+-- tx has no finite upper bound. This equals the validator's @tMax@ bit-for-bit ONLY because
+-- 'evaluateTx' here uses the linear 'fixedEpochInfo' (single era, @slotLength@=1s, @systemStart@=0):
+-- under a non-linear 'EraHistory' this would diverge from the ledger's slot→POSIXTime map and could
+-- false-reject, so do not reuse against txs evaluated under a multi-era history.
+txUpperBoundPOSIX :: Tx -> Maybe Integer
+txUpperBoundPOSIX tx =
+  case tx & getTxBody & getTxBodyContent & txValidityUpperBound of
+    TxValidityUpperBound upperBound -> Just (slotToPOSIXMs upperBound)
+    _ -> Nothing
+ where
+  slotToPOSIXMs :: SlotNo -> Integer
+  slotToPOSIXMs = getPOSIXTime . posixFromUTCTime . slotNoToUTCTime systemStart slotLength
 
 spec :: Spec
 spec = parallel $ do
@@ -77,6 +120,15 @@ spec = parallel $ do
 
   prop "validator accepts the healthy close tx" $
     validatorAccepts healthyCloseCurrentTx === True
+
+  -- Non-vacuity of the C2 deadline conjunct: a close whose recorded deadline drifts off
+  -- `validityHi + cp` must make the reference reject (not merely abstain), so the differential
+  -- genuinely exercises the deadline check rather than mocking it.
+  prop "reference rejects a close with a drifted contestation deadline" $
+    closeRefVerdict deadlineDriftTx === Just False
+
+  prop "validator also rejects the drifted-deadline close" $
+    validatorAccepts deadlineDriftTx === False
 
   prop "differential: reference-reject ⇒ validator-reject (CloseUnused mutations)" $
     forAll (genCloseCurrentMutation healthyCloseCurrentTx) $ \SomeMutation{mutation} ->
