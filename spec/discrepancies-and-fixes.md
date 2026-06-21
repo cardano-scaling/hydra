@@ -370,22 +370,27 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
 "impl-C2/impl-C3" below are different numbering schemes — descriptive ids are used here to avoid clash.
 
 **A. Extractable reference / bridge / differential — conjuncts still injected (`const True`):**
-- **contest deadlines** (`C3-contest-deadline`): the conditional `contestDeadlineOK`
-  (`tfinal' = if all-contested then tfinal else tfinal + cp`) and the posted-before-deadline
-  (`hi ≤ tfin`) conjuncts are defined in `OnChain` but absent from `contestRefᵇ`/the bridge — the
-  direct still-open analogue of the now-done close C2. (`contestRefᵇ` checks only version/snapshot/
-  contester-count.)
-- **fanout conjuncts** (`fanout-conjuncts`): `fanoutValueOK`/`partialFanoutValueOK` (value
-  conservation, type-CONCRETE in the bundle but injected at the reference layer), `burnAllTokensOK`
-  (`burnedCount == n+1` — the direct parallel of the DONE init `mintedCount == n+1`, the most tractable
-  next step), accumulator membership/exclude, and the fanout after-deadline (`tfinalOf < lo`). `fanoutRefᵇ`
-  checks only `0 < m`.
+- **contest conditional deadline UPDATE** (`C3-contest-deadline`): the *posted-before-deadline*
+  conjunct (`hi ≤ tfin`) is now DONE — `contestRefᵇ` checks `validityHi ≤ᴮ tfinal`, bridged via
+  `contestValid→ref` (`≤ᴮ-sound (ContestValid.beforeDeadline …)`) and differentially tested (the
+  `MutateValidityPastDeadline` mutation drives `UpperBoundBeyondContestationDeadline`). What REMAINS
+  injected is the conditional deadline-UPDATE rule `contestDeadlineOK`
+  (`tfinal' = if all-contested then tfinal else tfinal + cp`), which needs the output datum's `tfinal'`
+  and the all-contested test at the reference layer.
+- **fanout value/accumulator conjuncts** (`fanout-conjuncts`): `fanoutValueOK`/`partialFanoutValueOK`
+  (value conservation, type-CONCRETE in the bundle but injected at the reference layer) and accumulator
+  membership/exclude remain injected. DONE: `0 < m`, `burnAllTokensOK` (`burnedCount == n+1`, the
+  parallel of the init `mintedCount == n+1`) and the after-deadline (`tfinal < lo`) are now in
+  `fanoutRefᵇ`, bridged (`fanoutValid→ref`) and differentially tested.
 - **close bounded-validity** (`close-bounded-validity`): the `hi ∸ lo ≤ cp` conjunct stays in
   `closeCryptoOK` (distinct from the now-done `tfinal == validityHi + cp`).
-- **νDeposit Claim arm** (`claim-differential`): no `checkClaim` reference fn, no `claimTxValid→ref`
-  bridge, no Claim-path differential. The before-deadline conjunct (`claimValid`: `hi ≤ tRecover`) is
-  type-encoded only; the increment differential runs the validator's Claim path end-to-end but does not
-  mirror that conjunct. (The Recover arm IS bridged + differentially tested.)
+- **νDeposit Claim own-head binding** (`claim-differential`): the before-deadline conjunct
+  (`claimValid`: `hi ≤ tRecover`) is now DONE — `claimRefᵇ`/`checkClaim` checks `validityHi ≤ᴮ tRecover`,
+  bridged via `claimValid→ref` (`≤ᴮ-sound (ClaimValid.beforeRecoverDeadline …)`) and differentially
+  tested in `DepositDifferential` (Claim-path family over the increment fixture; `deadlineSurpassedClaimTx`
+  drives `DepositPeriodSurpassed`). What REMAINS mocked is the own-head binding (`depositClaimedBy` /
+  deposit.ak `expect_increment_redeemer`, injected as `claimIncrementOK`), exactly as the Recover arm's
+  recovered-outputs hash is mocked.
 - **multi-asset value conservation** (`lovelace-vs-multiasset`): increment/decrement/fanout value
   conservation is bridged only on the lovelace component (`adaOf`); the full multi-asset `Value` is not
   extractable, so non-ada token-quantity siphons are not caught.

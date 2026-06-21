@@ -120,7 +120,9 @@ decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m b =
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- Version preserved (both v), snapshot strictly increases (s < s′ from the bundle), one contester
--- appended (output contesters ≡ kh ∷ C, so length ≡ suc (length C)).
+-- appended (output contesters ≡ kh ∷ C, so length ≡ suc (length C)), and posted before the
+-- contestation deadline (`validityHi ≤ tfin` from `beforeDeadline`, via `≤ᴮ-sound`). The conditional
+-- deadline-UPDATE rule stays in the injected (mock) `contestCryptoOK`.
 mockOpsContest : R.OpsContest
 mockOpsContest = record { contestCryptoOK = λ _ → true }
 
@@ -128,28 +130,38 @@ contestValid→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′
   → contestValid ctx (Closed cid hk n cp v s η C tfin ada)
                      (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct
   → R.contestRefᵇ mockOpsContest
-       (R.mkContestIOᶜ v v s s′ (length C) (length (kh ∷ C))) ≡ true
+       (R.mkContestIOᶜ v v s s′ (length C) (length (kh ∷ C))
+          tfin (ValidityInterval.hi (Context.validity ctx))) ≡ true
 contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b =
     &&-intro (==ᵇ-refl v)
    (&&-intro (<→<ᵇ (ContestValid.snapIncreases b))
-   (&&-intro (==ᵇ-refl (suc (length C))) refl))
+   (&&-intro (==ᵇ-refl (suc (length C)))
+   (&&-intro (≤ᴮ-sound (ContestValid.beforeDeadline b)) refl)))
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
--- The reference's `0 <ᵇ m` holds from the bundle's `0 < m` (the §5.8 m>0 guard).
+-- `0 <ᵇ m` from `0 < m`; `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo`
+-- (posted after the deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and
+-- value-conservation conjuncts stay in the injected (mock) `fanoutCryptoOK`.
 mockOpsFanout : R.OpsFanout
 mockOpsFanout = record { fanoutCryptoOK = λ _ → true }
 
 fanoutValid→ref : ∀ ctx cid hk n cp v s η C tfin ada outs m π crs
   → fanoutValid ctx (Closed cid hk n cp v s η C tfin ada) outs m π crs
-  → R.fanoutRefᵇ mockOpsFanout (R.mkFanoutᶜ m) ≡ true
+  → R.fanoutRefᵇ mockOpsFanout
+       (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
 fanoutValid→ref ctx cid hk n cp v s η C tfin ada outs m π crs b =
-    &&-intro (<→<ᵇ (FanoutValid.outputsPositive b)) refl
+    &&-intro (<→<ᵇ (FanoutValid.outputsPositive b))
+   (&&-intro (==-sound (FanoutValid.burnAllTokens b))
+   (&&-intro (<ᴮ-sound (FanoutValid.afterDeadline b)) refl))
 
 finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
   → finalPartialFanoutValid ctx (FanoutProgress cid hk n tfin η ada) outs m π crs
-  → R.fanoutRefᵇ mockOpsFanout (R.mkFanoutᶜ m) ≡ true
+  → R.fanoutRefᵇ mockOpsFanout
+       (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
 finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
-    &&-intro (<→<ᵇ (FinalPartialFanoutValid.outputsPositive b)) refl
+    &&-intro (<→<ᵇ (FinalPartialFanoutValid.outputsPositive b))
+   (&&-intro (==-sound (FinalPartialFanoutValid.burnAllTokens b))
+   (&&-intro (<ᴮ-sound (FinalPartialFanoutValid.afterDeadline b)) refl))
 
 -- ── deposit recover (νDeposit) ────────────────────────────────────────────────────────────────
 -- The reference's after-deadline check `tRecover <ᴮ validityLo` holds from the bundle's
@@ -181,3 +193,20 @@ initValid→ref : ∀ ctx seed cid hk n cp v η ada
   → R.initRefᵇ mockOpsInit (R.mkMintIOᶜ n (mintedCount ctx cid)) ≡ true
 initValid→ref ctx seed cid hk n cp v η ada b =
   &&-intro (==-sound (InitValid.mintedCountOK b)) refl
+
+-- ── deposit claim (νDeposit, Claim redeemer) ──────────────────────────────────────────────────
+-- The reference's before-deadline check `validityHi ≤ᴮ tRecover` holds from the bundle's
+-- `ValidityInterval.hi (validity ctx) ≤ DepositDatum.tRecover dd` (§5.2 deposit.ak `before_deadline`:
+-- txValidityMax ≤ t_recover), discharged via `≤ᴮ-sound`. The own-head binding (`claimedByOwnHead`,
+-- deposit.ak `expect_increment_redeemer`) is the injected (mock) `claimIncrementOK`, matching the
+-- differential. So a reference deadline-reject ⇒ the spec rejects ⇒ (by the deposit.ak Claim arm) the
+-- validator rejects (`DepositPeriodSurpassed`).
+mockOpsClaim : R.OpsClaim
+mockOpsClaim = record { claimIncrementOK = λ _ → true }
+
+claimValid→ref : ∀ ctx cid tRec C hd
+  → claimValid ctx (mkDepositDatum cid tRec C) hd
+  → R.claimRefᵇ mockOpsClaim
+       (R.mkClaimIOᶜ tRec (ValidityInterval.hi (Context.validity ctx))) ≡ true
+claimValid→ref ctx cid tRec C hd b =
+  &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline b)) refl

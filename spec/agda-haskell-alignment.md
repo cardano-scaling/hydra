@@ -65,18 +65,25 @@ the init mint count ARE now mechanized — see below.)
   (`adaOut + adaDelta == adaIn`: head output + decommitted outputs = head input, the decommit outputs
   read as `take numberOfDecommitOutputs (tail outputs)` off the tx, with a deterministic
   lovelace-perturbing mutation `DecrementChangeHeadLovelace` ensuring the catch fires); contest:
-  version preserved + snapshot strictly increases + exactly one contester appended; fanout: `0 < m`.
-  One end-to-end drift-catch is demonstrated (close `mustNotChangeVersion`). (The increment/decrement
+  version preserved + snapshot strictly increases + exactly one contester appended **+ posted before
+  the contestation deadline** (`validityHi ≤ tfinal`, caught via `MutateValidityPastDeadline` →
+  `UpperBoundBeyondContestationDeadline`); fanout: `0 < m` **+ all `n+1` head tokens burned**
+  (`burnedCount == n+1`) **+ posted after the deadline** (`tfinal < lo`); claim (νDeposit): **the
+  before-deadline conjunct** (`validityHi ≤ tRecover`, caught via `deadlineSurpassedClaimTx` →
+  `DepositPeriodSurpassed`). One end-to-end drift-catch is demonstrated (close `mustNotChangeVersion`).
+  (The increment/decrement
   lovelace checks use the builtin `_==_`, extracted to native integer equality; the structural `_==ᵇ_`
   is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
   `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  the token-burn count and token PLACEMENT (ST/PT into the head output), the *remaining* deadline checks
-  (close bounded-validity `hi∸lo≤cp`, the conditional contest deadline, the fanout after-deadline), and
-  the **non-lovelace** parts of value conservation (multi-asset token quantities in the head/deposit/
-  decommit values, which the lovelace component does not see). A validator could forge any of these and
-  the test would still pass. (The close contestation deadline, the recover after-deadline, and the init
-  mint count are NOW caught — see *Catches* above.)
+  token PLACEMENT (ST/PT into the head output), the νDeposit Claim **own-head binding**
+  (`expect_increment_redeemer`), the *remaining* deadline checks (close bounded-validity `hi∸lo≤cp` and
+  the conditional contest deadline-UPDATE rule `tfinal' = if all-contested …`), and the **non-lovelace**
+  parts of value conservation (multi-asset token quantities in the head/deposit/decommit values, which
+  the lovelace component does not see). A validator could forge any of these and the test would still
+  pass. (The close contestation deadline, the contest before-deadline, the fanout burn-count and
+  after-deadline, the recover after-deadline, the claim before-deadline, and the init mint count are NOW
+  caught — see *Catches* above.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
