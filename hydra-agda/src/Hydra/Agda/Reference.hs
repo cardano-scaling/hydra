@@ -67,8 +67,9 @@ mkOpsInc = M.C_OpsInc'46'constructor_2081
 checkInc :: OpsInc -> HsIncIO -> Bool
 checkInc = M.d_incRef'7495'_128
 
--- | Decidable decrement checker: version discipline only (its decommit value is not yet supplied as
--- an extractable lovelace); the @HsIncIO@ ada fields are ignored. Crypto\/value delegated.
+-- | Decidable decrement checker: the produced version is @suc@ the input version AND the head value
+-- SHRINKS by the decommit on the lovelace component (@adaOut + adaDelta == adaIn@, the validator's
+-- @mustDecreaseValue@: head output + decommitted outputs == head input). Crypto delegated to @OpsInc@.
 checkDec :: OpsInc -> HsIncIO -> Bool
 checkDec = M.d_decRef'7495'_134
 
@@ -76,7 +77,7 @@ checkDec = M.d_decRef'7495'_134
 type OpsContest = M.T_OpsContest_168
 
 mkOpsContest :: (HsContestIO -> Bool) -> OpsContest
-mkOpsContest = M.C_OpsContest'46'constructor_2359
+mkOpsContest = M.C_OpsContest'46'constructor_2377
 
 -- | Decidable contest checker: version preserved, snapshot strictly increases
 -- (@TooOldSnapshot@), exactly one contester appended. Crypto\/value\/deadline delegated.
@@ -87,7 +88,7 @@ checkContest = M.d_contestRef'7495'_174
 type OpsFanout = M.T_OpsFanout_188
 
 mkOpsFanout :: (HsFanout -> Bool) -> OpsFanout
-mkOpsFanout = M.C_OpsFanout'46'constructor_2453
+mkOpsFanout = M.C_OpsFanout'46'constructor_2471
 
 -- | Decidable fanout checker: @0 < m@ outputs (the validator's @FanoutZeroOutputs@, the §5.8
 -- m>0 guard). Accumulator\/value\/burn\/deadline delegated to @OpsFanout@.

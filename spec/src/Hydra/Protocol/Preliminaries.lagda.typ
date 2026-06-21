@@ -288,6 +288,7 @@ record ValidityInterval : Set where
 record Context : Set where
   field
     ownHash  : ℍ            -- hash of the validator script being run (e.g. νHead)
+    depHash  : ℍ            -- hash of the νDeposit script (so deposit inputs can be summed, cf. §5.4)
     inputs   : List Input   -- the transaction's resolved inputs (a set at the ledger level;
                             -- modelled as a list so per-script value can be summed, cf. Plutus)
     outputs  : List Output  -- a list of outputs

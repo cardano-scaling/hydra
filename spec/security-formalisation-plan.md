@@ -64,16 +64,26 @@ signature's predecessor snapshot (so the extension is checkable against the sign
 snapshot locally), and the invariant must thread cross-party nesting via `agree`. That operational
 step is the remaining P1-real work; everything else above is now derived, not assumed.
 
-**The two Agda halves remain linked.** `Reflects sys snap` (rebased from a chain index to a finalized
-snapshot): the on-chain datum's snapshot number matches `snap` and its accumulator `OC.ηOf` commits
-(`OC.accUTxO`) to `U₀ ∘ (txs snap)`. `reflect-sound` re-expresses Soundness on the on-chain datum;
-`reflect-fanout-⊆` proves the on-chain fanout distributes only outputs of the off-chain final UTxO
-(`OC.fanoutMembersOK ⇒ outs ⊆ outsOf U`) via the accumulator soundness law in `OnChain.lagda.typ`
-(`accUTxO-∅`/`accVerify-sound`/`accVerify-complete`; KZG itself not modelled, only its laws).
+**The two Agda halves are linked, and the link is now CONSTRUCTED (not assumed).** `Reflects sys snap`:
+the on-chain datum's snapshot number matches `snap` and its accumulator `OC.ηOf` commits
+(`OC.accUTxO`) to `U₀ ∘ (txs snap)`. A `finalize` step in `_⟶ˢ_` connects the previously-frozen
+`onChain` field to the dynamics (it posts a datum for an `AggVerified` snapshot, carrying its number);
+`reflects` then PRODUCES a `Reflects` witness: the conflict-freedom conjunct is derived from
+`soundness`, the number match from the finalize witness, and only the accumulator commitment remains
+assumed --- supplied as `reflects`'s explicit per-finalization hypothesis `ηEq` (irreducible because
+νHead authenticates η via `msVfy`, not by recomputing `accUTxO`). It is a hypothesis, NOT a global
+axiom: `finalize` admits any matching-number datum, so a global `∀ sys → … → ηOf ≡ accUTxO (outsOf U)`
+would have no model (two finalizations, same final U, different stored η); the finalizer discharges
+`ηEq` from the η it committed. `reflect-sound`/`reflect-fanout-⊆` then re-express
+Soundness / the fanout-subset fact (`OC.fanoutMembersOK ⇒ outs ⊆ outsOf U`) via the accumulator
+soundness law (`accUTxO-∅`/`accVerify-sound`/`accVerify-complete`; KZG itself not modelled, only its
+laws). Also: `msgOf` is now `snapMsg (version, number, η#)`, so the verified message depends only on
+the snapshot's identifying fields (the signature↔snapshot binding itself is carried by `ms-unforgeable`).
 
-Remaining work: **L2** (`confirmed-nest`, operationalize as above) and **P3 (Liveness)** — the
-temporal/fairness layer (eventual delivery under a network adversary + head stays open). Also:
-model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`. The whole thing keeps
+Remaining work: **P3 (Liveness)** --- the temporal/fairness layer (eventual delivery under a network
+adversary + head stays open). Also: model seen-sets to complete Soundness's `T̃ ⊆ ⋂ honest seen`;
+discharging `ηEq` constructively would need an on-chain accumulator recomputation νHead does not
+perform (so it stays a signature-trust hypothesis). L2 (`confirmed-nest`) is DONE (derived, no longer a postulate). The whole thing keeps
 `nix build .#spec` green. The §7 security properties are statements about **whole protocol
 executions** in the presence of an **adversary**, so they need this execution/adversary model
 (distinct from the validator-level type predicates / per-transaction validity bundles).
@@ -120,9 +130,31 @@ Consistency, Soundness, Completeness all derived; no safety postulate remains). 
   L3 (a certified finalized snapshot is applicable). **Completeness (DONE, `completeness`)** is L2.
 
 **Residual assumptions** (no longer including any safety property): the ledger `applyTxs` semantics +
-nil law; the bridge glue `outsOf`; and the §3.2 multisignature's **unforgeability** (`ms-unforgeable`,
-relating the `msVfy` aggregate check `AggVerified` to all-parties-signed `Certified`). These are the
-irreducible crypto/ledger axioms.
+nil law; the bridge glue `outsOf` + the per-finalization `ηEq` accumulator-commitment hypothesis; the
+honest-signing discipline in `signHonest`; and the §3.2 multisignature's **unforgeability** -- now
+FACTORED (A2) into per-signature unforgeability `sigUnforge` (EUF-CMA) + the aggregation scheme's
+n-of-n decomposition `aggSound`, from which the aggregate-level `ms-unforgeable : AggVerified sys snap
+→ Certified sys snap` is DERIVED (no longer a postulate). These are the irreducible crypto/ledger
+axioms. (A3 added the seen-set discipline used by full Soundness; A5 added `confCert-all` for the
+once-honest-then-corrupt Consistency extension `consistency-uncorrupted`.)
+
+**RESOLVED: confirmation-layer model-vacuity.** Previously `ms-unforgeable` was `∀ sys snap →
+AggVerified snap → Certified sys snap` with a snapshot-only `AggVerified snap = msVfy aggKey (msgOf snap)
+(sigOf snap)`. Because `Certified sys snap` requires every party's recorded signature in `sigs sys`,
+instantiating `ms-unforgeable` at a freshly-built empty-signature system proved `¬ AggVerified snap` for
+_every_ snapshot, so `AggVerified` was unsatisfiable in every model and the whole confirmation layer
+(`confirm`/`soundness`/`reflects`/`finalize`) was model-vacuous (true but never exhibiting an execution
+that confirms past genesis). FIX: the verified aggregate is now SYSTEM-RELATIVE. `sigOf : Snapshot →
+AggSig` was replaced by `aggSigOf : System → Snapshot → AggSig` (the aggregate assembled from the
+signatures the system has recorded on `snap`), and `AggVerified sys snap = msVfy aggKey (msgOf snap)
+(aggSigOf sys snap) ≡ true`. The `∀ sys` unforgeability axiom is now sound and NON-vacuous: for a system
+missing signatures `AggVerified sys snap` is correctly false (the intended meaning), while for a system
+in which every party signed it is satisfiable (model: interpret `aggSigOf`/`msVfy` so the aggregate
+verifies iff `Certified sys snap`), so a model with genuine confirmations exists. All call sites
+(`confirm`, `finalize`, `Soundness`/`soundness`, `reflects`, the `confirm` invStep case) were rethreaded
+through `AggVerified sys snap`; `nix build .#spec` stays green. This was the sharpened "model
+disconnected from the handlers/`msVfy`" gap; it is now closed at the abstraction level (a fully concrete
+`aggSigOf` from individual signatures + a `combine`/`verify` algebra remains future refinement).
 
 **Remaining (post-P1-real):** the multisignature refinement above (cosmetic for safety), and **P3
 (Liveness)**.
