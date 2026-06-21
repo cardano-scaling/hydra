@@ -8,7 +8,7 @@ module Hydra.Protocol.RefReflection where
 
 open import Hydra.Protocol.Prelude
 open import Data.Nat using (z≤n; s≤s)
-open import Agda.Builtin.Nat using (_==_) renaming (_<_ to _<ᴮ_)
+open import Agda.Builtin.Nat using (_==_; suc) renaming (_<_ to _<ᴮ_)
 import Hydra.Protocol.Reference as R
 
 -- Soundness of the BUILTIN Nat equality `_==_` w.r.t. propositional equality. The lovelace / deadline
@@ -20,6 +20,12 @@ postulate
   ==-sound : ∀ {m n} → m ≡ n → (m == n) ≡ true
 -- Same, for the BUILTIN strict-less-than `_<ᴮ_` (used for the after-deadline conjunct).
   <ᴮ-sound : ∀ {m n} → m < n → (m <ᴮ n) ≡ true
+
+-- Soundness of the builtin-based `_≤ᴮ_` (= `a <ᴮ suc b`; the posted-before-deadline conjuncts). Unlike
+-- the two postulates above this is PROVED: `m ≤ n` gives `m < suc n` (= `suc m ≤ suc n`) by `s≤s`, and
+-- `m R.≤ᴮ n` unfolds definitionally to `m <ᴮ suc n`, so it is exactly `<ᴮ-sound (s≤s p)`.
+≤ᴮ-sound : ∀ {m n} → m ≤ n → (m R.≤ᴮ n) ≡ true
+≤ᴮ-sound p = <ᴮ-sound (s≤s p)
 
 -- The structural Bool checks reflect their propositional relations:
 ==ᵇ-refl : ∀ n → (n R.==ᵇ n) ≡ true

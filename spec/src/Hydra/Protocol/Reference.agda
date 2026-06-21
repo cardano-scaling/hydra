@@ -11,7 +11,14 @@
 -- record, supplied (mocked) from Haskell. Correspondence to the abstract `closeValid` is proved
 -- (separately, typecheck-only) in `ReferenceBridge.lagda.typ`.
 --
--- NB: must NOT import Prelude/OnChain/abstract-set-theory — those do not extract.
+-- NB on imports: this module stays SELF-CONTAINED over `Agda.Builtin.{Bool,Nat,List}`. Two reasons:
+-- (1) Prelude/OnChain/abstract-set-theory do not extract at all; (2) even stdlib modules that DO
+-- extract balloon the committed `generated/MAlonzo` tree — importing `Data.Bool.Base` just for `not`
+-- pulls in `Level`/`Data.Empty`/`Data.Irrelevant`/`Data.Unit.Base` and grows the tree from 7 to 13
+-- generated files (measured). So the few small Bool/Nat helpers below are hand-rolled on purpose; the
+-- structural `_==ᵇ_`/`_≤ᵇ_`/`_<ᵇ_` additionally let their reflection lemmas be PROVED (not postulated)
+-- in `RefReflection`. The PROOF-side modules (RefReflection, ReferenceBridge) are typecheck-only and
+-- import stdlib freely — minimality only matters here, on the extracted side.
 module Hydra.Protocol.Reference where
 
 open import Agda.Builtin.Bool
@@ -77,9 +84,12 @@ zero    ≤ᵇ _       = true
 _<ᵇ_ : Nat → Nat → Bool
 m <ᵇ n = (suc m) ≤ᵇ n
 
-isNull : {A : Set} → List A → Bool
-isNull []      = true
-isNull (_ ∷ _) = false
+-- builtin-based ≤ (native at extraction): `a ≤ b ⟺ a < b + 1`, on the BUILTIN strict `_<_` and `suc`
+-- (no extra import, no hand-rolled `not`). Used for the "posted before the deadline" conjuncts
+-- (`hi ≤ tfinal` / `hi ≤ tRecover`), whose POSIXTime-ms operands are far too large for the structural
+-- `_≤ᵇ_` (O(n) unary recursion). Its reflection lemma is PROVED (not postulated) from `<ᴮ-sound`.
+_≤ᴮ_ : Nat → Nat → Bool
+a ≤ᴮ b = a < suc b
 
 -- ── the decidable close checker ───────────────────────────────────────────────────────────
 -- Mirrors the decidable, unit-robust conjuncts of `closeValid` (OnChain.lagda.typ):
@@ -170,29 +180,42 @@ record ContestIOᶜ : Set where
     snapOut         : Nat
     contesterLenIn  : Nat
     contesterLenOut : Nat
-{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer #-}
+    tfinalK         : Nat   -- the (input) recorded contestation deadline (POSIXTime ms)
+    validityHiK     : Nat   -- the contest tx's upper validity bound (POSIXTime ms)
+{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC ContestIOᶜ = data HsContestIO (MkContestIO) #-}
 
 record OpsContest : Set where
   field contestCryptoOK : ContestIOᶜ → Bool
 open OpsContest public
 
+-- The added conjunct `validityHi ≤ᴮ tfinal` is the "posted before the contestation deadline" guard
+-- (txValidityMax ≤ tfinal), via the BUILTIN-based `_≤ᴮ_` (POSIXTime ms). The conditional deadline-UPDATE
+-- rule (tfinal' = if all-contested then tfinal else tfinal+cp) stays in the injected `contestCryptoOK`.
 contestRefᵇ : OpsContest → ContestIOᶜ → Bool
 contestRefᵇ ops c =
       (ContestIOᶜ.versionInK c ==ᵇ ContestIOᶜ.versionOutK c)
    && (ContestIOᶜ.snapIn c <ᵇ ContestIOᶜ.snapOut c)
    && (ContestIOᶜ.contesterLenOut c ==ᵇ suc (ContestIOᶜ.contesterLenIn c))
+   && (ContestIOᶜ.validityHiK c ≤ᴮ ContestIOᶜ.tfinalK c)
    && contestCryptoOK ops c
 
 -- ══ fanout / finalPartialFanout ═══════════════════════════════════════════════════════════
--- The decidable conjunct of `fanoutValid`/`finalPartialFanoutValid` is `0 < m`, the
--- number of distributed outputs (the validator's `FanoutZeroOutputs`, the §5.8 m>0 fix).
--- Accumulator membership / value / burn / deadline are injected.
+-- The decidable conjuncts of `fanoutValid`/`finalPartialFanoutValid`:
+--   • `0 < m` outputs (the validator's `FanoutZeroOutputs`, the §5.8 m>0 fix) — small, structural `<ᵇ`;
+--   • all `n+1` head tokens burned (`burnAllTokensOK`: `burnedCount == n+1`, the mirror of the init
+--     mint count) — BUILTIN `_==_` (a mutation could inject a large burn quantity);
+--   • posted strictly AFTER the deadline (`tfinal < lo`, the mirror of the recover after-deadline) —
+--     BUILTIN `_<_` (POSIXTime ms). Accumulator membership / value conservation are injected.
 record Fanoutᶜ : Set where
   constructor mkFanoutᶜ
   field
-    numOutputsF : Nat
-{-# FOREIGN GHC data HsFanout = MkFanout Integer #-}
+    numOutputsF  : Nat   -- m: number of distributed outputs
+    burnedCountF : Nat   -- total head-policy tokens burned (negated mint quantity)
+    numPartiesF  : Nat   -- n (from the head datum)
+    tfinalF      : Nat   -- the recorded contestation deadline (POSIXTime ms)
+    validityLoF  : Nat   -- the fanout tx's lower validity bound (POSIXTime ms)
+{-# FOREIGN GHC data HsFanout = MkFanout Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC Fanoutᶜ = data HsFanout (MkFanout) #-}
 
 record OpsFanout : Set where
@@ -201,7 +224,10 @@ open OpsFanout public
 
 fanoutRefᵇ : OpsFanout → Fanoutᶜ → Bool
 fanoutRefᵇ ops f =
-  (zero <ᵇ Fanoutᶜ.numOutputsF f) && fanoutCryptoOK ops f
+     (zero <ᵇ Fanoutᶜ.numOutputsF f)
+  && (Fanoutᶜ.burnedCountF f == suc (Fanoutᶜ.numPartiesF f))
+  && (Fanoutᶜ.tfinalF f < Fanoutᶜ.validityLoF f)
+  && fanoutCryptoOK ops f
 
 -- ══ deposit recover (νDeposit, Recover redeemer) ══════════════════════════════════════════════
 -- The decidable conjunct of `recoverValid` (deposit.ak's Recover arm, §5.3.2): the recover tx is
@@ -250,3 +276,24 @@ open OpsInit public
 initRefᵇ : OpsInit → MintIOᶜ → Bool
 initRefᵇ ops m =
   (MintIOᶜ.mintedCountM m == suc (MintIOᶜ.numPartiesM m)) && initPlacementOK ops m
+
+-- ══ deposit claim (νDeposit, Claim redeemer) ══════════════════════════════════════════════════
+-- The decidable conjunct of `claimValid` (deposit.ak's Claim arm, §5.2): the increment tx collecting
+-- the deposit is posted BEFORE the recover deadline — txValidityMax ≤ tRecover, i.e.
+-- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms). The "spent by an Increment of its own
+-- head" check (`depositClaimedBy` + the Increment-redeemer coupling) is structural and is injected.
+record ClaimIOᶜ : Set where
+  constructor mkClaimIOᶜ
+  field
+    tRecoverC   : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
+    validityHiC : Nat   -- the claim (increment) tx's upper validity bound (POSIXTime ms)
+{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer #-}
+{-# COMPILE GHC ClaimIOᶜ = data HsClaimIO (MkClaimIO) #-}
+
+record OpsClaim : Set where
+  field claimIncrementOK : ClaimIOᶜ → Bool
+open OpsClaim public
+
+claimRefᵇ : OpsClaim → ClaimIOᶜ → Bool
+claimRefᵇ ops c =
+  (ClaimIOᶜ.validityHiC c ≤ᴮ ClaimIOᶜ.tRecoverC c) && claimIncrementOK ops c

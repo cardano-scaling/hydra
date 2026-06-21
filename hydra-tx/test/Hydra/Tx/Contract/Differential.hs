@@ -10,41 +10,59 @@
 --
 --   * increment\/decrement: produced version is @suc@ the input version (@VersionNotIncremented@);
 --   * contest: version preserved, snapshot strictly increases (@TooOldSnapshot@), one contester
---     appended;
---   * fanout\/finalPartialFanout: @0 < m@ outputs (@FanoutZeroOutputs@, the §5.8 m>0 guard).
+--     appended, and posted before the contestation deadline (@validityHi ≤ tfinal@,
+--     @mustBeWithinContestationPeriod@);
+--   * fanout\/finalPartialFanout: @0 < m@ outputs (@FanoutZeroOutputs@), all @n+1@ head tokens burned
+--     (@BurntTokenNumberMismatch@) and posted after the deadline (@tfinal < lo@,
+--     @LowerBoundBeforeContestationDeadline@).
 --
--- Crypto\/value\/accumulator\/deadline conjuncts are mocked (@const True@) on the reference side,
+-- The remaining crypto\/value\/accumulator conjuncts are mocked (@const True@) on the reference side,
 -- so the converse direction (validator-rejects-while-reference-accepts) is expected and not
 -- asserted.
 module Hydra.Tx.Contract.Differential (spec) where
 
 import Hydra.Prelude
 
+import GHC.IsList qualified as IsList
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
+  AssetId (..),
   Coin (..),
+  Quantity (..),
   Tx,
   TxIn,
   TxOut,
   UTxO,
   fromCtxUTxOTxOut,
+  getTxBody,
+  getTxBodyContent,
   resolveInputsUTxO,
   selectLovelace,
+  toPlutusCurrencySymbol,
+  txMintValue,
+  txMintValueToValue,
   txOutValue,
   txOuts',
+  txValidityLowerBound,
+  txValidityUpperBound,
+  pattern TxValidityLowerBound,
+  pattern TxValidityUpperBound,
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Cardano.Api.TxBody (findRedeemerSpending)
 import Hydra.Cardano.Api.TxOut (findTxOutByScript, findTxOutsByScript)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
+import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
+import PlutusLedgerApi.V3 (getPOSIXTime)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation)
 import Test.QuickCheck (Property, forAll, property, (===))
@@ -116,13 +134,17 @@ decRefVerdict (tx, utxo) = do
       (Ref.MkIncIO od.version od'.version (lovelace headInOut) decommitLovelace (lovelace headOut))
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
+-- The reference now also checks the before-deadline guard (@validityHi ≤ tfinal@: the contest tx's
+-- upper validity bound is at or before the recorded contestation deadline, the validator's
+-- @mustBeWithinContestationPeriod@). The conditional deadline-UPDATE rule stays mocked.
 contestRefVerdict :: (Tx, UTxO) -> Maybe Bool
-contestRefVerdict m = do
+contestRefVerdict m@(tx, _) = do
   (inSt, headIn) <- inputState m
   HS.Closed cd <- Just inSt
   outSt <- outputState m
   HS.Closed cd' <- Just outSt
-  HS.Contest _ <- findRedeemerSpending (fst m) headIn :: Maybe HS.Input
+  HS.Contest _ <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  validityHi <- txUpperBoundPOSIX tx
   pure $
     Ref.checkContest
       (Ref.mkOpsContest (const True))
@@ -133,14 +155,52 @@ contestRefVerdict m = do
           cd'.snapshotNumber
           (fromIntegral (length cd.contesters))
           (fromIntegral (length cd'.contesters))
+          (getPOSIXTime cd.contestationDeadline)
+          validityHi
       )
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
+-- The reference now checks, besides @0 < m@: the burn count (@burnedCount == n+1@, the negated
+-- head-policy mint summed off the tx — mirror of the init mint count) and the after-deadline guard
+-- (@tfinal < lo@, the tx lower validity bound as POSIXTime, mirror of the recover after-deadline).
 fanoutRefVerdict :: (Tx, UTxO) -> Maybe Bool
-fanoutRefVerdict m = do
-  (_, headIn) <- inputState m
-  HS.Fanout{HS.numberOfFanoutOutputs} <- findRedeemerSpending (fst m) headIn :: Maybe HS.Input
-  pure (Ref.checkFanout (Ref.mkOpsFanout (const True)) (Ref.MkFanout numberOfFanoutOutputs))
+fanoutRefVerdict m@(tx, _) = do
+  (inSt, headIn) <- inputState m
+  HS.Closed cd <- Just inSt
+  HS.Fanout{HS.numberOfFanoutOutputs} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  validityLo <- txLowerBoundPOSIX tx
+  let minted = IsList.toList (txMintValueToValue (txMintValue (getTxBodyContent (getTxBody tx))))
+      -- burned head-policy tokens = negated sum of the head policy's (negative) mint quantities,
+      -- mirroring the validator's `mustBurnAllHeadTokens` (`burntTokens == n+1`).
+      burned = negate (sum [q | (AssetId pid _, Quantity q) <- minted, toPlutusCurrencySymbol pid == cd.headId])
+  pure $
+    Ref.checkFanout
+      (Ref.mkOpsFanout (const True))
+      ( Ref.MkFanout
+          numberOfFanoutOutputs
+          burned
+          (fromIntegral (length cd.parties))
+          (getPOSIXTime cd.contestationDeadline)
+          validityLo
+      )
+
+-- | The tx lower validity bound as POSIXTime milliseconds (matching the ledger's slot→time translation
+-- under the linear `fixedEpochInfo` fixture; see the 'Hydra.Tx.Contract.CloseDifferential' note), or
+-- 'Nothing' if there is no finite lower bound.
+txLowerBoundPOSIX :: Tx -> Maybe Integer
+txLowerBoundPOSIX tx =
+  case tx & getTxBody & getTxBodyContent & txValidityLowerBound of
+    TxValidityLowerBound lowerBound -> Just (getPOSIXTime (posixFromUTCTime (slotNoToUTCTime systemStart slotLength lowerBound)))
+    _ -> Nothing
+
+-- | The tx upper validity bound as POSIXTime milliseconds (same slot→time translation), or 'Nothing'
+-- if there is no finite upper bound (which the contest validator rejects as @InfiniteUpperBound@; the
+-- reference then abstains).
+txUpperBoundPOSIX :: Tx -> Maybe Integer
+txUpperBoundPOSIX tx =
+  case tx & getTxBody & getTxBodyContent & txValidityUpperBound of
+    TxValidityUpperBound upperBound -> Just (getPOSIXTime (posixFromUTCTime (slotNoToUTCTime systemStart slotLength upperBound)))
+    _ -> Nothing
 
 -- ── property assembly ─────────────────────────────────────────────────────────────────────────
 
