@@ -84,6 +84,10 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
 
 ## D. Still open / deferred (found, not yet fully fixed)
 
+> Historical log: D1–D3 below are now resolved (the D2 here is the §5.7 *contest deadline* in the
+> bundle, fixed — not the μHead "D2" or the live `C3-contest-deadline` reference-layer item). The
+> authoritative outstanding list is "Still open (scoped)" near the end of this file.
+
 - **D1 — Initial close case (§5.6):** *fixed* — `closeInitialOK` now encodes `v = 0`, `s' = 0`,
   **and** `η' = accUTxO(∅)` (via the postulated `accUTxO`).
 - **D2 — contest deadline (§5.7):** *fixed* — `contestDeadlineOK` now fully computes the
@@ -94,9 +98,10 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   `partialFanoutValid`, `finalPartialFanoutValid`), each conjoining the state-machine step with its
   checks (deadlines, `noMint`, `closeInitialOK`, `snapshotSigOK`, value conservation, `burnAllTokensOK`,
   `fanoutMembersOK`/`fanoutExcludeOK`/`partialFanoutNotDoneOK`). Head-output identification (finding
-  the head/deposit/decommit values in the `Context`) is abstracted by postulated extractors
-  (`headValue`, `headValueIn`, `depositValue`, `decommitValue`); replacing those with concrete
-  output-search over `Context.outputs` is the remaining refinement.
+  the head/deposit/decommit values in the `Context`) was abstracted by postulated extractors;
+  `headValue`/`headValueIn` are now DERIVED via `valueAtOut`/`valueAtIn` (per D5/AUDIT-6); concretizing
+  the remaining `depositValue`/`decommitValue` by an output-search over `Context.outputs` is the
+  residual refinement (tracked in the canonical "Still open (scoped)" list below).
 - **D4 — security lemmas (§7):** *P0 done; P1-real DONE: the §7 safety core is now fully DERIVED from
   a signature model, not assumed; plan in
   [`security-formalisation-plan.md`](./security-formalisation-plan.md).*
@@ -141,9 +146,9 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   - **§5.2–5.3 deposit/recover (νDeposit) modelled:** `DepositDatum`/`DepositRedeemer`, `recoverValid`
     (post-deadline `t_recover < txValidityMin` concrete; the recovered-outputs hash-equality abstracted
     as `recoveredMatchesDeposited`), and `depositClaimedBy` linking a Claim to its head's increment.
-  - Remaining (next): concretize `depositValue`/`decommitValue`; extend the extractable `Reference.agda`
-    + differential test with a real value-conservation `Op` (needs a value representation at the
-    MAlonzo boundary); off-chain handler model; P3 Liveness.
+  - Remaining (next): see the canonical "Still open (scoped)" list below. (NB increment/decrement
+    LOVELACE value conservation is now extracted + bridged + differentially tested via
+    `incRefᵇ`/`decRefᵇ`; only the multi-asset / non-lovelace component stays abstract.)
 
 - **Code-vs-spec (implementation alignment):** tracked separately in
   [`code-spec-discrepancies.md`](./code-spec-discrepancies.md) (off-chain `HeadLogic.hs`) and
@@ -178,10 +183,13 @@ Haskell→Agda found one real Agda gap (now fixed) plus documented scope boundar
   init minting policy are not in the Agda (on-chain head state machine first); off-chain `_handles_↝_`
   is illustrative (the §6.4 figure is normative); the off-chain `requireValidAccumulatorSize` DoS bound
   and deposit lifecycle are protocol-liveness, not consensus-safety. KZG is abstracted (laws only).
-- **Reaffirmed known gaps (tracked in `code-spec-discrepancies.md`, NOT changed here):** C2 (rollback
-  does not restore full off-chain state history Ω — pre-existing, acknowledged in `State.hs`), and C3
-  (close/contest rely on the unchecked invariant `confirmedSnapshot.version ∈ {version, version-1}`;
-  holds today, recommend a runtime assertion in a focused follow-up rather than bundling here).
+- **Reaffirmed known gaps (tracked in `code-spec-discrepancies.md`, NOT changed here):** impl-C2
+  (rollback does not restore full off-chain state history Ω — pre-existing, acknowledged in
+  `State.hs`), and impl-C3 (close/contest rely on the unchecked invariant
+  `confirmedSnapshot.version ∈ {version, version-1}`; holds today, recommend a runtime assertion in a
+  focused follow-up rather than bundling here). NB tag collision: these IMPLEMENTATION-alignment
+  C2/C3 are unrelated to the formalisation-deepening "C2" (the close contestation-deadline conjunct,
+  DONE/bridged/tested above) and to the "C3" mechanize-spec⇒Plutus item in the canonical list below.
 
 ## Security review (deposit/recover + increment value conservation)
 
@@ -192,12 +200,13 @@ REFUTED with quotable evidence; one genuine (safe) spec/impl modeling gap surfac
 - **Cross-head deposit claim [refuted on-chain; NOT enforced in Agda]:** `deposit.ak` Claim gates on
   `expect_increment_redeemer(self, datum.head_id)`: the deposit datum's `head_id` (a PolicyId) must
   match a tx input holding that head's `hydra_head_v2` NFT, spent with the Increment redeemer. A
-  deposit cannot be claimed into a different head (different μHead currency symbol). CORRECTION (was
-  previously overstated here): the Agda does NOT model this. `incrementValid` enforces only
-  `depositSpentOK ctx ref` (the claimed ref is spent); the predicate `depositClaimedBy (cid ≡ hcid)`
-  IS defined in OnChain.lagda.typ but is never a conjunct of any validity bundle (dead/documentary
-  only). So the deposit→head binding is enforced by the real validator (deposit.ak) but is currently
-  unmodelled in Agda. Safe (Plutus is the enforcing oracle), but a faithfulness gap, not a match.
+  deposit cannot be claimed into a different head (different μHead currency symbol). SUPERSEDED (this
+  earlier note said the Agda did NOT model it): as of the deepening pass `depositClaimedBy (cid ≡ hcid)`
+  is now LIVE — a type-encoded conjunct of `claimTxValid` (which conjoins νHead `incrementValid` with
+  νDeposit `claimValid`, OnChain.lagda.typ §5.2). `incrementValid` itself still enforces only
+  `depositSpentOK ctx ref` (head-side); the cid-binding lives in `claimValid` (deposit-side), as on
+  chain. It remains type-encoded only — NOT bridged or differentially tested (see the Claim-arm item in
+  the canonical "Still open (scoped)" list below).
 - **Recover destination pinning [refuted]:** `deposit.ak recover_outputs` requires
   `hash_tx_outs(take n outputs) == hashPreSerializedCommits(datum.commits)`; each committed
   `preSerializedOutput` is the full serialised `Output` (address + value + datum), so the recovered
@@ -327,8 +336,65 @@ suite at 15/15; the Haskell workspace builds `-Werror` clean.
   safety proofs and the on-chain validity bundles meet only at datum-field accessors (`finalize` admits
   an arbitrary datum), that non-vacuity is a meta-level argument, and that νDeposit/off-chain are
   coverage boundaries.
-- **Still open (scoped):** μHead token-PLACEMENT (ST/PT into the head output) — needs the Value-map
-  lookup ops the spec deliberately avoids; the token COUNT is now bridged + differentially tested. The
-  νDeposit **Claim** arm differential (`claimTxValid` is type-encoded but not bridged; the Recover arm
-  is now bridged + differentially tested). Formalising the off-chain HeadLogic + deriving `signHonest`
-  (A4/D1); mechanizing spec⇒Plutus (C3, recommended to stay prose); and Liveness (P3).
+### Still open (scoped) — CANONICAL outstanding-items list
+
+This is the single authoritative list of everything outstanding across the PR; the other spec docs
+(`security-formalisation-plan.md`, `agda-haskell-alignment.md`, `code-spec-discrepancies.md`) hold the
+detail for their respective items and should cross-reference here rather than maintain parallel lists.
+Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and the implementation
+"impl-C2/impl-C3" below are different numbering schemes — descriptive ids are used here to avoid clash.
+
+**A. Extractable reference / bridge / differential — conjuncts still injected (`const True`):**
+- **contest deadlines** (`C3-contest-deadline`): the conditional `contestDeadlineOK`
+  (`tfinal' = if all-contested then tfinal else tfinal + cp`) and the posted-before-deadline
+  (`hi ≤ tfin`) conjuncts are defined in `OnChain` but absent from `contestRefᵇ`/the bridge — the
+  direct still-open analogue of the now-done close C2. (`contestRefᵇ` checks only version/snapshot/
+  contester-count.)
+- **fanout conjuncts** (`fanout-conjuncts`): `fanoutValueOK`/`partialFanoutValueOK` (value
+  conservation, type-CONCRETE in the bundle but injected at the reference layer), `burnAllTokensOK`
+  (`burnedCount == n+1` — the direct parallel of the DONE init `mintedCount == n+1`, the most tractable
+  next step), accumulator membership/exclude, and the fanout after-deadline (`tfinalOf < lo`). `fanoutRefᵇ`
+  checks only `0 < m`.
+- **close bounded-validity** (`close-bounded-validity`): the `hi ∸ lo ≤ cp` conjunct stays in
+  `closeCryptoOK` (distinct from the now-done `tfinal == validityHi + cp`).
+- **νDeposit Claim arm** (`claim-differential`): no `checkClaim` reference fn, no `claimTxValid→ref`
+  bridge, no Claim-path differential. The before-deadline conjunct (`claimValid`: `hi ≤ tRecover`) is
+  type-encoded only; the increment differential runs the validator's Claim path end-to-end but does not
+  mirror that conjunct. (The Recover arm IS bridged + differentially tested.)
+- **multi-asset value conservation** (`lovelace-vs-multiasset`): increment/decrement/fanout value
+  conservation is bridged only on the lovelace component (`adaOf`); the full multi-asset `Value` is not
+  extractable, so non-ada token-quantity siphons are not caught.
+- **μHead token PLACEMENT** (`D2-token-placement`): single ST + n unique PTs placed in the head output,
+  seed-spent, datum `headId`/`seed` binding — need multi-asset token-name lookup (the `Value`-map ops
+  the spec deliberately avoids). Injected in `OpsInit`. (The token COUNT is DONE/bridged/tested.)
+- **concretize `depositValue`/`decommitValue`** extractors via output-search over `Context.outputs`
+  (`headValue`/`headValueIn` are already derived).
+
+**B. §7 security (`security-formalisation-plan.md` has the detail):**
+- **Liveness (P3)**: temporal/fairness layer (`Eventually`/fairness, message delivery, leader rotation,
+  `reqconf → eternal → liveness`); `Liveness` is a postulated empty `Set`.
+- **off-chain HeadLogic + `signHonest`** (`A4/D1`): a full `_handles_↝_`/`applyTxs` handler model
+  (OffChain currently handles only `reqTx`/`ackSn`, a deliberate simplification).
+- **multisignature refinement**: a fully concrete `aggSigOf` from individual signatures + a
+  `combine`/`verify` algebra (safety-cosmetic; the abstract `msVfy`/unforgeability suffices for the proofs).
+- **definition-of-done residual**: replace the placeholder `postulate`s with the real `Reachable`/fair-trace
+  statements once P3 lands.
+- *Irreducible axioms (NOT work, by design):* `ms-unforgeable` (factored into `aggSound`+`sigUnforge`),
+  ledger `applyTxs`/nil, the bridge glue `outsOf` + per-finalization `ηEq`, and `msVfy`/KZG laws; §7
+  model-existence/non-vacuity is a meta-level argument (`msVfy` abstract).
+
+**C. spec ⇒ real Plutus validator (`C3-mechanize`):** the `spec ⇒ validator` link (agda-haskell-alignment
+§3) is hand-reviewed prose, not mechanized. Recommended to stay prose.
+
+**D. Implementation alignment (detail in `code-spec-discrepancies.md`):** `impl-C2` rollback does not
+restore full off-chain state history Ω; `impl-C3` close/contest rely on the unchecked invariant
+`confirmedSnapshot.version ∈ {version, version-1}` (recommend a runtime assertion); `impl-C4` stale
+`-- Spec: η ← combine(S.U)` comments (cosmetic).
+
+**E. Coverage boundaries / deferred (not planned work):** `B6` concretizing the accumulator + constraining
+η' is **declined** — it would make the Agda STRONGER than the validator (νHead authenticates η via `msVfy`,
+not by recomputing `accUTxO`); abstract Value algebra + crypto/accumulator laws stay postulated (KZG not
+modelled); findings D (`headSeed` absent from Agda `Open`) and E (Plutus single-signer cardinality vs Agda
+`signedByParticipant`) and the B-off-2..7 off-chain clarity notes are documented coverage boundaries;
+`abort`/`commit`/`collectCom` are not modelled (this variant inits directly to `Open` — confirm intent);
+the concurrent-deposit dilution/lockout is an upstream liveness concern (deferred, confirm upstream).

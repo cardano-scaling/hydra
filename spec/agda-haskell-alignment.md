@@ -2,6 +2,10 @@
 
 *(Part A: on-chain Agda vs the Plutus `νHead` validator. Part B: off-chain Agda vs `HeadLogic.hs`.)*
 
+> The single canonical list of all outstanding items lives in
+> [`discrepancies-and-fixes.md` → "Still open (scoped)"](./discrepancies-and-fixes.md). This report is
+> the findings/coverage-boundary record; it does not maintain a parallel open list.
+
 This report compares the **Agda on-chain model** (`spec/src/Hydra/Protocol/OnChain.lagda.typ`:
 `HeadDatum`, `HeadRedeemer`, the transition relation `_⟶⟨_⟩_`, and the per-transaction
 validity bundles) against the **Plutus `νHead` validator** that actually runs on-chain
@@ -35,19 +39,27 @@ unit-robust, structural conjuncts of the validity bundles (version discipline, s
 ordering, contester initialisation, the fanout `m > 0` guard); a typecheck-only bridge
 (`ReferenceBridge.agda`) proves each bundle *implies* its reference accepts. The checker is
 extracted to Haskell via MAlonzo (the `hydra-agda` package) and run as a second oracle in the
-`hydra-tx` mutation tests (`Hydra.Tx.Contract.CloseDifferential`,
-`Hydra.Tx.Contract.Differential`), asserting *reference-reject ⇒ validator-reject* across the
-close / increment / decrement / contest / fanout families. A future validator change that drops
-a decidable spec check fails these tests (demonstrated: deleting `mustNotChangeVersion` makes
-the close differential fail). The crypto / value / accumulator / deadline conjuncts remain
-injected as mocked operations and are *not* covered by this mechanization; they are still
-matched by manual review (below).
+`hydra-tx` mutation tests (`Hydra.Tx.Contract.CloseDifferential`, `Hydra.Tx.Contract.Differential`,
+`Hydra.Tx.Contract.InitDifferential`, `Hydra.Tx.Contract.DepositDifferential`), asserting
+*reference-reject ⇒ validator-reject* across the close / increment / decrement / contest / fanout /
+**init** (μHead token count) / **recover** (νDeposit after-deadline) families. A future validator change
+that drops a decidable spec check fails these tests (demonstrated: deleting `mustNotChangeVersion` makes
+the close differential fail). The crypto / accumulator conjuncts, the *remaining* deadline conjuncts
+(close bounded-validity `hi∸lo≤cp`, the conditional contest deadline, the fanout after-deadline), the
+token-PLACEMENT and burn-count checks, and the *non-lovelace / multi-asset* component of value
+conservation remain injected as mocked operations and are *not* covered by this mechanization; they are
+still matched by manual review (below). (The close contestation deadline, the recover after-deadline, and
+the init mint count ARE now mechanized — see below.)
 
 **Scope — what the differential test does and does not establish (do not over-sell):**
 
 - *Catches:* a validator that silently drops one of the **structural** conjuncts, i.e. close: version /
   contestation-period preservation, contesters initialised empty, `closeInitial⇒v=0∧s=0`,
-  `closeAny⇒0<s`; increment: version `= suc` **and lovelace value conservation**
+  `closeAny⇒0<s`, **and the contestation deadline** (`tfinal == validity.hi + cp`, caught via the
+  `deadlineDriftTx` mutation: "reference rejects a close with a drifted contestation deadline"
+  === `Just False`); recover (νDeposit): **the after-deadline conjunct** (`tRecover < validityLo`,
+  caught via `deadlineNotReachedRecoverTx`); init (μHead): **the token count** (`mintedCount == n+1`,
+  caught via `extraTokenInitTx`); increment: version `= suc` **and lovelace value conservation**
   (`adaIn + adaDelta == adaOut`: head input + claimed deposit = head output on the ada component, read
   live off the tx); decrement: version `= suc` **and lovelace value conservation**
   (`adaOut + adaDelta == adaIn`: head output + decommitted outputs = head input, the decommit outputs
@@ -59,9 +71,12 @@ matched by manual review (below).
   is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
   `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  token-burn count, deadline checks, and the **non-lovelace** parts of value conservation (multi-asset
-  token quantities in the head/deposit/decommit values, which the lovelace component does not see).
-  A validator could forge any of these and the test would still pass.
+  the token-burn count and token PLACEMENT (ST/PT into the head output), the *remaining* deadline checks
+  (close bounded-validity `hi∸lo≤cp`, the conditional contest deadline, the fanout after-deadline), and
+  the **non-lovelace** parts of value conservation (multi-asset token quantities in the head/deposit/
+  decommit values, which the lovelace component does not see). A validator could forge any of these and
+  the test would still pass. (The close contestation deadline, the recover after-deadline, and the init
+  mint count are NOW caught — see *Catches* above.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
@@ -205,22 +220,27 @@ one signer = the contester" identity is substantive; the Agda abstracts it. Wort
 
 ### Coverage boundaries (Agda intentionally does not model these)
 
-- **`μHead` minting policy** (`HeadTokens`): the `init` checks (`cid = hash(μHead(seed))`,
-  minting exactly `n+1` tokens into the head output) and `abort`. The Agda relation starts at
-  `Open`; init is described only in the spec prose (§init). The fanout **burn** of `n+1`
-  tokens *is* modelled (`burnAllTokensOK`).
-- **Deposit/recover** (`deposit.ak` / `Deposit.hs`): the deposit deadline, the
-  redeemer-index coupling that ties a deposit `Claim` to an `Increment`, and recovery. The νDeposit
-  validator itself is not modelled. (As of the six-direction audit, Agda's `incrementValid` now DOES
-  check the claimed deposit `ref` is spent — `depositSpentOK ctx ref`, matching Plutus
-  `claimedDepositIsSpent` and §5.4 — but the νDeposit-side checks remain out of scope.)
+- **`μHead` minting policy** (`HeadTokens`): the init token **COUNT** (minting exactly `n+1` tokens,
+  `mintedCount == suc n`) is NOW mechanized — `initRefᵇ` (`Reference.agda`) + `initValid→ref`
+  (`ReferenceBridge.agda`) + the `InitDifferential` differential (`extraTokenInitTx`). Still out of
+  scope: token **PLACEMENT** (single ST + n unique PTs into the head output), the seed-spent check, the
+  datum `headId`/`seed` binding (need multi-asset token-name lookup), and `abort`. The fanout **burn**
+  of `n+1` tokens (`burnAllTokensOK`) is modelled in the bundle but still injected at the reference layer.
+- **Deposit/recover** (`deposit.ak` / `Deposit.hs`): the **Recover** arm after-deadline conjunct
+  (`tRecover < validityLo`) is NOW mechanized — `recoverRefᵇ` (`Reference.agda`) + `recoverValid→ref`
+  (`ReferenceBridge.agda` via `<ᴮ-sound`) + the `DepositDifferential` differential
+  (`deadlineNotReachedRecoverTx`). Still out of scope: the recovered-outputs serialisation-hash equality
+  (mocked `recoverHashOK`), and the **Claim** arm (the before-deadline `hi ≤ tRecover` is type-encoded in
+  `claimValid` but not bridged/differentially tested; the redeemer-index coupling tying `Claim` to an
+  `Increment`). Agda's `incrementValid` does check the claimed deposit `ref` is spent
+  (`depositSpentOK ctx ref`, matching Plutus `claimedDepositIsSpent`).
 - **CRS reference-input mechanics** (`withCRSLookup`/`resolveCRS`/`CRS.hs`): the Agda `crs :
   OutputRef` redeemer parameter is inert; Plutus enforces the CRS reference script hash,
   address, and non-empty datum, and derives subset scalars by hashing outputs. Pure
   cryptographic plumbing beneath the abstract `accVerify`/`accVerifyExclude`.
-- **Value law strength.** On close/contest the Agda states `headValueIn ≤ᵛ headValue`
-  (monotone), while Plutus requires exact equality (`mustPreserveHeadValue`). Plutus is the
-  *stronger* of the two, so no gap; the spec law is merely looser than necessary.
+- **Value law strength.** On close/contest the Agda now states `headValueIn ≡ headValue` (exact
+  equality, AUDIT-5), matching Plutus `mustPreserveHeadValue`. (This was previously `≤ᵛ` (monotone)
+  and is no longer.)
 
 ---
 
@@ -233,9 +253,10 @@ one signer = the contester" identity is substantive; the Agda abstracts it. Wort
 | Datum fields | match, except `Open.η` commitment-vs-hash (A) and `headSeed` (D) |
 | Transition dispatch | exact (8 transitions + reject-all) |
 | close / contest checks | full match (Plutus value law tighter; single-signer abstracted) |
-| increment / decrement checks | full match (deposit deadline/claim out of scope) |
+| increment / decrement checks | full match (deposit **Recover** after-deadline now mechanized; deposit **Claim** before-deadline + redeemer coupling out of scope) |
 | fanout / partial / final-partial checks | full match (the `0 < m` gap in full fanout, B, now fixed) |
-| `μHead` init/abort, deposit validator, CRS | not modelled in Agda (coverage boundary) |
+| `μHead` init token count, νDeposit recover after-deadline | mechanized (reference + bridge + differential) |
+| `μHead` token placement/abort, νDeposit Claim arm, CRS | not modelled in Agda (coverage boundary) |
 
 ---
 
