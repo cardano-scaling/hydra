@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
+version of each observed transaction via script hash matching, removing the
+compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
+
 ## [2.3.0] - 2026.07.15
 
 - Add **selective partial fanout**: distribute a chosen subset of a closed
