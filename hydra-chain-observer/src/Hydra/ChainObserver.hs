@@ -4,12 +4,12 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
-import Data.Version (showVersion)
+import Data.Version (Version, showVersion)
 import Hydra.Blockfrost.ChainObserver (blockfrostClient)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
 import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
-import Hydra.Contract qualified as Contract
+import Hydra.ChainObserver.VersionRegistry (kvVersion, loadKnownVersions)
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
@@ -21,7 +21,7 @@ main :: IO ()
 main = do
   Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
   withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
-    traceWith tracer KnownScripts{hydraScriptCatalogue = Contract.hydraScriptCatalogue}
+    traceWith tracer KnownVersions{knownVersions = kvVersion <$> loadKnownVersions}
     NodeClient{follow, networkId} <-
       case backend of
         Direct{networkId, nodeSocket} -> do
@@ -33,11 +33,13 @@ main = do
     follow startChainFrom $ \observations ->
       case explorerBaseURI of
         Nothing -> pure ()
-        Just uri -> forM_ observations $ reportObservation networkId uri
+        Just uri -> forM_ observations $ \(mVer, obs) ->
+          reportObservation networkId uri (fromMaybe hydraNodeVersion mVer) obs
 
 -- | Submit observation to a 'hydra-explorer' at given base 'URI'.
-reportObservation :: NetworkId -> URI -> ChainObservation -> IO ()
-reportObservation networkId baseURI observation = do
+-- The version is used in the URL path; ticks fall back to the binary version.
+reportObservation :: NetworkId -> URI -> Version -> ChainObservation -> IO ()
+reportObservation networkId baseURI version observation = do
   req <- parseRequestThrow url <&> setRequestBodyJSON observation
   httpNoBody req <&> getResponseBody
  where
@@ -45,6 +47,4 @@ reportObservation networkId baseURI observation = do
     Mainnet -> "mainnet"
     (Testnet (NetworkMagic magic)) -> show magic
 
-  version = showVersion hydraNodeVersion
-
-  url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> version
+  url = "POST " <> show baseURI <> "/observations/" <> networkParam <> "/" <> showVersion version

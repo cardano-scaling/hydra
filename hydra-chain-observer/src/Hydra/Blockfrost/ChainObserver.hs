@@ -171,15 +171,15 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
 
   -- Collect head observations
   let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
-  mapM_ (traceWith tracer) $ mapMaybe logObservation observations
+  mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
-  let observationsAt = ChainObservation point blockNo <$> observations
+  let observationsAt = [(Just v, ChainObservation point blockNo obs) | (v, obs) <- observations]
 
   -- Call observer handler
   observerHandler $
     if null observationsAt
-      then [ChainObservation point blockNo NoHeadTx]
+      then [(Nothing, ChainObservation point blockNo NoHeadTx)]
       else observationsAt
 
   -- Next
