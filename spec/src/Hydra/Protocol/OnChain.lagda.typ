@@ -241,6 +241,11 @@ postulate
 -- abstract — `keys : ℙ VKey` is the set-theory powerset, whose membership the (opaque) List-Model does
 -- not expose for direct querying, so `signerKeyHash ctx kh` (= `∃ vk ∈ keys, hash vk ≡ kh`) is its thin
 -- residue. The head currency `cid` is supplied by the caller's datum.
+-- SCOPE NOTE: this reads the PT off `headValue` (the produced head OUTPUT). The real validator's
+-- `mustBeSignedByParticipant` loops over the spent INPUTS instead. The two coincide here: every bundle
+-- carrying this field also preserves/grows the head value with its PTs intact (close/contest/decrement
+-- preserve it exactly, increment adds a deposit), so the head input and output carry the same PTs under
+-- the single-head-script-UTxO assumption. They could differ only on a malformed multi-head tx.
 postulate
   signerKeyHash : Context → ℍ → Set
 
@@ -429,8 +434,9 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- the increment deposit value (DERIVED: `depositsValue` sums the value at the νDeposit script
 -- `depHash` over ALL spent inputs, as Plutus `totalNonHeadInputValue`) and the decrement decommit
 -- value (DERIVED: `decommitValue` sums the `m` outputs after the head output, as Plutus
--- `take m (tail outputs)`), and the participant signature (DERIVED: `signedByParticipant` is now a
--- structural `∃ vk ∈ keys, quantityOf valHead (cid, hash vk) ≡ 1`). What remains abstracted: the value
+-- `take m (tail outputs)`), and the participant signature (DERIVED for close/contest/increment/decrement
+-- only — fanout/partial-fanout have no such field: `signedByParticipant cid ctx` is now a structural
+-- `∃ kh, signerKeyHash ctx kh × quantityOf valHead (cid, kh) ≡ 1`). What remains abstracted: the value
 -- ARITHMETIC laws (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ`) and per-asset projection `quantityOf` on the opaque `Value`,
 -- crypto (`msVfy`/`snapshotSigOK`) and accumulator ops (`accVerify`/`accVerifyExclude`/`accUTxO`), all
 -- via postulated laws. So value CONSERVATION is now stated over real head, increment-deposit AND
@@ -564,6 +570,10 @@ postulate
 -- `mintedCountOK`/`stPlaced`/`tokensPlaced` are bridged + differentially tested (`initValid→ref`, the
 -- `InitDifferential` suite). The thin `initValid` function dispatches on the produced `Open` head datum
 -- (binding its cid/n/v/η) and is ⊥ for any other produced shape.
+-- WHY count + ST presence pins placement: each head-policy token is minted with quantity 1 (the μHead
+-- policy), so the mint COUNT (n+1) equals the number of DISTINCT tokens; with the head output carrying
+-- n+1 DISTINCT head-policy tokens (`tokensPlaced`) and the ST among them (`stPlaced`), every minted token
+-- lands in the head output (pigeonhole) — no token can be minted-but-not-placed or duplicated.
 record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η : AccCommitment) : Set where
   constructor mkInitValid
   field
@@ -737,7 +747,9 @@ See the initialTx behavior in @fig:off-chain-prot for details about these checks
 The decidable core of these checks is formalised as the `initValid` predicate (a _creation_
 predicate --- init has no predecessor datum, so it is not a `_⟶⟨_⟩_` step): $cid = hash(muHead(seed))$,
 the seed is spent, exactly $nop + 1$ tokens of $cid$ are minted, and the produced Open is initial
-($v = 0$, $eta = accUTxO(emptyset)$). Token placement into the head value is left abstract.
+($v = 0$, $eta = accUTxO(emptyset)$). Token placement into the head value is also modelled (the state
+token is present and the head output carries exactly the $nop + 1$ head-policy tokens); the seed-spend
+and datum binding remain hand-reviewed boundaries.
 
 #figure(initTx-diagram, caption: [$mtxInit$ transaction spending a seed UTxO and producing the head output directly in state $stOpen$.]) <fig:initTx>
 
