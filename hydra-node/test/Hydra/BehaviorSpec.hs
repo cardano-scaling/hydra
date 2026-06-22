@@ -474,12 +474,12 @@ spec = parallel $ do
         it "commit snapshot only approved when deadline not too soon" $ do
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
-              let dpShort = DepositPeriod 60
-              let dpLong = DepositPeriod 3600
-              withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
-                withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
+              -- NOTE: All nodes in a head share the same deposit period.
+              let dp = defaultDepositPeriod
+              withHydraNode' dp aliceSk [bob] chain $ \n1 ->
+                withHydraNode' dp bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  -- NOTE: We use a deadline that is okay for alice, but too soon for bob.
+                  -- NOTE: The deadline is too soon relative to the deposit period.
                   deadline <- addUTCTime 600 <$> getCurrentTime
                   txid <- simulateDeposit chain testHeadId (utxoRef 123) deadline
                   waitUntilMatch [n1, n2] $ \case
@@ -513,12 +513,10 @@ spec = parallel $ do
         it "commit snapshot only approved when deposit settled" $
           shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain -> do
-              -- NOTE: Only a maximum difference of 600 seconds is handled by the HeadLogic. See
-              -- https://hydra.family/head-protocol/unstable/docs/known-issues#deposit-periods
-              let dpShort = DepositPeriod 60
-              let dpLong = DepositPeriod 600
-              withHydraNode' dpShort aliceSk [bob] chain $ \n1 ->
-                withHydraNode' dpLong bobSk [alice] chain $ \n2 -> do
+              -- NOTE: All nodes in a head share the same deposit period.
+              let dp = defaultDepositPeriod
+              withHydraNode' dp aliceSk [bob] chain $ \n1 ->
+                withHydraNode' dp bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
                   deadline <- newDeadlineFarEnoughFromNow
                   txid <- simulateDeposit chain testHeadId (utxoRef 123) deadline
@@ -529,9 +527,9 @@ spec = parallel $ do
                   let waitForApproval = waitUntilMatch [n1, n2] $ \case
                         CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
                         _ -> Nothing
-                  timeout (fromIntegral dpLong) waitForApproval >>= \case
+                  timeout (fromIntegral dp) waitForApproval >>= \case
                     Nothing -> pure ()
-                    Just _ -> failure "Deposit was approved before all deposit periods passed"
+                    Just _ -> failure "Deposit was approved before the deposit period passed"
                   -- Now it should get approved
                   waitForApproval
 
