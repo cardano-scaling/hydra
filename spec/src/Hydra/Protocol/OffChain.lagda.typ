@@ -218,6 +218,18 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
     → Snapshot.number snap ≡ LocalState.seenNumber st    -- S̄'.s = ŝ
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
+
+  -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
+  -- onOpenNetworkReqSn). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
+  -- (the requested number is one above the party's CONFIRMED snapshot — combined with the §7
+  -- `signHonest` no-in-flight precondition ŝ = s̄, this is the node's `requireReqSn` s = ŝ+1 /
+  -- `waitNoSnapshotInFlight`). Signing advances the last-seen number ŝ ← s, the local mutation that
+  -- makes one-signature-per-round (`sigDedup`) DERIVABLE. The requested-tx applicability and the
+  -- resulting snapshot's tx set are handled at the §7 signing step (they need U₀ / the ledger laws).
+  reqSn-sign : ∀ {st v s txReq txα txω}
+    → v ≡ LocalState.seenVersion st
+    → s ≡ suc (Snapshot.number (LocalState.confirmed st))
+    → st handles (reqSn v s txReq txα txω) ↝ record st { seenNumber = s }
 ```
 
 == Protocol flow

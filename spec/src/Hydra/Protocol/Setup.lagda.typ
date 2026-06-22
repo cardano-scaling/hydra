@@ -43,8 +43,8 @@ first place), the party aborts the initiation protocol and ignores any further
 action. Finally, at least one of the participants posts the $mtxInit$ transaction
 onchain as described next in @sec:on-chain.
 
-The parameters each party stores after a successful setup are captured by the
-following Agda record (verification keys and the contestation period are kept
+The parameters each party stores after a successful setup are captured by an
+Agda record (verification keys and the contestation period are kept
 abstract, the latter as a duration in time units):
 
 ```agda

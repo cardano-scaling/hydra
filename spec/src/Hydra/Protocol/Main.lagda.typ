@@ -42,4 +42,28 @@ import Hydra.Protocol.ReferenceBridge
 #include "OffChain.typ"
 #include "Security.typ"
 
+#pagebreak()
+
+= Agda formalisation <agda-appendix>
+
+The specification above is _literate Agda_: every definition, validity bundle, and proof is
+machine-checked by Agda (`agda Main.lagda.typ`) as part of building this document. To keep the body
+readable, the rendered Agda is collected here rather than shown inline; each block appears under the
+section it supports, in document order, and the body links here in place. This appendix is the
+rendered form of the same typechecked source, not a copy of it.
+
+#agda-appendix-mode.update(true)
+
+#context {
+  let blocks = query(<agda-src>)
+  let cur = none
+  for b in blocks {
+    if b.value.secnum != cur {
+      heading(level: 2, b.value.sec)
+      cur = b.value.secnum
+    }
+    raw(b.value.src, lang: "agda", block: true)
+  }
+}
+
 #bibliography("/short.bib", style: "springer-basic")

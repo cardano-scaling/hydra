@@ -91,6 +91,12 @@ m <ᵇ n = (suc m) ≤ᵇ n
 _≤ᴮ_ : Nat → Nat → Bool
 a ≤ᴮ b = a < suc b
 
+-- Boolean conditional (hand-rolled to keep the extractable module self-contained over Agda.Builtin;
+-- used for the contest conditional deadline-update rule). Extracts to a clean GHC `case`.
+if_then_else_ : {A : Set} → Bool → A → A → A
+if true  then a else _ = a
+if false then _ else b = b
+
 -- ── the decidable close checker ───────────────────────────────────────────────────────────
 -- Mirrors the decidable, unit-robust conjuncts of `closeValid` (OnChain.lagda.typ):
 --   • version preserved (Open.v ≡ Closed.v) and contestation period preserved
@@ -101,9 +107,12 @@ a ≤ᴮ b = a < suc b
 --     validityHi + cp (`closeDeadlineOK`, Plutus `checkDeadline`/`makeContestationDeadline`). Uses the
 --     BUILTIN `_==_` (native Integer eq) and `_+_`: the values are POSIXTime ms, far too large for the
 --     structural `_==ᵇ_` (which is O(n) unary recursion). `validityHi` is the tx upper bound in ms.
--- The remaining crypto/value/bounded-validity conjuncts are injected (mock).
-closeRefᵇ : Ops → Openᶜ → Closedᶜ → CloseTagᶜ → Nat → Bool
-closeRefᵇ ops o c tag validityHi =
+--   • the validity range is bounded so the deadline is at most one period ahead: `hi ∸ lo ≤ cp`
+--     (`validityBounded`, §5.6); uses the BUILTIN truncated `_-_` and `_≤ᴮ_` (POSIXTime ms). `validityLo`
+--     is the tx LOWER bound in ms.
+-- The remaining crypto/value conjuncts are injected (mock).
+closeRefᵇ : Ops → Openᶜ → Closedᶜ → CloseTagᶜ → Nat → Nat → Bool
+closeRefᵇ ops o c tag validityHi validityLo =
       (Openᶜ.versionO o ==ᵇ Closedᶜ.versionC c)
    && (Openᶜ.cpO o ==ᵇ Closedᶜ.cpC c)
    && (Closedᶜ.contesterLenC c ==ᵇ zero)
@@ -111,6 +120,7 @@ closeRefᵇ ops o c tag validityHi =
    && anyOK tag
    && closeCryptoOK ops o c tag
    && (Closedᶜ.tfinalC c == (validityHi + Openᶜ.cpO o))
+   && ((validityHi - validityLo) ≤ᴮ Openᶜ.cpO o)
   where
     initialOK : CloseTagᶜ → Bool
     initialOK closeInitialᶜ = (Openᶜ.versionO o ==ᵇ zero) && (Closedᶜ.snapshotC c ==ᵇ zero)
@@ -136,7 +146,10 @@ record IncIOᶜ : Set where
     adaIn      : Nat
     adaDelta   : Nat
     adaOut     : Nat
-{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer Integer Integer Integer #-}
+    nonAdaIn   : Nat   -- total NON-ada token quantity of the head input  (`nonAdaOf headValueIn`)
+    nonAdaDelta : Nat  -- total non-ada quantity of the deposit / decommit (`nonAdaOf depositsValue` / `decommitValue`)
+    nonAdaOut  : Nat   -- total non-ada token quantity of the head output (`nonAdaOf headValue`)
+{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer Integer Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC IncIOᶜ = data HsIncIO (MkIncIO) #-}
 
 record OpsInc : Set where
@@ -152,6 +165,7 @@ incRefᵇ : OpsInc → IncIOᶜ → Bool
 incRefᵇ ops i =
      (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i))
   && ((IncIOᶜ.adaIn i + IncIOᶜ.adaDelta i) == IncIOᶜ.adaOut i)
+  && ((IncIOᶜ.nonAdaIn i + IncIOᶜ.nonAdaDelta i) == IncIOᶜ.nonAdaOut i)
   && incCryptoOK ops i
 
 -- decrement: same transition shape (version bumps) AND head value SHRINKS by the decommit
@@ -163,6 +177,7 @@ decRefᵇ : OpsInc → IncIOᶜ → Bool
 decRefᵇ ops i =
      (IncIOᶜ.versionOut i ==ᵇ suc (IncIOᶜ.versionIn i))
   && ((IncIOᶜ.adaOut i + IncIOᶜ.adaDelta i) == IncIOᶜ.adaIn i)
+  && ((IncIOᶜ.nonAdaOut i + IncIOᶜ.nonAdaDelta i) == IncIOᶜ.nonAdaIn i)
   && incCryptoOK ops i
 
 -- ══ contest ═══════════════════════════════════════════════════════════════════════════════
@@ -182,22 +197,31 @@ record ContestIOᶜ : Set where
     contesterLenOut : Nat
     tfinalK         : Nat   -- the (input) recorded contestation deadline (POSIXTime ms)
     validityHiK     : Nat   -- the contest tx's upper validity bound (POSIXTime ms)
-{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer #-}
+    tfinalOutK      : Nat   -- the PRODUCED datum's recorded deadline tfinal' (POSIXTime ms)
+    numPartiesK     : Nat   -- n: the number of parties (from the head datum)
+    cpK             : Nat   -- the contestation period T (added when not all parties have contested)
+{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC ContestIOᶜ = data HsContestIO (MkContestIO) #-}
 
 record OpsContest : Set where
   field contestCryptoOK : ContestIOᶜ → Bool
 open OpsContest public
 
--- The added conjunct `validityHi ≤ᴮ tfinal` is the "posted before the contestation deadline" guard
--- (txValidityMax ≤ tfinal), via the BUILTIN-based `_≤ᴮ_` (POSIXTime ms). The conditional deadline-UPDATE
--- rule (tfinal' = if all-contested then tfinal else tfinal+cp) stays in the injected `contestCryptoOK`.
+-- Decidable contest conjuncts: version preserved, snapshot strictly increases, one contester appended,
+-- posted before the deadline (`validityHi ≤ᴮ tfinal`), AND the conditional deadline-UPDATE rule (§5.7,
+-- Plutus `makeContestationDeadline`): tfinal' = tfinal if EVERY party has now contested
+-- (contesterLenOut ≡ n), else tfinal + cp. The count test uses the structural `_==ᵇ_` (small n); the
+-- deadline arithmetic/equality use the BUILTIN `_+_`/`_==_` (POSIXTime ms). Crypto/value injected.
 contestRefᵇ : OpsContest → ContestIOᶜ → Bool
 contestRefᵇ ops c =
       (ContestIOᶜ.versionInK c ==ᵇ ContestIOᶜ.versionOutK c)
    && (ContestIOᶜ.snapIn c <ᵇ ContestIOᶜ.snapOut c)
    && (ContestIOᶜ.contesterLenOut c ==ᵇ suc (ContestIOᶜ.contesterLenIn c))
    && (ContestIOᶜ.validityHiK c ≤ᴮ ContestIOᶜ.tfinalK c)
+   && (ContestIOᶜ.tfinalOutK c ==
+        (if (ContestIOᶜ.contesterLenOut c ==ᵇ ContestIOᶜ.numPartiesK c)
+         then ContestIOᶜ.tfinalK c
+         else (ContestIOᶜ.tfinalK c + ContestIOᶜ.cpK c)))
    && contestCryptoOK ops c
 
 -- ══ fanout / finalPartialFanout ═══════════════════════════════════════════════════════════
@@ -280,14 +304,19 @@ initRefᵇ ops m =
 -- ══ deposit claim (νDeposit, Claim redeemer) ══════════════════════════════════════════════════
 -- The decidable conjunct of `claimValid` (deposit.ak's Claim arm, §5.2): the increment tx collecting
 -- the deposit is posted BEFORE the recover deadline — txValidityMax ≤ tRecover, i.e.
--- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms). The "spent by an Increment of its own
--- head" check (`depositClaimedBy` + the Increment-redeemer coupling) is structural and is injected.
+-- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms), AND the own-head binding
+-- (`depositClaimedBy`, deposit.ak `expect_increment_redeemer`): the deposit datum's head id equals the
+-- head being spent. Head ids are hashes; the boundary represents each as the Integer `depositCidC` /
+-- `headCidC` (a deterministic encoding supplied by the test) and checks equality with the BUILTIN `_==_`
+-- (native Integer eq; the encodings may be large). The Increment-redeemer coupling stays injected.
 record ClaimIOᶜ : Set where
   constructor mkClaimIOᶜ
   field
     tRecoverC   : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
     validityHiC : Nat   -- the claim (increment) tx's upper validity bound (POSIXTime ms)
-{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer #-}
+    depositCidC : Nat   -- the deposit datum's head id, encoded as an Integer
+    headCidC    : Nat   -- the spent head's id, encoded as an Integer
+{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer Integer Integer #-}
 {-# COMPILE GHC ClaimIOᶜ = data HsClaimIO (MkClaimIO) #-}
 
 record OpsClaim : Set where
@@ -296,4 +325,6 @@ open OpsClaim public
 
 claimRefᵇ : OpsClaim → ClaimIOᶜ → Bool
 claimRefᵇ ops c =
-  (ClaimIOᶜ.validityHiC c ≤ᴮ ClaimIOᶜ.tRecoverC c) && claimIncrementOK ops c
+     (ClaimIOᶜ.validityHiC c ≤ᴮ ClaimIOᶜ.tRecoverC c)
+  && (ClaimIOᶜ.depositCidC c == ClaimIOᶜ.headCidC c)
+  && claimIncrementOK ops c

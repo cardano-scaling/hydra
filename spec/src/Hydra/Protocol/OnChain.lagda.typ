@@ -43,7 +43,7 @@ The deposit protocol defines one validator script:
 
 The head output datum $datumHead$ ranges over the protocol states. The state
 machine and its per-state fields (as enumerated in the transitions below) are
-captured by the following Agda type, with the redeemer $redeemerHead$ selecting
+captured by an Agda type, with the redeemer $redeemerHead$ selecting
 the $nuHead$ transition:
 
 ```agda

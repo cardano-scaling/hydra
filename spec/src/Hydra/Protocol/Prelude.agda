@@ -81,6 +81,14 @@ postulate
   -- (extractable) lovelace component.
   adaOf    : Value → ℕ
   adaOf-+ᵛ : ∀ a b → adaOf (a +ᵛ b) ≡ adaOf a + adaOf b
+  -- Non-ada projection: the TOTAL quantity of all non-ada tokens in a value. Also an additive
+  -- homomorphism, so it commutes with `_+ᵛ_` exactly like `adaOf`. Checking conservation on BOTH
+  -- projections (`adaOf` and `nonAdaOf`) catches value movement in ada AND in native tokens, closing
+  -- the "non-ada token siphon is invisible" gap of an ada-only differential. (Per-token granularity
+  -- would need the full asset map; this total-quantity projection catches any siphon that changes the
+  -- non-ada total, which a real token theft does.)
+  nonAdaOf    : Value → ℕ
+  nonAdaOf-+ᵛ : ∀ a b → nonAdaOf (a +ᵛ b) ≡ nonAdaOf a + nonAdaOf b
   -- The algebra the value-conservation predicates reason over: (Value, _+ᵛ_, εᵛ) is a commutative
   -- monoid and _≤ᵛ_ a partial order compatible with addition. All hold of the pointwise signed
   -- multi-asset map. NB quantities are ℤ (negative = burning), so `a ≤ᵛ a +ᵛ b` does NOT hold in

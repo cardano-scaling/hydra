@@ -44,12 +44,14 @@ extracted to Haskell via MAlonzo (the `hydra-agda` package) and run as a second 
 *reference-reject ⇒ validator-reject* across the close / increment / decrement / contest / fanout /
 **init** (μHead token count) / **recover** (νDeposit after-deadline) families. A future validator change
 that drops a decidable spec check fails these tests (demonstrated: deleting `mustNotChangeVersion` makes
-the close differential fail). The crypto / accumulator conjuncts, the *remaining* deadline conjuncts
-(close bounded-validity `hi∸lo≤cp`, the conditional contest deadline, the fanout after-deadline), the
-token-PLACEMENT and burn-count checks, and the *non-lovelace / multi-asset* component of value
-conservation remain injected as mocked operations and are *not* covered by this mechanization; they are
-still matched by manual review (below). (The close contestation deadline, the recover after-deadline, and
-the init mint count ARE now mechanized — see below.)
+the close differential fail). The crypto / accumulator-membership conjuncts, the token-PLACEMENT check,
+the νDeposit Increment-redeemer coupling, the fanout *value conservation* (the `headAda` datum-value term
+has no faithful tx counterpart — a documented boundary, not mechanizable here), and the *non-lovelace /
+multi-asset* component of value conservation remain injected as mocked operations and are *not* covered by
+this mechanization; they are still matched by manual review (below). (NOW mechanized — see below: the
+close contestation deadline AND its bounded-validity `hi−lo≤cp`; the contest before-deadline AND the
+conditional deadline-UPDATE rule; the recover after-deadline; the claim before-deadline AND the head-id
+binding; the init mint count; the fanout burn-count and after-deadline.)
 
 **Scope — what the differential test does and does not establish (do not over-sell):**
 
@@ -66,24 +68,28 @@ the init mint count ARE now mechanized — see below.)
   read as `take numberOfDecommitOutputs (tail outputs)` off the tx, with a deterministic
   lovelace-perturbing mutation `DecrementChangeHeadLovelace` ensuring the catch fires); contest:
   version preserved + snapshot strictly increases + exactly one contester appended **+ posted before
-  the contestation deadline** (`validityHi ≤ tfinal`, caught via `MutateValidityPastDeadline` →
-  `UpperBoundBeyondContestationDeadline`); fanout: `0 < m` **+ all `n+1` head tokens burned**
-  (`burnedCount == n+1`) **+ posted after the deadline** (`tfinal < lo`); claim (νDeposit): **the
-  before-deadline conjunct** (`validityHi ≤ tRecover`, caught via `deadlineSurpassedClaimTx` →
-  `DepositPeriodSurpassed`). One end-to-end drift-catch is demonstrated (close `mustNotChangeVersion`).
+  the contestation deadline** (`validityHi ≤ tfinal`, `MutateValidityPastDeadline` →
+  `UpperBoundBeyondContestationDeadline`) **+ the conditional deadline-UPDATE rule** (`tfinal' = if
+  all-contested then tfinal else tfinal+cp`); close ALSO **+ bounded validity** (`hi − lo ≤ cp`); fanout:
+  `0 < m` **+ all `n+1` head tokens burned** (`burnedCount == n+1`) **+ posted after the deadline**
+  (`tfinal < lo`); claim (νDeposit): **the before-deadline conjunct** (`validityHi ≤ tRecover`, caught
+  via `deadlineSurpassedClaimTx` → `DepositPeriodSurpassed`) **+ the head-id binding** (`depositCid ==
+  headCid`, caught via the cross-head deposit mutation). One end-to-end drift-catch is demonstrated
+  (close `mustNotChangeVersion`).
   (The increment/decrement
   lovelace checks use the builtin `_==_`, extracted to native integer equality; the structural `_==ᵇ_`
   is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
   `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  token PLACEMENT (ST/PT into the head output), the νDeposit Claim **own-head binding**
-  (`expect_increment_redeemer`), the *remaining* deadline checks (close bounded-validity `hi∸lo≤cp` and
-  the conditional contest deadline-UPDATE rule `tfinal' = if all-contested …`), and the **non-lovelace**
-  parts of value conservation (multi-asset token quantities in the head/deposit/decommit values, which
-  the lovelace component does not see). A validator could forge any of these and the test would still
-  pass. (The close contestation deadline, the contest before-deadline, the fanout burn-count and
-  after-deadline, the recover after-deadline, the claim before-deadline, and the init mint count are NOW
-  caught — see *Catches* above.)
+  token PLACEMENT (ST/PT into the head output), the νDeposit Claim **Increment-redeemer coupling** (the
+  other half of `expect_increment_redeemer`; the head-id half IS caught), **fanout value conservation**
+  (the `headAda` datum-value term has no faithful tx counterpart — a documented boundary), and the
+  **per-token granularity** of increment/decrement value conservation (it now checks ada AND the total
+  non-ada token quantity via `nonAdaOf` — catching native-token siphons, demonstrated by
+  `tokenSiphonIncrementTx` — but two token sets with the same total alias, so distinguishing them needs
+  the full `Value` map). A validator could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close contestation deadline + bounded validity; the
+  contest before-deadline + conditional deadline-UPDATE; the fanout burn-count + after-deadline; the
+  recover after-deadline; the claim before-deadline + head-id binding; the init mint count.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of

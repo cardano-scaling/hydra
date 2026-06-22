@@ -121,7 +121,7 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
   multisignature via the scheme's verifier `msVfy` (`AggVerified snap = msVfy aggKey (msgOf snap)
   (sigOf snap) ≡ true`), and the named axiom `ms-unforgeable : AggVerified snap → Certified sys snap`
   (the scheme's unforgeability) bridges that operational check to "every party signed". Residual
-  postulates: only the ledger `applyTxs`/nil, the bridge glue `outsOf`, `ms-unforgeable`, and
+  postulates: only the ledger `applyTxs`/nil/compose, the bridge glue `outsOf`, `ms-unforgeable`, and
   `Liveness`. **The on-chain and off-chain halves remain
   linked** (`Reflects` rebased to a finalized snapshot + `reflect-sound`/`reflect-fanout-⊆`): the
   on-chain Closed datum's accumulator commits to `U₀ ∘ (txs snap)` and the fanout distributes only its
@@ -370,47 +370,66 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
 "impl-C2/impl-C3" below are different numbering schemes — descriptive ids are used here to avoid clash.
 
 **A. Extractable reference / bridge / differential — conjuncts still injected (`const True`):**
-- **contest conditional deadline UPDATE** (`C3-contest-deadline`): the *posted-before-deadline*
-  conjunct (`hi ≤ tfin`) is now DONE — `contestRefᵇ` checks `validityHi ≤ᴮ tfinal`, bridged via
-  `contestValid→ref` (`≤ᴮ-sound (ContestValid.beforeDeadline …)`) and differentially tested (the
-  `MutateValidityPastDeadline` mutation drives `UpperBoundBeyondContestationDeadline`). What REMAINS
-  injected is the conditional deadline-UPDATE rule `contestDeadlineOK`
-  (`tfinal' = if all-contested then tfinal else tfinal + cp`), which needs the output datum's `tfinal'`
-  and the all-contested test at the reference layer.
-- **fanout value/accumulator conjuncts** (`fanout-conjuncts`): `fanoutValueOK`/`partialFanoutValueOK`
-  (value conservation, type-CONCRETE in the bundle but injected at the reference layer) and accumulator
-  membership/exclude remain injected. DONE: `0 < m`, `burnAllTokensOK` (`burnedCount == n+1`, the
-  parallel of the init `mintedCount == n+1`) and the after-deadline (`tfinal < lo`) are now in
-  `fanoutRefᵇ`, bridged (`fanoutValid→ref`) and differentially tested.
-- **close bounded-validity** (`close-bounded-validity`): the `hi ∸ lo ≤ cp` conjunct stays in
-  `closeCryptoOK` (distinct from the now-done `tfinal == validityHi + cp`).
-- **νDeposit Claim own-head binding** (`claim-differential`): the before-deadline conjunct
-  (`claimValid`: `hi ≤ tRecover`) is now DONE — `claimRefᵇ`/`checkClaim` checks `validityHi ≤ᴮ tRecover`,
-  bridged via `claimValid→ref` (`≤ᴮ-sound (ClaimValid.beforeRecoverDeadline …)`) and differentially
-  tested in `DepositDifferential` (Claim-path family over the increment fixture; `deadlineSurpassedClaimTx`
-  drives `DepositPeriodSurpassed`). What REMAINS mocked is the own-head binding (`depositClaimedBy` /
-  deposit.ak `expect_increment_redeemer`, injected as `claimIncrementOK`), exactly as the Recover arm's
-  recovered-outputs hash is mocked.
-- **multi-asset value conservation** (`lovelace-vs-multiasset`): increment/decrement/fanout value
-  conservation is bridged only on the lovelace component (`adaOf`); the full multi-asset `Value` is not
-  extractable, so non-ada token-quantity siphons are not caught.
+- **contest conditional deadline UPDATE** (`C3-contest-deadline`): *done* — both the posted-before
+  conjunct (`validityHi ≤ᴮ tfinal`) AND the conditional update rule `contestDeadlineOK`
+  (`tfinal' == if (lenOut ==ᵇ n) then tfinal else tfinal + cp`) are now in `contestRefᵇ`, bridged via
+  `contestValid→ref` (the update reflected from the stdlib `⌊ length C' ≟ n ⌋` to the structural
+  `_==ᵇ_` using the new `¬→==ᵇfalse` lemma) and differentially tested (`MutateValidityPastDeadline`).
+- **fanout value/accumulator conjuncts** (`fanout-conjuncts`): accumulator membership/exclude remain
+  injected. Fanout VALUE conservation (`fanoutValueOK`) is **not a sound differential candidate** and is
+  left as a documented boundary: the model term `headAda d` (the datum's `ada : Value` field) has no
+  faithful transaction-level counterpart (real Plutus datums do not carry the UTxO value), unlike the
+  increment/decrement deposit/decommit values which are real tx outputs — mirroring it in the reference
+  would force the differential to fabricate `headAda`. (DONE earlier: `0 < m`, `burnAllTokensOK`,
+  after-deadline.) The value conservation IS type-concrete and proved in the spec bundle itself.
+- **close bounded-validity** (`close-bounded-validity`): *done* — `closeRefᵇ` checks `hi − lo ≤ᴮ cp`
+  (the bundle's `validityBounded`), bridged via `closeValid→ref` (`≤ᴮ-sound`) and differentially tested
+  (the close differential supplies the tx lower bound).
+- **νDeposit Claim own-head binding** (`claim-differential`): *done* — the before-deadline conjunct AND
+  the head-id binding (`depositCid == headCid`, the head-id half of `expect_increment_redeemer`) are in
+  `claimRefᵇ`, bridged via `claimValid→ref` (the cid equality from `cong cidToNat` over
+  `claimedByOwnHead`; only a typecheck-only `cidToNat : ℍ → ℕ` encoding postulate, **no injectivity
+  axiom** — the one-directional bridge needs only `cong`). Differentially tested in `DepositDifferential`
+  (the cross-head deposit mutation in `genIncrementMutation` exercises it). What REMAINS mocked is the
+  Increment-redeemer coupling half of `expect_increment_redeemer`.
+- **multi-asset value conservation** (`lovelace-vs-multiasset`): *partially closed* — increment/decrement
+  value conservation is now checked on TWO additive projections, `adaOf` (lovelace) AND the new
+  `nonAdaOf` (total non-ada token quantity), both bridged from the same value equation and exercised by a
+  differential demo (`tokenSiphonIncrementTx`: a pure native-token siphon that passes the old ada-only
+  check, is rejected by the new non-ada conjunct, and rejected by the validator). REMAINING: per-token
+  granularity (the total-quantity projection aliases distinct token sets with the same total — full
+  per-asset checking needs the abstract `Value` map exposed); fanout value conservation stays the
+  `headAda` boundary above. This is the pilot un-mock of a previously-`const True` value conjunct.
 - **μHead token PLACEMENT** (`D2-token-placement`): single ST + n unique PTs placed in the head output,
   seed-spent, datum `headId`/`seed` binding — need multi-asset token-name lookup (the `Value`-map ops
   the spec deliberately avoids). Injected in `OpsInit`. (The token COUNT is DONE/bridged/tested.)
-- **concretize `depositValue`/`decommitValue`** extractors via output-search over `Context.outputs`
-  (`headValue`/`headValueIn` are already derived).
+- **`depositValue`/`decommitValue` extractors** — *done (already)*: `depositValueAt`/`depositsValue`
+  (input-search via `valueAtIn`) and `decommitValue` (output-search via `takeSumᵛ`) are concrete, not
+  postulated (done in the increment/decrement value work). The remaining `postulate`s are the abstract
+  `Value`-algebra/crypto/accumulator LAWS, not these extractors.
 
 **B. §7 security (`security-formalisation-plan.md` has the detail):**
-- **Liveness (P3)**: temporal/fairness layer (`Eventually`/fairness, message delivery, leader rotation,
-  `reqconf → eternal → liveness`); `Liveness` is a postulated empty `Set`.
-- **off-chain HeadLogic + `signHonest`** (`A4/D1`): a full `_handles_↝_`/`applyTxs` handler model
-  (OffChain currently handles only `reqTx`/`ackSn`, a deliberate simplification).
+- **Liveness (P3)** — **DEFERRED / not planned (owner decision, 2026-06):** the temporal/fairness layer
+  (`Eventually`/fairness, message delivery, leader rotation, `reqconf → eternal → liveness`) is out of
+  scope for the foreseeable future. `Liveness` stays a postulated empty `Set` and the §7 prose lemmas
+  remain prose. The illustrative reqDec/deposit/leader-election handler arms feed into this and are
+  likewise parked. (Safety — `consistency`/`soundness`/`completeness`/`reflects` — is complete and
+  machine-checked independently of P3.)
+- **off-chain HeadLogic + `signHonest`** (`A4/D1`): *done* — `signHonest` now FIRES the `reqSn-sign`
+  handler (`_handles_↝_`) with a no-in-flight precondition (ŝ = s̄) and bumps the signer's `seenNumber`,
+  so the four honest-signing guards are DERIVED, not free premises: applicability-to-U₀ (via the new
+  `applyTxs-compose` ledger law + `confApp`), chain-extension (the handler's s = s̄+1 + snap.txs =
+  confirmedTxs ++ Δ), one-per-round (new `Inv.signNumBound`), and only-seen (new `Inv.sigSeen` + the
+  Δ-observed input). All safety theorems (`consistency`/`soundness`/`completeness`/`reflects`) are
+  unchanged in statement; the only new assumption is the one ledger law. Residual: the full
+  reqDec/deposit/leader-election handler arms remain illustrative (liveness-relevant, deferred to P3).
 - **multisignature refinement**: a fully concrete `aggSigOf` from individual signatures + a
   `combine`/`verify` algebra (safety-cosmetic; the abstract `msVfy`/unforgeability suffices for the proofs).
 - **definition-of-done residual**: replace the placeholder `postulate`s with the real `Reachable`/fair-trace
-  statements once P3 lands.
+  statements once P3 lands — **gated on P3, therefore also deferred.**
 - *Irreducible axioms (NOT work, by design):* `ms-unforgeable` (factored into `aggSound`+`sigUnforge`),
-  ledger `applyTxs`/nil, the bridge glue `outsOf` + per-finalization `ηEq`, and `msVfy`/KZG laws; §7
+  ledger `applyTxs`/nil/compose (the `compose` law added by A4/D1 to derive the honest signer's
+  applicability guard), the bridge glue `outsOf` + per-finalization `ηEq`, and `msVfy`/KZG laws; §7
   model-existence/non-vacuity is a meta-level argument (`msVfy` abstract).
 
 **C. spec ⇒ real Plutus validator (`C3-mechanize`):** the `spec ⇒ validator` link (agda-haskell-alignment

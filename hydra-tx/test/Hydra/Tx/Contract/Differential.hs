@@ -23,6 +23,7 @@ module Hydra.Tx.Contract.Differential (spec) where
 
 import Hydra.Prelude
 
+import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
@@ -36,6 +37,7 @@ import Hydra.Cardano.Api (
   fromCtxUTxOTxOut,
   getTxBody,
   getTxBodyContent,
+  modifyTxOutValue,
   resolveInputsUTxO,
   selectLovelace,
   toPlutusCurrencySymbol,
@@ -47,12 +49,14 @@ import Hydra.Cardano.Api (
   txValidityUpperBound,
   pattern TxValidityLowerBound,
   pattern TxValidityUpperBound,
+  pattern UnsafeAssetName,
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Cardano.Api.TxBody (findRedeemerSpending)
 import Hydra.Cardano.Api.TxOut (findTxOutByScript, findTxOutsByScript)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
+import Hydra.Data.ContestationPeriod (milliseconds)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
@@ -64,7 +68,8 @@ import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import PlutusLedgerApi.V3 (getPOSIXTime)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation)
+import Test.Hydra.Tx.Fixture (testPolicyId)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation)
 import Test.QuickCheck (Property, forAll, property, (===))
 
 -- | Does the real Plutus validator accept @(tx, utxo)@ (phase-2 success, no script error)?
@@ -103,15 +108,32 @@ incRefVerdict (tx, utxo) = do
   -- Sum EVERY spent deposit input (not just the redeemer's claimed one): mirrors the Agda
   -- `depositsValue` / Plutus `totalNonHeadInputValue`, so a multi-deposit siphon (an extra deposit
   -- whose value is routed away) makes adaIn + Σdeposits ≠ adaOut and the reference rejects.
-  let depositLovelace = sum (lovelace . snd <$> findTxOutsByScript (resolveInputsUTxO utxo tx) depositValidatorScript)
+  let deposits = snd <$> findTxOutsByScript (resolveInputsUTxO utxo tx) depositValidatorScript
+      depositLovelace = sum (lovelace <$> deposits)
+      depositNonAda = sum (nonAda <$> deposits)
   pure $
     Ref.checkInc
       (Ref.mkOpsInc (const True))
-      (Ref.MkIncIO od.version od'.version (lovelace headInOut) depositLovelace (lovelace headOut))
+      ( Ref.MkIncIO
+          od.version
+          od'.version
+          (lovelace headInOut)
+          depositLovelace
+          (lovelace headOut)
+          (nonAda headInOut)
+          depositNonAda
+          (nonAda headOut)
+      )
 
 -- | Lovelace (ada) component of a tx output's value, as the plain Integer the reference boundary takes.
 lovelace :: TxOut ctx -> Integer
 lovelace o = let Coin n = selectLovelace (txOutValue o) in n
+
+-- | Total NON-ada token quantity of a tx output's value (the `nonAdaOf` projection): the sum of all
+-- native-asset quantities, ada excluded. Checking conservation of this alongside 'lovelace' catches a
+-- native-token siphon that an ada-only check misses.
+nonAda :: TxOut ctx -> Integer
+nonAda o = sum [q | (aid, Quantity q) <- IsList.toList (txOutValue o), aid /= AdaAssetId]
 
 -- Decrement steps Open→Open and SHRINKS the head value by the decommit. Like increment, the reference
 -- now checks lovelace conservation (adaOut + adaDelta == adaIn): head output + the decommitted outputs
@@ -128,15 +150,26 @@ decRefVerdict (tx, utxo) = do
   HS.Decrement HS.DecrementRedeemer{HS.numberOfDecommitOutputs} <- findRedeemerSpending tx headIn :: Maybe HS.Input
   let decommitOuts = take (fromIntegral numberOfDecommitOutputs) (drop 1 (txOuts' tx))
       decommitLovelace = sum (lovelace <$> decommitOuts)
+      decommitNonAda = sum (nonAda <$> decommitOuts)
   pure $
     Ref.checkDec
       (Ref.mkOpsInc (const True))
-      (Ref.MkIncIO od.version od'.version (lovelace headInOut) decommitLovelace (lovelace headOut))
+      ( Ref.MkIncIO
+          od.version
+          od'.version
+          (lovelace headInOut)
+          decommitLovelace
+          (lovelace headOut)
+          (nonAda headInOut)
+          decommitNonAda
+          (nonAda headOut)
+      )
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
--- The reference now also checks the before-deadline guard (@validityHi ≤ tfinal@: the contest tx's
--- upper validity bound is at or before the recorded contestation deadline, the validator's
--- @mustBeWithinContestationPeriod@). The conditional deadline-UPDATE rule stays mocked.
+-- The reference now also checks the before-deadline guard (@validityHi ≤ tfinal@) AND the conditional
+-- deadline-UPDATE rule (@tfinal' == if all-contested then tfinal else tfinal+cp@, the validator's
+-- @makeContestationDeadline@/@addContestationPeriod@): the produced deadline, party count @n@ and the
+-- contestation period (ms) are read off the datums. (`mustBeWithinContestationPeriod` + the bump.)
 contestRefVerdict :: (Tx, UTxO) -> Maybe Bool
 contestRefVerdict m@(tx, _) = do
   (inSt, headIn) <- inputState m
@@ -157,6 +190,9 @@ contestRefVerdict m@(tx, _) = do
           (fromIntegral (length cd'.contesters))
           (getPOSIXTime cd.contestationDeadline)
           validityHi
+          (getPOSIXTime cd'.contestationDeadline)
+          (fromIntegral (length cd.parties))
+          (toInteger (milliseconds cd.contestationPeriod))
       )
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
@@ -202,6 +238,28 @@ txUpperBoundPOSIX tx =
     TxValidityUpperBound upperBound -> Just (getPOSIXTime (posixFromUTCTime (slotNoToUTCTime systemStart slotLength upperBound)))
     _ -> Nothing
 
+-- ── non-ada value-siphon demonstration ─────────────────────────────────────────────────────────
+
+-- | The OLD ada-only conservation check (@adaIn + Σdeposit-ada == adaOut@), kept to show that a pure
+-- native-token siphon SATISFIES it — so the previous lovelace-only reference would have accepted the
+-- very tx the new non-ada conjunct rejects.
+incLovelaceConserved :: (Tx, UTxO) -> Maybe Bool
+incLovelaceConserved (tx, utxo) = do
+  (_, headInOut) <- findTxOutByScript utxo Head.validatorScript
+  headOut <- txOuts' tx !!? 0
+  let depositLovelace = sum (lovelace . snd <$> findTxOutsByScript (resolveInputsUTxO utxo tx) depositValidatorScript)
+  pure (lovelace headInOut + depositLovelace == lovelace headOut)
+
+-- | The healthy increment with an extra NON-ada token grafted onto the head output (index 0). ADA is
+-- untouched, so 'incLovelaceConserved' still holds, yet the new non-ada conjunct fails and the validator
+-- rejects (@mustPreserveValue@): exactly the native-token siphon class an ada-only check missed.
+tokenSiphonIncrementTx :: (Tx, UTxO)
+tokenSiphonIncrementTx =
+  applyMutation (ChangeOutput 0 (modifyTxOutValue (<> siphonToken) headOut)) healthyIncrementTx
+ where
+  headOut = fromJust (txOuts' (fst healthyIncrementTx) !!? 0)
+  siphonToken = IsList.fromList [(AssetId testPolicyId (UnsafeAssetName "siphon"), 1)]
+
 -- ── property assembly ─────────────────────────────────────────────────────────────────────────
 
 -- | @reference-rejects ⇒ validator-rejects@; abstains (no constraint) when the reference can't
@@ -236,3 +294,13 @@ spec = parallel $ do
   familySpec "decrement" healthyDecrementTx genDecrementMutation decRefVerdict
   familySpec "contest" healthyContestTx genContestMutation contestRefVerdict
   familySpec "fanout" healthyFanoutTx genFanoutMutation fanoutRefVerdict
+
+  -- Demonstration that un-mocking the non-ada value conservation closes a real gap: a pure
+  -- native-token siphon passes the old lovelace-only check but the new non-ada conjunct catches it,
+  -- and the validator rejects it too.
+  prop "increment: a pure non-ada token siphon STILL passes the old lovelace-only check" $
+    incLovelaceConserved tokenSiphonIncrementTx === Just True
+  prop "increment: the new non-ada conjunct REJECTS the token siphon the lovelace check missed" $
+    incRefVerdict tokenSiphonIncrementTx === Just False
+  prop "increment: validator also rejects the non-ada token siphon" $
+    validatorAccepts tokenSiphonIncrementTx === False

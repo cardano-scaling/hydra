@@ -24,8 +24,8 @@ all follow with NO further safety assumption. `confirm` checks the §3.2 aggrega
 via the scheme's verifier `msVfy` (`AggVerified snap = msVfy aggKey (msgOf snap) (sigOf snap) ≡ true`),
 and the named **unforgeability** axiom `ms-unforgeable : AggVerified snap → Certified sys snap` bridges
 that operational check to "every party signed". The only residual postulates are then the ledger
-semantics (`applyTxs`/`applyTxs-nil`), the bridge glue (`outsOf`), `ms-unforgeable` (the irreducible
-crypto assumption), and `Liveness` (P3). The whole tree and `nix build .#spec` are green.
+semantics (`applyTxs`/`applyTxs-nil`/`applyTxs-compose`), the bridge glue (`outsOf`), `ms-unforgeable`
+(the irreducible crypto assumption), and `Liveness` (P3). The whole tree and `nix build .#spec` are green.
 
 This REPLACES the earlier single-confirmed-chain model, which simply *assumed* the agreed chain is
 applicable (the entire §7 safety guarantee) as an `Initial` premise. That blanket assumption is gone:
@@ -35,9 +35,12 @@ applicability AND agreement AND nesting are now theorems about the protocol's si
 `sigs : List (Fin parties × Snapshot)`. `Signed sys i snap = (i , snap) ∈ sigs`, and a snapshot is
 `Certified sys snap = ∀ i → Signed sys i snap` (EVERY party signed it — the coordinated head's full
 multisignature). The step relation `_⟶ˢ_`:
-- `signHonest` (honest `i` signs `snap`): guarded by `Applicable U₀ (txs snap)` (the reqSn 'wait'
-  guard — an honest party signs only an applicable snapshot) and "`i` has not signed any snapshot of
-  this number" (one signature per round);
+- `signHonest` (honest `i` signs `snap`): as of **A4/D1 these guards are DERIVED, not premises** — the
+  rule now FIRES the `reqSn-sign` handler (`_handles_↝_`) with a no-in-flight precondition (ŝ = s̄) and
+  bumps the signer's `seenNumber`; from those operational inputs the four guards (applicable to `U₀` via
+  the `applyTxs-compose` ledger law; one-per-number via the new `Inv.signNumBound`; chain-extension via
+  the handler's s = s̄+1 and snap.txs = confirmedTxs ++ Δ; only-seen via the new `Inv.sigSeen`) are
+  proved at the `signHonest` `invStep` arm. (Previously they were free premises on the constructor.)
 - `signCorrupt` (corrupt `i` signs any `snap`): no guard (the adversary forges nothing *honest*);
 - `confirm` (party adopts a `Certified` snapshot as its confirmed snapshot);
 - `corrupt` (honest set only shrinks).

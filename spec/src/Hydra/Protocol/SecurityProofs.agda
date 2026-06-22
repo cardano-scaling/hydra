@@ -12,11 +12,11 @@ open import Hydra.Protocol.OffChain
 open import Hydra.Protocol.Preliminaries using (Output)
 open import Data.Fin using (Fin)
 open import Data.Nat using (z≤n; s≤s)
-open import Data.Nat.Properties using (≤-total; ≤-antisym; +-identityʳ; +-suc; suc-injective; m+[n∸m]≡n; m+n≡0⇒m≡0)
-open import Data.Sum using (map₁; map₂)
+open import Data.Nat.Properties using (≤-total; ≤-antisym; ≤-refl; ≤-trans; m≤n⇒m≤1+n; 1+n≰n; +-identityʳ; +-suc; suc-injective; m+[n∸m]≡n; m+n≡0⇒m≡0)
+open import Data.Sum using (map₁; map₂; [_,_]′)
 open import Data.List using (_++_)
 open import Data.List.Relation.Unary.Any using (here; there)
-open import Data.List.Membership.Propositional.Properties using (∈-++⁺ʳ)
+open import Data.List.Membership.Propositional.Properties using (∈-++⁺ʳ; ∈-++⁺ˡ; ∈-++⁻)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties using () renaming (⊆-refl to ⊆ˡ-refl; ⊆-trans to ⊆ˡ-trans)
 open import Data.Vec using (Vec; lookup; _[_]≔_)
 open import Data.Vec.Properties using (lookup∘update; lookup∘update′)
@@ -59,6 +59,12 @@ Certified-mono : ∀ (sys : System) {snap : Snapshot} {x : Fin (parties sys) × 
   → Certified sys snap → Certified (record sys { sigs = x ∷ sigs sys }) snap
 Certified-mono _ cert i = there (cert i)
 
+-- A non-⊥ Maybe is some `just`. (Used by `invStep`'s signHonest applicability derivation and by
+-- `soundness`; defined here so it is in scope for both.)
+≢nothing→just : ∀ {A : Set} (m : Maybe A) → ¬ (m ≡ nothing) → Σ[ x ∈ A ] (m ≡ just x)
+≢nothing→just (just x) _  = x , refl
+≢nothing→just nothing  ¬n = ⊥-elim (¬n refl)
+
 -- The invariants hold at every reachable system. The key safety facts are DERIVED, not assumed:
 -- `confApp` (L3) discharges applicability at `confirm` from `sigApp` (a certified snapshot carries
 -- the honest confirmer's own signature; honest signatures are only on applicable snapshots); and
@@ -73,53 +79,116 @@ invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty)) = record
   ; sigPos   = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
   ; confCert = λ {i} _ → inj₁ (allConfNumZero i , allConfTxsEmpty i)
   ; sigChain = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
+  ; signNumBound = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
+  ; sigSeen      = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
   }
 invariant sys (step {s} r tr) = invStep tr (invariant s r)
   where
     invStep : ∀ {a b} → a ⟶ˢ b → Inv a → Inv b
-    invStep {a} (signHonest {i = i} {snap = snap₀} hi₀ appl₀ fresh numEq₀ ext⊆₀ _)
+    -- signHonest now FIRES the reqSn-sign handler (pattern `reqSn-sign vEq sEq`): the four guards the
+    -- old constructor took as premises are DERIVED here from the handler's `s ≡ s̄+1` (sEq), the
+    -- snapshot/Δ shape (txsEq₀), the U₀-applicability premise (appl₀), the no-in-flight precondition
+    -- (nf₀) + `signNumBound`, and the Δ-seen premise (Δseen₀) + `sigSeen`/`confCert`. The signer's
+    -- `seenNumber` is bumped, so the localOf-reading fields gain `lookup∘update` bookkeeping (the
+    -- `.confirmed` they read is unchanged — only `seenNumber` moved).
+    invStep {a} (signHonest {i = i} {snap = snap₀} {Δ = Δ} hi₀ nf₀ (reqSn-sign vEq sEq) txsEq₀ appl₀ Δseen₀)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
-                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain } = record
-      { sigApp = newApp ; sigDedup = newDed ; confApp = confApp
-      ; sigPos = newPos ; confCert = newCert ; sigChain = newChain }
+                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
+                   ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
+      { sigApp = newApp ; sigDedup = newDed ; confApp = newConfApp
+      ; sigPos = newPos ; confCert = newCert ; sigChain = newChain
+      ; signNumBound = newSNB ; sigSeen = newSigSeen }
       where
+        stᵢ : LocalState
+        stᵢ = lookup (localOf a) i
+        st' : LocalState
+        st' = record stᵢ { seenNumber = Snapshot.number snap₀ }
+        -- G3a: the handler's `s ≡ s̄+1` guard (confirmedNo stᵢ = Snapshot.number (confirmed stᵢ)).
+        numEq₀ : Snapshot.number snap₀ ≡ suc (confirmedNo stᵢ)
+        numEq₀ = sEq
+        -- G3b: from snap.txs = confirmedTxs ++ Δ.
+        ext⊆₀ : confirmedTxs stᵢ ⊆ˡ Snapshot.txs snap₀
+        ext⊆₀ {x} x∈ = subst (x ∈ˡ_) (sym txsEq₀) (∈-++⁺ˡ x∈)
+        -- G1: confApp ⇒ applyTxs U₀ confirmedTxs ≡ just U′; Δ applies to U′ (appl₀); compose lifts to U₀.
+        g1 : Applicable (U₀ a) (Snapshot.txs snap₀)
+        g1 = subst (Applicable (U₀ a)) (sym txsEq₀) applU₀
+          where
+            U′just : Σ[ U′ ∈ UTxO ] applyTxs (U₀ a) (confirmedTxs stᵢ) ≡ just U′
+            U′just = ≢nothing→just (applyTxs (U₀ a) (confirmedTxs stᵢ)) (confApp hi₀)
+            applU₀ : Applicable (U₀ a) (confirmedTxs stᵢ ++ Δ)
+            applU₀ e≡n = appl₀ (proj₂ U′just)
+                              (trans (sym (applyTxs-compose (confirmedTxs stᵢ) Δ (proj₂ U′just))) e≡n)
+        -- the signer's own confirmed txs are seen (confCert: genesis [] or certified ⇒ it signed them).
+        confSeen-i : confirmedTxs stᵢ ⊆ˡ lookup (seen a) i
+        confSeen-i with confCert hi₀
+        ... | inj₁ (_ , ct≡[]) = subst (_⊆ˡ lookup (seen a) i) (sym ct≡[]) (λ ())
+        ... | inj₂ cert        = sigSeen hi₀ (cert i)
+        -- G4: snap.txs = confirmedTxs ++ Δ, both ⊆ seen (confSeen-i and the Δseen₀ premise).
+        here-seen : Snapshot.txs snap₀ ⊆ˡ lookup (seen a) i
+        here-seen {x} x∈ = [ (λ e → confSeen-i e) , (λ e → Δseen₀ e) ]′
+                             (∈-++⁻ (confirmedTxs stᵢ) (subst (x ∈ˡ_) txsEq₀ x∈))
+        -- map a pre-state certified-or-genesis fact to the post-state (sigs grew).
+        certMono : ∀ {k}
+                 → (confirmedNo (lookup (localOf a) k) ≡ 0 × confirmedTxs (lookup (localOf a) k) ≡ [])
+                     ⊎ Certified a (LocalState.confirmed (lookup (localOf a) k))
+                 → (confirmedNo (lookup (localOf a) k) ≡ 0 × confirmedTxs (lookup (localOf a) k) ≡ [])
+                     ⊎ Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a })
+                                 (LocalState.confirmed (lookup (localOf a) k))
+        certMono (inj₁ p) = inj₁ p
+        certMono (inj₂ c) = inj₂ (Certified-mono a {x = (i , snap₀)} c)
         newApp : ∀ {k snap} → lookup (honest a) k ≡ true
                → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a) → Applicable (U₀ a) (Snapshot.txs snap)
-        newApp _  (here e)  = subst (λ z → Applicable (U₀ a) (Snapshot.txs z)) (sym (cong proj₂ e)) appl₀
+        newApp _  (here e)  = subst (λ z → Applicable (U₀ a) (Snapshot.txs z)) (sym (cong proj₂ e)) g1
         newApp hk (there m) = sigApp hk m
         newDed : ∀ {k s1 s2} → lookup (honest a) k ≡ true
                → (k , s1) ∈ˡ ((i , snap₀) ∷ sigs a) → (k , s2) ∈ˡ ((i , snap₀) ∷ sigs a)
                → Snapshot.number s1 ≡ Snapshot.number s2 → s1 ≡ s2
         newDed _  (here e1)  (here e2)  _  = trans (cong proj₂ e1) (sym (cong proj₂ e2))
-        newDed _  (here e1)  (there m2) n≡ =
-          ⊥-elim (fresh (trans (sym n≡) (cong Snapshot.number (cong proj₂ e1)))
-                        (subst (λ p → (p , _) ∈ˡ sigs a) (cong proj₁ e1) m2))
-        newDed _  (there m1) (here e2)  n≡ =
-          ⊥-elim (fresh (trans n≡ (cong Snapshot.number (cong proj₂ e2)))
-                        (subst (λ p → (p , _) ∈ˡ sigs a) (cong proj₁ e2) m1))
+        newDed {s2 = s2} _ (here e1) (there m2) n≡ =
+          ⊥-elim (1+n≰n (subst (_≤ confirmedNo stᵢ)
+                               (trans (sym n≡) (trans (cong Snapshot.number (cong proj₂ e1)) numEq₀))
+                               (subst (Snapshot.number s2 ≤_) nf₀
+                                      (signNumBound hi₀ (subst (λ p → (p , s2) ∈ˡ sigs a) (cong proj₁ e1) m2)))))
+        newDed {s1 = s1} _ (there m1) (here e2) n≡ =
+          ⊥-elim (1+n≰n (subst (_≤ confirmedNo stᵢ)
+                               (trans n≡ (trans (cong Snapshot.number (cong proj₂ e2)) numEq₀))
+                               (subst (Snapshot.number s1 ≤_) nf₀
+                                      (signNumBound hi₀ (subst (λ p → (p , s1) ∈ˡ sigs a) (cong proj₁ e2) m1)))))
         newDed hk (there m1) (there m2) n≡ = sigDedup hk m1 m2 n≡
         newPos : ∀ {k snap} → lookup (honest a) k ≡ true
                → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a) → 0 < Snapshot.number snap
         newPos _  (here e)  = subst (0 <_) (sym (trans (cong Snapshot.number (cong proj₂ e)) numEq₀)) (s≤s z≤n)
         newPos hk (there m) = sigPos hk m
+        newConfApp : ∀ {i'} → lookup (honest a) i' ≡ true
+                   → Applicable (U₀ a) (confirmedTxs (lookup (localOf a [ i ]≔ st') i'))
+        newConfApp {i'} hi' with i FinP.≟ i'
+        ... | no  i≢i' = subst (λ w → Applicable (U₀ a) (confirmedTxs w))
+                               (sym (lookup∘update′ (λ e → i≢i' (sym e)) (localOf a) st')) (confApp hi')
+        ... | yes refl = subst (λ w → Applicable (U₀ a) (confirmedTxs w))
+                               (sym (lookup∘update i (localOf a) st')) (confApp hi')
         newCert : ∀ {k} → lookup (honest a) k ≡ true
-                → (confirmedNo (lookup (localOf a) k) ≡ 0 × confirmedTxs (lookup (localOf a) k) ≡ [])
-                  ⊎ Certified (record a { sigs = (i , snap₀) ∷ sigs a }) (LocalState.confirmed (lookup (localOf a) k))
-        newCert hk with confCert hk
-        ... | inj₁ p = inj₁ p
-        ... | inj₂ c = inj₂ (Certified-mono a {x = (i , snap₀)} c)
+                → (confirmedNo (lookup (localOf a [ i ]≔ st') k) ≡ 0 × confirmedTxs (lookup (localOf a [ i ]≔ st') k) ≡ [])
+                  ⊎ Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a })
+                              (LocalState.confirmed (lookup (localOf a [ i ]≔ st') k))
+        newCert {k} hk with i FinP.≟ k
+        ... | no  i≢k  = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ [])
+                                       ⊎ Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a })
+                                                   (LocalState.confirmed w))
+                               (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (certMono (confCert hk))
+        ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ [])
+                                       ⊎ Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a })
+                                                   (LocalState.confirmed w))
+                               (sym (lookup∘update i (localOf a) st')) (certMono (confCert hk))
         newChain : ∀ {k snap} → lookup (honest a) k ≡ true
                  → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a)
-                 → PredecessorWitness (Certified (record a { sigs = (i , snap₀) ∷ sigs a })) snap
-        newChain _ (here e) = mkPredecessor
-            (LocalState.confirmed (lookup (localOf a) i))
+                 → PredecessorWitness (Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a })) snap
+        newChain _ (here e) = mkPredecessor (LocalState.confirmed stᵢ)
             (trans (cong Snapshot.number (cong proj₂ e)) numEq₀)
-            (subst (λ z → Snapshot.txs (LocalState.confirmed (lookup (localOf a) i)) ⊆ˡ Snapshot.txs z)
-                   (sym (cong proj₂ e)) ext⊆₀)
+            (subst (λ z → Snapshot.txs (LocalState.confirmed stᵢ) ⊆ˡ Snapshot.txs z) (sym (cong proj₂ e)) ext⊆₀)
             preGenesisOrCert
           where
-            preGenesisOrCert : (Snapshot.number (LocalState.confirmed (lookup (localOf a) i)) ≡ 0)
-               ⊎ Certified (record a { sigs = (i , snap₀) ∷ sigs a }) (LocalState.confirmed (lookup (localOf a) i))
+            preGenesisOrCert : (Snapshot.number (LocalState.confirmed stᵢ) ≡ 0)
+               ⊎ Certified (record a { localOf = localOf a [ i ]≔ st' ; sigs = (i , snap₀) ∷ sigs a }) (LocalState.confirmed stᵢ)
             preGenesisOrCert with confCert hi₀
             ... | inj₁ (n , _) = inj₁ n
             ... | inj₂ c       = inj₂ (Certified-mono a {x = (i , snap₀)} c)
@@ -127,11 +196,33 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | mkPredecessor pre numberSuc txsExtend (inj₁ z) = mkPredecessor pre numberSuc txsExtend (inj₁ z)
         ... | mkPredecessor pre numberSuc txsExtend (inj₂ c) =
               mkPredecessor pre numberSuc txsExtend (inj₂ (Certified-mono a {x = (i , snap₀)} c))
+        newSNB : ∀ {k snap} → lookup (honest a) k ≡ true
+               → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a)
+               → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf a [ i ]≔ st') k)
+        newSNB _ (here e) =
+          subst (λ p → Snapshot.number (proj₂ p) ≤ LocalState.seenNumber (lookup (localOf a [ i ]≔ st') (proj₁ p)))
+                (sym e)
+                (subst (Snapshot.number snap₀ ≤_)
+                       (sym (cong LocalState.seenNumber (lookup∘update i (localOf a) st'))) ≤-refl)
+        newSNB {k} {snap} hk (there m) with i FinP.≟ k
+        ... | no  i≢k  = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (signNumBound hk m)
+        ... | yes refl = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update i (localOf a) st'))
+                               (subst (Snapshot.number snap ≤_) (sym numEq₀)
+                                      (m≤n⇒m≤1+n (subst (Snapshot.number snap ≤_) nf₀ (signNumBound hk m))))
+        newSigSeen : ∀ {k snap} → lookup (honest a) k ≡ true
+                   → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a) → Snapshot.txs snap ⊆ˡ lookup (seen a) k
+        newSigSeen _ (here e) =
+          subst (λ p → Snapshot.txs (proj₂ p) ⊆ˡ lookup (seen a) (proj₁ p)) (sym e) here-seen
+        newSigSeen hk (there m) = sigSeen hk m
     invStep {a} (signCorrupt {i = i} {snap = snap₀} ci)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
-                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain } = record
+                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
+                   ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
       { sigApp = newApp ; sigDedup = newDed ; confApp = confApp
-      ; sigPos = newPos ; confCert = newCert ; sigChain = newChain }
+      ; sigPos = newPos ; confCert = newCert ; sigChain = newChain
+      ; signNumBound = newSNB ; sigSeen = newSigSeen }
       where
         clash : ∀ {k snap} → lookup (honest a) k ≡ true → (k , snap) ≡ (i , snap₀) → ⊥
         clash hk e = trueNotFalse (trans (sym (subst (λ p → lookup (honest a) p ≡ true) (cong proj₁ e) hk)) ci)
@@ -163,11 +254,24 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | mkPredecessor pre numberSuc txsExtend (inj₁ z) = mkPredecessor pre numberSuc txsExtend (inj₁ z)
         ... | mkPredecessor pre numberSuc txsExtend (inj₂ c) =
               mkPredecessor pre numberSuc txsExtend (inj₂ (Certified-mono a {x = (i , snap₀)} c))
+        -- corrupt sign: localOf / seen unchanged, so the two new invariants pass through (the new sig
+        -- is the corrupt party's, on which the honest-only invariants impose nothing — `clash`).
+        newSNB : ∀ {k snap} → lookup (honest a) k ≡ true
+               → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a)
+               → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf a) k)
+        newSNB hk (here e)  = ⊥-elim (clash hk e)
+        newSNB hk (there m) = signNumBound hk m
+        newSigSeen : ∀ {k snap} → lookup (honest a) k ≡ true
+                   → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a) → Snapshot.txs snap ⊆ˡ lookup (seen a) k
+        newSigSeen hk (here e)  = ⊥-elim (clash hk e)
+        newSigSeen hk (there m) = sigSeen hk m
     invStep {a} (confirm {i = c} {snap = snap₀} aggOK)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
-                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain } = record
+                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
+                   ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
       { sigApp = sigApp ; sigDedup = sigDedup ; confApp = newConfApp
-      ; sigPos = sigPos ; confCert = newCert ; sigChain = sigChain }
+      ; sigPos = sigPos ; confCert = newCert ; sigChain = sigChain
+      ; signNumBound = newSNB ; sigSeen = sigSeen }
       where
         st' : LocalState
         st' = record (lookup (localOf a) c) { confirmed = snap₀ }
@@ -188,24 +292,49 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
                                (sym (lookup∘update′ (λ e → c≢k (sym e)) (localOf a) st')) (confCert hk)
         ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
                                (sym (lookup∘update c (localOf a) st')) (inj₂ cert)
+        -- confirm changes only `.confirmed`; `seenNumber`/`sigs` are untouched, so signNumBound just
+        -- needs the lookup∘update bookkeeping (seenNumber of the updated entry is unchanged).
+        newSNB : ∀ {k snap} → lookup (honest a) k ≡ true → (k , snap) ∈ˡ sigs a
+               → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf a [ c ]≔ st') k)
+        newSNB {k} {snap} hk m with c FinP.≟ k
+        ... | no  c≢k  = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update′ (λ e → c≢k (sym e)) (localOf a) st')) (signNumBound hk m)
+        ... | yes refl = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update c (localOf a) st')) (signNumBound hk m)
     invStep {a} (corrupt i₀)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
-                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain } = record
+                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
+                   ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
       { sigApp   = λ {k} {snap} hk mem → sigApp (honest-mono (honest a) i₀ k hk) mem
       ; sigDedup = λ {k} {s1} {s2} hk m1 m2 n≡ → sigDedup (honest-mono (honest a) i₀ k hk) m1 m2 n≡
       ; confApp  = λ {i} hi → confApp (honest-mono (honest a) i₀ i hi)
       ; sigPos   = λ {k} {snap} hk mem → sigPos (honest-mono (honest a) i₀ k hk) mem
       ; confCert = λ {i} hi → confCert (honest-mono (honest a) i₀ i hi)
-      ; sigChain = λ {k} {snap} hk mem → sigChain (honest-mono (honest a) i₀ k hk) mem }
-    -- `finalize` changes only `onChain`, and `see` only `seen`; no `Inv` field mentions either, so each
-    -- field's type is unchanged — re-pack the same proofs (the record is nominal in `sys`, so we cannot
-    -- return `inv` directly even though the fields coincide).
+      ; sigChain = λ {k} {snap} hk mem → sigChain (honest-mono (honest a) i₀ k hk) mem
+      ; signNumBound = λ {k} {snap} hk m → signNumBound (honest-mono (honest a) i₀ k hk) m
+      ; sigSeen      = λ {k} {snap} hk m → sigSeen (honest-mono (honest a) i₀ k hk) m }
+    -- `finalize` changes only `onChain`; no `Inv` field mentions it, so re-pack the same proofs (the
+    -- record is nominal in `sys`, so we cannot return `inv` directly even though the fields coincide).
     invStep {a} (finalize _ _) inv = record
       { sigApp = Inv.sigApp inv ; sigDedup = Inv.sigDedup inv ; confApp = Inv.confApp inv
-      ; sigPos = Inv.sigPos inv ; confCert = Inv.confCert inv ; sigChain = Inv.sigChain inv }
-    invStep {a} (see) inv = record
+      ; sigPos = Inv.sigPos inv ; confCert = Inv.confCert inv ; sigChain = Inv.sigChain inv
+      ; signNumBound = Inv.signNumBound inv ; sigSeen = Inv.sigSeen inv }
+    -- `see` grows party i₀'s seen set; only `sigSeen` mentions `seen`, so it is the only field that
+    -- needs work (membership is preserved by the `++`); the rest re-pack unchanged.
+    invStep {a} (see {i = i₀} {txs = txs}) inv = record
       { sigApp = Inv.sigApp inv ; sigDedup = Inv.sigDedup inv ; confApp = Inv.confApp inv
-      ; sigPos = Inv.sigPos inv ; confCert = Inv.confCert inv ; sigChain = Inv.sigChain inv }
+      ; sigPos = Inv.sigPos inv ; confCert = Inv.confCert inv ; sigChain = Inv.sigChain inv
+      ; signNumBound = Inv.signNumBound inv ; sigSeen = newSigSeen }
+      where
+        newSigSeen : ∀ {k snap} → lookup (honest a) k ≡ true → (k , snap) ∈ˡ sigs a
+                   → Snapshot.txs snap ⊆ˡ lookup (seen a [ i₀ ]≔ (txs ++ lookup (seen a) i₀)) k
+        newSigSeen {k} {snap} hk m with i₀ FinP.≟ k
+        ... | no  i≢k  = subst (λ w → Snapshot.txs snap ⊆ˡ w)
+                               (sym (lookup∘update′ (λ e → i≢k (sym e)) (seen a) (txs ++ lookup (seen a) i₀)))
+                               (Inv.sigSeen inv hk m)
+        ... | yes refl = subst (λ w → Snapshot.txs snap ⊆ˡ w)
+                               (sym (lookup∘update i₀ (seen a) (txs ++ lookup (seen a) i₀)))
+                               (λ x∈ → ∈-++⁺ʳ txs (Inv.sigSeen inv hk m x∈))
 
 -- ── Derived corollaries of the invariant ───────────────────────────────────────────────────────
 -- L3 (applicability), exposed: every honest party's confirmed snapshot is applicable to U₀.
@@ -337,9 +466,25 @@ confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
                 ⊎ Certified a (LocalState.confirmed (lookup (localOf a) i)))
        → (∀ i → (confirmedNo (lookup (localOf b) i) ≡ 0 × confirmedTxs (lookup (localOf b) i) ≡ [])
                 ⊎ Certified b (LocalState.confirmed (lookup (localOf b) i)))
-    cc {a} (signHonest {i = signer} {snap = snap₀} _ _ _ _ _ _) ih i with ih i
-    ... | inj₁ p = inj₁ p
-    ... | inj₂ c = inj₂ (Certified-mono a {x = signer , snap₀} c)
+    cc {a} (signHonest {i = signer} {snap = snap₀} _ _ _ _ _ _) ih i with signer FinP.≟ i
+    ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ [])
+                                   ⊎ Certified (record a { localOf = localOf a [ signer ]≔ st'ₕ ; sigs = (signer , snap₀) ∷ sigs a }) (LocalState.confirmed w))
+                           (sym (lookup∘update signer (localOf a) st'ₕ)) (mono (ih signer))
+      where
+        st'ₕ = record (lookup (localOf a) signer) { seenNumber = Snapshot.number snap₀ }
+        mono : (confirmedNo (lookup (localOf a) signer) ≡ 0 × confirmedTxs (lookup (localOf a) signer) ≡ []) ⊎ Certified a (LocalState.confirmed (lookup (localOf a) signer))
+             → (confirmedNo (lookup (localOf a) signer) ≡ 0 × confirmedTxs (lookup (localOf a) signer) ≡ []) ⊎ Certified (record a { localOf = localOf a [ signer ]≔ st'ₕ ; sigs = (signer , snap₀) ∷ sigs a }) (LocalState.confirmed (lookup (localOf a) signer))
+        mono (inj₁ p) = inj₁ p
+        mono (inj₂ c) = inj₂ (Certified-mono a {x = signer , snap₀} c)
+    ... | no  s≢i  = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ [])
+                                   ⊎ Certified (record a { localOf = localOf a [ signer ]≔ st'ₕ ; sigs = (signer , snap₀) ∷ sigs a }) (LocalState.confirmed w))
+                           (sym (lookup∘update′ (λ e → s≢i (sym e)) (localOf a) st'ₕ)) (mono (ih i))
+      where
+        st'ₕ = record (lookup (localOf a) signer) { seenNumber = Snapshot.number snap₀ }
+        mono : (confirmedNo (lookup (localOf a) i) ≡ 0 × confirmedTxs (lookup (localOf a) i) ≡ []) ⊎ Certified a (LocalState.confirmed (lookup (localOf a) i))
+             → (confirmedNo (lookup (localOf a) i) ≡ 0 × confirmedTxs (lookup (localOf a) i) ≡ []) ⊎ Certified (record a { localOf = localOf a [ signer ]≔ st'ₕ ; sigs = (signer , snap₀) ∷ sigs a }) (LocalState.confirmed (lookup (localOf a) i))
+        mono (inj₁ p) = inj₁ p
+        mono (inj₂ c) = inj₂ (Certified-mono a {x = signer , snap₀} c)
     cc {a} (signCorrupt {i = signer} {snap = snap₀} _) ih i with ih i
     ... | inj₁ p = inj₁ p
     ... | inj₂ c = inj₂ (Certified-mono a {x = signer , snap₀} c)
@@ -394,42 +539,14 @@ consistency-uncorrupted sys reach hh i j =
     ... | inj₁ le = inj₁ (nestU sys reach hh i j le)
     ... | inj₂ ge = inj₂ (nestU sys reach hh j i ge)
 
--- A non-⊥ Maybe is some `just`.
-≢nothing→just : ∀ {A : Set} (m : Maybe A) → ¬ (m ≡ nothing) → Σ[ x ∈ A ] (m ≡ just x)
-≢nothing→just (just x) _  = x , refl
-≢nothing→just nothing  ¬n = ⊥-elim (¬n refl)
-
 -- ── Seen-set invariant: every honest signature is on txs that party has SEEN ───────────────────
--- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. From `signHonest`'s seen
--- guard; `see` only GROWS a party's seen set (membership is preserved by the `++`); corruption only
--- shrinks the honest set; the other steps leave `sigs`/`seen`/`honest` unchanged. A standalone
--- induction over `Reachable`, kept separate from `invariant` so the safety core stays untouched.
+-- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is now the `sigSeen`
+-- component of the main invariant (DERIVED at `signHonest` from the handler's Δ ⊆ seen premise + the
+-- confirmed-txs-seen fact); exposed here as a thin corollary so `soundness`'s call site is unchanged.
 sigSeen-inv : ∀ sys → Reachable sys → ∀ {k snap}
   → lookup (honest sys) k ≡ true → Signed sys k snap
   → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
-sigSeen-inv sys (base (sg≡[] , _ , _)) {k} {snap} _ mem =
-  ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) sg≡[] mem))
-sigSeen-inv sys (step {s} r tr) = ss tr (sigSeen-inv s r)
-  where
-    ss : ∀ {a b} → a ⟶ˢ b
-       → (∀ {k snap} → lookup (honest a) k ≡ true → Signed a k snap → Snapshot.txs snap ⊆ˡ lookup (seen a) k)
-       → (∀ {k snap} → lookup (honest b) k ≡ true → Signed b k snap → Snapshot.txs snap ⊆ˡ lookup (seen b) k)
-    ss {a} (signHonest {i = i} {snap = snap₀} _ _ _ _ _ seen⊆₀) ih {k} {snap} hk (here e) =
-      subst (λ p → Snapshot.txs (proj₂ p) ⊆ˡ lookup (seen a) (proj₁ p)) (sym e) seen⊆₀
-    ss {a} (signHonest _ _ _ _ _ _)              ih {k} {snap} hk (there m) = ih hk m
-    ss {a} (signCorrupt {i = i} {snap = snap₀} ci) ih {k} {snap} hk (here e) =
-      ⊥-elim (trueNotFalse (trans (sym (subst (λ p → lookup (honest a) p ≡ true) (cong proj₁ e) hk)) ci))
-    ss {a} (signCorrupt _)  ih {k} {snap} hk (there m) = ih hk m
-    ss {a} (confirm _)      ih hk mem = ih hk mem
-    ss {a} (corrupt i₀)     ih {k} hk mem = ih (honest-mono (honest a) i₀ k hk) mem
-    ss {a} (finalize _ _)   ih hk mem = ih hk mem
-    ss {a} (see {i = i} {txs = txs}) ih {k} {snap} hk mem with i FinP.≟ k
-    ... | no  i≢k  = subst (λ w → Snapshot.txs snap ⊆ˡ w)
-                           (sym (lookup∘update′ (λ e → i≢k (sym e)) (seen a) (txs ++ lookup (seen a) i)))
-                           (ih hk mem)
-    ... | yes refl = subst (λ w → Snapshot.txs snap ⊆ˡ w)
-                           (sym (lookup∘update i (seen a) (txs ++ lookup (seen a) i)))
-                           (λ {x} x∈ → ∈-++⁺ʳ txs (ih hk mem x∈))
+sigSeen-inv sys reach = Inv.sigSeen (invariant sys reach)
 
 soundness : Soundness
 soundness sys reach {snap = snap} hh aggOK =
