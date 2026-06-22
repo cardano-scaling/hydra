@@ -9,6 +9,8 @@ license-files:
   LICENSE
   NOTICE
 
+extra-source-files: ../hydra-node/networks.json
+
 source-repository head
   type:     git
   location: https://github.com/cardano-scaling/hydra
