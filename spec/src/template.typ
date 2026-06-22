@@ -89,10 +89,10 @@
 
 #let render-agda(it) = block(
   fill: luma(245),
-  inset: 8pt,
+  inset: 7pt,
   radius: 3pt,
   width: 100%,
-  text(font: "StrippedJuliaMono", size: 8pt, it),
+  text(font: "StrippedJuliaMono", size: 7pt, it),
 )
 
 // === Document configuration ===
@@ -145,7 +145,7 @@
       let secbody = if hs.len() > 0 { hs.last().body } else { [Front matter] }
       [#metadata((src: it.text, secnum: counter(heading).get(), sec: secbody)) #label("agda-src")]
       block(above: 0.5em, below: 0.8em, align(right, text(
-        size: 8pt, fill: rgb("#1a4fb4"),
+        size: 7pt, fill: rgb("#1a4fb4"),
         link(<agda-appendix>)[_(Agda formalisation in appendix)_],
       )))
     }

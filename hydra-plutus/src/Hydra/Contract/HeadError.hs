@@ -67,7 +67,6 @@ data HeadError
   | PartialFanoutCannotBeLastBatch
   | ChangedHeadAdaOverhead
   | InvalidCRSRefAddress
-  | FanoutZeroOutputs
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -140,4 +139,3 @@ instance ToErrorCode HeadError where
     PartialFanoutCannotBeLastBatch -> "H64"
     ChangedHeadAdaOverhead -> "H65"
     InvalidCRSRefAddress -> "H66"
-    FanoutZeroOutputs -> "H67"

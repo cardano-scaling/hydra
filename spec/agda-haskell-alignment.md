@@ -71,8 +71,10 @@ binding; the init mint count; the fanout burn-count and after-deadline.)
   the contestation deadline** (`validityHi ≤ tfinal`, `MutateValidityPastDeadline` →
   `UpperBoundBeyondContestationDeadline`) **+ the conditional deadline-UPDATE rule** (`tfinal' = if
   all-contested then tfinal else tfinal+cp`); close ALSO **+ bounded validity** (`hi − lo ≤ cp`); fanout:
-  `0 < m` **+ all `n+1` head tokens burned** (`burnedCount == n+1`) **+ posted after the deadline**
-  (`tfinal < lo`); claim (νDeposit): **the before-deadline conjunct** (`validityHi ≤ tRecover`, caught
+  **all `n+1` head tokens burned** (`burnedCount == n+1`) **+ posted after the deadline** (`tfinal < lo`)
+  (m = 0 is permitted — empty-head finalisation, see Finding B); init: **mint count n+1 + token PLACEMENT**
+  (ST present + head output carries n+1 head-policy tokens, `RemovePTsFromHead`/`removePTsInitTx` →
+  `MissingPTs`); claim (νDeposit): **the before-deadline conjunct** (`validityHi ≤ tRecover`, caught
   via `deadlineSurpassedClaimTx` → `DepositPeriodSurpassed`) **+ the head-id binding** (`depositCid ==
   headCid`, caught via the cross-head deposit mutation). One end-to-end drift-catch is demonstrated
   (close `mustNotChangeVersion`).
@@ -81,7 +83,7 @@ binding; the init mint count; the fanout burn-count and after-deadline.)
   is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
   `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  token PLACEMENT (ST/PT into the head output), the νDeposit Claim **Increment-redeemer coupling** (the
+  the init seed-spent + datum binding (token PLACEMENT is now caught), the νDeposit Claim **Increment-redeemer coupling** (the
   other half of `expect_increment_redeemer`; the head-id half IS caught), **fanout value conservation**
   (the `headAda` datum-value term has no faithful tx counterpart — a documented boundary), and the
   **per-token granularity** of increment/decrement value conservation (it now checks ada AND the total
@@ -89,10 +91,10 @@ binding; the init mint count; the fanout burn-count and after-deadline.)
   `tokenSiphonIncrementTx` — but two token sets with the same total alias, so distinguishing them needs
   the full `Value` map). A validator could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close contestation deadline + bounded validity; the
   contest before-deadline + conditional deadline-UPDATE; the fanout burn-count + after-deadline; the
-  recover after-deadline; the claim before-deadline + head-id binding; the init mint count; and the
-  **participant signature** `mustBeSignedByParticipant` for increment — the shared `participantSignedRefᵇ`
-  overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`; ready to wire into
-  the contest/decrement/close verdicts too.)
+  recover after-deadline; the claim before-deadline + head-id binding; the init mint count + token
+  PLACEMENT (ST present + n+1 head-output token count); and the **participant signature**
+  `mustBeSignedByParticipant` for close/contest/increment/decrement — the shared `participantSignedRefᵇ`
+  overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
@@ -193,22 +195,24 @@ is structurally **richer** than the implementation's. Worth a one-line note in t
 materialises the commitment at close). *Addressed:* an "Implementation note (datum
 representation)" was added to `OnChain.lagda.typ` (§init) recording this.
 
-### Finding B — MED (FIXED): full `Fanout` did not enforce `m > 0`
+### Finding B — MED (REVERTED — the Agda invariant was the error): full `Fanout` must allow `m = 0`
 
-The Agda `fanoutValid` requires `0 < m` (as do `partialFanoutValid` and
-`finalPartialFanoutValid`). In Plutus, `checkPartialFanout` (`Head.hs:581`) and
-`checkFinalPartialFanout` (`Head.hs:671`) both guard `numberOfPartialOutputs > 0`, but
-`headIsFinalizedWith` (the full `Fanout`, `Head.hs:494-498`) has **no** `numberOfFanoutOutputs
-> 0` guard. With `m = 0` the membership pairing degenerates (an attacker-supplied `proof`
-equal to the public commitment satisfies it). It is **not a fund-theft hole**: `mustConserveValue`
-(`Head.hs:525`) forces `headIn = burned ⊕ adaOverhead` when there are no outputs, so it only
-passes for a head holding no L2 funds (the legitimate empty fanout). Still, this is a genuine
-divergence from the Agda invariant and an inconsistency with the two sibling fanout
-validators that *do* guard it (and whose code comments call the empty-subset case
-exploitable). *Fixed:* added `mustHaveOutputs` (`numberOfFanoutOutputs > 0`, new error code
-`FanoutZeroOutputs` = H67) to `headIsFinalizedWith` in `Head.hs`, plus a
-`MutateFanoutZeroOutputs` adversarial-mutation regression test in
-`hydra-tx/test/Hydra/Tx/Contract/FanOut.hs`.
+The Agda `fanoutValid` required `0 < m` (as do `partialFanoutValid` and `finalPartialFanoutValid`).
+In Plutus, `checkPartialFanout`/`checkFinalPartialFanout` guard `numberOfPartialOutputs > 0`, but
+`headIsFinalizedWith` (the full `Fanout`) deliberately has **no** such guard. An earlier pass treated
+that as a divergence and added a `mustHaveOutputs` (`FanoutZeroOutputs` = H67) guard to match the Agda
+`0 < m`. **That was the bug:** the full 0-output fanout is the *legitimate and only* way to finalise an
+EMPTY head (the universal initial state under ADR-033; UTxO enters only via deposit), burning its n+1
+tokens — the guard makes those tokens unburnable forever. The hydra-node model tests caught it,
+shrinking to `Init → Close → Fanout`. It is provably **not** a fund-theft hole: `mustConserveValue` uses
+strict `==`, so with `m = 0` only a head holding no L2 funds passes (`headIn = burned ⊕ adaOverhead`,
+exactly), and the KZG membership degeneracy is harmless because security rests on the `==`, not the
+pairing. *Reverted:* removed the `mustHaveOutputs` guard (→ `headIsFinalizedWith` byte-identical to
+master, golden hash restored, no regeneration) and its `MutateFanoutZeroOutputs` test; removed
+`FanoutValid.outputsPositive` and the matching reference/bridge/differential `0 < m` for the full path.
+The two sibling PARTIAL guards are KEPT (a zero-output partial *batch* makes no progress — genuinely
+invalid). This is a real bug the formalization itself introduced and the differential/model layer then
+surfaced and corrected.
 
 ### Finding C — LOW (mapping note): `accVerifyExclude` is realised by reusing the membership pairing
 
@@ -275,7 +279,7 @@ set-theory model blocks `ℙ`-membership). Worth recording.
 | Transition dispatch | exact (8 transitions + reject-all) |
 | close / contest checks | full match (Plutus value law tighter; participant signature now structural, only exact-cardinality abstracted) |
 | increment / decrement checks | full match (deposit **Recover** after-deadline now mechanized; deposit **Claim** before-deadline + redeemer coupling out of scope) |
-| fanout / partial / final-partial checks | full match (the `0 < m` gap in full fanout, B, now fixed) |
+| fanout / partial / final-partial checks | full match (full-fanout `0 < m` (B) reverted: m=0 allowed for empty-head finalisation; partial-batch `0 < m` kept) |
 | `μHead` init token count, νDeposit recover after-deadline | mechanized (reference + bridge + differential) |
 | `μHead` token placement/abort, νDeposit Claim arm, CRS | not modelled in Agda (coverage boundary) |
 

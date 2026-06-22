@@ -164,9 +164,11 @@ contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b 
     ... | no  ¬p | dl = trans dl (sym (cong (λ z → R.if z then tfin else (tfin + cp)) (¬→==ᵇfalse ¬p)))
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
--- `0 <ᵇ m` from `0 < m`; `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo`
--- (posted after the deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and
--- value-conservation conjuncts stay in the injected (mock) `fanoutCryptoOK`.
+-- `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo` (posted after the
+-- deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and value-conservation
+-- conjuncts stay in the injected (mock) `fanoutCryptoOK`. No `0 < m` conjunct: the FULL fanout permits
+-- m = 0 (empty-head finalisation), so `fanoutRefᵇ` no longer gates it (cf. `FanoutValid` dropping
+-- `outputsPositive`); `FinalPartialFanoutValid.outputsPositive` is kept in the spec record but not bridged.
 mockOpsFanout : R.OpsFanout
 mockOpsFanout = record { fanoutCryptoOK = λ _ → true }
 
@@ -175,18 +177,16 @@ fanoutValid→ref : ∀ ctx cid hk n cp v s η C tfin ada outs m π crs
   → R.fanoutRefᵇ mockOpsFanout
        (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
 fanoutValid→ref ctx cid hk n cp v s η C tfin ada outs m π crs b =
-    &&-intro (<→<ᵇ (FanoutValid.outputsPositive b))
-   (&&-intro (==-sound (FanoutValid.burnAllTokens b))
-   (&&-intro (<ᴮ-sound (FanoutValid.afterDeadline b)) refl))
+    &&-intro (==-sound (FanoutValid.burnAllTokens b))
+   (&&-intro (<ᴮ-sound (FanoutValid.afterDeadline b)) refl)
 
 finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
   → finalPartialFanoutValid ctx (FanoutProgress cid hk n tfin η ada) outs m π crs
   → R.fanoutRefᵇ mockOpsFanout
        (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
 finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
-    &&-intro (<→<ᵇ (FinalPartialFanoutValid.outputsPositive b))
-   (&&-intro (==-sound (FinalPartialFanoutValid.burnAllTokens b))
-   (&&-intro (<ᴮ-sound (FinalPartialFanoutValid.afterDeadline b)) refl))
+    &&-intro (==-sound (FinalPartialFanoutValid.burnAllTokens b))
+   (&&-intro (<ᴮ-sound (FinalPartialFanoutValid.afterDeadline b)) refl)
 
 -- ── deposit recover (νDeposit) ────────────────────────────────────────────────────────────────
 -- The reference's after-deadline check `tRecover <ᴮ validityLo` holds from the bundle's
@@ -204,20 +204,26 @@ recoverValid→ref : ∀ ctx cid tRec C m
 recoverValid→ref ctx cid tRec C m b =
   &&-intro (<ᴮ-sound (RecoverValid.afterRecoverDeadline b)) refl
 
--- ── init (μHead minting policy: token count) ────────────────────────────────────────────────────
--- The reference's count check `mintedCount == suc n` holds from the bundle's `mintedCount ctx cid ≡
--- suc n` (the μHead `checkNumberOfTokens`, exactly n+1 tokens minted), discharged via `==-sound`. The
--- remaining μHead conjuncts (seed-spent, ST/PT placement, datum binding) are the injected (mock)
--- `initPlacementOK`. So a reference count-reject ⇒ the spec rejects ⇒ the μHead policy rejects
--- (`WrongNumberOfTokensMinted`).
+-- ── init (μHead minting policy: token count + placement) ─────────────────────────────────────────
+-- The reference's count check `mintedCount == suc n` holds from `mintedCountOK` (the μHead
+-- `checkNumberOfTokens`), and the PLACEMENT checks `stQty == 1` / `headTokenCount == suc n` hold from
+-- `stPlaced` / `tokensPlaced` — all `≡`-of-ℕ-projection conjuncts, discharged directly via `==-sound`
+-- (no new axiom; the reference IO fields ARE those projections, as for `mintedCount`). The remaining
+-- μHead conjuncts (seed-spent, datum binding) are the injected (mock) `initPlacementOK`. So a reference
+-- reject ⇒ the spec rejects ⇒ the μHead policy rejects (`WrongNumberOfTokensMinted` / a misplaced-token
+-- failure).
 mockOpsInit : R.OpsInit
 mockOpsInit = record { initPlacementOK = λ _ → true }
 
 initValid→ref : ∀ ctx seed cid hk n cp v η ada
   → initValid ctx seed (Open cid hk n cp v η ada)
-  → R.initRefᵇ mockOpsInit (R.mkMintIOᶜ n (mintedCount ctx cid)) ≡ true
+  → R.initRefᵇ mockOpsInit
+       (R.mkMintIOᶜ n (mintedCount ctx cid) (stQty (headValue ctx) cid) (headTokenCount (headValue ctx) cid))
+     ≡ true
 initValid→ref ctx seed cid hk n cp v η ada b =
-  &&-intro (==-sound (InitValid.mintedCountOK b)) refl
+  &&-intro (==-sound (InitValid.mintedCountOK b))
+ (&&-intro (==-sound (InitValid.stPlaced b))
+ (&&-intro (==-sound (InitValid.tokensPlaced b)) refl))
 
 -- ── deposit claim (νDeposit, Claim redeemer) ──────────────────────────────────────────────────
 -- The reference's before-deadline check `validityHi ≤ᴮ tRecover` holds from the bundle's

@@ -126,8 +126,9 @@ type OpsFanout = M.T_OpsFanout_258
 mkOpsFanout :: (HsFanout -> Bool) -> OpsFanout
 mkOpsFanout = M.C_OpsFanout'46'constructor_3853
 
--- | Decidable fanout checker: @0 < m@ outputs (the validator's @FanoutZeroOutputs@, the §5.8
--- m>0 guard). Accumulator\/value\/burn\/deadline delegated to @OpsFanout@.
+-- | Decidable fanout checker: all @n+1@ head tokens burned (@burnedCount == n+1@) AND posted after the
+-- contestation deadline (@tfinal \< lo@). No @0 \< m@ guard — the full fanout permits @m == 0@ to finalise
+-- an empty head. Accumulator\/value conservation delegated to @OpsFanout@.
 checkFanout :: OpsFanout -> HsFanout -> Bool
 checkFanout = M.d_fanoutRef'7495'_264
 
@@ -135,7 +136,7 @@ checkFanout = M.d_fanoutRef'7495'_264
 type OpsRecover = M.T_OpsRecover_282
 
 mkOpsRecover :: (HsRecoverIO -> Bool) -> OpsRecover
-mkOpsRecover = M.C_OpsRecover'46'constructor_3957
+mkOpsRecover = M.C_OpsRecover'46'constructor_3947
 
 -- | Decidable deposit-recover checker (@deposit.ak@ Recover arm): the recover tx is posted strictly
 -- after the recover deadline (@tRecover \< validityLo@, i.e. txValidityMin > t_recover, the
@@ -145,26 +146,29 @@ mkOpsRecover = M.C_OpsRecover'46'constructor_3957
 checkRecover :: OpsRecover -> HsRecoverIO -> Bool
 checkRecover = M.d_recoverRef'7495'_288
 
--- | Injected boundary for init: the seed-spent, ST\/PT placement, and datum-binding μHead checks
--- (they need multi-asset token-name lookup, the value-map API the spec abstracts over).
-type OpsInit = M.T_OpsInit_306
+-- | Injected boundary for init: the seed-spent and datum-binding μHead checks (token PLACEMENT is now
+-- checked by 'checkInit', no longer delegated).
+type OpsInit = M.T_OpsInit_314
 
 mkOpsInit :: (HsMintIO -> Bool) -> OpsInit
-mkOpsInit = M.C_OpsInit'46'constructor_4037
+mkOpsInit = M.C_OpsInit'46'constructor_4075
 
--- | Decidable init token-count checker (μHead @validateTokensMinting@'s @checkNumberOfTokens@): the
--- transaction mints exactly @n + 1@ tokens of the head policy (one ST + one PT per party); proved to
--- reflect @initValid@'s mint-count conjunct in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The
--- token placement (ST\/PT into the head output) and datum binding are delegated to @OpsInit@.
+-- | Decidable init token COUNT + PLACEMENT checker (μHead @validateTokensMinting@): the transaction
+-- MINTS exactly @n + 1@ tokens of the head policy (@checkNumberOfTokens@) AND those tokens are PLACED in
+-- the head output — the ST is present (@stQty == 1@) and the head output carries exactly @n + 1@
+-- head-policy tokens (@headTokenCount == n + 1@). The four 'HsMintIO' fields are @n@, the minted count,
+-- the head-output ST quantity, and the head-output head-policy token count. Proved to reflect @initValid@
+-- in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. Seed-spent and datum binding stay delegated to
+-- @OpsInit@.
 checkInit :: OpsInit -> HsMintIO -> Bool
-checkInit = M.d_initRef'7495'_312
+checkInit = M.d_initRef'7495'_320
 
 -- | Injected boundary for deposit claim: the Increment-redeemer coupling of @expect_increment_redeemer@
 -- (the deposit is spent by an @Increment@ of the head). The head-id equality half is now checked.
-type OpsClaim = M.T_OpsClaim_338
+type OpsClaim = M.T_OpsClaim_346
 
 mkOpsClaim :: (HsClaimIO -> Bool) -> OpsClaim
-mkOpsClaim = M.C_OpsClaim'46'constructor_4167
+mkOpsClaim = M.C_OpsClaim'46'constructor_4229
 
 -- | Decidable deposit-claim checker (@deposit.ak@ Claim arm): the increment tx collecting the deposit
 -- is posted BEFORE the recover deadline (@validityHi \<= tRecover@, i.e. txValidityMax <= t_recover,
@@ -173,7 +177,7 @@ mkOpsClaim = M.C_OpsClaim'46'constructor_4167
 -- ids are passed as the two trailing 'HsClaimIO' integer encodings); proved to reflect @claimValid@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The Increment-redeemer coupling is delegated.
 checkClaim :: OpsClaim -> HsClaimIO -> Bool
-checkClaim = M.d_claimRef'7495'_344
+checkClaim = M.d_claimRef'7495'_352
 
 -- | Decidable, fully-extractable participant-signature checker (the §5.4–5.7
 -- @mustBeSignedByParticipant@, shared by close\/contest\/increment\/decrement): SOME transaction
@@ -184,4 +188,4 @@ checkClaim = M.d_claimRef'7495'_344
 -- disjoint and the reference reject. Proved to reflect @signedByParticipant@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkParticipantSigned :: HsSignerIO -> Bool
-checkParticipantSigned = M.d_participantSignedRef'7495'_378
+checkParticipantSigned = M.d_participantSignedRef'7495'_386

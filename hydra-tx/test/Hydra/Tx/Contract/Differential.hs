@@ -12,14 +12,14 @@
 --   * contest: version preserved, snapshot strictly increases (@TooOldSnapshot@), one contester
 --     appended, and posted before the contestation deadline (@validityHi ≤ tfinal@,
 --     @mustBeWithinContestationPeriod@);
---   * fanout\/finalPartialFanout: @0 < m@ outputs (@FanoutZeroOutputs@), all @n+1@ head tokens burned
---     (@BurntTokenNumberMismatch@) and posted after the deadline (@tfinal < lo@,
---     @LowerBoundBeforeContestationDeadline@).
+--   * fanout\/finalPartialFanout: all @n+1@ head tokens burned (@BurntTokenNumberMismatch@) and posted
+--     after the deadline (@tfinal < lo@, @LowerBoundBeforeContestationDeadline@). NB the full fanout
+--     permits @m == 0@ (finalising an empty head), so no @0 < m@ conjunct is checked.
 --
 -- The remaining crypto\/value\/accumulator conjuncts are mocked (@const True@) on the reference side,
 -- so the converse direction (validator-rejects-while-reference-accepts) is expected and not
 -- asserted.
-module Hydra.Tx.Contract.Differential (spec) where
+module Hydra.Tx.Contract.Differential (spec, participantSignedRef) where
 
 import Hydra.Prelude
 
@@ -130,7 +130,7 @@ incRefVerdict (tx, utxo) = do
           (nonAda headOut)
       )
       -- §5.4 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
-      && Ref.checkParticipantSigned (Ref.MkSignerIO (signerCodes tx) (ptCodes headOut))
+      && participantSignedRef tx headOut
 
 -- | Lovelace (ada) component of a tx output's value, as the plain Integer the reference boundary takes.
 lovelace :: TxOut ctx -> Integer
@@ -166,6 +166,11 @@ ptCodes o =
   , an /= hydraHeadV2AssetName
   ]
 
+-- | The shared §5.4–5.7 @mustBeSignedByParticipant@ reference check on a tx and its head output: do the
+-- tx signers' key-hashes overlap the head value's PT names? Exported so the close differential reuses it.
+participantSignedRef :: Tx -> TxOut ctx -> Bool
+participantSignedRef tx out = Ref.checkParticipantSigned (Ref.MkSignerIO (signerCodes tx) (ptCodes out))
+
 -- Decrement steps Open→Open and SHRINKS the head value by the decommit. Like increment, the reference
 -- now checks lovelace conservation (adaOut + adaDelta == adaIn): head output + the decommitted outputs
 -- == head input. The decommitted outputs are @take numberOfDecommitOutputs (tail (txOuts' tx))@ (head
@@ -195,6 +200,8 @@ decRefVerdict (tx, utxo) = do
           decommitNonAda
           (nonAda headOut)
       )
+      -- §5.5 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
+      && participantSignedRef tx headOut
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- The reference now also checks the before-deadline guard (@validityHi ≤ tfinal@) AND the conditional
@@ -209,6 +216,7 @@ contestRefVerdict m@(tx, _) = do
   HS.Closed cd' <- Just outSt
   HS.Contest _ <- findRedeemerSpending tx headIn :: Maybe HS.Input
   validityHi <- txUpperBoundPOSIX tx
+  headOut <- txOuts' tx !!? 0
   pure $
     Ref.checkContest
       (Ref.mkOpsContest (const True))
@@ -225,6 +233,8 @@ contestRefVerdict m@(tx, _) = do
           (fromIntegral (length cd.parties))
           (toInteger (milliseconds cd.contestationPeriod))
       )
+      -- §5.7 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
+      && participantSignedRef tx headOut
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
 -- The reference now checks, besides @0 < m@: the burn count (@burnedCount == n+1@, the negated

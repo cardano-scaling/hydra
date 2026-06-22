@@ -486,15 +486,18 @@ decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ 
 decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m = DecrementValid ctx hk cid v d d' ξ s m
 decrementValid _ _ _ _ _ _ = ⊥
 
--- Fan-out is posted after the deadline (txValidityMin > tfinal), distributes m > 0
+-- Fan-out is posted after the deadline (txValidityMin > tfinal), distributes m
 -- outputs that are members of η, conserves value, and burns all n+1 tokens (§5.8).
+-- NB m = 0 is permitted: it is the (only) way to finalise a genuinely EMPTY head — distribute
+-- nothing, burn the n+1 tokens. Value conservation (exact, via `valueOK`) prevents any theft at m = 0,
+-- so no `0 < m` guard is imposed on the FULL fanout (unlike the partial paths, where a 0-output batch
+-- makes no progress); this matches the real νHead `headIsFinalizedWith` (no `numberOfFanoutOutputs > 0`).
 record FanoutValid (ctx : Context) (d : HeadDatum) (outs : ℙ Output) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
   constructor mkFanoutValid
   field
     step            : d ⟶⟨ Fanout m π crs ⟩ Final
     burnAllTokens   : burnAllTokensOK ctx d                    -- burns the n+1 tokens (§5.8)
     membersOK       : fanoutMembersOK (ηOf d) outs π           -- distributed outputs ∈ η
-    outputsPositive : 0 < m
     afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
     valueOK         : fanoutValueOK ctx (headAda d) m
 
@@ -537,21 +540,26 @@ finalPartialFanoutValid = FinalPartialFanoutValid
 -- seed is spent (so the EUTxO ledger guarantees `cid` is unique), exactly n+1 tokens of `cid` are
 -- minted (1 ST + n PTs), and the produced head output is a well-formed initial Open (version 0,
 -- η = accUTxO ∅). Init has no predecessor datum, so it is a creation PREDICATE, not a `_⟶⟨_⟩_` step.
--- Token PLACEMENT into the head output (st, ptᵢ ∈ valHead) is a value-membership check, still abstract
--- here (it would be a `quantityOf`-based predicate, exactly as the now-concrete `signedByParticipant`).
+-- Token PLACEMENT into the head output is now modelled (`stPlaced`/`tokensPlaced`, via the `stQty`/
+-- `headTokenCount` value projections): the head output carries exactly the n+1 head-policy tokens, one
+-- being the ST. Together with the n+1 MINT count (`mintedCountOK`) this pins that every minted token is
+-- placed in the head output (form (a): the count + ST presence; naming the individual PTs would need the
+-- per-party key list, which the on-chain `Open` datum abstracts into `hk`/`n`).
 postulate
   μHead       : OutputRef → Script  -- the seed-parameterised minting policy script
   mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)
 
--- `mintedCountOK` is bridged + differentially tested (`initValid→ref`, the `InitDifferential` suite);
--- token PLACEMENT into the head output stays abstract. The thin `initValid` function dispatches on the
--- produced `Open` head datum (binding its cid/n/v/η) and is ⊥ for any other produced shape.
+-- `mintedCountOK`/`stPlaced`/`tokensPlaced` are bridged + differentially tested (`initValid→ref`, the
+-- `InitDifferential` suite). The thin `initValid` function dispatches on the produced `Open` head datum
+-- (binding its cid/n/v/η) and is ⊥ for any other produced shape.
 record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η : AccCommitment) : Set where
   constructor mkInitValid
   field
     cidIsSeedHash : cid ≡ hash (μHead seed)        -- cid = hash(μHead(seed)) (§5.1)
     seedSpent     : depositSpentOK ctx seed         -- the seed output is spent (uniqueness of cid)
     mintedCountOK : mintedCount ctx cid ≡ suc n     -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
+    stPlaced      : stQty (headValue ctx) cid ≡ 1   -- the ST is placed in the head output
+    tokensPlaced  : headTokenCount (headValue ctx) cid ≡ suc n  -- all n+1 head-policy tokens placed there
     versionZero   : v ≡ 0                           -- initial snapshot version
     etaEmpty      : η ≡ accUTxO ∅ˢ                   -- accumulator commits to the empty initial UTxO set
 
