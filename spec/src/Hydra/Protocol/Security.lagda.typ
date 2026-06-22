@@ -158,6 +158,9 @@ enforced by the model, so `Reflects` is conditional on the finalizer having post
 νDeposit validator (`deposit.ak`) and the off-chain handlers are likewise hand-reviewed coverage
 boundaries (see `claimTxValid`), not part of any machine-checked theorem here.
 
+As an aside (not used in the proofs below), a monotonicity proposition on a
+party's confirmed snapshot number is stated in @agda-appendix.
+
 ```agda
 -- An illustrative standalone proposition (not part of the proved properties below): a
 -- confirmed snapshot's number does not decrease from one local state to another.
@@ -167,7 +170,7 @@ SnapshotMonotone st st' =
 ```
 
 The §7 properties quantify over whole multi-party executions in the presence of an
-adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs`, a global
+adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs` (@agda-appendix), a global
 $sans("System")$ state recording each party's signatures, a concrete single-step relation
 $sans("_⟶ˢ_")$ (an honest party signs an _applicable_ snapshot; a corrupt party signs arbitrarily;
 a party confirms a snapshot whose aggregate multisignature verifies; the adversary corrupts a party),
