@@ -23,6 +23,7 @@ module Hydra.Tx.Contract.Differential (spec) where
 
 import Hydra.Prelude
 
+import Data.ByteString qualified as BS
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Agda.Reference qualified as Ref
@@ -40,13 +41,16 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
   resolveInputsUTxO,
   selectLovelace,
+  serialiseToRawBytes,
   toPlutusCurrencySymbol,
+  txExtraKeyWits,
   txMintValue,
   txMintValueToValue,
   txOutValue,
   txOuts',
   txValidityLowerBound,
   txValidityUpperBound,
+  pattern TxExtraKeyWitnesses,
   pattern TxValidityLowerBound,
   pattern TxValidityUpperBound,
   pattern UnsafeAssetName,
@@ -65,6 +69,7 @@ import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
+import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import PlutusLedgerApi.V3 (getPOSIXTime)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
@@ -124,6 +129,8 @@ incRefVerdict (tx, utxo) = do
           depositNonAda
           (nonAda headOut)
       )
+      -- §5.4 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
+      && Ref.checkParticipantSigned (Ref.MkSignerIO (signerCodes tx) (ptCodes headOut))
 
 -- | Lovelace (ada) component of a tx output's value, as the plain Integer the reference boundary takes.
 lovelace :: TxOut ctx -> Integer
@@ -134,6 +141,30 @@ lovelace o = let Coin n = selectLovelace (txOutValue o) in n
 -- native-token siphon that an ada-only check misses.
 nonAda :: TxOut ctx -> Integer
 nonAda o = sum [q | (aid, Quantity q) <- IsList.toList (txOutValue o), aid /= AdaAssetId]
+
+-- | The participant-signature inputs the shared 'Ref.checkParticipantSigned' reference takes, read off
+-- the real tx: the signers' key-hashes (txInfoSignatories) and the head value's PT token-names. Both
+-- sides are the SAME hash bytes (a PT's token name IS a participant's key-hash, cf. @onChainIdToAssetName@
+-- / required signers) under one 'encodeHash' encoding, so they overlap exactly when a PT holder signed.
+encodeHash :: ByteString -> Integer
+encodeHash = BS.foldl' (\acc w -> acc * 256 + toInteger w) 0
+
+-- | The tx's signing key-hashes (the required signers, which the ledger surfaces to the validator as
+-- @txInfoSignatories@), each encoded as an Integer.
+signerCodes :: Tx -> [Integer]
+signerCodes tx =
+  case txExtraKeyWits (getTxBodyContent (getTxBody tx)) of
+    TxExtraKeyWitnesses hashes -> encodeHash . serialiseToRawBytes <$> hashes
+    _ -> []
+
+-- | The participation-token names in the head output value (its non-ada assets other than the state
+-- token @hydraHeadV2AssetName@), each encoded as an Integer with the same 'encodeHash' as 'signerCodes'.
+ptCodes :: TxOut ctx -> [Integer]
+ptCodes o =
+  [ encodeHash bs
+  | (AssetId _ an@(UnsafeAssetName bs), _) <- IsList.toList (txOutValue o)
+  , an /= hydraHeadV2AssetName
+  ]
 
 -- Decrement steps Open→Open and SHRINKS the head value by the decommit. Like increment, the reference
 -- now checks lovelace conservation (adaOut + adaDelta == adaIn): head output + the decommitted outputs
@@ -260,6 +291,13 @@ tokenSiphonIncrementTx =
   headOut = fromJust (txOuts' (fst healthyIncrementTx) !!? 0)
   siphonToken = IsList.fromList [(AssetId testPolicyId (UnsafeAssetName "siphon"), 1)]
 
+-- | The healthy increment with its required signers stripped. Version and value are untouched (so the
+-- old version+value-only reference accepted it), but no signer now holds a PT, so the new participant
+-- conjunct rejects and the validator rejects too (@NoSigners@): the @mustBeSignedByParticipant@ gap the
+-- old (mocked) reference missed.
+noSignerIncrementTx :: (Tx, UTxO)
+noSignerIncrementTx = applyMutation (ChangeRequiredSigners []) healthyIncrementTx
+
 -- ── property assembly ─────────────────────────────────────────────────────────────────────────
 
 -- | @reference-rejects ⇒ validator-rejects@; abstains (no constraint) when the reference can't
@@ -304,3 +342,13 @@ spec = parallel $ do
     incRefVerdict tokenSiphonIncrementTx === Just False
   prop "increment: validator also rejects the non-ada token siphon" $
     validatorAccepts tokenSiphonIncrementTx === False
+
+  -- Demonstration that un-mocking the participant signature (shared checker) closes a real gap:
+  -- stripping the required signers leaves version+value conservation intact (so the old reference
+  -- accepted it) but the new participant conjunct rejects, and the validator rejects too (NoSigners).
+  prop "increment: dropping the participant signer leaves lovelace conservation intact" $
+    incLovelaceConserved noSignerIncrementTx === Just True
+  prop "increment: the participant conjunct REJECTS a tx with no participant signer" $
+    incRefVerdict noSignerIncrementTx === Just False
+  prop "increment: validator also rejects the tx with no participant signer" $
+    validatorAccepts noSignerIncrementTx === False

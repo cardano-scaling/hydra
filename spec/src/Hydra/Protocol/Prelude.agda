@@ -89,6 +89,10 @@ postulate
   -- non-ada total, which a real token theft does.)
   nonAdaOf    : Value → ℕ
   nonAdaOf-+ᵛ : ∀ a b → nonAdaOf (a +ᵛ b) ≡ nonAdaOf a + nonAdaOf b
+  -- Per-asset projection: the quantity of a single (policy, token) asset in a value. Used to express
+  -- token PRESENCE (e.g. a participation token of a given name) without unfolding the opaque value
+  -- map; kept abstract in the same trust family as `adaOf`/`nonAdaOf`.
+  quantityOf : Value → (CId × Token) → Quantity
   -- The algebra the value-conservation predicates reason over: (Value, _+ᵛ_, εᵛ) is a commutative
   -- monoid and _≤ᵛ_ a partial order compatible with addition. All hold of the pointwise signed
   -- multi-asset map. NB quantities are ℤ (negative = burning), so `a ≤ᵛ a +ᵛ b` does NOT hold in
