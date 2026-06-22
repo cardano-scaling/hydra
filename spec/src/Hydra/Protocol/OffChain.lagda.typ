@@ -147,7 +147,8 @@ $"depositObj"(U, t_("created"), t_("deadline"), "status")$
 where status can be $"Inactive"$, $"Active"$, or $"Expired"$.
 
 In Agda, a UTxO set is a finite map from output references to outputs, and a
-party's local state and the protocol messages are captured by:
+party's local state and the protocol messages are captured by dedicated record
+types (@agda-appendix).
 
 ```agda
 UTxO : Set

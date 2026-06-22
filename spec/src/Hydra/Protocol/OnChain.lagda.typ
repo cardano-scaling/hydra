@@ -44,8 +44,8 @@ The deposit protocol defines one validator script:
 
 The head output datum $datumHead$ ranges over the protocol states. The state
 machine and its per-state fields (as enumerated in the transitions below) are
-captured by an Agda type, with the redeemer $redeemerHead$ selecting
-the $nuHead$ transition:
+captured by an Agda type (@agda-appendix), with the redeemer $redeemerHead$ selecting
+the $nuHead$ transition.
 
 ```agda
 -- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
@@ -77,7 +77,7 @@ data HeadRedeemer : Set where
 ```
 
 The admissible $nuHead$ state transitions are captured as a typed relation
-$d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"). The relation
+$d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"), defined in @agda-appendix. The relation
 encodes the *state-machine shape* and the *version discipline* in the types:
 $sans("increment")$/$sans("decrement")$ bump the version (`suc v`),
 $sans("close")$/$sans("contest")$ preserve it (the same `v` reappears),
@@ -86,7 +86,7 @@ requires the new $keyHash in.not contesters$ (so the list grows by exactly one),
 the partial-fanout rules thread the intermediate $stFanoutProgress$ state through to
 $stFinal$. A rule violating any of *these* would fail to type-check. The
 remaining per-transaction conditions (signatures, value conservation, deadlines)
-are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK` below) applied
+are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK`) applied
 alongside it.
 
 ```agda
@@ -122,11 +122,11 @@ data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
 ```
 
 Beyond the state-machine shape, individual $nuHead$ *checks* are stated as
-predicates over the validation $sans("Context")$ and the datums. For example,
+predicates (@agda-appendix) over the validation $sans("Context")$ and the datums. For example,
 the close transaction (@sec:close-tx) requires the recorded contestation
 deadline to be the transaction's upper validity bound extended by the
-contestation period; as a checkable proposition referencing the context and the
-produced datum:
+contestation period. This condition is stated as a checkable proposition over
+the context and the produced datum.
 
 ```agda
 -- spec §3.4/§5.8 accumulator operations (the §3.4 Accumulator scheme at the

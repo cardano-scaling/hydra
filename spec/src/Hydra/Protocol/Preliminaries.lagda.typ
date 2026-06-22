@@ -62,9 +62,9 @@ With this, we further define:
 - $tyData$ is a universal data type of nested sums and products built up
   recursively from the base types of $tyInteger$ and $tyBytes$.
 
-The concatenation operator is defined in Agda directly in terms of $bytes$ and
+The concatenation operator (@agda-appendix) is defined in Agda directly in terms of $bytes$ and
 $concat$; Agda checks that the operands are serialised before being concatenated
-(i.e. that the operation is well-typed):
+(i.e. that the operation is well-typed).
 
 ```agda
 infixl 6 _‖_
@@ -101,9 +101,9 @@ Note that in the following, we make the parameter~$msParams$ implicit and leave
 out the $italic("ver")$ suffix for verification key such that $k = k^("ver")$ for better
 readability.
 
-As an Agda interface, a multisignature scheme is a record of the abstract key,
+As an Agda interface (@agda-appendix), a multisignature scheme is a record of the abstract key,
 signature and message types together with these algorithms (the public
-parameters $msParams$ are kept implicit, as above):
+parameters $msParams$ are kept implicit, as above).
 
 ```agda
 record MultiSignatureScheme : Set₁ where
@@ -259,8 +259,8 @@ ledger model~@eutxo-2@ledger-shelley-spec.
 ]
 
 As a first step of the machine-checked formalisation, these definitions are
-captured directly in Agda (with the value, script and key types kept abstract for
-now):
+captured directly in Agda (@agda-appendix), with the value, script and key types
+kept abstract for now.
 
 ```agda
 record Output : Set where
@@ -338,8 +338,8 @@ An accumulator scheme over a universe $cal(U)$ is a set of algorithms where
 
 The security property guarantees that a valid membership witness can only be produced for sets genuinely committed under $eta$, and a valid exclusion witness can only be produced when the subset was genuinely removed.
 
-As an Agda interface, the scheme is a record over the abstract universe $cal(U)$
-(`Item`), commitments $eta$ (`Commitment`) and witnesses $pi$ (`Witness`):
+As an Agda interface (@agda-appendix), the scheme is a record over the abstract universe $cal(U)$
+(`Item`), commitments $eta$ (`Commitment`) and witnesses $pi$ (`Witness`).
 
 ```agda
 record Accumulator : Set₁ where

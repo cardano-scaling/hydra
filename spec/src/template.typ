@@ -117,16 +117,19 @@
   // Number theorem-family kinds from a single shared counter.
   show figure.where(kind: "theorem"): set figure(supplement: none)
 
-  // Cross-references to theorem figures: "Lemma 3" etc.
+  // Cross-references render in the link colour. Theorem-family figures get a custom
+  // "Lemma 3"-style body; all other refs (sections, the Agda appendix, figures) keep their
+  // default body. `cite`/`ref` are not `link` elements, so the `show link` rule above does not
+  // reach them; colour them here instead.
   show ref: it => {
     let el = it.element
     if el != none and el.func() == figure and el.kind in (
       "theorem", "definition", "invariant", "postulate", "example", "construction",
     ) {
       let sup = el.supplement
-      link(it.target)[#sup #numbering(el.numbering, ..counter(figure.where(kind: el.kind)).at(el.location()))]
+      underline(text(fill: rgb("#1a4fb4"), link(it.target)[#sup #numbering(el.numbering, ..counter(figure.where(kind: el.kind)).at(el.location()))]))
     } else {
-      it
+      underline(text(fill: rgb("#1a4fb4"), it))
     }
   }
 
@@ -135,8 +138,9 @@
   set raw(syntaxes: "/agda.sublime-syntax")
 
   // Agda code blocks: ```agda ... ``` are typechecked in place by Agda. In the BODY they are not
-  // shown inline - each is captured (via labelled `metadata`, tagged with its section) and replaced by
-  // a link to the appendix; in the APPENDIX listing (`agda-appendix-mode` on) they render framed.
+  // shown inline - each is captured (via labelled `metadata`, tagged with its section) and rendered as
+  // nothing; the surrounding prose links to @agda-appendix where it introduces each definition. In the
+  // APPENDIX listing (`agda-appendix-mode` on) they render framed.
   show raw.where(block: true, lang: "agda"): it => context {
     if agda-appendix-mode.get() {
       render-agda(it)
@@ -144,10 +148,6 @@
       let hs = query(selector(heading).before(here()))
       let secbody = if hs.len() > 0 { hs.last().body } else { [Front matter] }
       [#metadata((src: it.text, secnum: counter(heading).get(), sec: secbody)) #label("agda-src")]
-      block(above: 0.5em, below: 0.8em, align(right, text(
-        size: 7pt, fill: rgb("#1a4fb4"),
-        link(<agda-appendix>)[_(Agda formalisation in appendix)_],
-      )))
     }
   }
   // Bare ``` ... ``` blocks are typechecked by Agda but HIDDEN in the rendered
