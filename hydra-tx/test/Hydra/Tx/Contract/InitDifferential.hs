@@ -6,18 +6,18 @@
 --
 -- Property: for the healthy init tx and every generated init mutation, @reference-rejects ⇒
 -- validator-rejects@. The reference mirrors the decidable token-COUNT conjunct (the tx mints exactly
--- @n + 1@ tokens of the head policy: one ST + one PT per party, the policy's @checkNumberOfTokens@),
--- proved to reflect @initValid@ in spec/src/Hydra/Protocol/ReferenceBridge.agda, so a reference reject
--- means the spec-level count check failed, hence the policy must reject too. Token PLACEMENT (ST/PT
--- into the head output), the seed-spent check, and the datum binding need multi-asset token-name
--- lookup (the value-map the spec abstracts over); they are mocked (@const True@) on the reference
--- side, so mutations the policy catches via those (e.g. @RemovePTsFromHead@, @MutateDropSeedInput@)
--- are expected to abstain here, not assert.
+-- @n + 1@ tokens of the head policy: one ST + one PT per party, the policy's @checkNumberOfTokens@) AND
+-- token PLACEMENT (the ST is present and the head output carries exactly @n + 1@ head-policy tokens),
+-- proved to reflect @initValid@ in spec/src/Hydra/Protocol/ReferenceBridge.agda. So @RemovePTsFromHead@
+-- (a misplacement the policy catches via @MissingPTs@) is now ASSERTED, not abstained. The seed-spent
+-- check and the datum binding still need lookups the spec abstracts over and stay mocked (@const True@),
+-- so mutations the policy catches only via those (e.g. @MutateDropSeedInput@) still abstain here.
 module Hydra.Tx.Contract.InitDifferential (spec) where
 
 import Hydra.Prelude
 
 import Data.List (nub)
+import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
@@ -25,18 +25,22 @@ import Hydra.Cardano.Api (
   Quantity (..),
   Tx,
   UTxO,
+  filterValue,
   getTxBody,
   getTxBodyContent,
+  modifyTxOutValue,
   txMintValue,
   txMintValueToValue,
+  txOutValue,
   txOuts',
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Contract.HeadState qualified as HS
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Mutation (SomeMutation (..), addPTWithQuantity, applyMutation)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), addPTWithQuantity, applyMutation)
 import Test.QuickCheck (Property, forAll, property, (===))
 
 -- | Does the real Plutus validator accept @(tx, utxo)@ (phase-2 success, no script error)?
@@ -61,10 +65,15 @@ initRefVerdict (tx, _utxo) = do
   case nub [pid | (AssetId pid _, _) <- minted] of
     [policyId] ->
       let mintedCount = sum [q | (AssetId pid _, Quantity q) <- minted, pid == policyId]
+          -- PLACEMENT: read the head output (index 0) value. `stQty` is the ST quantity there;
+          -- `headTokenCount` is the number of DISTINCT head-policy tokens there (1 ST + n PTs = n+1).
+          headOutAssets = [(an, q) | (AssetId pid an, Quantity q) <- IsList.toList (txOutValue headOut), pid == policyId]
+          stQty = sum [q | (an, q) <- headOutAssets, an == hydraHeadV2AssetName]
+          headTokenCount = fromIntegral (length headOutAssets)
        in Just
             ( Ref.checkInit
                 (Ref.mkOpsInit (const True))
-                (Ref.MkMintIO (fromIntegral n) mintedCount)
+                (Ref.MkMintIO (fromIntegral n) mintedCount stQty headTokenCount)
             )
     _ -> Nothing
 
@@ -76,6 +85,20 @@ extraTokenInitTx =
   applyMutation
     (addPTWithQuantity (fst healthyInitTx) 1 `generateWith` 42)
     healthyInitTx
+
+-- | The healthy init with the participation tokens stripped from the head output (the mint is
+-- unchanged). The mint COUNT is still @n + 1@ and the ST is still placed, so the old count-only
+-- reference accepted it — but the head output now carries only the ST (@headTokenCount = 1 ≠ n + 1@),
+-- so the new PLACEMENT conjunct rejects, as does the policy (@MissingPTs@). Demonstrates placement is
+-- live (non-vacuous): minting n+1 tokens but not placing them all in the head output is now caught.
+removePTsInitTx :: (Tx, UTxO)
+removePTsInitTx =
+  applyMutation (ChangeOutput 0 (modifyTxOutValue (filterValue (not . isPT)) headTxOut)) healthyInitTx
+ where
+  headTxOut = fromJust (txOuts' (fst healthyInitTx) !!? 0)
+  isPT = \case
+    AssetId _ an -> an /= hydraHeadV2AssetName
+    _ -> False
 
 spec :: Spec
 spec = parallel $ do
@@ -90,6 +113,12 @@ spec = parallel $ do
 
   prop "validator also rejects the extra-token init" $
     validatorAccepts extraTokenInitTx === False
+
+  prop "reference rejects an init not placing the PTs in the head output" $
+    initRefVerdict removePTsInitTx === Just False
+
+  prop "validator also rejects the missing-PTs init" $
+    validatorAccepts removePTsInitTx === False
 
   prop "differential: reference-reject ⇒ validator-reject (Init mutations)" $
     forAll (genInitMutation healthyInitTx) $ \SomeMutation{mutation} ->

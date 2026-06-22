@@ -231,11 +231,14 @@ contestRefᵇ ops c =
 
 -- ══ fanout / finalPartialFanout ═══════════════════════════════════════════════════════════
 -- The decidable conjuncts of `fanoutValid`/`finalPartialFanoutValid`:
---   • `0 < m` outputs (the validator's `FanoutZeroOutputs`, the §5.8 m>0 fix) — small, structural `<ᵇ`;
 --   • all `n+1` head tokens burned (`burnAllTokensOK`: `burnedCount == n+1`, the mirror of the init
 --     mint count) — BUILTIN `_==_` (a mutation could inject a large burn quantity);
 --   • posted strictly AFTER the deadline (`tfinal < lo`, the mirror of the recover after-deadline) —
 --     BUILTIN `_<_` (POSIXTime ms). Accumulator membership / value conservation are injected.
+-- NB no `0 < m` conjunct: the FULL fanout permits m = 0 (finalising an empty head), so the reference
+-- must not reject it (it would contradict the relaxed νHead `headIsFinalizedWith`). The `numOutputsF`
+-- field is retained for the differential but no longer gated. (Partial fanout's `0 < m` is enforced
+-- by its own validator guard, not modelled at this shared checker.)
 record Fanoutᶜ : Set where
   constructor mkFanoutᶜ
   field
@@ -253,8 +256,7 @@ open OpsFanout public
 
 fanoutRefᵇ : OpsFanout → Fanoutᶜ → Bool
 fanoutRefᵇ ops f =
-     (zero <ᵇ Fanoutᶜ.numOutputsF f)
-  && (Fanoutᶜ.burnedCountF f == suc (Fanoutᶜ.numPartiesF f))
+     (Fanoutᶜ.burnedCountF f == suc (Fanoutᶜ.numPartiesF f))
   && (Fanoutᶜ.tfinalF f < Fanoutᶜ.validityLoF f)
   && fanoutCryptoOK ops f
 
@@ -281,21 +283,25 @@ recoverRefᵇ : OpsRecover → RecoverIOᶜ → Bool
 recoverRefᵇ ops r =
   (RecoverIOᶜ.tRecoverR r < RecoverIOᶜ.validityLoR r) && recoverHashOK ops r
 
--- ══ init (μHead minting policy: token COUNT) ══════════════════════════════════════════════════
--- The decidable conjunct of `initValid` / the μHead policy (`HeadTokens.validateTokensMinting`): the
--- transaction mints EXACTLY `n + 1` tokens of the head policy — one ST + one PT per party
--- (`checkNumberOfTokens`: `mintedTokenCount == nParties + 1`). `mintedCount` is the SUM of the head
--- policy's mint quantities; this is a small count (parties + 1), but the BUILTIN `_==_` is used so a
--- mutation injecting a large mint quantity cannot make the structural `_==ᵇ_` diverge. The remaining
--- μHead checks — seed-input spent, the single ST and the `n` unique PTs PLACED in the head output, and
--- the datum `headId`/`seed` binding — need multi-asset token-name lookup (the value-map API the spec
--- abstracts over) and are injected (mock); they remain a hand-reviewed / type-encoded boundary.
+-- ══ init (μHead minting policy: token COUNT + PLACEMENT) ══════════════════════════════════════
+-- The decidable conjuncts of `initValid` / the μHead policy (`HeadTokens.validateTokensMinting`):
+--   • the tx MINTS exactly `n + 1` tokens of the head policy (one ST + one PT per party,
+--     `checkNumberOfTokens`: `mintedTokenCount == nParties + 1`) — `mintedCountM`;
+--   • the n+1 tokens are PLACED in the head output: the ST is present (`stQtyM == 1`) AND the head
+--     output carries exactly n+1 head-policy tokens (`headTokenCountM == n+1`). Mint count + placed
+--     count together pin that every minted token lands in the head output (the value-map API the spec
+--     formerly abstracted over). All BUILTIN `_==_` (counts are small but a mutation could inject a
+--     large quantity). The remaining μHead checks — seed-input spent and the datum `headId`/`seed`
+--     binding — stay injected (mock); a hand-reviewed / type-encoded boundary. (Naming the individual
+--     PTs is out of reach: the head datum abstracts the per-party keys into `hk`/`n`.)
 record MintIOᶜ : Set where
   constructor mkMintIOᶜ
   field
-    numPartiesM  : Nat   -- n: the number of parties (from the head datum)
-    mintedCountM : Nat   -- the head policy's total minted token quantity
-{-# FOREIGN GHC data HsMintIO = MkMintIO Integer Integer #-}
+    numPartiesM     : Nat   -- n: the number of parties (from the head datum)
+    mintedCountM    : Nat   -- the head policy's total minted token quantity
+    stQtyM          : Nat   -- quantity of the ST in the head output (should be 1)
+    headTokenCountM : Nat   -- number of head-policy tokens in the head output (should be n+1)
+{-# FOREIGN GHC data HsMintIO = MkMintIO Integer Integer Integer Integer #-}
 {-# COMPILE GHC MintIOᶜ = data HsMintIO (MkMintIO) #-}
 
 record OpsInit : Set where
@@ -304,7 +310,10 @@ open OpsInit public
 
 initRefᵇ : OpsInit → MintIOᶜ → Bool
 initRefᵇ ops m =
-  (MintIOᶜ.mintedCountM m == suc (MintIOᶜ.numPartiesM m)) && initPlacementOK ops m
+     (MintIOᶜ.mintedCountM m == suc (MintIOᶜ.numPartiesM m))
+  && (MintIOᶜ.stQtyM m == 1)
+  && (MintIOᶜ.headTokenCountM m == suc (MintIOᶜ.numPartiesM m))
+  && initPlacementOK ops m
 
 -- ══ deposit claim (νDeposit, Claim redeemer) ══════════════════════════════════════════════════
 -- The decidable conjunct of `claimValid` (deposit.ak's Claim arm, §5.2): the increment tx collecting

@@ -39,6 +39,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.Healthy (healthyContestationDeadline)
+import Hydra.Tx.Contract.Differential (participantSignedRef)
 import PlutusLedgerApi.V3 (getPOSIXTime)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
@@ -83,7 +84,11 @@ closeRefVerdict (tx, utxo) = do
           cd.snapshotNumber
           (fromIntegral (length cd.contesters))
           (getPOSIXTime cd.contestationDeadline)
-  pure (Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr) validityHi validityLo)
+  pure
+    ( Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr) validityHi validityLo
+        -- §5.6 mustBeSignedByParticipant: some signer holds a PT in the closed head output (shared checker).
+        && participantSignedRef tx headOut
+    )
  where
   tagOf = \case
     HS.CloseInitial -> Ref.CloseInitialT

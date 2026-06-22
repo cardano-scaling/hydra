@@ -44,7 +44,8 @@ that diffed each bundle's conjuncts against the §5.x prose checks.
 | B12 | `contestValid` | Missing the spec's `s' > s` (the contested snapshot number must strictly increase). | Added `s < snapNum d'`. | fixed |
 | B13 | close/contest/increment/decrement bundles | Missing the "signed by a participant" check (`keyHash_i ∈ txKeys`); the comments over-claimed "only inhabited for valid txs". | Added `signedByParticipant cid ctx`, later un-mocked to a structural `∃ kh, signerKeyHash ∧ quantityOf valHead (cid,kh) ≡ 1` (see `signedByParticipant` in the "Still open (scoped)" list). | fixed |
 | B14 | `contestValid` | Missing "posted before deadline" (`txValidityMax ≤ tfinal`) and value-preservation (`valHead' ⊇ valHead`). | Added `ValidityInterval.hi … ≤ tfin` and `headValueIn ≤ᵛ headValue`. | fixed |
-| B15 | fanout / partial-fanout / final-partial-fanout bundles | Missing the **anti-theft** checks: `m > 0` (no zero-output batch), `txValidityMin > tfinal` (after deadline), `noMint` (partial fan-out), and value conservation. | Added `0 < m`, `tfinalOf d < ValidityInterval.lo …`, `noMint` (partial), and `fanoutValueOK`/`partialFanoutValueOK` (conservation abstracted). | fixed |
+| B15 | fanout / partial-fanout / final-partial-fanout bundles | Missing the **anti-theft** checks: `m > 0` (no zero-output batch), `txValidityMin > tfinal` (after deadline), `noMint` (partial fan-out), and value conservation. | Added `0 < m`, `tfinalOf d < ValidityInterval.lo …`, `noMint` (partial), and `fanoutValueOK`/`partialFanoutValueOK` (conservation abstracted). NB the FULL-fanout `0 < m` was later REVERTED — see B16. | fixed (full-fanout `0 < m` reverted) |
+| B16 | `FanoutValid` (full fanout) + the νHead validator `headIsFinalizedWith` | **Bug introduced by the formalization, caught by the integration tests.** B15's `0 < m` on the FULL fanout (and a matching branch-new validator guard `FanoutZeroOutputs`/H67) made an **empty head un-finalizable**: an empty head (the universal initial state under ADR-033; UTxO enters only via deposit) finalizes via a 0-output fanout, which the guard rejects, stranding the n+1 ST/PT tokens forever. Surfaced by the hydra-node model tests shrinking to `Init→Close→Fanout`. m=0 full fanout is safe — value conservation uses strict `==`, so nothing can be stolen. | Reverted the validator guard (→ master-identical, golden hash restored, no regen) and its `MutateFanoutZeroOutputs` test; removed `FanoutValid.outputsPositive` + the reference/bridge/differential `0 < m` for the full path. KEPT the partial / final-partial `0 < m` (a zero-output partial batch makes no progress). | fixed |
 
 ### Second review pass
 
@@ -413,12 +414,17 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
   PT name IS the key-hash, so the encodings match) with a non-vacuity demo (`noSignerIncrementTx`:
   version+value intact, participant conjunct + validator both reject `NoSigners`). The shared checker is
   ready to wire into the contest/decrement/close verdicts too (not yet done). This closes finding E below.
-- **μHead token PLACEMENT** (`D2-token-placement`): single ST + n unique PTs placed in the head output,
-  seed-spent, datum `headId`/`seed` binding — need multi-asset token-name lookup (the `Value`-map ops
-  the spec deliberately avoids). Injected in `OpsInit`. (The token COUNT is DONE/bridged/tested.) NB the
-  `quantityOf` projection (added for `signedByParticipant`) is the value-API primitive a B-existence
-  placement predicate would reuse (ST present + each party's PT present, with the n+1 mint count bounding
-  extras).
+- **μHead token PLACEMENT** (`D2-token-placement`): *done (form (a), count-in-output)* — `InitValid` now
+  has `stPlaced : stQty (headValue ctx) cid ≡ 1` and `tokensPlaced : headTokenCount (headValue ctx) cid ≡
+  suc n` (two new ℕ value projections `stQty`/`headTokenCount`, trust family of `adaOf`). Together with the
+  already-bridged n+1 MINT count this pins that every minted token is placed in the head output: the ST is
+  present and the output carries exactly n+1 head-policy tokens. Bridged via `initValid→ref` (both are
+  `≡`-of-ℕ-projection conjuncts, discharged by plain `==-sound`, NO new axiom — cleaner than
+  `signedByParticipant`, which needed an extraction-faithfulness postulate), and differentially tested
+  (`InitDifferential`: `RemovePTsFromHead` is now ASSERTED not abstained, + a `removePTsInitTx` non-vacuity
+  demo — mint count n+1 still passes but placement count = 1 ≠ n+1 rejects, validator `MissingPTs`).
+  REMAINING (boundary, not form (a)): naming the individual PTs (form (b)) needs the per-party key list,
+  which the on-chain `Open` datum abstracts into `hk`/`n`; seed-spent + datum binding stay injected.
 - **`depositValue`/`decommitValue` extractors** — *done (already)*: `depositValueAt`/`depositsValue`
   (input-search via `valueAtIn`) and `decommitValue` (output-search via `takeSumᵛ`) are concrete, not
   postulated (done in the increment/decrement value work). The remaining `postulate`s are the abstract

@@ -93,6 +93,13 @@ postulate
   -- token PRESENCE (e.g. a participation token of a given name) without unfolding the opaque value
   -- map; kept abstract in the same trust family as `adaOf`/`nonAdaOf`.
   quantityOf : Value → (CId × Token) → Quantity
+  -- Token PLACEMENT projections (μHead init, §5.1), same trust family. `stQty v cid` is the quantity of
+  -- the policy's STATE token (fixed ST name) in `v`; `headTokenCount v cid` is the number of DISTINCT
+  -- tokens of policy `cid` in `v` (each minted with quantity 1, so the head output should carry n+1: one
+  -- ST + n PTs). Counting in the head OUTPUT (with the n+1 MINT count) pins that every minted token is
+  -- placed there. These are ℕ projections, so the reference reflects them by plain `==` (no new axiom).
+  stQty          : Value → CId → ℕ
+  headTokenCount : Value → CId → ℕ
   -- The algebra the value-conservation predicates reason over: (Value, _+ᵛ_, εᵛ) is a commutative
   -- monoid and _≤ᵛ_ a partial order compatible with addition. All hold of the pointwise signed
   -- multi-asset map. NB quantities are ℤ (negative = burning), so `a ≤ᵛ a +ᵛ b` does NOT hold in
