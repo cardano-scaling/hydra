@@ -89,7 +89,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceExternalVk 7_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
-          let headParameters = HeadParameters blockfrostcperiod [alice]
+          let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
           postTx $ InitTx{participants, headParameters}
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
 

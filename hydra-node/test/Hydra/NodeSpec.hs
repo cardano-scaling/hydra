@@ -462,7 +462,7 @@ inputsToOpenHead =
   ]
  where
   parties = [alice, bob, carol]
-  headParameters = HeadParameters cperiod parties
+  headParameters = HeadParameters cperiod defaultDepositPeriod parties
   participants = deriveOnChainId <$> parties
 
 observationInput :: OnChainTx SimpleTx -> Input SimpleTx

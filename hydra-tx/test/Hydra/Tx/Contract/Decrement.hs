@@ -36,6 +36,7 @@ import Hydra.Tx.Decrement (
   decrementTx,
  )
 import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
@@ -45,7 +46,7 @@ import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
@@ -81,6 +82,7 @@ healthyDecrementTx =
     HeadParameters
       { parties = healthyParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = dperiod
       }
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -158,6 +160,7 @@ healthyDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , version = toInteger healthySnapshotVersion
       , accumulatorHash = toBuiltin healthyAccumulatorHash
       , headAdaOverhead = 0

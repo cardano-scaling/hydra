@@ -34,6 +34,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
@@ -78,11 +79,15 @@ testHeadParameters :: HeadParameters
 testHeadParameters =
   HeadParameters
     { contestationPeriod = cperiod
+    , depositPeriod = dperiod
     , parties = [alice, bob, carol]
     }
 
 cperiod :: ContestationPeriod
 cperiod = 4
+
+dperiod :: DepositPeriod
+dperiod = 3600
 
 -- * Fanout test constants
 

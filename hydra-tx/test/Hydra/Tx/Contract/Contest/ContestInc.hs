@@ -30,11 +30,12 @@ import Hydra.Tx.Contract.Contest.Healthy (
   splitUTxOInHead,
  )
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (dperiod, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genUTxOSized)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -80,6 +81,7 @@ healthyContestIncClosedState =
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
       , contestationPeriod = healthyOnChainContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
@@ -126,6 +128,7 @@ healthyContestIncTx =
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       , closedContesters = []
       , closedHeadAdaOverhead = 0
+      , closedDepositPeriod = DP.toChain dperiod
       }
 
 healthyIncSignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)

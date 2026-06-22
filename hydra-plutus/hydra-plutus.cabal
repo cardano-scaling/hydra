@@ -58,6 +58,7 @@ library
     Hydra.Contract.Util
     Hydra.Contract.UtilError
     Hydra.Data.ContestationPeriod
+    Hydra.Data.DepositPeriod
     Hydra.Data.Party
     Hydra.Plutus
 

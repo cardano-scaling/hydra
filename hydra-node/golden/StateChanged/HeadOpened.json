@@ -28,6 +28,7 @@
             "headSeed": "00010100010101000101000101000000",
             "parameters": {
                 "contestationPeriod": 44014,
+                "depositPeriod": 3600,
                 "parties": [
                     {
                         "vkey": "a08a5cdf91623e1f0acf5a214462896038af18eb1b025ee79ab1e7affecfd3a7"

@@ -10,6 +10,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
+import Hydra.Data.DepositPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
@@ -38,6 +39,7 @@ type PointInTime = (SlotNo, UTCTime)
 data OpenThreadOutput = OpenThreadOutput
   { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , openContestationPeriod :: OnChain.ContestationPeriod
+  , openDepositPeriod :: OnChain.DepositPeriod
   , openParties :: [OnChain.Party]
   }
   deriving stock (Eq, Show, Generic)
@@ -77,6 +79,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore)
     , openContestationPeriod
+    , openDepositPeriod
     , openParties
     } = openThreadOutput
 
@@ -133,6 +136,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , parties = openParties
           , contestationDeadline
           , contestationPeriod = openContestationPeriod
+          , depositPeriod = openDepositPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
