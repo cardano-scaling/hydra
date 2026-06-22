@@ -214,6 +214,18 @@ The two sibling PARTIAL guards are KEPT (a zero-output partial *batch* makes no 
 invalid). This is a real bug the formalization itself introduced and the differential/model layer then
 surfaced and corrected.
 
+**Regression guard (the missing dual obligation).** The safety corpus could not see this bug by
+construction: it only proves *accepted ⇒ safe*, and an over-strict conjunct merely shrinks the accept set
+(it can never falsify a soundness theorem). The violated property is its dual — *completeness-of-
+acceptance / non-stuckness*: the terminal fanout bundle must be **inhabited** for the states that reach it.
+`Hydra/Protocol/OnChainCoverage.agda` now supplies it: a `Reachable` inductive over `HeadDatum`, a proof
+that the empty Closed head is reachable (`reach-empty-closed`), and the inhabitation/coverage lemmas
+`fanout-empty-inhabited` / `finalize-reachable-empty` / `fanout-coverage`. Re-adding `outputsPositive : 0 <
+m` makes these fail to typecheck (`mkFanoutValid` would need a term of the empty type `0 < 0`) — verified
+adversarially. This is the first *coverage* obligation in the corpus; the general lesson is that each
+accept path (especially terminal/finalize) should carry such a dual witness, or over-strictness stays
+invisible. (Atemporal and one-step — distinct from the deferred §7-P3 temporal liveness.)
+
 ### Finding C — LOW (mapping note): `accVerifyExclude` is realised by reusing the membership pairing
 
 Agda models partial-fanout's accumulator update with a distinct predicate
