@@ -1,0 +1,41 @@
+{
+    "samples": [
+        {
+            "checkpoint": {
+                "chainPointTime": {
+                    "currentChainTime": "1864-05-09T00:08:20.77689024025Z",
+                    "currentSlot": 1,
+                    "drift": 1
+                },
+                "headState": {
+                    "contents": {
+                        "chainState": {
+                            "recordedAt": null,
+                            "spendableUTxO": {
+                                "0000010100000001000001000100000101010000000001000000010001000001#56": {
+                                    "address": "addr_test1xzd8xs2rzvjl3md7w56tz0a3ehq2qalkse07vt6sz5wnerzx34vlmdyqgcxgutcqqa7uy554l9qeyu5s0gfhxkumaxvqggdu63",
+                                    "datum": null,
+                                    "datumhash": "b94393279376e39d741e7cf10da132702925d9bc2b7d954313b518d205cf0b50",
+                                    "inlineDatum": null,
+                                    "inlineDatumRaw": null,
+                                    "referenceScript": null,
+                                    "value": {
+                                        "153d16ee26311ad5dffc3fe3210630488856a7c428a8ca317ab5e734": {
+                                            "1255973cd479b20f2689f3cf98": 8076105316789957079
+                                        },
+                                        "lovelace": 1357650
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "tag": "Idle"
+                },
+                "pendingDeposits": {},
+                "tag": "NodeInSync"
+            },
+            "tag": "EventLogRotated"
+        }
+    ],
+    "seed": 1259860855
+}

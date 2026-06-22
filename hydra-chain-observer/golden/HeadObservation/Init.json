@@ -1,0 +1,16 @@
+{
+    "samples": [
+        {
+            "headId": "01010101000001010000010000000001",
+            "headParameters": {
+                "contestationPeriod": 31536000,
+                "depositPeriod": 58014,
+                "parties": []
+            },
+            "headSeed": "01000000010000010001010101010100",
+            "participants": [],
+            "tag": "Init"
+        }
+    ],
+    "seed": 127234381
+}

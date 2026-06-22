@@ -2177,10 +2177,13 @@ components:
       additionalProperties: false
       required:
         - contestationPeriod
+        - depositPeriod
         - parties
       properties:
         contestationPeriod:
           $ref: "api.yaml#/components/schemas/ContestationPeriod"
+        depositPeriod:
+          $ref: "api.yaml#/components/schemas/DepositPeriod"
         parties:
           type: array
           items:

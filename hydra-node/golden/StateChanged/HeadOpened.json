@@ -1,0 +1,43 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0101000100000000010000010001010100010000010001010000000000000100",
+                    "slot": 0,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0101010000010100010001000000000100000000000000010000010000000100#2": {
+                        "address": "addr_test1ypruls6amua9urpx7zvt5a5wpfp8nr9r629yclmg5ps22lzhtzvsut4alvxrxgadll9pgvgemw0euwj32mzuqd9r5sjqcq0j80",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                "27a7232eb8a2fc17e3aa92d647cb24": 1
+                            },
+                            "lovelace": 1185250
+                        }
+                    }
+                }
+            },
+            "headId": "00000100000100010001010100010001",
+            "headSeed": "00010100010101000101000101000000",
+            "parameters": {
+                "contestationPeriod": 44014,
+                "depositPeriod": 3600,
+                "parties": [
+                    {
+                        "vkey": "a08a5cdf91623e1f0acf5a214462896038af18eb1b025ee79ab1e7affecfd3a7"
+                    }
+                ]
+            },
+            "parties": [],
+            "tag": "HeadOpened"
+        }
+    ],
+    "seed": 257222709
+}
