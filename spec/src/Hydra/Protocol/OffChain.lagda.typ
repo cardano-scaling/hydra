@@ -479,226 +479,245 @@ preventing inconsistency between the on-chain and off-chain state.
 
 #figure(
   {
-    set par(justify: false)
+    set text(size: 6.5pt)
+    set par(justify: false, leading: 0.5em)
+    show math.equation: set text(size: 6.5pt)
     align(left)[
-      *Coordinated Hydra Head*
-
-      *Initializing the head*
-
-      #routine[#kw("on") $(hpInit)$ #kw("from") client][
-        $n <- |hydraKeys^("setup")|$ \
-        $hydraKeysAgg <- msCombVK(hydraKeys^("setup"))$ \
-        $cardanoKeys <- cardanoKeys^("setup")$ \
-        $Tcontest <- Tcontest^("setup")$ \
-        $Tdeposit <- Tdeposit^("setup")$ \
-        #kw("postTx") $(mtxInit, nop, hydraKeysAgg, cardanoKeys, Tcontest)$
-      ]
-
-      #routine[#kw("on") $(gcChainInitial, cid, seed, nop, hydraKeysAgg, cardanoKeys^(\#), Tcontest)$ #kw("from") chain][
-        #kw("require") $hydraKeysAgg = msCombVK(hydraKeys^("setup"))$ \
-        #kw("require") $cardanoKeys^(\#) = [hash(k) | forall k in cardanoKeys^("setup")]$ \
-        #kw("require") $Tcontest = Tcontest^("setup")$ \
-        #kw("require") $cid = hash(muHead(seed))$ \
-        $hatmL <- emptyset$ \
-        $macron(mc(S)) <- Sno(0, 0, [], emptyset, emptyset, emptyset)$ \
-        $hatv, hats <- 0$ \
-        $hatmT <- emptyset$ \
-        $tx_omega <- bot$ \
-        $tx_alpha <- bot$
-      ]
-
-      #line(length: 100%, stroke: 0.5pt)
-
-      *Open head*
-
-      #routine[#kw("on") $(hpRT, tx)$ #kw("from") $party_j$][
-        #kw("wait") $hatmL applytx tx != bot$ #h(0.3em)
-        #pad(left: 0.6em)[
-          $hatmL <- hatmL applytx tx$ \
-          $hatmT <- hatmT union {tx}$ \
-          #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
-          #pad(left: 0.6em)[
-            #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
-            #pad(left: 0.6em)[
-              $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+      #algobox("Coordinated Hydra Head")[
+        #grid(
+          columns: (1fr, 1fr),
+          column-gutter: 1em,
+          [
+            #proc([#kw("on") $(hpInit)$ #kw("from") client])[
+              $n <- |hydraKeys^("setup")|$ \
+              $hydraKeysAgg <- msCombVK(hydraKeys^("setup"))$ \
+              $cardanoKeys <- cardanoKeys^("setup")$ \
+              $Tcontest <- Tcontest^("setup")$ \
+              $Tdeposit <- Tdeposit^("setup")$ \
+              #kw("postTx") $(mtxInit, nop, hydraKeysAgg, cardanoKeys, Tcontest)$
             ]
-            #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
-          ]
-        ]
-      ]
-
-      #routine[#kw("on") $(hpRD, tx)$ #kw("from") $party_j$][
-        #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
-        #pad(left: 0.6em)[
-          $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
-          $tx_omega <- tx$ \
-          #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
-          #pad(left: 0.6em)[
-            #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
-          ]
-        ]
-      ]
-
-      #routine[#kw("on") $(hpRS, v, s, underline(tx)_(sans("req")), tx_alpha, tx_omega)$ #kw("from") $party_j$][
-        #kw("require") $v = hatv and s = hats + 1 and hpLdr(s) = j$ \
-        #kw("wait") $hats = macron(mc(S)).s and v = hatv$
-        #pad(left: 0.6em)[
-          #kw("require") $tx_omega = bot or tx_alpha = bot$ \
-          #kw("if") $tx_omega != bot$
-          #pad(left: 0.6em)[
-            #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_omega != bot$
-            #pad(left: 0.6em)[
-              #kw("require") $macron(mc(S)).U_omega = sans("outputs")(tx_omega)$
+          ],
+          [
+            #proc([#kw("on") $(gcChainInitial, cid, seed, nop, hydraKeysAgg, cardanoKeys^(\#), Tcontest)$ #kw("from") chain])[
+              #kw("require") $hydraKeysAgg = msCombVK(hydraKeys^("setup"))$ \
+              #kw("require") $cardanoKeys^(\#) = [hash(k) | forall k in cardanoKeys^("setup")]$ \
+              #kw("require") $Tcontest = Tcontest^("setup")$ \
+              #kw("require") $cid = hash(muHead(seed))$ \
+              $hatmL <- emptyset$ \
+              $macron(mc(S)) <- Sno(0, 0, [], emptyset, emptyset, emptyset)$ \
+              $hatv, hats <- 0$ \
+              $hatmT <- emptyset$ \
+              $tx_omega <- bot$ \
+              $tx_alpha <- bot$
             ]
-            #kw("else")
-            #pad(left: 0.6em)[
-              #kw("require") $macron(mc(S)).U applytx tx_omega != bot$ \
-              $U_(sans("active")) <- macron(mc(S)).U applytx tx_omega without sans("outputs")(tx_omega)$
-            ]
-          ]
-          #kw("if") $tx_alpha != bot$
-          #pad(left: 0.6em)[
-            $mc(D) <- mc(D)[tx_alpha]$ \
-            #kw("require") $mc(D).sans("status") != sans("Expired")$ \
-            #kw("wait") $mc(D).sans("status") = sans("Active")$
-            #pad(left: 0.6em)[
-              #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
-              #pad(left: 0.6em)[
-                #kw("require") $macron(mc(S)).U_alpha = mc(D).U$
-              ]
-              #kw("else")
-              #pad(left: 0.6em)[
-                $U_alpha <- mc(D).U$ \
-                $U_(sans("active")) <- U_(sans("active")) union U_alpha$
+          ],
+        )
+
+        #line(length: 100%, stroke: 0.4pt + luma(120))
+        #v(0.2em)
+
+        #grid(
+          columns: (1fr, 1fr),
+          column-gutter: 1em,
+          [
+            #proc([#kw("on") $(hpRT, tx)$ #kw("from") $party_j$])[
+              #kw("wait") $hatmL applytx tx != bot$
+              #nst[
+                $hatmL <- hatmL applytx tx$ \
+                $hatmT <- hatmT union {tx}$ \
+                #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
+                #nst[
+                  #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
+                  #nst[
+                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+                  ]
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
+                ]
               ]
             ]
-          ]
-          #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
-          $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
-          $hats <- s$ \
-          $eta' <- accUTxO(U)$ \
-          $(eta')^(\#) <- (eta')^(\#)$ \
-          $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#)))$ \
-          $hatSigma <- emptyset$ \
-          #kw("multicast") $(hpAS, hats, msSig_i)$ \
-          $forall tx in underline(tx)_(sans("req")):$ #kw("output") $(hpSeen, tx)$ \
-          $hatmL <- U$ \
-          $X <- hatmT$ \
-          $hatmT <- emptyset$ \
-          #kw("for") $tx in X : hatmL applytx tx != bot$
-          #pad(left: 0.6em)[
-            $hatmT <- hatmT union {tx}$ \
-            $hatmL <- hatmL applytx tx$
-          ]
-        ]
-      ]
 
-      #routine[#kw("on") $(hpAS, s, msSig_j)$ #kw("from") $party_j$][
-        #kw("require") $s in {hats, hats + 1}$ \
-        #kw("wait") $hats = s$
-        #pad(left: 0.6em)[
-          #kw("require") $(j, dot.c) in.not hatSigma$ \
-          $hatSigma[j] <- sigma_j$ \
-          #kw("if") $forall k in [1..n] : (k, dot.c) in hatSigma$
-          #pad(left: 0.6em)[
-            $msCSig <- msComb(hydraKeys^("setup"), hatSigma)$ \
-            $eta' <- accUTxO(hatmU)$ \
-            $(eta')^(\#) <- (eta')^(\#)$ \
-            #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#)), msCSig)$ \
-            $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
-            $macron(mc(S)).sigma <- msCSig$ \
-            $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
-            #kw("if") $macron(S).U_omega != bot$
-            #pad(left: 0.6em)[
-              #kw("postTx") $(mtxDecrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
-            ]
-            #kw("if") $macron(S).U_alpha != bot$
-            #pad(left: 0.6em)[
-              #kw("postTx") $(mtxIncrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
-            ]
-            #kw("if") $hpLdr(s + 1) = i and hatmT != emptyset$
-            #pad(left: 0.6em)[
-              #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
-              #pad(left: 0.6em)[
-                $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+            #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
+              #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
+              #nst[
+                $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
+                $tx_omega <- tx$ \
+                #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
+                #nst[
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
+                ]
               ]
-              #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
             ]
-          ]
-        ]
-      ]
 
-      #routine[#kw("on") $(mtxDeposit, tx_alpha, U, t_(sans("created")), t_(sans("deadline")))$ #kw("from") chain][
-        $mc(D) <- mc(D) union (tx_alpha, sans("depositObj")(U, t_(sans("created")), t_(sans("deadline")), sans("Inactive")))$
-      ]
-
-      #routine[#kw("on") $(mtxRecover, tx_alpha)$ #kw("from") chain][
-        $mc(D) <- mc(D) without (tx_alpha, dot.c)$
-      ]
-
-      #routine[#kw("on") $(mtxDecrement, U, v)$ #kw("from") chain][
-        $hats <- macron(mc(S)).s$ \
-        $hatv <- v$ \
-        $tx_omega <- bot$ \
-        #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
-        #pad(left: 0.6em)[
-          #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
-        ]
-      ]
-
-      #routine[#kw("on") $(mtxIncrement, U, v)$ #kw("from") chain][
-        $hats <- macron(mc(S)).s$ \
-        $hatv <- v$ \
-        $tx_alpha <- bot$ \
-        $hatmL <- hatmL union U$ \
-        #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
-        #pad(left: 0.6em)[
-          #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, bot)$
-        ]
-      ]
-
-      #routine[#kw("on") $(sans("tick"), t)$ #kw("from") chain][
-        #kw("for") $D in mc(D)$
-        #pad(left: 0.6em)[
-          #kw("if") $t > D.sans("deadline") - Tdeposit$
-          #pad(left: 0.6em)[
-            $D.sans("status") <- sans("Expired")$
-          ]
-          #kw("else if") $t > D.sans("created") + Tdeposit$
-          #pad(left: 0.6em)[
-            $D.sans("status") <- sans("Active")$ \
-            #kw("if") $tx_alpha = bot and tx_omega = bot$
-            #pad(left: 0.6em)[
-              $tx_alpha <- D$
+            #proc([#kw("on") $(hpRS, v, s, underline(tx)_(sans("req")), tx_alpha, tx_omega)$ #kw("from") $party_j$])[
+              #kw("require") $v = hatv and s = hats + 1 and hpLdr(s) = j$ \
+              #kw("wait") $hats = macron(mc(S)).s and v = hatv$
+              #nst[
+                #kw("require") $tx_omega = bot or tx_alpha = bot$ \
+                #kw("if") $tx_omega != bot$
+                #nst[
+                  #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_omega != bot$
+                  #nst[
+                    #kw("require") $macron(mc(S)).U_omega = sans("outputs")(tx_omega)$
+                  ]
+                  #kw("else")
+                  #nst[
+                    #kw("require") $macron(mc(S)).U applytx tx_omega != bot$ \
+                    $U_(sans("active")) <- macron(mc(S)).U applytx tx_omega without sans("outputs")(tx_omega)$
+                  ]
+                ]
+                #kw("if") $tx_alpha != bot$
+                #nst[
+                  $mc(D) <- mc(D)[tx_alpha]$ \
+                  #kw("require") $mc(D).sans("status") != sans("Expired")$ \
+                  #kw("wait") $mc(D).sans("status") = sans("Active")$
+                  #nst[
+                    #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
+                    #nst[
+                      #kw("require") $macron(mc(S)).U_alpha = mc(D).U$
+                    ]
+                    #kw("else")
+                    #nst[
+                      $U_alpha <- mc(D).U$ \
+                      $U_(sans("active")) <- U_(sans("active")) union U_alpha$
+                    ]
+                  ]
+                ]
+                #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
+                $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
+                $hats <- s$ \
+                $eta' <- accUTxO(U)$ \
+                $(eta')^(\#) <- (eta')^(\#)$ \
+                $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#)))$ \
+                $hatSigma <- emptyset$ \
+                #kw("multicast") $(hpAS, hats, msSig_i)$ \
+                $forall tx in underline(tx)_(sans("req")):$ #kw("output") $(hpSeen, tx)$ \
+                $hatmL <- U$ \
+                $X <- hatmT$ \
+                $hatmT <- emptyset$ \
+                #kw("for") $tx in X : hatmL applytx tx != bot$
+                #nst[
+                  $hatmT <- hatmT union {tx}$ \
+                  $hatmL <- hatmL applytx tx$
+                ]
+              ]
             ]
-          ]
-        ]
-        #kw("if") $exists D in mc(D) : D.sans("status") = sans("Active")$
-        #pad(left: 0.6em)[
-          #kw("if") $tx_alpha != bot and tx_omega = bot and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
-          #pad(left: 0.6em)[
-            #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
-          ]
-        ]
-      ]
+          ],
+          [
+            #proc([#kw("on") $(hpAS, s, msSig_j)$ #kw("from") $party_j$])[
+              #kw("require") $s in {hats, hats + 1}$ \
+              #kw("wait") $hats = s$
+              #nst[
+                #kw("require") $(j, dot.c) in.not hatSigma$ \
+                $hatSigma[j] <- sigma_j$ \
+                #kw("if") $forall k in [1..n] : (k, dot.c) in hatSigma$
+                #nst[
+                  $msCSig <- msComb(hydraKeys^("setup"), hatSigma)$ \
+                  $eta' <- accUTxO(hatmU)$ \
+                  $(eta')^(\#) <- (eta')^(\#)$ \
+                  #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#)), msCSig)$ \
+                  $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
+                  $macron(mc(S)).sigma <- msCSig$ \
+                  $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
+                  #kw("if") $macron(S).U_omega != bot$
+                  #nst[
+                    #kw("postTx") $(mtxDecrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
+                  ]
+                  #kw("if") $macron(S).U_alpha != bot$
+                  #nst[
+                    #kw("postTx") $(mtxIncrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
+                  ]
+                  #kw("if") $hpLdr(s + 1) = i and hatmT != emptyset$
+                  #nst[
+                    #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
+                    #nst[
+                      $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+                    ]
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
+                  ]
+                ]
+              ]
+            ]
 
-      #line(length: 100%, stroke: 0.5pt)
+            #proc([#kw("on") $(mtxDeposit, tx_alpha, U, t_(sans("created")), t_(sans("deadline")))$ #kw("from") chain])[
+              $mc(D) <- mc(D) union (tx_alpha, sans("depositObj")(U, t_(sans("created")), t_(sans("deadline")), sans("Inactive")))$
+            ]
 
-      *Closing the head*
+            #proc([#kw("on") $(mtxRecover, tx_alpha)$ #kw("from") chain])[
+              $mc(D) <- mc(D) without (tx_alpha, dot.c)$
+            ]
 
-      #routine[#kw("on") $(hpClose)$ #kw("from") client][
-        $(eta')^(\#) <- macron(mc(S)).(eta')^(\#)$ \
-        $xi <- macron(mc(S)).sigma$ \
-        #kw("postTx") $(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
-      ]
+            #proc([#kw("on") $(mtxDecrement, U, v)$ #kw("from") chain])[
+              $hats <- macron(mc(S)).s$ \
+              $hatv <- v$ \
+              $tx_omega <- bot$ \
+              #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #nst[
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+              ]
+            ]
 
-      #routine[#kw("on") $(gcChainClose, (eta')^(\#)) or (gcChainContest, s_c, (eta')^(\#))$ #kw("from") chain][
-        #kw("if") $macron(mc(S)).s > s_c$
-        #pad(left: 0.6em)[
-          $(eta')^(\#) <- macron(mc(S)).(eta')^(\#)$ \
-          $xi <- macron(mc(S)).sigma$ \
-          #kw("postTx") $(mtxContest, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
-        ]
+            #proc([#kw("on") $(mtxIncrement, U, v)$ #kw("from") chain])[
+              $hats <- macron(mc(S)).s$ \
+              $hatv <- v$ \
+              $tx_alpha <- bot$ \
+              $hatmL <- hatmL union U$ \
+              #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #nst[
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, bot)$
+              ]
+            ]
+
+            #proc([#kw("on") $(sans("tick"), t)$ #kw("from") chain])[
+              #kw("for") $D in mc(D)$
+              #nst[
+                #kw("if") $t > D.sans("deadline") - Tdeposit$
+                #nst[
+                  $D.sans("status") <- sans("Expired")$
+                ]
+                #kw("else if") $t > D.sans("created") + Tdeposit$
+                #nst[
+                  $D.sans("status") <- sans("Active")$ \
+                  #kw("if") $tx_alpha = bot and tx_omega = bot$
+                  #nst[
+                    $tx_alpha <- D$
+                  ]
+                ]
+              ]
+              #kw("if") $exists D in mc(D) : D.sans("status") = sans("Active")$
+              #nst[
+                #kw("if") $tx_alpha != bot and tx_omega = bot and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
+                #nst[
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+                ]
+              ]
+            ]
+          ],
+        )
+
+        #line(length: 100%, stroke: 0.4pt + luma(120))
+        #v(0.2em)
+
+        #grid(
+          columns: (1fr, 1fr),
+          column-gutter: 1em,
+          [
+            #proc([#kw("on") $(hpClose)$ #kw("from") client])[
+              $(eta')^(\#) <- macron(mc(S)).(eta')^(\#)$ \
+              $xi <- macron(mc(S)).sigma$ \
+              #kw("postTx") $(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
+            ]
+          ],
+          [
+            #proc([#kw("on") $(gcChainClose, (eta')^(\#)) or (gcChainContest, s_c, (eta')^(\#))$ #kw("from") chain])[
+              #kw("if") $macron(mc(S)).s > s_c$
+              #nst[
+                $(eta')^(\#) <- macron(mc(S)).(eta')^(\#)$ \
+                $xi <- macron(mc(S)).sigma$ \
+                #kw("postTx") $(mtxContest, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
+              ]
+            ]
+          ],
+        )
       ]
     ]
   },
