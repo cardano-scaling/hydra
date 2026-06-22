@@ -109,6 +109,14 @@ jobs:
         redirect /tmp/public/head-protocol/monthly/index.html https://cardano-scaling.github.io/website/monthly
         redirect /tmp/public/head-protocol/unstable/monthly/index.html https://cardano-scaling.github.io/website/monthly
 
+    - name: 🧹 Strip benchmark working state
+      run: |
+
+        # Safety net: node working state must never be published. The deploy uses
+        # clean:false, so anything uploaded here lingers on gh-pages forever and
+        # once grew it past the 10GB Pages limit, breaking every deployment.
+        find /tmp/public -type d \( -name etcd -o -name db -o -name logs \) -prune -exec rm -rf {} +
+
     - name: 🚢 Publish Documentation
       uses: JamesIves/github-pages-deploy-action@v4
       with:

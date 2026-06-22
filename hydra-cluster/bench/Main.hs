@@ -86,7 +86,11 @@ main = do
         threadDelay 10
         let nodeIdOffset = startingNodeId + i * fromIntegral (List.maximum clusterSizes)
         let action = bench nodeIdOffset timeoutSeconds BenchRunOptions{incrementalOps = im, waitForTxValid = wt}
-        runSingle labelled cellDir action
+        -- Run the cluster in a throwaway dir, not 'cellDir': node working state
+        -- (etcd WAL, cardano-node db, logs) must not reach the published docs.
+        -- Only 'dataset.json' and the aggregated 'scenarios.md' are kept.
+        withTempDir ("bench-matrix-cell-" <> show i) $ \runDir ->
+          runSingle labelled runDir action
       summarizeMatrixResults outputDirectory results
  where
   matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Bool -> Text
