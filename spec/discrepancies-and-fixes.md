@@ -472,9 +472,8 @@ mostly closed — `signedByParticipant` is structural `∃ signer holding a PT`,
 `abort`/`commit`/`collectCom` are not modelled (this variant inits directly to `Open` — confirm intent);
 the concurrent-deposit dilution/lockout is an upstream liveness concern (deferred, confirm upstream).
 
-**F. Agda↔prose discrepancy surfaced by the readability audit (OWNER DECISION needed, not silently
-changed):** `closeValid`/`contestValid` type-enforce `headValueIn ctx ≡ headValue ctx` (value preserved
-EXACTLY, matching Plutus `mustPreserveHeadValue`'s `==`), but the rendered prose for close (§5.6) and
-contest (§5.7) states `valHead' ⊇ valHead` (superset/monotone). The Agda is the STRONGER (correct)
-statement; the prose is looser. Likely the prose should be tightened to `=`, but that is a normative
-spec wording change, so it is logged here rather than edited during the readability pass.
+**F. Agda↔prose discrepancy — RESOLVED (owner decision, 2026-06):** `closeValid`/`contestValid`
+type-enforce `headValueIn ctx ≡ headValue ctx` (value preserved EXACTLY, matching Plutus
+`mustPreserveHeadValue`'s `==`), but the rendered prose for close (§5.6) and contest (§5.7) had said
+`valHead' ⊇ valHead` (superset/monotone). The owner confirmed the prose should match the Agda and the
+validator, so both §5.6 and §5.7 prose were tightened to `valHead' = valHead` ("preserved exactly").

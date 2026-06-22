@@ -147,6 +147,18 @@ postulate
   accVerify-sound : ∀ {U S π} → accVerify (accUTxO U) S π ≡ true → S ⊆ U
   -- completeness: any genuine subset has a membership witness that verifies
   accVerify-complete : ∀ {U S} → S ⊆ U → ∃[ π ] (accVerify (accUTxO U) S π ≡ true)
+  -- a set is always provably a member of its own commitment (the S ≔ U case of completeness; stated
+  -- directly to avoid the set-theory `⊆`-reflexivity plumbing). Used by the coverage obligations.
+  accVerify-self : ∀ U → ∃[ π ] (accVerify (accUTxO U) U π ≡ true)
+
+-- Set-level cardinality of a UTxO set: the number of outputs a fanout distributes. Postulated (with
+-- only the non-emptiness law the coverage proofs need) rather than via the set theory's `card`, which
+-- requires strong-finiteness witnesses — this is a SPECIFICATION of the abstract accumulator/fanout's
+-- set behaviour, not the KZG construction (cf. the `accVerify-*` laws). It lets the coverage obligations
+-- DERIVE `0 < m` for a non-empty remainder instead of assuming it.
+postulate
+  setSize     : ℙ Output → ℕ
+  setSize-pos : ∀ {U} → ¬ (U ≡ ∅ˢ) → 0 < setSize U
 
 -- Sum the value of all outputs / resolved inputs paying to a given script hash (cf. the Plutus
 -- `valueLockedBy`/`valueSpent` idiom of folding the tx outputs/inputs at `ownHash`). `ℍ` has
@@ -377,7 +389,7 @@ closeSigOK hk cid v s (closeUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) s η
 -- constraint, and the snapshot signature. The head key/id/version come from the
 -- source Open datum, the snapshot number from the produced Closed datum, and the
 -- signature/η# from the CloseType redeemer — so the predicate is only inhabited for
--- genuinely valid close transactions. Value is preserved (§5.6: valHead' ⊇ valHead).
+-- genuinely valid close transactions. Value is preserved EXACTLY (§5.6: valHead' = valHead).
 -- The thin `closeValid` function destructures the source `Open` and produced `Closed` datums
 -- (binding the head key/id/version/contestation-period and the produced snapshot number) and is ⊥ for
 -- any other shapes; each close check is then a named field of `CloseValid`.
@@ -930,8 +942,8 @@ transaction checks:
 + Transaction validity range is bounded by
   $ txValidityMax - txValidityMin <= T $
   to ensure the contestation deadline $tfinal$ is at most $2*T$ in the future.
-+ Value in the head is preserved
-  $ valHead' supset.eq valHead $
++ Value in the head is preserved exactly
+  $ valHead' = valHead $
 + Transaction is signed by a participant
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
 + No minting or burning
@@ -1000,8 +1012,8 @@ $sans("ContestType")$ is a hint how to verify the snapshot and checks:
     tfinal & upright("if") ~ |contesters'| = n",",
     tfinal + T & upright("otherwise.")
   ) $
-+ Value in the head is preserved
-  $ valHead' supset.eq valHead $
++ Value in the head is preserved exactly
+  $ valHead' = valHead $
 + Transaction is signed by a participant
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
 + No minting or burning
