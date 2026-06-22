@@ -24,7 +24,9 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxBodyContent,
   txOuts',
+  txValidityLowerBound,
   txValidityUpperBound,
+  pattern TxValidityLowerBound,
   pattern TxValidityUpperBound,
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
@@ -67,6 +69,9 @@ closeRefVerdict (tx, utxo) = do
   -- no finite upper bound the validator rejects (`InfiniteUpperBound`) but the reference cannot
   -- represent an infinite bound, so it abstains (the differential imposes no constraint there).
   validityHi <- txUpperBoundPOSIX tx
+  -- The bounded-validity conjunct `hi - lo <= cp` also needs the tx LOWER bound; with no finite lower
+  -- bound the reference abstains (the validator's range-width check then has nothing to compare).
+  validityLo <- txLowerBoundPOSIX tx
   let hsOpen =
         Ref.MkOpen
           od.version
@@ -78,7 +83,7 @@ closeRefVerdict (tx, utxo) = do
           cd.snapshotNumber
           (fromIntegral (length cd.contesters))
           (getPOSIXTime cd.contestationDeadline)
-  pure (Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr) validityHi)
+  pure (Ref.checkClose (Ref.mkOps (\_ _ _ -> True)) hsOpen hsClosed (tagOf cr) validityHi validityLo)
  where
   tagOf = \case
     HS.CloseInitial -> Ref.CloseInitialT
@@ -108,6 +113,17 @@ txUpperBoundPOSIX :: Tx -> Maybe Integer
 txUpperBoundPOSIX tx =
   case tx & getTxBody & getTxBodyContent & txValidityUpperBound of
     TxValidityUpperBound upperBound -> Just (slotToPOSIXMs upperBound)
+    _ -> Nothing
+ where
+  slotToPOSIXMs :: SlotNo -> Integer
+  slotToPOSIXMs = getPOSIXTime . posixFromUTCTime . slotNoToUTCTime systemStart slotLength
+
+-- | The tx LOWER validity bound as POSIXTime ms (same slot→time translation), or 'Nothing' if there
+-- is no finite lower bound.
+txLowerBoundPOSIX :: Tx -> Maybe Integer
+txLowerBoundPOSIX tx =
+  case tx & getTxBody & getTxBodyContent & txValidityLowerBound of
+    TxValidityLowerBound lowerBound -> Just (slotToPOSIXMs lowerBound)
     _ -> Nothing
  where
   slotToPOSIXMs :: SlotNo -> Integer

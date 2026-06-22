@@ -201,22 +201,32 @@ once-honest-then-corrupt extension and the `reflects` bridge) live in the compan
 #raw("Hydra.Protocol.SecurityProofs") so the prose stays focused on the statements. They are still
 checked by `nix build` (imported by `Main`), so the properties remain machine-verified.
 
-#dparagraph[Modelling note (honest signing discipline).]
-The `signHonest` move makes explicit the coordinated head's snapshot regime (§6.2): an honest party
-signs the snapshot numbered exactly one above its _own_ confirmed snapshot, whose transactions extend
-that snapshot's, and signs at most one snapshot per number. The §6 prose specifies this only
-operationally (round-robin snapshot leader, sequential snapshot numbers $s = hats + 1$, and the
-$hpRS$ 'wait' applicability guard); the security model promotes it to an explicit honest-behaviour
-assumption. It is what makes the confirmed chain provably linear (`agree`) and monotone
-(`confirmed-nest`); a faithful, slightly more explicit, statement of the protocol's intent rather than
-an extra restriction.
+#dparagraph[Modelling note (honest signing discipline, derived).]
+The `signHonest` move is now DRIVEN by the off-chain handler model: an honest party signs by FIRING the
+`reqSn-sign` handler (OffChain `_handles_↝_`) with no snapshot in flight ($hats = bars$). From these
+operational inputs the four honest-signing guards are PROVED, not assumed: it signs the snapshot
+numbered exactly one above its _own_ confirmed snapshot (the handler's $s = bars + 1$, with $hats = bars$),
+whose transactions extend that snapshot's by an applicable observed delta, and signs at most one snapshot
+per number (because signing advances $hats$, so the invariant `signNumBound` bounds every prior signature
+strictly below the new number). Applicability to $Uinit$ follows by ledger compositionality
+(`applyTxs-compose`) from the party's confirmed-applicability invariant; only-seen follows from the
+delta-observed input and the `sigSeen` invariant. The §6 prose specifies this regime operationally
+(round-robin snapshot leader, $s = hats + 1$, the $hpRS$ 'wait' guards); the security model now derives
+its safety consequences from a faithful transcription of that handler, rather than positing them. It is
+what makes the confirmed chain provably linear (`agree`) and monotone (`confirmed-nest`).
 
 ```agda
 -- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict).
 -- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
+-- `applyTxs-compose` is ledger COMPOSITIONALITY: applying `txs₁` then `txs₂` equals applying their
+-- concatenation. The one ledger law (alongside the nil law) admitted to DERIVE the honest signer's
+-- applicability guard (A4/D1): an honest party checks the requested txs apply on top of its confirmed
+-- ledger, and compositionality lifts that to applicability against the initial U₀.
 postulate
   applyTxs     : UTxO → List Data → Maybe UTxO
   applyTxs-nil : ∀ U → applyTxs U [] ≡ just U
+  applyTxs-compose : ∀ {U U′} txs₁ txs₂ → applyTxs U txs₁ ≡ just U′
+                   → applyTxs U (txs₁ ++ txs₂) ≡ applyTxs U′ txs₂
 
 -- A transaction list is jointly applicable to U when applying it does not conflict (≠ ⊥).
 Applicable : UTxO → List Data → Set
@@ -317,26 +327,36 @@ ms-unforgeable : ∀ sys snap → AggVerified sys snap → Certified sys snap
 ms-unforgeable sys snap aggOK i = sigUnforge sys snap i (aggSound sys snap aggOK i)
 
 -- The single-step relation _⟶ˢ_:
---   signHonest  : an honest party signs a snapshot, but ONLY if its txs are applicable to U₀ (the
---                 reqSn 'wait' guard) and it has not already signed a snapshot of that number (one
---                 signature per round). These two guards are the honest discipline L1/L3 rest on.
+--   signHonest  : an honest party signs a snapshot by FIRING the off-chain `reqSn-sign` handler
+--                 (OffChain `_handles_↝_`): it requires no snapshot in flight (ŝ = s̄), the requested
+--                 txs Δ extend its OWN confirmed snapshot and apply on top of it, and Δ is already
+--                 observed. The handler advances ŝ ← s. The four honest-signing safety guards L1/L3
+--                 rest on (applicability, one-per-round, chain-extension, only-seen) are no longer
+--                 free premises: they are DERIVED from these operational inputs + the invariant (see
+--                 `invStep`'s signHonest arm and `signNumBound`/`sigSeen` in `Inv`).
 --   signCorrupt : a corrupt party may sign ANY snapshot (the adversary forges nothing honest).
 --   confirm     : a party adopts a snapshot whose AGGREGATE multisignature verifies (`AggVerified`,
 --                 i.e. `msVfy` passes); unforgeability then makes it certified (all parties signed).
 --   corrupt     : the active adversary corrupts a party (honest parties only ever shrink).
--- `sigs` only grows; `U₀` and `onChain` are never changed by a step.
+-- `sigs` only grows; `U₀` and `onChain` are never changed by a step. `signHonest` additionally bumps
+-- the signer's `seenNumber` (ŝ); `confirm` updates a party's `confirmed`; `see` grows `seen`.
 data _⟶ˢ_ : System → System → Set where
-  signHonest : ∀ {sys i snap}
-    → lookup (honest sys) i ≡ true
-    → Applicable (U₀ sys) (Snapshot.txs snap)
-    → (∀ {s'} → Snapshot.number s' ≡ Snapshot.number snap → ¬ Signed sys i s')
-    -- chain-extension discipline: an honest party signs the snapshot one above its OWN confirmed
-    -- snapshot, extending it (this is what makes the confirmed chain provably nest, L2).
-    → Snapshot.number snap ≡ suc (confirmedNo (lookup (localOf sys) i))
-    → Snapshot.txs (LocalState.confirmed (lookup (localOf sys) i)) ⊆ˡ Snapshot.txs snap
-    -- seen discipline: an honest party signs only txs it has OBSERVED (§7 Soundness `T̃ ⊆ ⋂ honest seen`).
-    → Snapshot.txs snap ⊆ˡ lookup (seen sys) i
-    → sys ⟶ˢ record sys { sigs = (i , snap) ∷ sigs sys }
+  signHonest : ∀ {sys i snap Δ txReq txα txω}
+    → lookup (honest sys) i ≡ true                                                   -- honest signer
+    → LocalState.seenNumber (lookup (localOf sys) i) ≡ confirmedNo (lookup (localOf sys) i)  -- no snapshot in flight (ŝ = s̄)
+    -- FIRE the reqSn-sign handler: witnesses the §6.4 `require` guards (s = s̄+1, v = v̂) and advances
+    -- ŝ ← s. This is the "every step ≈ a handler execution" link. (The requested txs the snapshot
+    -- includes are the list Δ below; the message's `txReq` payload is the abstract §6 encoding.)
+    → (lookup (localOf sys) i) handles
+          (reqSn (Snapshot.version snap) (Snapshot.number snap) txReq txα txω)
+        ↝ record (lookup (localOf sys) i) { seenNumber = Snapshot.number snap }
+    → Snapshot.txs snap ≡ confirmedTxs (lookup (localOf sys) i) ++ Δ                  -- snapshot = confirmed ++ requested
+    → (∀ {U′} → applyTxs (U₀ sys) (confirmedTxs (lookup (localOf sys) i)) ≡ just U′
+              → Applicable U′ Δ)                                                      -- Δ applies on top of confirmed (requireApplyTxs)
+    → Δ ⊆ˡ lookup (seen sys) i                                                        -- Δ already observed (only-seen)
+    → sys ⟶ˢ record sys
+        { localOf = localOf sys [ i ]≔ record (lookup (localOf sys) i) { seenNumber = Snapshot.number snap }
+        ; sigs    = (i , snap) ∷ sigs sys }
 
   signCorrupt : ∀ {sys i snap}
     → lookup (honest sys) i ≡ false
@@ -393,12 +413,14 @@ record PredecessorWitness (certified : Snapshot → Set) (snap : Snapshot) : Set
     txsExtend        : Snapshot.txs pre ⊆ˡ Snapshot.txs snap
     preGenesisOrCert : (Snapshot.number pre ≡ 0) ⊎ certified pre
 
--- The DERIVED invariants carried through every reachable system, one per field:
---   sigApp   : every honest signature is on a snapshot applicable to U₀ (from signHonest's guard);
---   sigDedup : an honest party signs at most one snapshot per number (from signHonest's guard);
+-- The DERIVED invariants carried through every reachable system, one per field. Each honest-signature
+-- fact is now itself DERIVED at the `signHonest` step from the `reqSn-sign` handler + the no-in-flight
+-- precondition + the two new invariants (`signNumBound`/`sigSeen`), not read off a free guard:
+--   sigApp   : every honest signature is on a snapshot applicable to U₀ (via `applyTxs-compose`);
+--   sigDedup : an honest party signs at most one snapshot per number (via `signNumBound`);
 --   confApp  : every honest party's confirmed snapshot is applicable to U₀ (L3). This REPLACES the
 --              old `Initial` assumption that the whole chain is applicable: here it is DERIVED.
---   sigPos   : an honest signature is on a snapshot of number > 0 (from the extension guard);
+--   sigPos   : an honest signature is on a snapshot of number > 0 (the handler's s = s̄+1);
 --   confCert : an honest party's confirmed snapshot is the genesis or is certified;
 --   sigChain : every honest signature has an extending certified-or-genesis `PredecessorWitness`.
 --              The last three give L2 (`confirmed-nest`).
@@ -415,6 +437,16 @@ record Inv (sys : System) : Set where
              → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
                ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
     sigChain : ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap → PredecessorWitness (Certified sys) snap
+    -- signNumBound: every honest signature's number is ≤ that party's last-signed number ŝ. With the
+    --   `signHonest` no-in-flight precondition (ŝ = s̄) and the handler signing s = s̄+1 and bumping ŝ,
+    --   this DERIVES the one-signature-per-round guard (`sigDedup`): a fresh sign is strictly above ŝ.
+    signNumBound : ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap
+                 → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf sys) k)
+    -- sigSeen: every honest signature is on txs the party has SEEN. DERIVES the only-seen guard; from
+    --   the handler's Δ ⊆ seen + (confirmedTxs ⊆ seen, itself from confCert+sigSeen). Folds in the
+    --   former standalone `sigSeen-inv`; feeds the second conjunct of `soundness`.
+    sigSeen      : ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap
+                 → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
 
 
 -- The §7 Consistency property: no two honest parties confirm conflicting transactions. We DERIVE

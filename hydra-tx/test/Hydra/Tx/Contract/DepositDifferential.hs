@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 -- | Differential test (Tier 2) for the νDeposit validator (@deposit.ak@): run the Agda-extracted
 -- decidable reference checkers ('Hydra.Agda.Reference.checkRecover' / 'checkClaim') and the real
 -- Plutus deposit validator on the same transactions, and assert they agree on the decidable layer.
@@ -20,6 +22,7 @@ module Hydra.Tx.Contract.DepositDifferential (spec) where
 
 import Hydra.Prelude
 
+import Data.ByteString qualified as BS
 import Hydra.Agda.Reference qualified as Ref
 import Hydra.Cardano.Api (
   SlotNo,
@@ -37,13 +40,15 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Cardano.Api.TxOut (findTxOutByScript)
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as HS
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Contract.Deposit (healthyDeadlineSlot)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx, recoverSlotNo)
-import PlutusLedgerApi.V3 (getPOSIXTime)
+import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, getPOSIXTime, unCurrencySymbol)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation)
@@ -72,19 +77,31 @@ recoverRefVerdict (tx, utxo) = do
     )
 
 -- | The extracted reference verdict on a claim @(tx, utxo)@ (an increment collecting a deposit): the
--- before-deadline conjunct @validityHi ≤ tRecover@. 'Nothing' (abstains) if the spent deposit datum
--- cannot be read or the tx has no finite upper validity bound. The own-head binding is mocked.
+-- before-deadline conjunct @validityHi ≤ tRecover@ AND the own-head binding (the deposit datum's head
+-- id equals the spent head's @headId@, the @expect_increment_redeemer@ head-id half), each cid encoded
+-- as an integer via 'cidToInteger'. 'Nothing' (abstains) if the deposit datum / head input cannot be
+-- read or the tx has no finite upper validity bound. The Increment-redeemer coupling is mocked.
 claimRefVerdict :: (Tx, UTxO) -> Maybe Bool
 claimRefVerdict (tx, utxo) = do
-  (_, depositOut) <- findTxOutByScript (resolveInputsUTxO utxo tx) depositValidatorScript
+  let resolved = resolveInputsUTxO utxo tx
+  (_, depositOut) <- findTxOutByScript resolved depositValidatorScript
   dat <- txOutScriptData (fromCtxUTxOTxOut depositOut)
-  (_, deadline, _) <- fromScriptData dat :: Maybe Deposit.DepositDatum
+  (depositCid, deadline, _) <- fromScriptData dat :: Maybe Deposit.DepositDatum
+  (_, headInOut) <- findTxOutByScript resolved Head.validatorScript
+  inSt <- fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headInOut)
+  HS.Open od <- Just (inSt :: HS.State)
   validityHi <- txUpperBoundPOSIX tx
   pure
     ( Ref.checkClaim
         (Ref.mkOpsClaim (const True))
-        (Ref.MkClaimIO (getPOSIXTime deadline) validityHi)
+        (Ref.MkClaimIO (getPOSIXTime deadline) validityHi (cidToInteger depositCid) (cidToInteger od.headId))
     )
+
+-- | Deterministic encoding of a head-id currency symbol as the big-endian integer of its hash bytes:
+-- equal iff the symbols are equal, which is all the reference's cid-binding check needs (it never
+-- relies on injectivity — see the @cidToNat@ note in ReferenceBridge).
+cidToInteger :: CurrencySymbol -> Integer
+cidToInteger = BS.foldl' (\acc w -> acc * 256 + toInteger w) 0 . fromBuiltin . unCurrencySymbol
 
 -- | The healthy recover tx with its lower validity bound pulled back onto the recover deadline slot,
 -- so the "strictly after the deadline" check fails (@tRecover < validityLo@ becomes @tRec < tRec@,

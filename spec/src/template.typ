@@ -79,6 +79,22 @@
   },
 )
 
+// === Agda block relocation (rendered in the appendix, not inline) ===
+// The literate `.lagda.typ` sources are typechecked in place by Agda, but to keep the spec body
+// readable the rendered code blocks are COLLECTED and shown in an appendix. The body keeps an
+// in-place link to the appendix where each block sat. `agda-appendix-mode` flips the show rule from
+// "capture + link" (body) to "render framed" (appendix); state is positional, so blocks before the
+// flip are captured and those after it (the appendix listing) render normally.
+#let agda-appendix-mode = state("agda-appendix-mode", false)
+
+#let render-agda(it) = block(
+  fill: luma(245),
+  inset: 8pt,
+  radius: 3pt,
+  width: 100%,
+  text(font: "StrippedJuliaMono", size: 9pt, it),
+)
+
 // === Document configuration ===
 
 #let hydra-spec(title: none, subtitle: none, authors: (), body) = {
@@ -118,14 +134,22 @@
   // (Agda has no Typst backend; this colours keywords/comments/strings/literals).
   set raw(syntaxes: "/agda.sublime-syntax")
 
-  // Agda code blocks: ```agda ... ``` are typechecked AND shown (JuliaMono, framed).
-  show raw.where(block: true, lang: "agda"): it => block(
-    fill: luma(245),
-    inset: 8pt,
-    radius: 3pt,
-    width: 100%,
-    text(font: "StrippedJuliaMono", size: 9pt, it),
-  )
+  // Agda code blocks: ```agda ... ``` are typechecked in place by Agda. In the BODY they are not
+  // shown inline — each is captured (via labelled `metadata`, tagged with its section) and replaced by
+  // a link to the appendix; in the APPENDIX listing (`agda-appendix-mode` on) they render framed.
+  show raw.where(block: true, lang: "agda"): it => context {
+    if agda-appendix-mode.get() {
+      render-agda(it)
+    } else {
+      let hs = query(selector(heading).before(here()))
+      let secbody = if hs.len() > 0 { hs.last().body } else { [Front matter] }
+      [#metadata((src: it.text, secnum: counter(heading).get(), sec: secbody)) #label("agda-src")]
+      block(above: 0.5em, below: 0.8em, align(right, text(
+        size: 8pt, fill: rgb("#1a4fb4"),
+        link(<agda-appendix>)[_(Agda formalisation in appendix)_],
+      )))
+    }
+  }
   // Bare ``` ... ``` blocks are typechecked by Agda but HIDDEN in the rendered
   // document (module declarations, imports). See Main.lagda.typ.
   show raw.where(block: true, lang: none): none

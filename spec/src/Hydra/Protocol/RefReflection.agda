@@ -9,6 +9,8 @@ module Hydra.Protocol.RefReflection where
 open import Hydra.Protocol.Prelude
 open import Data.Nat using (z≤n; s≤s)
 open import Agda.Builtin.Nat using (_==_; suc) renaming (_<_ to _<ᴮ_)
+open import Data.Empty using (⊥-elim)
+open import Relation.Binary.PropositionalEquality using (cong)
 import Hydra.Protocol.Reference as R
 
 -- Soundness of the BUILTIN Nat equality `_==_` w.r.t. propositional equality. The lovelace / deadline
@@ -34,6 +36,14 @@ postulate
 
 ≡→==ᵇ : ∀ {m n} → m ≡ n → (m R.==ᵇ n) ≡ true
 ≡→==ᵇ {m} refl = ==ᵇ-refl m
+
+-- The negative direction: distinct numbers fail the structural equality. (Used by the contest bridge
+-- to reflect the conditional deadline-update's all-contested test `⌊ length C' ≟ n ⌋` into `_==ᵇ_`.)
+¬→==ᵇfalse : ∀ {m n} → ¬ (m ≡ n) → (m R.==ᵇ n) ≡ false
+¬→==ᵇfalse {zero}  {zero}  ¬e = ⊥-elim (¬e refl)
+¬→==ᵇfalse {zero}  {suc n} _  = refl
+¬→==ᵇfalse {suc m} {zero}  _  = refl
+¬→==ᵇfalse {suc m} {suc n} ¬e = ¬→==ᵇfalse {m} {n} (λ e → ¬e (cong suc e))
 
 ≤→≤ᵇ : ∀ {m n} → m ≤ n → (m R.≤ᵇ n) ≡ true
 ≤→≤ᵇ z≤n     = refl
