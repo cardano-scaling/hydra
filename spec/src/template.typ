@@ -135,7 +135,7 @@
   set raw(syntaxes: "/agda.sublime-syntax")
 
   // Agda code blocks: ```agda ... ``` are typechecked in place by Agda. In the BODY they are not
-  // shown inline — each is captured (via labelled `metadata`, tagged with its section) and replaced by
+  // shown inline - each is captured (via labelled `metadata`, tagged with its section) and replaced by
   // a link to the appendix; in the APPENDIX listing (`agda-appendix-mode` on) they render framed.
   show raw.where(block: true, lang: "agda"): it => context {
     if agda-appendix-mode.get() {

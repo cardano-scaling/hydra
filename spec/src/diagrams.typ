@@ -124,7 +124,7 @@
 // A transaction is drawn as [inputs] → [tx box: name / mint / validity] →
 // [outputs]. Every tx figure uses this one renderer, so colours and styling are
 // unified; the data is the single source (and, for txs that correspond to a
-// `_⟶⟨_⟩_` rule, cross-checkable against the Agda — see check-refs.sh).
+// `_⟶⟨_⟩_` rule, cross-checkable against the Agda - see check-refs.sh).
 #let _box(c) = box(stroke: 0.5pt, inset: 4pt, radius: 2pt, c)
 
 #let tx-diagram(name, inputs, outputs, mint: none, validity: none) = {

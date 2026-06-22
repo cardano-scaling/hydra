@@ -65,12 +65,13 @@ Certified-mono _ cert i = there (cert i)
 ≢nothing→just (just x) _  = x , refl
 ≢nothing→just nothing  ¬n = ⊥-elim (¬n refl)
 
--- The invariants hold at every reachable system. The key safety facts are DERIVED, not assumed:
--- `confApp` (L3) discharges applicability at `confirm` from `sigApp` (a certified snapshot carries
--- the honest confirmer's own signature; honest signatures are only on applicable snapshots); and
--- `sigChain` records, for every honest signature, an extending certified-or-genesis predecessor
--- (from `signHonest`'s guards + `confCert`), which gives L2 (`confirmed-nest`). Corruption only
--- shrinks the honest set (`honest-mono`); `sigs` only grows (`Certified-mono` carries facts forward).
+-- The invariants hold at every reachable system. The key safety facts are derived from the
+-- structure: `confApp` (L3) discharges applicability at `confirm` from `sigApp` (a certified
+-- snapshot carries the honest confirmer's own signature; honest signatures are only on applicable
+-- snapshots); and `sigChain` records, for every honest signature, an extending certified-or-genesis
+-- predecessor (from `signHonest`'s guards + `confCert`), which gives L2 (`confirmed-nest`).
+-- Corruption only shrinks the honest set (`honest-mono`); `sigs` only grows (`Certified-mono`
+-- carries facts forward).
 invariant : ∀ sys → Reachable sys → Inv sys
 invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty)) = record
   { sigApp   = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
@@ -85,12 +86,12 @@ invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty)) = record
 invariant sys (step {s} r tr) = invStep tr (invariant s r)
   where
     invStep : ∀ {a b} → a ⟶ˢ b → Inv a → Inv b
-    -- signHonest now FIRES the reqSn-sign handler (pattern `reqSn-sign vEq sEq`): the four guards the
-    -- old constructor took as premises are DERIVED here from the handler's `s ≡ s̄+1` (sEq), the
-    -- snapshot/Δ shape (txsEq₀), the U₀-applicability premise (appl₀), the no-in-flight precondition
-    -- (nf₀) + `signNumBound`, and the Δ-seen premise (Δseen₀) + `sigSeen`/`confCert`. The signer's
-    -- `seenNumber` is bumped, so the localOf-reading fields gain `lookup∘update` bookkeeping (the
-    -- `.confirmed` they read is unchanged — only `seenNumber` moved).
+    -- signHonest fires the reqSn-sign handler (pattern `reqSn-sign vEq sEq`): the four guards are
+    -- derived here from the handler's `s ≡ s̄+1` (sEq), the snapshot/Δ shape (txsEq₀), the
+    -- U₀-applicability premise (appl₀), the no-in-flight precondition (nf₀) + `signNumBound`, and the
+    -- Δ-seen premise (Δseen₀) + `sigSeen`/`confCert`. The signer's `seenNumber` is bumped, so the
+    -- localOf-reading fields carry `lookup∘update` bookkeeping (the `.confirmed` they read is
+    -- unchanged; only `seenNumber` moves).
     invStep {a} (signHonest {i = i} {snap = snap₀} {Δ = Δ} hi₀ nf₀ (reqSn-sign vEq sEq) txsEq₀ appl₀ Δseen₀)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
                    ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
@@ -255,7 +256,7 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | mkPredecessor pre numberSuc txsExtend (inj₂ c) =
               mkPredecessor pre numberSuc txsExtend (inj₂ (Certified-mono a {x = (i , snap₀)} c))
         -- corrupt sign: localOf / seen unchanged, so the two new invariants pass through (the new sig
-        -- is the corrupt party's, on which the honest-only invariants impose nothing — `clash`).
+        -- is the corrupt party's, on which the honest-only invariants impose nothing - `clash`).
         newSNB : ∀ {k snap} → lookup (honest a) k ≡ true
                → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a)
                → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf a) k)
@@ -371,7 +372,7 @@ sigChain-of : ∀ sys → Reachable sys → ∀ {k snap} → lookup (honest sys)
   → PredecessorWitness (Certified sys) snap
 sigChain-of sys reach = Inv.sigChain (invariant sys reach)
 
--- ── L2: now DERIVED (no longer a postulate) ─────────────────────────────────────────────────────
+-- ── L2: certified snapshots nest ────────────────────────────────────────────────────────────────
 -- Certified snapshots nest by number. Proof by induction on the gap d = number s2 ∸ number s1: at
 -- d=0 the numbers are equal, so by agreement (L1) the snapshots are equal; at d=suc, the higher
 -- snapshot s2 has (by `sigChain-of`) an extending certified-or-genesis predecessor `pre` one number
@@ -409,9 +410,9 @@ cert-nest : ∀ sys → Reachable sys → ∀ {h s1 s2}
 cert-nest sys reach {h} {s1} {s2} hh c1 c2 le =
   cert-nest-aux sys reach (Snapshot.number s2 ∸ Snapshot.number s1) hh c1 c2 (m+[n∸m]≡n le)
 
--- L2, the §7 nesting obligation, now DERIVED: two honest parties' confirmed snapshots nest by number.
--- An honest party's confirmed snapshot is the genesis (txs ⊆ anything) or certified; in the latter
--- case `cert-nest` applies.
+-- L2, the §7 nesting obligation: two honest parties' confirmed snapshots nest by number. An honest
+-- party's confirmed snapshot is the genesis (txs ⊆ anything) or certified; in the latter case
+-- `cert-nest` applies.
 confirmed-nest : ∀ sys → Reachable sys → ∀ i j
   → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
   → confirmedNo (lookup (localOf sys) i) ≤ confirmedNo (lookup (localOf sys) j)
@@ -452,7 +453,7 @@ consistency sys reach i j hi hj =
 -- adopts AFTER corruption -- those too must be certified, hence consistent.) Standalone (does not
 -- perturb the `invariant`/`consistency` core).
 
--- Every party's confirmed snapshot is the genesis or is certified -- with NO honesty hypothesis on the
+-- Every party's confirmed snapshot is the genesis or is certified, with no honesty hypothesis on the
 -- party (the honest-only version is the `confCert` invariant component). The only step that changes a
 -- party's confirmed snapshot is `confirm`, which requires `AggVerified` ⇒ (`ms-unforgeable`) certified.
 confCert-all : ∀ sys → Reachable sys → ∀ i
@@ -540,9 +541,9 @@ consistency-uncorrupted sys reach hh i j =
     ... | inj₂ ge = inj₂ (nestU sys reach hh j i ge)
 
 -- ── Seen-set invariant: every honest signature is on txs that party has SEEN ───────────────────
--- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is now the `sigSeen`
--- component of the main invariant (DERIVED at `signHonest` from the handler's Δ ⊆ seen premise + the
--- confirmed-txs-seen fact); exposed here as a thin corollary so `soundness`'s call site is unchanged.
+-- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is the `sigSeen`
+-- component of the main invariant (derived at `signHonest` from the handler's Δ ⊆ seen premise + the
+-- confirmed-txs-seen fact); exposed here as a thin corollary for `soundness`'s call site.
 sigSeen-inv : ∀ sys → Reachable sys → ∀ {k snap}
   → lookup (honest sys) k ≡ true → Signed sys k snap
   → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
@@ -557,19 +558,18 @@ soundness sys reach {snap = snap} hh aggOK =
 completeness : Completeness
 completeness = confirmed-nest
 
--- `Reflects` is now CONSTRUCTED, not assumed -- and SOUNDLY so. Given a system that has finalized
--- against a snapshot whose aggregate multisignature verifies (`AggVerified`; the `finalize` step
--- supplies the snapshot-number match `numEq`), the conflict-freedom conjunct is DERIVED from
--- `soundness` (an honest party signed the certified snapshot, and honest signatures are applicable to
--- U₀), and the number match is the finalize witness. The accumulator commitment is supplied as the
--- explicit per-finalization hypothesis `ηEq` -- the irreducible SIGNATURE-TRUST assumption (νHead
--- authenticates η via `msVfy` over cid‖v‖s‖η#, NOT by recomputing `accUTxO(U)`: `closeValid`/
--- `fanoutValid` only check `η# ≡ hash (ηOf d')` plus the multisig). It is given as a hypothesis,
--- NOT a global postulate, on purpose: `finalize` admits any datum with a matching snapshot number, so
--- a global `∀ sys → … → ηOf ≡ accUTxO (outsOf U)` would have no model (two finalizations with the same
--- final U but different stored η). The finalizer discharges `ηEq` from the η it actually committed.
--- The earlier code took the WHOLE `Reflects` as an opaque hypothesis that nothing produced; here two
--- of its three conjuncts are derived and only the signature-trust conjunct is assumed.
+-- `Reflects` is constructed soundly. Given a system that has finalized against a snapshot whose
+-- aggregate multisignature verifies (`AggVerified`; the `finalize` step supplies the snapshot-number
+-- match `numEq`), the conflict-freedom conjunct is derived from `soundness` (an honest party signed
+-- the certified snapshot, and honest signatures are applicable to U₀), and the number match is the
+-- finalize witness. The accumulator commitment is supplied as the explicit per-finalization
+-- hypothesis `ηEq`: the irreducible signature-trust assumption (νHead authenticates η via `msVfy`
+-- over cid‖v‖s‖η#, not by recomputing `accUTxO(U)`: `closeValid`/`fanoutValid` only check
+-- `η# ≡ hash (ηOf d')` plus the multisig). It is a hypothesis rather than a global postulate on
+-- purpose: `finalize` admits any datum with a matching snapshot number, so a global
+-- `∀ sys → … → ηOf ≡ accUTxO (outsOf U)` would have no model (two finalizations with the same final U
+-- but different stored η). The finalizer discharges `ηEq` from the η it actually committed. Two of the
+-- three `Reflects` conjuncts are derived; only the signature-trust conjunct is assumed.
 reflects : ∀ sys → Reachable sys → ∀ {h snap}
   → lookup (honest sys) h ≡ true
   → AggVerified sys snap

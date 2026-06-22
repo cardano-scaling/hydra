@@ -244,8 +244,8 @@ ledger model~@eutxo-2@ledger-shelley-spec.
   $
     txContext in tyContext = (tyInputs times tyOutputs times tyValue times cal(S)^(<->) times cal(K))
   $
-  where $txInputs in tyInputs$ is a (ledger-level) set of _resolved_ inputs --- each carries the
-  spent output (its value, address and datum), as in the eUTxO ledger --- modelled in Agda as a
+  where $txInputs in tyInputs$ is a (ledger-level) set of _resolved_ inputs - each carries the
+  spent output (its value, address and datum), as in the eUTxO ledger - modelled in Agda as a
   *list* so the value locked at a given script can be summed;
   $txOutputs in tyOutputs$ is a *list* of outputs,
   $txMint in tyValue$ is the minted (or burned) value,
@@ -283,7 +283,7 @@ record Input : Set where
 record ValidityInterval : Set where
   field
     lo hi : ℕ              -- lower/upper validity bounds
-    lo≤hi : lo ≤ hi        -- the spec's constraint, now enforced by the type
+    lo≤hi : lo ≤ hi        -- the spec's constraint, enforced by the type
 
 record Context : Set where
   field

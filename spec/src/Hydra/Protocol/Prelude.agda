@@ -3,8 +3,8 @@
 -- This module is pure plumbing: it is type-checked by Agda (imported by
 -- Hydra.Protocol.Main) but is NOT part of the rendered Typst document (build.sh
 -- only stages .lagda.typ files). It re-exports the libraries the spec builds on
--- and fixes the opaque base types. Crypto primitives are postulated here for now
--- and refined into proper interfaces in Step 2 of the Agda adoption plan.
+-- and fixes the opaque base types. Crypto primitives are postulated here as
+-- abstract interfaces.
 
 module Hydra.Protocol.Prelude where
 
@@ -83,8 +83,8 @@ postulate
   adaOf-+ᵛ : ∀ a b → adaOf (a +ᵛ b) ≡ adaOf a + adaOf b
   -- Non-ada projection: the TOTAL quantity of all non-ada tokens in a value. Also an additive
   -- homomorphism, so it commutes with `_+ᵛ_` exactly like `adaOf`. Checking conservation on BOTH
-  -- projections (`adaOf` and `nonAdaOf`) catches value movement in ada AND in native tokens, closing
-  -- the "non-ada token siphon is invisible" gap of an ada-only differential. (Per-token granularity
+  -- projections (`adaOf` and `nonAdaOf`) catches value movement in ada AND in native tokens, so a
+  -- non-ada token siphon is visible. (Per-token granularity
   -- would need the full asset map; this total-quantity projection catches any siphon that changes the
   -- non-ada total, which a real token theft does.)
   nonAdaOf    : Value → ℕ
@@ -97,7 +97,7 @@ postulate
   -- the policy's STATE token (fixed ST name) in `v`; `headTokenCount v cid` is the number of DISTINCT
   -- tokens of policy `cid` in `v` (each minted with quantity 1, so the head output should carry n+1: one
   -- ST + n PTs). Counting in the head OUTPUT (with the n+1 MINT count) pins that every minted token is
-  -- placed there. These are ℕ projections, so the reference reflects them by plain `==` (no new axiom).
+  -- placed there. These are ℕ projections, so the reference reflects them by plain `==` (no additional axiom).
   stQty          : Value → CId → ℕ
   headTokenCount : Value → CId → ℕ
   -- The algebra the value-conservation predicates reason over: (Value, _+ᵛ_, εᵛ) is a commutative
