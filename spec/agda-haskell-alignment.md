@@ -226,6 +226,25 @@ adversarially. This is the first *coverage* obligation in the corpus; the genera
 accept path (especially terminal/finalize) should carry such a dual witness, or over-strictness stays
 invisible. (Atemporal and one-step — distinct from the deferred §7-P3 temporal liveness.)
 
+The module also adds a **valid-gated reachability** `Reachableᵛ` (each step carries its `*Valid` witness,
+unlike the shape relation), and from it the structural invariant `progress-nonEmpty`: the machine **never
+reaches an empty `FanoutProgress`** (`ηOf ≢ accUTxO ∅`), immediate from `PartialFanoutValid.notDoneOK`.
+That settles the symmetric question about the kept partial-path guard: `FinalPartialFanoutValid.outputsPositive
+: 0 < m` is **sound, not over-strict** — the remainder a final batch fans out is always non-empty, so
+`m ≥ 1` is satisfiable, and `progress-finalizable` now **derives** that positivity (not assumes it):
+`progress-nonEmpty` gives `η ≢ G₁`, hence (with the commits-to-set interface `η ≡ accUTxO V` and the
+existing `accUTxO-∅`, by contraposition) `V ≢ ∅`, hence `setSize-pos` gives `0 < setSize V = m`.
+
+**Simple-B6 (set-behaviour laws), done.** Rather than a concrete accumulator (the declined B6, which would
+make the spec stronger than the validator), three *specifying* postulates pin the accumulator's set-level
+behaviour while leaving the KZG crypto abstract: `accVerify-self` (a set is a member of its own commitment),
+`setSize` (UTxO-set cardinality) and `setSize-pos` (non-empty ⇒ positive). These are typecheck-only and used
+only by the coverage module — they add no check to the `*Valid` bundles, so the differential / spec⇒validator
+alignment is untouched (no stronger-than-validator issue). With them the coverage obligations now **derive**
+their membership witnesses and the final-partial `0 < m` instead of threading them; only the genuinely-context
+antecedents (deadline, burn, value conservation) remain hypotheses. The empty-head full fanout is still the
+concrete over-strictness *catch* (re-adding `outputsPositive : 0 < m` breaks the build — re-verified).
+
 ### Finding C — LOW (mapping note): `accVerifyExclude` is realised by reusing the membership pairing
 
 Agda models partial-fanout's accumulator update with a distinct predicate
