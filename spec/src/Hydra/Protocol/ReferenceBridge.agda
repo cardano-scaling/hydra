@@ -244,3 +244,20 @@ claimValid→ref : ∀ ctx cid tRec C hcid hk n cp v η ada
 claimValid→ref ctx cid tRec C hcid hk n cp v η ada b =
   &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline b))
  (&&-intro (==-sound (cong cidToNat (ClaimValid.claimedByOwnHead b))) refl)
+
+-- ── participant signature (shared: close / contest / increment / decrement) ──────────────────────
+-- The reference's overlap check `anySharedᵇ signerCodes ptCodes` reflects `signedByParticipant`
+-- (the §5.4–5.7 `mustBeSignedByParticipant`). The abstract predicate is an existential over the opaque
+-- signer set (`signerKeyHash`) and the opaque value (`quantityOf`); NEITHER has a computational link to
+-- the extracted Integer code lists, so — unlike the `cong cidToNat` bridge — the correspondence is a
+-- POSTULATED extraction-faithfulness boundary (typecheck-only, same trust family as `==-sound`/`<ᴮ-sound`/
+-- `cidToNat`): `signerCodes`/`ptCodes` are the deterministic hash→Integer encodings the differential
+-- supplies for real (the tx signers' key-hashes and the head value's PT names), and a spec-valid tx is
+-- asserted to make those two lists overlap. So a reference overlap-reject ⇒ the spec rejects ⇒ the
+-- validator rejects (`SignerIsNotAParticipant`). The encoding aligns by construction: a PT's token name
+-- IS the participant's key-hash, so the same byte string is encoded on both sides.
+postulate
+  signerCodes : Context → List ℕ
+  ptCodes     : ℍ → Context → List ℕ
+  participantSigned→ref : ∀ cid ctx → signedByParticipant cid ctx
+    → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true

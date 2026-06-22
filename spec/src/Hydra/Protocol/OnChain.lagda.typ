@@ -4,6 +4,7 @@ module Hydra.Protocol.OnChain where
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
 open import Data.Product using (∃-syntax)
+open import Data.Integer using (1ℤ)
 ```
 
 #import "/template.typ": *
@@ -213,15 +214,27 @@ decommitValue ctx m with Context.outputs ctx
 ... | []     = εᵛ
 ... | _ ∷ os = takeSumᵛ m os
 
--- Further obligations whose witnesses involve searching the context value/keys;
--- abstracted as predicates here.
+-- Further obligations whose witnesses involve searching the context value/keys.
 postulate
-  -- a participant signed: some PT keyHash in the head value is in txKeys (§5.4–5.7)
-  signedByParticipant : Context → Set
   -- total value of the tokens burned by the transaction (the n+1 νHead PTs + ST at fan-out). The
   -- mint multiset is not modelled, so the burned VALUE stays abstract (the burned COUNT is
   -- `burnedCount` / `burnAllTokensOK`); only the OUTPUT-distribution half of conservation is concrete.
   burnedValue : Context → Value
+
+-- A participant signed (§5.4–5.7): there is a key-hash `kh` that BOTH names one of the transaction's
+-- signers AND names a participation token present in the head value — i.e. the value carries the asset
+-- (cid , kh) with quantity 1. This is the spec prose `∃ {cid ↦ keyHashᵢ ↦ 1} ∈ valHead' ⇒ keyHashᵢ ∈
+-- txKeys`. No longer a bare opaque predicate: the PT-presence half is now structural via the per-asset
+-- projection `quantityOf` (same trust family as `adaOf`/`nonAdaOf`). Only the signer-naming half stays
+-- abstract — `keys : ℙ VKey` is the set-theory powerset, whose membership the (opaque) List-Model does
+-- not expose for direct querying, so `signerKeyHash ctx kh` (= `∃ vk ∈ keys, hash vk ≡ kh`) is its thin
+-- residue. The head currency `cid` is supplied by the caller's datum.
+postulate
+  signerKeyHash : Context → ℍ → Set
+
+signedByParticipant : ℍ → Context → Set
+signedByParticipant cid ctx =
+  ∃[ kh ] (signerKeyHash ctx kh) × (quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ)
 
 -- §5.8 value conservation for (final) fan-out (DERIVED output-sum): the head input value equals the
 -- sum of the `m` distributed (fanned-out) outputs PLUS the burned tokens PLUS the ada overhead --
@@ -380,7 +393,7 @@ record CloseValid (ctx : Context) (hk : VKey) (cid : ℍ) (v cp s' : ℕ)
     etaOK             : closeηOK ct d'                    -- η# bound to stored η'
     anyOK             : closeAnyOK ct d'                  -- closeAny ⇒ 0 < s
     valuePreserved    : headValueIn ctx ≡ headValue ctx   -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
-    participantSigned : signedByParticipant ctx
+    participantSigned : signedByParticipant cid ctx
     -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
     validityBounded   : ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp
 
@@ -404,11 +417,13 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- the increment deposit value (DERIVED: `depositsValue` sums the value at the νDeposit script
 -- `depHash` over ALL spent inputs, as Plutus `totalNonHeadInputValue`) and the decrement decommit
 -- value (DERIVED: `decommitValue` sums the `m` outputs after the head output, as Plutus
--- `take m (tail outputs)`). What remains abstracted: the value ARITHMETIC laws
--- (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` on the opaque `Value`), crypto (`msVfy`/`snapshotSigOK`/`signedByParticipant`)
--- and accumulator ops (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value
--- CONSERVATION is now stated over real head, increment-deposit AND decrement-decommit values (modulo
--- the abstract value algebra); signature/accumulator soundness is still assumed.
+-- `take m (tail outputs)`), and the participant signature (DERIVED: `signedByParticipant` is now a
+-- structural `∃ vk ∈ keys, quantityOf valHead (cid, hash vk) ≡ 1`). What remains abstracted: the value
+-- ARITHMETIC laws (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ`) and per-asset projection `quantityOf` on the opaque `Value`,
+-- crypto (`msVfy`/`snapshotSigOK`) and accumulator ops (`accVerify`/`accVerifyExclude`/`accUTxO`), all
+-- via postulated laws. So value CONSERVATION is now stated over real head, increment-deposit AND
+-- decrement-decommit values (modulo the abstract value algebra); signature/accumulator soundness is
+-- still assumed.
 -- A contest replaces the closed snapshot with a more recent one and appends the contester. The thin
 -- `contestValid` function destructures the source `Closed` datum (binding its key/id/version/snapshot/
 -- deadline) and is ⊥ for any other source shape.
@@ -424,7 +439,7 @@ record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
     snapIncreases     : s < snapNum d'                        -- snapshot strictly increases (§5.7)
     beforeDeadline    : ValidityInterval.hi (Context.validity ctx) ≤ tfin  -- posted before the deadline
     valuePreserved    : headValueIn ctx ≡ headValue ctx       -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
-    participantSigned : signedByParticipant ctx
+    participantSigned : signedByParticipant cid ctx
 
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
 contestValid ctx d@(Closed cid hk _ _ v s _ _ tfin _) d' ct = ContestValid ctx hk cid v s tfin d d' ct
@@ -449,7 +464,7 @@ record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
     sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) ξ
     valueOK           : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
     depositSpent      : depositSpentOK ctx ref            -- claimed deposit is spent (§5.4)
-    participantSigned : signedByParticipant ctx
+    participantSigned : signedByParticipant cid ctx
 
 incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → Set
 incrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s ref = IncrementValid ctx hk cid v d d' ξ s ref
@@ -465,7 +480,7 @@ record DecrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
     mintEmpty         : noMint ctx
     sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) ξ
     valueOK           : decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
-    participantSigned : signedByParticipant ctx
+    participantSigned : signedByParticipant cid ctx
 
 decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → Set
 decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m = DecrementValid ctx hk cid v d d' ξ s m
@@ -522,8 +537,8 @@ finalPartialFanoutValid = FinalPartialFanoutValid
 -- seed is spent (so the EUTxO ledger guarantees `cid` is unique), exactly n+1 tokens of `cid` are
 -- minted (1 ST + n PTs), and the produced head output is a well-formed initial Open (version 0,
 -- η = accUTxO ∅). Init has no predecessor datum, so it is a creation PREDICATE, not a `_⟶⟨_⟩_` step.
--- Token PLACEMENT into the head output (st, ptᵢ ∈ valHead) and the participant key-hash correctness
--- are value-membership checks, left abstract (cf. `signedByParticipant`).
+-- Token PLACEMENT into the head output (st, ptᵢ ∈ valHead) is a value-membership check, still abstract
+-- here (it would be a `quantityOf`-based predicate, exactly as the now-concrete `signedByParticipant`).
 postulate
   μHead       : OutputRef → Script  -- the seed-parameterised minting policy script
   mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)

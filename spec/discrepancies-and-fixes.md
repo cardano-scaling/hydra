@@ -42,7 +42,7 @@ that diffed each bundle's conjuncts against the §5.x prose checks.
 |---|---|---|---|---|
 | B11 | `closeSigOK`/`contestSigOK` | The `Used` close/contest case signs over the *previous* version `v-1` (a pending delta is applied), but the helper used the current `v` uniformly — so it **rejected every valid `Used` transaction**. | `Used` branch now verifies over `v ∸ 1` (§5.6/§5.7). | fixed |
 | B12 | `contestValid` | Missing the spec's `s' > s` (the contested snapshot number must strictly increase). | Added `s < snapNum d'`. | fixed |
-| B13 | close/contest/increment/decrement bundles | Missing the "signed by a participant" check (`keyHash_i ∈ txKeys`); the comments over-claimed "only inhabited for valid txs". | Added `signedByParticipant ctx` (obligation abstracted; head-value/key search not modelled). | fixed |
+| B13 | close/contest/increment/decrement bundles | Missing the "signed by a participant" check (`keyHash_i ∈ txKeys`); the comments over-claimed "only inhabited for valid txs". | Added `signedByParticipant cid ctx`, later un-mocked to a structural `∃ kh, signerKeyHash ∧ quantityOf valHead (cid,kh) ≡ 1` (see `signedByParticipant` in the "Still open (scoped)" list). | fixed |
 | B14 | `contestValid` | Missing "posted before deadline" (`txValidityMax ≤ tfinal`) and value-preservation (`valHead' ⊇ valHead`). | Added `ValidityInterval.hi … ≤ tfin` and `headValueIn ≤ᵛ headValue`. | fixed |
 | B15 | fanout / partial-fanout / final-partial-fanout bundles | Missing the **anti-theft** checks: `m > 0` (no zero-output batch), `txValidityMin > tfinal` (after deadline), `noMint` (partial fan-out), and value conservation. | Added `0 < m`, `tfinalOf d < ValidityInterval.lo …`, `noMint` (partial), and `fanoutValueOK`/`partialFanoutValueOK` (conservation abstracted). | fixed |
 
@@ -400,9 +400,25 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
   granularity (the total-quantity projection aliases distinct token sets with the same total — full
   per-asset checking needs the abstract `Value` map exposed); fanout value conservation stays the
   `headAda` boundary above. This is the pilot un-mock of a previously-`const True` value conjunct.
+- **participant signature** (`signedByParticipant`): *done* — was a BARE postulate `Context → Set`; now a
+  structural predicate `∃ kh, signerKeyHash ctx kh ∧ quantityOf (headValue ctx) (cid,kh) ≡ 1` (the PT-
+  presence half via the new per-asset projection `quantityOf`, trust family of `adaOf`/`nonAdaOf`; the
+  signer-naming half stays the thin `signerKeyHash` postulate because the opaque set-theory `List-Model`
+  blocks `ℙ`-membership instance resolution — no spec code queries a `ℙ` set). Threaded `cid` through the
+  four bundles (close/contest/increment/decrement). Pulled OUT of the per-tx crypto mock into the shared,
+  fully-extractable `participantSignedRefᵇ` (overlap of extracted signer key-hashes vs PT names),
+  bridged via `participantSigned→ref` (a POSTULATED extraction-faithfulness boundary — heavier than
+  `cidToNat` since it's a postulated implication, not a `cong`; same trust family as `==-sound`).
+  Differentially wired into `incRefVerdict` (signers from `txExtraKeyWits`, PT names from the head output;
+  PT name IS the key-hash, so the encodings match) with a non-vacuity demo (`noSignerIncrementTx`:
+  version+value intact, participant conjunct + validator both reject `NoSigners`). The shared checker is
+  ready to wire into the contest/decrement/close verdicts too (not yet done). This closes finding E below.
 - **μHead token PLACEMENT** (`D2-token-placement`): single ST + n unique PTs placed in the head output,
   seed-spent, datum `headId`/`seed` binding — need multi-asset token-name lookup (the `Value`-map ops
-  the spec deliberately avoids). Injected in `OpsInit`. (The token COUNT is DONE/bridged/tested.)
+  the spec deliberately avoids). Injected in `OpsInit`. (The token COUNT is DONE/bridged/tested.) NB the
+  `quantityOf` projection (added for `signedByParticipant`) is the value-API primitive a B-existence
+  placement predicate would reuse (ST present + each party's PT present, with the n+1 mint count bounding
+  extras).
 - **`depositValue`/`decommitValue` extractors** — *done (already)*: `depositValueAt`/`depositsValue`
   (input-search via `valueAtIn`) and `decommitValue` (output-search via `takeSumᵛ`) are concrete, not
   postulated (done in the increment/decrement value work). The remaining `postulate`s are the abstract
@@ -443,8 +459,10 @@ restore full off-chain state history Ω; `impl-C3` close/contest rely on the unc
 **E. Coverage boundaries / deferred (not planned work):** `B6` concretizing the accumulator + constraining
 η' is **declined** — it would make the Agda STRONGER than the validator (νHead authenticates η via `msVfy`,
 not by recomputing `accUTxO`); abstract Value algebra + crypto/accumulator laws stay postulated (KZG not
-modelled); findings D (`headSeed` absent from Agda `Open`) and E (Plutus single-signer cardinality vs Agda
-`signedByParticipant`) and the B-off-2..7 off-chain clarity notes are documented coverage boundaries;
+modelled); finding D (`headSeed` absent from Agda `Open`) and the B-off-2..7 off-chain clarity notes are
+documented coverage boundaries (finding E, the Plutus signer check vs Agda `signedByParticipant`, is now
+mostly closed — `signedByParticipant` is structural `∃ signer holding a PT`, matching
+`mustBeSignedByParticipant`; only the exact-cardinality nuance for specific txs remains a boundary);
 `abort`/`commit`/`collectCom` are not modelled (this variant inits directly to `Open` — confirm intent);
 the concurrent-deposit dilution/lockout is an upstream liveness concern (deferred, confirm upstream).
 

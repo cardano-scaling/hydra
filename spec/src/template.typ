@@ -92,7 +92,7 @@
   inset: 8pt,
   radius: 3pt,
   width: 100%,
-  text(font: "StrippedJuliaMono", size: 9pt, it),
+  text(font: "StrippedJuliaMono", size: 8pt, it),
 )
 
 // === Document configuration ===

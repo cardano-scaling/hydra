@@ -70,6 +70,11 @@ _&&_ : Bool → Bool → Bool
 true  && b = b
 false && _ = false
 
+infixr 5 _||_
+_||_ : Bool → Bool → Bool
+true  || _ = true
+false || b = b
+
 _==ᵇ_ : Nat → Nat → Bool
 zero    ==ᵇ zero    = true
 zero    ==ᵇ (suc _) = false
@@ -328,3 +333,31 @@ claimRefᵇ ops c =
      (ClaimIOᶜ.validityHiC c ≤ᴮ ClaimIOᶜ.tRecoverC c)
   && (ClaimIOᶜ.depositCidC c == ClaimIOᶜ.headCidC c)
   && claimIncrementOK ops c
+
+-- ══ participant signature (shared: close / contest / increment / decrement) ════════════════════
+-- The §5.4–5.7 `mustBeSignedByParticipant` check, pulled OUT of the per-tx crypto mock into its own
+-- fully-extractable conjunct (no injected Ops): SOME transaction signer holds a participation token in
+-- the head value. Both sides are Integer-encoded key-hashes — `signerCodesS` the tx's signing key-hashes
+-- (txInfoSignatories), `ptCodesS` the names of the participation tokens carried by the head value (a PT's
+-- token name IS a participant's key-hash) — and the check is that the two lists OVERLAP. The differential
+-- supplies both lists from the real tx with the SAME hash→Integer encoding, so a non-participant signer
+-- (the validator's `SignerIsNotAParticipant`) makes the lists disjoint and the reference reject. Uses the
+-- BUILTIN `_==_` (key-hash encodings are large).
+elemᵇ : Nat → List Nat → Bool
+elemᵇ _ []       = false
+elemᵇ x (y ∷ ys) = (x == y) || elemᵇ x ys
+
+anySharedᵇ : List Nat → List Nat → Bool
+anySharedᵇ []       _  = false
+anySharedᵇ (x ∷ xs) ys = elemᵇ x ys || anySharedᵇ xs ys
+
+record SignerIOᶜ : Set where
+  constructor mkSignerIOᶜ
+  field
+    signerCodesS : List Nat   -- Integer-encoded key-hashes of the tx signers (txInfoSignatories)
+    ptCodesS     : List Nat   -- Integer-encoded names of the participation tokens in the head value
+{-# FOREIGN GHC data HsSignerIO = MkSignerIO [Integer] [Integer] #-}
+{-# COMPILE GHC SignerIOᶜ = data HsSignerIO (MkSignerIO) #-}
+
+participantSignedRefᵇ : SignerIOᶜ → Bool
+participantSignedRefᵇ s = anySharedᵇ (SignerIOᶜ.signerCodesS s) (SignerIOᶜ.ptCodesS s)

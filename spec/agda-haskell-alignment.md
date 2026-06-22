@@ -89,7 +89,10 @@ binding; the init mint count; the fanout burn-count and after-deadline.)
   `tokenSiphonIncrementTx` — but two token sets with the same total alias, so distinguishing them needs
   the full `Value` map). A validator could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close contestation deadline + bounded validity; the
   contest before-deadline + conditional deadline-UPDATE; the fanout burn-count + after-deadline; the
-  recover after-deadline; the claim before-deadline + head-id binding; the init mint count.)
+  recover after-deadline; the claim before-deadline + head-id binding; the init mint count; and the
+  **participant signature** `mustBeSignedByParticipant` for increment — the shared `participantSignedRefᵇ`
+  overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`; ready to wire into
+  the contest/decrement/close verdicts too.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
@@ -224,12 +227,17 @@ policy / fanout), is absent from the Agda `Open`, and is **not** in `mustNotChan
 without rejection). It appears unused after init, so likely benign, but it is both an
 Agda-omission and an unpreserved Plutus field. Flagged for the implementers.
 
-### Finding E — LOW (Agda abstraction): single-signer cardinality
+### Finding E — LOW (Agda abstraction): single-signer cardinality — mostly closed
 
-Plutus `mustBeSignedByParticipant` requires **exactly one** participant signer (errors on
-zero or many), and contest derives the appended contester from that single signer. The Agda
-`signedByParticipant` postulate only asserts *a* participant signed. For contest the "exactly
-one signer = the contester" identity is substantive; the Agda abstracts it. Worth recording.
+Plutus `mustBeSignedByParticipant` requires a participant signer (the per-tx single/zero/many
+cardinality is a separate ledger check), and contest derives the appended contester from the
+signer. `signedByParticipant` was a bare postulate; it is now the structural
+`∃ kh, signerKeyHash ctx kh ∧ quantityOf (headValue ctx) (cid,kh) ≡ 1` — *a* signer holding a PT —
+which matches `mustBeSignedByParticipant`, and is now an extractable differential conjunct
+(`participantSignedRefᵇ`, the signer-key-hashes vs PT-names overlap; wired into increment).
+REMAINING: the exact-cardinality nuance (exactly-one signer = the contester identity for contest)
+is still abstracted; the signer-naming half (`signerKeyHash`) stays a postulate (the opaque
+set-theory model blocks `ℙ`-membership). Worth recording.
 
 ### Coverage boundaries (Agda intentionally does not model these)
 
@@ -265,7 +273,7 @@ one signer = the contester" identity is substantive; the Agda abstracts it. Wort
 | Datum `State` constructors | exact (`Open/Closed/Final/FanoutProgress`, no `Initial`) |
 | Datum fields | match, except `Open.η` commitment-vs-hash (A) and `headSeed` (D) |
 | Transition dispatch | exact (8 transitions + reject-all) |
-| close / contest checks | full match (Plutus value law tighter; single-signer abstracted) |
+| close / contest checks | full match (Plutus value law tighter; participant signature now structural, only exact-cardinality abstracted) |
 | increment / decrement checks | full match (deposit **Recover** after-deadline now mechanized; deposit **Claim** before-deadline + redeemer coupling out of scope) |
 | fanout / partial / final-partial checks | full match (the `0 < m` gap in full fanout, B, now fixed) |
 | `μHead` init token count, νDeposit recover after-deadline | mechanized (reference + bridge + differential) |
