@@ -143,7 +143,7 @@ Confirmed correct by this pass (no change): version discipline (`suc v` on inc/d
     algebra.
   - **§5.1 init / μHead modelled:** new `initValid` creation predicate — `cid = hash(μHead(seed))`,
     seed spent (`depositSpentOK`), `mintedCount = n+1`, produced Open initial (`v=0`, `η=accUTxO ∅`).
-    (Token placement into the head value left abstract.)
+    (Token placement now modelled — form (a) — see the `D2-token-placement` entry below.)
   - **§5.2–5.3 deposit/recover (νDeposit) modelled:** `DepositDatum`/`DepositRedeemer`, `recoverValid`
     (post-deadline `t_recover < txValidityMin` concrete; the recovered-outputs hash-equality abstracted
     as `recoveredMatchesDeposited`), and `depositClaimedBy` linking a Claim to its head's increment.

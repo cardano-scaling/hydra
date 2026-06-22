@@ -11,6 +11,12 @@
 -- NB the deadline / bounded-validity conjuncts of `closeValid` are currently absorbed into the
 -- reference's injected (mock) `Ops` (they need the tx validity range + POSIXTime unit handling on
 -- the Haskell side), so they are NOT part of `closeRefᵇ` yet; only the unit-robust conjuncts are.
+--
+-- One conjunct is NOT a closed proof: `participantSigned→ref` rests on a POSTULATED extraction-
+-- faithfulness boundary (`signerCodes`/`ptCodes` encode the tx's signer key-hashes / head PT names, and
+-- a spec-valid tx is ASSUMED to make those lists overlap). It is honest about this in-line; it is the
+-- one bridge clause whose correspondence is assumed rather than derived (same trust family as the
+-- `cidToNat` / `==-sound` encoding postulates). Every other `*Valid → ref` clause is a genuine proof.
 module Hydra.Protocol.ReferenceBridge where
 
 open import Hydra.Protocol.Prelude

@@ -45,14 +45,12 @@ reach-empty-closed : ∀ {cid hk n cp tfin ada}
 reach-empty-closed = reach-step reach-init (close {ct = closeInitial})
 
 -- ── the minimal catcher: the empty head admits a valid (m = 0) fanout ────────────────────────────
--- Given the enabling guard (past the deadline) and the abstract accumulator/value antecedents (the same
--- crypto boundary the differential mocks), the terminal `Fanout` bundle is INHABITED at m = 0, outs = ∅.
--- The 0-output membership `accVerify (accUTxO ∅) ∅ π ≡ true` is the empty-set instance of the accumulator
--- (`accVerify-complete {∅} {∅}`); we take it as a hypothesis to keep the crypto boundary explicit.
+-- Given the enabling guard (past the deadline) and the value antecedent, the terminal `Fanout` bundle is
+-- INHABITED at m = 0, outs = ∅. The 0-output membership `accVerify (accUTxO ∅) ∅ π ≡ true` is DERIVED (the
+-- empty set is a member of its own commitment, `accVerify-self ∅`), so only the genuinely-context
+-- antecedents (deadline, burn, value) remain.
 -- HERE IS THE CATCH: re-add `outputsPositive : 0 < m` and `mkFanoutValid` needs a sixth field `0 < 0`,
 -- which is uninhabited (`suc _ ≤ 0` matches no `_≤_` constructor) — this lemma then fails to typecheck.
--- The 0-output membership is now DERIVED (the empty set is a member of its own commitment, `accVerify-self`)
--- rather than threaded, so only the genuinely-context antecedents (deadline, burn, value) remain.
 fanout-empty-inhabited : ∀ {ctx cid hk n cp tfin ada} {crs}
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (emptyClosed cid hk n cp tfin ada)
@@ -140,12 +138,6 @@ progress-nonEmpty (incrementᵛ _ iv)   with IncrementValid.step iv
 progress-nonEmpty (decrementᵛ _ dv)   with DecrementValid.step dv
 ... | ()
 
--- FanoutProgress non-stuckness (the final-partial counterpart of `fanout-coverage`): a reachable
--- FanoutProgress past its deadline admits a valid final batch. The remainder is non-empty (by
--- `progress-nonEmpty`), so the `0 < m` it requires is satisfiable — supplied here as the `pos` premise
--- (the abstract accumulator does not expose the remainder's cardinality to derive it, so it is threaded,
--- as are the crypto/value antecedents). Together with `progress-nonEmpty` this says: the machine never
--- gets stuck mid-fanout — a FanoutProgress is always non-empty AND always finalisable.
 -- FanoutProgress non-stuckness, now FULLY DERIVED. A reachable FanoutProgress committing to set V admits
 -- a valid final batch fanning out V (m ≔ `setSize V`), and — crucially — its `outputsPositive : 0 < m` is
 -- DERIVED, not assumed: `progress-nonEmpty` gives η ≢ G₁, so (with η ≡ accUTxO V and the existing
