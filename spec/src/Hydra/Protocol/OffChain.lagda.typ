@@ -586,7 +586,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
                 $hats <- s$ \
                 $eta' <- accUTxO(U)$ \
-                $(eta')^(\#) <- (eta')^(\#)$ \
+                $(eta')^(\#) <- hash(eta')$ \
                 $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#)))$ \
                 $hatSigma <- emptyset$ \
                 #kw("multicast") $(hpAS, hats, msSig_i)$ \
@@ -613,7 +613,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 #nst[
                   $msCSig <- msComb(hydraKeys^("setup"), hatSigma)$ \
                   $eta' <- accUTxO(hatmU)$ \
-                  $(eta')^(\#) <- (eta')^(\#)$ \
+                  $(eta')^(\#) <- hash(eta')$ \
                   #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#)), msCSig)$ \
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- msCSig$ \
