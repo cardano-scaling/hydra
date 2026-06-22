@@ -183,17 +183,17 @@ data Message : Set where           -- network messages of the coordinated head (
   -- hpRS (full payload). NB the payload order here (deposit txα before decommit txω) follows
   -- the §6 figure; the Haskell `ReqSn` record (Hydra.Network.Message) lists the same fields by
   -- NAME as txReq↔transactionIds, txα↔depositTxId, txω↔decommitTx, with decommit before deposit
-  -- — match them by name, not position (this is the deposit/decommit slot the C1 bug confused).
+  -- - match them by name, not position (the deposit and decommit slots are easy to confuse).
   reqSn  : (v s : ℕ) (txReq txα txω : Data)     → Message
   ackSn  : (s : ℕ) (σ : PartySig)                    → Message  -- hpAS (σⱼ, an individual signature)
 
 -- Handling a message updates a party's local state (spec §6.4, Protocol flow).
 -- This relation is ILLUSTRATIVE, not normative: the figure below (`Protocol flow`)
 -- is the authoritative transcription of all §6.4 handlers. The rules given concretely
--- here cover reqTx and the ackSn confirmation round; the remaining handlers
--- (reqDec/reqSn and the chain observations deposit/recover/tick/increment/decrement/
--- close/contest) are added as they are formalised. NOTE: the reqTx rule is a
--- SIMPLIFICATION — the full §6.4 handler first waits on applicability (L̂ ∘ tx ≠ ⊥) and
+-- here cover reqTx, the ackSn confirmation round, and the reqSn signing step; the
+-- remaining handlers (reqDec and the chain observations deposit/recover/tick/increment/
+-- decrement/close/contest) are covered by the figure only. NOTE: the reqTx rule is a
+-- SIMPLIFICATION - the full §6.4 handler first waits on applicability (L̂ ∘ tx ≠ ⊥) and
 -- updates the local ledger L̂; that guard and update need a model of `applytx` and are
 -- deferred. Likewise the ackSn rules abstract the signature collection, the all-signed
 -- test, and the multisignature verification.
@@ -212,7 +212,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- whose transactions are the seen set T̂ and whose number is ŝ. The agreed snapshot is
   -- taken as `snap` with those shape constraints; the all-signed/verify guards are
   -- abstracted. Faithfully, completion requires EVERY party (hence every honest party) to
-  -- have signed — the fact the §7 Consistency proof relies on (no transaction is confirmed
+  -- have signed - the fact the §7 Consistency proof relies on (no transaction is confirmed
   -- unless all honest parties signed it, and honest parties never sign conflicting txs).
   ackSn-confirm : ∀ {st s σ snap}
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
@@ -221,7 +221,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
 
   -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
   -- onOpenNetworkReqSn). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
-  -- (the requested number is one above the party's CONFIRMED snapshot — combined with the §7
+  -- (the requested number is one above the party's CONFIRMED snapshot - combined with the §7
   -- `signHonest` no-in-flight precondition ŝ = s̄, this is the node's `requireReqSn` s = ŝ+1 /
   -- `waitNoSnapshotInFlight`). Signing advances the last-seen number ŝ ← s, the local mutation that
   -- makes one-signature-per-round (`sigDedup`) DERIVABLE. The requested-tx applicability and the
@@ -470,8 +470,8 @@ of on-chain state is effectively a rollback "past open". However, because the
 head opens with an empty UTxO set and funds are only added via deposits, the
 critical concern becomes rollbacks of deposit transactions. The deposit
 settlement period $Tdeposit$ (see @sec:offchain) ensures that a
-deposit is only considered $sans("Active")$ --- and thus eligible for
-incrementing into the head --- after sufficient time has elapsed since its
+deposit is only considered $sans("Active")$ - and thus eligible for
+incrementing into the head - after sufficient time has elapsed since its
 creation on-chain. This means that by the time a deposit is incremented, its
 on-chain transaction is sufficiently settled and unlikely to be rolled back,
 preventing inconsistency between the on-chain and off-chain state.

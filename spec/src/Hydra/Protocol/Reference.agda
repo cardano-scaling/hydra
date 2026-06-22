@@ -13,12 +13,12 @@
 --
 -- NB on imports: this module stays SELF-CONTAINED over `Agda.Builtin.{Bool,Nat,List}`. Two reasons:
 -- (1) Prelude/OnChain/abstract-set-theory do not extract at all; (2) even stdlib modules that DO
--- extract balloon the committed `generated/MAlonzo` tree — importing `Data.Bool.Base` just for `not`
+-- extract balloon the committed `generated/MAlonzo` tree - importing `Data.Bool.Base` just for `not`
 -- pulls in `Level`/`Data.Empty`/`Data.Irrelevant`/`Data.Unit.Base` and grows the tree from 7 to 13
 -- generated files (measured). So the few small Bool/Nat helpers below are hand-rolled on purpose; the
 -- structural `_==ᵇ_`/`_≤ᵇ_`/`_<ᵇ_` additionally let their reflection lemmas be PROVED (not postulated)
 -- in `RefReflection`. The PROOF-side modules (RefReflection, ReferenceBridge) are typecheck-only and
--- import stdlib freely — minimality only matters here, on the extracted side.
+-- import stdlib freely - minimality only matters here, on the extracted side.
 module Hydra.Protocol.Reference where
 
 open import Agda.Builtin.Bool
@@ -54,10 +54,8 @@ record Closedᶜ : Set where
 {-# FOREIGN GHC data HsClosed = MkClosed Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC Closedᶜ = data HsClosed (MkClosed) #-}
 
--- Injected operations: the conjuncts the decidable layer does not model — crypto/value/
--- accumulator AND, for now, the deadline / bounded-validity checks (they need the tx validity
--- range + POSIXTime/period unit handling; deferred to a follow-up). Supplied as a Haskell
--- function (mocked = const True in the differential test).
+-- Injected operations: the conjuncts the decidable layer does not model - crypto/value/
+-- accumulator. Supplied as a Haskell function (mocked = const True in the differential test).
 record Ops : Set where
   field
     closeCryptoOK : Openᶜ → Closedᶜ → CloseTagᶜ → Bool
@@ -141,8 +139,8 @@ closeRefᵇ ops o c tag validityHi validityLo =
 
 -- The version fields of the input/produced Open datums, plus the lovelace (ada) amounts the
 -- value-conservation check needs: `adaIn`/`adaOut` are the head input/output lovelace, `adaDelta`
--- the deposit (increment) lovelace. (The full multi-asset `Value` is not extractable; lovelace —
--- a plain Integer — is the boundary-friendly component the differential test can supply for real.)
+-- the deposit (increment) lovelace. (The full multi-asset `Value` is not extractable; lovelace -
+-- a plain Integer - is the boundary-friendly component the differential test can supply for real.)
 record IncIOᶜ : Set where
   constructor mkIncIOᶜ
   field
@@ -232,12 +230,12 @@ contestRefᵇ ops c =
 -- ══ fanout / finalPartialFanout ═══════════════════════════════════════════════════════════
 -- The decidable conjuncts of `fanoutValid`/`finalPartialFanoutValid`:
 --   • all `n+1` head tokens burned (`burnAllTokensOK`: `burnedCount == n+1`, the mirror of the init
---     mint count) — BUILTIN `_==_` (a mutation could inject a large burn quantity);
---   • posted strictly AFTER the deadline (`tfinal < lo`, the mirror of the recover after-deadline) —
+--     mint count) - BUILTIN `_==_` (a mutation could inject a large burn quantity);
+--   • posted strictly AFTER the deadline (`tfinal < lo`, the mirror of the recover after-deadline) -
 --     BUILTIN `_<_` (POSIXTime ms). Accumulator membership / value conservation are injected.
 -- NB no `0 < m` conjunct: the FULL fanout permits m = 0 (finalising an empty head), so the reference
 -- must not reject it (it would contradict the relaxed νHead `headIsFinalizedWith`). The `numOutputsF`
--- field is retained for the differential but no longer gated. (Partial fanout's `0 < m` is enforced
+-- field is supplied for the differential but not gated. (Partial fanout's `0 < m` is enforced
 -- by its own validator guard, not modelled at this shared checker.)
 record Fanoutᶜ : Set where
   constructor mkFanoutᶜ
@@ -262,7 +260,7 @@ fanoutRefᵇ ops f =
 
 -- ══ deposit recover (νDeposit, Recover redeemer) ══════════════════════════════════════════════
 -- The decidable conjunct of `recoverValid` (deposit.ak's Recover arm, §5.3.2): the recover tx is
--- posted strictly AFTER the recover deadline — txValidityMin > tRecover, i.e. `tRecover < lo`. Uses
+-- posted strictly AFTER the recover deadline - txValidityMin > tRecover, i.e. `tRecover < lo`. Uses
 -- the BUILTIN `_<_` (native Integer `<` at extraction): the deadline is a POSIXTime in milliseconds,
 -- far too large for the structural `_<ᵇ_` (O(n) unary recursion), exactly as on the close deadline.
 -- The recovered-outputs hash equality (deposit.ak `recover_outputs`, the serialisation-hash match) is
@@ -286,13 +284,13 @@ recoverRefᵇ ops r =
 -- ══ init (μHead minting policy: token COUNT + PLACEMENT) ══════════════════════════════════════
 -- The decidable conjuncts of `initValid` / the μHead policy (`HeadTokens.validateTokensMinting`):
 --   • the tx MINTS exactly `n + 1` tokens of the head policy (one ST + one PT per party,
---     `checkNumberOfTokens`: `mintedTokenCount == nParties + 1`) — `mintedCountM`;
+--     `checkNumberOfTokens`: `mintedTokenCount == nParties + 1`) - `mintedCountM`;
 --   • the n+1 tokens are PLACED in the head output: the ST is present (`stQtyM == 1`) AND the head
 --     output carries exactly n+1 head-policy tokens (`headTokenCountM == n+1`). Mint count + placed
 --     count together pin that every minted token lands in the head output (the value-map API the spec
---     formerly abstracted over). All BUILTIN `_==_` (counts are small but a mutation could inject a
---     large quantity). The remaining μHead checks — seed-input spent and the datum `headId`/`seed`
---     binding — stay injected (mock); a hand-reviewed / type-encoded boundary. (Naming the individual
+--     abstracts over). All BUILTIN `_==_` (counts are small but a mutation could inject a
+--     large quantity). The remaining μHead checks - seed-input spent and the datum `headId`/`seed`
+--     binding - stay injected (mock); a hand-reviewed / type-encoded boundary. (Naming the individual
 --     PTs is out of reach: the head datum abstracts the per-party keys into `hk`/`n`.)
 record MintIOᶜ : Set where
   constructor mkMintIOᶜ
@@ -317,7 +315,7 @@ initRefᵇ ops m =
 
 -- ══ deposit claim (νDeposit, Claim redeemer) ══════════════════════════════════════════════════
 -- The decidable conjunct of `claimValid` (deposit.ak's Claim arm, §5.2): the increment tx collecting
--- the deposit is posted BEFORE the recover deadline — txValidityMax ≤ tRecover, i.e.
+-- the deposit is posted BEFORE the recover deadline - txValidityMax ≤ tRecover, i.e.
 -- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms), AND the own-head binding
 -- (`depositClaimedBy`, deposit.ak `expect_increment_redeemer`): the deposit datum's head id equals the
 -- head being spent. Head ids are hashes; the boundary represents each as the Integer `depositCidC` /
@@ -344,11 +342,11 @@ claimRefᵇ ops c =
   && claimIncrementOK ops c
 
 -- ══ participant signature (shared: close / contest / increment / decrement) ════════════════════
--- The §5.4–5.7 `mustBeSignedByParticipant` check, pulled OUT of the per-tx crypto mock into its own
--- fully-extractable conjunct (no injected Ops): SOME transaction signer holds a participation token in
--- the head value. Both sides are Integer-encoded key-hashes — `signerCodesS` the tx's signing key-hashes
+-- The §5.4–5.7 `mustBeSignedByParticipant` check, a fully-extractable conjunct of its own
+-- (no injected Ops): SOME transaction signer holds a participation token in
+-- the head value. Both sides are Integer-encoded key-hashes - `signerCodesS` the tx's signing key-hashes
 -- (txInfoSignatories), `ptCodesS` the names of the participation tokens carried by the head value (a PT's
--- token name IS a participant's key-hash) — and the check is that the two lists OVERLAP. The differential
+-- token name IS a participant's key-hash) - and the check is that the two lists OVERLAP. The differential
 -- supplies both lists from the real tx with the SAME hash→Integer encoding, so a non-participant signer
 -- (the validator's `SignerIsNotAParticipant`) makes the lists disjoint and the reference reject. Uses the
 -- BUILTIN `_==_` (key-hash encodings are large).

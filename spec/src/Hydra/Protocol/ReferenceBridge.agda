@@ -1,11 +1,11 @@
 -- Bridge: the extractable decidable checker `Reference.closeRefᵇ` faithfully reflects the
 -- (unit-robust) DECIDABLE conjuncts of the abstract `closeValid` (OnChain.lagda.typ). Typecheck-
--- only — this module is NOT extracted (it imports OnChain / set-theory). Imported by Main so the
+-- only - this module is NOT extracted (it imports OnChain / set-theory). Imported by Main so the
 -- build (`nix build .#spec`) verifies the correspondence.
 --
 -- Direction proved (completeness): `closeValid ⇒ closeRefᵇ ≡ true`. The reference therefore
--- accepts every spec-valid close, so a reference REJECT implies the spec (hence, by the alignment
--- in agda-haskell-alignment.md, the real validator) rejects — which is what makes the hydra-tx
+-- accepts every spec-valid close, so a reference REJECT implies the spec (hence the real
+-- validator) rejects - which is what makes the hydra-tx
 -- differential test's "reference-reject ⇒ validator-reject" assertion sound.
 --
 -- NB the deadline / bounded-validity conjuncts of `closeValid` are currently absorbed into the
@@ -46,15 +46,15 @@ mockOps = record { closeCryptoOK = λ _ _ _ → true }
 -- For any spec-valid close (the produced Closed datum shares the preserved parameters, as the
 -- `close` rule guarantees), the reference checker accepts.
 -- `validityHi := ValidityInterval.hi (Context.validity ctx)` and the Closed datum's deadline `tfin`
--- now feed the reference's deadline conjunct `tfinalC ≡ validityHi + cp`, discharged from the bundle's
+-- feed the reference's deadline conjunct `tfinalC ≡ validityHi + cp`, discharged from the bundle's
 -- `closeDeadlineOK` (the 2nd conjunct `dl`) via `==-sound`. The conjunct holds in all four close cases.
 closeValid→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
   → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct
   → R.closeRefᵇ mockOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin) (closeTagOf ct)
        (ValidityInterval.hi (Context.validity ctx)) (ValidityInterval.lo (Context.validity ctx)) ≡ true
 -- Record-pattern destructuring: `step = close` matches the close rule's constructor, which refines
--- the produced contesters `C` to `[]` (the rule's output) — so the reference's `length C ==ᵇ zero`
--- discharges by `refl`. The named fields (`deadlineOK`, `initialOK`, `anyOK`) replace positional access.
+-- the produced contesters `C` to `[]` (the rule's output) - so the reference's `length C ==ᵇ zero`
+-- discharges by `refl`. The named fields (`deadlineOK`, `initialOK`, `anyOK`) give field access.
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
   record { step = close ; deadlineOK = dl ; initialOK = (v≡0 , s≡0 , _) ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
@@ -99,10 +99,10 @@ mockOpsInc = record { incCryptoOK = λ _ → true }
 
 -- Increment: version bumps AND the head value grows by ALL deposits. The reference's lovelace check
 -- `adaIn + adaDelta ≡ adaOut` follows from `incrementValueOK` (headValueIn +ᵛ depositsValue ≡ headValue)
--- via the `adaOf` additivity law — so a reference value-reject implies the spec rejects. `adaDelta` is
+-- via the `adaOf` additivity law - so a reference value-reject implies the spec rejects. `adaDelta` is
 -- the lovelace of ALL spent deposits (`depositsValue`, Plutus `totalNonHeadInputValue`), which is what
--- makes the differential catch the multi-deposit siphon.
--- BOTH projections (`adaOf` and `nonAdaOf`) are now checked: each is an additive homomorphism, so each
+-- lets the differential catch the multi-deposit siphon.
+-- BOTH projections (`adaOf` and `nonAdaOf`) are checked: each is an additive homomorphism, so each
 -- conjunct follows from the SAME value equation `headValueIn +ᵛ depositsValue ≡ headValue` by the
 -- respective additivity law. Checking the non-ada total catches a native-token siphon the lovelace
 -- check alone misses.
@@ -173,8 +173,8 @@ contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b 
 -- `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo` (posted after the
 -- deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and value-conservation
 -- conjuncts stay in the injected (mock) `fanoutCryptoOK`. No `0 < m` conjunct: the FULL fanout permits
--- m = 0 (empty-head finalisation), so `fanoutRefᵇ` no longer gates it (cf. `FanoutValid` dropping
--- `outputsPositive`); `FinalPartialFanoutValid.outputsPositive` is kept in the spec record but not bridged.
+-- m = 0 (empty-head finalisation), so `fanoutRefᵇ` does not gate it (`FanoutValid` carries no
+-- `outputsPositive`); `FinalPartialFanoutValid.outputsPositive` is in the spec record but not bridged.
 mockOpsFanout : R.OpsFanout
 mockOpsFanout = record { fanoutCryptoOK = λ _ → true }
 
@@ -213,7 +213,7 @@ recoverValid→ref ctx cid tRec C m b =
 -- ── init (μHead minting policy: token count + placement) ─────────────────────────────────────────
 -- The reference's count check `mintedCount == suc n` holds from `mintedCountOK` (the μHead
 -- `checkNumberOfTokens`), and the PLACEMENT checks `stQty == 1` / `headTokenCount == suc n` hold from
--- `stPlaced` / `tokensPlaced` — all `≡`-of-ℕ-projection conjuncts, discharged directly via `==-sound`
+-- `stPlaced` / `tokensPlaced` - all `≡`-of-ℕ-projection conjuncts, discharged directly via `==-sound`
 -- (no new axiom; the reference IO fields ARE those projections, as for `mintedCount`). The remaining
 -- μHead conjuncts (seed-spent, datum binding) are the injected (mock) `initPlacementOK`. So a reference
 -- reject ⇒ the spec rejects ⇒ the μHead policy rejects (`WrongNumberOfTokensMinted` / a misplaced-token
@@ -235,10 +235,10 @@ initValid→ref ctx seed cid hk n cp v η ada b =
 -- The reference's before-deadline check `validityHi ≤ᴮ tRecover` holds from the bundle's
 -- `ValidityInterval.hi (validity ctx) ≤ DepositDatum.tRecover dd` (§5.2 deposit.ak `before_deadline`:
 -- txValidityMax ≤ t_recover), discharged via `≤ᴮ-sound`. The own-head binding (`claimedByOwnHead`,
--- deposit.ak `expect_increment_redeemer`) is now ALSO checked: the deposit datum's head id `cid` equals
+-- deposit.ak `expect_increment_redeemer`) is also checked: the deposit datum's head id `cid` equals
 -- the spent head's id `hcid`. Head ids are hashes, which the hash-free reference layer cannot hold, so
 -- the boundary represents each as the Integer `cidToNat ·` and the reference compares those. The bridge
--- only needs `cid ≡ hcid ⇒ cidToNat cid ≡ cidToNat hcid` — plain `cong` on the encoding, NO injectivity
+-- only needs `cid ≡ hcid ⇒ cidToNat cid ≡ cidToNat hcid` - plain `cong` on the encoding, NO injectivity
 -- assumption (that would only be needed for the converse, which the one-directional differential does
 -- not assert). `cidToNat` is a typecheck-only encoding postulate (it is not part of the extracted
 -- reference; the differential supplies a concrete deterministic encoding on the Haskell side).
@@ -261,7 +261,7 @@ claimValid→ref ctx cid tRec C hcid hk n cp v η ada b =
 -- The reference's overlap check `anySharedᵇ signerCodes ptCodes` reflects `signedByParticipant`
 -- (the §5.4–5.7 `mustBeSignedByParticipant`). The abstract predicate is an existential over the opaque
 -- signer set (`signerKeyHash`) and the opaque value (`quantityOf`); NEITHER has a computational link to
--- the extracted Integer code lists, so — unlike the `cong cidToNat` bridge — the correspondence is a
+-- the extracted Integer code lists, so - unlike the `cong cidToNat` bridge - the correspondence is a
 -- POSTULATED extraction-faithfulness boundary (typecheck-only, same trust family as `==-sound`/`<ᴮ-sound`/
 -- `cidToNat`): `signerCodes`/`ptCodes` are the deterministic hash→Integer encodings the differential
 -- supplies for real (the tx signers' key-hashes and the head value's PT names), and a spec-valid tx is
