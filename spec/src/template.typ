@@ -63,19 +63,39 @@
   $square$
 })
 
-// Pseudocode keyword (for the off-chain protocol listings): bold small-caps.
-#let kw(name) = text(weight: "bold", smallcaps(name))
+// Pseudocode keyword (for the off-chain protocol listings): bold, case preserved
+// (so e.g. "postTx" keeps its camel-case, matching the implementation).
+#let kw(name) = text(weight: "bold", name)
 
-// A titled pseudocode routine block; `body` is the indented routine content.
-#let routine(title, body) = block(
-  width: 100%,
-  stroke: 0.5pt + luma(160),
-  inset: 6pt,
-  radius: 2pt,
+// One level of algorithm nesting, drawn as a thin left rule plus indentation, in
+// the style of the LaTeX `algorithm2e` listings the original spec used.
+#let nst(body) = block(
+  above: 0.3em,
+  below: 0.3em,
+  inset: (left: 1.1em, top: 0.1em, bottom: 0.1em),
+  stroke: (left: 0.4pt + luma(150)),
+  body,
+)
+
+// A single protocol handler: the bold "on (…) from …" header above its nested
+// body. No surrounding frame; handlers sit directly in the figure columns.
+#let proc(title, body) = block(
+  below: 0.7em,
   breakable: false,
   {
-    block(below: 4pt, strong(title))
-    pad(left: 0.6em, body)
+    block(below: 0.1em, title)
+    nst(body)
+  },
+)
+
+// The framed listing with a shaded title bar (the original's `algobox`).
+#let algobox(title, body) = block(
+  width: 100%,
+  stroke: 0.6pt + luma(120),
+  inset: 0pt,
+  {
+    block(width: 100%, fill: luma(228), inset: (x: 6pt, y: 3.5pt), align(center, strong(title)))
+    block(inset: 7pt, width: 100%, body)
   },
 )
 
