@@ -480,8 +480,8 @@ queryUTxO BlockfrostOptions{queryTimeout} networkId addresses = do
   utxoWithAddresses <-
     Blockfrost.getAddressUtxos address
       `catchError` \case
-        Blockfrost.BlockfrostNotFound err ->
-          liftIO (throwIO (BlockfrostError err))
+        Blockfrost.BlockfrostNotFound _ ->
+          pure []
         err ->
           throwError err
 

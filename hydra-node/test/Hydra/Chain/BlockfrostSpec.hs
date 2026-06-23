@@ -68,3 +68,15 @@ spec = do
           _ -> False
       finalAttempts <- readIORef attemptsRef
       finalAttempts `shouldBe` 4
+
+    it "does not retry on BlockfrostClientError" $ do
+      attemptsRef <- newIORef (0 :: Int)
+      let action = do
+            modifyIORef attemptsRef (+ 1)
+            throwIO $ BlockfrostClientError ByronAddressNotSupported
+      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 (const action)
+        `shouldThrow` \case
+          BlockfrostClientError{} -> True
+          _ -> False
+      finalAttempts <- readIORef attemptsRef
+      finalAttempts `shouldBe` 1
