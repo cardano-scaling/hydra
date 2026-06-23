@@ -73,7 +73,7 @@ Certified-mono _ cert i = there (cert i)
 -- Corruption only shrinks the honest set (`honest-mono`); `sigs` only grows (`Certified-mono`
 -- carries facts forward).
 invariant : ∀ sys → Reachable sys → Inv sys
-invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty)) = record
+invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty , _)) = record
   { sigApp   = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
   ; sigDedup = λ {k} {s1} _ m1 _ _ → ⊥-elim (∉[] (subst (λ z → (k , s1) ∈ˡ z) noSigs m1))
   ; confApp  = λ {i} _ → subst (Applicable (U₀ sys)) (sym (allConfTxsEmpty i)) ([]-applicable (U₀ sys))
@@ -336,6 +336,44 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | yes refl = subst (λ w → Snapshot.txs snap ⊆ˡ w)
                                (sym (lookup∘update i₀ (seen a) (txs ++ lookup (seen a) i₀)))
                                (λ x∈ → ∈-++⁺ʳ txs (Inv.sigSeen inv hk m x∈))
+    -- offChain (deposit/recover/tick/increment/decrement or reqDec): `sigs`/`seen`/`U₀` unchanged, and
+    -- the updated party's confirmed snapshot + seen number are preserved (confPres/snPres). So the 5
+    -- signature-only fields re-pack verbatim; only the 3 localOf-reading fields need `lookup∘update`
+    -- bookkeeping plus the two preservation equalities.
+    invStep {a} (offChain {i = i} {st' = st'} _ confPres snPres)
+            record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
+                   ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
+                   ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
+      { sigApp = sigApp ; sigDedup = sigDedup ; confApp = newConfApp
+      ; sigPos = sigPos ; confCert = newConfCert ; sigChain = sigChain
+      ; signNumBound = newSNB ; sigSeen = sigSeen }
+      where
+        newConfApp : ∀ {i'} → lookup (honest a) i' ≡ true
+                   → Applicable (U₀ a) (confirmedTxs (lookup (localOf a [ i ]≔ st') i'))
+        newConfApp {i'} hi' with i FinP.≟ i'
+        ... | no  i≢i' = subst (λ w → Applicable (U₀ a) (confirmedTxs w))
+                               (sym (lookup∘update′ (λ e → i≢i' (sym e)) (localOf a) st')) (confApp hi')
+        ... | yes refl = subst (λ w → Applicable (U₀ a) (confirmedTxs w))
+                               (sym (lookup∘update i (localOf a) st'))
+                               (subst (λ c → Applicable (U₀ a) (Snapshot.txs c)) (sym confPres) (confApp hi'))
+        newConfCert : ∀ {k} → lookup (honest a) k ≡ true
+                    → (confirmedNo (lookup (localOf a [ i ]≔ st') k) ≡ 0 × confirmedTxs (lookup (localOf a [ i ]≔ st') k) ≡ [])
+                      ⊎ Certified a (LocalState.confirmed (lookup (localOf a [ i ]≔ st') k))
+        newConfCert {k} hk with i FinP.≟ k
+        ... | no  i≢k  = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
+                               (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (confCert hk)
+        ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
+                               (sym (lookup∘update i (localOf a) st'))
+                               (subst (λ c → (Snapshot.number c ≡ 0 × Snapshot.txs c ≡ []) ⊎ Certified a c)
+                                      (sym confPres) (confCert hk))
+        newSNB : ∀ {k snap} → lookup (honest a) k ≡ true → (k , snap) ∈ˡ sigs a
+               → Snapshot.number snap ≤ LocalState.seenNumber (lookup (localOf a [ i ]≔ st') k)
+        newSNB {k} {snap} hk m with i FinP.≟ k
+        ... | no  i≢k  = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update′ (λ e → i≢k (sym e)) (localOf a) st')) (signNumBound hk m)
+        ... | yes refl = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
+                               (sym (lookup∘update i (localOf a) st'))
+                               (subst (Snapshot.number snap ≤_) (sym snPres) (signNumBound hk m))
 
 -- ── Derived corollaries of the invariant ───────────────────────────────────────────────────────
 -- L3 (applicability), exposed: every honest party's confirmed snapshot is applicable to U₀.
@@ -459,7 +497,7 @@ consistency sys reach i j hi hj =
 confCert-all : ∀ sys → Reachable sys → ∀ i
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
     ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
-confCert-all sys (base (_ , cn≡0 , ct≡[])) i = inj₁ (cn≡0 i , ct≡[] i)
+confCert-all sys (base (_ , cn≡0 , ct≡[] , _)) i = inj₁ (cn≡0 i , ct≡[] i)
 confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
   where
     cc : ∀ {a b} → a ⟶ˢ b
@@ -499,6 +537,15 @@ confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
     cc {a} (corrupt _)    ih i = ih i
     cc {a} (finalize _ _) ih i = ih i
     cc {a} (see)          ih i = ih i
+    -- offChain leaves `sigs` (hence `Certified`) untouched and preserves the updated party's confirmed
+    -- snapshot (confPres), so the genesis-or-certified status carries over (lookup∘update bookkeeping).
+    cc {a} (offChain {i = j} {st' = st'} _ confPres _) ih i with j FinP.≟ i
+    ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
+                           (sym (lookup∘update j (localOf a) st'))
+                           (subst (λ c → (Snapshot.number c ≡ 0 × Snapshot.txs c ≡ []) ⊎ Certified a c)
+                                  (sym confPres) (ih i))
+    ... | no  j≢i  = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
+                           (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
 
 -- Nesting for ANY two parties (via the honest witness `h`), from `confCert-all` + `cert-nest`.
 nestU : ∀ sys → Reachable sys → ∀ {h} → lookup (honest sys) h ≡ true → ∀ i j
@@ -599,3 +646,32 @@ reflect-fanout-⊆ : ∀ sys → ∀ {U outs π}
 reflect-fanout-⊆ sys {U} {outs} {π} η≡ mem =
   OC.accVerify-sound (subst (λ z → OC.accVerify z outs π ≡ true) η≡ mem)
 
+
+-- ── A figure safety invariant lifted to the §7 system: NoBothInFlight across reachable executions ──
+-- "A commit (tx_α) and a decommit (tx_ω) are never both in flight" for any party, throughout any
+-- reachable multi-party adversarial execution. Seeded by `Initial` (a freshly-opened head) and
+-- preserved by every `_⟶ˢ_` step: signHonest/confirm touch only a party's seenNumber/confirmed (the
+-- pending slots are unchanged), signCorrupt/corrupt/finalize/see leave `localOf` untouched, and the
+-- `offChain` step (a lifted deposit/decommit handler) preserves it via `noBothInFlight-step` (proved
+-- over the handler model in Hydra.Protocol.OffChain). So the §6 `require tx_ω = ⊥ ∨ tx_α = ⊥`
+-- discipline is a machine-checked property of the security model, not just the local handler model.
+noBothInFlightˢ : ∀ sys → Reachable sys → ∀ i → NoBothInFlight (lookup (localOf sys) i)
+noBothInFlightˢ sys (base (_ , _ , _ , nbf)) i = nbf i
+noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
+  where
+    nbStep : ∀ {a b} → a ⟶ˢ b
+           → (∀ i → NoBothInFlight (lookup (localOf a) i))
+           → ∀ i → NoBothInFlight (lookup (localOf b) i)
+    nbStep {a} (signHonest {i = j} _ _ _ _ _ _) ih i with j FinP.≟ i
+    ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) _)) (ih j)
+    ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) _)) (ih i)
+    nbStep (signCorrupt _) ih i = ih i
+    nbStep {a} (confirm {i = c} _) ih i with c FinP.≟ i
+    ... | yes refl = subst NoBothInFlight (sym (lookup∘update c (localOf a) _)) (ih c)
+    ... | no  c≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → c≢i (sym e)) (localOf a) _)) (ih i)
+    nbStep (corrupt _)    ih i = ih i
+    nbStep (finalize _ _) ih i = ih i
+    nbStep see            ih i = ih i
+    nbStep {a} (offChain {i = j} {st' = st'} w _ _) ih i with j FinP.≟ i
+    ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) st')) (noBothInFlight-step w (ih j))
+    ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)

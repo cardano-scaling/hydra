@@ -55,4 +55,5 @@ record HeadParameters : Set where
     hydraVKeys         : List VKey  -- per-party Hydra verification keys k_H
     aggregateKey       : VKey       -- aggregate Hydra key k̃_H
     contestationPeriod : ℕ          -- T_contest
+    depositPeriod      : ℕ          -- T_deposit (the §6 deposit settling / expiry period)
 ```

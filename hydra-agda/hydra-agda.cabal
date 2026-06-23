@@ -24,12 +24,16 @@ library
   -- Silence warnings in the generated MAlonzo tree (it is checked -Werror-clean
   -- by Agda's own GHC backend; we do not lint it as first-party code).
   ghc-options:      -w
-  exposed-modules:  Hydra.Agda.Reference
+  exposed-modules:
+    Hydra.Agda.OffChainReference
+    Hydra.Agda.Reference
+
   other-modules:
     MAlonzo.Code.Agda.Builtin.Bool
     MAlonzo.Code.Agda.Builtin.List
     MAlonzo.Code.Agda.Builtin.Nat
     MAlonzo.Code.Agda.Primitive
+    MAlonzo.Code.Hydra.Protocol.OffChainReference
     MAlonzo.Code.Hydra.Protocol.Reference
     MAlonzo.RTE
     MAlonzo.RTE.Float
