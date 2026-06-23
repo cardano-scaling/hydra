@@ -1,10 +1,10 @@
-cabal-version: 3.0
-name:          hydra-chain-observer
-version:       2.2.0
-synopsis:      Hydra Chain Observer
-author:        IOG
-copyright:     2023 IOG
-license:       Apache-2.0
+cabal-version:      3.0
+name:               hydra-chain-observer
+version:            2.2.0
+synopsis:           Hydra Chain Observer
+author:             IOG
+copyright:          2023 IOG
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
@@ -47,6 +47,7 @@ library
     , base                         >=4.8.0
     , base16-bytestring
     , blockfrost-client            >=0.13.0.0
+    , bytestring
     , cardano-api
     , cardano-ledger-core
     , containers
@@ -61,6 +62,7 @@ library
     , optparse-applicative
     , ouroboros-network:protocols
     , retry
+    , template-haskell
 
   exposed-modules:
     Hydra.Blockfrost.ChainObserver
@@ -68,6 +70,8 @@ library
     Hydra.ChainObserver.NodeClient
     Hydra.ChainObserver.Options
     Hydra.ChainObserver.VersionRegistry
+    Hydra.ChainObserver.VersionRegistry.Internal
+    Hydra.ChainObserver.VersionRegistry.Types
     Hydra.Ouroborus.ChainObserver
 
 executable hydra-chain-observer
