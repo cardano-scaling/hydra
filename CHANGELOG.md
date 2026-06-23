@@ -18,6 +18,12 @@ changes.
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
+- Fixed a deadlock in the network layer's `PersistentQueue` where a silent
+  no-op in `popPersistentQueue` could leave the broadcast queue permanently stuck
+  at capacity, blocking all outbound messages. Node operators will now see
+  explicit `PersistentQueueFull` and `PersistentQueueLoadFailed` log entries when
+  the queue is under pressure or fails to recover from disk on startup.
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and

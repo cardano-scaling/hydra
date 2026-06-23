@@ -43,6 +43,7 @@ import Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Control.Concurrent.Class.MonadSTM (
+  isFullTBQueue,
   modifyTVar',
   peekTBQueue,
   readTBQueue,
@@ -121,7 +122,7 @@ import System.Process.Typed (
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
-  (ToCBOR msg, FromCBOR msg, Eq msg) =>
+  (ToCBOR msg, FromCBOR msg) =>
   Tracer IO EtcdLog ->
   ProtocolVersion ->
   -- TODO: check if all of these needed?
@@ -156,14 +157,14 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                         ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
                         ( "etcd-callback-4"
                         , do
-                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
+                            queue <- newPersistentQueue tracer (persistenceDir </> "pending-broadcast") 100
                             raceLabelled_
                               ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
                               ( "etcd-network-component-action"
                               , do
                                   action
                                     Network
-                                      { broadcast = writePersistentQueue queue
+                                      { broadcast = writePersistentQueue tracer queue
                                       }
                               )
                         )
@@ -359,7 +360,7 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 -- revisions and the watcher on each peer sees exactly one event per logical
 -- broadcast. Same key namespace as master ('msg-\<host\>'), no disk growth.
 broadcastMessages ::
-  (ToCBOR msg, Eq msg) =>
+  ToCBOR msg =>
   Tracer IO EtcdLog ->
   NetworkConfiguration ->
   -- | Used to identify sender.
@@ -386,7 +387,7 @@ broadcastMessages tracer config ourHost queue = do
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue queue msg)
+    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue queue)
       `catch` \case
         e@GrpcException{grpcError, grpcErrorMessage}
           | isTransientGrpcError grpcError -> do
@@ -738,19 +739,21 @@ data PersistentQueue m a = PersistentQueue
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
   (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  Tracer IO EtcdLog ->
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
-newPersistentQueue path capacity = do
+newPersistentQueue tracer path capacity = do
   paths <- liftIO $ do
     createDirectoryIfMissing True path
     sort . mapMaybe readMaybe <$> listDirectory path
   queue <- newLabelledTBQueueIO "persistent-queue" $ max (fromIntegral $ length paths) capacity
   highestId <-
     try (loadExisting queue paths) >>= \case
-      Left (_ :: IOException) -> do
-        -- XXX: This swallows and not logs the error
-        liftIO $ createDirectoryIfMissing True path
+      Left (e :: IOException) -> do
+        liftIO $ do
+          traceWith tracer PersistentQueueLoadFailed{reason = show e}
+          createDirectoryIfMissing True path
         pure 0
       Right highest -> pure highest
   nextIx <- newLabelledTVarIO "persistent-next-ix" $ highestId + 1
@@ -769,14 +772,15 @@ newPersistentQueue path capacity = do
       pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => PersistentQueue m a -> a -> m ()
-writePersistentQueue PersistentQueue{queue, nextIx, directory} item = do
+writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
+writePersistentQueue tracer PersistentQueue{queue, nextIx, directory} item = do
   next <- atomically $ do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  writeFileBS (directory </> show next) $ serialize' item
-  -- XXX: We should trace when the queue is full
+  writeFileBS (directory </> show next) (serialize' item)
+  full <- atomically $ isFullTBQueue queue
+  when full $ liftIO $ traceWith tracer PersistentQueueFull
   atomically $ writeTBQueue queue (next, item)
 
 -- | Get the next value from the queue without removing it, blocking if the
@@ -785,21 +789,13 @@ peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
 peekPersistentQueue PersistentQueue{queue} = do
   snd <$> atomically (peekTBQueue queue)
 
--- | Remove an element from the queue if it matches the given item. Use
--- 'peekPersistentQueue' to wait for next items before popping it.
-popPersistentQueue :: (MonadSTM m, MonadIO m, Eq a) => PersistentQueue m a -> a -> m ()
-popPersistentQueue PersistentQueue{queue, directory} item = do
-  popped <- atomically $ do
-    (ix, next) <- peekTBQueue queue
-    if next == item
-      -- FIXME: why would we not call this? We saw the persistent queue reach
-      -- capacity and writing blocked while nothing seemed to clear it.
-      then readTBQueue queue $> Just ix
-      else pure Nothing
-  case popped of
-    Nothing -> pure ()
-    Just index -> do
-      liftIO . removeFile $ directory </> show index
+-- | Remove the head element from the queue. Must only be called after a
+-- successful 'peekPersistentQueue' by the same (single) consumer thread.
+popPersistentQueue :: (MonadSTM m, MonadIO m) => PersistentQueue m a -> m ()
+popPersistentQueue PersistentQueue{queue, directory} = do
+  (ix, _) <- atomically $ readTBQueue queue
+  liftIO $ removeFile (directory </> show ix)
+    `catch` \e -> unless (isDoesNotExistError e) (throwIO e)
 
 -- * Tracing
 
@@ -820,5 +816,11 @@ data EtcdLog
     -- expected outcome when a 'GrpcDeadlineExceeded'-retried put already
     -- committed server-side. No second put was issued.
     BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
+  | -- | Failed to load persisted queue items from disk on startup. The queue
+    -- starts empty; any in-flight messages from before the crash are lost.
+    PersistentQueueLoadFailed {reason :: Text}
+  | -- | The persistent queue has reached capacity. The calling thread will
+    -- block until the broadcast loop drains at least one item.
+    PersistentQueueFull
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)

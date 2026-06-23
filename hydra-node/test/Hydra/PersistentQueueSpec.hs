@@ -4,6 +4,7 @@ module Hydra.PersistentQueueSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Logging (nullTracer)
 import Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
 import Test.QuickCheck (counterexample, generate, ioProperty)
 import Test.QuickCheck.Instances.Natural ()
@@ -13,19 +14,19 @@ spec = do
   it "can be constructed" $ do
     capacity <- generate arbitrary
     withTempDir "persistent-queue" $ \dir -> do
-      void $ newPersistentQueue @_ @Int dir capacity
+      void $ newPersistentQueue @_ @Int nullTracer dir capacity
 
   prop "is persistent with capacity" $ \(items :: [Int]) -> do
     let capacity = fromIntegral $ length items
     counterexample ("capacity: " <> show capacity) $
       ioProperty $
         withTempDir "persistent-queue" $ \dir -> do
-          q <- newPersistentQueue dir capacity
-          shouldNotBlock_ $ mapM (writePersistentQueue q) items
+          q <- newPersistentQueue nullTracer dir capacity
+          shouldNotBlock_ $ mapM (writePersistentQueue nullTracer q) items
           -- This is expected to block as we reached capacity
-          _ <- timeout 0.01 (writePersistentQueue q 123)
+          _ <- timeout 0.01 (writePersistentQueue nullTracer q 123)
           -- A new queue should be initialized with all the elements
-          q2 <- shouldNotBlock $ newPersistentQueue @_ @Int dir capacity
+          q2 <- shouldNotBlock $ newPersistentQueue nullTracer dir capacity
           let expected = maybe 123 head (nonEmpty items)
           peekPersistentQueue q2 `shouldReturn` expected
 
