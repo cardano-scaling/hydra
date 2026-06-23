@@ -18,6 +18,10 @@ changes.
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
+- Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
+version of each observed transaction via script hash matching, removing the
+compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and

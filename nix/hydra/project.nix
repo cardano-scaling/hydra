@@ -90,6 +90,16 @@
           {
             packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
+          # Make hydra-node/networks.json available to hydra-chain-observer's TH embed.
+          # The Nix sandbox for each component only contains its own package directory, so
+          # ../hydra-node/networks.json (referenced by makeRelativeToProject) must be created
+          # before compilation.
+          {
+            packages.hydra-chain-observer.components.library.preBuild = ''
+              mkdir -p ../hydra-node
+              cp ${self}/hydra-node/networks.json ../hydra-node/networks.json
+            '';
+          }
           # Add static sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple).
           # Using the static variant ensures libsqlite3 is linked into the binary so that
           # Docker images do not need to ship the shared library at runtime.

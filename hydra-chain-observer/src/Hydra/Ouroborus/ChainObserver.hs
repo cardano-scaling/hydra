@@ -132,27 +132,20 @@ chainSyncClient tracer networkId prefix observerHandler =
   clientStNext utxo =
     ClientStNext
       { recvMsgRollForward = \blockInMode _tip -> ChainSyncClient $ do
-          let receivedTxIds = case blockInMode of
-                BlockInMode ConwayEra (Block _ conwayTxs) -> getTxId . getTxBody <$> conwayTxs
-                _ -> []
-
-              (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
-              point = getChainPoint bh
-          traceWith tracer RollForward{point, receivedTxIds}
-
           let txs = case blockInMode of
                 BlockInMode ConwayEra (Block _ conwayTxs) -> conwayTxs
                 _ -> []
-
+              receivedTxIds = getTxId . getTxBody <$> txs
+              (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
+              point = getChainPoint bh
               (utxo', observations) = observeAll networkId utxo txs
-
-          mapM_ (traceWith tracer) $ mapMaybe logObservation observations
-          let observationsAt = ChainObservation point blockNo <$> observations
+          traceWith tracer RollForward{point, receivedTxIds}
+          mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
+          let observationsAt = [(Just v, ChainObservation point blockNo obs) | (v, obs) <- observations]
           observerHandler $
             if null observationsAt
-              then [ChainObservation point blockNo NoHeadTx]
+              then [(Nothing, ChainObservation point blockNo NoHeadTx)]
               else observationsAt
-
           pure $ clientStIdle utxo'
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
