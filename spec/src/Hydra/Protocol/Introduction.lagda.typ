@@ -8,7 +8,7 @@ module Hydra.Protocol.Introduction where
 = Introduction
 
 This document specifies the 'Coordinated Hydra Head' protocol to be implemented
-as the first version of Hydra Head on Cardano - *Hydra HeadV1*. The
+as the second version of Hydra Head on Cardano - *Hydra HeadV2*. The
 protocol is derived from variants described in the original paper
 @hydrahead20, but was further simplified to make a first implementation on
 Cardano possible.
