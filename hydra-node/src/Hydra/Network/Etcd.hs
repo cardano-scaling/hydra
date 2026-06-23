@@ -772,14 +772,13 @@ newPersistentQueue tracer path capacity = do
       pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m, MonadCatch m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
+writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
 writePersistentQueue tracer PersistentQueue{queue, nextIx, directory} item = do
   next <- atomically $ do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
   writeFileBS (directory </> show next) (serialize' item)
-    `onException` atomically (modifyTVar' nextIx (subtract 1))
   full <- atomically $ isFullTBQueue queue
   when full $ liftIO $ traceWith tracer PersistentQueueFull
   atomically $ writeTBQueue queue (next, item)
