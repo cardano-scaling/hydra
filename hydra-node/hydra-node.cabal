@@ -390,6 +390,7 @@ test-suite tests
     Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
     Hydra.NodeSpec
+    Hydra.OffChainLeaderSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistentQueueSpec
@@ -431,6 +432,7 @@ test-suite tests
     , hspec-golden-aeson
     , hspec-wai
     , HUnit
+    , hydra-agda
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-node

@@ -376,7 +376,7 @@ data _⟶ˢ_ : System → System → Set where
   -- equality premises) and never touches `sigs`/`seen`/`U₀`. Hence it preserves every `Inv` component,
   -- so the §7 theorems hold in the presence of the deposit/decommit flow. The preservation premises are
   -- exactly what excludes the signing/confirming/head-open steps (`reqSn-sign` bumps ŝ, `ackSn-confirm`
-  -- sets S̄, `initialTx-obs` resets both) — those are the dedicated `signHonest`/`confirm` steps / the
+  -- sets S̄, `initialTx-obs` resets both); those are the dedicated `signHonest`/`confirm` steps / the
   -- initial system, not lifted here.
   offChain : ∀ {sys i st'}
     → (lookup (localOf sys) i) ⟶ᴴ st'
@@ -386,7 +386,7 @@ data _⟶ˢ_ : System → System → Set where
 
 -- An initial system: no signatures yet, every party's confirmed snapshot is the genesis (number 0,
 -- empty tx list, applicable by the nil law), and no commit/decommit is in flight (a freshly-opened
--- head has neither — the genesis state `initialTx-obs` produces; this seeds the `NoBothInFlight` safety
+-- head has neither; the genesis state `initialTx-obs` produces it, seeding the `NoBothInFlight` safety
 -- invariant carried through every reachable system below).
 Initial : System → Set
 Initial sys =
