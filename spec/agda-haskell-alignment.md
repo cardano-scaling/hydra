@@ -353,15 +353,22 @@ Clarity notes (no bugs; documentation only):
   `depositTxId`. By-name, so no wire bug, but a positional read could pair them wrongly — this is the slot
   the C1 bug confused. A comment now on the Agda `reqSn` constructor states the by-name
   correspondence (`txα↔depositTxId`, `txω↔decommitTx`).
-- **B-off-2 (MED):** `Snapshot.headId` / `cid` is omitted from the Agda `Snapshot` record but is the
-  first signed component in Haskell and appears as `cid` in the figure's signing message.
+- **B-off-2 (RESOLVED):** the Agda `Snapshot` now carries `cid : ℍ` (the head currency id), and the §7
+  signing message `msgOf = snapMsg cid v s η#` matches the Haskell first-signed-component / figure
+  `cid‖v‖s‖η#`. cid is constant within a head, so the §7 safety proofs are unchanged (they use `msgOf`
+  abstractly); the message is now faithful.
 - **B-off-3 (MED):** Agda `etaHash : Maybe ℍ` collapses Haskell's always-present `HydraAccumulator`
   plus the separately-tracked signing status (`SeenSnapshot` vs `ConfirmedSnapshot`).
 - **B-off-4 (MED):** `CoordinatedHeadState.allTxs` (commented `Spec: Tall` in `State.hs`) has no
   counterpart in the off-chain Agda `LocalState` or the figure — it is an implementation-only index
   for resolving tx-ids in `ReqSn`.
-- **B-off-5 (MED):** the four-state `SeenSnapshot` ADT (incl. the in-flight `RequestedSnapshot`
-  used by `snapshotInFlight`) is flattened in the Agda into `seenVersion`/`seenNumber`/`seenSigs`.
+- **B-off-5 (MED, deferred by design):** the four-state `SeenSnapshot` ADT (incl. the in-flight
+  `RequestedSnapshot` used by `snapshotInFlight`) is flattened in the Agda into
+  `seenVersion`/`seenNumber`/`seenSigs`. This is a FAITHFUL abstraction for the safety proofs: the
+  seen-snapshot number `ŝ` (= `seenNumber`) carries all the safety-relevant content `signNumBound` /
+  `sigDedup` / Consistency rely on. De-flattening would mean re-proving those over a richer state
+  (41 use-sites across the model, §7 invariants, and the just-completed proofs) for no safety gain, so
+  it is deliberately left as a documented abstraction rather than destabilise the verified result.
 - **B-off-6 (LOW):** Agda `pendingDeposit : Maybe Data` is a tx; Haskell `currentDepositTxId` is a
   tx-id. Both sides already note the spec-says-tx / impl-uses-id gap.
 - **B-off-7 (LOW):** `reqTx-pending` prepends to `pending` (`tx ∷`) while the handler appends

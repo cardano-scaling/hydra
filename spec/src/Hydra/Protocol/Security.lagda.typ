@@ -122,7 +122,8 @@ snapshot. From these the Agda machine-checks that every honest party's confirmed
 applicable to $Uinit$ (so confirmed sets never conflict), that two confirmations of the same snapshot
 number coincide, and that confirmed snapshots nest by number (`confirmed-nest`).
 `confirm` checks the §3.2 aggregate multisignature (`msVfy`); `msgOf` is the snapshot's
-own serialised content (`snapMsg` of its version, number and η-hash), so the verified message depends
+own serialised content (`snapMsg` of its cid, version, number and η-hash, the §6 message
+cid‖v‖s‖η\#), so the verified message depends
 only on the snapshot's identifying fields rather than being a free token. The binding of a verifying
 signature to a snapshot is formally carried by `ms-unforgeable`. These are theorems about every
 #emph[currently]-honest party's confirmed snapshot (the random variables $That_i$/$Tbar_i$ are scoped
@@ -277,12 +278,14 @@ Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
 -- yet SATISFIABLE for one where every party signed -- so an execution can genuinely confirm.
 postulate
   aggKey      : VKey
-  snapMsg     : ℕ → ℕ → Maybe ℍ → ℍ
+  snapMsg     : ℍ → ℕ → ℕ → Maybe ℍ → ℍ
   aggSigOf    : System → Snapshot → AggSig
 
--- The message a snapshot's aggregate signature is verified against: its own (version, number, η#).
+-- The message a snapshot's aggregate signature is verified against: its own (cid, version, number, η#),
+-- the §6 signing message cid‖v‖s‖η#. cid is constant within a head, so adding it does not change the
+-- proofs (which use `msgOf` abstractly), but the message now matches the implementation faithfully.
 msgOf : Snapshot → ℍ
-msgOf snap = snapMsg (Snapshot.version snap) (Snapshot.number snap) (Snapshot.etaHash snap)
+msgOf snap = snapMsg (Snapshot.cid snap) (Snapshot.version snap) (Snapshot.number snap) (Snapshot.etaHash snap)
 
 -- The operational check `confirm` performs: the aggregate built from THIS system's recorded signatures
 -- on `snap` verifies under the head key over `snap`'s message. System-relative (see above).

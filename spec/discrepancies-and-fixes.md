@@ -478,8 +478,10 @@ in-flight (signed-but-unconfirmed) snapshot's number s̄+1. The implementation's
 PRESERVES the in-flight snapshot, which — given the protocol invariant ŝ ∈ {s̄, s̄+1} — is a no-op on ŝ.
 So the Agda `increment-obs`/`decrement-obs` arms were changed to PRESERVE ŝ (bump only v̂ and clear the
 matching pending slot), matching the implementation and keeping `signNumBound` provable when these steps
-are lifted into the §7 system `_⟶ˢ_`. RECOMMENDATION: refine the §6 figure to drop the unconditional
-`ŝ ← S̄.s` (it is a latent spec bug); the figure's prose re-trigger note should be revisited accordingly.
+are lifted into the §7 system `_⟶ˢ_`. FIGURE FIXED (2026-06): the §6 figure's `on (incrementTx/decrementTx)`
+arms no longer reset ŝ unconditionally — the seen snapshot (number and Σ̂) is preserved across the version
+bump, and the leader's re-`reqSn` is now guarded by `ŝ = S̄.s` (no snapshot in flight), matching the node's
+`maybeRequestSnapshotAfterVersionBump` (`not isCollectingAcks`). Figure, Agda model, and node now agree.
 
 **E. Coverage boundaries / deferred (not planned work):** `B6` concretizing the accumulator + constraining
 η' is **declined** — it would make the Agda STRONGER than the validator (νHead authenticates η via `msVfy`,

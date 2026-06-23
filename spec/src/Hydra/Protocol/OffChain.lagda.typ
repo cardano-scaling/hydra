@@ -174,6 +174,7 @@ record DepositObj : Set where      -- §6 depositObj(U, t_created, t_deadline, s
 
 record Snapshot : Set where        -- the confirmed snapshot object S̄
   field
+    cid     : ℍ                    -- S̄.cid (head currency id; the FIRST signed component, cid‖v‖s‖η#)
     version : ℕ                    -- S̄.v
     number  : ℕ                    -- S̄.s
     txs     : List Data            -- S̄.T
@@ -335,10 +336,11 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- §6 chain observations that bump the open-state version (increment/decrement). Increment adds the
   -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`); decrement leaves L̂ (its outputs left earlier, at
   -- the decommit request). Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
-  -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: the figure's unconditional `ŝ ← S̄.s` would
+  -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: an unconditional `ŝ ← S̄.s` would
   -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7); the implementation
   -- instead preserves an in-flight snapshot, which is a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}.
-  -- This is discrepancy impl-C5, resolved here in the implementation's (safe) favour.
+  -- This was discrepancy impl-C5 (a figure ↔ impl mismatch); the §6 figure now guards the reset on
+  -- ŝ = s̄ (no snapshot in flight), matching this model and the node.
   increment-obs : ∀ {st U v}
     → st observes (incrementTx U v)
         ↝ record st { seenVersion = v ; pendingDeposit = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U }
@@ -851,21 +853,19 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
 
             #proc([#kw("on") $(mtxDecrement, U, v)$ #kw("from") chain])[
-              $hats <- macron(mc(S)).s$ \
               $hatv <- v$ \
               $tx_omega <- bot$ \
-              #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
               #nst[
                 #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
               ]
             ]
 
             #proc([#kw("on") $(mtxIncrement, U, v)$ #kw("from") chain])[
-              $hats <- macron(mc(S)).s$ \
               $hatv <- v$ \
               $tx_alpha <- bot$ \
               $hatmL <- hatmL union U$ \
-              #kw("if") $hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
               #nst[
                 #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, bot)$
               ]
