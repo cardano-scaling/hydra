@@ -50,7 +50,7 @@ the $nuHead$ transition.
 ```agda
 -- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
 data CloseType : Set where
-  closeInitial                  : CloseType
+  closeInitial                   : CloseType
   closeAny closeUnused closeUsed : (ξ : AggSig) (ηhash : ℍ) → CloseType
 
 data ContestType : Set where
@@ -405,11 +405,11 @@ record CloseValid (ctx : Context) (hk : VKey) (cid : ℍ) (v cp s' : ℕ)
     step              : d ⟶⟨ Close ct ⟩ d'
     deadlineOK        : closeDeadlineOK ctx d'             -- tfinal = validity.hi + cp (§5.6)
     mintEmpty         : noMint ctx
-    initialOK         : closeInitialOK ct d'              -- closeInitial ⇒ v=0 ∧ s=0 ∧ η=accUTxO(∅)
+    initialOK         : closeInitialOK ct d'               -- closeInitial ⇒ v=0 ∧ s=0 ∧ η=accUTxO(∅)
     sigOK             : closeSigOK hk cid v s' ct
-    etaOK             : closeηOK ct d'                    -- η# bound to stored η'
-    anyOK             : closeAnyOK ct d'                  -- closeAny ⇒ 0 < s
-    valuePreserved    : headValueIn ctx ≡ headValue ctx   -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
+    etaOK             : closeηOK ct d'                     -- η# bound to stored η'
+    anyOK             : closeAnyOK ct d'                   -- closeAny ⇒ 0 < s
+    valuePreserved    : headValueIn ctx ≡ headValue ctx    -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
     participantSigned : signedByParticipant cid ctx
     -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
     validityBounded   : ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp
@@ -530,7 +530,7 @@ record PartialFanoutValid (ctx : Context) (d d' : HeadDatum) (S : ℙ Output) (m
   field
     step            : d ⟶⟨ PartialFanout m crs ⟩ d'
     excludeOK       : fanoutExcludeOK (ηOf d) S (ηOf d')      -- distributed outputs removed from η (→ η')
-    notDoneOK       : partialFanoutNotDoneOK (ηOf d')          -- η' still non-empty (more to fan out)
+    notDoneOK       : partialFanoutNotDoneOK (ηOf d')         -- η' still non-empty (more to fan out)
     outputsPositive : 0 < m                                   -- §5.8 no zero-output batch
     afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)  -- posted after tfinal
     mintEmpty       : noMint ctx
@@ -577,13 +577,13 @@ postulate
 record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η : AccCommitment) : Set where
   constructor mkInitValid
   field
-    cidIsSeedHash : cid ≡ hash (μHead seed)        -- cid = hash(μHead(seed)) (§5.1)
+    cidIsSeedHash : cid ≡ hash (μHead seed)         -- cid = hash(μHead(seed)) (§5.1)
     seedSpent     : depositSpentOK ctx seed         -- the seed output is spent (uniqueness of cid)
     mintedCountOK : mintedCount ctx cid ≡ suc n     -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
     stPlaced      : stQty (headValue ctx) cid ≡ 1   -- the ST is placed in the head output
     tokensPlaced  : headTokenCount (headValue ctx) cid ≡ suc n  -- all n+1 head-policy tokens placed there
     versionZero   : v ≡ 0                           -- initial snapshot version
-    etaEmpty      : η ≡ accUTxO ∅ˢ                   -- accumulator commits to the empty initial UTxO set
+    etaEmpty      : η ≡ accUTxO ∅ˢ                  -- accumulator commits to the empty initial UTxO set
 
 initValid : Context → OutputRef → HeadDatum → Set
 initValid ctx seed (Open cid hk n cp v η ada) = InitValid ctx seed cid n v η

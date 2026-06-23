@@ -111,7 +111,7 @@ record MultiSignatureScheme : Set₁ where
     VK SK Sig Msg : Set
     keyGen    : VK × SK
     sign      : SK → Msg → Sig
-    combineVK : List VK → VK              -- aggregate verification key k̃
+    combineVK : List VK → VK                    -- aggregate verification key k̃
     combine   : Msg → List VK → List Sig → Sig  -- aggregate signature σ̃
     verify    : VK → Msg → Sig → Bool
 ```
@@ -345,7 +345,7 @@ As an Agda interface (@agda-appendix), the scheme is a record over the abstract 
 record Accumulator : Set₁ where
   field
     Item Commitment Witness : Set
-    commit        : ℙ Item → Commitment                       -- η ← accUTxO(U)
+    commit        : ℙ Item → Commitment                        -- η ← accUTxO(U)
     combine       : Commitment → Commitment → Commitment       -- accCombine
     witness       : Commitment → ℙ Item → ℙ Item → Witness     -- accWitness(η, S, U∖S)
     verify        : Commitment → ℙ Item → Witness → Bool       -- accVerify
