@@ -420,7 +420,7 @@ retryOnBlockfrostError tracer maxRetryCount =
     (fullJitterBackoff 2_000 <> limitRetries maxRetryCount)
     [ \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: APIBlockfrostError) -> do
         traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
-        pure True
+        pure (isRetryable ex)
     ]
 
 -- * Helpers
