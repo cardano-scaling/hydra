@@ -4,6 +4,11 @@ module Hydra.Protocol.OffChain where
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.Setup
+-- Extra list/nat helpers for the off-chain handler model (the deposit registry + tick).
+open import Data.List using (map; _++_)
+open import Data.List.Properties using (length-map)
+open import Data.Nat using (_<?_)
+open import Relation.Binary.PropositionalEquality using (sym; trans)
 ```
 
 #import "/template.typ": *
@@ -154,6 +159,19 @@ types (@agda-appendix).
 UTxO : Set
 UTxO = OutputRef ⇀ Output
 
+-- §6 deposit objects (the 𝒟 registry). A deposit moves Inactive → Active → Expired over time as
+-- chain `tick`s arrive (see `depositStatusAt` and the `_observes_↝_` chain-event relation below).
+data DepositStatus : Set where
+  Inactive Active Expired : DepositStatus
+
+record DepositObj : Set where      -- §6 depositObj(U, t_created, t_deadline, status)
+  constructor depositObj
+  field
+    utxoD    : UTxO                 -- the deposited UTxO U
+    created  : ℕ                    -- t_created
+    deadline : ℕ                    -- t_deadline
+    status   : DepositStatus
+
 record Snapshot : Set where        -- the confirmed snapshot object S̄
   field
     version : ℕ                    -- S̄.v
@@ -176,7 +194,7 @@ record LocalState : Set where      -- a party's local state (besides setup param
     confirmed       : Snapshot     -- S̄
     pendingDeposit  : Maybe Data   -- tx_α (pending deposit, ⊥ if none)
     pendingDecrement : Maybe Data  -- tx_ω (pending decrement, ⊥ if none)
-    deposits        : List Data    -- 𝒟 (registry of tracked deposit objects)
+    deposits        : List (Data × DepositObj)  -- 𝒟 (registry keyed by deposit tx-id tx_α)
 
 data Message : Set where           -- network messages of the coordinated head (§6)
   reqTx  : (tx : Data)                          → Message  -- hpRT
@@ -188,34 +206,63 @@ data Message : Set where           -- network messages of the coordinated head (
   reqSn  : (v s : ℕ) (txReq txα txω : Data)     → Message
   ackSn  : (s : ℕ) (σ : PartySig)                    → Message  -- hpAS (σⱼ, an individual signature)
 
--- Handling a message updates a party's local state (spec §6.4, Protocol flow).
--- This relation is ILLUSTRATIVE, not normative: the figure below (`Protocol flow`)
--- is the authoritative transcription of all §6.4 handlers. The rules given concretely
--- here cover reqTx, the ackSn confirmation round, and the reqSn signing step; the
--- remaining handlers (reqDec and the chain observations deposit/recover/tick/increment/
--- decrement/close/contest) are covered by the figure only. NOTE: the reqTx rule is a
--- SIMPLIFICATION - the full §6.4 handler first waits on applicability (L̂ ∘ tx ≠ ⊥) and
--- updates the local ledger L̂; that guard and update need a model of `applytx` and are
--- deferred. Likewise the ackSn rules abstract the signature collection, the all-signed
--- test, and the multisignature verification.
-data _handles_↝_ : LocalState → Message → LocalState → Set where
-  -- on (reqTx, tx): record tx in the pending set T̂ (applicability guard elided).
-  reqTx-pending : ∀ {st tx}
-    → st handles (reqTx tx) ↝ record st { pending = tx ∷ LocalState.pending st }
+-- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict). Kept abstract.
+-- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
+-- `applyTxs-compose` is ledger COMPOSITIONALITY: applying `txs₁` then `txs₂` equals applying their
+-- concatenation (the one ledger law, alongside nil, that lets the §7 honest-signer applicability guard
+-- be DERIVED against U₀ — A4/D1). The off-chain handler arms below also use `applyTxs`/`Applicable`,
+-- which is why they live here; @sec:security re-exports them via its `open import` of this module.
+postulate
+  applyTxs     : UTxO → List Data → Maybe UTxO
+  applyTxs-nil : ∀ U → applyTxs U [] ≡ just U
+  applyTxs-compose : ∀ {U U′} txs₁ txs₂ → applyTxs U txs₁ ≡ just U′
+                   → applyTxs U (txs₁ ++ txs₂) ≡ applyTxs U′ txs₂
 
-  -- on (ackSn, s, σ) before the round completes: record party j's signature in Σ̂; the
-  -- confirmed snapshot S̄ is unchanged. (Sender index j and the (j,·)∉Σ̂ guard abstracted.)
+-- A transaction list is jointly applicable to U when applying it does not conflict (≠ ⊥).
+Applicable : UTxO → List Data → Set
+Applicable U txs = ¬ (applyTxs U txs ≡ nothing)
+
+-- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
+-- (chain events) below it transcribes the §6.4 handlers, the figure (`Protocol flow`) being the rendered
+-- authority. Each arm now carries its §6 `require`/`wait` guards (normative, not merely illustrative):
+-- reqTx the applicability guard `wait L̂ ∘ tx ≠ ⊥` (de-abstracted over `applyTxs`) + ledger update;
+-- reqDec its no-in-flight guard (`U_α = ∅ ∧ tx_ω = ⊥`); reqSn-sign the version/number guards (§7);
+-- ackSn-collect the no-double-sign guard (`(j,·) ∉ Σ̂`); ackSn-confirm the n-of-n all-signed guard. The
+-- ackSn-confirm multisignature VERIFY is the operational realisation of all-signed and is formalised at
+-- the §7 `confirm` step (`AggVerified`), not duplicated here; the leader-snapshot multicast EFFECTS are
+-- likewise deferred to the §7 system wiring.
+data _handles_↝_ : LocalState → Message → LocalState → Set where
+  -- on (reqTx, tx): `wait L̂ ∘ tx ≠ ⊥` (tx applies to the local ledger), then `L̂ ← L̂ ∘ tx` and
+  -- `T̂ ← T̂ ∪ {tx}`. The applicability guard is de-abstracted as the witness `applyTxs L̂ [tx] ≡ just L'`,
+  -- which also supplies the updated ledger L'. (The leader-snapshot multicast is a deferred effect.)
+  reqTx-pending : ∀ {st tx L'}
+    → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'
+    → st handles (reqTx tx) ↝ record st { localLedger = L' ; pending = tx ∷ LocalState.pending st }
+
+  -- on (reqDec, tx): record the requested decommit (tx_ω ← tx). The §6 `wait U_α = ∅ ∧ tx_ω = ⊥` guard
+  -- requires no commit AND no decommit already in flight; both de-abstracted here as premises (step 2).
+  -- The L̂ update and ledger-applicability part (L̂ ∘ tx ≠ ⊥) come with the applyTxs relocation, as for reqTx.
+  reqDec-pending : ∀ {st tx}
+    → LocalState.pendingDeposit st ≡ nothing         -- U_α = ∅ (no commit in flight)
+    → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
+    → st handles (reqDec tx) ↝ record st { pendingDecrement = just tx }
+
+  -- on (ackSn, s, σ) before the round completes: record sender j's signature in Σ̂; S̄ unchanged. The §6
+  -- `require (j,·) ∉ Σ̂` guard (sender j has not already signed this round) is de-abstracted as the
+  -- premise, so Σ̂ never double-counts a party.
   ackSn-collect : ∀ {st s σ j}
+    → ¬ (j ∈ˡ map proj₁ (LocalState.seenSigs st))   -- (j,·) ∉ Σ̂ (sender has not signed yet)
     → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
 
-  -- on (ackSn, s, σ) completing the round: every party has signed and the aggregate
-  -- multisignature verified, so the seen snapshot becomes the new confirmed snapshot S̄,
-  -- whose transactions are the seen set T̂ and whose number is ŝ. The agreed snapshot is
-  -- taken as `snap` with those shape constraints; the all-signed/verify guards are
-  -- abstracted. Faithfully, completion requires EVERY party (hence every honest party) to
-  -- have signed - the fact the §7 Consistency proof relies on (no transaction is confirmed
-  -- unless all honest parties signed it, and honest parties never sign conflicting txs).
+  -- on (ackSn, s, σ) completing the round: every party has signed, so the seen snapshot becomes the new
+  -- confirmed S̄ (txs = T̂, number = ŝ). The §6 `if ∀ k ∈ [1..n] : (k,·) ∈ Σ̂` all-signed guard is
+  -- de-abstracted as the `allSigned` premise — the n-of-n condition (every party index < n is recorded
+  -- in Σ̂), the SEMANTIC content the §7 `Certified` predicate captures (no tx confirmed unless every
+  -- honest party signed it). The figure's operational `require msVfy(…, msComb Σ̂)` over the COMBINED
+  -- multisignature is the implementation of that n-of-n condition (via ms-unforgeability); it is
+  -- formalised precisely at the §7 `confirm` step (`AggVerified`/`msVfy`), so it is not duplicated here.
   ackSn-confirm : ∀ {st s σ snap}
+    → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
     → Snapshot.number snap ≡ LocalState.seenNumber st    -- S̄'.s = ŝ
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
@@ -231,6 +278,150 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → v ≡ LocalState.seenVersion st
     → s ≡ suc (Snapshot.number (LocalState.confirmed st))
     → st handles (reqSn v s txReq txα txω) ↝ record st { seenNumber = s }
+
+-- ── Chain observations (§6.4 `from chain`): the deposit lifecycle ────────────────────────────────
+-- The §6 `tick` deposit-status transition for one deposit, as a function of the deposit period
+-- T_deposit and the current time t (the off-chain twin of `OffChainReference.depositStatusRef`):
+--   t > deadline − T_deposit ⇒ Expired;  else t > created + T_deposit ⇒ Active;  else unchanged.
+depositStatusAt : ℕ → ℕ → DepositObj → DepositStatus
+depositStatusAt Tdep t D =
+  if ⌊ (DepositObj.deadline D ∸ Tdep) <? t ⌋ then Expired
+  else if ⌊ (DepositObj.created D + Tdep) <? t ⌋ then Active
+  else DepositObj.status D
+
+-- Chain events a party observes, restricted here (step 1b) to the deposit lifecycle.
+data ChainEvent : Set where
+  depositTx : (txα : Data) (U : UTxO) (created deadline : ℕ) → ChainEvent  -- on (depositTx, …)
+  recoverTx : (txα : Data)                                   → ChainEvent  -- on (recoverTx, txα)
+  tick      : (t : ℕ)                                        → ChainEvent  -- on (tick, t)
+  incrementTx : (U : UTxO) (v : ℕ)                           → ChainEvent  -- on (incrementTx, U, v)
+  decrementTx : (U : UTxO) (v : ℕ)                           → ChainEvent  -- on (decrementTx, U, v)
+  initialTx   :                                                ChainEvent  -- on (initialTx, …): head opens
+
+-- Observing a chain event updates a party's deposit registry 𝒟 (and, for `tick`, every entry's
+-- status). `recover` removes a WITNESSED occurrence, so no decidable Data-equality is assumed.
+-- Mirrors the figure's deposit / recover / tick handlers; the leader re-trigger `multicast` effect is
+-- modelled when these events are lifted into the §7 system (as the existing network arms are).
+data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
+  deposit-add : ∀ {st txα U c d}
+    → st observes (depositTx txα U c d)
+        ↝ record st { deposits = (txα , depositObj U c d Inactive) ∷ LocalState.deposits st }
+
+  recover-del : ∀ {st txα D before after}
+    → LocalState.deposits st ≡ before ++ ((txα , D) ∷ after)
+    → st observes (recoverTx txα) ↝ record st { deposits = before ++ after }
+
+  tick-update : ∀ {st t}
+    → st observes (tick t)
+        ↝ record st
+            { deposits =
+                map (λ kD → proj₁ kD ,
+                       record (proj₂ kD)
+                         { status = depositStatusAt (HeadParameters.depositPeriod (LocalState.params st)) t (proj₂ kD) })
+                    (LocalState.deposits st) }
+
+  -- §6 chain observations that bump the open-state version (increment/decrement). The ledger update
+  -- (L̂ ∪ U for increment) is elided here, added in step 2 as for the network arms. Each bumps v̂ and
+  -- clears the matching in-flight pending (tx_α for increment, tx_ω for decrement).
+  -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: the figure's unconditional `ŝ ← S̄.s` would
+  -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7); the implementation
+  -- instead preserves an in-flight snapshot, which is a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}.
+  -- This is discrepancy impl-C5, resolved here in the implementation's (safe) favour.
+  increment-obs : ∀ {st U v}
+    → st observes (incrementTx U v)
+        ↝ record st { seenVersion = v ; pendingDeposit = nothing }
+
+  decrement-obs : ∀ {st U v}
+    → st observes (decrementTx U v)
+        ↝ record st { seenVersion = v ; pendingDecrement = nothing }
+
+  -- on (initialTx, …): the head opens with a genesis confirmed snapshot (number/version 0, no txs);
+  -- the §6 setup `require`s and L̂ ← ∅ are added in step 2 (genesis is given here, like ackSn-confirm).
+  -- The deposit registry 𝒟 is NOT reset: the figure leaves it untouched and the node carries
+  -- `pendingDeposits` through head-open unchanged.
+  initialTx-obs : ∀ {st genesis}
+    → Snapshot.version genesis ≡ 0
+    → Snapshot.number  genesis ≡ 0
+    → Snapshot.txs     genesis ≡ []
+    → st observes initialTx
+        ↝ record st { seenVersion = 0 ; seenNumber = 0 ; pending = [] ; confirmed = genesis
+                    ; pendingDeposit = nothing ; pendingDecrement = nothing }
+
+-- A tick only recomputes statuses: it never adds or drops a deposit (the registry length is preserved).
+tick-preserves-deposits-length : ∀ {st t st'}
+  → st observes (tick t) ↝ st'
+  → length (LocalState.deposits st') ≡ length (LocalState.deposits st)
+tick-preserves-deposits-length {st = st} tick-update = length-map _ (LocalState.deposits st)
+
+-- The de-abstracted reqDec guard is load-bearing: reqDec fires ONLY from a no-decommit-in-flight state
+-- (tx_ω = ⊥) and results in exactly the requested decommit (so it never silently overwrites an
+-- in-flight one). Deleting the `pendingDecrement ≡ nothing` premise on `reqDec-pending` makes the first
+-- conjunct underivable (the step-2 adversarial check that the guard carries weight).
+reqDec-starts-decommit : ∀ {st tx st'}
+  → st handles (reqDec tx) ↝ st'
+  → (LocalState.pendingDecrement st ≡ nothing) × (LocalState.pendingDecrement st' ≡ just tx)
+reqDec-starts-decommit (reqDec-pending _ q) = q , refl
+
+-- The de-abstracted reqTx guard is load-bearing too: reqTx fires only for transactions that APPLY to
+-- the local ledger (the §6 `wait L̂ ∘ tx ≠ ⊥`). Deleting the `applyTxs … ≡ just L'` witness premise on
+-- `reqTx-pending` makes this underivable.
+reqTx-applicable : ∀ {st tx st'}
+  → st handles (reqTx tx) ↝ st'
+  → Applicable (LocalState.localLedger st) (tx ∷ [])
+reqTx-applicable (reqTx-pending eq) p with trans (sym eq) p
+... | ()
+
+-- The ackSn guards are load-bearing too. ackSn-collect records a signature only for a sender that is
+-- NOT already in Σ̂ (so Σ̂ never double-counts a party):
+ackSn-collect-fresh : ∀ {st s σ j}
+  → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
+  → ¬ (j ∈ˡ map proj₁ (LocalState.seenSigs st))
+ackSn-collect-fresh (ackSn-collect p) = p
+
+-- ackSn-confirm adopts a snapshot only once EVERY party (index < n) has signed (the n-of-n condition
+-- the §7 `Certified` predicate captures):
+ackSn-confirm-allSigned : ∀ {st s σ snap}
+  → st handles (ackSn s σ) ↝ record st { confirmed = snap }
+  → ∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st)
+ackSn-confirm-allSigned (ackSn-confirm allSigned _ _) = allSigned
+
+-- ── A deposit/decommit safety invariant over the handler model (step-3 slice, local) ────────────────
+-- "At most one of a commit (tx_α) or a decommit (tx_ω) is ever in flight" — the §6 figure's
+-- `require tx_ω = ⊥ ∨ tx_α = ⊥` discipline, here PROVED to be MAINTAINED by every off-chain step. It
+-- rests on reqDec's de-abstracted `U_α = ∅ ∧ tx_ω = ⊥` guard. (This is over the local handler model;
+-- lifting it to the §7 system relation `_⟶ˢ_` is the later wiring/refinement work.)
+NoBothInFlight : LocalState → Set
+NoBothInFlight st = (LocalState.pendingDeposit st ≡ nothing) ⊎ (LocalState.pendingDecrement st ≡ nothing)
+
+-- One off-chain step: handle a network message OR observe a chain event.
+data _⟶ᴴ_ : LocalState → LocalState → Set where
+  hstep : ∀ {st m st'} → st handles m  ↝ st' → st ⟶ᴴ st'
+  ostep : ∀ {st e st'} → st observes e ↝ st' → st ⟶ᴴ st'
+
+data Reachableᴴ (init : LocalState) : LocalState → Set where
+  base : Reachableᴴ init init
+  step : ∀ {st st'} → Reachableᴴ init st → st ⟶ᴴ st' → Reachableᴴ init st'
+
+-- Every off-chain step preserves NoBothInFlight. reqDec RE-ESTABLISHES it from its `U_α = ∅` guard;
+-- increment/decrement/initialTx clear a pending slot; all other steps leave both slots untouched.
+noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → NoBothInFlight st'
+noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
+noBothInFlight-step (hstep (reqDec-pending p _))   _  = inj₁ p
+noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
+noBothInFlight-step (hstep (ackSn-confirm _ _ _)) inv = inv
+noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
+noBothInFlight-step (ostep deposit-add)           inv = inv
+noBothInFlight-step (ostep (recover-del _))       inv = inv
+noBothInFlight-step (ostep tick-update)           inv = inv
+noBothInFlight-step (ostep increment-obs)          _  = inj₁ refl
+noBothInFlight-step (ostep decrement-obs)          _  = inj₂ refl
+noBothInFlight-step (ostep (initialTx-obs _ _ _))  _  = inj₁ refl
+
+-- Hence NoBothInFlight holds throughout any off-chain run that starts from a state satisfying it
+-- (e.g. the genesis state initialTx-obs produces, where both slots are ⊥).
+noBothInFlight-reachable : ∀ {init st} → NoBothInFlight init → Reachableᴴ init st → NoBothInFlight st
+noBothInFlight-reachable inv base       = inv
+noBothInFlight-reachable inv (step r s) = noBothInFlight-step s (noBothInFlight-reachable inv r)
 ```
 
 == Protocol flow

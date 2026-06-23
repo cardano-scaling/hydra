@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Regenerate the MAlonzo-extracted Haskell under generated/ from the Agda reference checker.
+# Regenerate the MAlonzo-extracted Haskell under generated/ from the Agda reference checkers.
 # Run inside the default dev shell (`nix develop`), which provides `agda` (with the spec
-# libraries) and GHC. After running, review the diff and update src/Hydra/Agda/Reference.hs if
-# any mangled MAlonzo names (T_Ops_*, C_Ops'46'constructor_*, d_closeRef'7495'_*) changed.
+# libraries) and GHC. After running, review the diff and update src/Hydra/Agda/Reference.hs and
+# src/Hydra/Agda/OffChainReference.hs if any mangled MAlonzo names (T_Ops_*,
+# C_Ops'46'constructor_*, d_closeRef'7495'_*, d_depositStatusRef_*) changed.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/.." && pwd)"
 rm -rf "$here/generated/MAlonzo"
 cd "$repo/spec"
+# On-chain validator reference (Reference.agda) and off-chain HeadLogic reference
+# (OffChainReference.agda). Both extract into the same generated/ tree (shared MAlonzo runtime).
 agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$here/generated" \
   src/Hydra/Protocol/Reference.agda
+agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$here/generated" \
+  src/Hydra/Protocol/OffChainReference.agda
 
 # Stamp `-w` on every generated module: `just lint` builds with command-line
 # `-Werror -Wall`, which would otherwise escalate the extractor's harmless warnings

@@ -215,21 +215,9 @@ its safety consequences from a faithful transcription of that handler. It is
 what makes the confirmed chain provably linear (`agree`) and monotone (`confirmed-nest`).
 
 ```agda
--- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict).
--- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
--- `applyTxs-compose` is ledger COMPOSITIONALITY: applying `txs₁` then `txs₂` equals applying their
--- concatenation. The one ledger law (alongside the nil law) admitted to DERIVE the honest signer's
--- applicability guard (A4/D1): an honest party checks the requested txs apply on top of its confirmed
--- ledger, and compositionality lifts that to applicability against the initial U₀.
-postulate
-  applyTxs     : UTxO → List Data → Maybe UTxO
-  applyTxs-nil : ∀ U → applyTxs U [] ≡ just U
-  applyTxs-compose : ∀ {U U′} txs₁ txs₂ → applyTxs U txs₁ ≡ just U′
-                   → applyTxs U (txs₁ ++ txs₂) ≡ applyTxs U′ txs₂
-
--- A transaction list is jointly applicable to U when applying it does not conflict (≠ ⊥).
-Applicable : UTxO → List Data → Set
-Applicable U txs = ¬ (applyTxs U txs ≡ nothing)
+-- The ledger primitives (`applyTxs`, its `applyTxs-nil`/`applyTxs-compose` laws, and `Applicable`) are
+-- defined in the off-chain handler model `Hydra.Protocol.OffChain` (whose handler arms also use them)
+-- and are in scope here via this section's `open import` of that module.
 
 
 -- T̄ᵢ / ŝᵢ: a party's confirmed transactions and confirmed snapshot number.
@@ -383,13 +371,29 @@ data _⟶ˢ_ : System → System → Set where
   see : ∀ {sys i txs}
     → sys ⟶ˢ record sys { seen = seen sys [ i ]≔ (txs ++ lookup (seen sys) i) }
 
--- An initial system: no signatures yet, and every party's confirmed snapshot is the genesis
--- (number 0, empty tx list, applicable by the nil law).
+  -- offChain: party i takes a LOCAL off-chain step (`_⟶ᴴ_`: a chain observation deposit/recover/tick/
+  -- increment/decrement, or a reqDec) that PRESERVES its confirmed snapshot and seen number (the two
+  -- equality premises) and never touches `sigs`/`seen`/`U₀`. Hence it preserves every `Inv` component,
+  -- so the §7 theorems hold in the presence of the deposit/decommit flow. The preservation premises are
+  -- exactly what excludes the signing/confirming/head-open steps (`reqSn-sign` bumps ŝ, `ackSn-confirm`
+  -- sets S̄, `initialTx-obs` resets both) — those are the dedicated `signHonest`/`confirm` steps / the
+  -- initial system, not lifted here.
+  offChain : ∀ {sys i st'}
+    → (lookup (localOf sys) i) ⟶ᴴ st'
+    → LocalState.confirmed  st' ≡ LocalState.confirmed  (lookup (localOf sys) i)
+    → LocalState.seenNumber st' ≡ LocalState.seenNumber (lookup (localOf sys) i)
+    → sys ⟶ˢ record sys { localOf = localOf sys [ i ]≔ st' }
+
+-- An initial system: no signatures yet, every party's confirmed snapshot is the genesis (number 0,
+-- empty tx list, applicable by the nil law), and no commit/decommit is in flight (a freshly-opened
+-- head has neither — the genesis state `initialTx-obs` produces; this seeds the `NoBothInFlight` safety
+-- invariant carried through every reachable system below).
 Initial : System → Set
 Initial sys =
     (sigs sys ≡ [])
   × (∀ i → confirmedNo (lookup (localOf sys) i) ≡ 0)
   × (∀ i → confirmedTxs (lookup (localOf sys) i) ≡ [])
+  × (∀ i → NoBothInFlight (lookup (localOf sys) i))
 
 -- Reachable = reflexive-transitive closure of _⟶ˢ_ from an initial system.
 data Reachable : System → Set where

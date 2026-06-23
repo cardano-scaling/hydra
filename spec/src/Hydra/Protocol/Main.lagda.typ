@@ -32,6 +32,9 @@ import Hydra.Protocol.SecurityProofs
 -- validity bundles (Tier 2 differential-testing; not rendered in the document).
 import Hydra.Protocol.Reference
 import Hydra.Protocol.ReferenceBridge
+-- Extractable decidable reference for the OFF-CHAIN HeadLogic figure (Tier 2 differential, off-chain
+-- side; typecheck-only here, extracted via regenerate.sh, not rendered in the document).
+import Hydra.Protocol.OffChainReference
 -- On-chain coverage / non-stuckness: a reachability inductive over datums + the obligation that the
 -- terminal fanout bundle is inhabited for the reachable empty head (typecheck-only; the dual of the
 -- soundness corpus, ruling out an over-strict finalize conjunct like `FanoutValid.outputsPositive`).

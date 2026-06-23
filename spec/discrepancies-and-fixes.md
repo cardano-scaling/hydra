@@ -462,6 +462,25 @@ restore full off-chain state history Ω; `impl-C3` close/contest rely on the unc
 `confirmedSnapshot.version ∈ {version, version-1}` (recommend a runtime assertion); `impl-C4` stale
 `-- Spec: η ← combine(S.U)` comments (cosmetic).
 
+`impl-C5` (found 2026-06, off-chain mechanization step 1d, by adversarial figure↔Haskell check): on a
+version bump (`on (incrementTx/decrementTx, U, v) from chain`) the §6 figure resets the seen snapshot
+number UNCONDITIONALLY (`ŝ ← S̄.s`), but the implementation
+(`onOpenChainIncrementTx`/`onOpenChainDecrementTx` → `CommitFinalized`/`DecommitFinalized` aggregation,
+`HeadLogic.hs`) resets it CONDITIONALLY: an in-flight `SeenSnapshot{}` already collecting acks is
+PRESERVED, and only a non-in-flight state resets to `LastSeenSnapshot{lastSeen = confirmedSn}`. So the
+figure (and the Agda `increment-obs`/`decrement-obs` arms, which faithfully follow the figure) drop an
+in-flight snapshot round that the node keeps.
+
+RESOLVED (2026-06, step-3 prep) IN THE IMPLEMENTATION'S FAVOUR — and it turns out to be SAFETY-CRITICAL,
+not cosmetic: the security invariant `signNumBound` (every honest signature's number ≤ that party's
+`seenNumber` ŝ) is broken by the figure's unconditional `ŝ ← S̄.s`, because that drops ŝ below an
+in-flight (signed-but-unconfirmed) snapshot's number s̄+1. The implementation's conditional reset
+PRESERVES the in-flight snapshot, which — given the protocol invariant ŝ ∈ {s̄, s̄+1} — is a no-op on ŝ.
+So the Agda `increment-obs`/`decrement-obs` arms were changed to PRESERVE ŝ (bump only v̂ and clear the
+matching pending slot), matching the implementation and keeping `signNumBound` provable when these steps
+are lifted into the §7 system `_⟶ˢ_`. RECOMMENDATION: refine the §6 figure to drop the unconditional
+`ŝ ← S̄.s` (it is a latent spec bug); the figure's prose re-trigger note should be revisited accordingly.
+
 **E. Coverage boundaries / deferred (not planned work):** `B6` concretizing the accumulator + constraining
 η' is **declined** — it would make the Agda STRONGER than the validator (νHead authenticates η via `msVfy`,
 not by recomputing `accUTxO`); abstract Value algebra + crypto/accumulator laws stay postulated (KZG not
