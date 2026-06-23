@@ -11,6 +11,15 @@ module Hydra.Agda.OffChainReference (
 
   -- * reqSn signing eligibility
   signEligibleRef,
+
+  -- * reqDec / ackSn / contest guards
+  reqDecEligibleRef,
+  notAlreadySignedRef,
+  allSignedRef,
+  contestEligibleRef,
+
+  -- * round-robin leader (bound to the real 'Hydra.HeadLogic.isLeader')
+  leaderRef,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..))
@@ -31,3 +40,29 @@ depositStatusRef = M.d_depositStatusRef_22
 -- @onOpenNetworkReqSn@ @requireReqSn@.
 signEligibleRef :: Integer -> Integer -> Integer -> Integer -> Bool -> Bool
 signEligibleRef = M.d_signEligibleRef_36
+
+-- | Extracted reqDec eligibility (§6 @wait U_α = ∅ ∧ tx_ω = ⊥@): given whether a commit and a decommit
+-- are in flight, decides whether a new decommit may start.
+reqDecEligibleRef :: Bool -> Bool -> Bool
+reqDecEligibleRef = M.d_reqDecEligibleRef_62
+
+-- | Extracted ackSn-collect guard (§6 @require (j,·) ∉ Σ̂@): given the signer indices already in Σ̂ and a
+-- sender @j@, decides whether @j@ is a fresh signer.
+notAlreadySignedRef :: [Integer] -> Integer -> Bool
+notAlreadySignedRef = M.d_notAlreadySignedRef_68
+
+-- | Extracted ackSn-confirm guard (§6 @if ∀ k ∈ [1..n] : (k,·) ∈ Σ̂@): given the party count @n@ and the
+-- signer indices in Σ̂, decides whether every party (index @< n@) has signed (n-of-n).
+allSignedRef :: Integer -> [Integer] -> Bool
+allSignedRef = M.d_allSignedRef_80
+
+-- | Extracted contest re-post guard (§6 @if S̄.s > s_c@): our confirmed snapshot number vs the
+-- closed/contested one.
+contestEligibleRef :: Integer -> Integer -> Bool
+contestEligibleRef = M.d_contestEligibleRef_86
+
+-- | Extracted round-robin leader (the §6 @leader(s)@). Arguments: @m@ where the head has @suc m@ parties,
+-- the snapshot number, and a 0-based party index. Bound against the real 'Hydra.HeadLogic.isLeader' in
+-- the hydra-node off-chain differential.
+leaderRef :: Integer -> Integer -> Integer -> Bool
+leaderRef = M.d_leaderRef_98

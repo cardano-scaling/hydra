@@ -12,6 +12,7 @@ module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
 open import Agda.Builtin.Nat
+open import Agda.Builtin.List
 
 -- ── boundary types, bound to clean Haskell at extraction ──────────────────────────────────
 
@@ -53,3 +54,45 @@ false && _ = false
 -- `Agda.Builtin.Nat` Bool equality.
 signEligibleRef : Nat → Nat → Nat → Nat → Bool → Bool
 signEligibleRef v vHat s sHat leaderOk = (v == vHat) && ((s == suc sHat) && leaderOk)
+
+infixr 5 _||_
+_||_ : Bool → Bool → Bool
+true  || _ = true
+false || b = b
+
+not : Bool → Bool
+not true  = false
+not false = true
+
+-- List membership for the signature-accumulator (Σ̂) checks.
+elemᵇ : Nat → List Nat → Bool
+elemᵇ _ []       = false
+elemᵇ x (y ∷ ys) = (x == y) || elemᵇ x ys
+
+-- reqDec eligibility (the §6 `wait U_α = ∅ ∧ tx_ω = ⊥`): neither a commit nor a decommit in flight.
+reqDecEligibleRef : Bool → Bool → Bool   -- (commitInFlight, decommitInFlight)
+reqDecEligibleRef commit decommit = not commit && not decommit
+
+-- ackSn-collect (the §6 `require (j,·) ∉ Σ̂`): sender j has not already signed this round.
+notAlreadySignedRef : List Nat → Nat → Bool   -- (Σ̂ signer indices, j)
+notAlreadySignedRef signers j = not (elemᵇ j signers)
+
+-- ackSn-confirm (the §6 `if ∀ k ∈ [1..n] : (k,·) ∈ Σ̂`): every party index below n has signed (n-of-n).
+allBelowᵇ : Nat → List Nat → Bool
+allBelowᵇ zero    _       = true
+allBelowᵇ (suc k) signers = elemᵇ k signers && allBelowᵇ k signers
+allSignedRef : Nat → List Nat → Bool     -- (n, Σ̂ signer indices)
+allSignedRef n signers = allBelowᵇ n signers
+
+-- Contest re-post (the §6 `if S̄.s > s_c`): our confirmed snapshot is newer than the closed/contested one.
+contestEligibleRef : Nat → Nat → Bool    -- (S̄.s, s_c)
+contestEligibleRef sBar sc = sc < sBar
+
+modSuc : Nat → Nat → Nat   -- modSuc a b = a mod (suc b), via the Agda.Builtin `mod-helper` primitive
+modSuc a b = mod-helper 0 b a b
+
+-- Round-robin leader, matching the node's `isLeader` (HeadLogic.hs): for `suc m` parties and snapshot
+-- number sn, the party at 0-based index i is the leader iff (sn - 1) mod (suc m) == i. Only meaningful
+-- for sn ≥ 1; the differential against the REAL `isLeader` exercises that domain.
+leaderRef : Nat → Nat → Nat → Bool   -- (m where #parties = suc m, sn, party index i)
+leaderRef m sn i = modSuc (sn - 1) m == i

@@ -326,11 +326,17 @@ compares the off-chain *spec figure* against `HeadLogic.hs`.)
 
 **Verdict: substantive agreement, no HIGH-severity divergence.** Every Agda field maps to a Haskell
 field with the expected meaning; every `Message` constructor maps to a Haskell one with matching
-payloads (deposit and decommit are in the correct semantic slots on both sides — no repeat of C1);
-and the three `_handles_↝_` rules (`reqTx-pending`, `ackSn-collect`, `ackSn-confirm`) are *faithful
-abstractions* — reshaped for the §7 Consistency proof, they assert nothing the handlers contradict,
-and their elisions (the `L̂∘tx≠⊥` guard, the all-signed/multisig-verify tests, the post-confirm
-posts) are explicitly documented in the Agda.
+payloads (deposit and decommit are in the correct semantic slots on both sides, no repeat of C1).
+The handler model now covers all five network handlers (`_handles_↝_`: `reqTx-pending`,
+`reqDec-pending`, `ackSn-collect`, `ackSn-confirm`, `reqSn-sign`) and the six chain observations
+(`_observes_↝_`: `deposit-add`, `recover-del`, `tick-update`, `increment-obs`, `decrement-obs`,
+`initialTx-obs`), with every network-handler guard de-abstracted to an operational premise the node
+checks (no-in-flight for `reqDec`, `(j,·) ∉ Σ̂` for collect, n-of-n for confirm, `v = v̂ ∧ s = ŝ+1 ∧
+leader(s)=j` for sign). These are *faithful refinements* of the node: reshaped for the §7 Consistency
+proof, they assert nothing the handlers contradict, and the deposit/decommit flow is now wired into
+the §7 system (the `offChain` step relation), where `NoBothInFlight` is proved an invariant. The
+extracted decisions are additionally checked against a Haskell transcription of the figure and, for
+leader selection, against the real `Hydra.HeadLogic.isLeader` (see Part C).
 
 Structural mapping (all MATCH or MATCH-different-form): Agda `Snapshot` ↔ `Hydra.Tx.Snapshot`
 (`txs↔confirmed`, `utxoInc↔utxoToCommit`, `utxoDec↔utxoToDecommit`, `etaHash`↔ the hash projected
@@ -360,5 +366,23 @@ Clarity notes (no bugs; documentation only):
   tx-id. Both sides already note the spec-says-tx / impl-uses-id gap.
 - **B-off-7 (LOW):** `reqTx-pending` prepends to `pending` (`tx ∷`) while the handler appends
   (`Seq.|>`); irrelevant to the current abstraction, but flag if the Consistency proof ever depends
-  on `pending` ordering. Also: `_handles_↝_` has rules only for `reqTx`/`ackSn`; `reqSn`, `reqDec`
-  and the chain observations live only in the figure (intended illustrative scope).
+  on `pending` ordering.
+
+# Part C: off-chain differential (extracted reference vs transcription / node)
+
+`OffChainReference.agda` is the executable, decidable half of the off-chain model: kept self-contained
+over `Agda.Builtin` types so MAlonzo extracts it to clean Haskell (`Hydra.Agda.OffChainReference`),
+exactly as `Reference.agda` does for the on-chain validators. Each decidable function is the guard of
+one handler arm, run as a second oracle in two test families:
+
+- `hydra-tx` `OffChainDifferential` pins each extracted decision to a faithful Haskell transcription
+  of the §6 figure (golden cases + QuickCheck): the `tick` deposit-status transition
+  (`depositStatusRef`), reqSn signing eligibility (`signEligibleRef`), reqDec eligibility
+  (`reqDecEligibleRef`), ackSn-collect no-double-sign (`notAlreadySignedRef`), ackSn-confirm n-of-n
+  (`allSignedRef`), and contest re-post (`contestEligibleRef`).
+- `hydra-node` `OffChainLeaderSpec` binds the extracted round-robin leader (`leaderRef`, the figure's
+  `leader(s)`) to the REAL `Hydra.HeadLogic.isLeader`, closing the figure↔Agda↔node loop for leader
+  selection. They agree for every party index at every `sn ≥ 1`; they diverge only at `sn = 0` (Nat
+  truncated `0 ∸ 1 = 0` vs `Int` `-1 mod n = n-1`), which is outside the protocol's domain (snapshot
+  numbers start at 1). This `sn = 0` boundary is exactly the kind of edge a real-node differential
+  surfaces that a same-language transcription would not.
