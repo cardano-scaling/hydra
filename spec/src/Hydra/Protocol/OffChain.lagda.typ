@@ -185,16 +185,16 @@ record Snapshot : Set where        -- the confirmed snapshot object S̄
 
 record LocalState : Set where      -- a party's local state (besides setup params)
   field
-    params          : HeadParameters
-    seenVersion     : ℕ            -- v̂
-    seenNumber      : ℕ            -- ŝ
-    seenSigs        : List (ℕ × PartySig) -- Σ̂ (individual signatures, indexed by party)
-    localLedger     : UTxO         -- L̂
-    pending         : List Data    -- T̂ (txs pending a snapshot)
-    confirmed       : Snapshot     -- S̄
-    pendingDeposit  : Maybe Data   -- tx_α (pending deposit, ⊥ if none)
+    params           : HeadParameters
+    seenVersion      : ℕ           -- v̂
+    seenNumber       : ℕ           -- ŝ
+    seenSigs         : List (ℕ × PartySig) -- Σ̂ (individual signatures, indexed by party)
+    localLedger      : UTxO        -- L̂
+    pending          : List Data   -- T̂ (txs pending a snapshot)
+    confirmed        : Snapshot    -- S̄
+    pendingDeposit   : Maybe Data  -- tx_α (pending deposit, ⊥ if none)
     pendingDecrement : Maybe Data  -- tx_ω (pending decrement, ⊥ if none)
-    deposits        : List (Data × DepositObj)  -- 𝒟 (registry keyed by deposit tx-id tx_α)
+    deposits         : List (Data × DepositObj)  -- 𝒟 (registry keyed by deposit tx-id tx_α)
 
 data Message : Set where           -- network messages of the coordinated head (§6)
   reqTx  : (tx : Data)                          → Message  -- hpRT
@@ -204,7 +204,7 @@ data Message : Set where           -- network messages of the coordinated head (
   -- NAME as txReq↔transactionIds, txα↔depositTxId, txω↔decommitTx, with decommit before deposit
   -- - match them by name, not position (the deposit and decommit slots are easy to confuse).
   reqSn  : (v s : ℕ) (txReq txα txω : Data)     → Message
-  ackSn  : (s : ℕ) (σ : PartySig)                    → Message  -- hpAS (σⱼ, an individual signature)
+  ackSn  : (s : ℕ) (σ : PartySig)               → Message  -- hpAS (σⱼ, an individual signature)
 
 -- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict). Kept abstract.
 -- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
@@ -213,8 +213,8 @@ data Message : Set where           -- network messages of the coordinated head (
 -- be DERIVED against U₀, A4/D1). The off-chain handler arms below also use `applyTxs`/`Applicable`,
 -- which is why they live here; @sec:security re-exports them via its `open import` of this module.
 postulate
-  applyTxs     : UTxO → List Data → Maybe UTxO
-  applyTxs-nil : ∀ U → applyTxs U [] ≡ just U
+  applyTxs         : UTxO → List Data → Maybe UTxO
+  applyTxs-nil     : ∀ U → applyTxs U [] ≡ just U
   applyTxs-compose : ∀ {U U′} txs₁ txs₂ → applyTxs U txs₁ ≡ just U′
                    → applyTxs U (txs₁ ++ txs₂) ≡ applyTxs U′ txs₂
 
@@ -231,7 +231,7 @@ postulate
   εᵘ      : UTxO                -- the empty UTxO map (L̂ ← ∅ when the head opens)
   _∪ᵘ_    : UTxO → UTxO → UTxO  -- UTxO-map union (L̂ ∪ U when an increment is observed)
   _∖ᵘ_    : UTxO → UTxO → UTxO  -- UTxO-map difference (… ∖ outputs(tx) when a decommit is requested)
-  outputs : Data → UTxO        -- the outputs a transaction produces, as a UTxO map
+  outputs : Data → UTxO         -- the outputs a transaction produces, as a UTxO map
 
 -- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
 -- (chain events) below it transcribes the §6.4 handlers, the figure (`Protocol flow`) being the rendered
