@@ -24,6 +24,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
@@ -220,26 +221,19 @@ blockfrostChainFollow ::
   TinyWallet m ->
   m ()
 blockfrostChainFollow tracer prj prefix handler wallet = do
-  Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
-    Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
-
-  let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
-
-  -- Start from the latest point and fall back to older ones (best effort)
-  -- If none of them can be resolved, we fall back to the tip of the chain.
-  blockHash <- resolvePrefixPoints (toList prefix)
-
-  stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
-
-  -- Catch-up with retry protection
-  void $
-    retryOnBlockfrostError
-      tracer
-      maxRetries
-      ( \_ -> do
-          currentHash <- readTVarIO stateTVar
-          catchUpToLatest currentHash stateTVar
-      )
+  -- Genesis query and initial catch-up are both wrapped in retry to survive
+  -- transient HTTP errors (e.g. 403 rate limiting, connection resets).
+  (blockTime, stateTVar) <-
+    retryOnBlockfrostError tracer maxRetries $ \_ -> do
+      Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
+        Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
+      let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+      -- Start from the latest point and fall back to older ones (best effort)
+      -- If none of them can be resolved, we fall back to the tip of the chain.
+      blockHash <- resolvePrefixPoints (toList prefix)
+      stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
+      void $ catchUpToLatest blockHash stateTVar
+      pure (blockTime, stateTVar)
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
@@ -426,28 +420,10 @@ retryOnBlockfrostError tracer maxRetryCount =
     (fullJitterBackoff 2_000 <> limitRetries maxRetryCount)
     [ \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: APIBlockfrostError) -> do
         traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
-        pure True
+        pure (isRetryable ex)
     ]
 
 -- * Helpers
-
-data APIBlockfrostError
-  = BlockfrostError Text
-  | DecodeError Text
-  | NotEnoughBlockConfirmations Blockfrost.BlockHash
-  | MissingBlockNo Blockfrost.BlockHash
-  | MissingBlockSlot (Maybe Blockfrost.Slot)
-  | MissingNextBlockHash Blockfrost.BlockHash
-  deriving stock (Show)
-  deriving anyclass (Exception)
-
-isRetryable :: APIBlockfrostError -> Bool
-isRetryable (BlockfrostError _) = True
-isRetryable (DecodeError _) = True
-isRetryable (NotEnoughBlockConfirmations _) = True
-isRetryable (MissingBlockNo _) = True
-isRetryable (MissingBlockSlot _) = True
-isRetryable (MissingNextBlockHash _) = True
 
 toTx :: MonadThrow m => Blockfrost.TransactionCBOR -> m Tx
 toTx (Blockfrost.TransactionCBOR txCbor) =

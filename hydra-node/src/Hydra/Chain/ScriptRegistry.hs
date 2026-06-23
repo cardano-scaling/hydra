@@ -93,7 +93,7 @@ publishHydraScripts sk = do
 handleError :: MonadThrow m => SomeException -> m a
 handleError e =
   case fromException e of
-    Just (BlockfrostError (NoUTxOFound addr)) ->
+    Just (BlockfrostClientError (NoUTxOFound addr)) ->
       throwIO $ PublishingFundsMissing (serialiseAddress addr)
     _ ->
       throwIO e
