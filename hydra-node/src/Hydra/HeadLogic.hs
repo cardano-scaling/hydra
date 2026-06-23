@@ -1756,10 +1756,30 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         onClosedChainPartialFanoutTx closedState newChainState distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  -- Node-level
-  (_, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}) ->
-    newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
-  (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
+  -- Node-level: deposit/recover observations scoped to our head
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+    | otherwise ->
+        Continue [] []
+  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+    | otherwise ->
+        Continue [] []
+  (Idle _, ChainInput Observation{observedTx = OnDepositTx{}}) ->
+    Continue [] []
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+    | otherwise ->
+        Continue [] []
+  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+    | otherwise ->
+        Continue [] []
+  (Idle _, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
     newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
   -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
   ( Open
@@ -1901,11 +1921,18 @@ aggregateNodeState nodeState sc =
                 { headState = st
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 }
-            DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
-              nodeState
-                { headState = st
-                , pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} currentPendingDeposits
-                }
+            DepositRecorded{headId = depositHeadId, depositTxId, deposited, created, deadline} ->
+              let ourHeadId = case headState nodeState of
+                    Open OpenState{headId} -> Just headId
+                    Closed ClosedState{headId} -> Just headId
+                    Idle _ -> Nothing
+               in if ourHeadId == Just depositHeadId
+                    then
+                      nodeState
+                        { headState = st
+                        , pendingDeposits = Map.insert depositTxId Deposit{headId = depositHeadId, deposited, created, deadline, status = Inactive} currentPendingDeposits
+                        }
+                    else nodeState{headState = st}
             DepositActivated{depositTxId, deposit} ->
               nodeState
                 { headState = st
