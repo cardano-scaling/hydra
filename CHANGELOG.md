@@ -22,6 +22,13 @@ changes.
   `old-state/hydra-<logId>.db` snapshot before deleting the rotated events,
   restoring the pre-rotation backup behaviour of the old file-based persistence.
 
+- Deposit and recover chain observations are now scoped to the current head:
+  events for unrelated heads are silently ignored in Open and Closed states,
+  preventing foreign deposits from contaminating pending state or chain state
+  history. Deposits from a previous head are never discarded on fanout, so
+  recovery via the `/commits` endpoint remains available after a head closes,
+  in Idle state, and even while a new head is running. [#2743](https://github.com/cardano-scaling/hydra/pull/2743)
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
