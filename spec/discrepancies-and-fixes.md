@@ -423,8 +423,16 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
   `signedByParticipant`, which needed an extraction-faithfulness postulate), and differentially tested
   (`InitDifferential`: `RemovePTsFromHead` is now ASSERTED not abstained, + a `removePTsInitTx` non-vacuity
   demo — mint count n+1 still passes but placement count = 1 ≠ n+1 rejects, validator `MissingPTs`).
-  REMAINING (boundary, not form (a)): naming the individual PTs (form (b)) needs the per-party key list,
-  which the on-chain `Open` datum abstracts into `hk`/`n`; seed-spent + datum binding stay injected.
+  REMAINING (boundary, intentionally NOT mechanised): naming the individual PTs (form (b)) needs the
+  per-party key list, which the `Open` datum abstracts into `hk`/`n`. Two observations resolve why this is
+  left as-is: (i) form (a) already pins per-party PRESENCE operationally — `headTokenCount ≡ n+1` over the
+  n+1 DISTINCT head-policy token names (the policy mints one PT per party, named by the party's key-hash,
+  plus the ST) means, by pigeonhole with the n+1 mint count, each name is present exactly once; (ii) the
+  only residual is checking each PT NAME equals a party key-hash, which is unexpressible without the key
+  list. Faking it with a `keysOf : VKey → List VKey` postulate that decomposes the aggregate multisig key
+  would be an UNSOUND axiom (aggregate keys do not decompose) and is deliberately NOT added — it would
+  weaken the trust story for no real gain. Form (b) stays a documented boundary pending an `Open`-datum
+  schema change. seed-spent + datum binding stay injected.
 - **`depositValue`/`decommitValue` extractors** — *done (already)*: `depositValueAt`/`depositsValue`
   (input-search via `valueAtIn`) and `decommitValue` (output-search via `takeSumᵛ`) are concrete, not
   postulated (done in the increment/decrement value work). The remaining `postulate`s are the abstract
@@ -458,9 +466,21 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
 §3) is hand-reviewed prose, not mechanized. Recommended to stay prose.
 
 **D. Implementation alignment (detail in `code-spec-discrepancies.md`):** `impl-C2` rollback does not
-restore full off-chain state history Ω; `impl-C3` close/contest rely on the unchecked invariant
-`confirmedSnapshot.version ∈ {version, version-1}` (recommend a runtime assertion); `impl-C4` stale
-`-- Spec: η ← combine(S.U)` comments (cosmetic).
+restore full off-chain state history Ω (architectural; deferred). `impl-C3` close/contest reuse the
+open-state `version`, sound only if `confirmedSnapshot.version ∈ {version, version-1}`. ANALYSED
+(2026-06): this holds with ≤1 un-confirmed version bump in flight but is NOT established universally
+(back-to-back increment/decrement observations with no intervening snapshot confirmation could leave the
+confirmed snapshot ≥2 versions behind), so a HARD runtime assertion is deliberately NOT added — it could
+reject a legitimate contest and brick the node; surfacing/handling it is a node-team robustness decision
+(the in-code `XXX` stays as an accurate flag). `impl-C4` stale `-- Spec: η ← combine(S.U)` comments —
+FIXED: the three close/contest comments in `HeadLogic.hs` now read `η# ← S̄.(η')#` (the confirmed
+snapshot's stored accumulator hash; the signing-time `combine(U)`/`combine(Ûˆ)` comments are correct and
+left untouched).
+
+`Finding D` (`headSeed` unpreserved by the Plutus `mustNotChangeParameters`): ASSESSED (2026-06) and
+deliberately NOT changed. `headSeed` is unused post-init, so the missing preservation check is harmless;
+adding it edits the on-chain validator, which changes its compiled SCRIPT HASH — a breaking change to the
+head's on-chain identity — for zero security benefit. Cost ≫ benefit, so it stays a documented boundary.
 
 `impl-C5` (found 2026-06, off-chain mechanization step 1d, by adversarial figure↔Haskell check): on a
 version bump (`on (incrementTx/decrementTx, U, v) from chain`) the §6 figure resets the seen snapshot

@@ -93,6 +93,12 @@ postulate
   -- token PRESENCE (e.g. a participation token of a given name) without unfolding the opaque value
   -- map; kept abstract in the same trust family as `adaOf`/`nonAdaOf`.
   quantityOf : Value → (CId × Token) → Quantity
+  -- Per-asset NON-NEGATIVE quantity (ℕ): the per-(policy,token) refinement of `nonAdaOf`. Same trust
+  -- family as `adaOf`/`nonAdaOf` (ℕ projections of the signed value map) and additive exactly like
+  -- them, so the differential can check value conservation PER ASSET (catching a selective single-token
+  -- siphon that leaves the ada + total-non-ada totals balanced), not just on the two scalar totals.
+  quantityOfᴺ    : Value → (CId × Token) → ℕ
+  quantityOfᴺ-+ᵛ : ∀ a b k → quantityOfᴺ (a +ᵛ b) k ≡ quantityOfᴺ a k + quantityOfᴺ b k
   -- Token PLACEMENT projections (μHead init, §5.1), same trust family. `stQty v cid` is the quantity of
   -- the policy's STATE token (fixed ST name) in `v`; `headTokenCount v cid` is the number of DISTINCT
   -- tokens of policy `cid` in `v` (each minted with quantity 1, so the head output should carry n+1: one

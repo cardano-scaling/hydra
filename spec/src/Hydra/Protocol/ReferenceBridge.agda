@@ -29,6 +29,7 @@ import Hydra.Protocol.Reference as R
 open import Hydra.Protocol.RefReflection
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 open import Relation.Nullary using (yes; no)
+open import Data.List using (map)
 
 -- abstraction map: abstract close-redeemer tag → concrete Reference tag.
 -- (Matches the Haskell mirror's `tagOf` in CloseDifferential.hs.)
@@ -119,6 +120,25 @@ incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref b =
  (&&-intro (==-sound (trans (sym (nonAdaOf-+ᵛ (headValueIn ctx) (depositsValue ctx)))
                             (cong nonAdaOf (IncrementValid.valueOK b))))
            refl))
+
+-- PER-ASSET refinement of the increment value check: for EVERY native asset `k` (the caller supplies the
+-- list), `quantityOfᴺ headValueIn k + quantityOfᴺ depositsValue k ≡ quantityOfᴺ headValue k`, each derived
+-- from the SAME `incrementValueOK` value equation by the per-asset additivity law `quantityOfᴺ-+ᵛ` (exactly
+-- as the ada/non-ada totals are, but per asset). So a reference per-asset reject ⇒ the spec rejects ⇒ the
+-- validator rejects. This catches a selective single-token siphon the two scalar totals miss. Inducts on
+-- the asset list; nil is `perAssetConservedᵇ [] = true`.
+incPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref (assets : List (CId × Token))
+  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref
+  → R.perAssetConservedᵇ
+       (map (λ k → R.mkAssetIOᶜ (quantityOfᴺ (headValueIn ctx) k)
+                                (quantityOfᴺ (depositsValue ctx) k)
+                                (quantityOfᴺ (headValue ctx) k)) assets)
+     ≡ true
+incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref []       b = refl
+incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref (k ∷ ks) b =
+  &&-intro (==-sound (trans (sym (quantityOfᴺ-+ᵛ (headValueIn ctx) (depositsValue ctx) k))
+                            (cong (λ w → quantityOfᴺ w k) (IncrementValid.valueOK b))))
+           (incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref ks b)
 
 -- Decrement: version bumps AND the head value shrinks by the decommit. The reference's lovelace check
 -- `adaOut + adaDelta ≡ adaIn` follows from `decrementValueOK` (headValue +ᵛ decommitValue ≡ headValueIn)

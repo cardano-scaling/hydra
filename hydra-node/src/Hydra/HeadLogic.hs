@@ -1173,7 +1173,7 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: η ← combine(̅S.𝑈)
+  -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
   --       ξ ← ̅S.σ
   --       postTx (close, ̅S.v, ̅S.s, η, ξ)
   cause
@@ -1218,7 +1218,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           -- XXX: As we use 'version' in the contest here, this is implies
           -- that our last 'confirmedSnapshot' must match version or
           -- version-1. Assert this fact?
-          -- Spec: η ← combine(̅S.𝑈)
+          -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
           <> cause
@@ -1339,7 +1339,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
         -- XXX: As we use 'version' in the contest here, this is implies
         -- that our last 'confirmedSnapshot' must match version or
         -- version-1. Assert this fact?
-        -- Spec: η ← combine(̅S.𝑈)
+        -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
         --       ξ ← ̅S.σ
         --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}

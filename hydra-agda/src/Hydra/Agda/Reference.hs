@@ -17,6 +17,8 @@ module Hydra.Agda.Reference (
   mkOpsInc,
   checkInc,
   checkDec,
+  HsAssetIO (..),
+  checkPerAsset,
 
   -- * contest
   HsContestIO (..),
@@ -54,6 +56,7 @@ module Hydra.Agda.Reference (
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.Reference (
+  HsAssetIO (..),
   HsClaimIO (..),
   HsCloseTag (..),
   HsClosed (..),
@@ -103,6 +106,14 @@ checkInc = M.d_incRef'7495'_162
 -- head input, the validator's @mustDecreaseValue@. Crypto delegated to @OpsInc@.
 checkDec :: OpsInc -> HsIncIO -> Bool
 checkDec = M.d_decRef'7495'_168
+
+-- | Per-asset value-conservation checker (the finer companion to 'checkInc'\/'checkDec', which check
+-- only the @adaOf@\/@nonAdaOf@ totals). Each 'HsAssetIO' is one native asset's @(qIn, qDelta, qOut)@;
+-- every asset must satisfy @qIn + qDelta == qOut@ (for decrement, pass @(qOut, qDelta, qIn)@). Proved to
+-- reflect @incrementValueOK@ per asset via @quantityOfᴺ-+ᵛ@ (@incPerAsset→ref@). Catches a selective
+-- single-token siphon that leaves the two scalar totals balanced.
+checkPerAsset :: [HsAssetIO] -> Bool
+checkPerAsset = M.d_perAssetConserved'7495'_406
 
 -- | Injected boundary for contest.
 type OpsContest = M.T_OpsContest_222

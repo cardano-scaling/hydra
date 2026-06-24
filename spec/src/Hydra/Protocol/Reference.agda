@@ -368,3 +368,25 @@ record SignerIOᶜ : Set where
 
 participantSignedRefᵇ : SignerIOᶜ → Bool
 participantSignedRefᵇ s = anySharedᵇ (SignerIOᶜ.signerCodesS s) (SignerIOᶜ.ptCodesS s)
+
+-- ══ per-asset value conservation (increment / decrement) ══════════════════════════════════════
+-- The finer companion to the `adaOf`/`nonAdaOf` TOTALS checked by `incRefᵇ`/`decRefᵇ`. Given each native
+-- asset's (qIn, qDelta, qOut) — its quantity in the head input, the delta (deposit on increment /
+-- decommit on decrement) and the head output — EVERY asset must conserve: qIn + qDelta == qOut. (For the
+-- decrement direction the caller supplies (qOut, qDelta, qIn) so the same sum-check applies.) Catches a
+-- SELECTIVE single-token siphon that leaves the two scalar totals balanced. Each quantity is a
+-- (non-negative) per-asset amount (`quantityOfᴺ`); BUILTIN `_==_` per asset (amounts may be large).
+-- Defined last so MAlonzo appends fresh names without drifting the earlier mangled names in the shim.
+record AssetIOᶜ : Set where
+  constructor mkAssetIOᶜ
+  field
+    qInA    : Nat
+    qDeltaA : Nat
+    qOutA   : Nat
+{-# FOREIGN GHC data HsAssetIO = MkAssetIO Integer Integer Integer #-}
+{-# COMPILE GHC AssetIOᶜ = data HsAssetIO (MkAssetIO) #-}
+
+perAssetConservedᵇ : List AssetIOᶜ → Bool
+perAssetConservedᵇ []       = true
+perAssetConservedᵇ (a ∷ as) =
+  ((AssetIOᶜ.qInA a + AssetIOᶜ.qDeltaA a) == AssetIOᶜ.qOutA a) && perAssetConservedᵇ as

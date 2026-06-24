@@ -278,7 +278,7 @@ Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
 -- yet SATISFIABLE for one where every party signed -- so an execution can genuinely confirm.
 postulate
   aggKey      : VKey
-  snapMsg     : ℍ → ℕ → ℕ → Maybe ℍ → ℍ
+  snapMsg     : ℍ → ℕ → ℕ → ℍ → ℍ
   aggSigOf    : System → Snapshot → AggSig
 
 -- The message a snapshot's aggregate signature is verified against: its own (cid, version, number, η#),
