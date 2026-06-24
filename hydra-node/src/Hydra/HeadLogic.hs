@@ -1929,10 +1929,10 @@ aggregateNodeState nodeState sc =
                 { headState = st
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 }
-            DepositRecorded{headId = depositHeadId, depositTxId, deposited, created, deadline} ->
+            DepositRecorded{headId, depositTxId, deposited, created, deadline} ->
               nodeState
                 { headState = st
-                , pendingDeposits = Map.insert depositTxId Deposit{headId = depositHeadId, deposited, created, deadline, status = Inactive} currentPendingDeposits
+                , pendingDeposits = Map.insert depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} currentPendingDeposits
                 }
             DepositActivated{depositTxId, deposit} ->
               nodeState
