@@ -471,6 +471,23 @@ spec =
               pendingDeposits `shouldBe` mempty
             _ -> fail "expected Open state"
 
+        it "DepositRecovered while Idle removes deposit from pendingDeposits" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 1
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = inIdleState{pendingDeposits = Map.singleton depositTxId' deposit}
+          let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
+          case s1 of
+            NodeInSync{pendingDeposits} -> pendingDeposits `shouldBe` mempty
+            _ -> fail "expected NodeInSync"
+
         it "CommitFinalized from another head does not update version or localUTxO" $ do
           otherHeadId :: HeadId <- generate arbitrary
           let ownUTxO = utxoRefs [1, 2]
