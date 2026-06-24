@@ -278,6 +278,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
     → Snapshot.number snap ≡ LocalState.seenNumber st    -- S̄'.s = ŝ
+    → (LocalState.seenVersion st ≡ Snapshot.version snap) ⊎ (LocalState.seenVersion st ≡ suc (Snapshot.version snap))  -- v̂ = S̄'.v or S̄'.v+1: a snapshot is confirmed at the current or one-prior version (supports `VersionDiscipline`; the v̂-1 case is the in-flight-during-bump snapshot of impl-C5)
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
 
   -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
@@ -342,10 +343,12 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- This was discrepancy impl-C5 (a figure ↔ impl mismatch); the §6 figure now guards the reset on
   -- ŝ = s̄ (no snapshot in flight), matching this model and the node.
   increment-obs : ∀ {st U v}
+    → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- authorize-then-bump: v = S̄.v + 1 (the increment is signed at the confirmed snapshot's version); supports `VersionDiscipline`
     → st observes (incrementTx U v)
         ↝ record st { seenVersion = v ; currentDepositTxId = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U }
 
   decrement-obs : ∀ {st U v}
+    → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- as increment: v = S̄.v + 1 (authorize-then-bump)
     → st observes (decrementTx U v)
         ↝ record st { seenVersion = v ; pendingDecrement = nothing }
 
@@ -397,7 +400,7 @@ ackSn-collect-fresh (ackSn-collect p) = p
 ackSn-confirm-allSigned : ∀ {st s σ snap}
   → st handles (ackSn s σ) ↝ record st { confirmed = snap }
   → ∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st)
-ackSn-confirm-allSigned (ackSn-confirm allSigned _ _) = allSigned
+ackSn-confirm-allSigned (ackSn-confirm allSigned _ _ _) = allSigned
 
 -- ── A deposit/decommit safety invariant over the handler model ──────────────────────────────────────
 -- "At most one of a commit (tx_α) or a decommit (tx_ω) is ever in flight", the §6 figure's
@@ -423,13 +426,13 @@ noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → N
 noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
 noBothInFlight-step (hstep (reqDec-pending p _ _)) _  = inj₁ p
 noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
-noBothInFlight-step (hstep (ackSn-confirm _ _ _)) inv = inv
+noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
 noBothInFlight-step (ostep deposit-add)           inv = inv
 noBothInFlight-step (ostep (recover-del _))       inv = inv
 noBothInFlight-step (ostep tick-update)           inv = inv
-noBothInFlight-step (ostep increment-obs)          _  = inj₁ refl
-noBothInFlight-step (ostep decrement-obs)          _  = inj₂ refl
+noBothInFlight-step (ostep (increment-obs _))      _  = inj₁ refl
+noBothInFlight-step (ostep (decrement-obs _))      _  = inj₂ refl
 noBothInFlight-step (ostep (initialTx-obs _ _ _))  _  = inj₁ refl
 
 -- Hence NoBothInFlight holds throughout any off-chain run that starts from a state satisfying it
@@ -437,6 +440,41 @@ noBothInFlight-step (ostep (initialTx-obs _ _ _))  _  = inj₁ refl
 noBothInFlight-reachable : ∀ {init st} → NoBothInFlight init → Reachableᴴ init st → NoBothInFlight st
 noBothInFlight-reachable inv base       = inv
 noBothInFlight-reachable inv (step r s) = noBothInFlight-step s (noBothInFlight-reachable inv r)
+
+-- ── Version discipline over the handler model (impl-C3) ──────────────────────────────────────────────
+-- The node reuses the open-state version v̂ when posting a contest, which is well-formed only if the
+-- confirmed snapshot is at the current or the immediately-prior version (it then uses the v̂ or v̂-1
+-- signature). Here that is PROVED an invariant of the off-chain state machine — turning HeadLogic.hs's
+-- `-- XXX: … Assert this fact?` (discrepancy impl-C3) into a theorem rather than an unchecked runtime
+-- assumption. It rests on the on-chain authorize-then-bump rule, captured as the increment/decrement
+-- `v ≡ suc S̄.v` premise (a version bump is signed at the confirmed snapshot's version), so v̂ can never
+-- run more than one version ahead of S̄.v.
+VersionDiscipline : LocalState → Set
+VersionDiscipline st =
+    (LocalState.seenVersion st ≡ Snapshot.version (LocalState.confirmed st))
+  ⊎ (LocalState.seenVersion st ≡ suc (Snapshot.version (LocalState.confirmed st)))
+
+-- Every off-chain step preserves it: increment/decrement set v̂ ← S̄.v+1 (their premise → the +1 case);
+-- ackSn-confirm adopts a snapshot whose version is v̂ or v̂-1 (its premise → re-establishes it for the new
+-- S̄); all other steps touch neither v̂ nor S̄, so the invariant carries over unchanged.
+versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st → VersionDiscipline st'
+versionDiscipline-step (hstep (reqTx-pending _))       inv = inv
+versionDiscipline-step (hstep (reqDec-pending _ _ _))  inv = inv
+versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
+versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
+versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
+versionDiscipline-step (ostep deposit-add)             inv = inv
+versionDiscipline-step (ostep (recover-del _))         inv = inv
+versionDiscipline-step (ostep tick-update)             inv = inv
+versionDiscipline-step (ostep (increment-obs e))       _   = inj₂ e
+versionDiscipline-step (ostep (decrement-obs e))       _   = inj₂ e
+versionDiscipline-step (ostep (initialTx-obs eq _ _))  _   = inj₁ (sym eq)
+
+-- Hence v̂ ∈ {S̄.v, S̄.v+1} throughout any run from a version-disciplined start (the genesis state, where
+-- v̂ = S̄.v = 0): the close/contest version reuse is always well-formed.
+versionDiscipline-reachable : ∀ {init st} → VersionDiscipline init → Reachableᴴ init st → VersionDiscipline st
+versionDiscipline-reachable inv base       = inv
+versionDiscipline-reachable inv (step r s) = versionDiscipline-step s (versionDiscipline-reachable inv r)
 ```
 
 == Protocol flow

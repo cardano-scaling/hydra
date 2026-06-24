@@ -352,6 +352,8 @@ data _⟶ˢ_ : System → System → Set where
 
   confirm : ∀ {sys i snap}
     → AggVerified sys snap
+    → (LocalState.seenVersion (lookup (localOf sys) i) ≡ Snapshot.version snap)
+      ⊎ (LocalState.seenVersion (lookup (localOf sys) i) ≡ suc (Snapshot.version snap))   -- version discipline (impl-C3): a snapshot is confirmed at the current or one-prior open version
     → sys ⟶ˢ record sys
         { localOf = localOf sys [ i ]≔ record (lookup (localOf sys) i) { confirmed = snap } }
 
@@ -397,6 +399,7 @@ Initial sys =
   × (∀ i → confirmedNo (lookup (localOf sys) i) ≡ 0)
   × (∀ i → confirmedTxs (lookup (localOf sys) i) ≡ [])
   × (∀ i → NoBothInFlight (lookup (localOf sys) i))
+  × (∀ i → VersionDiscipline (lookup (localOf sys) i))
 
 -- Reachable = reflexive-transitive closure of _⟶ˢ_ from an initial system.
 data Reachable : System → Set where

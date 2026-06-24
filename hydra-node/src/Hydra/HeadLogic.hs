@@ -1215,9 +1215,6 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
       then
         outcome
-          -- XXX: As we use 'version' in the contest here, this is implies
-          -- that our last 'confirmedSnapshot' must match version or
-          -- version-1. Assert this fact?
           -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
@@ -1336,9 +1333,6 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
   if
     | -- Spec: if ̅S.s > sc
       number (getSnapshot confirmedSnapshot) > snapshotNumber ->
-        -- XXX: As we use 'version' in the contest here, this is implies
-        -- that our last 'confirmedSnapshot' must match version or
-        -- version-1. Assert this fact?
         -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
         --       ξ ← ̅S.σ
         --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
