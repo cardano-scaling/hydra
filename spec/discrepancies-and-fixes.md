@@ -467,12 +467,21 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
 
 **D. Implementation alignment (detail in `code-spec-discrepancies.md`):** `impl-C2` rollback does not
 restore full off-chain state history Ω (architectural; deferred). `impl-C3` close/contest reuse the
-open-state `version`, sound only if `confirmedSnapshot.version ∈ {version, version-1}`. ANALYSED
-(2026-06): this holds with ≤1 un-confirmed version bump in flight but is NOT established universally
-(back-to-back increment/decrement observations with no intervening snapshot confirmation could leave the
-confirmed snapshot ≥2 versions behind), so a HARD runtime assertion is deliberately NOT added — it could
-reject a legitimate contest and brick the node; surfacing/handling it is a node-team robustness decision
-(the in-code `XXX` stays as an accurate flag). `impl-C4` stale `-- Spec: η ← combine(S.U)` comments —
+open-state `version`, well-formed only if `confirmedSnapshot.version ∈ {version, version-1}`. FORMALISED
+(2026-06): now a machine-checked invariant of the off-chain handler model — `VersionDiscipline`
+(`OffChain.lagda.typ`), proved preserved by every off-chain step (`versionDiscipline-step`) and across any
+run (`versionDiscipline-reachable`), mirroring `NoBothInFlight`. It rests on the on-chain
+authorize-then-bump rule (a version bump is signed at the confirmed snapshot's version — `checkIncrement`'s
+`verifySnapshotSignature … prevVersion`), captured as the increment/decrement `v ≡ suc S̄.v` premise, so
+`v̂` never runs more than one version ahead of `S̄.v`. The node's `-- XXX: … Assert this fact?` is thereby a
+theorem; a runtime assertion is unnecessary. LIFTED to §7 (2026-06): `versionDisciplineˢ`
+(`SecurityProofs.agda`) carries `VersionDiscipline` across every reachable multi-party adversarial
+`_⟶ˢ_` execution, alongside `noBothInFlightˢ` — `confirm` now carries the version premise (a snapshot is
+confirmed at the current or one-prior open version), `signHonest` bumps only the seen number, and the
+`offChain` step reuses `versionDiscipline-step`. So impl-C3 is a property of the security model, not only
+of the local handler model. (An earlier note here speculated the invariant might not hold
+under back-to-back bumps — that is refuted by the on-chain authorization, which is exactly what the proof
+relies on.) `impl-C4` stale `-- Spec: η ← combine(S.U)` comments —
 FIXED: the three close/contest comments in `HeadLogic.hs` now read `η# ← S̄.(η')#` (the confirmed
 snapshot's stored accumulator hash; the signing-time `combine(U)`/`combine(Ûˆ)` comments are correct and
 left untouched).

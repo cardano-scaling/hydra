@@ -73,7 +73,7 @@ Certified-mono _ cert i = there (cert i)
 -- Corruption only shrinks the honest set (`honest-mono`); `sigs` only grows (`Certified-mono`
 -- carries facts forward).
 invariant : ∀ sys → Reachable sys → Inv sys
-invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty , _)) = record
+invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty , _ , _)) = record
   { sigApp   = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
   ; sigDedup = λ {k} {s1} _ m1 _ _ → ⊥-elim (∉[] (subst (λ z → (k , s1) ∈ˡ z) noSigs m1))
   ; confApp  = λ {i} _ → subst (Applicable (U₀ sys)) (sym (allConfTxsEmpty i)) ([]-applicable (U₀ sys))
@@ -266,7 +266,7 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
                    → (k , snap) ∈ˡ ((i , snap₀) ∷ sigs a) → Snapshot.txs snap ⊆ˡ lookup (seen a) k
         newSigSeen hk (here e)  = ⊥-elim (clash hk e)
         newSigSeen hk (there m) = sigSeen hk m
-    invStep {a} (confirm {i = c} {snap = snap₀} aggOK)
+    invStep {a} (confirm {i = c} {snap = snap₀} aggOK _)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
                    ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
                    ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
@@ -497,7 +497,7 @@ consistency sys reach i j hi hj =
 confCert-all : ∀ sys → Reachable sys → ∀ i
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
     ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
-confCert-all sys (base (_ , cn≡0 , ct≡[] , _)) i = inj₁ (cn≡0 i , ct≡[] i)
+confCert-all sys (base (_ , cn≡0 , ct≡[] , _ , _)) i = inj₁ (cn≡0 i , ct≡[] i)
 confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
   where
     cc : ∀ {a b} → a ⟶ˢ b
@@ -527,7 +527,7 @@ confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
     cc {a} (signCorrupt {i = signer} {snap = snap₀} _) ih i with ih i
     ... | inj₁ p = inj₁ p
     ... | inj₂ c = inj₂ (Certified-mono a {x = signer , snap₀} c)
-    cc {a} (confirm {i = c} {snap = snap₀} aggOK) ih i with c FinP.≟ i
+    cc {a} (confirm {i = c} {snap = snap₀} aggOK _) ih i with c FinP.≟ i
     ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
                            (sym (lookup∘update c (localOf a) (record (lookup (localOf a) c) { confirmed = snap₀ })))
                            (inj₂ (ms-unforgeable a snap₀ aggOK))
@@ -656,7 +656,7 @@ reflect-fanout-⊆ sys {U} {outs} {π} η≡ mem =
 -- over the handler model in Hydra.Protocol.OffChain). So the §6 `require tx_ω = ⊥ ∨ tx_α = ⊥`
 -- discipline is a machine-checked property of the security model, not just the local handler model.
 noBothInFlightˢ : ∀ sys → Reachable sys → ∀ i → NoBothInFlight (lookup (localOf sys) i)
-noBothInFlightˢ sys (base (_ , _ , _ , nbf)) i = nbf i
+noBothInFlightˢ sys (base (_ , _ , _ , nbf , _)) i = nbf i
 noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
   where
     nbStep : ∀ {a b} → a ⟶ˢ b
@@ -666,7 +666,7 @@ noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
     ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) _)) (ih j)
     ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) _)) (ih i)
     nbStep (signCorrupt _) ih i = ih i
-    nbStep {a} (confirm {i = c} _) ih i with c FinP.≟ i
+    nbStep {a} (confirm {i = c} _ _) ih i with c FinP.≟ i
     ... | yes refl = subst NoBothInFlight (sym (lookup∘update c (localOf a) _)) (ih c)
     ... | no  c≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → c≢i (sym e)) (localOf a) _)) (ih i)
     nbStep (corrupt _)    ih i = ih i
@@ -675,3 +675,34 @@ noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
     nbStep {a} (offChain {i = j} {st' = st'} w _ _) ih i with j FinP.≟ i
     ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) st')) (noBothInFlight-step w (ih j))
     ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
+
+-- ── The version discipline lifted to the §7 system: VersionDiscipline across reachable executions ──
+-- "A party's seen version is its confirmed version or exactly one above" (impl-C3) for every party,
+-- throughout any reachable adversarial execution. Seeded by `Initial` (a freshly-opened head, seen
+-- version = confirmed version = 0) and preserved by every `_⟶ˢ_` step: `confirm` sets `.confirmed = snap`
+-- but carries the version premise (the snapshot is confirmed at the current or one-prior open version),
+-- which is exactly the re-established discipline; `signHonest` bumps only `seenNumber` (seen version and
+-- confirmed untouched); signCorrupt/corrupt/finalize/see leave `localOf` untouched; and `offChain`
+-- preserves it via `versionDiscipline-step` (proved over the handler model in Hydra.Protocol.OffChain).
+-- So the impl-C3 version invariant is a machine-checked property of the security model, not a runtime
+-- assertion an honest node merely hopes to maintain.
+versionDisciplineˢ : ∀ sys → Reachable sys → ∀ i → VersionDiscipline (lookup (localOf sys) i)
+versionDisciplineˢ sys (base (_ , _ , _ , _ , vd)) i = vd i
+versionDisciplineˢ sys (step {s} r tr) = vdStep tr (versionDisciplineˢ s r)
+  where
+    vdStep : ∀ {a b} → a ⟶ˢ b
+           → (∀ i → VersionDiscipline (lookup (localOf a) i))
+           → ∀ i → VersionDiscipline (lookup (localOf b) i)
+    vdStep {a} (signHonest {i = j} _ _ _ _ _ _) ih i with j FinP.≟ i
+    ... | yes refl = subst VersionDiscipline (sym (lookup∘update j (localOf a) _)) (ih j)
+    ... | no  j≢i  = subst VersionDiscipline (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) _)) (ih i)
+    vdStep (signCorrupt _) ih i = ih i
+    vdStep {a} (confirm {i = c} {snap = snap₀} _ vd) ih i with c FinP.≟ i
+    ... | yes refl = subst VersionDiscipline (sym (lookup∘update c (localOf a) (record (lookup (localOf a) c) { confirmed = snap₀ }))) vd
+    ... | no  c≢i  = subst VersionDiscipline (sym (lookup∘update′ (λ e → c≢i (sym e)) (localOf a) _)) (ih i)
+    vdStep (corrupt _)    ih i = ih i
+    vdStep (finalize _ _) ih i = ih i
+    vdStep see            ih i = ih i
+    vdStep {a} (offChain {i = j} {st' = st'} w _ _) ih i with j FinP.≟ i
+    ... | yes refl = subst VersionDiscipline (sym (lookup∘update j (localOf a) st')) (versionDiscipline-step w (ih j))
+    ... | no  j≢i  = subst VersionDiscipline (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
