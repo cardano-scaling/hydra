@@ -1930,17 +1930,10 @@ aggregateNodeState nodeState sc =
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 }
             DepositRecorded{headId = depositHeadId, depositTxId, deposited, created, deadline} ->
-              let ourHeadId = case headState nodeState of
-                    Open OpenState{headId} -> Just headId
-                    Closed ClosedState{headId} -> Just headId
-                    Idle _ -> Nothing
-               in if ourHeadId == Just depositHeadId
-                    then
-                      nodeState
-                        { headState = st
-                        , pendingDeposits = Map.insert depositTxId Deposit{headId = depositHeadId, deposited, created, deadline, status = Inactive} currentPendingDeposits
-                        }
-                    else nodeState{headState = st}
+              nodeState
+                { headState = st
+                , pendingDeposits = Map.insert depositTxId Deposit{headId = depositHeadId, deposited, created, deadline, status = Inactive} currentPendingDeposits
+                }
             DepositActivated{depositTxId, deposit} ->
               nodeState
                 { headState = st
