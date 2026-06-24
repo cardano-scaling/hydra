@@ -215,7 +215,7 @@ spec =
               s0 = inOpenState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update bobEnv ledger now s0 depositOtherHead `hasNoStateChangedSatisfying` \case
-            DepositRecorded{} -> True
+            DepositRecorded{headId} -> headId == otherHeadId
             _ -> False
 
         prop "does not emit DepositRecovered for OnRecoverTx of another head while Open" $ \otherHeadId -> do
@@ -229,23 +229,24 @@ spec =
               s0 = inOpenState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update bobEnv ledger now s0 recoverOtherHead `hasNoStateChangedSatisfying` \case
-            DepositRecovered{} -> True
+            DepositRecovered{headId} -> headId == otherHeadId
             _ -> False
 
         it "emits DepositRecorded for own head while Closed" $ do
+          let depositTxId' = 1
           let depositOwnHead =
                 observeTx $
                   OnDepositTx
                     { headId = testHeadId
                     , deposited = mempty
-                    , depositTxId = 1
+                    , depositTxId = depositTxId'
                     , created = genUTCTime `generateWith` 41
                     , deadline = genUTCTime `generateWith` 42
                     }
               s0 = inClosedState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now s0 depositOwnHead `hasStateChangedSatisfying` \case
-            DepositRecorded{depositTxId} -> depositTxId == 1
+            DepositRecorded{depositTxId} -> depositTxId == depositTxId'
             _ -> False
 
         it "emits DepositRecovered for own head while Closed" $ do
@@ -318,7 +319,7 @@ spec =
                     }
           now <- nowFromSlot inIdleState.chainPointTime.currentSlot
           update aliceEnv ledger now inIdleState depositAnyHead `hasNoStateChangedSatisfying` \case
-            DepositRecorded{} -> True
+            DepositRecorded{headId} -> headId == anyHeadId
             _ -> False
 
         it "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ do
