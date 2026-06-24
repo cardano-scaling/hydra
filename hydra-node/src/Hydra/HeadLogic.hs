@@ -696,6 +696,14 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 -- | Client request to recover deposited UTxO.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
+-- | Client request to recover a deposit by posting a recover transaction on-chain.
+-- Works in any head state (Open, Closed, or Idle after fanout). Deposits from a
+-- previous head are never cleared from 'pendingDeposits' on fanout, so recovery
+-- remains available after a head closes. A new head only sees its own deposits via
+-- 'depositsForHead', so old deposits are never accidentally ingested into L2.
+-- On-chain, the deposit validator only enforces that the deadline has passed and
+-- that the recovered outputs match the originals — it does not require the head to
+-- still be active.
 onClientRecover ::
   IsTx tx =>
   ChainSlot ->
