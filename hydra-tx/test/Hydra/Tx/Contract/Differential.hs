@@ -24,6 +24,7 @@ module Hydra.Tx.Contract.Differential (spec, participantSignedRef) where
 import Hydra.Prelude
 
 import Data.ByteString qualified as BS
+import Data.List (nub)
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Agda.Reference qualified as Ref
@@ -141,6 +142,37 @@ lovelace o = let Coin n = selectLovelace (txOutValue o) in n
 -- native-token siphon that an ada-only check misses.
 nonAda :: TxOut ctx -> Integer
 nonAda o = sum [q | (aid, Quantity q) <- IsList.toList (txOutValue o), aid /= AdaAssetId]
+
+-- | Quantity of one specific asset in a tx output's value (0 if absent), as the Integer the per-asset
+-- reference takes — the `quantityOfᴺ` projection.
+quantityOfAsset :: TxOut ctx -> AssetId -> Integer
+quantityOfAsset o a = sum [q | (aid, Quantity q) <- IsList.toList (txOutValue o), aid == a]
+
+-- | The native (non-ada) asset ids present in a tx output's value.
+nonAdaAssets :: TxOut ctx -> [AssetId]
+nonAdaAssets o = [aid | (aid, _) <- IsList.toList (txOutValue o), aid /= AdaAssetId]
+
+-- | Per-asset increment value-conservation verdict: for EVERY native asset across the head input, the
+-- deposits and the head output, @quantityOfᴺ headIn + quantityOfᴺ deposits == quantityOfᴺ headOut@. This
+-- refines the `nonAda` TOTAL check in 'incRefVerdict' to per (policy,token), so it catches a selective
+-- single-token swap that leaves the total balanced (proved to reflect `incrementValueOK` per asset as
+-- `incPerAsset→ref`). 'Nothing' if the tx is not a readable Open→Open increment.
+incPerAssetVerdict :: (Tx, UTxO) -> Maybe Bool
+incPerAssetVerdict (tx, utxo) = do
+  (headIn, headInOut) <- findTxOutByScript utxo Head.validatorScript
+  HS.Open _ <- fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headInOut) :: Maybe HS.State
+  headOut <- txOuts' tx !!? 0
+  HS.Increment{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  let deposits = snd <$> findTxOutsByScript (resolveInputsUTxO utxo tx) depositValidatorScript
+      assets = nub (nonAdaAssets headInOut ++ concatMap nonAdaAssets deposits ++ nonAdaAssets headOut)
+      ios =
+        [ Ref.MkAssetIO
+          (quantityOfAsset headInOut a)
+          (sum [quantityOfAsset d a | d <- deposits])
+          (quantityOfAsset headOut a)
+        | a <- assets
+        ]
+  pure (Ref.checkPerAsset ios)
 
 -- | The participant-signature inputs the shared 'Ref.checkParticipantSigned' reference takes, read off
 -- the real tx: the signers' key-hashes (txInfoSignatories) and the head value's PT token-names. Both
@@ -301,6 +333,21 @@ tokenSiphonIncrementTx =
   headOut = fromJust (txOuts' (fst healthyIncrementTx) !!? 0)
   siphonToken = IsList.fromList [(AssetId testPolicyId (UnsafeAssetName "siphon"), 1)]
 
+-- | The healthy increment with the head output's STATE token swapped 1-for-1 for an unrelated token: the
+-- NON-ada TOTAL is unchanged (−1 ST, +1 swap), so the total-only check in 'incRefVerdict' still accepts,
+-- yet the per-asset conjunct sees the ST short by one (and the swap token in excess) and the validator
+-- rejects (@mustPreserveValue@). The selective swap a total-quantity check structurally cannot see.
+balancedSwapIncrementTx :: (Tx, UTxO)
+balancedSwapIncrementTx =
+  applyMutation (ChangeOutput 0 (modifyTxOutValue (<> tokenSwap) headOut)) healthyIncrementTx
+ where
+  headOut = fromJust (txOuts' (fst healthyIncrementTx) !!? 0)
+  tokenSwap =
+    IsList.fromList
+      [ (AssetId testPolicyId hydraHeadV2AssetName, -1)
+      , (AssetId testPolicyId (UnsafeAssetName "swap"), 1)
+      ]
+
 -- | The healthy increment with its required signers stripped. Version and value are untouched (so the
 -- old version+value-only reference accepted it), but no signer now holds a PT, so the new participant
 -- conjunct rejects and the validator rejects too (@NoSigners@): the @mustBeSignedByParticipant@ gap the
@@ -362,3 +409,15 @@ spec = parallel $ do
     incRefVerdict noSignerIncrementTx === Just False
   prop "increment: validator also rejects the tx with no participant signer" $
     validatorAccepts noSignerIncrementTx === False
+
+  -- Demonstration that the PER-ASSET refinement closes a further gap the non-ada TOTAL misses: a balanced
+  -- 1-for-1 token swap keeps the total constant (so the total-only reference still accepts it), but the
+  -- per-asset conjunct catches it, and the validator rejects it (mustPreserveValue).
+  prop "increment: per-asset accepts the healthy increment" $
+    incPerAssetVerdict healthyIncrementTx === Just True
+  prop "increment: a balanced token swap STILL passes the non-ada TOTAL check" $
+    incRefVerdict balancedSwapIncrementTx === Just True
+  prop "increment: the per-asset conjunct REJECTS the balanced swap the total check missed" $
+    incPerAssetVerdict balancedSwapIncrementTx === Just False
+  prop "increment: validator also rejects the balanced token swap" $
+    validatorAccepts balancedSwapIncrementTx === False

@@ -32,6 +32,7 @@ data HsRecoverIO = MkRecoverIO Integer Integer
 data HsMintIO = MkMintIO Integer Integer Integer Integer
 data HsClaimIO = MkClaimIO Integer Integer Integer Integer
 data HsSignerIO = MkSignerIO [Integer] [Integer]
+data HsAssetIO = MkAssetIO Integer Integer Integer
 -- Hydra.Protocol.Reference.CloseTagᶜ
 d_CloseTag'7580'_6 = ()
 type T_CloseTag'7580'_6 = HsCloseTag
@@ -808,3 +809,46 @@ d_participantSignedRef'7495'_386 v0
   = coe
       d_anyShared'7495'_366 (coe d_signerCodesS_380 (coe v0))
       (coe d_ptCodesS_382 (coe v0))
+-- Hydra.Protocol.Reference.AssetIOᶜ
+d_AssetIO'7580'_390 = ()
+type T_AssetIO'7580'_390 = HsAssetIO
+pattern C_mkAssetIO'7580'_404 a0 a1 a2 = MkAssetIO a0 a1 a2
+check_mkAssetIO'7580'_404 ::
+  Integer -> Integer -> Integer -> T_AssetIO'7580'_390
+check_mkAssetIO'7580'_404 = MkAssetIO
+cover_AssetIO'7580'_390 :: HsAssetIO -> ()
+cover_AssetIO'7580'_390 x
+  = case x of
+      MkAssetIO _ _ _ -> ()
+-- Hydra.Protocol.Reference.AssetIOᶜ.qInA
+d_qInA_398 :: T_AssetIO'7580'_390 -> Integer
+d_qInA_398 v0
+  = case coe v0 of
+      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.AssetIOᶜ.qDeltaA
+d_qDeltaA_400 :: T_AssetIO'7580'_390 -> Integer
+d_qDeltaA_400 v0
+  = case coe v0 of
+      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v2
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.AssetIOᶜ.qOutA
+d_qOutA_402 :: T_AssetIO'7580'_390 -> Integer
+d_qOutA_402 v0
+  = case coe v0 of
+      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v3
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.perAssetConservedᵇ
+d_perAssetConserved'7495'_406 :: [T_AssetIO'7580'_390] -> Bool
+d_perAssetConserved'7495'_406 v0
+  = case coe v0 of
+      [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+      (:) v1 v2
+        -> coe
+             d__'38''38'__58
+             (coe
+                eqInt
+                (coe addInt (coe d_qDeltaA_400 (coe v1)) (coe d_qInA_398 (coe v1)))
+                (coe d_qOutA_402 (coe v1)))
+             (coe d_perAssetConserved'7495'_406 (coe v2))
+      _ -> MAlonzo.RTE.mazUnreachableError

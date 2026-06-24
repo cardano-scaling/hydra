@@ -357,8 +357,9 @@ Clarity notes (no bugs; documentation only):
   signing message `msgOf = snapMsg cid v s η#` matches the Haskell first-signed-component / figure
   `cid‖v‖s‖η#`. cid is constant within a head, so the §7 safety proofs are unchanged (they use `msgOf`
   abstractly); the message is now faithful.
-- **B-off-3 (MED):** Agda `etaHash : Maybe ℍ` collapses Haskell's always-present `HydraAccumulator`
-  plus the separately-tracked signing status (`SeenSnapshot` vs `ConfirmedSnapshot`).
+- **B-off-3 (RESOLVED):** the Agda `Snapshot` now carries `etaHash : ℍ` (always present, like the node's
+  `HydraAccumulator`), with signing status tracked solely by `sig : Maybe AggSig`. `snapMsg`/`msgOf` take
+  the always-present `ℍ`; the §7 proofs use `msgOf` abstractly, so they are unchanged (typecheck green).
 - **B-off-4 (MED):** `CoordinatedHeadState.allTxs` (commented `Spec: Tall` in `State.hs`) has no
   counterpart in the off-chain Agda `LocalState` or the figure — it is an implementation-only index
   for resolving tx-ids in `ReqSn`.
@@ -369,11 +370,12 @@ Clarity notes (no bugs; documentation only):
   `sigDedup` / Consistency rely on. De-flattening would mean re-proving those over a richer state
   (41 use-sites across the model, §7 invariants, and the just-completed proofs) for no safety gain, so
   it is deliberately left as a documented abstraction rather than destabilise the verified result.
-- **B-off-6 (LOW):** Agda `pendingDeposit : Maybe Data` is a tx; Haskell `currentDepositTxId` is a
-  tx-id. Both sides already note the spec-says-tx / impl-uses-id gap.
-- **B-off-7 (LOW):** `reqTx-pending` prepends to `pending` (`tx ∷`) while the handler appends
-  (`Seq.|>`); irrelevant to the current abstraction, but flag if the Consistency proof ever depends
-  on `pending` ordering.
+- **B-off-6 (RESOLVED):** the Agda field is now named `currentDepositTxId : Maybe Data` (matching the
+  node) and documented as the deposit tx-id keying the `𝒟` registry. It stays `Data`-typed (the spec's
+  opaque tx/id representation).
+- **B-off-7 (RESOLVED):** `reqTx-pending` now appends to `pending` (`pending ++ [tx]`), matching the
+  node's oldest-first `Seq.|>`. The §7 proofs are agnostic to `pending` ordering (typecheck unchanged),
+  so this is a pure fidelity alignment.
 
 # Part C: off-chain differential (extracted reference vs transcription / node)
 

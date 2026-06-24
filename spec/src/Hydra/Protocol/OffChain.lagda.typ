@@ -181,21 +181,21 @@ record Snapshot : Set where        -- the confirmed snapshot object S̄
     utxo    : UTxO                 -- S̄.U
     utxoInc : UTxO                 -- S̄.U_α (pending increment)
     utxoDec : UTxO                 -- S̄.U_ω (pending decrement)
-    etaHash : Maybe ℍ              -- S̄.(η')# (⊥ until the snapshot is signed)
-    sig     : Maybe AggSig         -- S̄.σ (aggregate multisignature, once confirmed)
+    etaHash : ℍ                    -- S̄.(η')# (accumulator-commitment hash; always present, like the node's HydraAccumulator)
+    sig     : Maybe AggSig         -- S̄.σ (aggregate multisignature; ⊥ until confirmed — the sole signing-status marker)
 
 record LocalState : Set where      -- a party's local state (besides setup params)
   field
-    params           : HeadParameters
-    seenVersion      : ℕ           -- v̂
-    seenNumber       : ℕ           -- ŝ
-    seenSigs         : List (ℕ × PartySig) -- Σ̂ (individual signatures, indexed by party)
-    localLedger      : UTxO        -- L̂
-    pending          : List Data   -- T̂ (txs pending a snapshot)
-    confirmed        : Snapshot    -- S̄
-    pendingDeposit   : Maybe Data  -- tx_α (pending deposit, ⊥ if none)
-    pendingDecrement : Maybe Data  -- tx_ω (pending decrement, ⊥ if none)
-    deposits         : List (Data × DepositObj)  -- 𝒟 (registry keyed by deposit tx-id tx_α)
+    params             : HeadParameters
+    seenVersion        : ℕ          -- v̂
+    seenNumber         : ℕ          -- ŝ
+    seenSigs           : List (ℕ × PartySig) -- Σ̂ (individual signatures, indexed by party)
+    localLedger        : UTxO       -- L̂
+    pending            : List Data  -- T̂ (txs pending a snapshot)
+    confirmed          : Snapshot   -- S̄
+    currentDepositTxId : Maybe Data -- tx_α (pending deposit tx-id, the key into 𝒟; ⊥ if none — node's currentDepositTxId)
+    pendingDecrement   : Maybe Data -- tx_ω (pending decrement, ⊥ if none)
+    deposits           : List (Data × DepositObj)  -- 𝒟 (registry keyed by deposit tx-id tx_α)
 
 data Message : Set where           -- network messages of the coordinated head (§6)
   reqTx  : (tx : Data)                          → Message  -- hpRT
@@ -250,12 +250,12 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- which also supplies the updated ledger L'. (The leader-snapshot multicast is a deferred effect.)
   reqTx-pending : ∀ {st tx L'}
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'
-    → st handles (reqTx tx) ↝ record st { localLedger = L' ; pending = tx ∷ LocalState.pending st }
+    → st handles (reqTx tx) ↝ record st { localLedger = L' ; pending = LocalState.pending st ++ (tx ∷ []) }
 
   -- on (reqDec, tx): the §6 `wait U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥` guard (no commit/decommit in flight,
   -- and tx applies), all three de-abstracted as premises; then `L̂ ← L̂ ∘ tx ∖ outputs(tx)` and tx_ω ← tx.
   reqDec-pending : ∀ {st tx L'}
-    → LocalState.pendingDeposit st ≡ nothing         -- U_α = ∅ (no commit in flight)
+    → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
     → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'   -- L̂ ∘ tx ≠ ⊥ (applicability, witnessed)
     → st handles (reqDec tx) ↝ record st { localLedger = L' ∖ᵘ outputs tx ; pendingDecrement = just tx }
@@ -343,7 +343,7 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- ŝ = s̄ (no snapshot in flight), matching this model and the node.
   increment-obs : ∀ {st U v}
     → st observes (incrementTx U v)
-        ↝ record st { seenVersion = v ; pendingDeposit = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U }
+        ↝ record st { seenVersion = v ; currentDepositTxId = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U }
 
   decrement-obs : ∀ {st U v}
     → st observes (decrementTx U v)
@@ -359,7 +359,7 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
     → Snapshot.txs     genesis ≡ []
     → st observes initialTx
         ↝ record st { seenVersion = 0 ; seenNumber = 0 ; pending = [] ; confirmed = genesis
-                    ; pendingDeposit = nothing ; pendingDecrement = nothing ; localLedger = εᵘ }
+                    ; currentDepositTxId = nothing ; pendingDecrement = nothing ; localLedger = εᵘ }
 
 -- A tick only recomputes statuses: it never adds or drops a deposit (the registry length is preserved).
 tick-preserves-deposits-length : ∀ {st t st'}
@@ -406,7 +406,7 @@ ackSn-confirm-allSigned (ackSn-confirm allSigned _ _) = allSigned
 -- it is lifted to the §7 system relation `_⟶ˢ_` as `noBothInFlightˢ` (`SecurityProofs`), which reuses
 -- `noBothInFlight-step` below on the `offChain` step's embedded handler witness.
 NoBothInFlight : LocalState → Set
-NoBothInFlight st = (LocalState.pendingDeposit st ≡ nothing) ⊎ (LocalState.pendingDecrement st ≡ nothing)
+NoBothInFlight st = (LocalState.currentDepositTxId st ≡ nothing) ⊎ (LocalState.pendingDecrement st ≡ nothing)
 
 -- One off-chain step: handle a network message OR observe a chain event.
 data _⟶ᴴ_ : LocalState → LocalState → Set where
