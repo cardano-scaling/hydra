@@ -299,7 +299,7 @@ spec =
                   }
               -- Deposits from a previous head are never cleared on fanout, so they
               -- remain in pendingDeposits when the node transitions to Idle.
-              s0 = inIdleState{pendingDeposits = Map.singleton depositTxId' deposit}
+              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
           now' <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now' s0 (ClientInput (Recover depositTxId'))
             `hasEffectSatisfying` \case
