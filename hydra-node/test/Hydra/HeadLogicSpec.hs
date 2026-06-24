@@ -234,11 +234,12 @@ spec =
 
         it "emits DepositRecorded for own head while Closed" $ do
           let depositTxId' = 1
+              depositedUtxo = utxoRef 1
           let depositOwnHead =
                 observeTx $
                   OnDepositTx
                     { headId = testHeadId
-                    , deposited = mempty
+                    , deposited = depositedUtxo
                     , depositTxId = depositTxId'
                     , created = genUTCTime `generateWith` 41
                     , deadline = genUTCTime `generateWith` 42
@@ -246,16 +247,17 @@ spec =
               s0 = inClosedState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now s0 depositOwnHead `hasStateChangedSatisfying` \case
-            DepositRecorded{depositTxId} -> depositTxId == depositTxId'
+            DepositRecorded{headId, depositTxId, deposited} -> headId == testHeadId && depositTxId == depositTxId' && deposited == depositedUtxo
             _ -> False
 
         it "emits DepositRecovered for own head while Closed" $ do
           now <- getCurrentTime
           let ownDepositId = 1
+              recoveredUtxo = utxoRef 1
               ownDeposit =
                 Deposit
                   { headId = testHeadId
-                  , deposited = utxoRef 1
+                  , deposited = recoveredUtxo
                   , created = now
                   , deadline = addUTCTime 3600 now
                   , status = Active
@@ -266,25 +268,26 @@ spec =
                   OnRecoverTx
                     { headId = testHeadId
                     , recoveredTxId = ownDepositId
-                    , recoveredUTxO = mempty
+                    , recoveredUTxO = recoveredUtxo
                     }
           now' <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now' s0 recoverOwnDeposit `hasStateChangedSatisfying` \case
-            DepositRecovered{depositTxId} -> depositTxId == ownDepositId
+            DepositRecovered{headId, depositTxId, recovered} -> headId == testHeadId && depositTxId == ownDepositId && recovered == recoveredUtxo
             _ -> False
 
         it "emits DepositRecovered while Idle (post-fanout recovery)" $ do
           let ownDepositId = 1
+              recoveredUtxo = utxoRef 1
               recoverDeposit =
                 observeTx $
                   OnRecoverTx
                     { headId = testHeadId
                     , recoveredTxId = ownDepositId
-                    , recoveredUTxO = mempty
+                    , recoveredUTxO = recoveredUtxo
                     }
           now <- nowFromSlot inIdleState.chainPointTime.currentSlot
           update aliceEnv ledger now inIdleState recoverDeposit `hasStateChangedSatisfying` \case
-            DepositRecovered{depositTxId} -> depositTxId == ownDepositId
+            DepositRecovered{headId, depositTxId, recovered} -> headId == testHeadId && depositTxId == ownDepositId && recovered == recoveredUtxo
             _ -> False
 
         it "allows ClientInput Recover in Idle state for deposit surviving from previous head" $ do
@@ -304,22 +307,23 @@ spec =
           now' <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now' s0 (ClientInput (Recover depositTxId'))
             `hasEffectSatisfying` \case
-              OnChainEffect{postChainTx = RecoverTx{recoverTxId}} -> recoverTxId == depositTxId'
+              OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId}} -> headId == testHeadId && recoverTxId == depositTxId'
               _ -> False
 
         prop "ignores OnDepositTx while Idle" $ \anyHeadId -> do
-          let depositAnyHead =
+          let depositedUtxo = utxoRef 1
+              depositAnyHead =
                 observeTx $
                   OnDepositTx
                     { headId = anyHeadId
-                    , deposited = mempty
+                    , deposited = depositedUtxo
                     , depositTxId = 1
                     , created = genUTCTime `generateWith` 41
                     , deadline = genUTCTime `generateWith` 42
                     }
           now <- nowFromSlot inIdleState.chainPointTime.currentSlot
           update aliceEnv ledger now inIdleState depositAnyHead `hasNoStateChangedSatisfying` \case
-            DepositRecorded{headId} -> headId == anyHeadId
+            DepositRecorded{headId, deposited} -> headId == anyHeadId && deposited == depositedUtxo
             _ -> False
 
         it "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ do
