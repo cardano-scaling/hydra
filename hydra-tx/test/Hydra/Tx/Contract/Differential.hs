@@ -19,7 +19,7 @@
 -- The remaining crypto\/value\/accumulator conjuncts are mocked (@const True@) on the reference side,
 -- so the converse direction (validator-rejects-while-reference-accepts) is expected and not
 -- asserted.
-module Hydra.Tx.Contract.Differential (spec, participantSignedRef) where
+module Hydra.Tx.Contract.Differential (spec, participantSignedRef, noMintRef, refSpentRef) where
 
 import Hydra.Prelude
 
@@ -44,7 +44,9 @@ import Hydra.Cardano.Api (
   selectLovelace,
   serialiseToRawBytes,
   toPlutusCurrencySymbol,
+  toPlutusTxOutRef,
   txExtraKeyWits,
+  txIns,
   txMintValue,
   txMintValueToValue,
   txOutValue,
@@ -70,8 +72,9 @@ import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx)
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
-import PlutusLedgerApi.V3 (getPOSIXTime)
+import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), fromBuiltin, getPOSIXTime)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, slotLength, systemStart)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
@@ -110,7 +113,7 @@ incRefVerdict (tx, utxo) = do
   headOut <- txOuts' tx !!? 0
   outSt <- fromScriptData =<< txOutScriptData headOut
   HS.Open od' <- Just (outSt :: HS.State)
-  HS.Increment{} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  HS.Increment HS.IncrementRedeemer{HS.increment} <- findRedeemerSpending tx headIn :: Maybe HS.Input
   -- Sum EVERY spent deposit input (not just the redeemer's claimed one): mirrors the Agda
   -- `depositsValue` / Plutus `totalNonHeadInputValue`, so a multi-deposit siphon (an extra deposit
   -- whose value is routed away) makes adaIn + Σdeposits ≠ adaOut and the reference rejects.
@@ -132,6 +135,10 @@ incRefVerdict (tx, utxo) = do
       )
       -- §5.4 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
       && participantSignedRef tx headOut
+      -- §5.4 mustNotMintOrBurn: the increment mints/burns nothing (shared checker).
+      && noMintRef tx
+      -- §5.4 claimedDepositIsSpent: the redeemer's claimed deposit ref is among the spent inputs.
+      && refSpentRef tx increment
 
 -- | Lovelace (ada) component of a tx output's value, as the plain Integer the reference boundary takes.
 lovelace :: TxOut ctx -> Integer
@@ -203,6 +210,36 @@ ptCodes o =
 participantSignedRef :: Tx -> TxOut ctx -> Bool
 participantSignedRef tx out = Ref.checkParticipantSigned (Ref.MkSignerIO (signerCodes tx) (ptCodes out))
 
+-- | The number of non-zero asset entries in the tx's mint value; 0 exactly when nothing is minted or
+-- burned. The shared @mustNotMintOrBurn@ reference (close\/contest\/increment\/decrement) accepts iff
+-- this is 0, so any minting\/burning mutation makes it positive and the reference rejects.
+noMintEntryCount :: Tx -> Integer
+noMintEntryCount tx =
+  fromIntegral (length [() | (_aid, Quantity q) <- IsList.toList mintV, q /= 0])
+ where
+  mintV = txMintValueToValue (txMintValue (getTxBodyContent (getTxBody tx)))
+
+-- | The shared §5.4–5.7 @mustNotMintOrBurn@ reference check on a tx. Exported so the close differential
+-- reuses it.
+noMintRef :: Tx -> Bool
+noMintRef = Ref.checkNoMint . noMintEntryCount
+
+-- | A deterministic Integer encoding of a Plutus 'TxOutRef', so the @refSpent@ reference can compare the
+-- redeemer's claimed out-ref against the tx's spent-input out-refs (both encoded the same way). The output
+-- index is small, so @hash * K + idx@ is collision-free across a single tx's inputs.
+encodeTxOutRef :: TxOutRef -> Integer
+encodeTxOutRef (TxOutRef (TxId h) ix) = encodeHash (fromBuiltin h) * 100000 + ix
+
+-- | The encodings of the tx's spent-input out-refs (each Cardano 'TxIn' converted to the Plutus
+-- 'TxOutRef' the validator sees), under the same 'encodeTxOutRef' as the redeemer's claimed ref.
+inputRefCodes :: Tx -> [Integer]
+inputRefCodes tx = encodeTxOutRef . toPlutusTxOutRef . fst <$> txIns (getTxBodyContent (getTxBody tx))
+
+-- | The shared "referenced output is spent" reference check: is @ref@ among the tx's spent inputs? Used
+-- by the increment (the redeemer's claimed deposit) and the init differential (the head's seed). Exported.
+refSpentRef :: Tx -> TxOutRef -> Bool
+refSpentRef tx ref = Ref.checkRefSpent (encodeTxOutRef ref) (inputRefCodes tx)
+
 -- Decrement steps Open→Open and SHRINKS the head value by the decommit. Like increment, the reference
 -- now checks lovelace conservation (adaOut + adaDelta == adaIn): head output + the decommitted outputs
 -- == head input. The decommitted outputs are @take numberOfDecommitOutputs (tail (txOuts' tx))@ (head
@@ -234,6 +271,31 @@ decRefVerdict (tx, utxo) = do
       )
       -- §5.5 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
       && participantSignedRef tx headOut
+      -- §5.5 mustNotMintOrBurn: the decrement mints/burns nothing (shared checker).
+      && noMintRef tx
+
+-- | Per-asset DECREMENT value-conservation verdict (mirror of 'incPerAssetVerdict'): for EVERY native
+-- asset across the head input, the decommitted outputs and the head output,
+-- @quantityOfᴺ headOut + quantityOfᴺ decommit == quantityOfᴺ headIn@. Refines the `nonAda` TOTAL in
+-- 'decRefVerdict' to per (policy,token), catching a selective single-token over-decommit the total misses
+-- (proved to reflect `decrementValueOK` per asset as `decPerAsset→ref`). The AssetIO order matches the
+-- shared `perAssetConservedᵇ` sum-check: (qIn := headOut, qDelta := decommit, qOut := headIn).
+decPerAssetVerdict :: (Tx, UTxO) -> Maybe Bool
+decPerAssetVerdict (tx, utxo) = do
+  (headIn, headInOut) <- findTxOutByScript utxo Head.validatorScript
+  HS.Open _ <- fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headInOut) :: Maybe HS.State
+  headOut <- txOuts' tx !!? 0
+  HS.Decrement HS.DecrementRedeemer{HS.numberOfDecommitOutputs} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  let decommitOuts = take (fromIntegral numberOfDecommitOutputs) (drop 1 (txOuts' tx))
+      assets = nub (nonAdaAssets headInOut ++ concatMap nonAdaAssets decommitOuts ++ nonAdaAssets headOut)
+      ios =
+        [ Ref.MkAssetIO
+          (quantityOfAsset headOut a)
+          (sum [quantityOfAsset d a | d <- decommitOuts])
+          (quantityOfAsset headInOut a)
+        | a <- assets
+        ]
+  pure (Ref.checkPerAsset ios)
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- The reference now also checks the before-deadline guard (@validityHi ≤ tfinal@) AND the conditional
@@ -267,6 +329,8 @@ contestRefVerdict m@(tx, _) = do
       )
       -- §5.7 mustBeSignedByParticipant: some signer holds a PT in the head output (shared checker).
       && participantSignedRef tx headOut
+      -- §5.7 mustNotMintOrBurn: the contest mints/burns nothing (shared checker).
+      && noMintRef tx
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
 -- The reference now checks, besides @0 < m@: the burn count (@burnedCount == n+1@, the negated
@@ -292,6 +356,25 @@ fanoutRefVerdict m@(tx, _) = do
           (getPOSIXTime cd.contestationDeadline)
           validityLo
       )
+
+-- ── non-final partial fanout (FanoutProgress → FanoutProgress) ──────────────────────────────────
+-- The reference checks the decidable conjuncts of the intermediate partial-fanout batch: at least one
+-- output distributed (@0 < m@, the @PartialFanoutZeroOutputs@ guard the full fanout omits), posted after
+-- the deadline (@tfinal < lo@), and (shared) @mustNotMintOrBurn@. The accumulator-membership and
+-- value-conservation conjuncts stay mocked. 'Nothing' if the tx is not a readable FanoutProgress→… batch.
+partialFanoutRefVerdict :: (Tx, UTxO) -> Maybe Bool
+partialFanoutRefVerdict m@(tx, _) = do
+  (inSt, headIn) <- inputState m
+  HS.FanoutProgress fpd <- Just inSt
+  HS.PartialFanout{HS.numberOfPartialOutputs} <- findRedeemerSpending tx headIn :: Maybe HS.Input
+  validityLo <- txLowerBoundPOSIX tx
+  pure $
+    Ref.checkPartialFanout
+      numberOfPartialOutputs
+      (getPOSIXTime fpd.contestationDeadline)
+      validityLo
+      -- §5.8 mustNotMintOrBurn: the partial fanout mints/burns nothing (shared checker).
+      && noMintRef tx
 
 -- | The tx lower validity bound as POSIXTime milliseconds (matching the ledger's slot→time translation
 -- under the linear `fixedEpochInfo` fixture; see the 'Hydra.Tx.Contract.CloseDifferential' note), or
@@ -355,6 +438,29 @@ balancedSwapIncrementTx =
 noSignerIncrementTx :: (Tx, UTxO)
 noSignerIncrementTx = applyMutation (ChangeRequiredSigners []) healthyIncrementTx
 
+-- | The healthy increment made to mint an extra token. Version\/value\/signers are untouched (so the
+-- old reference accepted it), but the new no-mint conjunct rejects and the validator rejects too
+-- (@MintingOrBurningIsForbidden@): the @mustNotMintOrBurn@ gap the old (mocked) reference missed.
+mintingIncrementTx :: (Tx, UTxO)
+mintingIncrementTx = applyMutation (ChangeMintedValue minted) healthyIncrementTx
+ where
+  minted = IsList.fromList [(AssetId testPolicyId (UnsafeAssetName "mint"), 1)]
+
+-- | The healthy decrement with the head output's STATE token swapped 1-for-1 for an unrelated token: the
+-- non-ada TOTAL is unchanged (so 'decRefVerdict' still accepts), yet the per-asset conjunct sees the ST
+-- short by one and the validator rejects (@mustDecreaseValue@). The decrement mirror of
+-- 'balancedSwapIncrementTx'.
+balancedSwapDecrementTx :: (Tx, UTxO)
+balancedSwapDecrementTx =
+  applyMutation (ChangeOutput 0 (modifyTxOutValue (<> tokenSwap) headOut)) healthyDecrementTx
+ where
+  headOut = fromJust (txOuts' (fst healthyDecrementTx) !!? 0)
+  tokenSwap =
+    IsList.fromList
+      [ (AssetId testPolicyId hydraHeadV2AssetName, -1)
+      , (AssetId testPolicyId (UnsafeAssetName "swap"), 1)
+      ]
+
 -- ── property assembly ─────────────────────────────────────────────────────────────────────────
 
 -- | @reference-rejects ⇒ validator-rejects@; abstains (no constraint) when the reference can't
@@ -389,6 +495,7 @@ spec = parallel $ do
   familySpec "decrement" healthyDecrementTx genDecrementMutation decRefVerdict
   familySpec "contest" healthyContestTx genContestMutation contestRefVerdict
   familySpec "fanout" healthyFanoutTx genFanoutMutation fanoutRefVerdict
+  familySpec "partialFanout" healthyIntermediatePartialFanoutTx genPartialFanoutMutation partialFanoutRefVerdict
 
   -- Demonstration that un-mocking the non-ada value conservation closes a real gap: a pure
   -- native-token siphon passes the old lovelace-only check but the new non-ada conjunct catches it,
@@ -421,3 +528,26 @@ spec = parallel $ do
     incPerAssetVerdict balancedSwapIncrementTx === Just False
   prop "increment: validator also rejects the balanced token swap" $
     validatorAccepts balancedSwapIncrementTx === False
+
+  -- Demonstration that un-mocking the no-mint conjunct closes a real gap: a minting mutation leaves
+  -- version/value/signers intact (so the old reference accepted it) but the new no-mint conjunct rejects,
+  -- and the validator rejects too (MintingOrBurningIsForbidden).
+  prop "increment: the no-mint conjunct REJECTS a tx that mints" $
+    incRefVerdict mintingIncrementTx === Just False
+  prop "increment: validator also rejects the minting tx" $
+    validatorAccepts mintingIncrementTx === False
+
+  -- The depositSpent conjunct (the redeemer's claimed deposit ref must be among the spent inputs) is
+  -- exercised by genIncrementMutation's invalid-deposit-ref case in the family test above.
+
+  -- Decrement per-asset, mirroring the increment per-asset gap: a balanced 1-for-1 swap keeps the non-ada
+  -- TOTAL constant (so the total-only decrement reference still accepts) but the per-asset conjunct catches
+  -- it, and the validator rejects (mustDecreaseValue).
+  prop "decrement: per-asset accepts the healthy decrement" $
+    decPerAssetVerdict healthyDecrementTx === Just True
+  prop "decrement: a balanced token swap STILL passes the non-ada TOTAL check" $
+    decRefVerdict balancedSwapDecrementTx === Just True
+  prop "decrement: the per-asset conjunct REJECTS the balanced swap the total check missed" $
+    decPerAssetVerdict balancedSwapDecrementTx === Just False
+  prop "decrement: validator also rejects the balanced token swap" $
+    validatorAccepts balancedSwapDecrementTx === False

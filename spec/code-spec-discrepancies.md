@@ -98,35 +98,37 @@ the spec/Agda consistency work.
 
 ---
 
-## C3 — MED/latent (open): unchecked close/contest version-discipline invariant
+## C3 — resolved (model-proved): close/contest version-discipline invariant
 
-**Code.** `onOpenChainCloseTx` (`HeadLogic.hs:~1200`) and `onClosedChainContestTx` (`~1321`) carry
-`-- XXX: As we use 'version' in the contest here, this implies that our last 'confirmedSnapshot'
-must match version or version-1. Assert this fact?`. The `Used`/`Unused` close/contest redeemer
-choice (and the on-chain `v-1` signature check, matching Agda `closeSigOK`/`contestSigOK`) is
-correct **only if** `confirmedSnapshot.version ∈ {version, version-1}`.
+**Code.** `onOpenChainCloseTx` (`HeadLogic.hs:~1200`) and `onClosedChainContestTx` (`~1321`)
+previously carried `-- XXX: … our last 'confirmedSnapshot' must match version or version-1. Assert
+this fact?`. The `Used`/`Unused` close/contest redeemer choice (and the on-chain `v-1` signature
+check, matching Agda `closeSigOK`/`contestSigOK`) is correct **only if**
+`confirmedSnapshot.version ∈ {version, version-1}`.
 
-**Assessment.** The invariant **does** hold today (version bumps by exactly 1 per
-increment/decrement, and a confirmed snapshot is chained before the next bump), so there is **no
-bug now**. But it is unchecked; a future change that broke it would post a contest whose `Used`
-signature verifies against the wrong version → rejected by L1 → the head could not be
-defended/contested in time. Worth converting the `XXX` into a real `assert`.
+**Assessment.** The invariant **does** hold (version bumps by exactly 1 per increment/decrement, and
+a confirmed snapshot is chained before the next bump). It is now a machine-checked theorem, not an
+unchecked assumption: `VersionDiscipline` (`OffChain.lagda.typ`), proved preserved by every off-chain
+step (`versionDiscipline-step`) and across any run, and LIFTED to the §7 security model
+(`versionDisciplineˢ`, `SecurityProofs.agda`) alongside `noBothInFlightˢ`. It rests on the on-chain
+authorize-then-bump rule (`checkIncrement`'s `verifySnapshotSignature … prevVersion`). See
+`discrepancies-and-fixes.md` impl-C3.
 
-**Status: open** (latent; no current bug). Re-confirmed in the six-direction consistency audit
-(2026-06-19) and kept as a deferred follow-up note. Recommended fix when taken up: convert the `XXX`
-into a runtime assertion (`confirmedSnapshot.version ∈ {version, version-1}`) with a regression test,
-in a focused PR rather than bundled into the consistency work.
+**Status: resolved** (2026-06). The invariant is a theorem at the model and §7 levels, so a runtime
+assertion is unnecessary; the `XXX` comments have accordingly been removed from `HeadLogic.hs`.
 
 ---
 
-## C4 — LOW (open): stale `-- Spec:` comments on close/contest
+## C4 — resolved (fixed): stale `-- Spec:` comments on close/contest
 
-`onOpenClientClose` / `onOpenChainCloseTx` / `onClosedChainContestTx`
-(`HeadLogic.hs:~1158,1203,1324`) carry `-- Spec: η ← combine(̅S.𝑈)`, while the current spec reads
-the **stored** `S̄.(η')#` (the close/contest routines do `(η')# ← S̄.(η')#`). The constructed
-transaction uses the snapshot's accumulator correctly; only the comments are stale.
+`onOpenChainCloseTx` / `onClosedChainContestTx` (`HeadLogic.hs`) previously carried
+`-- Spec: η ← combine(̅S.𝑈)`, while the current spec reads the **stored** `S̄.(η')#`. The constructed
+transaction always used the snapshot's accumulator correctly; only the comments were stale.
 
-**Status: open** (cosmetic).
+**Status: resolved** (2026-06) — the three close/contest comments now read
+`η# ← S̄.(η')# (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)`;
+the signing-time `combine(U)` comments are correct and were left untouched. See
+`discrepancies-and-fixes.md` impl-C4.
 
 ---
 

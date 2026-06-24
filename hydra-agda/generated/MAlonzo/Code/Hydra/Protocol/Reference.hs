@@ -852,3 +852,18 @@ d_perAssetConserved'7495'_406 v0
                 (coe d_qOutA_402 (coe v1)))
              (coe d_perAssetConserved'7495'_406 (coe v2))
       _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.noMintRefᵇ
+d_noMintRef'7495'_412 :: Integer -> Bool
+d_noMintRef'7495'_412 v0
+  = coe d__'61''61''7495'__66 (coe v0) (coe (0 :: Integer))
+-- Hydra.Protocol.Reference.refSpentᵇ
+d_refSpent'7495'_416 :: Integer -> [Integer] -> Bool
+d_refSpent'7495'_416 v0 v1 = coe d_elem'7495'_358 (coe v0) (coe v1)
+-- Hydra.Protocol.Reference.partialFanoutRefᵇ
+d_partialFanoutRef'7495'_422 ::
+  Integer -> Integer -> Integer -> Bool
+d_partialFanoutRef'7495'_422 v0 v1 v2
+  = coe
+      d__'38''38'__58
+      (coe d__'60''7495'__78 (coe (0 :: Integer)) (coe v0))
+      (coe ltInt (coe v1) (coe v2))

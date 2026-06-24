@@ -53,6 +53,15 @@ module Hydra.Agda.Reference (
   -- * participant signature (shared: close / contest / increment / decrement)
   HsSignerIO (..),
   checkParticipantSigned,
+
+  -- * no mint / no burn (shared: close / contest / increment / decrement)
+  checkNoMint,
+
+  -- * referenced output is spent (increment claimed deposit / init seed)
+  checkRefSpent,
+
+  -- * non-final partial fanout (FanoutProgress → FanoutProgress)
+  checkPartialFanout,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.Reference (
@@ -200,3 +209,32 @@ checkClaim = M.d_claimRef'7495'_352
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkParticipantSigned :: HsSignerIO -> Bool
 checkParticipantSigned = M.d_participantSignedRef'7495'_386
+
+-- | Decidable, fully-extractable no-mint\/no-burn checker (the §5.4–5.7 @mustNotMintOrBurn@, shared by
+-- close\/contest\/increment\/decrement): the tx mints and burns nothing. The differential supplies the
+-- number of non-zero asset entries in @txInfoMint@; the mint is empty exactly when that count is 0. No
+-- injected boundary: a minting\/burning mutation (the validator's @MintingOrBurningIsForbidden@) makes the
+-- count positive and the reference rejects. Proved to reflect @noMint@ in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
+checkNoMint :: Integer -> Bool
+checkNoMint = M.d_noMintRef'7495'_412
+
+-- | Decidable, fully-extractable "referenced output is spent" checker (the increment
+-- @claimedDepositIsSpent@ and the μHead @seedInputIsConsumed@): a referenced out-ref is among the tx's
+-- spent inputs. The differential supplies the referenced out-ref and the list of the tx's input out-refs,
+-- both under one deterministic Integer encoding, and checks membership. No injected boundary: spending a
+-- different deposit \/ dropping the seed (the validator's @DepositNotSpent@ \/ @SeedNotSpent@) makes the ref
+-- absent and the reference rejects. Proved to reflect @depositSpentOK@ in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
+checkRefSpent :: Integer -> [Integer] -> Bool
+checkRefSpent = M.d_refSpent'7495'_416
+
+-- | Decidable non-final partial-fanout checker (νHead @checkPartialFanout@, the intermediate
+-- FanoutProgress→FanoutProgress batch): at least one output is distributed (@0 \< m@, the
+-- @PartialFanoutZeroOutputs@ guard the FULL fanout omits) AND the tx is posted after the contestation
+-- deadline (@tfinal \< lo@). The three 'Integer' arguments are @m@, the recorded deadline and the tx lower
+-- validity bound (POSIXTime ms). Accumulator\/value conjuncts stay abstract; @mustNotMintOrBurn@ is the
+-- shared 'checkNoMint'. Proved to reflect @partialFanoutValid@ in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
+checkPartialFanout :: Integer -> Integer -> Integer -> Bool
+checkPartialFanout = M.d_partialFanoutRef'7495'_422

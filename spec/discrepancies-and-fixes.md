@@ -393,14 +393,39 @@ Tag-collision note: the formalisation-deepening "C2" (close deadline, DONE) and 
   axiom** — the one-directional bridge needs only `cong`). Differentially tested in `DepositDifferential`
   (the cross-head deposit mutation in `genIncrementMutation` exercises it). What REMAINS mocked is the
   Increment-redeemer coupling half of `expect_increment_redeemer`.
-- **multi-asset value conservation** (`lovelace-vs-multiasset`): *partially closed* — increment/decrement
-  value conservation is now checked on TWO additive projections, `adaOf` (lovelace) AND the new
-  `nonAdaOf` (total non-ada token quantity), both bridged from the same value equation and exercised by a
-  differential demo (`tokenSiphonIncrementTx`: a pure native-token siphon that passes the old ada-only
-  check, is rejected by the new non-ada conjunct, and rejected by the validator). REMAINING: per-token
-  granularity (the total-quantity projection aliases distinct token sets with the same total — full
-  per-asset checking needs the abstract `Value` map exposed); fanout value conservation stays the
-  `headAda` boundary above. This is the pilot un-mock of a previously-`const True` value conjunct.
+- **multi-asset value conservation** (`lovelace-vs-multiasset`): *done (inc + dec)* — increment/decrement
+  value conservation is checked on TWO additive projections, `adaOf` (lovelace) AND `nonAdaOf` (total
+  non-ada token quantity), both bridged from the same value equation and exercised by a differential demo
+  (`tokenSiphonIncrementTx`: a pure native-token siphon that passes the old ada-only check, is rejected by
+  the new non-ada conjunct, and rejected by the validator). PER-ASSET granularity is now ALSO closed for
+  BOTH directions: `perAssetConservedᵇ` (the shared `quantityOfᴺ`-per-asset sum-check) is bridged via
+  `incPerAsset→ref` and `decPerAsset→ref` and exercised by `balancedSwapIncrementTx` /
+  `balancedSwapDecrementTx` (a balanced 1-for-1 token swap that the total check accepts but the per-asset
+  conjunct, and the validator, reject). Fanout value conservation stays the `headAda` boundary above.
+- **no mint / no burn** (`noMint`): *done* — the §5.4–5.7 `mustNotMintOrBurn` (a real premise of
+  `checkClose`/`checkContest`/`checkIncrement`/`checkDecrement`, verified) was a bundle field (`mintEmpty`)
+  but NOT extracted; now the shared, fully-extractable `noMintRefᵇ` (the tx's non-zero mint-entry count is
+  0) is wired into all four verdicts (close/contest/increment/decrement), bridged via the POSTULATED
+  extraction-faithfulness `noMint→ref` (same trust family as `participantSigned→ref`), and demonstrated
+  non-vacuous by `mintingIncrementTx` (a minting mutation the old reference accepted, now rejected, and
+  the validator rejects: `MintingOrBurningIsForbidden`).
+- **referenced output is spent** (`refSpent`): *done* — the increment `claimedDepositIsSpent` (the
+  redeemer's claimed deposit ref is among the spent inputs) and the μHead `seedInputIsConsumed` (the
+  head's seed, read from the datum, is spent) were folded into crypto mocks; now the shared extractable
+  `refSpentᵇ` (out-ref membership under one deterministic Integer encoding) is wired into the increment and
+  init verdicts, bridged via the POSTULATED `refSpent→ref`, and demonstrated non-vacuous: increment via
+  `genIncrementMutation`'s invalid-deposit-ref case, init via `dropSeedInitTx` (`RemoveInput` of the seed,
+  rejected: `DepositNotSpent` / `SeedNotSpent`). NB the init `versionZero` (`v ≡ 0`) field is NOT a
+  differential candidate: the μHead policy does NOT check the datum version, so extracting it would make
+  the reference reject an init the policy accepts; it stays a spec-only well-formedness field (a documented
+  spec-stronger-than-validator boundary at init).
+- **non-final partial fanout** (`partialFanout`): *done* — `partialFanoutValid` (the intermediate
+  FanoutProgress→FanoutProgress batch) previously had NO reference checker at all; now `partialFanoutRefᵇ`
+  checks its decidable conjuncts (`0 < m`, the `PartialFanoutZeroOutputs` guard the full fanout omits, +
+  posted-after-deadline `tfinal < lo`), bridged via `partialFanoutValid→ref`, with the shared `noMintRefᵇ`
+  ANDead in, and a `partialFanout` differential family over `healthyIntermediatePartialFanoutTx` /
+  `genPartialFanoutMutation` (which exercises the zero-output, burn-tokens and before-deadline mutations).
+  The anti-theft accumulator-membership / value-conservation conjuncts stay crypto/abstract (mocked).
 - **participant signature** (`signedByParticipant`): *done* — was a BARE postulate `Context → Set`; now a
   structural predicate `∃ kh, signerKeyHash ctx kh ∧ quantityOf (headValue ctx) (cid,kh) ≡ 1` (the PT-
   presence half via the new per-asset projection `quantityOf`, trust family of `adaOf`/`nonAdaOf`; the

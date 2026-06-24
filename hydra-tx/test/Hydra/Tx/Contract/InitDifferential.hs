@@ -10,8 +10,9 @@
 -- token PLACEMENT (the ST is present and the head output carries exactly @n + 1@ head-policy tokens),
 -- proved to reflect @initValid@ in spec/src/Hydra/Protocol/ReferenceBridge.agda. So @RemovePTsFromHead@
 -- (a misplacement the policy catches via @MissingPTs@) is now ASSERTED, not abstained. The seed-spent
--- check and the datum binding still need lookups the spec abstracts over and stay mocked (@const True@),
--- so mutations the policy catches only via those (e.g. @MutateDropSeedInput@) still abstain here.
+-- check (@seedInputIsConsumed@: the head's seed, read from the datum, is among the spent inputs) is now
+-- ALSO checked via the shared @refSpent@ reference, so @MutateDropSeedInput@ is ASSERTED too. Only the
+-- @cid == hash(μHead seed)@ datum binding still needs a lookup the spec abstracts over and stays mocked.
 module Hydra.Tx.Contract.InitDifferential (spec) where
 
 import Hydra.Prelude
@@ -36,7 +37,8 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.ScriptData (fromScriptData, txOutScriptData)
 import Hydra.Contract.HeadState qualified as HS
-import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Tx.Contract.Differential (refSpentRef)
+import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx, healthySeedInput)
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
@@ -74,6 +76,9 @@ initRefVerdict (tx, _utxo) = do
             ( Ref.checkInit
                 (Ref.mkOpsInit (const True))
                 (Ref.MkMintIO (fromIntegral n) mintedCount stQty headTokenCount)
+                -- §5.1 seedInputIsConsumed: the head's seed (carried in the datum, checkDatum ties it to
+                -- the policy parameter) is among the spent inputs (shared refSpent checker).
+                && refSpentRef tx od.headSeed
             )
     _ -> Nothing
 
@@ -100,6 +105,13 @@ removePTsInitTx =
     AssetId _ an -> an /= hydraHeadV2AssetName
     _ -> False
 
+-- | The healthy init with its seed input removed (the datum still names that seed). Mint count,
+-- placement and the ST are untouched (so the count\/placement-only reference accepted it), but the seed
+-- it names is no longer spent, so the new seed-spent conjunct rejects and the policy rejects too
+-- (@SeedNotSpent@). Demonstrates seed-spent is live (non-vacuous), isolated from count\/placement.
+dropSeedInitTx :: (Tx, UTxO)
+dropSeedInitTx = applyMutation (RemoveInput healthySeedInput) healthyInitTx
+
 spec :: Spec
 spec = parallel $ do
   prop "reference accepts the healthy init tx" $
@@ -119,6 +131,12 @@ spec = parallel $ do
 
   prop "validator also rejects the missing-PTs init" $
     validatorAccepts removePTsInitTx === False
+
+  prop "reference rejects an init not spending its seed" $
+    initRefVerdict dropSeedInitTx === Just False
+
+  prop "validator also rejects the no-seed init" $
+    validatorAccepts dropSeedInitTx === False
 
   prop "differential: reference-reject ⇒ validator-reject (Init mutations)" $
     forAll (genInitMutation healthyInitTx) $ \SomeMutation{mutation} ->
