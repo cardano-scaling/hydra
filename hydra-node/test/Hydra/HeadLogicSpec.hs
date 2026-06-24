@@ -23,7 +23,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -285,6 +285,26 @@ spec =
           update aliceEnv ledger now inIdleState recoverDeposit `hasStateChangedSatisfying` \case
             DepositRecovered{depositTxId} -> depositTxId == ownDepositId
             _ -> False
+
+        it "allows ClientInput Recover in Idle state for deposit surviving from previous head" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 1
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              -- Deposits from a previous head are never cleared on fanout, so they
+              -- remain in pendingDeposits when the node transitions to Idle.
+              s0 = inIdleState{pendingDeposits = Map.singleton depositTxId' deposit}
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 (ClientInput (Recover depositTxId'))
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = RecoverTx{recoverTxId}} -> recoverTxId == depositTxId'
+              _ -> False
 
         prop "ignores OnDepositTx while Idle" $ \anyHeadId -> do
           let depositAnyHead =
