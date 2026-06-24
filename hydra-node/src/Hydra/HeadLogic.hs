@@ -1777,18 +1777,15 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         Continue [] []
   (Idle _, ChainInput Observation{observedTx = OnDepositTx{}}) ->
     Continue [] []
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
-    | ourHeadId == headId ->
+  -- Deposit recovery is node-level: emit DepositRecovered for any tracked deposit
+  -- regardless of which head is currently active. Previous-head deposits survive
+  -- fanout in 'pendingDeposits', so recovery works even while a new head is Open.
+  -- Unrelated deposits (never in pendingDeposits) are silently ignored.
+  (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | Map.member recoveredTxId pendingDeposits ->
         newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
     | otherwise ->
         Continue [] []
-  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
-    | ourHeadId == headId ->
-        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
-    | otherwise ->
-        Continue [] []
-  (Idle _, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
-    newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
   -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
   ( Open
       OpenState
@@ -2027,7 +2024,7 @@ eventHeadId = \case
   SnapshotConfirmed{headId} -> Just headId
   LocalStateCleared{headId} -> Just headId
   DepositRecorded{headId} -> Just headId
-  DepositRecovered{headId} -> Just headId
+  DepositRecovered{} -> Nothing
   CommitApproved{headId} -> Just headId
   CommitFinalized{headId} -> Just headId
   DecommitRecorded{headId} -> Just headId

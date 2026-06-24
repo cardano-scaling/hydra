@@ -232,6 +232,27 @@ spec =
             DepositRecovered{headId} -> headId == otherHeadId
             _ -> False
 
+        it "emits DepositRecovered for OnRecoverTx of previous head's deposit while new head is Open" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              depositedUtxo = utxoRef 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUtxo
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = (inOpenState threeParties){pendingDeposits = Map.singleton depositTxId' deposit}
+              recoverOldHead = observeTx OnRecoverTx{headId = testHeadId, recoveredTxId = depositTxId', recoveredUTxO = depositedUtxo}
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update bobEnv ledger now' s0 recoverOldHead
+            `hasStateChangedSatisfying` \case
+              DepositRecovered{headId, depositTxId, recovered} ->
+                headId == testHeadId && depositTxId == depositTxId' && recovered == depositedUtxo
+              _ -> False
+
         it "emits DepositRecorded for own head while Closed" $ do
           let depositTxId' = 1
               depositedUtxo = utxoRef 1
@@ -445,8 +466,9 @@ spec =
                   }
           let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
           case s1 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}, pendingDeposits} -> do
               chs.currentDepositTxId `shouldBe` Just ownDepositId
+              pendingDeposits `shouldBe` mempty
             _ -> fail "expected Open state"
 
         it "CommitFinalized from another head does not update version or localUTxO" $ do
