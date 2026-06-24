@@ -159,6 +159,25 @@ decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m b =
                             (cong nonAdaOf (DecrementValid.valueOK b))))
            refl))
 
+-- PER-ASSET refinement of the DECREMENT value check (mirror of `incPerAsset→ref`): for EVERY native asset
+-- `k`, `quantityOfᴺ headValue k + quantityOfᴺ decommitValue k ≡ quantityOfᴺ headValueIn k`, each derived from
+-- the SAME `decrementValueOK` equation (`headValue +ᵛ decommitValue ≡ headValueIn`) by the per-asset
+-- additivity law `quantityOfᴺ-+ᵛ`. The caller supplies each AssetIOᶜ as (qIn := headValue, qDelta :=
+-- decommitValue, qOut := headValueIn), so the shared `perAssetConservedᵇ` sum-check `qIn + qDelta == qOut`
+-- IS this equation. Catches a selective single-token over-decommit the two scalar totals miss.
+decPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m (assets : List (CId × Token))
+  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m
+  → R.perAssetConservedᵇ
+       (map (λ k → R.mkAssetIOᶜ (quantityOfᴺ (headValue ctx) k)
+                                (quantityOfᴺ (decommitValue ctx m) k)
+                                (quantityOfᴺ (headValueIn ctx) k)) assets)
+     ≡ true
+decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m []       b = refl
+decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m (k ∷ ks) b =
+  &&-intro (==-sound (trans (sym (quantityOfᴺ-+ᵛ (headValue ctx) (decommitValue ctx m) k))
+                            (cong (λ w → quantityOfᴺ w k) (DecrementValid.valueOK b))))
+           (decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m ks b)
+
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- Version preserved (both v), snapshot strictly increases (s < s′ from the bundle), one contester
 -- appended (output contesters ≡ kh ∷ C, so length ≡ suc (length C)), and posted before the
@@ -213,6 +232,20 @@ finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
 finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
     &&-intro (==-sound (FinalPartialFanoutValid.burnAllTokens b))
    (&&-intro (<ᴮ-sound (FinalPartialFanoutValid.afterDeadline b)) refl)
+
+-- ── non-final partial fanout (FanoutProgress → FanoutProgress) ─────────────────────────────────
+-- The reference's `0 <ᵇ m` holds from `outputsPositive` (the §5.8 no-zero-output-batch guard, via the
+-- structural `<→<ᵇ`); `tfinal < lo` (posted after the deadline) from `afterDeadline` (via `<ᴮ-sound`).
+-- UNLIKE the full/final fanout, the partial path forbids m = 0, so `0 < m` IS bridged here. The
+-- accumulator-exclusion/non-empty-progress (`excludeOK`/`notDoneOK`) and value-conservation conjuncts stay
+-- abstract; `mintEmpty` is the shared `noMintRefᵇ`. So a reference reject ⇒ the spec rejects ⇒ the
+-- validator rejects (`PartialFanoutZeroOutputs` / `LowerBoundBeforeContestationDeadline`).
+partialFanoutValid→ref : ∀ ctx d d′ S m crs
+  → partialFanoutValid ctx d d′ S m crs
+  → R.partialFanoutRefᵇ m (tfinalOf d) (ValidityInterval.lo (Context.validity ctx)) ≡ true
+partialFanoutValid→ref ctx d d′ S m crs b =
+    &&-intro (<→<ᵇ (PartialFanoutValid.outputsPositive b))
+             (<ᴮ-sound (PartialFanoutValid.afterDeadline b))
 
 -- ── deposit recover (νDeposit) ────────────────────────────────────────────────────────────────
 -- The reference's after-deadline check `tRecover <ᴮ validityLo` holds from the bundle's
@@ -293,3 +326,30 @@ postulate
   ptCodes     : ℍ → Context → List ℕ
   participantSigned→ref : ∀ cid ctx → signedByParticipant cid ctx
     → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+
+-- ── no mint / no burn (shared: close / contest / increment / decrement) ────────────────────────
+-- The reference's `noMintRefᵇ (mintEntryCount ctx)` reflects `noMint ctx` (the §5.4–5.7 `mustNotMintOrBurn`).
+-- `noMint ctx = Context.mint ctx ≡ εᵛ` is over the opaque `Value`; its NON-ZERO entry count has no
+-- computational link to the abstract `≡ εᵛ`, so - exactly as `participantSigned→ref` - the correspondence
+-- is a POSTULATED extraction-faithfulness boundary: `mintEntryCount` is the count the differential supplies
+-- for real (the length of the flattened tx mint value), and a tx with empty mint is asserted to make it 0.
+-- So a reference reject (count ≠ 0) ⇒ the spec rejects ⇒ the validator rejects (`MintingOrBurningIsForbidden`).
+postulate
+  mintEntryCount : Context → ℕ
+  noMint→ref : ∀ ctx → noMint ctx → R.noMintRefᵇ (mintEntryCount ctx) ≡ true
+
+-- ── referenced output is spent (increment claimed deposit / init seed) ─────────────────────────
+-- The reference's `refSpentᵇ (refCodeOf ref) (inputRefCodes ctx)` reflects `depositSpentOK ctx ref` (the
+-- increment `claimedDepositIsSpent` / the μHead `seedInputIsConsumed`). `depositSpentOK` is an existential
+-- over the opaque `Context.inputs`; like `participantSigned→ref` it has no computational link to the
+-- extracted Integer code lists, so the correspondence is a POSTULATED extraction-faithfulness boundary:
+-- `refCodeOf`/`inputRefCodes` are the deterministic out-ref→Integer encodings the differential supplies
+-- (the referenced out-ref and the tx's spent input out-refs), and a spec-valid tx (the ref IS spent) is
+-- asserted to make the code present in the list. One lemma serves both increment (ref = the claimed
+-- deposit) and init (ref = the seed), since both bundle fields are `depositSpentOK ctx ref`. So a reference
+-- reject ⇒ the spec rejects ⇒ the validator rejects (`DepositNotSpent` / `SeedNotSpent`).
+postulate
+  refCodeOf     : OutputRef → ℕ
+  inputRefCodes : Context → List ℕ
+  refSpent→ref  : ∀ ctx ref → depositSpentOK ctx ref
+    → R.refSpentᵇ (refCodeOf ref) (inputRefCodes ctx) ≡ true

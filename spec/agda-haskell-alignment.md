@@ -83,18 +83,23 @@ binding; the init mint count; the fanout burn-count and after-deadline.)
   is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
   `==-sound` postulate in `ReferenceBridge.agda`.)
 - *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  the init seed-spent + datum binding (token PLACEMENT is now caught), the νDeposit Claim **Increment-redeemer coupling** (the
-  other half of `expect_increment_redeemer`; the head-id half IS caught), **fanout value conservation**
-  (the `headAda` datum-value term has no faithful tx counterpart — a documented boundary), and the
-  **per-token granularity** of increment/decrement value conservation (it now checks ada AND the total
-  non-ada token quantity via `nonAdaOf` — catching native-token siphons, demonstrated by
-  `tokenSiphonIncrementTx` — but two token sets with the same total alias, so distinguishing them needs
-  the full `Value` map). A validator could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close contestation deadline + bounded validity; the
-  contest before-deadline + conditional deadline-UPDATE; the fanout burn-count + after-deadline; the
-  recover after-deadline; the claim before-deadline + head-id binding; the init mint count + token
-  PLACEMENT (ST present + n+1 head-output token count); and the **participant signature**
-  `mustBeSignedByParticipant` for close/contest/increment/decrement — the shared `participantSignedRefᵇ`
-  overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`.)
+  the init datum binding (`cid = hash(μHead seed)`), the νDeposit Claim **Increment-redeemer coupling** (the
+  other half of `expect_increment_redeemer`; the head-id half IS caught), and **fanout value conservation**
+  (the `headAda` datum-value term has no faithful tx counterpart — a documented boundary). A validator
+  could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close
+  contestation deadline + bounded validity; the contest before-deadline + conditional deadline-UPDATE; the
+  fanout burn-count + after-deadline; the recover after-deadline; the claim before-deadline + head-id
+  binding; the init mint count + token PLACEMENT (ST present + n+1 head-output token count); the
+  **participant signature** `mustBeSignedByParticipant` for close/contest/increment/decrement — the shared
+  `participantSignedRefᵇ` overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`;
+  the **no-mint** `mustNotMintOrBurn` for close/contest/increment/decrement/partial-fanout (shared
+  `noMintRefᵇ`, `mintingIncrementTx`); the **referenced-output-is-spent** for the increment claimed deposit
+  (`claimedDepositIsSpent`) and the init seed (`seedInputIsConsumed`, `dropSeedInitTx`) via the shared
+  `refSpentᵇ`; **per-asset** value conservation for increment AND decrement (`perAssetConservedᵇ`,
+  `balancedSwap{Increment,Decrement}Tx`) on top of the ada + non-ada totals; and the **non-final partial
+  fanout** `0 < m` + after-deadline (`partialFanoutRefᵇ`). NB the init `versionZero` (`v ≡ 0`) is NOT a
+  differential candidate — the μHead policy does not check the datum version, so it stays a spec-only
+  field.)
 - *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
   only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
   mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
@@ -276,20 +281,22 @@ set-theory model blocks `ℙ`-membership). Worth recording.
 
 ### Coverage boundaries (Agda intentionally does not model these)
 
-- **`μHead` minting policy** (`HeadTokens`): the init token **COUNT** (minting exactly `n+1` tokens,
-  `mintedCount == suc n`) is NOW mechanized — `initRefᵇ` (`Reference.agda`) + `initValid→ref`
-  (`ReferenceBridge.agda`) + the `InitDifferential` differential (`extraTokenInitTx`). Still out of
-  scope: token **PLACEMENT** (single ST + n unique PTs into the head output), the seed-spent check, the
-  datum `headId`/`seed` binding (need multi-asset token-name lookup), and `abort`. The fanout **burn**
-  of `n+1` tokens (`burnAllTokensOK`) is modelled in the bundle but still injected at the reference layer.
+- **`μHead` minting policy** (`HeadTokens`): the init token **COUNT** (`mintedCount == suc n`), token
+  **PLACEMENT** (single ST + n+1 head-output tokens, `removePTsInitTx`) and the **seed-spent** check
+  (`seedInputIsConsumed`, via the shared `refSpentᵇ`, `dropSeedInitTx`) are NOW mechanized — `initRefᵇ`
+  (`Reference.agda`) + `initValid→ref` (`ReferenceBridge.agda`) + the `InitDifferential` differential. The
+  fanout **burn** of `n+1` tokens (`burnedCount == n+1`) is also mechanized (`fanoutRefᵇ` +
+  `fanoutValid→ref`). Still out of scope: the datum `headId`/`seed` binding (`cid = hash(μHead seed)`,
+  needs the hash), the init `versionZero` (`v ≡ 0` — the policy does not check it, so it is not a
+  differential candidate; a spec-only field), and `abort`.
 - **Deposit/recover** (`deposit.ak` / `Deposit.hs`): the **Recover** arm after-deadline conjunct
-  (`tRecover < validityLo`) is NOW mechanized — `recoverRefᵇ` (`Reference.agda`) + `recoverValid→ref`
-  (`ReferenceBridge.agda` via `<ᴮ-sound`) + the `DepositDifferential` differential
-  (`deadlineNotReachedRecoverTx`). Still out of scope: the recovered-outputs serialisation-hash equality
-  (mocked `recoverHashOK`), and the **Claim** arm (the before-deadline `hi ≤ tRecover` is type-encoded in
-  `claimValid` but not bridged/differentially tested; the redeemer-index coupling tying `Claim` to an
-  `Increment`). Agda's `incrementValid` does check the claimed deposit `ref` is spent
-  (`depositSpentOK ctx ref`, matching Plutus `claimedDepositIsSpent`).
+  (`tRecover < validityLo`) and the **Claim** arm before-deadline (`hi ≤ tRecover`) + own-head binding
+  (`depositCid == headCid`) are NOW mechanized — `recoverRefᵇ`/`claimRefᵇ` (`Reference.agda`) +
+  `recoverValid→ref`/`claimValid→ref` (`ReferenceBridge.agda`) + the `DepositDifferential`. The increment's
+  claimed-deposit-is-spent (`depositSpentOK ctx ref`, Plutus `claimedDepositIsSpent`) is also now extracted
+  via the shared `refSpentᵇ`. Still out of scope: the recovered-outputs serialisation-hash equality
+  (mocked `recoverHashOK`), and the **Claim** redeemer-index coupling tying `Claim` to an `Increment` (the
+  other half of `expect_increment_redeemer`).
 - **CRS reference-input mechanics** (`withCRSLookup`/`resolveCRS`/`CRS.hs`): the Agda `crs :
   OutputRef` redeemer parameter is inert; Plutus enforces the CRS reference script hash,
   address, and non-empty datum, and derives subset scalars by hashing outputs. Pure

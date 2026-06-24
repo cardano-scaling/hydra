@@ -390,3 +390,34 @@ perAssetConservedᵇ : List AssetIOᶜ → Bool
 perAssetConservedᵇ []       = true
 perAssetConservedᵇ (a ∷ as) =
   ((AssetIOᶜ.qInA a + AssetIOᶜ.qDeltaA a) == AssetIOᶜ.qOutA a) && perAssetConservedᵇ as
+
+-- ══ no mint / no burn (shared: close / contest / increment / decrement) ════════════════════════
+-- The `mustNotMintOrBurn` conjunct (Util.hs, a premise of checkClose/checkContest/checkIncrement/
+-- checkDecrement): the tx mints AND burns nothing (`isZero minted && isZero burned`). The differential
+-- supplies the number of NON-ZERO asset entries in `txInfoMint`; that value is empty exactly when the
+-- count is 0. Structural `_==ᵇ_` (an entry count is small). No injected Ops: a minting/burning mutation
+-- makes the count positive and the reference rejects. Appended last so MAlonzo does not drift earlier names.
+noMintRefᵇ : Nat → Bool
+noMintRefᵇ k = k ==ᵇ zero
+
+-- ══ referenced output is spent (increment claimed deposit / init seed) ══════════════════════════
+-- `claimedDepositIsSpent` (checkIncrement) / `seedInputIsConsumed` (μHead validateTokensMinting): a
+-- referenced out-ref is among the tx's spent inputs. The differential supplies the referenced out-ref and
+-- the list of the tx's input out-refs, both under ONE deterministic Integer encoding, and checks
+-- membership (reusing `elemᵇ`, whose `_==_` is the BUILTIN; the encodings may be large). No injected Ops:
+-- spending a different deposit / dropping the seed makes the ref absent and the reference rejects.
+refSpentᵇ : Nat → List Nat → Bool
+refSpentᵇ r rs = elemᵇ r rs
+
+-- ══ non-final partial fanout (FanoutProgress → FanoutProgress) ══════════════════════════════════
+-- The decidable conjuncts of `partialFanoutValid` (νHead `checkPartialFanout`, the intermediate batch):
+--   • at least one output is distributed (`mustHaveOutputs`: 0 < m, §5.8 no zero-output batch) -
+--     structural `_<ᵇ_` (m is small); UNLIKE the FULL fanout (which permits m = 0 to finalise an empty
+--     head), the partial path forbids m = 0, so this IS gated here;
+--   • posted strictly AFTER the deadline (`afterContestationDeadline`: tfinal < lo) - BUILTIN `_<_`
+--     (POSIXTime ms), the same after-deadline check as the recover / full fanout.
+-- The anti-theft `mustConserveValue` (value) and `checkCRSAndMembership` / `mustNotBeLastBatch`
+-- (accumulator) conjuncts are crypto/abstract and not modelled; the `mustNotMintOrBurn` conjunct is the
+-- shared `noMintRefᵇ` (the differential ANDs it). No injected Ops.
+partialFanoutRefᵇ : Nat → Nat → Nat → Bool
+partialFanoutRefᵇ m tfinal lo = (zero <ᵇ m) && (tfinal < lo)
