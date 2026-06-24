@@ -297,8 +297,18 @@ spec =
             _ -> False
 
         it "emits DepositRecovered while Idle (post-fanout recovery)" $ do
+          now <- getCurrentTime
           let ownDepositId = 1
               recoveredUtxo = utxoRef 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = recoveredUtxo
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = inIdleState{pendingDeposits = Map.singleton ownDepositId deposit}
               recoverDeposit =
                 observeTx $
                   OnRecoverTx
@@ -306,8 +316,8 @@ spec =
                     , recoveredTxId = ownDepositId
                     , recoveredUTxO = recoveredUtxo
                     }
-          now <- nowFromSlot inIdleState.chainPointTime.currentSlot
-          update aliceEnv ledger now inIdleState recoverDeposit `hasStateChangedSatisfying` \case
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 recoverDeposit `hasStateChangedSatisfying` \case
             DepositRecovered{headId, depositTxId, recovered} -> headId == testHeadId && depositTxId == ownDepositId && recovered == recoveredUtxo
             _ -> False
 
@@ -482,7 +492,7 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status = Active
                   }
-              s0 = inIdleState{pendingDeposits = Map.singleton depositTxId' deposit}
+              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
           let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
           case s1 of
             NodeInSync{pendingDeposits} -> pendingDeposits `shouldBe` mempty
