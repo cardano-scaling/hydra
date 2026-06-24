@@ -309,6 +309,15 @@ To recover, we can use the `/commits` endpoint again using the transaction id of
 curl -X DELETE localhost:4001/commits/ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4)
 ```
 
-If we inspect the address funds again we will see that the locked deposit is now recovered. It is important to mention that recovering works even if the Head is closed already.
+If we inspect the address funds again we will see that the locked deposit is now recovered.
+
+Recovery works in all head states:
+
+- **Open** — recover a deposit that the head hasn't ingested yet (e.g. it expired before being picked up).
+- **Closed** — the head is in the closing/contestation period; recovery is still available.
+- **Idle (after fanout)** — deposits that were pending when the head closed are never discarded. The node keeps them in its internal state across the fanout, so you can still recover them after the head is fully settled.
+- **While a new head is running** — if you open a new head, old unrecovered deposits from a previous head remain recoverable. The new head will never accidentally ingest them: it only considers deposits that explicitly target its own head ID.
+
+The on-chain deposit validator enforces two conditions for recovery: the transaction validity lower bound must be after the deposit deadline, and the recovered outputs must match the originals. It does not require the head to be active, so recovery is always possible once the deadline passes regardless of the head lifecycle.
 
 

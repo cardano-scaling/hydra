@@ -696,6 +696,14 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 -- | Client request to recover deposited UTxO.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
+-- | Client request to recover a deposit by posting a recover transaction on-chain.
+-- Works in any head state (Open, Closed, or Idle after fanout). Deposits from a
+-- previous head are never cleared from 'pendingDeposits' on fanout, so recovery
+-- remains available after a head closes. A new head only sees its own deposits via
+-- 'depositsForHead', so old deposits are never accidentally ingested into L2.
+-- On-chain, the deposit validator only enforces that the deadline has passed and
+-- that the recovered outputs match the originals — it does not require the head to
+-- still be active.
 onClientRecover ::
   IsTx tx =>
   ChainSlot ->
@@ -1756,11 +1764,28 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         onClosedChainPartialFanoutTx closedState newChainState distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  -- Node-level
-  (_, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}) ->
-    newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
-  (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
-    newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+  -- Node-level: deposit/recover observations scoped to our head
+  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+    | otherwise ->
+        Continue [] []
+  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+    | otherwise ->
+        Continue [] []
+  (Idle _, ChainInput Observation{observedTx = OnDepositTx{}}) ->
+    Continue [] []
+  -- Deposit recovery is node-level: emit DepositRecovered for any tracked deposit
+  -- regardless of which head is currently active. Previous-head deposits survive
+  -- fanout in 'pendingDeposits', so recovery works even while a new head is Open.
+  -- Unrelated deposits (never in pendingDeposits) are silently ignored.
+  (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
+    | Map.member recoveredTxId pendingDeposits ->
+        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+    | otherwise ->
+        Continue [] []
   -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
   ( Open
       OpenState
@@ -1999,7 +2024,7 @@ eventHeadId = \case
   SnapshotConfirmed{headId} -> Just headId
   LocalStateCleared{headId} -> Just headId
   DepositRecorded{headId} -> Just headId
-  DepositRecovered{headId} -> Just headId
+  DepositRecovered{} -> Nothing
   CommitApproved{headId} -> Just headId
   CommitFinalized{headId} -> Just headId
   DecommitRecorded{headId} -> Just headId
