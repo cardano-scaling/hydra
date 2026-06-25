@@ -1,0 +1,260 @@
+-- On-chain COVERAGE / non-stuckness obligations - the dual of the soundness-only corpus.
+--
+-- Every other on-chain lemma runs `accepted ⇒ safe`: the `*Valid` bundles are only ever DESTRUCTURED
+-- (the ReferenceBridge proves `*Valid ⇒ refᵇ`, read contrapositively as reference-reject ⇒ reject), and
+-- the §7 theorems prove `certified ⇒ safe`. None of those prove a `*Valid` bundle is INHABITED for the
+-- states that reach it. That is a blind spot: an over-strict conjunct (one stronger than the validator
+-- needs) only SHRINKS the accept set, so it can never falsify a soundness theorem - yet it can strand a
+-- reachable head forever (e.g. an empty head that cannot be finalised would leave its n+1 tokens
+-- unburnable), and the safety proofs are structurally unable to see it. This module supplies the missing
+-- direction for the finalize path: a reachability inductive over `HeadDatum` and the obligation that the
+-- terminal `Fanout` bundle is inhabited for the reachable empty head (and, generally, for every reachable
+-- Closed head given the abstract crypto/value antecedents).
+--
+-- This is NOT temporal liveness (§7 P3: fairness, message delivery, eventual confirmation). It is an
+-- atemporal, one-step EXISTENCE statement - completeness-of-acceptance / non-stuckness - provable with no
+-- traces, no network, no honest-majority. Typecheck-only (imports OnChain); imported by Main so the build
+-- verifies it. An `outputsPositive : 0 < m` conjunct on `FanoutValid` would make the lemmas below fail to
+-- compile (the empty head forces `m = 0`, and `mkFanoutValid` would then demand a term of the empty type
+-- `0 < 0`); the absence of that conjunct is what keeps the full fanout path coverable.
+module Hydra.Protocol.OnChainCoverage where
+
+open import Hydra.Protocol.Prelude
+open import Hydra.Protocol.Preliminaries
+open import Hydra.Protocol.OnChain
+open import Data.Product using (_×_; _,_; ∃-syntax)
+open import Data.Unit using (⊤; tt)
+open import Data.Empty using (⊥-elim)
+open import Relation.Binary.PropositionalEquality using (trans; cong)
+
+-- ── reachability over on-chain datums ────────────────────────────────────────────────────────────
+-- A datum is reachable if it is the well-formed initial `Open` produced by a valid init (version 0,
+-- η = accUTxO ∅, the shape `initValid` forces) or follows from a reachable datum by one protocol step.
+-- This is datum-SHAPE reachability over the (context-free) step relation `_⟶⟨_⟩_`; it is exactly the set
+-- of on-chain states the machine can structurally occupy.
+data Reachable : HeadDatum → Set where
+  reach-init : ∀ {cid hk n cp ada}
+    → Reachable (Open cid hk n cp 0 (accUTxO ∅ˢ) ada)
+  reach-step : ∀ {d r d'}
+    → Reachable d → d ⟶⟨ r ⟩ d' → Reachable d'
+
+-- The empty Closed head: a head opened with no committed UTxO (η = accUTxO ∅) and closed on its initial
+-- snapshot (v = s = 0, η preserved). It is reachable: init opens it empty, close-initial keeps it empty.
+emptyClosed : ℍ → VKey → ℕ → ℕ → ℕ → Value → HeadDatum
+emptyClosed cid hk n cp tfin ada = Closed cid hk n cp 0 0 (accUTxO ∅ˢ) [] tfin ada
+
+reach-empty-closed : ∀ {cid hk n cp tfin ada}
+  → Reachable (emptyClosed cid hk n cp tfin ada)
+reach-empty-closed = reach-step reach-init (close {ct = closeInitial})
+
+-- ── the minimal catcher: the empty head admits a valid (m = 0) fanout ────────────────────────────
+-- Given the enabling guard (past the deadline) and the value antecedent, the terminal `Fanout` bundle is
+-- INHABITED at m = 0, outs = ∅. The 0-output membership `accVerify (accUTxO ∅) ∅ π ≡ true` is DERIVED (the
+-- empty set is a member of its own commitment, `accVerify-self ∅`), so only the genuinely-context
+-- antecedents (deadline, burn, value) remain.
+-- THE CATCH: an `outputsPositive : 0 < m` conjunct would give `mkFanoutValid` a sixth field `0 < 0`, which
+-- is uninhabited (`suc _ ≤ 0` matches no `_≤_` constructor), so this lemma would fail to typecheck.
+fanout-empty-inhabited : ∀ {ctx cid hk n cp tfin ada} {crs}
+  → tfin < ValidityInterval.lo (Context.validity ctx)
+  → burnAllTokensOK ctx (emptyClosed cid hk n cp tfin ada)
+  → fanoutValueOK ctx ada 0
+  → ∃[ π ] FanoutValid ctx (emptyClosed cid hk n cp tfin ada) ∅ˢ 0 π crs
+fanout-empty-inhabited aft burn val =
+  let π , mem = accVerify-self ∅ˢ
+   in π , mkFanoutValid fanout burn mem aft val
+
+-- ── the real thing: non-stuckness grounded in reachability ───────────────────────────────────────
+-- The machine REACHES an empty Closed head, AND that reachable state can be finalised (at m = 0). This is
+-- the property the safety proofs cannot express: a too-strict fanout rule makes the second component
+-- unprovable while leaving every safety theorem intact.
+finalize-reachable-empty : ∀ {ctx cid hk n cp tfin ada} {crs}
+  → tfin < ValidityInterval.lo (Context.validity ctx)
+  → burnAllTokensOK ctx (emptyClosed cid hk n cp tfin ada)
+  → fanoutValueOK ctx ada 0
+  → Reachable (emptyClosed cid hk n cp tfin ada)
+    × (∃[ π ] FanoutValid ctx (emptyClosed cid hk n cp tfin ada) ∅ˢ 0 π crs)
+finalize-reachable-empty aft burn val =
+  reach-empty-closed , fanout-empty-inhabited aft burn val
+
+-- ── general coverage: every reachable Closed head can finalise ───────────────────────────────────
+-- For ANY reachable Closed head past its deadline, given the abstract fanout antecedents (burn, the
+-- members witness for the distributed set, value conservation), the terminal `Fanout` bundle is
+-- inhabited. NB the `fanout` step is structurally available from EVERY Closed head (the step relation is
+-- premise-free), so reachability is not needed to exhibit the step - what makes a state finalisable
+-- rather than stuck is PURELY the bundle's conjuncts. An over-strict conjunct (`0 < m`) is therefore
+-- exactly what turns a coverable reachable state into a permanently-stuck one, and this obligation is
+-- what fails to typecheck under it (it cannot discharge `0 < m` for the m = 0 finalisation an empty head
+-- forces). Reachability is kept in the statement to mark the intended scope (states the machine occupies).
+-- A reachable Closed head COMMITTING to a known set V (η ≡ accUTxO V) admits a valid full fanout of V
+-- (m ≔ `setSize V`). The membership witness is DERIVED (`accVerify-self`, V is a member of its own
+-- commitment) rather than threaded; only the genuinely-context antecedents (deadline, burn, value) remain.
+-- No `0 < m` needed (the full fanout permits m = 0, e.g. an empty head V = ∅). The `η ≡ accUTxO V`
+-- "commits-to-set" interface is what the crypto already guarantees; baking it in lets coverage reason.
+fanout-coverage : ∀ {ctx cid hk n cp v s C tfin ada V crs}
+  → Reachable (Closed cid hk n cp v s (accUTxO V) C tfin ada)
+  → tfin < ValidityInterval.lo (Context.validity ctx)
+  → burnAllTokensOK ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada)
+  → fanoutValueOK ctx ada (setSize V)
+  → ∃[ π ] FanoutValid ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada) V (setSize V) π crs
+fanout-coverage {V = V} _ aft burn val =
+  let (π , mem) = accVerify-self V
+   in π , mkFanoutValid fanout burn mem aft val
+
+-- ── valid-gated reachability + a structural invariant the shape relation cannot see ─────────────
+-- `Reachable` above follows the bare (premise-free) step relation, so it admits states reachable only
+-- via INVALID transitions. `Reachableᵛ` instead closes under VALID transitions - each step carries the
+-- corresponding `*Valid` bundle - so it is exactly the set of states a real (validating) chain occupies.
+-- This is the faithful notion, and it carries the bundle witnesses, which lets us derive invariants the
+-- shape relation cannot. (Fanout / final-partial go to `Final`, the terminal state, so they need no
+-- constructor here - `Final` is never a source.)
+data Reachableᵛ : HeadDatum → Set where
+  initᵛ : ∀ {cid hk n cp ada}
+    → Reachableᵛ (Open cid hk n cp 0 (accUTxO ∅ˢ) ada)
+  closeᵛ : ∀ {ctx hk cid v cp s' d d' ct}
+    → Reachableᵛ d → CloseValid ctx hk cid v cp s' d d' ct → Reachableᵛ d'
+  contestᵛ : ∀ {ctx hk cid v s tfin d d' ct}
+    → Reachableᵛ d → ContestValid ctx hk cid v s tfin d d' ct → Reachableᵛ d'
+  incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref}
+    → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref → Reachableᵛ d'
+  decrementᵛ : ∀ {ctx hk cid v d d' ξ s m}
+    → Reachableᵛ d → DecrementValid ctx hk cid v d d' ξ s m → Reachableᵛ d'
+  partialᵛ : ∀ {ctx d d' S m crs}
+    → Reachableᵛ d → PartialFanoutValid ctx d d' S m crs → Reachableᵛ d'
+
+-- The machine NEVER reaches an empty `FanoutProgress`: a validly-reached `FanoutProgress` always has a
+-- non-empty remaining accumulator (η ≢ G₁ = accUTxO ∅). The only way to reach one is a valid
+-- `PartialFanout`, whose `notDoneOK` field IS exactly this fact - so the invariant is immediate once
+-- reachability is valid-gated (the bare shape relation cannot prove it: a shape `PartialFanout` step may
+-- produce η = G₁). This is also why `FinalPartialFanoutValid.outputsPositive : 0 < m` is SOUND, not
+-- over-strict: the remainder a final batch fans out is always non-empty, so m ≥ 1 is satisfiable - the
+-- guard only blocks finalising while UTxOs remain to distribute. (Contrast `FanoutValid`, the FULL path,
+-- where the empty head forces m = 0 so no such guard can appear.)
+progress-nonEmpty : ∀ {cid hk n tfin η ada}
+  → Reachableᵛ (FanoutProgress cid hk n tfin η ada) → ¬ (η ≡ G₁)
+progress-nonEmpty (partialᵛ _ pv)     = PartialFanoutValid.notDoneOK pv
+progress-nonEmpty (closeᵛ _ cv)       with CloseValid.step cv
+... | ()
+progress-nonEmpty (contestᵛ _ cv)     with ContestValid.step cv
+... | ()
+progress-nonEmpty (incrementᵛ _ iv)   with IncrementValid.step iv
+... | ()
+progress-nonEmpty (decrementᵛ _ dv)   with DecrementValid.step dv
+... | ()
+
+-- FanoutProgress non-stuckness, FULLY DERIVED. A reachable FanoutProgress committing to set V admits
+-- a valid final batch fanning out V (m ≔ `setSize V`), and - crucially - its `outputsPositive : 0 < m` is
+-- DERIVED, not assumed: `progress-nonEmpty` gives η ≢ G₁, so (with η ≡ accUTxO V and `accUTxO-∅`, by
+-- contraposition) V ≢ ∅, hence `setSize-pos` gives 0 < setSize V. So "the machine is never stuck
+-- mid-fanout" is a genuine theorem (not a witnessed implication): the non-empty-remainder invariant
+-- supplies the positivity the final-partial guard requires. Membership is derived (`accVerify-self`);
+-- only deadline/burn/value (context facts) remain threaded.
+progress-finalizable : ∀ {ctx cid hk n tfin ada V crs}
+  → Reachableᵛ (FanoutProgress cid hk n tfin (accUTxO V) ada)
+  → tfin < ValidityInterval.lo (Context.validity ctx)
+  → burnAllTokensOK ctx (FanoutProgress cid hk n tfin (accUTxO V) ada)
+  → fanoutValueOK ctx ada (setSize V)
+  → ∃[ π ] FinalPartialFanoutValid ctx (FanoutProgress cid hk n tfin (accUTxO V) ada) V (setSize V) π crs
+progress-finalizable {V = V} reach aft burn val =
+  let (π , mem) = accVerify-self V
+   in π , mkFinalPartialFanoutValid finalPartialFanout burn mem
+            (setSize-pos (λ V≡∅ → progress-nonEmpty reach (trans (cong accUTxO V≡∅) accUTxO-∅)))
+            aft val
+
+-- ══ on-chain SAFETY INVARIANTS over reachable states (genuine proofs, not cosmetic) ════════════════
+-- The lemmas above take the `*Valid` conjuncts as FREE HYPOTHESES (fed straight to a constructor), so
+-- they are definition-agnostic. The invariants below instead CONSUME the structural premises of the
+-- transition relation across a reachable run, so corrupting a premise breaks the proof (load-bearing).
+
+-- The contester list carried by a datum (∅ for non-Closed states).
+contestersOf : HeadDatum → List VKey
+contestersOf (Closed _ _ _ _ _ _ _ C _ _) = C
+contestersOf _                            = []
+
+-- No-duplicate predicate: each element is absent from the tail.
+Distinct : List VKey → Set
+Distinct []       = ⊤
+Distinct (x ∷ xs) = ¬ (x ∈ˡ xs) × Distinct xs
+
+-- SAFETY: no party contests twice. The contesters of any reachable head are pairwise distinct. Proven by
+-- induction over `Reachable`; the `contest` step's `¬ (kh ∈ C)` premise is the ONLY thing that discharges
+-- the head-not-in-tail obligation, so this proof CONSUMES it — delete that premise from the relation and
+-- this lemma fails to type-check. (close initialises C ≔ []; increment/decrement/fanout/partial-fanout
+-- carry a non-Closed datum whose `contestersOf` is [].)
+reachable-contesters-distinct : ∀ {d} → Reachable d → Distinct (contestersOf d)
+reachable-contesters-distinct reach-init                              = tt
+reachable-contesters-distinct (reach-step r increment)               = tt
+reachable-contesters-distinct (reach-step r decrement)               = tt
+reachable-contesters-distinct (reach-step r close)                   = tt
+reachable-contesters-distinct (reach-step r (contest kh∉C))          = kh∉C , reachable-contesters-distinct r
+reachable-contesters-distinct (reach-step r fanout)                  = tt
+reachable-contesters-distinct (reach-step r partialFanoutStart)      = tt
+reachable-contesters-distinct (reach-step r partialFanoutStep)       = tt
+reachable-contesters-distinct (reach-step r finalPartialFanout)      = tt
+
+-- SAFETY: `Final` is terminal - no resurrection. Once a head fans out (Fanout / FinalPartialFanout) it
+-- cannot step again. Holds by the shape of `_⟶⟨_⟩_` (no constructor has `Final` on the left).
+final-is-terminal : ∀ {r d'} → ¬ (Final ⟶⟨ r ⟩ d')
+final-is-terminal ()
+
+-- ══ on-chain VALUE-CONSERVATION (no-theft) - making the value conjuncts load-bearing ═══════════════
+-- The user's exemplar `fanoutValueOK` was cosmetic: the coverage lemmas above take it as a free
+-- hypothesis. Here it is CONSUMED. A fanout fully accounts for the head's input value (nothing siphoned):
+-- on the ada axis, input ada = distributed ada + burned ada + carried overhead. The proof reduces the
+-- abstract value equation `fanoutValueOK` (via `FanoutValid.valueOK`) by the `adaOf` additivity law; corrupt
+-- the conjunct's definition and the `cong adaOf (valueOK b)` step no longer typechecks. This is the
+-- genuine no-theft content the conjunct was always meant to carry, now a checked theorem.
+fanout-conserves-ada : ∀ {ctx d outs m π crs}
+  → (b : FanoutValid ctx d outs m π crs)
+  → adaOf (headValueIn ctx)
+    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx) + adaOf (headAda d))
+fanout-conserves-ada {ctx} {d} {m = m} b =
+  trans (cong adaOf (FanoutValid.valueOK b))
+  (trans (adaOf-+ᵛ (takeSumᵛ m (Context.outputs ctx)) (burnedValue ctx +ᵛ headAda d))
+         (cong (adaOf (takeSumᵛ m (Context.outputs ctx)) +_) (adaOf-+ᵛ (burnedValue ctx) (headAda d))))
+
+-- Same no-theft accounting for the FINAL partial-fanout batch (also gated by `fanoutValueOK`).
+finalPartialFanout-conserves-ada : ∀ {ctx d outs m π crs}
+  → (b : FinalPartialFanoutValid ctx d outs m π crs)
+  → adaOf (headValueIn ctx)
+    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx) + adaOf (headAda d))
+finalPartialFanout-conserves-ada {ctx} {d} {m = m} b =
+  trans (cong adaOf (FinalPartialFanoutValid.valueOK b))
+  (trans (adaOf-+ᵛ (takeSumᵛ m (Context.outputs ctx)) (burnedValue ctx +ᵛ headAda d))
+         (cong (adaOf (takeSumᵛ m (Context.outputs ctx)) +_) (adaOf-+ᵛ (burnedValue ctx) (headAda d))))
+
+-- close/contest preserve the head value EXACTLY (no theft on close/contest). CONSUMES the
+-- `valuePreserved` field (was cosmetic: never projected by closeValid→ref). Both ada and non-ada axes.
+close-preserves-value : ∀ {ctx cid hk n cp v η ada s′ η′ C tfin ct}
+  → (b : closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct)
+  → (adaOf (headValueIn ctx) ≡ adaOf (headValue ctx)) × (nonAdaOf (headValueIn ctx) ≡ nonAdaOf (headValue ctx))
+close-preserves-value b = cong adaOf (CloseValid.valuePreserved b) , cong nonAdaOf (CloseValid.valuePreserved b)
+
+contest-preserves-value : ∀ {ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct}
+  → (b : contestValid ctx (Closed cid hk n cp v s η C tfin ada) (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct)
+  → (adaOf (headValueIn ctx) ≡ adaOf (headValue ctx)) × (nonAdaOf (headValueIn ctx) ≡ nonAdaOf (headValue ctx))
+contest-preserves-value b = cong adaOf (ContestValid.valuePreserved b) , cong nonAdaOf (ContestValid.valuePreserved b)
+
+-- intermediate partial fanout: input value = continuing head output + the distributed batch (no theft).
+-- CONSUMES `partialFanoutValueOK` (PartialFanoutValid.valueOK; was cosmetic - never projected).
+partialFanout-conserves-ada : ∀ {ctx d d′ S m crs}
+  → (b : PartialFanoutValid ctx d d′ S m crs)
+  → adaOf (headValueIn ctx) ≡ adaOf (headValue ctx) + adaOf (decommitValue ctx m)
+partialFanout-conserves-ada {ctx} {m = m} b =
+  trans (cong adaOf (PartialFanoutValid.valueOK b)) (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m))
+
+-- a fanout distributes ONLY outputs committed by the accumulator (no fabrication of outputs). CONSUMES the
+-- `FanoutValid.membersOK` field (was cosmetic - the predicate is used in SecurityProofs but the FIELD was
+-- never projected) and the `accVerify-sound` accumulator-soundness postulate.
+fanout-distributes-committed : ∀ {ctx cid hk n cp v s V C tfin ada outs m π crs}
+  → FanoutValid ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada) outs m π crs
+  → outs ⊆ V
+fanout-distributes-committed b = accVerify-sound (FanoutValid.membersOK b)
+
+-- a validly-INITIALISED head is a reachable state: ties the μHead init validator to the reachability the
+-- safety invariants above are stated over. CONSUMES `InitValid.versionZero` (v ≡ 0) and `InitValid.etaEmpty`
+-- (η ≡ accUTxO ∅ˢ) - both were cosmetic fields (never projected by `initValid→ref`) - to rewrite the produced
+-- Open datum into the `reach-init` shape. Corrupt either conjunct and the rewrite no longer closes the goal.
+init-reachable : ∀ {ctx seed cid hk n cp v η ada}
+  → initValid ctx seed (Open cid hk n cp v η ada)
+  → Reachable (Open cid hk n cp v η ada)
+init-reachable b rewrite InitValid.versionZero b | InitValid.etaEmpty b = reach-init

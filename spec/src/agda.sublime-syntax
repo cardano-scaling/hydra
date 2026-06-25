@@ -1,0 +1,44 @@
+%YAML 1.2
+---
+# Minimal Agda syntax grammar for Typst `raw` highlighting (syntect).
+# Covers comments, pragmas, strings, keywords and literals — enough for
+# syntactic colouring of the spec's ```agda blocks (semantic/type-aware
+# highlighting would need an upstream Agda→Typst backend).
+name: Agda
+file_extensions: [agda, lagda]
+scope: source.agda
+contexts:
+  main:
+    - match: '\{-#'
+      scope: punctuation.definition.pragma.agda
+      push:
+        - meta_scope: meta.preprocessor.agda
+        - match: '#-\}'
+          scope: punctuation.definition.pragma.agda
+          pop: true
+    - match: '\{-'
+      scope: punctuation.definition.comment.begin.agda
+      push:
+        - meta_scope: comment.block.agda
+        - match: '-\}'
+          scope: punctuation.definition.comment.end.agda
+          pop: true
+    - match: '--.*$'
+      scope: comment.line.double-dash.agda
+    - match: '"'
+      scope: punctuation.definition.string.begin.agda
+      push:
+        - meta_scope: string.quoted.double.agda
+        - match: '\\.'
+          scope: constant.character.escape.agda
+        - match: '"'
+          scope: punctuation.definition.string.end.agda
+          pop: true
+    - match: '\b(module|where|open|import|using|hiding|renaming|public|data|record|field|constructor|postulate|primitive|mutual|abstract|private|instance|let|in|do|with|rewrite|pattern|variable|syntax|infixl|infixr|infix|forall)\b'
+      scope: keyword.control.agda
+    - match: '\b(Set|Set[0-9]+|Setω|Prop|Type)\b'
+      scope: storage.type.agda
+    - match: '(?<![\w''])\d+(?![\w''])'
+      scope: constant.numeric.agda
+    - match: '[=→λ∀∃|]'
+      scope: keyword.operator.agda

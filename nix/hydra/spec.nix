@@ -15,18 +15,27 @@
       ];
     in
     {
-      packages.spec = agdaPackages.mkDerivation {
+      # Agda with the specification's libraries, reused by the spec build and
+      # exposed so the dev shell can offer the same `agda` for working on the spec.
+      packages.spec-agda = agdaPackages.withPackages agdaLibraries;
+
+      packages.spec = pkgs.stdenv.mkDerivation {
         pname = "hydra-spec.pdf";
         version = "0.0.1";
         nativeBuildInputs = with pkgs; [
           (agdaPackages.withPackages agdaLibraries)
-          (haskellPackages.ghcWithPackages (p: [ p.shake ]))
-          inkscape
-          texlive.combined.scheme-full
+          typst
         ];
         meta = { };
         src = "${self}/spec";
-        buildPhase = "shake";
+        # build.sh typechecks the literate-Typst sources with Agda, stages them,
+        # and renders the PDF with Typst (no LaTeX/Inkscape toolchain needed).
+        # --ignore-system-fonts keeps Typst reproducible: only the bundled fonts
+        # and the vendored src/fonts (StrippedJuliaMono) are used.
+        buildPhase = ''
+          export HOME=$TMPDIR
+          bash build.sh
+        '';
         installPhase = ''
           mkdir $out
           cp _build/hydra-spec.pdf $out/hydra-spec.pdf

@@ -93,6 +93,26 @@ findTxOutByScript utxo script =
     _ ->
       False
 
+-- | Find ALL 'TxOut's locked by a given Plutus script in some UTxO (the plural of
+-- 'findTxOutByScript'). Used to sum the value of every input at a script, e.g. all deposits being
+-- claimed by an increment.
+findTxOutsByScript ::
+  forall lang.
+  IsPlutusScriptLanguage lang =>
+  UTxO Era ->
+  PlutusScript lang ->
+  [(TxIn, TxOut CtxUTxO Era)]
+findTxOutsByScript utxo script =
+  List.filter matchScript (UTxO.toList utxo)
+ where
+  version = plutusScriptVersion @lang
+  matchScript = \case
+    (_, TxOut (AddressInEra _ (ShelleyAddress _ (Ledger.ScriptHashObj scriptHash') _)) _ _ _) ->
+      let scriptHash = toShelleyScriptHash $ hashScript $ PlutusScript version script
+       in scriptHash == scriptHash'
+    _ ->
+      False
+
 -- | Predicate to find or filter 'TxOut' owned by a key. This
 -- is better than comparing the full address as it does not require a network
 -- discriminator.

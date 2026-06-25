@@ -191,8 +191,10 @@ test-suite tests
     Hydra.Tx.Contract.Deposit
     Hydra.Tx.Contract.FanOut
     Hydra.Tx.Contract.FinalPartialFanout
+    Hydra.Tx.Contract.HeadValidatorAgreement
     Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
+    Hydra.Tx.Contract.OffChainDifferential
     Hydra.Tx.Contract.PartialFanout
     Hydra.Tx.Contract.Recover
     Hydra.Tx.HeadIdSpec
@@ -219,6 +221,7 @@ test-suite tests
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
+    , hydra-agda
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus
@@ -229,6 +232,7 @@ test-suite tests
     , hydra-tx
     , hydra-tx:testlib
     , lens
+    , mtl
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck

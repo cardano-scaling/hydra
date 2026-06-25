@@ -1,4 +1,6 @@
 [default.extend-words]
+# Typst file extension (.typ / .lagda.typ), referenced throughout the spec.
+"typ" = "typ"
 # [F]anout
 "anout" = "anout"
 # [I]ncrement
@@ -7,3 +9,8 @@
 "ommit" = "ommit"
 # Cardano.Ledger.Compactible module name
 "Compactible" = "Compactible"
+
+[default.extend-identifiers]
+# `sigDed` = the signature-dedup invariant in Security.lagda.typ (camelCase tokenizes
+# to "Ded", which typos would otherwise "correct" to "Dead").
+"sigDed" = "sigDed"

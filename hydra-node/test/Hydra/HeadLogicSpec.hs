@@ -502,6 +502,16 @@ spec =
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
+        -- Spec §6.4 reqDec: wait U_α = ∅. A decommit must wait while a commit
+        -- (deposit) is pending, otherwise a later snapshot would carry both. This
+        -- is the missing symmetric counterpart to the guard on 'DepositActivated'.
+        it "waits on a ReqDec while a commit (deposit) is pending" $ do
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              s0 = inOpenState' threeParties coordinatedHeadState{currentDepositTxId = Just 7}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = decommitTx})
+            `assertWait` WaitOnUnresolvedCommit{commitUTxO = mempty}
+
         it "wait for second decommit when another one is in flight" $
           do
             let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
@@ -1035,6 +1045,17 @@ spec =
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+
+      -- Spec §6.4 reqSn: require tx_ω = ⊥ ∨ tx_α = ⊥. A snapshot must not carry
+      -- both a pending deposit (commit) and a pending decommit at once; signing
+      -- one would have us post both an Increment and a Decrement that double-spend
+      -- the same head output and wedge the head.
+      it "rejects a ReqSn carrying both a deposit and a decommit" $ do
+        let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+            input = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx) (Just 2)
+            st = inOpenState threeParties
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        update bobEnv ledger now st input `shouldBe` Error (RequireFailed ReqSnDepositAndDecommit)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let reqSn1 :: Input tx

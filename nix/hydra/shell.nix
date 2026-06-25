@@ -12,6 +12,9 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
+        # For working on the formal specification (agda typecheck + typst render)
+        self'.packages.spec-agda
+        pkgs.typst
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt
