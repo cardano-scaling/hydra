@@ -4,9 +4,9 @@
 -- build (`nix build .#spec`) verifies the correspondence.
 --
 -- Direction proved (completeness): `closeValid ⇒ closeRefᵇ ≡ true`. The reference therefore
--- accepts every spec-valid close, so a reference REJECT implies the spec (hence the real
--- validator) rejects - which is what makes the hydra-tx
--- differential test's "reference-reject ⇒ validator-reject" assertion sound.
+-- accepts every spec-valid close (a reference REJECT implies the spec rejects), making the reference
+-- a faithful proxy for the spec. The hydra-tx `HeadValidatorAgreement` test then checks
+-- `reference === validator` on the SAME inputs, so spec-valid ⇒ reference-accepts ⇒ validator-accepts.
 --
 -- NB the deadline / bounded-validity conjuncts of `closeValid` are currently absorbed into the
 -- reference's injected (mock) `Ops` (they need the tx validity range + POSIXTime unit handling on
@@ -30,9 +30,13 @@ open import Hydra.Protocol.RefReflection
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 open import Relation.Nullary using (yes; no)
 open import Data.List using (map)
+open import Data.Product using (_,_; ∃-syntax)
+open import Data.List.Relation.Unary.Any using (here; there)
+open import Agda.Builtin.Bool using (true; false)
+open import Agda.Builtin.Nat using (_==_)
 
 -- abstraction map: abstract close-redeemer tag → concrete Reference tag.
--- (Matches the Haskell mirror's `tagOf` in CloseDifferential.hs.)
+-- (The Haskell `HeadValidatorAgreement` test passes the matching `R.CloseTagᶜ` constructor directly.)
 closeTagOf : CloseType → R.CloseTagᶜ
 closeTagOf closeInitial     = R.closeInitialᶜ
 closeTagOf (closeAny _ _)   = R.closeAnyᶜ
@@ -292,9 +296,10 @@ initValid→ref ctx seed cid hk n cp v η ada b =
 -- the spent head's id `hcid`. Head ids are hashes, which the hash-free reference layer cannot hold, so
 -- the boundary represents each as the Integer `cidToNat ·` and the reference compares those. The bridge
 -- only needs `cid ≡ hcid ⇒ cidToNat cid ≡ cidToNat hcid` - plain `cong` on the encoding, NO injectivity
--- assumption (that would only be needed for the converse, which the one-directional differential does
--- not assert). `cidToNat` is a typecheck-only encoding postulate (it is not part of the extracted
--- reference; the differential supplies a concrete deterministic encoding on the Haskell side).
+-- assumption (that would only be needed for the converse, which the bridge direction `bundle ⇒ reference`
+-- does not require). `cidToNat` is a typecheck-only encoding postulate (it is not part of the extracted
+-- reference; the `HeadValidatorAgreement` test supplies a concrete deterministic encoding, `cidToInteger`,
+-- injective on the distinct head ids it compares, on the Haskell side).
 -- The Increment-redeemer coupling stays injected. So a reference reject ⇒ the spec rejects ⇒ (by the
 -- deposit.ak Claim arm) the validator rejects (`DepositPeriodSurpassed` / `expect_increment_redeemer`).
 postulate cidToNat : ℍ → ℕ
@@ -340,16 +345,43 @@ postulate
 
 -- ── referenced output is spent (increment claimed deposit / init seed) ─────────────────────────
 -- The reference's `refSpentᵇ (refCodeOf ref) (inputRefCodes ctx)` reflects `depositSpentOK ctx ref` (the
--- increment `claimedDepositIsSpent` / the μHead `seedInputIsConsumed`). `depositSpentOK` is an existential
--- over the opaque `Context.inputs`; like `participantSigned→ref` it has no computational link to the
--- extracted Integer code lists, so the correspondence is a POSTULATED extraction-faithfulness boundary:
--- `refCodeOf`/`inputRefCodes` are the deterministic out-ref→Integer encodings the differential supplies
--- (the referenced out-ref and the tx's spent input out-refs), and a spec-valid tx (the ref IS spent) is
--- asserted to make the code present in the list. One lemma serves both increment (ref = the claimed
--- deposit) and init (ref = the seed), since both bundle fields are `depositSpentOK ctx ref`. So a reference
--- reject ⇒ the spec rejects ⇒ the validator rejects (`DepositNotSpent` / `SeedNotSpent`).
-postulate
-  refCodeOf     : OutputRef → ℕ
-  inputRefCodes : Context → List ℕ
-  refSpent→ref  : ∀ ctx ref → depositSpentOK ctx ref
-    → R.refSpentᵇ (refCodeOf ref) (inputRefCodes ctx) ≡ true
+-- increment `claimedDepositIsSpent` / the μHead `seedInputIsConsumed`). Unlike `participantSigned→ref`,
+-- this is a REAL proof (no faithfulness postulate): `inputRefCodes` is CONCRETE (the out-ref of each spent
+-- input, encoded), and the membership is DERIVED from the `depositSpentOK` ∃-witness by induction. Only
+-- `refCodeOf` stays a postulate - the deterministic out-ref→ℕ encoding the differential mirrors (same trust
+-- family as `cidToNat`; no injectivity needed). So a reference reject ⇒ the spec rejects ⇒ the validator
+-- rejects (`DepositNotSpent` / `SeedNotSpent`). One lemma serves increment (ref = the claimed deposit) and
+-- init (ref = the seed).
+postulate refCodeOf : OutputRef → ℕ
+
+-- CONCRETE: the encoded out-ref of every spent input (the differential supplies the same map).
+inputRefCodes : Context → List ℕ
+inputRefCodes ctx = map (λ i → refCodeOf (Input.outputRef i)) (Context.inputs ctx)
+
+-- `b || true ≡ true` for the extracted `_||_` (used in the `there`/short-circuit step of `elemᵇ-mapped`).
+||ᵇ-trueʳ : ∀ b → (b R.|| true) ≡ true
+||ᵇ-trueʳ true  = refl
+||ᵇ-trueʳ false = refl
+
+-- membership ⇒ the extracted overlap check fires: if `c` encodes some `i ∈ xs` (c ≡ g i), then
+-- `elemᵇ c (map g xs) ≡ true`. Induction over the `Any (_≡_)` witness; the head case discharges via
+-- `==-sound` (c ≡ g y so `c == g y ≡ true`), the tail case via the IH and `||ᵇ-trueʳ`.
+elemᵇ-mapped : ∀ {A : Set} (g : A → ℕ) (c : ℕ) {i : A} (xs : List A)
+  → i ∈ˡ xs → c ≡ g i → R.elemᵇ c (map g xs) ≡ true
+elemᵇ-mapped g c (y ∷ ys) (here  i≡y) c≡gi =
+  cong (R._|| R.elemᵇ c (map g ys)) (==-sound (trans c≡gi (cong g i≡y)))
+elemᵇ-mapped g c (y ∷ ys) (there p)   c≡gi =
+  trans (cong ((c == g y) R.||_) (elemᵇ-mapped g c ys p c≡gi)) (||ᵇ-trueʳ (c == g y))
+
+refSpent→ref : ∀ ctx ref → depositSpentOK ctx ref
+  → R.refSpentᵇ (refCodeOf ref) (inputRefCodes ctx) ≡ true
+refSpent→ref ctx ref (i , i∈inputs , outRef≡ref) =
+  elemᵇ-mapped (λ j → refCodeOf (Input.outputRef j)) (refCodeOf ref) (Context.inputs ctx)
+    i∈inputs (sym (cong refCodeOf outRef≡ref))
+
+-- init's `seedSpent` (the μHead `seedInputIsConsumed`) reuses the real `refSpent→ref` for the seed
+-- out-ref. CONSUMES `InitValid.seedSpent` (was a cosmetic field - `initValid→ref` never projected it).
+initSeedSpent→ref : ∀ ctx seed cid hk n cp v η ada
+  → initValid ctx seed (Open cid hk n cp v η ada)
+  → R.refSpentᵇ (refCodeOf seed) (inputRefCodes ctx) ≡ true
+initSeedSpent→ref ctx seed cid hk n cp v η ada b = refSpent→ref ctx seed (InitValid.seedSpent b)

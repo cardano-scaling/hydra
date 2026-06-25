@@ -159,16 +159,10 @@ enforced by the model, so `Reflects` is conditional on the finalizer having post
 νDeposit validator (`deposit.ak`) and the off-chain handlers are likewise hand-reviewed coverage
 boundaries (see `claimTxValid`), not part of any machine-checked theorem here.
 
-As an aside (not used in the proofs below), a monotonicity proposition on a
-party's confirmed snapshot number is stated in @agda-appendix.
-
-```agda
--- An illustrative standalone proposition (not part of the proved properties below): a
--- confirmed snapshot's number does not decrease from one local state to another.
-SnapshotMonotone : LocalState → LocalState → Set
-SnapshotMonotone st st' =
-  Snapshot.number (LocalState.confirmed st) ≤ Snapshot.number (LocalState.confirmed st')
-```
+The confirmed-snapshot ordering that the safety argument actually relies on is machine-checked, not a
+free-standing predicate: `agree` (L1: two honest-certified snapshots of the same number coincide) and
+`cert-nest` (L2: honest-certified snapshots nest by number), both proved over `Reachable` in
+@agda-appendix and consumed by the theorems below.
 
 The §7 properties quantify over whole multi-party executions in the presence of an
 adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs` (@agda-appendix), a global

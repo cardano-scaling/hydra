@@ -38,75 +38,78 @@ hand. A decidable reference checker (`spec/src/Hydra/Protocol/Reference.agda`) m
 unit-robust, structural conjuncts of the validity bundles (version discipline, snapshot
 ordering, contester initialisation, the fanout `m > 0` guard); a typecheck-only bridge
 (`ReferenceBridge.agda`) proves each bundle *implies* its reference accepts. The checker is
-extracted to Haskell via MAlonzo (the `hydra-agda` package) and run as a second oracle in the
-`hydra-tx` mutation tests (`Hydra.Tx.Contract.CloseDifferential`, `Hydra.Tx.Contract.Differential`,
-`Hydra.Tx.Contract.InitDifferential`, `Hydra.Tx.Contract.DepositDifferential`), asserting
-*reference-reject ⇒ validator-reject* across the close / increment / decrement / contest / fanout /
-**init** (μHead token count) / **recover** (νDeposit after-deadline) families. A future validator change
-that drops a decidable spec check fails these tests (demonstrated: deleting `mustNotChangeVersion` makes
-the close differential fail). The crypto / accumulator-membership conjuncts, the token-PLACEMENT check,
-the νDeposit Increment-redeemer coupling, the fanout *value conservation* (the `headAda` datum-value term
-has no faithful tx counterpart — a documented boundary, not mechanizable here), and the *non-lovelace /
-multi-asset* component of value conservation remain injected as mocked operations and are *not* covered by
-this mechanization; they are still matched by manual review (below). (NOW mechanized — see below: the
-close contestation deadline AND its bounded-validity `hi−lo≤cp`; the contest before-deadline AND the
-conditional deadline-UPDATE rule; the recover after-deadline; the claim before-deadline AND the head-id
-binding; the init mint count; the fanout burn-count and after-deadline.)
+extracted to Haskell via MAlonzo (the `hydra-agda` package) and run as a second oracle, on the
+SAME inputs as the real validator, in the `hydra-tx` test
+`Hydra.Tx.Contract.HeadValidatorAgreement`.
 
-**Scope — what the differential test does and does not establish (do not over-sell):**
+This is a **function-level agreement** test: it constructs each validator's inputs
+(`State` / `Input` / `ScriptContext`) directly and asserts `reference === validator` over
+independently generated modeled fields, so BOTH the accept and the reject directions are
+exercised in one property (each family also has a healthy anchor where both oracles accept).
+There are no transactions, no ledger evaluation, and no mutation generators. (An earlier layer
+reused the hydra mutation generators and asserted only *reference-reject ⇒ validator-reject*
+over a corpus that is validator-rejecting by construction, which is vacuous; that layer
+`Hydra.Tx.Contract.{Differential,CloseDifferential,InitDifferential,DepositDifferential}` has
+been removed.) The "real validator" is the actual contract code: `Head.headValidator` (a plain
+Haskell function) for close / increment / decrement / contest / fanout / partial-fanout,
+`HeadTokens.validateTokensMinting` for **init** (μHead), and the compiled **Aiken** `deposit.ak`
+(deserialised from `plutus.json` and evaluated as UPLC on a hand-built `ScriptContext`) for
+**recover** / **claim** (νDeposit). A future validator change that drops a decidable spec check
+makes `reference === validator` fail.
 
-- *Catches:* a validator that silently drops one of the **structural** conjuncts, i.e. close: version /
-  contestation-period preservation, contesters initialised empty, `closeInitial⇒v=0∧s=0`,
-  `closeAny⇒0<s`, **and the contestation deadline** (`tfinal == validity.hi + cp`, caught via the
-  `deadlineDriftTx` mutation: "reference rejects a close with a drifted contestation deadline"
-  === `Just False`); recover (νDeposit): **the after-deadline conjunct** (`tRecover < validityLo`,
-  caught via `deadlineNotReachedRecoverTx`); init (μHead): **the token count** (`mintedCount == n+1`,
-  caught via `extraTokenInitTx`); increment: version `= suc` **and lovelace value conservation**
-  (`adaIn + adaDelta == adaOut`: head input + claimed deposit = head output on the ada component, read
-  live off the tx); decrement: version `= suc` **and lovelace value conservation**
-  (`adaOut + adaDelta == adaIn`: head output + decommitted outputs = head input, the decommit outputs
-  read as `take numberOfDecommitOutputs (tail outputs)` off the tx, with a deterministic
-  lovelace-perturbing mutation `DecrementChangeHeadLovelace` ensuring the catch fires); contest:
-  version preserved + snapshot strictly increases + exactly one contester appended **+ posted before
-  the contestation deadline** (`validityHi ≤ tfinal`, `MutateValidityPastDeadline` →
-  `UpperBoundBeyondContestationDeadline`) **+ the conditional deadline-UPDATE rule** (`tfinal' = if
-  all-contested then tfinal else tfinal+cp`); close ALSO **+ bounded validity** (`hi − lo ≤ cp`); fanout:
-  **all `n+1` head tokens burned** (`burnedCount == n+1`) **+ posted after the deadline** (`tfinal < lo`)
-  (m = 0 is permitted — empty-head finalisation, see Finding B); init: **mint count n+1 + token PLACEMENT**
-  (ST present + head output carries n+1 head-policy tokens, `RemovePTsFromHead`/`removePTsInitTx` →
-  `MissingPTs`); claim (νDeposit): **the before-deadline conjunct** (`validityHi ≤ tRecover`, caught
-  via `deadlineSurpassedClaimTx` → `DepositPeriodSurpassed`) **+ the head-id binding** (`depositCid ==
-  headCid`, caught via the cross-head deposit mutation). One end-to-end drift-catch is demonstrated
-  (close `mustNotChangeVersion`).
-  (The increment/decrement
-  lovelace checks use the builtin `_==_`, extracted to native integer equality; the structural `_==ᵇ_`
-  is O(n) unary recursion and hangs on lovelace-scale values. Their bridge reflection rests on the
-  `==-sound` postulate in `ReferenceBridge.agda`.)
-- *Does NOT catch (mocked `const True`):* signature/multisig validity, accumulator membership/exclusion,
-  the init datum binding (`cid = hash(μHead seed)`), the νDeposit Claim **Increment-redeemer coupling** (the
-  other half of `expect_increment_redeemer`; the head-id half IS caught), and **fanout value conservation**
-  (the `headAda` datum-value term has no faithful tx counterpart — a documented boundary). A validator
-  could forge the still-mocked ones and the test would still pass. (NOW caught — see *Catches*: the close
-  contestation deadline + bounded validity; the contest before-deadline + conditional deadline-UPDATE; the
-  fanout burn-count + after-deadline; the recover after-deadline; the claim before-deadline + head-id
-  binding; the init mint count + token PLACEMENT (ST present + n+1 head-output token count); the
-  **participant signature** `mustBeSignedByParticipant` for close/contest/increment/decrement — the shared
-  `participantSignedRefᵇ` overlap check, `SignerIsNotAParticipant`, demonstrated by `noSignerIncrementTx`;
-  the **no-mint** `mustNotMintOrBurn` for close/contest/increment/decrement/partial-fanout (shared
-  `noMintRefᵇ`, `mintingIncrementTx`); the **referenced-output-is-spent** for the increment claimed deposit
-  (`claimedDepositIsSpent`) and the init seed (`seedInputIsConsumed`, `dropSeedInitTx`) via the shared
-  `refSpentᵇ`; **per-asset** value conservation for increment AND decrement (`perAssetConservedᵇ`,
-  `balancedSwap{Increment,Decrement}Tx`) on top of the ada + non-ada totals; and the **non-final partial
-  fanout** `0 < m` + after-deadline (`partialFanoutRefᵇ`). NB the init `versionZero` (`v ≡ 0`) is NOT a
-  differential candidate — the μHead policy does not check the datum version, so it stays a spec-only
-  field.)
-- *Direction & abstention:* the property is one-directional, `reference-reject ⇒ validator-reject`
-  only. It asserts nothing when the reference *accepts*, and **abstains** (no constraint) when a
-  mutation makes the datum/redeemer unreadable; so the *exercised* coverage is whatever fraction of
-  generated mutations land in the reference's `Just False` branch.
+Crypto is no longer entirely mocked on the validator side. The test holds the snapshot signing
+keys and produces REAL Ed25519 signatures the real validator verifies (close `CloseUnused` /
+contest / increment / decrement), a REAL BLS pairing for the empty-head full fanout (proof =
+commitment = the G1 generator, CRS reference input `[g2Generator]`, so `checkMembershipPairing`
+reduces to `commitment == proof` and the real `bls12_381_finalVerify` runs), and a REAL KZG
+membership for partial fanout (a 2-element accumulator built directly over the on-chain element
+pre-image, so `e(oldAcc, G2) == e(newAcc, P_S(τ)·G2)` verifies against the real CRS G2 powers of
+tau). The reference returns only the decidable verdict for these conjuncts, but the agreement
+test runs the real validator's real crypto and asserts non-vacuity directly (e.g. the real
+validator REJECTS a bad-snapshot signature while both oracles accept the healthy, correctly
+signed input).
+
+**Scope — what the agreement test establishes (do not over-sell):**
+
+- *Two-directional `reference === validator`* on the **structural / decidable** conjuncts, per
+  family:
+  - *close*: version + contestation-period preservation, contesters initialised empty,
+    `closeInitial ⇒ v=0 ∧ s=0`, `closeAny ⇒ 0<s`, the recorded contestation deadline
+    `tfinal == validity.hi + cp`, and the bounded validity range `hi − lo ≤ cp`.
+  - *increment*: version `= suc`, lovelace AND total non-ada value conservation (head input +
+    claimed deposit = head output).
+  - *decrement*: version `= suc`, lovelace AND total non-ada value conservation (head output +
+    decommit outputs = head input).
+  - *contest*: version preserved, snapshot strictly increases, exactly one contester appended,
+    posted before the contestation deadline (`validityHi ≤ tfinal`), and the conditional
+    deadline-UPDATE rule (`tfinal' = if all-contested then tfinal else tfinal+cp`).
+  - *init* (μHead): mint count `= n+1`, the ST is present, and the head output carries exactly
+    `n+1` head-policy tokens (token PLACEMENT); plus a non-vacuity check that the real policy
+    REJECTS a tx that does not consume the seed input.
+  - *fanout* (full): all `n+1` head tokens burned and posted after the deadline (`tfinal < lo`);
+    `m = 0` is permitted (empty-head finalisation, see Finding B).
+  - *partial fanout*: `0 < m` (mustHaveOutputs) and posted after the deadline.
+  - *recover* (νDeposit): posted strictly after the deadline (`tRecover < validityLo`).
+  - *claim* (νDeposit): posted before the deadline (`validityHi ≤ tRecover`) and the head-id
+    binding (`depositCid == headCid`).
+  - shared, fully extractable (no mock): `mustBeSignedByParticipant` (participant overlap),
+    `mustNotMintOrBurn`, and the referenced-output-is-spent checks (increment claimed deposit,
+    init seed). NB the init `versionZero` (`v ≡ 0`) is NOT a candidate: the μHead policy does not
+    check the datum version, so it stays a spec-only field.
+  - The increment/decrement lovelace checks use the builtin `_==_` (extracted to native integer
+    equality; the structural `_==ᵇ_` is O(n) unary recursion and hangs on lovelace-scale values);
+    their bridge reflection rests on the `==-sound` postulate in `ReferenceBridge.agda`.
+- *Exercised against the real crypto* (the reference mocks the conjunct, but the real validator
+  runs it in the test, with a bad-input rejection asserting non-vacuity): the snapshot multisig
+  signature (Ed25519), the full-fanout BLS membership, and the partial-fanout KZG membership.
+- *Still matched only by review* (mocked in the reference, no faithful constructible witness
+  here): the init datum binding (`cid = hash(μHead seed)`), the νDeposit Claim **Increment-redeemer
+  coupling** (the other half of `expect_increment_redeemer`; the head-id half IS checked), and the
+  fanout `headAda` datum-value term of value conservation (no faithful counterpart, a documented
+  boundary). A validator could forge these and the test would still pass.
 - *The `spec ⇒ real-Plutus-validator` link is hand-reviewed prose* (this document, §3), not
-  mechanized; only `bundle ⇒ reference` (`ReferenceBridge.agda`) and `reference ⇒ validator`
-  (the differential test, structural layer) are machine-checked.
+  mechanized; only `bundle ⇒ reference` (`ReferenceBridge.agda`) and `reference === validator`
+  (the `HeadValidatorAgreement` test) are machine-checked.
 
 ---
 
@@ -284,7 +287,8 @@ set-theory model blocks `ℙ`-membership). Worth recording.
 - **`μHead` minting policy** (`HeadTokens`): the init token **COUNT** (`mintedCount == suc n`), token
   **PLACEMENT** (single ST + n+1 head-output tokens, `removePTsInitTx`) and the **seed-spent** check
   (`seedInputIsConsumed`, via the shared `refSpentᵇ`, `dropSeedInitTx`) are NOW mechanized — `initRefᵇ`
-  (`Reference.agda`) + `initValid→ref` (`ReferenceBridge.agda`) + the `InitDifferential` differential. The
+  (`Reference.agda`) + `initValid→ref` (`ReferenceBridge.agda`) + the `HeadValidatorAgreement` init
+  agreement (calling the real `validateTokensMinting`). The
   fanout **burn** of `n+1` tokens (`burnedCount == n+1`) is also mechanized (`fanoutRefᵇ` +
   `fanoutValid→ref`). Still out of scope: the datum `headId`/`seed` binding (`cid = hash(μHead seed)`,
   needs the hash), the init `versionZero` (`v ≡ 0` — the policy does not check it, so it is not a
@@ -292,7 +296,8 @@ set-theory model blocks `ℙ`-membership). Worth recording.
 - **Deposit/recover** (`deposit.ak` / `Deposit.hs`): the **Recover** arm after-deadline conjunct
   (`tRecover < validityLo`) and the **Claim** arm before-deadline (`hi ≤ tRecover`) + own-head binding
   (`depositCid == headCid`) are NOW mechanized — `recoverRefᵇ`/`claimRefᵇ` (`Reference.agda`) +
-  `recoverValid→ref`/`claimValid→ref` (`ReferenceBridge.agda`) + the `DepositDifferential`. The increment's
+  `recoverValid→ref`/`claimValid→ref` (`ReferenceBridge.agda`) + the `HeadValidatorAgreement` recover/claim
+  agreement (running the compiled `deposit.ak` as UPLC). The increment's
   claimed-deposit-is-spent (`depositSpentOK ctx ref`, Plutus `claimedDepositIsSpent`) is also now extracted
   via the shared `refSpentᵇ`. Still out of scope: the recovered-outputs serialisation-hash equality
   (mocked `recoverHashOK`), and the **Claim** redeemer-index coupling tying `Claim` to an `Increment` (the
