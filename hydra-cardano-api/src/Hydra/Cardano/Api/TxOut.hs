@@ -9,6 +9,11 @@ import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Data.Aeson ((.:?))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Types (Parser)
+import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
@@ -131,6 +136,42 @@ isScriptTxOut script txOut =
   version = plutusScriptVersion @lang
 
   (TxOut address _ _ _) = txOut
+
+-- * JSON parsing
+
+-- | Parse a 'TxOut' from JSON, correctly handling non-canonical inline datums.
+--
+-- cardano-api's 'FromJSON' for 'TxOut' ignores the @inlineDatumRaw@ field and
+-- reconstructs 'HashableScriptData' via 'scriptDataFromJson', which re-serialises
+-- canonically. For non-canonical CBOR datums, H(canonical) ≠ H(original) causing
+-- \"Inline datum not equivalent to inline datum hash\" on replay from the event DB.
+--
+-- This function reads @inlineDatumRaw@ first. When present it deserialises the
+-- original bytes directly (preserving them), patches @inlineDatumhash@ in the
+-- JSON to the canonical hash so the cardano-api parser succeeds, then replaces
+-- the datum with one carrying the original bytes.
+parseTxOutFromJSON :: Aeson.Value -> Parser (TxOut CtxUTxO Era)
+parseTxOutFromJSON v@(Aeson.Object o) = do
+  mRawHex <- o .:? "inlineDatumRaw"
+  case mRawHex of
+    Nothing ->
+      parseJSON v
+    Just rawHex -> do
+      rawBytes <- either fail pure $ Base16.decode (encodeUtf8 rawHex)
+      hsd <- either (fail . show) pure $ deserialiseFromCBOR AsHashableScriptData rawBytes
+      let canonicalHsd = unsafeHashableScriptData (getScriptData hsd)
+          patchedVal =
+            Aeson.Object $
+              KeyMap.insert "inlineDatumhash" (toJSON $ hashScriptDataBytes canonicalHsd) o
+      txOut <- parseJSON patchedVal
+      pure $
+        modifyTxOutDatum
+          ( \case
+              TxOutDatumInline{} -> TxOutDatumInline babbageBasedEra hsd
+              d -> d
+          )
+          txOut
+parseTxOutFromJSON v = parseJSON v
 
 -- * Type Conversions
 
