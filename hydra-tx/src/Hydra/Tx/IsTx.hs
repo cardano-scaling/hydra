@@ -205,3 +205,6 @@ instance IsTx Tx where
     case toPlutusTxOut txOut of
       Just plutusTxOut -> fromBuiltin (Util.hashTxOuts [plutusTxOut])
       Nothing -> mempty -- Should not happen for valid UTxO
+
+instance {-# OVERLAPPING #-} FromJSON UTxO where
+  parseJSON = parseUTxOFromJSON
