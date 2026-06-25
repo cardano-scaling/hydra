@@ -417,6 +417,85 @@ incVal :: HS.IncrementRedeemer -> Integer -> Integer -> Bool
 incVal redeemer nextV vPerturb =
   Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Increment redeemer) (mkIncContext redeemer nextV vPerturb)
 
+-- ── increment conjunct demos: extracted conjunct checkers the family `checkInc` agreement does NOT exercise ──
+-- The family test above holds no-mint / participant / per-asset HEALTHY and varies only version + value
+-- totals. These targeted demos construct a single-conjunct attack and assert BOTH the extracted conjunct
+-- checker AND the real validator reject it (and accept the healthy form), keeping the coverage the deleted
+-- mutation-based `Differential.hs` had for these conjuncts. The healthy increment is `incRedeemer 3`,
+-- nextV = 1, deposit 500_000; the snapshot signature is valid throughout, so each attack isolates one check.
+
+-- a flexible increment context for the demos: knobs are the mint, the tx signatories, and the head input /
+-- output values; everything else is the healthy increment (valid sig, deposit, version bump).
+mkIncDemoContext :: MintValue -> [PubKeyHash] -> Value -> Value -> ScriptContext
+mkIncDemoContext mint signers hInVal hOutVal =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headIn, TxInInfo depRef depIn]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOut]
+          , txInfoFee = 0
+          , txInfoMint = mint
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
+          , txInfoSignatories = signers
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Increment (incRedeemer 3)))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev))))
+    }
+ where
+  headIn = TxOut headAddr hInVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev)))) Nothing
+  depIn = TxOut depAddr depVal (OutputDatum (Datum (PlutusTx.toBuiltinData (0 :: Integer)))) Nothing
+  headOut = TxOut headAddr hOutVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open (incOpenNext 1))))) Nothing
+
+incDemoVal :: ScriptContext -> Bool
+incDemoVal = Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3))
+
+-- big-endian integer encoding of a builtin byte string (equal iff the bytes are equal): the encoding the
+-- extracted participant/cid checkers compare on the Haskell side.
+bytesToInteger :: Builtins.BuiltinByteString -> Integer
+bytesToInteger = BS.foldl' (\acc w -> acc * 256 + toInteger w) 0 . Builtins.fromBuiltin
+
+-- no-mint attack: an increment that mints a head-policy token (any non-zero mint breaks mustNotMintOrBurn).
+incAttackMint :: MintValue
+incAttackMint = UnsafeMintValue (AMap.unsafeFromList [(headPolicy, AMap.unsafeFromList [(TokenName (Builtins.toBuiltin ("\11" :: ByteString)), 1)])])
+
+incHealthyHeadOut :: Value
+incHealthyHeadOut = incHeadVal <> depVal
+
+-- participant attack: a signer whose key-hash is NOT a participation-token name in the head value.
+nonParticipantKH :: PubKeyHash
+nonParticipantKH = PubKeyHash "99999999999999999999999999999999999999999999999999999999"
+
+-- the extracted participant checker: tx signers' key-hashes vs the head value's PT names must OVERLAP.
+participantRef :: [PubKeyHash] -> Bool
+participantRef signers =
+  Ref.checkParticipantSigned (Ref.MkSignerIO (map (bytesToInteger . getPubKeyHash) signers) [bytesToInteger (unTokenName ptName)])
+
+-- per-asset attack: a balanced A→B token swap (the non-ada TOTAL is preserved, but one asset is not).
+tokenA :: TokenName
+tokenA = TokenName (Builtins.toBuiltin ("token-A" :: ByteString))
+
+tokenB :: TokenName
+tokenB = TokenName (Builtins.toBuiltin ("token-B" :: ByteString))
+
+incPerAssetHeadIn :: Value
+incPerAssetHeadIn = incHeadVal <> singleton headPolicy tokenA 1
+
+incPerAssetHeadOutHealthy :: Value
+incPerAssetHeadOutHealthy = incHeadVal <> depVal <> singleton headPolicy tokenA 1
+
+incPerAssetHeadOutSwap :: Value
+incPerAssetHeadOutSwap = incHeadVal <> depVal <> singleton headPolicy tokenB 1
+
 -- ── decrement (Open→Open: version bump + value SHRINKS by decommit OUTPUTS + signature) ─────────────────
 -- checkDecrement finds the head input via findOwnInput and requires headIn == headOut ◇ Σdecommit-outputs
 -- (the decommitted value leaves via tx outputs [1..m]). Same signature format as increment.
@@ -742,7 +821,7 @@ mkClaimContext deadline validityHi depHeadCid =
 -- Deterministic encoding of a head-id currency symbol as the big-endian integer of its bytes: equal iff the
 -- symbols are equal (the cid-binding check needs nothing more — see the cidToNat note in ReferenceBridge).
 cidToInteger :: CurrencySymbol -> Integer
-cidToInteger = BS.foldl' (\acc w -> acc * 256 + toInteger w) 0 . Builtins.fromBuiltin . unCurrencySymbol
+cidToInteger = bytesToInteger . unCurrencySymbol
 
 claimRef :: Integer -> Integer -> CurrencySymbol -> Bool
 claimRef deadline validityHi depHeadCid =
@@ -1062,6 +1141,31 @@ spec = parallel $ do
 
   prop "increment: the healthy (correctly-signed) version of that tx IS accepted" $
     let cs = 3 in incVal (incRedeemer cs) 1 0 === True
+
+  -- ── increment conjunct demos (extracted checker + real validator both catch a single-conjunct attack) ──
+  prop "increment/no-mint: a minting increment is REJECTED by both checkNoMint and the real validator" $
+    Ref.checkNoMint 1 === False
+      .&&. incDemoVal (mkIncDemoContext incAttackMint [signerKH] incHeadVal incHealthyHeadOut) === False
+  prop "increment/no-mint: the healthy (no-mint) increment is accepted by both" $
+    Ref.checkNoMint 0 === True
+      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut) === True
+
+  prop "increment/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+    participantRef [nonParticipantKH] === False
+      .&&. incDemoVal (mkIncDemoContext emptyMintValue [nonParticipantKH] incHeadVal incHealthyHeadOut) === False
+  prop "increment/participant: a participant signer is accepted by both" $
+    participantRef [signerKH] === True
+      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut) === True
+
+  -- a balanced A→B swap keeps the non-ada TOTAL (3 in, 3 out), so the scalar-total checkInc accepts it,
+  -- but per-asset conservation (and the validator's Value ==) does not.
+  prop "increment/per-asset: a balanced token swap passes the non-ada TOTAL but is REJECTED by checkPerAsset and the real validator" $
+    Ref.checkInc (Ref.mkOpsInc (const True)) (Ref.MkIncIO openVersionN 1 2_000_000 500_000 2_500_000 3 0 3) === True
+      .&&. Ref.checkPerAsset [Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 0, Ref.MkAssetIO 0 0 1] === False
+      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutSwap) === False
+  prop "increment/per-asset: the healthy (no swap) increment is accepted by both checkPerAsset and the real validator" $
+    Ref.checkPerAsset [Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1] === True
+      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy) === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
   prop "anchor: healthy decrement — BOTH oracles accept (real signature verified)" $
