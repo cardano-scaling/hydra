@@ -23,6 +23,8 @@ open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.OnChain
 open import Data.Product using (_×_; _,_; ∃-syntax)
+open import Data.Unit using (⊤; tt)
+open import Data.Empty using (⊥-elim)
 open import Relation.Binary.PropositionalEquality using (trans; cong)
 
 -- ── reachability over on-chain datums ────────────────────────────────────────────────────────────
@@ -157,3 +159,102 @@ progress-finalizable {V = V} reach aft burn val =
    in π , mkFinalPartialFanoutValid finalPartialFanout burn mem
             (setSize-pos (λ V≡∅ → progress-nonEmpty reach (trans (cong accUTxO V≡∅) accUTxO-∅)))
             aft val
+
+-- ══ on-chain SAFETY INVARIANTS over reachable states (genuine proofs, not cosmetic) ════════════════
+-- The lemmas above take the `*Valid` conjuncts as FREE HYPOTHESES (fed straight to a constructor), so
+-- they are definition-agnostic. The invariants below instead CONSUME the structural premises of the
+-- transition relation across a reachable run, so corrupting a premise breaks the proof (load-bearing).
+
+-- The contester list carried by a datum (∅ for non-Closed states).
+contestersOf : HeadDatum → List VKey
+contestersOf (Closed _ _ _ _ _ _ _ C _ _) = C
+contestersOf _                            = []
+
+-- No-duplicate predicate: each element is absent from the tail.
+Distinct : List VKey → Set
+Distinct []       = ⊤
+Distinct (x ∷ xs) = ¬ (x ∈ˡ xs) × Distinct xs
+
+-- SAFETY: no party contests twice. The contesters of any reachable head are pairwise distinct. Proven by
+-- induction over `Reachable`; the `contest` step's `¬ (kh ∈ C)` premise is the ONLY thing that discharges
+-- the head-not-in-tail obligation, so this proof CONSUMES it — delete that premise from the relation and
+-- this lemma fails to type-check. (close initialises C ≔ []; increment/decrement/fanout/partial-fanout
+-- carry a non-Closed datum whose `contestersOf` is [].)
+reachable-contesters-distinct : ∀ {d} → Reachable d → Distinct (contestersOf d)
+reachable-contesters-distinct reach-init                              = tt
+reachable-contesters-distinct (reach-step r increment)               = tt
+reachable-contesters-distinct (reach-step r decrement)               = tt
+reachable-contesters-distinct (reach-step r close)                   = tt
+reachable-contesters-distinct (reach-step r (contest kh∉C))          = kh∉C , reachable-contesters-distinct r
+reachable-contesters-distinct (reach-step r fanout)                  = tt
+reachable-contesters-distinct (reach-step r partialFanoutStart)      = tt
+reachable-contesters-distinct (reach-step r partialFanoutStep)       = tt
+reachable-contesters-distinct (reach-step r finalPartialFanout)      = tt
+
+-- SAFETY: `Final` is terminal - no resurrection. Once a head fans out (Fanout / FinalPartialFanout) it
+-- cannot step again. Holds by the shape of `_⟶⟨_⟩_` (no constructor has `Final` on the left).
+final-is-terminal : ∀ {r d'} → ¬ (Final ⟶⟨ r ⟩ d')
+final-is-terminal ()
+
+-- ══ on-chain VALUE-CONSERVATION (no-theft) - making the value conjuncts load-bearing ═══════════════
+-- The user's exemplar `fanoutValueOK` was cosmetic: the coverage lemmas above take it as a free
+-- hypothesis. Here it is CONSUMED. A fanout fully accounts for the head's input value (nothing siphoned):
+-- on the ada axis, input ada = distributed ada + burned ada + carried overhead. The proof reduces the
+-- abstract value equation `fanoutValueOK` (via `FanoutValid.valueOK`) by the `adaOf` additivity law; corrupt
+-- the conjunct's definition and the `cong adaOf (valueOK b)` step no longer typechecks. This is the
+-- genuine no-theft content the conjunct was always meant to carry, now a checked theorem.
+fanout-conserves-ada : ∀ {ctx d outs m π crs}
+  → (b : FanoutValid ctx d outs m π crs)
+  → adaOf (headValueIn ctx)
+    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx) + adaOf (headAda d))
+fanout-conserves-ada {ctx} {d} {m = m} b =
+  trans (cong adaOf (FanoutValid.valueOK b))
+  (trans (adaOf-+ᵛ (takeSumᵛ m (Context.outputs ctx)) (burnedValue ctx +ᵛ headAda d))
+         (cong (adaOf (takeSumᵛ m (Context.outputs ctx)) +_) (adaOf-+ᵛ (burnedValue ctx) (headAda d))))
+
+-- Same no-theft accounting for the FINAL partial-fanout batch (also gated by `fanoutValueOK`).
+finalPartialFanout-conserves-ada : ∀ {ctx d outs m π crs}
+  → (b : FinalPartialFanoutValid ctx d outs m π crs)
+  → adaOf (headValueIn ctx)
+    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx) + adaOf (headAda d))
+finalPartialFanout-conserves-ada {ctx} {d} {m = m} b =
+  trans (cong adaOf (FinalPartialFanoutValid.valueOK b))
+  (trans (adaOf-+ᵛ (takeSumᵛ m (Context.outputs ctx)) (burnedValue ctx +ᵛ headAda d))
+         (cong (adaOf (takeSumᵛ m (Context.outputs ctx)) +_) (adaOf-+ᵛ (burnedValue ctx) (headAda d))))
+
+-- close/contest preserve the head value EXACTLY (no theft on close/contest). CONSUMES the
+-- `valuePreserved` field (was cosmetic: never projected by closeValid→ref). Both ada and non-ada axes.
+close-preserves-value : ∀ {ctx cid hk n cp v η ada s′ η′ C tfin ct}
+  → (b : closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct)
+  → (adaOf (headValueIn ctx) ≡ adaOf (headValue ctx)) × (nonAdaOf (headValueIn ctx) ≡ nonAdaOf (headValue ctx))
+close-preserves-value b = cong adaOf (CloseValid.valuePreserved b) , cong nonAdaOf (CloseValid.valuePreserved b)
+
+contest-preserves-value : ∀ {ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct}
+  → (b : contestValid ctx (Closed cid hk n cp v s η C tfin ada) (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct)
+  → (adaOf (headValueIn ctx) ≡ adaOf (headValue ctx)) × (nonAdaOf (headValueIn ctx) ≡ nonAdaOf (headValue ctx))
+contest-preserves-value b = cong adaOf (ContestValid.valuePreserved b) , cong nonAdaOf (ContestValid.valuePreserved b)
+
+-- intermediate partial fanout: input value = continuing head output + the distributed batch (no theft).
+-- CONSUMES `partialFanoutValueOK` (PartialFanoutValid.valueOK; was cosmetic - never projected).
+partialFanout-conserves-ada : ∀ {ctx d d′ S m crs}
+  → (b : PartialFanoutValid ctx d d′ S m crs)
+  → adaOf (headValueIn ctx) ≡ adaOf (headValue ctx) + adaOf (decommitValue ctx m)
+partialFanout-conserves-ada {ctx} {m = m} b =
+  trans (cong adaOf (PartialFanoutValid.valueOK b)) (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m))
+
+-- a fanout distributes ONLY outputs committed by the accumulator (no fabrication of outputs). CONSUMES the
+-- `FanoutValid.membersOK` field (was cosmetic - the predicate is used in SecurityProofs but the FIELD was
+-- never projected) and the `accVerify-sound` accumulator-soundness postulate.
+fanout-distributes-committed : ∀ {ctx cid hk n cp v s V C tfin ada outs m π crs}
+  → FanoutValid ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada) outs m π crs
+  → outs ⊆ V
+fanout-distributes-committed b = accVerify-sound (FanoutValid.membersOK b)
+
+-- a validly-INITIALISED head is a reachable state: ties the μHead init validator to the reachability the
+-- safety invariants above are stated over. CONSUMES `InitValid.versionZero` (v ≡ 0) and `InitValid.etaEmpty`
+-- (η ≡ accUTxO ∅ˢ) - both were cosmetic fields (never projected by `initValid→ref`) - to rewrite the produced
+-- Open datum into the `reach-init` shape. Corrupt either conjunct and the rewrite no longer closes the goal.
+init-reachable : ∀ {ctx seed cid hk n cp v η ada}
+  → initValid ctx seed (Open cid hk n cp v η ada)
+  → Reachable (Open cid hk n cp v η ada)
+init-reachable b rewrite InitValid.versionZero b | InitValid.etaEmpty b = reach-init

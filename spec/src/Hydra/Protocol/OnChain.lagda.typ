@@ -568,7 +568,7 @@ postulate
   mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)
 
 -- `mintedCountOK`/`stPlaced`/`tokensPlaced` are bridged + differentially tested (`initValid→ref`, the
--- `InitDifferential` suite). The thin `initValid` function dispatches on the produced `Open` head datum
+-- `HeadValidatorAgreement` init agreement). The thin `initValid` function dispatches on the produced `Open` head datum
 -- (binding its cid/n/v/η) and is ⊥ for any other produced shape.
 -- WHY count + ST presence pins placement: each head-policy token is minted with quantity 1 (the μHead
 -- policy), so the mint COUNT (n+1) equals the number of DISTINCT tokens; with the head output carrying
@@ -611,8 +611,9 @@ postulate
   recoveredMatchesDeposited : Context → List (OutputRef × ℍ) → ℕ → Set  -- §5.3.1 hash(⊕oⱼ)=hash(C)
 
 -- The after-deadline conjunct is bridged + differentially tested (`recoverValid→ref` in
--- `ReferenceBridge`, exercised by the `DepositDifferential` hydra-tx suite); the hash-equality conjunct
--- stays abstracted (injected mock in the differential), as for the close/inc crypto conjuncts.
+-- `ReferenceBridge`, exercised by the `HeadValidatorAgreement` recover agreement, which runs the compiled
+-- `deposit.ak` as UPLC); the hash-equality conjunct stays abstracted (injected mock), as for the
+-- close/inc crypto conjuncts.
 record RecoverValid (ctx : Context) (dd : DepositDatum) (m : ℕ) : Set where
   constructor mkRecoverValid
   field
@@ -650,11 +651,14 @@ claimValid = ClaimValid
 -- claim is before the recover deadline). Conjoining them here makes the deposit→head binding a
 -- type-enforced part of a valid claim transaction, mirroring
 -- that on-chain BOTH scripts must pass. (`dd` is supplied like `recoverValid`'s, not decoded here.)
--- NB: this type-ENCODES the joint requirement (so `depositClaimedBy`/`claimValid` are both used);
--- the Claim arm is not PROVED-against-Plutus -- there is no `claimTxValid→ref` bridge lemma and no
--- Claim-path differential test, so deposit.ak's Claim arm remains a hand-reviewed coverage boundary.
--- (The Recover arm IS bridged + differentially tested: `recoverValid→ref` + the `DepositDifferential`
--- suite cover deposit.ak's after-deadline check.)
+-- NB: this type-ENCODES the joint requirement (so `depositClaimedBy`/`claimValid` are both used).
+-- The DECIDABLE conjuncts of the Claim arm (before-deadline `validityHi ≤ tRecover` + the head-id binding
+-- `depositCid == headCid`) ARE bridged (`claimValid→ref`) + differentially tested (the `HeadValidatorAgreement`
+-- claim agreement, running the compiled `deposit.ak` Claim arm as UPLC). The remaining boundary is the
+-- full `claimTxValid` joint encoding: the Increment-redeemer-index coupling (the other half of
+-- `expect_increment_redeemer`) is held healthy in the test, not driven to its reject direction, so it stays
+-- hand-reviewed. (The Recover arm is likewise bridged + tested: `recoverValid→ref` + the
+-- `HeadValidatorAgreement` recover agreement cover deposit.ak's after-deadline check.)
 record ClaimTxValid (ctx : Context) (dd : DepositDatum) (headIn headOut : HeadDatum)
                     (ξ : AggSig) (s : ℕ) (ref : OutputRef) : Set where
   constructor mkClaimTxValid

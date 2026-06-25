@@ -552,3 +552,18 @@ type-enforce `headValueIn ctx ≡ headValue ctx` (value preserved EXACTLY, match
 `mustPreserveHeadValue`'s `==`), but the rendered prose for close (§5.6) and contest (§5.7) had said
 `valHead' ⊇ valHead` (superset/monotone). The owner confirmed the prose should match the Agda and the
 validator, so both §5.6 and §5.7 prose were tightened to `valHead' = valHead` ("preserved exactly").
+
+**G. Differential layer rebuilt + consolidated (2026-06):** the mutation-based differential modules
+(`Hydra.Tx.Contract.{Differential,CloseDifferential,InitDifferential,DepositDifferential}`) asserted only
+*reference-reject ⇒ validator-reject* over a corpus that is validator-rejecting by construction (the hydra
+mutation generators), which is vacuous. They were REMOVED and replaced by one function-level test,
+`Hydra.Tx.Contract.HeadValidatorAgreement`, which constructs each validator's `State`/`Input`/
+`ScriptContext` directly and asserts the stronger, two-directional `reference === validator` over
+independently generated modeled fields (with a healthy anchor per family). The real validator is the actual
+contract code: `Head.headValidator` (close/increment/decrement/contest/fanout/partial-fanout),
+`HeadTokens.validateTokensMinting` (init), and the compiled Aiken `deposit.ak` run as UPLC (recover/claim).
+Crypto is exercised for real where constructible (Ed25519 snapshot signatures, the empty-head fanout BLS
+pairing, the partial-fanout KZG membership), with bad-input rejections asserting non-vacuity. Historical
+entries above that name the removed modules describe the state at the time; the current home for every
+validator's decidable-conjunct agreement is `HeadValidatorAgreement`. (`OffChainDifferential`, the
+off-chain HeadLogic reference vs the §6 figure, is unaffected and retained.)
