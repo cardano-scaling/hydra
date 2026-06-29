@@ -7,6 +7,7 @@ import Test.Hydra.Prelude
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.List (zipWith3)
+import Data.List qualified as List
 import Database.SQLite.Simple (close, execute, execute_, open)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.Rotation (EventStore (..))
@@ -14,10 +15,11 @@ import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), getSche
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), nullTracer)
+import System.Directory (doesFileExist)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.StateEvent ()
 import Test.Hydra.Ledger.Simple ()
-import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
+import Test.QuickCheck (forAllShrink, generate, ioProperty, sublistOf, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.Util (captureTracer)
 
@@ -131,6 +133,27 @@ spec = do
                 msgs `shouldSatisfy` elem MigrationComplete{legacyFile}
               pure $
                 loadedEvents === events
+
+    it "keeps a backup of the database before rotating" $ do
+      withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
+        let dbFile = tmpDir <> "/hydra.db"
+            stateFile = tmpDir <> "/state"
+        events <- generate $ genContinuousEvents `suchThat` (not . null)
+        let lastId = eventId (List.last events)
+            -- content is irrelevant here; we only assert on the archived events
+            checkpointEvent = List.last events
+        withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile $ \EventStore{eventSink = EventSink{putEvent}, eventSource, rotate} -> do
+          forM_ events putEvent
+          rotate lastId checkpointEvent
+          -- the active store holds only the checkpoint after rotation
+          active <- getEvents eventSource
+          active `shouldBe` [checkpointEvent]
+        -- the pre-rotation events are retained in the numbered backup
+        let backupPath = dbFile <> "-" <> show lastId
+        doesFileExist backupPath `shouldReturn` True
+        withSQLiteEventStore @(StateEvent SimpleTx) nullTracer backupPath stateFile $ \EventStore{eventSource} -> do
+          backedUp <- getEvents eventSource
+          backedUp `shouldBe` events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =

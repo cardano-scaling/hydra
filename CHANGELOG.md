@@ -18,6 +18,10 @@ changes.
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
+- Event log rotation now archives the current database to a numbered
+  `hydra.db-<logId>` snapshot before deleting the rotated events, restoring the
+  pre-rotation backup behaviour of the old file-based persistence.
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
