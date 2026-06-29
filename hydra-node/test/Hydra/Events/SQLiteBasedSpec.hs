@@ -149,7 +149,7 @@ spec = do
           active <- getEvents eventSource
           active `shouldBe` [checkpointEvent]
         -- the pre-rotation events are retained in the numbered backup
-        let backupPath = dbFile <> "-" <> show lastId
+        let backupPath = tmpDir <> "/old-state/hydra-" <> show lastId <> ".db"
         doesFileExist backupPath `shouldReturn` True
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer backupPath stateFile $ \EventStore{eventSource} -> do
           backedUp <- getEvents eventSource
