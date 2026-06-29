@@ -41,11 +41,13 @@
 --   acceptable because the L1 chain is the source of truth — the node replays
 --   missed events from chain on restart.
 --
--- * __Rotation ordering__: 'rotate' flushes the write queue synchronously
---   before performing DELETE + INSERT. This is safe because
---   rotation is only called from the single-threaded event processing loop
+-- * __Rotation ordering__: 'rotate' flushes the write queue synchronously,
+--   archives the current database to @old-state/hydra-<logId>.db@ via
+--   @VACUUM INTO@, then performs DELETE + INSERT. This is safe because rotation
+--   is only called from the single-threaded event processing loop
 --   ('processStateChanges'), so no concurrent enqueues can occur between the
---   flush and the rotation write.
+--   flush and the rotation write. The archive is taken before the DELETE, so a
+--   backup failure aborts rotation and leaves the events intact.
 module Hydra.Events.SQLiteBased where
 
 import Hydra.Prelude
@@ -61,8 +63,8 @@ import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeSta
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Logging (Tracer, traceWith)
-import System.Directory (createDirectoryIfMissing, doesFileExist, renameFile)
-import System.FilePath (takeDirectory)
+import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
+import System.FilePath (takeBaseName, takeDirectory, takeExtension, (</>))
 
 -- | Exception thrown when a persisted event cannot be decoded.
 data EventDecodingException = EventDecodingException
@@ -193,8 +195,11 @@ mkSQLiteEventStore dbFile = do
             Just ne -> setLastSeenEventId (last ne)
             Nothing -> pure ()
 
-    rotate _ checkpointEvent = do
+    rotate logId checkpointEvent = do
       flushWriteQueue writeQueue
+      -- Archive the current database before removing events, so the
+      -- pre-rotation log is retained (mirrors the old file-based backup).
+      backupDatabase conn dbFile logId
       let evData = toStrict $ Aeson.encode checkpointEvent
       withTransaction conn $ do
         deleteAllEvents conn
@@ -377,3 +382,18 @@ insertEvents conn =
 deleteAllEvents :: Connection -> IO ()
 deleteAllEvents conn =
   execute_ conn "DELETE FROM events"
+
+-- | Archive the current database before rotation removes the events, into an
+-- @old-state@ subdirectory next to the database, with the log id inserted
+-- before the extension (e.g. @old-state/hydra-42.db@). Uses @VACUUM INTO@ so the
+-- snapshot reflects all committed (WAL) data in a single self-contained file,
+-- regardless of WAL checkpoint state. The destination is removed first if
+-- present (e.g. a re-rotation at the same log id), since @VACUUM INTO@ requires
+-- it not to exist.
+backupDatabase :: Connection -> FilePath -> Word64 -> IO ()
+backupDatabase conn dbFile logId = do
+  let backupDir = takeDirectory dbFile </> "old-state"
+      backupPath = backupDir </> (takeBaseName dbFile <> "-" <> show logId <> takeExtension dbFile)
+  createDirectoryIfMissing True backupDir
+  whenM (doesFileExist backupPath) $ removeFile backupPath
+  execute conn "VACUUM INTO ?" (Only backupPath)

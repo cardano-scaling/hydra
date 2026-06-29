@@ -88,11 +88,11 @@ Long-living heads may produce a large number of persisted events, which can impa
 
 Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
 
-Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur. When rotation triggers, all events older than the checkpoint are deleted from `hydra.db` and replaced with a single checkpoint event capturing the current aggregated state.
+Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur. When rotation triggers, the current database is first archived to a numbered file `old-state/hydra-<logId>.db` (a consistent snapshot taken with SQLite's `VACUUM INTO`, in an `old-state` subdirectory of the persistence directory), and only then are all events older than the checkpoint deleted from `hydra.db` and replaced with a single checkpoint event capturing the current aggregated state. The archive is taken before the delete, so a failure to write it aborts the rotation and leaves the events intact.
 > For example, with `--persistence-rotate-after 100`, a rotation occurs after every 100 new events. The checkpoint event captures the full node state at that point, so on the next restart the node only needs to replay events since the last checkpoint.
 
-Note that a checkpoint event id matches the last persisted event id from the previous rotated log file, preserving the sequential order of event ids across logs.
-This also makes it easier to identify which rotated log file was used to compute the checkpoint, as its event id matches the file name suffix.
+Note that a checkpoint event id matches the last persisted event id from the previous rotated log, preserving the sequential order of event ids across logs.
+This also makes it easier to identify which archived log was used to compute the checkpoint, as its event id appears in the `old-state/hydra-<logId>.db` file name.
 
 Depending on the rotation configuration used, the current `state` file may already contain more events than the specified threshold, causing a rotation to occur immediately on startup before any new inputs are processed.
 
