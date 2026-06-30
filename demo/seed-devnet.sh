@@ -114,11 +114,11 @@ function queryPParams() {
 }
 
 echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
-seedFaucet "alice" 30000000 # 30 Ada to the node
+seedFaucet "alice" 3000000000 # 3000 Ada to the node
 seedFaucet "bob" 30000000 # 30 Ada to the node
 seedFaucet "carol" 30000000 # 30 Ada to the node
 echo >&2 "Distributing funds to alice, bob and carol..."
-seedFaucet "alice-funds" 100000000 # 100 Ada to commit
+seedFaucet "alice-funds" 100000000000 # 100000 Ada to commit
 seedFaucet "bob-funds" 50000000 # 50 Ada to commit
 seedFaucet "carol-funds" 25000000 # 25 Ada to commit
 
