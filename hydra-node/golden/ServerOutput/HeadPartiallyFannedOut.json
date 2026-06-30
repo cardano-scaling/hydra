@@ -1,0 +1,38 @@
+{
+    "samples": [
+        {
+            "distributedUTxO": {
+                "0101010101010000000101000101010101000000000001000100000100000000#83": {
+                    "address": "addr_test1zz7lasal3hhuhhkrx70uutzqst7l6qhctlmphu28tqjse4293zj9hwlsmey2lj6q8j4haxljperqpnfmahmnn6rhwjjsewd22r",
+                    "datum": null,
+                    "datumhash": "51d0e841c2f555968dcf5f72699023b1f8d75a36d32b238f9119856e2fb02ecf",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "49fc00ef1ddab272d80eddf887ba1033b65ec732bc1b149e7691cdc5": {
+                            "16ddd1185481891ea3474c57a147ad0c7669de18e893d6cf3d17": 4649008583924363101
+                        },
+                        "lovelace": 1417990
+                    }
+                }
+            },
+            "headId": "01010100010001010100000101000100",
+            "remainingUTxO": {
+                "0101010101000100000101010100010101010101000100000101000000010001#63": {
+                    "address": "addr_test1xpcs8g8rqn87a5ne53qjrw8xlkwulejjgxgcdc86ywj2aq0uczxg8sk52ymrc857dqzr5pep83sq66ldga678h39gcqqks2p83",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "tag": "HeadPartiallyFannedOut"
+        }
+    ],
+    "seed": -1436436631
+}

@@ -38,6 +38,7 @@ stateKindOf n = case headState n of
   HS.Idle{} -> SIdle
   HS.Open{} -> SOpen
   HS.Closed{} -> SClosed
+  HS.FanoutProgress{} -> SFanoutProgress
 
 -- | Counts of transitions and within-state events accumulated by walking the
 -- history in order. We do not have access to the truly-initial 'NodeState'

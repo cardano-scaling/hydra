@@ -57,6 +57,10 @@ data RootState = RootState
   , previousTab :: ActiveTab
   , theme :: Theme
   , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+  , fanoutSelectionForm :: Maybe (UTxOCheckboxForm (HydraEvent Tx) Name)
+  -- ^ When set, the operator is multi-selecting which UTxOs to fan out for a
+  -- selective 'PartialFanout' (a top-level modal flow, like 'recoveryForm').
+  -- Available regardless of head state once fanout is possible.
   , eventHistoryFilter :: EventHistoryFilter
   }
 
@@ -155,6 +159,10 @@ data ActiveHeadState
   = Open {openState :: OpenScreen}
   | Closed {closedState :: ClosedState}
   | FanoutPossible
+  | -- | A selective partial fanout is in progress (on-chain @FanoutProgress@):
+    -- some UTxO has been distributed and 'fanoutRemaining' is still in the head.
+    -- Only further partial fanouts are accepted (no full 'Fanout').
+    FanningOut {fanoutRemaining :: UTxO}
   | Final
 
 type Name = Text
@@ -196,6 +204,7 @@ makeLensesFor
   , ("previousTab", "previousTabL")
   , ("theme", "themeL")
   , ("recoveryForm", "recoveryFormL")
+  , ("fanoutSelectionForm", "fanoutSelectionFormL")
   , ("eventHistoryFilter", "eventHistoryFilterL")
   ]
   ''RootState
@@ -322,6 +331,23 @@ recoverHeadState now current nodeState =
                     if readyToFanoutSent
                       then FanoutPossible
                       else Closed{closedState = ClosedState{contestationDeadline}}
+                }
+    State.FanoutProgress
+      State.PartialFanoutState
+        { parameters
+        , headId
+        , confirmedSnapshot
+        , remainingOutputs
+        } ->
+        let Snapshot{utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
+         in Active
+              ActiveLink
+                { utxo = remainingOutputs
+                , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
+                , pendingIncrements
+                , parties = HeadParameters.parties parameters
+                , headId
+                , activeHeadState = FanningOut{fanoutRemaining = remainingOutputs}
                 }
  where
   pendingIncrements =

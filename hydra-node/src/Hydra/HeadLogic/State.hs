@@ -41,6 +41,10 @@ data HeadState tx
   = Idle (IdleState tx)
   | Open (OpenState tx)
   | Closed (ClosedState tx)
+  | -- | A closed head whose UTxO is being fanned out across multiple
+    -- transactions (on-chain in the @FanoutProgress@ state). Reached from
+    -- 'Closed' once the first partial fanout is observed.
+    FanoutProgress (PartialFanoutState tx)
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -54,6 +58,7 @@ setChainState chainState = \case
   Idle st -> Idle st{chainState}
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
+  FanoutProgress st -> FanoutProgress st{chainState}
 
 -- | Get the chain state in any 'HeadState'.
 getChainState :: HeadState tx -> ChainStateType tx
@@ -61,6 +66,7 @@ getChainState = \case
   Idle IdleState{chainState} -> chainState
   Open OpenState{chainState} -> chainState
   Closed ClosedState{chainState} -> chainState
+  FanoutProgress PartialFanoutState{chainState} -> chainState
 
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
@@ -68,6 +74,7 @@ getHeadParameters = \case
   Idle _ -> Nothing
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
+  FanoutProgress PartialFanoutState{parameters} -> Just parameters
 
 -- | Get the head parameters in any 'HeadState'.
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
@@ -75,6 +82,7 @@ getOpenStateConfirmedSnapshot = \case
   Idle _ -> Nothing
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
+  FanoutProgress PartialFanoutState{} -> Nothing
 
 -- ** Idle
 
@@ -249,12 +257,6 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
-  , remainingFanoutOutputs :: Maybe (UTxOType tx)
-  -- ^ Tracks remaining UTxO to fan out after partial fanouts.
-  --   Nothing means no partial fanout has occurred yet.
-  , distributedFanoutOutputs :: UTxOType tx
-  -- ^ Accumulates UTxO distributed by partial fanout transactions.
-  --   Used to reconstruct the full UTxO set in 'HeadFannedOut'.
   }
   deriving stock (Generic)
 
@@ -262,3 +264,50 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
+
+-- ** PartialFanout
+
+-- | How the node decides which UTxOs to distribute in the next fanout step
+-- while the head is in 'PartialFanout'.
+data FanoutMode tx
+  = -- | Entered only via the 'Fanout' client command: drain the whole remaining
+    -- set automatically, dynamically chunked, ending in the final fanout.
+    AutoDrain
+  | -- | Manual mode: keep distributing this (content-tracked) user selection,
+    -- dynamically chunked, until it is exhausted.
+    DistributingSelection (UTxOType tx)
+  | -- | Manual mode: the previous selection has been fully distributed. Wait for
+    -- the next 'PartialFanout' command; do not auto-drain.
+    AwaitingSelection
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FanoutMode tx)
+deriving stock instance IsTx tx => Show (FanoutMode tx)
+deriving anyclass instance IsTx tx => ToJSON (FanoutMode tx)
+deriving anyclass instance IsTx tx => FromJSON (FanoutMode tx)
+
+-- | A closed head whose UTxO is being distributed across multiple fanout
+-- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
+-- that used to live in 'ClosedState'.
+data PartialFanoutState tx = PartialFanoutState
+  { parameters :: HeadParameters
+  , confirmedSnapshot :: ConfirmedSnapshot tx
+  , contestationDeadline :: UTCTime
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  , headSeed :: HeadSeed
+  , version :: SnapshotVersion
+  , remainingOutputs :: UTxOType tx
+  -- ^ UTxO still to be fanned out (tracked by content, via set difference).
+  , distributedOutputs :: UTxOType tx
+  -- ^ Accumulates UTxO distributed so far; used to reconstruct the full set in
+  --   'HeadFannedOut' once the head is finalized.
+  , mode :: FanoutMode tx
+  -- ^ Drives the chunk source for the next step (see 'FanoutMode').
+  }
+  deriving stock (Generic)
+
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)

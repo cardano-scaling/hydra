@@ -6,6 +6,7 @@ module Hydra.TUI.Drawing where
 import Hydra.Prelude hiding (Down, State)
 
 import Brick
+import Brick.Forms (formState, renderForm)
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
@@ -68,6 +69,7 @@ drawTabBar active modalTabName fundsLabel =
 modalTabLabel :: RootState -> Text
 modalTabLabel s
   | isJust (s ^. recoveryFormL) = "Recover"
+  | isJust (s ^. fanoutSelectionFormL) = "Partial fanout"
   | otherwise = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL of
       Just LoadingUTxOForIncrement -> "Increment"
       Just NoUTxOToIncrement -> "Increment"
@@ -105,9 +107,19 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
                 fromMaybe [] $
                   s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL
            in drawRecoverFormWithDetail ownAddress form pendingIncrements (s ^. nowL)
-        Nothing -> case s ^. connectedStateL of
-          Disconnected -> emptyWidget
-          Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
+        Nothing -> case s ^. fanoutSelectionFormL of
+          Just form ->
+            let entries = toList (formState form)
+                total = length entries
+                selected = length (filter snd entries)
+             in vBox
+                  [ withAttr sectionHeaderA $ txt "Select UTxOs to fan out (Space toggle, A all):"
+                  , withAttr neutral $ txt ("Selected " <> show selected <> " of " <> show total <> " UTxO")
+                  , renderForm form
+                  ]
+          Nothing -> case s ^. connectedStateL of
+            Disconnected -> emptyWidget
+            Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
 
 drawActionBar :: RootState -> Widget n
 drawActionBar s =
@@ -123,11 +135,13 @@ drawActionBar s =
       Idle -> [("I", "nit"), ("Q", "uit")]
       Active (ActiveLink{activeHeadState}) ->
         if isModal
-          then case s ^. recoveryFormL of
-            -- Recovery is a top-level modal flow (uses recoveryFormL, not openState),
-            -- so its action bar wins over any per-head openState actions.
-            Just _ -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
-            Nothing -> case activeHeadState of
+          then case (s ^. recoveryFormL, s ^. fanoutSelectionFormL) of
+            -- Recovery and partial-fanout selection are top-level modal flows
+            -- (use their own form fields, not openState), so their action bars
+            -- win over any per-head openState actions.
+            (Just _, _) -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
+            (_, Just _) -> [("↑↓", " move"), ("Space", " toggle"), ("A", " all"), ("Enter", " fan out"), ("Esc/C", " cancel")]
+            (Nothing, Nothing) -> case activeHeadState of
               Open{openState} -> case openState of
                 SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("U", " refresh"), ("Esc/C", " cancel")]
                 NoUTxOToIncrement -> [("U", " refresh"), ("Esc/C", " cancel")]
@@ -148,13 +162,16 @@ drawActionBar s =
   fundsTabActions = \case
     Open{} -> [("I", "ncrement"), ("D", "ecommit")] <> recoverIf <> [("U", "pdate"), ("Q", "uit")]
     Closed{} -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
-    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
+    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("P", "artial fanout"), ("U", "pdate"), ("Q", "uit")]
+    -- Mid partial fanout: only further partial fanouts (no full 'Fanout').
+    FanningOut{} -> recoverIf <> [("P", "artial fanout"), ("U", "pdate"), ("Q", "uit")]
     Final{} -> recoverIf <> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
   -- Per-state actions on every other (non-Funds, non-EventHistory) tab.
   mainTabActions = \case
     Open{} -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement")] <> recoverIf <> [("C", "lose"), ("Q", "uit")]
     Closed{} -> recoverIf <> [("Q", "uit")]
-    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("Q", "uit")]
+    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("P", "artial fanout"), ("Q", "uit")]
+    FanningOut{} -> recoverIf <> [("P", "artial fanout"), ("Q", "uit")]
     Final{} -> recoverIf <> [("I", "nit"), ("Q", "uit")]
   recoverIf = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
     Just (_ : _) -> [("R", "ecover")]

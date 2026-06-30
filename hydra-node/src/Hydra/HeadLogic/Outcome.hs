@@ -9,6 +9,7 @@ import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
+import Hydra.HeadLogic.State (FanoutMode)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
@@ -123,12 +124,40 @@ data StateChanged tx
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
+  | -- | This node initiated a full automatic fanout ('Fanout' command). It
+    -- transitions 'Closed' → 'PartialFanout' in 'AutoDrain' mode so that this
+    -- node (the driver) auto-continues draining as chunks are observed. Other
+    -- parties that merely observe the resulting partial fanout do NOT auto-drive
+    -- (they go to 'AwaitingSelection'). No chain state change (client command).
+    HeadFanoutInitiated
+      { headId :: HeadId
+      , remainingOutputs :: UTxOType tx
+      }
+  | -- | A user initiated or updated a selective partial fanout. From 'Closed'
+    -- this transitions into the 'PartialFanout' state (using 'remainingOutputs'
+    -- as the initial remaining set); from 'PartialFanout' it just updates the
+    -- active selection. No chain state change (driven by a client command).
+    HeadPartialFanoutSelected
+      { headId :: HeadId
+      , remainingOutputs :: UTxOType tx
+      , selection :: UTxOType tx
+      }
+  | -- | Revert an optimistic 'Closed' → 'PartialFanout' transition back to
+    -- 'Closed'. Emitted when posting the initiating fanout transaction fails
+    -- terminally /before/ any partial fanout has landed on chain (i.e. while the
+    -- off-chain state is 'PartialFanout' but the on-chain datum is still
+    -- 'Closed'). Without this the head would wedge in 'PartialFanout' with
+    -- 'Fanout' rejected. No chain state change.
+    HeadFanoutReverted {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, finalizedOutputs :: UTxOType tx, chainState :: ChainStateType tx}
   | HeadPartialFannedOut
       { headId :: HeadId
       , distributedOutputs :: UTxOType tx
       , remainingOutputs :: UTxOType tx
       , chainState :: ChainStateType tx
+      , mode :: FanoutMode tx
+      -- ^ The fanout mode to continue with after this step (drives whether the
+      --   node auto-resumes draining or waits for the next 'PartialFanout').
       }
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainPoint :: ChainPointType tx}

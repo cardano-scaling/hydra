@@ -122,6 +122,14 @@ drawFanoutPossibleMessage :: Widget n
 drawFanoutPossibleMessage =
   withAttr sectionHeaderA $ txt "Contestation period passed — ready to fan out."
 
+-- | Status message shown while a selective partial fanout is in progress,
+-- reporting how many UTxO are still to be fanned out. Shared between the Main
+-- and Funds tabs so the wording and count match.
+drawFanningOutMessage :: UTxO -> Widget n
+drawFanningOutMessage remaining =
+  withAttr infoA $
+    txt ("Partial fanout in progress — " <> show (UTxO.size remaining) <> " UTxO remaining (press [P] to fan out more)")
+
 -- | Status message shown when the head has been finalized, including the
 -- total ADA value of the distributed UTxO. Shared between the Main and
 -- Funds tabs so the wording matches.

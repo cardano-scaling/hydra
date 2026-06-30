@@ -14,6 +14,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.TUI.Drawing.Utils (
+  drawFanningOutMessage,
   drawFanoutPossibleMessage,
   drawHeadFinalizedMessage,
   drawRemainingContestationPeriod,
@@ -93,6 +94,7 @@ drawFocusPanel networkId vk now (Connection{headState}) = case headState of
     Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now x
     Closed x -> drawFocusPanelClosed networkId vk utxo pendingIncrements now x
     FanoutPossible -> drawFocusPanelFanout networkId vk utxo pendingIncrements now
+    FanningOut{fanoutRemaining} -> drawFocusPanelFanningOut networkId vk fanoutRemaining pendingIncrements now
     Final -> drawFocusPanelFinal networkId vk utxo pendingIncrements now
 
 -- | Focus panel for an 'Open' head: dispatches to home view or the active modal-form view.
@@ -142,6 +144,19 @@ drawFocusPanelFanout networkId vk utxo pendingIncrements now =
     [ drawFanoutPossibleMessage
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
+    ]
+      <> drawPendingCommits ownAddress pendingIncrements now
+ where
+  ownAddress = mkVkAddress networkId vk
+
+-- | Focus panel while a selective partial fanout is in progress: shows what is
+-- still to be fanned out.
+drawFocusPanelFanningOut :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+drawFocusPanelFanningOut networkId vk remaining pendingIncrements now =
+  vBox $
+    [ drawFanningOutMessage remaining
+    , withAttr neutral (txt "Remaining UTxO")
+    , drawUTxO (highlightOwnAddress ownAddress) remaining
     ]
       <> drawPendingCommits ownAddress pendingIncrements now
  where

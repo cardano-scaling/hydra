@@ -11,6 +11,7 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain ()
+import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 
@@ -49,7 +50,10 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadPartialFannedOut <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadPartialFannedOut <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadFanoutInitiated <$> arbitrary <*> arbitrary
+    , HeadPartialFanoutSelected <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadFanoutReverted <$> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
     , NodeUnsynced <$> arbitrary <*> arbitrary <*> arbitrary
     , NodeSynced <$> arbitrary <*> arbitrary <*> arbitrary

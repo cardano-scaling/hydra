@@ -15,6 +15,7 @@ import Hydra.Client (Client (..))
 import Hydra.Network (Host)
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventListItem)
 import Hydra.TUI.Drawing.Utils (
+  drawFanningOutMessage,
   drawFanoutPossibleMessage,
   drawHeadFinalizedMessage,
   drawHex,
@@ -84,6 +85,7 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               Open{} -> "Open"
               Closed{} -> "Closed"
               FanoutPossible -> "Ready to Fanout"
+              FanningOut{} -> "Fanning out"
               Final -> "Finalized"
             hid = prettyHeadId headId
          in withAttr neutral (txt " ")
@@ -131,6 +133,11 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
             vBox
               [ drawFanoutPossibleMessage
               , utxoBlock utxo
+              ]
+          FanningOut{fanoutRemaining} ->
+            vBox
+              [ drawFanningOutMessage fanoutRemaining
+              , utxoBlock fanoutRemaining
               ]
           Final ->
             vBox

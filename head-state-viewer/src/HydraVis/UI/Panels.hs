@@ -72,6 +72,7 @@ peersBody mctx = \case
     Just c -> fromEnv (ctxEnvironment c)
   HS.Open HS.OpenState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
   HS.Closed HS.ClosedState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
+  HS.FanoutProgress HS.PartialFanoutState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
  where
   me = Env.party . ctxEnvironment <$> mctx
 
@@ -142,6 +143,16 @@ snapshotBody = \case
           , row "confirmed txs" (showT (length (confirmed snap)))
           , row "contestation deadline" (showT deadline)
           , row "ready to fanout" (showT ready)
+          , headBalance snap
+          ]
+  HS.FanoutProgress HS.PartialFanoutState{HS.confirmedSnapshot = cs, HS.contestationDeadline = deadline} ->
+    let snap = getSnapshot @tx cs
+     in div_
+          []
+          [ row "confirmed snapshot #" (showT (number snap))
+          , row "confirmed txs" (showT (length (confirmed snap)))
+          , row "contestation deadline" (showT deadline)
+          , row "fanning out" "in progress"
           , headBalance snap
           ]
  where
@@ -471,6 +482,7 @@ headParties :: HS.HeadState tx -> [Party]
 headParties = \case
   HS.Open HS.OpenState{HS.parameters = ps} -> HP.parties ps
   HS.Closed HS.ClosedState{HS.parameters = ps} -> HP.parties ps
+  HS.FanoutProgress HS.PartialFanoutState{HS.parameters = ps} -> HP.parties ps
   HS.Idle _ -> []
 
 -- | Render the currently-connected peer set as @host:port@, comma separated.

@@ -118,6 +118,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/PartialFanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
 
   /head:
@@ -549,6 +550,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Fanout"
 
+    PartialFanout:
+      title: PartialFanout
+      description: |
+        Fan out a user-selected subset of the closed head's UTxO after the contestation period passed. Unlike 'Fanout' (which drains the whole set automatically), this distributes only the provided 'utxoToFanout' and then waits for the next 'PartialFanout' command. Once a partial fanout has started, 'Fanout' is no longer accepted; keep issuing 'PartialFanout' until the head is drained, at which point the node automatically produces the final fanout that burns the head tokens. Selecting the entire remaining UTxO drains the head in one user action (still chunked dynamically on chain).
+      payload:
+        $ref: "api.yaml#/components/schemas/PartialFanout"
+
     SideLoadSnapshot:
       title: SideLoadSnapshot
       description: |
@@ -875,6 +883,7 @@ components:
         - $ref: "api.yaml#/components/schemas/SafeClose"
         - $ref: "api.yaml#/components/schemas/Contest"
         - $ref: "api.yaml#/components/schemas/Fanout"
+        - $ref: "api.yaml#/components/schemas/PartialFanout"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
 
     ServerOutput:
@@ -889,6 +898,7 @@ components:
         - $ref: "api.yaml#/components/schemas/HeadIsClosed"
         - $ref: "api.yaml#/components/schemas/HeadIsContested"
         - $ref: "api.yaml#/components/schemas/ReadyToFanout"
+        - $ref: "api.yaml#/components/schemas/HeadPartiallyFannedOut"
         - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
         - $ref: "api.yaml#/components/schemas/TxValid"
         - $ref: "api.yaml#/components/schemas/TxInvalid"
@@ -1045,6 +1055,19 @@ components:
         tag:
           type: string
           enum: ["Fanout"]
+
+    PartialFanout:
+      title: PartialFanout
+      type: object
+      required:
+        - tag
+        - utxoToFanout
+      properties:
+        tag:
+          type: string
+          enum: ["PartialFanout"]
+        utxoToFanout:
+          $ref: "api.yaml#/components/schemas/UTxO"
 
     SideLoadSnapshot:
       title: SideLoadSnapshot
@@ -1258,6 +1281,30 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
+    HeadPartiallyFannedOut:
+      type: object
+      required:
+        - tag
+        - headId
+        - distributedUTxO
+        - remainingUTxO
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadPartiallyFannedOut"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        distributedUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        remainingUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
     HeadIsFinalized:
       type: object
       required:
@@ -1401,6 +1448,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
@@ -1425,6 +1473,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
@@ -1449,6 +1498,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         requirementFailure:
           $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
@@ -2199,6 +2249,7 @@ components:
         - Open
         - Closed
         - FanoutPossible
+        - FanningOut
 
     MultiSignature:
       type: object
@@ -2558,18 +2609,18 @@ components:
           required:
             - tag
             - utxoToDistribute
-            - remainingUTxO
+            - utxoForProof
             - headSeed
             - contestationDeadline
           description: |
-            Distribute a subset of UTxOs from the closed Head on-chain as part of a partial fanout sequence.
+            Distribute a subset of UTxOs from the closed Head on-chain as part of a partial fanout sequence (non-final, does not burn head tokens).
           properties:
             tag:
               type: string
               enum: ["PartialFanoutTx"]
             utxoToDistribute:
               $ref: "api.yaml#/components/schemas/UTxO"
-            remainingUTxO:
+            utxoForProof:
               $ref: "api.yaml#/components/schemas/UTxO"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
@@ -3510,6 +3561,17 @@ components:
               enum: ["Closed"]
             contents:
               $ref: "api.yaml#/components/schemas/ClosedState"
+        - title: "FanoutProgress"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["FanoutProgress"]
+            contents:
+              $ref: "api.yaml#/components/schemas/PartialFanoutState"
 
     IdleState:
       type: object
@@ -3553,7 +3615,6 @@ components:
         - headId
         - headSeed
         - version
-        - distributedFanoutOutputs
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3571,12 +3632,72 @@ components:
           $ref: "api.yaml#/components/schemas/HeadSeed"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
-        remainingFanoutOutputs:
-          oneOf:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/UTxO"
-        distributedFanoutOutputs:
+
+    PartialFanoutState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - confirmedSnapshot
+        - contestationDeadline
+        - chainState
+        - headId
+        - headSeed
+        - version
+        - remainingOutputs
+        - distributedOutputs
+        - mode
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        remainingOutputs:
           $ref: "api.yaml#/components/schemas/UTxO"
+        distributedOutputs:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        mode:
+          $ref: "api.yaml#/components/schemas/FanoutMode"
+
+    FanoutMode:
+      oneOf:
+        - title: "AutoDrain"
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["AutoDrain"]
+        - title: "DistributingSelection"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["DistributingSelection"]
+            contents:
+              $ref: "api.yaml#/components/schemas/UTxO"
+        - title: "AwaitingSelection"
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["AwaitingSelection"]
 
     CoordinatedHeadState:
       type: object

@@ -15,6 +15,7 @@ import Brick.Forms (
   FormField (..),
   FormFieldState (..),
   FormFieldVisibilityMode (..),
+  checkboxField,
   focusedFormInputAttr,
   newForm,
   radioField,
@@ -26,7 +27,7 @@ import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Graphics.Vty (Event (..), Key (..))
 import Hydra.Chain.Direct.State ()
-import Lens.Micro (Lens', (^.))
+import Lens.Micro (Lens', lens, (^.))
 
 -- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels.
 -- The TxIn is shortened to the last 10 characters of the hash plus its
@@ -61,6 +62,50 @@ utxoRadioField u = case Map.toList u of
             ]
         ]
         x
+
+-- | Build a multi-select (checkbox) form over a UTxO set: each entry can be
+-- toggled with Space, and the form state records which are selected. Used for
+-- selective partial fanout, where the user picks one or more UTxOs to fan out
+-- in a single 'PartialFanout'. Returns 'Nothing' for an empty UTxO set.
+utxoCheckboxField ::
+  forall e n.
+  n ~ Text =>
+  Map TxIn (TxOut CtxUTxO) ->
+  Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
+utxoCheckboxField = utxoCheckboxFieldWith Nothing
+
+-- | Like 'utxoCheckboxField' but carries over a previous selection: any TxIn
+-- still present keeps its ticked state, new entries default to unticked, and
+-- entries no longer in the set are dropped. Used to rebuild the open fanout
+-- modal when a 'HeadPartiallyFannedOut' step shrinks the remaining UTxO.
+utxoCheckboxFieldWith ::
+  forall e n.
+  n ~ Text =>
+  Maybe (Map TxIn (TxOut CtxUTxO, Bool)) ->
+  Map TxIn (TxOut CtxUTxO) ->
+  Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
+utxoCheckboxFieldWith mPrev u
+  | Map.null u = Nothing
+  | otherwise =
+      Just $
+        newForm
+          [ checkboxField (selectedL txin) (renderTxIn txin) (renderUTxOAsAda (txin, txout))
+          | (txin, txout) <- Map.toList u
+          ]
+          initial
+ where
+  initial :: Map TxIn (TxOut CtxUTxO, Bool)
+  initial = Map.mapWithKey (\txin txout -> (txout, wasSelected txin)) u
+
+  wasSelected :: TxIn -> Bool
+  wasSelected txin = maybe False snd (mPrev >>= Map.lookup txin)
+
+  -- Lens focusing the selected flag of one entry within the whole map state.
+  selectedL :: TxIn -> Lens' (Map TxIn (TxOut CtxUTxO, Bool)) Bool
+  selectedL txin =
+    lens
+      (maybe False snd . Map.lookup txin)
+      (\m b -> Map.adjust (\(o, _) -> (o, b)) txin m)
 
 -- | Build a radio form for selecting one pending deposit (by 'TxId') to
 -- recover. The form yields just the 'TxId' — the full UTxO breakdown is

@@ -12,6 +12,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding qualified as TLE
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (
   ClientMessage (..),
   DecommitInvalidReason (..),
@@ -145,6 +146,16 @@ renderServerOutput time output raw = case output of
       "Ready to fan out"
       [ fld "Head ID" (prettyHeadId headId)
       , "Contestation period has passed. You can now submit a fanout transaction."
+      ]
+      raw
+  HeadPartiallyFannedOut{headId, distributedUTxO, remainingUTxO} ->
+    mk
+      Success
+      time
+      "Head partially fanned out"
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Distributed outputs" (show (UTxO.size distributedUTxO))
+      , fld "Remaining outputs" (show (UTxO.size remainingUTxO))
       ]
       raw
   HeadIsFinalized{headId, finalizedUTxO} ->
@@ -347,7 +358,12 @@ renderClientMessage now msg raw = case msg of
       now
       ("Invalid command: " <> show clientInput)
       [ fld "Command" (show clientInput)
-      , "This command is not valid in the current head state."
+      , case clientInput of
+          Fanout ->
+            "A partial fanout is already in progress for this head — use Partial fanout [P] to continue draining it."
+          PartialFanout{} ->
+            "Invalid selection: the head is not ready to fan out, or the chosen UTxO is not part of what remains."
+          _ -> "This command is not valid in the current head state."
       ]
       raw
   PostTxOnChainFailed{postTxError} ->

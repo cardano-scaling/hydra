@@ -157,6 +157,9 @@ nodeSummary steps t = case stepAt steps t of
     HS.Closed HS.ClosedState{HS.confirmedSnapshot = cs} ->
       let snap = getSnapshot @tx cs
        in (show (number snap), "-", "-", "closed", balanceText (Snap.utxo snap))
+    HS.FanoutProgress HS.PartialFanoutState{HS.confirmedSnapshot = cs} ->
+      let snap = getSnapshot @tx cs
+       in (show (number snap), "-", "-", "fanning out", balanceText (Snap.utxo snap))
   balanceText u =
     let s = summariseUtxo u
      in if usValued s then lovelaceText (usTotalLovelace s) else "-"
