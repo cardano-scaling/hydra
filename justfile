@@ -117,3 +117,10 @@ lint PKG="all":
       -Wmissing-deriving-strategies \
       -Wredundant-constraints \
       -Wunused-packages"
+
+# Needs agda + typst (both in the nix dev shell); mirrors `nix build .#spec` but
+# runs in place for fast iteration.
+#
+# Agda typechecks the literate-Typst sources, then Typst renders spec/_build/hydra-spec.pdf.
+spec:
+  spec/build.sh

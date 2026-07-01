@@ -41,13 +41,13 @@ import Hydra.Protocol.OffChainReference
 import Hydra.Protocol.OnChainCoverage
 ```
 
-#include "Introduction.typ"
-#include "Overview.typ"
-#include "Preliminaries.typ"
-#include "Setup.typ"
-#include "OnChain.typ"
-#include "OffChain.typ"
-#include "Security.typ"
+#include "Introduction.lagda.typ"
+#include "Overview.lagda.typ"
+#include "Preliminaries.lagda.typ"
+#include "Setup.lagda.typ"
+#include "OnChain.lagda.typ"
+#include "OffChain.lagda.typ"
+#include "Security.lagda.typ"
 
 #pagebreak()
 

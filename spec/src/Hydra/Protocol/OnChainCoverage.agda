@@ -206,7 +206,7 @@ final-is-terminal ()
 fanout-conserves-ada : ∀ {ctx d outs m π crs}
   → (b : FanoutValid ctx d outs m π crs)
   → adaOf (headValueIn ctx)
-    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx))
+    ≡ adaOf (takeSumᵛ m (Context.outputs ctx)) + (adaOf (burnedValue ctx) + adaOf (headAda d))
 fanout-conserves-ada {ctx} {d} {m = m} b =
   trans (cong adaOf (FanoutValid.valueOK b))
   (trans (adaOf-+ᵛ (takeSumᵛ m (Context.outputs ctx)) (burnedValue ctx +ᵛ headAda d))
