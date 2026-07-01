@@ -1,5 +1,5 @@
 // Document template: page setup, fonts, title page, ToC, theorem environments,
-// and Agda code-block rendering. Ported from preamble.tex.
+// and Agda code-block rendering. Ported from the original LaTeX preamble.
 //
 // Theorems are non-floating figures with custom `kind`s, which gives per-kind
 // numbering and working cross-references (@label) without any external package,

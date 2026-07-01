@@ -1,4 +1,4 @@
-// Hydra macros, ported from macros.tex.
+// Hydra macros, ported from the original LaTeX macros.
 //
 // Symbols are `#let` bindings of math content; use them inside math, e.g.
 // `$tyNatural -> tyBool$`. Parameterised macros are functions, e.g.

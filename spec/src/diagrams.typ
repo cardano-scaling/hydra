@@ -121,123 +121,227 @@
 }
 
 // ===== Unified transaction diagrams =====
-// A transaction is drawn as [inputs] → [tx box: name / mint / validity] →
-// [outputs]. Every tx figure uses this one renderer, so colours and styling are
-// unified; the data is the single source (and, for txs that correspond to a
-// `_⟶⟨_⟩_` rule, cross-checkable against the Agda - see check-refs.sh).
-#let _box(c) = box(stroke: 0.5pt, inset: 4pt, radius: 2pt, c)
+// A transaction is drawn as [input UTxOs] → [tx box] → [output UTxOs] with ONE
+// data-driven renderer that reproduces the original figures' visual language:
+//   * UTxO boxes are rounded with a coloured title bar — blue for an INPUT
+//     (spent) UTxO, green for an OUTPUT (produced) one — an optional datum body
+//     (split with the spending redeemer when both are given) and a value footer.
+//   * the transaction is a square-cornered box with a yellow title bar and a
+//     stack of rows: redeemer | output-ref, validity, signer set κ, mint.
+// Head UTxO boxes take their state fields from `state-fields` (the same
+// Agda-checked source as the inline transition arrows), so a tx figure cannot
+// depict head-state fields the `_⟶⟨_⟩_` relation disagrees with.
 
-#let tx-diagram(name, inputs, outputs, mint: none, validity: none) = {
-  set text(size: 8pt)
+#let _hdr-in = rgb("#a9d3ec") // input UTxO title bar (blue)
+#let _hdr-out = rgb("#9fdcab") // output UTxO title bar (green)
+#let _hdr-tx = rgb("#f4dc82") // transaction title bar (yellow)
+#let _cell = rgb("#fcfdff") // box body
+
+// state KEY at each end of a rule (for state-fields / _fsm-disp lookup).
+#let _from(rule) = head-fsm-transitions.find(x => x.rule == rule).from
+#let _to(rule) = head-fsm-transitions.find(x => x.rule == rule).to
+// The datum line of a state: the state symbol followed by its HeadDatum fields.
+#let _state-line(st) = ((_fsm-disp.at(st),) + state-fields.at(st)).join([, ])
+
+// One full-width band of a box (title bar with `sep: false`, else a body row).
+#let _band(body, fill: _cell, sep: true) = block(
+  width: 100%,
+  fill: fill,
+  inset: (x: 6pt, y: 3.5pt),
+  stroke: if sep { (top: 0.5pt) } else { none },
+)[#align(center, body)]
+
+// A body row split into two cells (datum | redeemer, or redeemer | output-ref).
+#let _split(a, b) = block(width: 100%, stroke: (top: 0.5pt), inset: 0pt, grid(
+  columns: (1.3fr, 1fr),
+  block(width: 100%, inset: (x: 5pt, y: 3.5pt))[#align(center, a)],
+  block(width: 100%, inset: (x: 5pt, y: 3.5pt), stroke: (left: 0.5pt))[#align(center, b)],
+))
+
+// A UTxO box: rounded rect, coloured title bar, optional datum (split with the
+// spending redeemer when both are given) and a value footer.
+#let utxo-box(title, datum: none, redeemer: none, value: none, kind: "in", width: 22mm) = {
+  let bar = if kind == "in" { _hdr-in } else if kind == "out" { _hdr-out } else { _cell }
+  set text(size: 7.5pt)
+  box(stroke: 0.6pt, radius: 3pt, clip: true, inset: 0pt, fill: _cell, width: width)[
+    #set block(spacing: 0pt)
+    #_band(strong(title), fill: bar, sep: false)
+    #{
+      if datum != none and redeemer != none { _split(datum, redeemer) } else if datum != none { _band(datum) } else if redeemer != none { _band(redeemer) }
+    }
+    #if value != none { _band(emph(value)) }
+  ]
+}
+
+// A head UTxO box in `state` (KEY); datum = the state's `state-fields` line.
+#let head-utxo(state, value: none, redeemer: none, kind: "in") = utxo-box(
+  $nuHead$,
+  datum: _state-line(state),
+  redeemer: redeemer,
+  value: value,
+  kind: kind,
+  width: 42mm,
+)
+
+// The transaction box: square corners, yellow title bar, then the given bands.
+#let tx-box(name, ..bands) = {
+  set text(size: 7.5pt)
+  box(stroke: 0.7pt, clip: true, inset: 0pt, fill: _cell, width: 42mm)[
+    #set block(spacing: 0pt)
+    #_band(strong(name), fill: _hdr-tx, sep: false)
+    #if bands.pos().len() == 0 {
+      // a tx with no on-chain checks to show (e.g. deposit): a tall empty body,
+      // like the original figures, so the box does not collapse to a thin bar.
+      block(width: 100%, height: 12mm, stroke: (top: 0.5pt))[]
+    } else { bands.pos().join() }
+  ]
+}
+
+#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none) = {
   let h = calc.max(inputs.len(), outputs.len(), 1)
   let mid = (h - 1) / 2
-  let txbody = {
-    set align(center)
-    strong(name)
-    for m in (mint, validity) {
-      if m != none { linebreak(); m }
-    }
-  }
+  let bands = ()
+  if redeemer != none { bands.push(if outref != none { _split(redeemer, outref) } else { _band(redeemer) }) }
+  for r in (validity, kappa, mint) { if r != none { bands.push(_band(r)) } }
   diagram(
-    node-stroke: 0.5pt,
-    node-corner-radius: 2pt,
-    node-inset: 5pt,
-    spacing: (18mm, 7mm),
+    node-stroke: none,
+    node-inset: 0pt,
+    spacing: (9mm, 5mm),
     ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)))),
-    node((2, mid), txbody, name: <txbox>, fill: luma(240)),
+    node((2, mid), tx-box(name, ..bands), name: <txbox>),
     ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)))),
     ..inputs.enumerate().map(((i, _)) => edge(label("txin-" + str(i)), <txbox>, "-|>")),
-    ..outputs.enumerate().map(((i, _)) => edge(<txbox>, label("txout-" + str(i)), "-|>")),
+    ..outputs.enumerate().map(((i, _)) => {
+      if i == 0 and qty != none { edge(<txbox>, label("txout-" + str(i)), "-|>", label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, label("txout-" + str(i)), "-|>") }
+    }),
   )
 }
 
-// Init transaction (spec §5.1): spends the seed input, mints ST + PTs, and
-// produces the head output directly in the Open state.
+// Init (§5.1): spends the seed, mints ST + PTs, produces the Open head output.
 #let initTx-diagram = tx-diagram(
   $mtxInit$,
-  ($txOutRef_sans("seed")$,),
-  ([$o_sans("head")$ in state $stOpen$ \ datum $= datumHead$ \ value $= st + sum pt_i$],),
+  (utxo-box($o_sans("seed")$, kind: "in"),),
+  (head-utxo("Open", value: $st + sum pt_i$, kind: "out"),),
   mint: $sans("mint") = {st, pt_1 ... pt_n} :: cid$,
+  qty: $1$,
 )
 
 // Deposit (§5.2): spends committed UTxOs into a νDeposit output.
 #let depositTx-diagram = tx-diagram(
   $mtxDeposit$,
-  ([$o_(sans("deposited"), 1)$], [$dots.v$], [$o_(sans("deposited"), m)$]),
-  ([$o_sans("deposit")$ governed by $nuDeposit$ \ datum $= datumDeposit = (cid, t_sans("recover"), C)$ \ value $= valDeposit$],),
+  (utxo-box($o_(sans("dep"), 1)$, kind: "in"), utxo-box($o_(sans("dep"), m)$, kind: "in")),
+  (utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, value: $valDeposit$, kind: "out", width: 34mm),),
 )
 
 // Recover (§5.3): restores the deposited UTxOs after the deadline.
 #let recoverTx-diagram = tx-diagram(
   $mtxRecover$,
-  ([$o_sans("deposit")$ \ datum $= (cid, t_sans("recover"), C)$],),
-  ([recovered UTxOs $C$],),
-  validity: $sans("validity") = (t_sans("recover"), infinity)$,
+  (utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Recover") med m$, value: $valDeposit$, kind: "in", width: 42mm),),
+  (utxo-box($sans("recovered") med C$, kind: "plain", width: 28mm),),
+  validity: $sans("validity") = (t_sans("rec"), infinity)$,
 )
 
 // Increment (§5.4): folds a deposit into the open head.
 #let incrementTx-diagram = tx-diagram(
   $mtxIncrement$,
-  ([$o_sans("head")$ in #_rule-from("increment") \ datum $= datumHead$], [$o_sans("deposit")$ \ datum $= datumDeposit$]),
-  ([$o_sans("head")'$ in #_rule-to("increment") \ datum $= datumHead'$ \ value $= valHead union valDeposit$],),
+  (
+    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi med sans("ref")$, value: $valHead$, kind: "in"),
+    utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: $valDeposit$, kind: "in", width: 42mm),
+  ),
+  (head-utxo(_to("increment"), value: $valHead union valDeposit$, kind: "out"),),
+  validity: $t_sans("max")$,
+  kappa: $kappa = {k_i^\#}$,
   mint: $sans("mint") = emptyset$,
+  qty: $1$,
 )
 
 // Decrement (§5.5): removes UTxOs from the open head.
 #let decrementTx-diagram = tx-diagram(
   $mtxDecrement$,
-  ([$o_sans("head")$ in #_rule-from("decrement") \ datum $= datumHead$],),
-  ([$o_sans("head")'$ in #_rule-to("decrement") \ datum $= datumHead'$], [decommitted \ $o_1 dots.h o_k$]),
+  (head-utxo(_from("decrement"), redeemer: $sans("decrement") med xi_sans("ms")$, value: $valHead$, kind: "in"),),
+  (
+    head-utxo(_to("decrement"), value: $valHead'$, kind: "out"),
+    utxo-box($sans("decommitted")$, datum: $o_1 dots.h o_k$, kind: "plain", width: 30mm),
+  ),
+  validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
+  kappa: $kappa = {k_i^\#}$,
   mint: $sans("mint") = emptyset$,
+  qty: $1$,
 )
 
 // Close (§5.6): moves the open head to closed.
 #let closeTx-diagram = tx-diagram(
   $mtxClose$,
-  ([$o_sans("head")$ in #_rule-from("close") \ datum $= datumHead$],),
-  ([$o_sans("head")'$ in #_rule-to("close") \ datum $= datumHead'$ \ (unified $eta'$, $contesters = emptyset$)],),
-  mint: $sans("mint") = emptyset$,
+  (head-utxo(_from("close"), value: $valHead$, kind: "in"),),
+  (head-utxo(_to("close"), value: $valHead'$, kind: "out"),),
+  redeemer: $sans("close") \ xi, eta^\#$,
+  outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
+  kappa: $kappa = {k_i^\#}$,
+  mint: $sans("mint") = emptyset$,
+  qty: $1$,
 )
 
 // Contest (§5.7): re-closes with a newer snapshot.
 #let contestTx-diagram = tx-diagram(
   $mtxContest$,
-  ([$o_sans("head")$ in #_rule-from("contest") \ datum $= datumHead$],),
-  ([$o_sans("head")'$ in #_rule-to("contest") \ datum $= datumHead'$ \ ($contesters' = contesters union {keyHash}$)],),
-  mint: $sans("mint") = emptyset$,
+  (head-utxo(_from("contest"), value: $valHead$, kind: "in"),),
+  (head-utxo(_to("contest"), value: $valHead'$, kind: "out"),),
+  redeemer: $sans("contest") \ xi, eta^\#$,
+  outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
+  kappa: $kappa = {k_i^\#}$,
+  mint: $sans("mint") = emptyset$,
+  qty: $1$,
 )
 
 // Fan-out (§5.8): distributes all UTxOs and burns the head tokens (→ final).
 #let fanoutTx-diagram = tx-diagram(
   $mtxFanout$,
-  ([$o_sans("head")$ in #_rule-from("fanout") \ unified $eta$],),
-  ([distributed \ $o_1 dots.h o_m$ \ (head reaches #_rule-to("fanout"))],),
-  mint: $sans("mint") = {st, pt_1 ... pt_n}^(-1) :: cid$,
+  (head-utxo(_from("fanout"), value: $valHead$, kind: "in"),),
+  (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
+  redeemer: $sans("fanout") \ m, n, n'$,
+  outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
+  kappa: $kappa = {k_i^\#}$,
+  mint: $sans("mint") = {st, pt_1 ... pt_n}^(-1) :: cid$,
 )
 
 // Partial fan-out (§5.8.1): distributes a batch, staying in FanoutProgress.
 #let partialFanoutTx-diagram = tx-diagram(
   $mtxPartialFanout$,
-  ([$o_sans("head")$ in #_rule-from("partialFanoutStart")],),
-  ([distributed \ $o_1 dots.h o_m$], [$o_sans("head")'$ in #_rule-to("partialFanoutStart") \ updated $eta'$]),
+  (head-utxo(_from("partialFanoutStart"), value: $valHead$, kind: "in"),),
+  (
+    head-utxo(_to("partialFanoutStart"), value: $valHead'$, kind: "out"),
+    utxo-box($o_1$, kind: "plain"),
+    utxo-box($dots.v$, kind: "plain"),
+    utxo-box($o_m$, kind: "plain"),
+  ),
+  redeemer: $sans("partialFanout") \ m, sans("crsRef")$,
+  outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
+  kappa: $kappa = {k_i^\#}$,
+  mint: $sans("mint") = emptyset$,
+  qty: $1$,
 )
 
 // Final partial fan-out (§5.8.2): distributes the last batch and burns tokens.
 #let finalPartialFanoutTx-diagram = tx-diagram(
   $mtxFinalPartialFanout$,
-  ([$o_sans("head")$ in #_rule-from("finalPartialFanout")],),
-  ([final batch \ $o_1 dots.h o_m$ \ (head reaches #_rule-to("finalPartialFanout"))],),
-  mint: $sans("mint") = {st, pt_1 ... pt_n}^(-1) :: cid$,
+  (head-utxo(_from("finalPartialFanout"), value: $valHead$, kind: "in"),),
+  (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
+  redeemer: $sans("finalPartialFanout") \ m, pi$,
+  outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
+  kappa: $kappa = {k_i^\#}$,
+  mint: $sans("mint") = {st, pt_1 ... pt_n}^(-1) :: cid$,
 )
 
 
-// Illustrative plain UTxO graph (§3.3): transactions as boxes, edges as UTxOs,
-// with two dangling (unspent) outputs.
+// Illustrative plain UTxO graph (§3.3): transactions as boxes, edges as UTxOs.
+// Consumed (input) edges are red and the two dangling unspent outputs black, so
+// the picture matches the Preliminaries prose ("(red) inputs ... (black) outputs
+// ... two UTxOs in the figure").
 #let utxo-graph = {
   set text(size: 9pt)
   diagram(
@@ -247,10 +351,10 @@
     node((0, 0.5), $sans("tx")_1$, name: <u1>),
     node((1, 0), $sans("tx")_2$, name: <u2>),
     node((1, 1), $sans("tx")_3$, name: <u3>),
-    edge((-0.8, 0.5), <u1>, "-|>"),
-    edge(<u1>, <u2>, "-|>"),
-    edge(<u1>, <u3>, "-|>"),
-    edge(<u2>, (1.9, 0), "-|>"),   // dangling UTxO
-    edge(<u3>, (1.9, 1), "-|>"),   // dangling UTxO
+    edge((-0.8, 0.5), <u1>, "-|>", stroke: red),   // input consumed by tx1
+    edge(<u1>, <u2>, "-|>", stroke: red),           // input consumed by tx2
+    edge(<u1>, <u3>, "-|>", stroke: red),           // input consumed by tx3
+    edge(<u2>, (1.9, 0), "-|>"),   // dangling UTxO (unspent output)
+    edge(<u3>, (1.9, 1), "-|>"),   // dangling UTxO (unspent output)
   )
 }

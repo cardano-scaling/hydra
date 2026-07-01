@@ -679,8 +679,6 @@ minting tokens using the $muHead$ minting policy script which is parameterized
 by a single output reference parameter $seed in tyOutRef$:
 $ cid = hash(muHead(seed)) $
 
-#todo[Update initTx.svg to show direct Open output with all tokens.]
-
 Two kinds of tokens are minted:
 - A single _State Thread (ST)_ token marking the head output. This
   output contains the state of the protocol on-chain and the token ensures
