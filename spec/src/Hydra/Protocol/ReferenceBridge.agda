@@ -1,7 +1,7 @@
 -- Bridge: the extractable decidable checker `Reference.closeRefᵇ` faithfully reflects the
 -- (unit-robust) DECIDABLE conjuncts of the abstract `closeValid` (OnChain.lagda.typ). Typecheck-
 -- only - this module is NOT extracted (it imports OnChain / set-theory). Imported by Main so the
--- build (`nix build .#spec`) verifies the correspondence.
+-- spec build (`spec/build.sh`) verifies the correspondence.
 --
 -- Direction proved (completeness): `closeValid ⇒ closeRefᵇ ≡ true`. The reference therefore
 -- accepts every spec-valid close (a reference REJECT implies the spec rejects), making the reference
@@ -30,7 +30,7 @@ open import Hydra.Protocol.RefReflection
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 open import Relation.Nullary using (yes; no)
 open import Data.List using (map)
-open import Data.Product using (_,_; ∃-syntax)
+open import Data.Product using (_,_; _×_; ∃-syntax)
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Agda.Builtin.Bool using (true; false)
 open import Agda.Builtin.Nat using (_==_)
@@ -212,6 +212,30 @@ contestValid→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b 
     ... | yes p  | dl = trans dl (sym (cong (λ z → R.if z then tfin else (tfin + cp)) (≡→==ᵇ p)))
     ... | no  ¬p | dl = trans dl (sym (cong (λ z → R.if z then tfin else (tfin + cp)) (¬→==ᵇfalse ¬p)))
 
+-- ── value preservation (close / contest mustPreserveHeadValue) ──────────────────────────────────
+-- The `valuePreserved` field (headValueIn ctx ≡ headValue ctx, the validator's EXACT
+-- `mustPreserveHeadValue`) reflects to `valuePreservedᵇ ≡ true` on BOTH the ada total and the non-ada
+-- total: each half is `cong adaOf`/`cong nonAdaOf` applied to the single value equality, then `==-sound`.
+-- No additivity law, no injectivity, no new postulate. ct-independent: `closeValid`/`contestValid` reduce
+-- to their records on the datum shapes alone. Moves close/contest `mustPreserveHeadValue` out of the
+-- injected (mock) `Ops` into the bridged + (differentially) tested layer.
+closeValuePreserved→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
+  → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct
+  → R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
+                       (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true
+closeValuePreserved→ref ctx cid hk n cp v η ada s′ η′ C tfin ct b =
+  &&-intro (==-sound (cong adaOf (CloseValid.valuePreserved b)))
+           (==-sound (cong nonAdaOf (CloseValid.valuePreserved b)))
+
+contestValuePreserved→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct
+  → contestValid ctx (Closed cid hk n cp v s η C tfin ada)
+                     (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct
+  → R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
+                       (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true
+contestValuePreserved→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b =
+  &&-intro (==-sound (cong adaOf (ContestValid.valuePreserved b)))
+           (==-sound (cong nonAdaOf (ContestValid.valuePreserved b)))
+
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
 -- `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo` (posted after the
 -- deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and value-conservation
@@ -315,6 +339,29 @@ claimValid→ref ctx cid tRec C hcid hk n cp v η ada b =
   &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline b))
  (&&-intro (==-sound (cong cidToNat (ClaimValid.claimedByOwnHead b))) refl)
 
+-- ── contest parameter preservation (scalar half of mustNotChangeParameters: headId + cp) ─────────
+-- The contest transition's produced `Closed` reuses the SAME `cid`/`cp` binders, so head-id and
+-- contestation-period preservation are definitional: `contestParamsᵇ (cidToNat cid) (cidToNat cid) cp cp`
+-- is `refl`-discharged through `==-sound` (no injectivity, only the existing `cidToNat` encoding). The
+-- validity premise is unused (the datum shape alone gives preservation). The `parties`-list half stays a
+-- documented boundary (the spec abstracts the party list into a count `n`). Placed after `cidToNat`.
+contestParams→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct
+  → contestValid ctx (Closed cid hk n cp v s η C tfin ada)
+                     (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct
+  → R.contestParamsᵇ (cidToNat cid) (cidToNat cid) cp cp ≡ true
+contestParams→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct _ =
+  &&-intro (==-sound {cidToNat cid} {cidToNat cid} refl) (==-sound {cp} {cp} refl)
+
+-- ── init datum head-id binding (decidable half of μHead checkDatum: headId == currency) ───────────
+-- In the spec the produced `Open` datum's head id and the policy currency are the SAME `cid`
+-- (= hash(μHead seed)), so `initHeadIdᵇ (cidToNat cid) (cidToNat cid)` is `refl`-discharged via `==-sound`
+-- and the existing `cidToNat` encoding (no injectivity, no new postulate). The `seed == seedInput` half is
+-- unmodelled (the Agda `Open` has no `headSeed`) and `cid = hash(seed)` stays the injected hash boundary.
+initHeadId→ref : ∀ ctx seed cid hk n cp v η ada
+  → initValid ctx seed (Open cid hk n cp v η ada)
+  → R.initHeadIdᵇ (cidToNat cid) (cidToNat cid) ≡ true
+initHeadId→ref ctx seed cid hk n cp v η ada _ = ==-sound {cidToNat cid} {cidToNat cid} refl
+
 -- ── participant signature (shared: close / contest / increment / decrement) ──────────────────────
 -- The reference's overlap check `anySharedᵇ signerCodes ptCodes` reflects `signedByParticipant`
 -- (the §5.4–5.7 `mustBeSignedByParticipant`). The abstract predicate is an existential over the opaque
@@ -385,3 +432,20 @@ initSeedSpent→ref : ∀ ctx seed cid hk n cp v η ada
   → initValid ctx seed (Open cid hk n cp v η ada)
   → R.refSpentᵇ (refCodeOf seed) (inputRefCodes ctx) ≡ true
 initSeedSpent→ref ctx seed cid hk n cp v η ada b = refSpent→ref ctx seed (InitValid.seedSpent b)
+
+-- ── composition (C3.5): the per-conjunct bridges JOIN into one spec ⇒ extracted-reference verdict ──
+-- Demonstrated for the close flagship (closeInitial): a SINGLE `closeValid` discharges BOTH the core close
+-- reference checker AND the value-preservation checker at once. The other validators compose identically
+-- (each `*Valid` discharges its core `*Refᵇ` plus the pulled-out conjuncts via the lemmas above). This is
+-- the `spec-bundle ⇒ extracted-reference` half; it is joined to the `extracted-reference === real-validator`
+-- differential (Hydra.Tx.Contract.HeadValidatorAgreement) at the SHARED extracted Reference module — the
+-- single ANDed end-to-end property there checks that join across every validator family.
+closeChainInitial→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
+  → (b : closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) closeInitial)
+  → (R.closeRefᵇ mockOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin) (closeTagOf closeInitial)
+        (ValidityInterval.hi (Context.validity ctx)) (ValidityInterval.lo (Context.validity ctx)) ≡ true)
+    × (R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
+                         (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true)
+closeChainInitial→ref ctx cid hk n cp v η ada s′ η′ C tfin b =
+    closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
+  , closeValuePreserved→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b

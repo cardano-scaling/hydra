@@ -421,3 +421,33 @@ refSpentᵇ r rs = elemᵇ r rs
 -- shared `noMintRefᵇ` (the differential ANDs it). No injected Ops.
 partialFanoutRefᵇ : Nat → Nat → Nat → Bool
 partialFanoutRefᵇ m tfinal lo = (zero <ᵇ m) && (tfinal < lo)
+
+-- ══ value preservation (close / contest mustPreserveHeadValue) ══════════════════════════════════
+-- The decidable conjunct of closeValid/contestValid `valuePreserved` (headValueIn ≡ headValue, the
+-- validator's `mustPreserveHeadValue` EXACT `==`): the ada AND the non-ada totals are unchanged in→out.
+-- BUILTIN `_==_` (ada/token totals can be lovelace-scale, far too large for the structural `_==ᵇ_`).
+-- Bridged from the `valuePreserved` field via `cong adaOf`/`cong nonAdaOf` + `==-sound` (no injectivity,
+-- no new postulate). Appended last so MAlonzo extends with a fresh mangled name without drifting the others.
+valuePreservedᵇ : Nat → Nat → Nat → Nat → Bool
+valuePreservedᵇ adaIn adaOut nonAdaIn nonAdaOut = (adaIn == adaOut) && (nonAdaIn == nonAdaOut)
+
+-- ══ contest parameter preservation (contest mustNotChangeParameters: headId + contestationPeriod) ══
+-- The decidable scalar half of the contest `mustNotChangeParameters`: the produced datum keeps the same
+-- head id and contestation period (headId' == headId, cp' == cp). BUILTIN `_==_` (cp is a POSIXTime-scale
+-- period; the head id is a hash encoded as an Integer). Bridged from the contest transition, whose produced
+-- `Closed` reuses the same `cid`/`cp` binders, so the bridge is `refl`-based (`cong cidToNat` + `==-sound`,
+-- no injectivity, no new postulate beyond the existing `cidToNat` encoding). The `parties` half stays a
+-- documented boundary: the spec abstracts the party LIST into a count `n`, so a same-count party swap is
+-- below this model's granularity. Appended last to avoid MAlonzo name drift.
+contestParamsᵇ : Nat → Nat → Nat → Nat → Bool
+contestParamsᵇ cidIn cidOut cpIn cpOut = (cidIn == cidOut) && (cpIn == cpOut)
+
+-- ══ init datum head-id binding (μHead checkDatum: headId == currency) ══════════════════════════════
+-- The decidable half of the μHead `checkDatum`: the head output datum declares its own policy as its head
+-- id (datumHeadId == currency). BUILTIN `_==_` on the head-id Integer encodings. In the spec the produced
+-- `Open` datum's head id and the policy currency are the SAME `cid` (= hash(μHead seed)), so the bridge is
+-- `refl`-discharged via the existing `cidToNat` encoding (no injectivity, no new postulate). The other
+-- `checkDatum` half (`seed == seedInput`) is NOT modelled (the Agda `Open` has no `headSeed` field), and the
+-- `cid = hash(μHead seed)` binding stays the injected (hash) boundary. Appended last to avoid name drift.
+initHeadIdᵇ : Nat → Nat → Bool
+initHeadIdᵇ datumHeadId currency = datumHeadId == currency

@@ -109,7 +109,45 @@ signed input).
   boundary). A validator could forge these and the test would still pass.
 - *The `spec ⇒ real-Plutus-validator` link is hand-reviewed prose* (this document, §3), not
   mechanized; only `bundle ⇒ reference` (`ReferenceBridge.agda`) and `reference === validator`
-  (the `HeadValidatorAgreement` test) are machine-checked.
+  (the `HeadValidatorAgreement` test) are machine-checked. The chain is joined as ONE checked artifact:
+  the bridge composition lemma `closeChainInitial→ref` (flagship) plus the single ANDead end-to-end property
+  `"end-to-end (join): the bridged reference === the real validator across every family"`.
+
+### Trust ledger (C3 — what the spec ⇒ validator chain rests on)
+
+The `spec-bundle ⇒ extracted-reference` half is a genuine Agda proof EXCEPT for a FIXED, enumerated trusted
+base, drift-checked by `spec/check-trust-ledger.sh` (run from `build.sh`) so no new mock or postulate can
+enter silently. What is **achievable** here is `spec ⇒ reference` (proved, modulo this base) joined to
+`reference === validator` (tested); what is **not** is `spec ⇒ on-chain bytes` — there is no verified
+Plutus/Aiken→UPLC compiler, 7 of 9 families run the Haskell validator function (only recover/claim run the
+compiled Aiken UPLC), and crypto cannot be modelled in Agda without an unsound axiom.
+
+**(a) Injected `Ops` mocks** — the `const true` boundaries the reference delegates (each matched by the real
+validator running the real check in the differential, where constructible):
+
+| mock | delegates | covered in the differential by |
+|---|---|---|
+| `closeCryptoOK` | close snapshot signature, accumulator-commitment hash | real Ed25519 (CloseUnused); empty-acc G1 generator |
+| `incCryptoOK` (inc+dec) | increment/decrement snapshot signature | real Ed25519, bad-sig rejection |
+| `contestCryptoOK` | contest snapshot signature, η binding, contest-once | real Ed25519, bad-sig rejection |
+| `fanoutCryptoOK` | fanout KZG membership + value conservation | real BLS pairing (empty subset) |
+| `recoverHashOK` | recover recovered-outputs serialisation hash | empty-deposit (`recover_outputs` trivial) |
+| `initPlacementOK` | μHead seed-spent + token placement | real `validateTokensMinting` (placement + seed) |
+| `claimIncrementOK` | νDeposit Claim Increment-redeemer coupling | real `deposit.ak` UPLC (head-id half; redeemer-index held healthy) |
+
+**(b) Postulates** (typecheck-only; the `spec ⇒ reference` proofs rest on these):
+
+| postulate | assumes | trust family |
+|---|---|---|
+| `==-sound`, `<ᴮ-sound` (`RefReflection`) | builtin `_==_`/`_<_` are sound vs `_≡_` (irreducible on open terms) | builtin-arithmetic — the dominant base; underlies every deadline/value/count conjunct |
+| `cidToNat`, `refCodeOf` | head-id / out-ref → ℕ encodings (used with `cong` only, no injectivity) | encoding |
+| `signerCodes`, `ptCodes`, `participantSigned→ref` | tx-signer / PT-name encodings + a spec-valid tx makes them overlap | faithfulness (opaque set/Value model) |
+| `mintEntryCount`, `noMint→ref` | mint-entry count encoding + `noMint ⇒ count 0` | faithfulness (opaque Value model) |
+
+Everything else is a genuine proof. The C3 work moved `mustPreserveHeadValue` (close+contest),
+`mustNotChangeParameters` headId/cp (contest) and the init `headId==currency` binding OUT of these mocks
+into proved bridges + two-directional differential tests; `checkSignedParticipantContestOnlyOnce` stays
+deferred (its `¬∈ ⇒ false` bridge would need a *new* code-injectivity postulate).
 
 ---
 

@@ -867,3 +867,20 @@ d_partialFanoutRef'7495'_422 v0 v1 v2
       d__'38''38'__58
       (coe d__'60''7495'__78 (coe (0 :: Integer)) (coe v0))
       (coe ltInt (coe v1) (coe v2))
+-- Hydra.Protocol.Reference.valuePreservedᵇ
+d_valuePreserved'7495'_430 ::
+  Integer -> Integer -> Integer -> Integer -> Bool
+d_valuePreserved'7495'_430 v0 v1 v2 v3
+  = coe
+      d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
+      (coe eqInt (coe v2) (coe v3))
+-- Hydra.Protocol.Reference.contestParamsᵇ
+d_contestParams'7495'_440 ::
+  Integer -> Integer -> Integer -> Integer -> Bool
+d_contestParams'7495'_440 v0 v1 v2 v3
+  = coe
+      d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
+      (coe eqInt (coe v2) (coe v3))
+-- Hydra.Protocol.Reference.initHeadIdᵇ
+d_initHeadId'7495'_450 :: Integer -> Integer -> Bool
+d_initHeadId'7495'_450 v0 v1 = coe eqInt (coe v0) (coe v1)

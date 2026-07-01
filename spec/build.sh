@@ -15,9 +15,10 @@ OUT=_build/typst
 PDF=_build/hydra-spec.pdf
 ENTRY=Hydra/Protocol/Main
 
-# Stage 1: typecheck, then the Agda↔Typst reference consistency lint (W6).
+# Stage 1: typecheck, then the Agda↔Typst reference consistency lint (W6) and the C3 trust-ledger drift check.
 agda "$SRC/$ENTRY.lagda.typ"
 bash check-refs.sh
+bash check-trust-ledger.sh
 
 # Stage 2: stage typst sources
 rm -rf "$OUT"

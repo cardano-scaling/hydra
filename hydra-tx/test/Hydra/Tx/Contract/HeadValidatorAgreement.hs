@@ -213,6 +213,49 @@ referenceVerdict closedVersion closedCpMs closedSnap contestersLen deadline tMax
     tMax
     validityLoN
 
+-- ── close value preservation demo (C3.4): mustPreserveHeadValue is the EXACT `==` on the head value ──
+-- A CloseInitial healthy in every other conjunct, with the head OUTPUT value's ada parameterized: equal to
+-- the input (2_000_000) is accepted; siphoned (< input) is rejected by mustPreserveHeadValue. Exercises the
+-- extracted checkValuePreserved (now bridged from closeValid.valuePreserved) against the real validator.
+mkCloseValueContext :: Integer -> ScriptContext
+mkCloseValueContext headOutAda =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headInputOut]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOutputOut]
+          , txInfoFee = 0
+          , txInfoMint = emptyMintValue
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close HS.CloseInitial))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatum))))
+    }
+ where
+  tMax = 1_100
+  deadline = tMax + openCpMs
+  headInputOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open openDatum)))) Nothing
+  headOutputOut =
+    TxOut
+      headAddr
+      (singleton adaSymbol adaToken headOutAda <> singleton headPolicy ptName 1)
+      (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (closedDatum 0 100 0 0 deadline)))))
+      Nothing
+
+closeValueVal :: Integer -> Bool
+closeValueVal headOutAda = validatorVerdict (mkCloseValueContext headOutAda)
+
 -- ── signed CloseUnused: a REAL Ed25519 signature over the exact validator message ──────────────────────
 -- CloseInitial needs no signature. CloseUnused does: the validator runs `verifySnapshotSignature` for real
 -- (it is NOT mocked on the validator side, only on the reference side). We hold the test key, so we produce
@@ -626,6 +669,58 @@ contestVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
 contestVal redeemer sPrime tfinPerturb tMax =
   Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest redeemer) (mkContestContext redeemer sPrime tfinPerturb tMax)
 
+-- ── contest mustNotChangeParameters demo (C3.3): headId preservation (bridged from the contest transition) ──
+-- A healthy ContestUnused (s'=1) whose PRODUCED datum changes the head id. The snapshot signature is over the
+-- INPUT head id, so it still verifies; only mustNotChangeParameters fails. Built explicitly (headId is a
+-- duplicate field, so a record update would be ambiguous).
+contestNextBadHeadId :: HS.ClosedDatum
+contestNextBadHeadId =
+  HS.ClosedDatum
+    { HS.headId = otherHeadCid
+    , HS.parties = [snapshotParty]
+    , HS.contestationPeriod = UnsafeContestationPeriod (fromInteger openCpMs)
+    , HS.version = 0
+    , HS.snapshotNumber = 1
+    , HS.contesters = [signerKH]
+    , HS.contestationDeadline = POSIXTime 2_000
+    , HS.accumulatorCommitment = g1Generator
+    , HS.headAdaOverhead = 0
+    }
+
+-- a contest context with an explicitly-supplied produced datum (otherwise the healthy s'=1 contest).
+mkContestParamsContext :: HS.ClosedDatum -> ScriptContext
+mkContestParamsContext producedDatum =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headIn]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOut]
+          , txInfoFee = 0
+          , txInfoMint = emptyMintValue
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 1_500)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest (contestRedeemer 1)))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contestPrev))))
+    }
+ where
+  headIn = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed contestPrev)))) Nothing
+  headOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed producedDatum)))) Nothing
+
+contestParamsVal :: HS.ClosedDatum -> Bool
+contestParamsVal producedDatum =
+  Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) (mkContestParamsContext producedDatum)
+
 -- ── init (μHead minting policy: token COUNT + PLACEMENT) ────────────────────────────────────────────────
 -- validateTokensMinting checks: the head policy MINTS exactly n+1 tokens (checkNumberOfTokens), the head
 -- output carries the single ST (singleSTIsPaidToTheHead) and exactly n unique PTs
@@ -660,8 +755,8 @@ initMint mintedCount = UnsafeMintValue (AMap.unsafeFromList [(headPolicy, AMap.u
 
 -- `inputSeedRef` is the out-ref of the (only) tx input; the validator's seedInput arg is fixed to
 -- initSeedRef, so passing a different inputSeedRef breaks seedInputIsConsumed (a validator-only conjunct).
-mkInitContext :: TxOutRef -> Integer -> Integer -> Integer -> ScriptContext
-mkInitContext inputSeedRef mintedCount stQty numPT =
+mkInitContext :: TxOutRef -> HS.OpenDatum -> Integer -> Integer -> Integer -> ScriptContext
+mkInitContext inputSeedRef headDatum mintedCount stQty numPT =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -687,7 +782,7 @@ mkInitContext inputSeedRef mintedCount stQty numPT =
     }
  where
   seedIn = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton adaSymbol adaToken 10_000_000) NoOutputDatum Nothing
-  headOut = TxOut headAddr (initHeadVal stQty numPT) (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open initOpenDatum)))) Nothing
+  headOut = TxOut headAddr (initHeadVal stQty numPT) (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open headDatum)))) Nothing
 
 initRef :: Integer -> Integer -> Integer -> Bool
 initRef mintedCount stQty numPT =
@@ -695,7 +790,16 @@ initRef mintedCount stQty numPT =
 
 initVal :: Integer -> Integer -> Integer -> Bool
 initVal mintedCount stQty numPT =
-  Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef mintedCount stQty numPT)
+  Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef initOpenDatum mintedCount stQty numPT)
+
+-- ── init datum head-id binding demo (C3.2): μHead checkDatum requires datum.headId == currency ──
+-- The head output datum names a different head id than the minting policy → checkDatum (WrongDatum) rejects.
+-- headSeed (unique to OpenDatum) pins the record-update type so the headId update is unambiguous.
+initOpenDatumBadHeadId :: HS.OpenDatum
+initOpenDatumBadHeadId = initOpenDatum{HS.headId = otherHeadCid, HS.headSeed = initSeedRef}
+
+initHeadIdVal :: HS.OpenDatum -> Bool
+initHeadIdVal od = Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef od 2 1 1)
 
 -- ── νDeposit (recover/claim): the REAL Aiken validator, run as compiled UPLC on a hand-built context ────
 -- The deposit validator is Aiken (deposit.ak), not a Haskell function, so we cannot call it directly. We
@@ -1076,6 +1180,14 @@ spec = parallel $ do
      in validatorVerdict (mkContext 1 100 0 0 deadline tMax) === False
           .&&. referenceVerdict 1 100 0 0 deadline tMax === False
 
+  -- ── close mustPreserveHeadValue (C3.4: bridged from closeValid.valuePreserved + tested here) ──
+  prop "close/value: a siphoned head output is REJECTED by both checkValuePreserved and the real validator" $
+    Ref.checkValuePreserved 2_000_000 1_500_000 1 1 === False
+      .&&. closeValueVal 1_500_000 === False
+  prop "close/value: the value-preserving close is accepted by both" $
+    Ref.checkValuePreserved 2_000_000 2_000_000 1 1 === True
+      .&&. closeValueVal 2_000_000 === True
+
   prop "close/CloseInitial: extracted Agda reference === real validator (function-level, no tx, no mutation)" $
     forAll (choose (0, 2)) $ \closedVersion ->
       forAll (elements [50, 100, 200]) $ \closedCpMs ->
@@ -1205,6 +1317,14 @@ spec = parallel $ do
   prop "contest: the healthy (correctly-signed) version of that tx IS accepted" $
     let s' = 1; tMax = 1_500 in contestVal (contestRedeemer s') s' 0 tMax === True
 
+  -- ── contest mustNotChangeParameters (C3.3: bridged from the contest transition + tested here) ──
+  prop "contest/params: a changed head id is REJECTED by both checkContestParams and the real validator" $
+    Ref.checkContestParams (cidToInteger headPolicy) (cidToInteger otherHeadCid) openCpMs openCpMs === False
+      .&&. contestParamsVal contestNextBadHeadId === False
+  prop "contest/params: the parameter-preserving contest is accepted by both" $
+    Ref.checkContestParams (cidToInteger headPolicy) (cidToInteger headPolicy) openCpMs openCpMs === True
+      .&&. contestParamsVal (contestNext 1 0) === True
+
   -- ── init (μHead): minted-token count + ST/PT placement in the head output ──
   prop "anchor: healthy init — BOTH oracles accept (mint 2, ST 1, 1 PT)" $
     initVal 2 1 1 === True .&&. initRef 2 1 1 === True
@@ -1219,10 +1339,18 @@ spec = parallel $ do
   -- enforces them. seedInputIsConsumed fails when the consumed input is not the seed.
   prop "init: real validator REJECTS when the seed input is not consumed" $
     let wrongRef = TxOutRef (TxId "88888888888888888888888888888888888888888888888888888888888888888888") 0
-     in Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext wrongRef 2 1 1) === False
+     in Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext wrongRef initOpenDatum 2 1 1) === False
 
   prop "init: the healthy (seed-consumed) version of that tx IS accepted" $
-    Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef 2 1 1) === True
+    Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
+
+  -- ── init datum head-id binding (C3.2: bridged from the spec's cid identity + tested here) ──
+  prop "init/datum: a head output datum naming a different head id is REJECTED by both checkInitHeadId and the real policy" $
+    Ref.checkInitHeadId (cidToInteger otherHeadCid) (cidToInteger headPolicy) === False
+      .&&. initHeadIdVal initOpenDatumBadHeadId === False
+  prop "init/datum: the head-id-binding datum is accepted by both" $
+    Ref.checkInitHeadId (cidToInteger headPolicy) (cidToInteger headPolicy) === True
+      .&&. initHeadIdVal initOpenDatum === True
 
   -- ── νDeposit Recover: the real Aiken validator (compiled UPLC) vs Ref.checkRecover ──
   prop "anchor: healthy recover — BOTH oracles accept (posted after the deadline)" $
@@ -1262,3 +1390,45 @@ spec = parallel $ do
       forAll (elements [950, 1_050]) $ \validityLo ->
         let tfinal = 1_000
          in partialRef m tfinal validityLo === partialVal m validityLo tfinal
+
+  -- ── C3.5: the JOIN as one checked artifact ──
+  -- The bridge proves spec-bundle ⇒ extracted-reference (Agda). This single property checks the other half,
+  -- extracted-reference === real-validator, on the SAME inputs across EVERY validator family (one accept +
+  -- one reject each), so the end-to-end spec ⇒ validator chain (modulo the documented postulates) is a
+  -- single named, checked artifact rather than per-family scattered tests.
+  prop "end-to-end (join): the bridged reference === the real validator across every family (accept + reject)" $
+    let dl = 1_200; tMax = 1_100
+     in -- close (CloseInitial): healthy accept + changed-version reject
+        (referenceVerdict 0 100 0 0 dl tMax === validatorVerdict (mkContext 0 100 0 0 dl tMax))
+          .&&. (referenceVerdict 1 100 0 0 dl tMax === validatorVerdict (mkContext 1 100 0 0 dl tMax))
+          -- increment: version-bump accept + no-bump reject
+          .&&. (incRef 1 0 === incVal (incRedeemer 3) 1 0)
+          .&&. (incRef 0 0 === incVal (incRedeemer 3) 0 0)
+          -- decrement: accept + value-perturbation reject
+          .&&. (decRef 1 0 === decVal (decRedeemer 3) 1 0)
+          .&&. (decRef 1 1_000 === decVal (decRedeemer 3) 1 1_000)
+          -- contest: accept + too-old-snapshot reject
+          .&&. (contestRef 1 0 1_500 === contestVal (contestRedeemer 1) 1 0 1_500)
+          .&&. (contestRef 0 0 1_500 === contestVal (contestRedeemer 0) 0 0 1_500)
+          -- init (μHead): healthy accept + wrong-mint-count reject
+          .&&. (initRef 2 1 1 === initVal 2 1 1)
+          .&&. (initRef 3 1 1 === initVal 3 1 1)
+          -- recover (νDeposit, real Aiken UPLC): after-deadline accept + not-after reject
+          .&&. (recoverRef 1_000 1_050 === recoverVal 1_000 1_050)
+          .&&. (recoverRef 1_000 950 === recoverVal 1_000 950)
+          -- claim (νDeposit, real Aiken UPLC): before-deadline accept + own-head-mismatch reject
+          .&&. (claimRef 1_000 950 headPolicy === claimVal 1_000 950 headPolicy)
+          .&&. (claimRef 1_000 950 otherHeadCid === claimVal 1_000 950 otherHeadCid)
+          -- full fanout (real BLS): burn-count accept + wrong-count reject
+          .&&. (fanoutRef 2 1_050 1_000 === fanoutVal 2 1_050 1_000)
+          .&&. (fanoutRef 3 1_050 1_000 === fanoutVal 3 1_050 1_000)
+          -- partial fanout (real KZG): 0<m accept + m=0 reject
+          .&&. (partialRef 1 1_000 1_050 === partialVal 1 1_050 1_000)
+          .&&. (partialRef 0 1_000 1_050 === partialVal 0 1_050 1_000)
+          -- the C3 pulled-out conjuncts (value preservation, contest params, init head-id)
+          .&&. (closeValueVal 2_000_000 === True)
+          .&&. (closeValueVal 1_500_000 === False)
+          .&&. (contestParamsVal (contestNext 1 0) === True)
+          .&&. (contestParamsVal contestNextBadHeadId === False)
+          .&&. (initHeadIdVal initOpenDatum === True)
+          .&&. (initHeadIdVal initOpenDatumBadHeadId === False)

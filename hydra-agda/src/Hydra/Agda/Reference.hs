@@ -62,6 +62,15 @@ module Hydra.Agda.Reference (
 
   -- * non-final partial fanout (FanoutProgress → FanoutProgress)
   checkPartialFanout,
+
+  -- * value preservation (shared: close / contest mustPreserveHeadValue)
+  checkValuePreserved,
+
+  -- * contest parameter preservation (contest mustNotChangeParameters: headId + contestationPeriod)
+  checkContestParams,
+
+  -- * init datum head-id binding (μHead checkDatum: headId == currency)
+  checkInitHeadId,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.Reference (
@@ -238,3 +247,35 @@ checkRefSpent = M.d_refSpent'7495'_416
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
 checkPartialFanout :: Integer -> Integer -> Integer -> Bool
 checkPartialFanout = M.d_partialFanoutRef'7495'_422
+
+-- | Decidable, fully-extractable value-preservation checker (the close \/ contest
+-- @mustPreserveHeadValue@, the exact @==@ on the head value): the ada total AND the non-ada total are
+-- unchanged from the head input to the head output. The four 'Integer' arguments are
+-- @(adaIn, adaOut, nonAdaIn, nonAdaOut)@; the check is @adaIn == adaOut && nonAdaIn == nonAdaOut@. No
+-- injected boundary: a value siphon (the validator's @HeadValueIsNotPreserved@) makes a total differ and
+-- the reference rejects. Proved to reflect the @valuePreserved@ conjunct of @closeValid@\/@contestValid@ in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong adaOf@\/@cong nonAdaOf@ + @==-sound@ (no new
+-- postulate).
+checkValuePreserved :: Integer -> Integer -> Integer -> Integer -> Bool
+checkValuePreserved = M.d_valuePreserved'7495'_430
+
+-- | Decidable, fully-extractable contest parameter-preservation checker (the scalar half of contest
+-- @mustNotChangeParameters@): the produced datum keeps the same head id and contestation period. The four
+-- 'Integer' arguments are @(headIdIn, headIdOut, cpIn, cpOut)@ (head ids as their deterministic Integer
+-- encoding); the check is @headIdIn == headIdOut && cpIn == cpOut@. No injected boundary: re-pointing the
+-- head id or changing the period (the validator's @ChangedParameters@) makes a pair differ and the
+-- reference rejects. Proved to reflect the contest transition's parameter preservation in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong cidToNat@ + @==-sound@ (no new postulate;
+-- the @parties@-list half stays a documented boundary, as the spec abstracts parties into a count).
+checkContestParams :: Integer -> Integer -> Integer -> Integer -> Bool
+checkContestParams = M.d_contestParams'7495'_440
+
+-- | Decidable, fully-extractable init datum head-id binding (the decidable half of the μHead
+-- @checkDatum@): the head output datum declares its own minting policy as its head id
+-- (@datumHeadId == currency@). The two 'Integer' arguments are the head-id and currency Integer
+-- encodings. No injected boundary: a datum naming a different head id (the validator's @WrongDatum@) makes
+-- the pair differ and the reference rejects. Proved to reflect the init datum binding in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via the existing @cidToNat@ encoding (no new
+-- postulate). The @seed == seedInput@ half and the @cid = hash(seed)@ binding stay documented boundaries.
+checkInitHeadId :: Integer -> Integer -> Bool
+checkInitHeadId = M.d_initHeadId'7495'_450
