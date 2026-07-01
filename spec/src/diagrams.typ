@@ -4,6 +4,7 @@
 // check-refs.sh cross-checks against the Agda `_⟶⟨_⟩_` relation.
 
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/cetz:0.3.4"
 #import "/macros.typ": *
 
 // Layout positions for the head state machine (x right, y down).
@@ -30,7 +31,7 @@
   (from: "Open", rule: "close", to: "Closed", label: $sans("close")$, bend: 0deg),
   (from: "Closed", rule: "contest", to: "Closed", label: $sans("contest")$, bend: 130deg),
   (from: "Closed", rule: "fanout", to: "Final", label: $sans("fanout")$, bend: 25deg),
-  (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 0deg),
+  (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 40deg),
   (from: "FanoutProgress", rule: "partialFanoutStep", to: "FanoutProgress", label: $sans("partialFanout")$, bend: 130deg),
   (from: "FanoutProgress", rule: "finalPartialFanout", to: "Final", label: $sans("finalPartialFanout")$, bend: -20deg),
 )
@@ -338,23 +339,70 @@
 )
 
 
-// Illustrative plain UTxO graph (§3.3): transactions as boxes, edges as UTxOs.
-// Consumed (input) edges are red and the two dangling unspent outputs black, so
-// the picture matches the Preliminaries prose ("(red) inputs ... (black) outputs
-// ... two UTxOs in the figure").
+// EUTxO worked example (§3.3), a faithful reproduction of the original figure: four transactions
+// (tall GRAY boxes) whose INPUTS enter on the LEFT and OUTPUTS leave on the RIGHT; every UTxO is a
+// BLACK output edge to a hollow circle labelled (index, value); a SPENT output is consumed by a RED
+// input edge labelled ρᵢ and its circle is drawn RED; the two UNSPENT UTxOs dangle at a BLACK-outline
+// hollow circle. Matches the Preliminaries prose "(red) inputs ... (black) outputs ... two UTxOs".
+// Drawn with the vendored cetz package for precise geometry (the FSM / tx-flow figures use fletcher).
 #let utxo-graph = {
-  set text(size: 9pt)
-  diagram(
-    node-stroke: 0.6pt,
-    node-corner-radius: 2pt,
-    spacing: (12mm, 7mm),
-    node((0, 0.5), $sans("tx")_1$, name: <u1>),
-    node((1, 0), $sans("tx")_2$, name: <u2>),
-    node((1, 1), $sans("tx")_3$, name: <u3>),
-    edge((-0.8, 0.5), <u1>, "-|>", stroke: red),   // input consumed by tx1
-    edge(<u1>, <u2>, "-|>", stroke: red),           // input consumed by tx2
-    edge(<u1>, <u3>, "-|>", stroke: red),           // input consumed by tx3
-    edge(<u2>, (1.9, 0), "-|>"),   // dangling UTxO (unspent output)
-    edge(<u3>, (1.9, 1), "-|>"),   // dangling UTxO (unspent output)
-  )
+  set text(size: 7.5pt)
+  cetz.canvas(length: 1cm, {
+    import cetz.draw: *
+    let R = (paint: rgb(85.9%, 21.6%, 19.6%), thickness: 0.6pt) // the original's red
+    let K = (paint: black, thickness: 0.6pt)
+    let G = (paint: rgb(60%, 60%, 60%), thickness: 0.6pt) // the original's gray boxes
+    // transactions (tall gray rectangles); inputs enter on the LEFT edge, outputs leave on the RIGHT
+    let tx(x, y, nm) = rect((x - 0.2, y - 0.62), (x + 0.2, y + 0.62), name: nm, stroke: G)
+    tx(2.0, 4.4, "A")
+    tx(4.4, 3.3, "B")
+    tx(6.6, 2.9, "C")
+    tx(2.9, 1.3, "D")
+    // UTxO circle positions (the circles are drawn LAST so their fill masks the line stubs at the
+    // centre, leaving clean borders where each edge meets its circle)
+    let i6 = (0.4, 5.0)
+    let i7 = (0.4, 3.9)
+    let i8 = (0.4, 1.3)
+    let o12 = (3.0, 4.15)
+    let o51 = (5.55, 4.7)
+    let o23 = (3.7, 2.55)
+    let o36 = (5.5, 3.05)
+    let o64 = (4.55, 1.6)
+    let u95 = (3.85, 0.7)
+    let u147 = (7.7, 2.9)
+    // external inputs (red) → box LEFT
+    bezier(i6, "A.north-west", (1.2, 5.2), stroke: R)
+    bezier(i7, "A.south-west", (1.2, 3.7), stroke: R)
+    line(i8, "D.west", stroke: R)
+    // tx A outputs (black) from RIGHT; consumed into B / C (red) at LEFT
+    line("A.east", o12, stroke: K)
+    bezier("A.north-east", o51, (3.8, 5.35), stroke: K)
+    line(o12, "B.north-west", stroke: R)
+    bezier(o51, "C.north-west", (6.0, 4.2), stroke: R)
+    // tx D outputs (black) from RIGHT; consumed into B / C (red) at LEFT; (9,v₅) unspent
+    line("D.north-east", o23, stroke: K)
+    line("D.east", o64, stroke: K)
+    line("D.south-east", u95, stroke: K)
+    line(o23, "B.south-west", stroke: R)
+    bezier(o64, "C.south-west", (5.6, 1.75), stroke: R)
+    // tx B output (black) from RIGHT; consumed into C (red) at LEFT
+    line("B.east", o36, stroke: K)
+    line(o36, "C.west", stroke: R)
+    // tx C output (black) from RIGHT → unspent
+    line("C.east", u147, stroke: K)
+    // UTxO circles, hollow: RED = spent output / external input, BLACK = the two unspent UTxOs
+    let rc(p) = circle(p, radius: 0.09, fill: white, stroke: R)
+    let bc(p) = circle(p, radius: 0.09, fill: white, stroke: K)
+    rc(i6); rc(i7); rc(i8); rc(o12); rc(o51); rc(o23); rc(o36); rc(o64)
+    bc(u95); bc(u147)
+    // labels (placed beside the edges, never crossing them)
+    let lbl(x, y, b) = content((x, y), b)
+    lbl(1.0, 5.25, $rho_6$); lbl(1.0, 3.6, $rho_7$); lbl(1.5, 1.5, $rho_8$)
+    lbl(2.5, 3.95, $(1, v_2)$); lbl(3.45, 3.8, $rho_2$)
+    lbl(4.1, 5.4, $(5, v_1)$); lbl(6.25, 4.1, $rho_1$)
+    lbl(3.0, 2.8, $(2, v_3)$); lbl(4.05, 2.45, $rho_3$)
+    lbl(5.05, 3.35, $(3, v_6)$); lbl(5.9, 2.72, $rho_5$)
+    lbl(3.7, 1.25, $(6, v_4)$); lbl(5.35, 1.5, $rho_4$)
+    lbl(3.5, 0.45, $(9, v_5)$); lbl(7.25, 3.15, $(14, v_7)$)
+  })
 }
