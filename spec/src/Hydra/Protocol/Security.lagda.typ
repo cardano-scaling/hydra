@@ -453,7 +453,9 @@ record Inv (sys : System) : Set where
 -- The §7 Consistency property: no two honest parties confirm conflicting transactions. We DERIVE
 -- that each honest party's confirmed set is applicable to U₀ (`conf-applicable`) and that the two
 -- sets nest (`confirmed-nest`); so their union is the larger set, which is applicable. "Conflicting"
--- means the union fails to apply, which nesting + individual applicability rules out.
+-- means the union fails to apply, which nesting + individual applicability rules out. The union form
+-- itself (a set T ⊇ both honest confirmed sets that is applicable to U₀) is machine-checked as
+-- `consistency-union` (SecurityProofs), so the paper's `U₀ ∘ (T̄ᵢ ∪ T̄ⱼ) ≠ ⊥` is not left as prose.
 HoldsAt : System → Set
 HoldsAt sys =
   ∀ (i j : Fin (parties sys))
@@ -486,14 +488,20 @@ Soundness = ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h
                         × (∀ {j} → lookup (honest sys) j ≡ true → Snapshot.txs snap ⊆ˡ lookup (seen sys) j)
 
 
--- Completeness (Chain), §7: every transaction an honest party confirmed (T̄ᵢ) is included in a more
--- advanced honest party's confirmed set (in particular the honest closer's, which becomes the
--- finalized snapshot) whenever ŝᵢ ≤ ŝⱼ. This is exactly the nesting obligation `confirmed-nest` (L2).
+-- Completeness (Chain), §7: every transaction an honest party confirmed (T̄ᵢ) is included in the
+-- FINALIZED snapshot T̃ (the closed/fanned-out snapshot, whose aggregate multisignature verifies),
+-- for every honest party whose confirmed number is ≤ T̃'s. DERIVED: T̃ is certified
+-- (`ms-unforgeable`), the honest party's confirmed snapshot is certified-or-genesis (`confCert-of`),
+-- and two certified snapshots nest by number (`cert-nest`, L2). The `confirmedNo i ≤ number snap`
+-- premise is the §7 "the finalized snapshot is at least as advanced as every honest confirmed one"
+-- fact: in the real protocol the close/contest process always accepts the latest multi-signed
+-- snapshot (so Ufinal.s ≥ maxᵢ s̄ᵢ); our `finalize` admits ANY certified snapshot, so it is a
+-- per-party premise rather than derived. (The sibling honest-to-honest nesting is `confirmed-nest`.)
 Completeness : Set
-Completeness = ∀ sys → Reachable sys → ∀ i j
-  → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
-  → confirmedNo (lookup (localOf sys) i) ≤ confirmedNo (lookup (localOf sys) j)
-  → confirmedTxs (lookup (localOf sys) i) ⊆ˡ confirmedTxs (lookup (localOf sys) j)
+Completeness = ∀ sys → Reachable sys → ∀ {snap} → AggVerified sys snap
+  → ∀ i → lookup (honest sys) i ≡ true
+  → confirmedNo (lookup (localOf sys) i) ≤ Snapshot.number snap
+  → confirmedTxs (lookup (localOf sys) i) ⊆ˡ Snapshot.txs snap
 
 
 -- ── Linking the two Agda halves: off-chain confirmed snapshot ↔ on-chain close/fanout ──────────
@@ -643,7 +651,10 @@ We call this the _liveness condition_.
   $union.big_(p_i in Hcont) Tbar_i subset.eq inter.big_(p_i in honest) That_i$,
   and completeness follows.
 
-  _Machine-checked as #raw("completeness") above (each honest party's $Tbar_i subset.eq tilde(T)$
-  whenever $bars_i <= s_f$). This is the snapshot-nesting property `confirmed-nest` (L2), *derived*
-  (`cert-nest`)._
+  _Machine-checked as #raw("completeness") above: each honest party's $Tbar_i subset.eq tilde(T)$
+  (the finalized snapshot itself) whenever $bars_i <= s_f$, *derived* from `cert-nest` (L2),
+  `confCert-of` (the party's confirmed snapshot is genesis-or-certified) and `ms-unforgeable` (the
+  finalized snapshot is certified). The $bars_i <= s_f$ premise is the "latest multi-signed snapshot
+  wins" fact of the close/contest process; our `finalize` admits any certified snapshot, so it is a
+  per-party premise rather than derived. The sibling honest-to-honest nesting is `confirmed-nest`._
 ]

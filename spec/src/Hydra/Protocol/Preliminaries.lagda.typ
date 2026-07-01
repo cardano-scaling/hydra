@@ -232,9 +232,10 @@ ledger model~@eutxo-2@ledger-shelley-spec.
 
 #definition(name: [Inputs])[
   A transaction input $i in txInputs$ is an output reference
-  $txOutRef in tyOutRef$ with a corresponding redeemer $rho in tyData$:
+  $txOutRef in tyOutRef$ together with the _resolved_ spent output (its value,
+  address and datum, as in the eUTxO ledger) and a corresponding redeemer $rho in tyData$:
   $
-    i in txInputs = (txOutRef : tyOutRef times rho : tyData)
+    i in txInputs = (txOutRef : tyOutRef times sans("resolved") : sans("Output") times rho : tyData)
   $
 ]
 

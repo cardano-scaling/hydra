@@ -567,3 +567,41 @@ pairing, the partial-fanout KZG membership), with bad-input rejections asserting
 entries above that name the removed modules describe the state at the time; the current home for every
 validator's decidable-conjunct agreement is `HeadValidatorAgreement`. (`OffChainDifferential`, the
 off-chain HeadLogic reference vs the §6 figure, is unaffected and retained.)
+
+## Adversarial audit (10-agent, 5-category) and its resolutions
+
+A structured audit ran two independent agents per category (an adversary hunting mismatches vs the
+source-of-truth, and a deep correctness pass) over: §7 security proofs, on-chain model+bridge, off-chain
+model, differential testing+extraction, and the Typst/build/diagrams. Verdict: the PR's core claims hold
+(no unsoundness, no vacuous tests, no unfaithful conversion). Findings that were RESOLVED:
+
+- **Completeness was over-claimed (HIGH, now fixed).** `completeness` proved pairwise confirmed-set
+  nesting, not the paper's `⋃_{honest} T̄ᵢ ⊆ T̃` (T̃ = the finalized snapshot). `Completeness` was
+  restated (`Security.lagda.typ`) to the real property — for the finalized snapshot `snap` with
+  `AggVerified sys snap`, every honest party with `confirmedNo i ≤ number snap` has
+  `confirmedTxs i ⊆ Snapshot.txs snap` — and PROVED (`SecurityProofs.completeness`) from `ms-unforgeable`
+  (T̃ certified) + `confCert-of` (party's snapshot genesis-or-certified) + `cert-nest` (L2). The
+  `confirmedNo i ≤ number snap` premise is the "latest multi-signed snapshot wins" fact (our permissive
+  `finalize` takes it per-party). `confirmed-nest` remains the sibling honest-to-honest nesting lemma.
+- **Consistency union form now machine-checked (MED, fixed).** Added `consistency-union` (`SecurityProofs`):
+  there is a tx set `T ⊇ T̄ᵢ, T̄ⱼ` applicable to U₀, so the paper's `U₀ ∘ (T̄ᵢ ∪ T̄ⱼ) ≠ ⊥` is no longer
+  left as prose.
+- **Contest contester not tied to signer (MED, fixed).** `ContestValid` gained a `kh` parameter (bound to
+  the produced datum's newly-appended contester) and a `contesterSigned : signerKeyHash ctx (hash kh)`
+  conjunct, so the spec now requires the appended contester to be THE transaction signer (matching Plutus,
+  which derives `contester` from the sole signer). Rippled through `contestValid` and `OnChainCoverage.contestᵛ`.
+- **Lint-script bypass gaps (fixed).** `check-trust-ledger.sh` now detects every `= λ … → true` mock field
+  (any field, single- or multi-line — previously only the first field of a single-line record) and tolerates
+  variable `postulate` spacing; `check-refs.sh` gained a fence-tag lint (every code fence must be bare or
+  exactly ` ```agda `, since a mistyped ` ```Agda ` silently skips typechecking AND misrenders). All verified
+  to catch injected drift.
+- **Preliminaries Input tuple (fixed).** The prose `Inputs` definition now lists the `resolved` spent output,
+  matching the text and the Agda `record Input`.
+- **BLS/KZG crypto coverage (doc + test).** The alignment doc was corrected: bad-input rejection is asserted
+  for signatures (Ed25519) only; BLS/KZG membership are exercised accept-direction only. A wrong-proof
+  rejection test for the fanout/partial paths was added to close the gap.
+
+Residual DOCUMENTED boundaries (not defects, honestly scoped): the reflexive `headId`/`cp` param bridges
+(teeth come from the differential, see "Trust ledger" precision note); the fanout family's free `S` set;
+the off-chain figure's 1-based `[1..n]` all-signed index vs the model/node 0-based `[0..n-1]`; and the
+`ackSn-confirm` version premise being broader than the rendered §6 figure line (impl-C5, intentional).

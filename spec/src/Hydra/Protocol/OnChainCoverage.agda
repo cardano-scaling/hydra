@@ -112,8 +112,8 @@ data Reachableᵛ : HeadDatum → Set where
     → Reachableᵛ (Open cid hk n cp 0 (accUTxO ∅ˢ) ada)
   closeᵛ : ∀ {ctx hk cid v cp s' d d' ct}
     → Reachableᵛ d → CloseValid ctx hk cid v cp s' d d' ct → Reachableᵛ d'
-  contestᵛ : ∀ {ctx hk cid v s tfin d d' ct}
-    → Reachableᵛ d → ContestValid ctx hk cid v s tfin d d' ct → Reachableᵛ d'
+  contestᵛ : ∀ {ctx hk cid v s tfin d d' ct kh}
+    → Reachableᵛ d → ContestValid ctx hk cid v s tfin d d' ct kh → Reachableᵛ d'
   incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref}
     → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref → Reachableᵛ d'
   decrementᵛ : ∀ {ctx hk cid v d d' ξ s m}

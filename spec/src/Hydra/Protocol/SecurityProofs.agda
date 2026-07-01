@@ -478,6 +478,22 @@ consistency sys reach i j hi hj =
     ... | inj₁ le = inj₁ (confirmed-nest sys reach i j hi hj le)
     ... | inj₂ ge = inj₂ (confirmed-nest sys reach j i hj hi ge)
 
+-- §7 Consistency, the UNION form: the paper's literal `U₀ ∘ (T̄ᵢ ∪ T̄ⱼ) ≠ ⊥` made fully machine-
+-- checked (not left as the "union = larger side, which is applicable" prose step). There is a single
+-- tx set `T` containing both honest confirmed sets (their union, i.e. the ⊆-larger of the two, since
+-- they nest) that is applicable to U₀. So the union of two honest confirmed sets never fails to apply.
+consistency-union : ∀ sys → Reachable sys → ∀ i j
+  → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
+  → Σ[ T ∈ List Data ] (confirmedTxs (lookup (localOf sys) i) ⊆ˡ T
+                      × confirmedTxs (lookup (localOf sys) j) ⊆ˡ T
+                      × Applicable (U₀ sys) T)
+consistency-union sys reach i j hi hj
+  with ≤-total (confirmedNo (lookup (localOf sys) i)) (confirmedNo (lookup (localOf sys) j))
+... | inj₁ le = confirmedTxs (lookup (localOf sys) j)
+              , confirmed-nest sys reach i j hi hj le , ⊆ˡ-refl , conf-applicable sys reach hj
+... | inj₂ ge = confirmedTxs (lookup (localOf sys) i)
+              , ⊆ˡ-refl , confirmed-nest sys reach j i hj hi ge , conf-applicable sys reach hi
+
 -- ── A5: Consistency over once-honest-then-corrupt parties ────────────────────────────────────────
 -- The §7 random variables T̄ᵢ are the txs party i confirmed _while uncorrupted_; `consistency` above
 -- covers only CURRENTLY-honest parties. We extend it to ANY party (including one corrupted after it
@@ -602,8 +618,17 @@ soundness sys reach {snap = snap} hh aggOK =
       finalJust = ≢nothing→just (Ufinal sys snap) (cert-applicable sys reach hh cert)
   in proj₁ finalJust , proj₂ finalJust , (λ {j} hj → sigSeen-inv sys reach hj (cert j))
 
+-- §7 Completeness: every honest party's confirmed txs are contained in the finalized snapshot `snap`
+-- (whose aggregate multisignature verifies), whenever that party's confirmed number ≤ `snap`'s. The
+-- finalized snapshot is certified (`ms-unforgeable`); the party's confirmed snapshot is genesis
+-- (txs = [], trivially ⊆) or certified (`confCert-of`); in the latter case the two certified
+-- snapshots nest by number (`cert-nest`, L2), using the party itself as the honest witness.
 completeness : Completeness
-completeness = confirmed-nest
+completeness sys reach {snap} aggOK i hi le with confCert-of sys reach hi
+... | inj₁ (_ , ti≡[]) = subst (_⊆ˡ Snapshot.txs snap) (sym ti≡[]) []⊆snap
+  where []⊆snap : [] ⊆ˡ Snapshot.txs snap
+        []⊆snap ()
+... | inj₂ ci = cert-nest sys reach hi ci (ms-unforgeable sys snap aggOK) le
 
 -- `Reflects` is constructed soundly. Given a system that has finalized against a snapshot whose
 -- aggregate multisignature verifies (`AggVerified`; the `finalize` step supplies the snapshot-number

@@ -446,7 +446,7 @@ contestSigOK hk cid v s (contestUsed ξ η#)   = snapshotSigOK hk cid (v ∸ 1) 
 -- `contestValid` function destructures the source `Closed` datum (binding its key/id/version/snapshot/
 -- deadline) and is ⊥ for any other source shape.
 record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
-                    (d d' : HeadDatum) (ct : ContestType) : Set where
+                    (d d' : HeadDatum) (ct : ContestType) (kh : VKey) : Set where
   constructor mkContestValid
   field
     step              : d ⟶⟨ Contest ct ⟩ d'
@@ -458,9 +458,12 @@ record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
     beforeDeadline    : ValidityInterval.hi (Context.validity ctx) ≤ tfin  -- posted before the deadline
     valuePreserved    : headValueIn ctx ≡ headValue ctx       -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
     participantSigned : signedByParticipant cid ctx
+    contesterSigned   : signerKeyHash ctx (hash kh)           -- the appended contester `kh` is THE tx signer (§5.7; Plutus derives `contester` from the sole signer)
 
+-- `kh` (the record's contester parameter) is bound to the head of the produced datum's contesters,
+-- so `contesterSigned` requires that the newly-appended contester actually signed the transaction.
 contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
-contestValid ctx d@(Closed cid hk _ _ v s _ _ tfin _) d' ct = ContestValid ctx hk cid v s tfin d d' ct
+contestValid ctx d@(Closed cid hk _ _ v s _ _ tfin _) d'@(Closed _ _ _ _ _ _ _ (kh ∷ _) _ _) ct = ContestValid ctx hk cid v s tfin d d' ct kh
 contestValid _ _ _ _ = ⊥
 
 -- The claimed deposit OutputRef is actually spent by the transaction (§5.4: txOutRef_increment =

@@ -95,8 +95,20 @@ for r in $tx_rules; do
   fi
 done
 
+# --- Check (5): every code fence opens as ``` (bare) or ```agda exactly --------
+# Agda's literate mode typechecks a fence only when its info string is empty or
+# exactly `agda`; a mistyped tag (```Agda, ```agda2, ```haskell) is silently NOT
+# typechecked AND renders as a literal raw block. Flag any non-`agda` tag.
+badfence=$(grep -nE '^```[^`]' src/Hydra/Protocol/*.lagda.typ | grep -vE ':```agda$' || true)
+if [ -n "$badfence" ]; then
+  echo "ERROR: code fence with a tag other than 'agda' (skips Agda typecheck AND misrenders):"
+  echo "$badfence" | sed 's/^/  /'
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "check-refs: OK — cited rules exist, the head-state diagram matches the Agda"
-  echo "relation, state-fields match HeadDatum, and tx diagrams map to real rules."
+  echo "relation, state-fields match HeadDatum, tx diagrams map to real rules, and"
+  echo "every code fence is bare or \`\`\`agda."
 fi
 exit "$fail"

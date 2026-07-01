@@ -65,9 +65,13 @@ reduces to `commitment == proof` and the real `bls12_381_finalVerify` runs), and
 membership for partial fanout (a 2-element accumulator built directly over the on-chain element
 pre-image, so `e(oldAcc, G2) == e(newAcc, P_S(τ)·G2)` verifies against the real CRS G2 powers of
 tau). The reference returns only the decidable verdict for these conjuncts, but the agreement
-test runs the real validator's real crypto and asserts non-vacuity directly (e.g. the real
-validator REJECTS a bad-snapshot signature while both oracles accept the healthy, correctly
-signed input).
+test runs the real validator's real crypto on the same inputs. Non-vacuity in the REJECT direction
+is asserted for the SIGNATURE conjuncts only: the real validator REJECTS a bad-snapshot Ed25519
+signature while both oracles accept the healthy, correctly signed input. The BLS pairing and KZG
+membership, by contrast, are exercised in the ACCEPT direction only (a valid proof run through the
+real primitives); they are not fed a corrupted proof, so a validator that accepted a forged
+membership proof would not be caught by this suite (the reference mocks that conjunct). Adding a
+wrong-proof rejection for BLS/KZG is the natural next strengthening.
 
 **Scope — what the agreement test establishes (do not over-sell):**
 
@@ -148,6 +152,16 @@ Everything else is a genuine proof. The C3 work moved `mustPreserveHeadValue` (c
 `mustNotChangeParameters` headId/cp (contest) and the init `headId==currency` binding OUT of these mocks
 into proved bridges + two-directional differential tests; `checkSignedParticipantContestOnlyOnce` stays
 deferred (its `¬∈ ⇒ false` bridge would need a *new* code-injectivity postulate).
+
+Precision note (the `headId`/`cp` param bridges are reflexive): `contestParams→ref` and `initHeadId→ref`
+are discharged by `==-sound refl` because the reference is called with the SAME `cid`/`cp` on both sides
+(the produced datum reuses the source binders; init's `cid` = the currency). So the *bridge lemma* proves
+only that the reference ACCEPTS when the parameters are held fixed — it does not by itself exercise a
+parameter change; the teeth (a rejected `headId`/`cp` mutation) come from the two-directional differential
+test, not the bridge. Likewise, the fanout family's distributed-output set `S` is a free bundle parameter
+(not derived from the transaction's `outputs`); only the *value* conjunct pins the batch positionally, so
+the accumulator-membership conjunct's `S` is not tied to the context outputs. Both are documented
+boundaries, not soundness gaps in the `bundle ⇒ reference` direction.
 
 ---
 

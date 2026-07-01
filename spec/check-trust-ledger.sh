@@ -16,15 +16,17 @@ cd "$(dirname "$0")"
 BR=src/Hydra/Protocol/ReferenceBridge.agda
 RR=src/Hydra/Protocol/RefReflection.agda
 
-# (a) Ops mocks: `record { <field> = λ … → true }` constructions (NOT record-pattern matches like `step =`).
-actual_mocks=$(grep -hE 'record \{.*→ true' "$BR" | grep -oE 'record \{ [a-zA-Z]+' | sed 's/record { //' | sort -u)
+# (a) Ops mocks: every `<field> = λ … → true` const-true binding (ANY field in a record, first or
+# not, single- OR multi-line; NOT record-pattern matches like `step =`, which don't bind `λ … → true`).
+# Newlines are flattened first so a multi-line record literal cannot hide a mock from the line-based grep.
+actual_mocks=$(tr '\n' ' ' < "$BR" | grep -oE '[a-zA-Z][a-zA-Z0-9]* = λ[^;{}]*→ true' | sed -E 's/ = λ.*//' | sort -u)
 
 # (b) Postulated names, both single-line (`postulate name :`) and block (`postulate` then indented `name :`).
 actual_postulates=$(awk '
   /^[ ]*--/ {next}
   /^postulate$/ {inblock=1; next}
-  /^postulate [^ ]/ {print $2; inblock=0; next}
-  inblock && /^  [^ ]+ +:/ {print $1; next}
+  /^postulate[ ]+[^ ]/ {print $2; inblock=0; next}
+  inblock && /^[ ]+[^ ]+ +:/ {print $1; next}
   inblock && /^[^ ]/ {inblock=0}
 ' "$BR" "$RR" | sort -u)
 

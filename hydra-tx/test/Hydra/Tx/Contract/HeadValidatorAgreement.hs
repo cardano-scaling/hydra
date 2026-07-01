@@ -1039,6 +1039,21 @@ fanoutVal :: Integer -> Integer -> Integer -> Bool
 fanoutVal burnedCount validityLo tfinal =
   Head.headValidator crsScriptHash (HS.Closed (fanoutClosedDatum tfinal)) fanoutRedeemer (mkFanoutContext burnedCount validityLo tfinal)
 
+-- A WRONG BLS membership proof: a G1 point ≠ the empty-accumulator commitment (g1Generator). For the
+-- empty head (m = 0) checkMembershipPairing reduces to `commitment == proof`, so feeding a mismatched
+-- proof makes the REAL bls12_381 pairing check FAIL — exercising the BLS crypto in the reject direction
+-- (the reference mocks this conjunct, so only the real validator sees it). 2·G ≠ G.
+fanoutBadProof :: Builtins.BuiltinBLS12_381_G1_Element
+fanoutBadProof = Builtins.bls12_381_G1_add g1Generator g1Generator
+
+fanoutValBadProof :: Integer -> Integer -> Integer -> Bool
+fanoutValBadProof burnedCount validityLo tfinal =
+  Head.headValidator
+    crsScriptHash
+    (HS.Closed (fanoutClosedDatum tfinal))
+    (HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = fanoutBadProof, HS.crsRef = crsRefOut})
+    (mkFanoutContext burnedCount validityLo tfinal)
+
 -- ── partial fanout (Closed → FanoutProgress: distribute a subset, continue with the remaining acc) ──────
 -- checkPartialFanout requires m > 0 distributed outputs (mustHaveOutputs), no mint, after the deadline, the
 -- continuing FanoutProgress datum preserves the head parameters, value is conserved, and the membership
@@ -1159,9 +1174,37 @@ mkPartialContext m validityLo tfinal =
 partialRef :: Integer -> Integer -> Integer -> Bool
 partialRef = Ref.checkPartialFanout
 
+-- NB: argument order DIFFERS from partialRef above — here it is (m, validityLo, tfinal),
+-- there it is (m, tfinal, validityLo). Every call site below swaps the last two to match.
 partialVal :: Integer -> Integer -> Integer -> Bool
 partialVal m validityLo tfinal =
   Head.headValidator crsScriptHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContext m validityLo tfinal)
+
+-- A WRONG KZG membership: the continuing FanoutProgress output claims the head did NOT shrink (its
+-- commitment = the OLD full-accumulator commitment), so e(oldAcc, G2) == e(newAcc, P_S(τ)·G2) fails
+-- against the real CRS — exercising the KZG pairing in the reject direction. Value is unchanged, so
+-- the ONLY failing check is the membership pairing. (Built explicitly: accumulatorCommitment is a
+-- duplicate field, so a record update would be ambiguous.)
+pfProgressOutBad :: Integer -> HS.FanoutProgressDatum
+pfProgressOutBad tfinal =
+  HS.FanoutProgressDatum
+    { HS.headId = headPolicy
+    , HS.parties = [snapshotParty]
+    , HS.contestationDeadline = POSIXTime tfinal
+    , HS.accumulatorCommitment = pfInputAccCommitment
+    , HS.headAdaOverhead = fanoutOverhead
+    }
+
+mkPartialContextBadProof :: Integer -> Integer -> Integer -> ScriptContext
+mkPartialContextBadProof m validityLo tfinal =
+  base{scriptContextTxInfo = (scriptContextTxInfo base){txInfoOutputs = [continuingOutBad, pfDistributedOut]}}
+ where
+  base = mkPartialContext m validityLo tfinal
+  continuingOutBad = TxOut headAddr pfHeadOutVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (pfProgressOutBad tfinal))))) Nothing
+
+partialValBadProof :: Integer -> Integer -> Integer -> Bool
+partialValBadProof m validityLo tfinal =
+  Head.headValidator crsScriptHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContextBadProof m validityLo tfinal)
 
 -- ── the agreement property ───────────────────────────────────────────────────────────────────────────
 
@@ -1381,6 +1424,9 @@ spec = parallel $ do
         let tfinal = 1_000
          in fanoutRef burnedCount validityLo tfinal === fanoutVal burnedCount validityLo tfinal
 
+  prop "fanout: real validator REJECTS a wrong BLS membership proof (healthy accepts, bad proof rejects)" $
+    fanoutVal 2 1_050 1_000 === True .&&. fanoutValBadProof 2 1_050 1_000 === False
+
   -- ── partial fanout (real 2-element accumulator, distribute 1): membership + 0<m + after-deadline ──
   prop "anchor: healthy partial fanout — BOTH oracles accept (real KZG membership verified)" $
     partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_000 1_050 === True
@@ -1390,6 +1436,9 @@ spec = parallel $ do
       forAll (elements [950, 1_050]) $ \validityLo ->
         let tfinal = 1_000
          in partialRef m tfinal validityLo === partialVal m validityLo tfinal
+
+  prop "partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
+    partialVal 1 1_050 1_000 === True .&&. partialValBadProof 1 1_050 1_000 === False
 
   -- ── C3.5: the JOIN as one checked artifact ──
   -- The bridge proves spec-bundle ⇒ extracted-reference (Agda). This single property checks the other half,
