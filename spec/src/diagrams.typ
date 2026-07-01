@@ -138,6 +138,12 @@
 #let _hdr-tx = rgb("#f4dc82") // transaction title bar (yellow)
 #let _cell = rgb("#fcfdff") // box body
 
+// Standard box widths — every box of a given kind uses the SAME width so figures line up
+// consistently (do not override these per-diagram).
+#let _w-utxo = 28mm // a plain UTxO box (o_seed, o_i, decommitted, recovered, …)
+#let _w-script = 42mm // a script UTxO box carrying a datum (νHead, νDeposit)
+#let _w-tx = 42mm // the transaction box
+
 // state KEY at each end of a rule (for state-fields / _fsm-disp lookup).
 #let _from(rule) = head-fsm-transitions.find(x => x.rule == rule).from
 #let _to(rule) = head-fsm-transitions.find(x => x.rule == rule).to
@@ -161,7 +167,7 @@
 
 // A UTxO box: rounded rect, coloured title bar, optional datum (split with the
 // spending redeemer when both are given) and a value footer.
-#let utxo-box(title, datum: none, redeemer: none, value: none, kind: "in", width: 22mm) = {
+#let utxo-box(title, datum: none, redeemer: none, value: none, kind: "in", width: _w-utxo) = {
   let bar = if kind == "in" { _hdr-in } else if kind == "out" { _hdr-out } else { _cell }
   set text(size: 7.5pt)
   box(stroke: 0.6pt, radius: 3pt, clip: true, inset: 0pt, fill: _cell, width: width)[
@@ -174,20 +180,30 @@
   ]
 }
 
+// A script UTxO box (νHead / νDeposit): a UTxO governed by a validator, carrying a datum + value,
+// drawn at the standard script-box width so all of them line up.
+#let script-utxo(title, datum: none, value: none, redeemer: none, kind: "in") = utxo-box(
+  title,
+  datum: datum,
+  value: value,
+  redeemer: redeemer,
+  kind: kind,
+  width: _w-script,
+)
+
 // A head UTxO box in `state` (KEY); datum = the state's `state-fields` line.
-#let head-utxo(state, value: none, redeemer: none, kind: "in") = utxo-box(
+#let head-utxo(state, value: none, redeemer: none, kind: "in") = script-utxo(
   $nuHead$,
   datum: _state-line(state),
-  redeemer: redeemer,
   value: value,
+  redeemer: redeemer,
   kind: kind,
-  width: 42mm,
 )
 
 // The transaction box: square corners, yellow title bar, then the given bands.
 #let tx-box(name, ..bands) = {
   set text(size: 7.5pt)
-  box(stroke: 0.7pt, clip: true, inset: 0pt, fill: _cell, width: 42mm)[
+  box(stroke: 0.7pt, radius: 3pt, clip: true, inset: 0pt, fill: _cell, width: _w-tx)[
     #set block(spacing: 0pt)
     #_band(strong(name), fill: _hdr-tx, sep: false)
     #if bands.pos().len() == 0 {
@@ -198,7 +214,7 @@
   ]
 }
 
-#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none) = {
+#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none, refArc: none) = {
   let h = calc.max(inputs.len(), outputs.len(), 1)
   let mid = (h - 1) / 2
   let bands = ()
@@ -211,35 +227,57 @@
     ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)))),
     node((2, mid), tx-box(name, ..bands), name: <txbox>),
     ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)))),
-    ..inputs.enumerate().map(((i, _)) => edge(label("txin-" + str(i)), <txbox>, "-|>")),
+    // curved edges (hand-drawn look): inputs arrow INTO the tx (left), outputs end in a hollow
+    // circle "pin" at the produced UTxO (right); the bend fans them out from/into the tx box.
+    ..inputs.enumerate().map(((i, _)) => edge(label("txin-" + str(i)), <txbox>, "-|>", bend: (mid - i) * 14deg)),
     ..outputs.enumerate().map(((i, _)) => {
-      if i == 0 and qty != none { edge(<txbox>, label("txout-" + str(i)), "-|>", label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, label("txout-" + str(i)), "-|>") }
+      let b = (i - mid) * 14deg
+      if i == 0 and qty != none { edge(<txbox>, label("txout-" + str(i)), marks: (none, "o"), bend: b, label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, label("txout-" + str(i)), marks: (none, "o"), bend: b) }
     }),
+    // optional dashed reference arc from an input, up and OVER the tx box, to an output (the
+    // committed-UTxO / datum reference the originals draw on deposit and recover). refArc = (in, out).
+    ..(if refArc != none {
+      (edge(
+        label("txin-" + str(refArc.at(0))), label("txout-" + str(refArc.at(1))), "-|>",
+        stroke: (thickness: 0.5pt, dash: "dashed"), bend: 60deg,
+      ),)
+    } else { () }),
   )
 }
 
 // Init (§5.1): spends the seed, mints ST + PTs, produces the Open head output.
+// the seed input carries a dashed reference to its datum φ_seed (as in the original figure)
+#let _seedRef = stack(
+  dir: ttb,
+  spacing: 2pt,
+  align(center, text(7.5pt, $phi_sans("seed")$)),
+  align(center, line(length: 5mm, angle: 90deg, stroke: (thickness: 0.5pt, dash: "dashed"))),
+  utxo-box($o_sans("seed")$, kind: "in"),
+)
 #let initTx-diagram = tx-diagram(
   $mtxInit$,
-  (utxo-box($o_sans("seed")$, kind: "in"),),
-  (head-utxo("Open", value: $st + sum pt_i$, kind: "out"),),
+  (_seedRef,),
+  (head-utxo("Open", value: ${st, pt_1, dots.h, pt_n}$, kind: "out"),),
+  redeemer: $rho_sans("seed")$,
+  outref: $o_sans("head") quad 1$,
   mint: $sans("mint") = {st, pt_1 ... pt_n} :: cid$,
-  qty: $1$,
 )
 
 // Deposit (§5.2): spends committed UTxOs into a νDeposit output.
 #let depositTx-diagram = tx-diagram(
   $mtxDeposit$,
   (utxo-box($o_(sans("dep"), 1)$, kind: "in"), utxo-box($o_(sans("dep"), m)$, kind: "in")),
-  (utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, value: $valDeposit$, kind: "out", width: 34mm),),
+  (script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, value: $valDeposit$, kind: "out"),),
+  refArc: (0, 0),
 )
 
 // Recover (§5.3): restores the deposited UTxOs after the deadline.
 #let recoverTx-diagram = tx-diagram(
   $mtxRecover$,
-  (utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Recover") med m$, value: $valDeposit$, kind: "in", width: 42mm),),
-  (utxo-box($sans("recovered") med C$, kind: "plain", width: 28mm),),
+  (script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Recover") med m$, value: $valDeposit$, kind: "in"),),
+  (utxo-box($sans("recovered") med C$, kind: "plain"),),
   validity: $sans("validity") = (t_sans("rec"), infinity)$,
+  refArc: (0, 0),
 )
 
 // Increment (§5.4): folds a deposit into the open head.
@@ -247,7 +285,7 @@
   $mtxIncrement$,
   (
     head-utxo(_from("increment"), redeemer: $sans("Increment") med xi med sans("ref")$, value: $valHead$, kind: "in"),
-    utxo-box($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: $valDeposit$, kind: "in", width: 42mm),
+    script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: $valDeposit$, kind: "in"),
   ),
   (head-utxo(_to("increment"), value: $valHead union valDeposit$, kind: "out"),),
   validity: $t_sans("max")$,
@@ -262,7 +300,7 @@
   (head-utxo(_from("decrement"), redeemer: $sans("decrement") med xi_sans("ms")$, value: $valHead$, kind: "in"),),
   (
     head-utxo(_to("decrement"), value: $valHead'$, kind: "out"),
-    utxo-box($sans("decommitted")$, datum: $o_1 dots.h o_k$, kind: "plain", width: 30mm),
+    utxo-box($sans("decommitted")$, datum: $o_1 dots.h o_k$, kind: "plain"),
   ),
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
@@ -352,14 +390,31 @@
     let R = (paint: rgb(85.9%, 21.6%, 19.6%), thickness: 0.6pt) // the original's red
     let K = (paint: black, thickness: 0.6pt)
     let G = (paint: rgb(60%, 60%, 60%), thickness: 0.6pt) // the original's gray boxes
-    // transactions (tall gray rectangles); inputs enter on the LEFT edge, outputs leave on the RIGHT
-    let tx(x, y, nm) = rect((x - 0.2, y - 0.62), (x + 0.2, y + 0.62), name: nm, stroke: G)
-    tx(2.0, 4.4, "A")
-    tx(4.4, 3.3, "B")
-    tx(6.6, 2.9, "C")
-    tx(2.9, 1.3, "D")
-    // UTxO circle positions (the circles are drawn LAST so their fill masks the line stubs at the
-    // centre, leaving clean borders where each edge meets its circle)
+    // transactions (tall gray rectangles); every edge meets a box on the flat LEFT or RIGHT SIDE
+    // (never a corner). Box half-width 0.2, half-height 0.62.
+    let tx(x, y) = rect((x - 0.2, y - 0.62), (x + 0.2, y + 0.62), stroke: G)
+    tx(2.0, 4.4)
+    tx(4.4, 3.3)
+    tx(6.6, 2.9)
+    tx(2.9, 1.3)
+    // pins ON the box sides (left x = centre − 0.2 = inputs; right x = centre + 0.2 = outputs), each
+    // inset from the corners so a line only ever meets a flat side
+    let a-i6 = (1.8, 4.72)
+    let a-i7 = (1.8, 4.08)
+    let a-o51 = (2.2, 4.72)
+    let a-o12 = (2.2, 4.12)
+    let b-i2 = (4.2, 3.6)
+    let b-i3 = (4.2, 3.0)
+    let b-o36 = (4.6, 3.3)
+    let c-i1 = (6.4, 3.25)
+    let c-i5 = (6.4, 2.9)
+    let c-i4 = (6.4, 2.55)
+    let c-o147 = (6.8, 2.9)
+    let d-i8 = (2.7, 1.3)
+    let d-o23 = (3.1, 1.65)
+    let d-o64 = (3.1, 1.3)
+    let d-o95 = (3.1, 0.95)
+    // UTxO circle positions (drawn LAST so their fill masks the line stub at the centre → clean borders)
     let i6 = (0.4, 5.0)
     let i7 = (0.4, 3.9)
     let i8 = (0.4, 1.3)
@@ -368,28 +423,28 @@
     let o23 = (3.7, 2.55)
     let o36 = (5.5, 3.05)
     let o64 = (4.55, 1.6)
-    let u95 = (3.85, 0.7)
+    let u95 = (3.85, 0.9)
     let u147 = (7.7, 2.9)
-    // external inputs (red) → box LEFT
-    bezier(i6, "A.north-west", (1.2, 5.2), stroke: R)
-    bezier(i7, "A.south-west", (1.2, 3.7), stroke: R)
-    line(i8, "D.west", stroke: R)
-    // tx A outputs (black) from RIGHT; consumed into B / C (red) at LEFT
-    line("A.east", o12, stroke: K)
-    bezier("A.north-east", o51, (3.8, 5.35), stroke: K)
-    line(o12, "B.north-west", stroke: R)
-    bezier(o51, "C.north-west", (6.0, 4.2), stroke: R)
-    // tx D outputs (black) from RIGHT; consumed into B / C (red) at LEFT; (9,v₅) unspent
-    line("D.north-east", o23, stroke: K)
-    line("D.east", o64, stroke: K)
-    line("D.south-east", u95, stroke: K)
-    line(o23, "B.south-west", stroke: R)
-    bezier(o64, "C.south-west", (5.6, 1.75), stroke: R)
-    // tx B output (black) from RIGHT; consumed into C (red) at LEFT
-    line("B.east", o36, stroke: K)
-    line(o36, "C.west", stroke: R)
-    // tx C output (black) from RIGHT → unspent
-    line("C.east", u147, stroke: K)
+    // external inputs (red) → LEFT side
+    bezier(i6, a-i6, (1.2, 5.05), stroke: R)
+    bezier(i7, a-i7, (1.2, 3.75), stroke: R)
+    line(i8, d-i8, stroke: R)
+    // tx A outputs (black) from RIGHT side; consumed into B / C (red) at LEFT side
+    line(a-o12, o12, stroke: K)
+    bezier(a-o51, o51, (3.8, 5.2), stroke: K)
+    line(o12, b-i2, stroke: R)
+    bezier(o51, c-i1, (6.0, 4.1), stroke: R)
+    // tx D outputs (black) from RIGHT side; consumed into B / C (red) at LEFT; (9,v₅) unspent
+    line(d-o23, o23, stroke: K)
+    line(d-o64, o64, stroke: K)
+    line(d-o95, u95, stroke: K)
+    line(o23, b-i3, stroke: R)
+    bezier(o64, c-i4, (5.6, 1.7), stroke: R)
+    // tx B output (black) from RIGHT side; consumed into C (red) at LEFT side
+    line(b-o36, o36, stroke: K)
+    line(o36, c-i5, stroke: R)
+    // tx C output (black) from RIGHT side → unspent
+    line(c-o147, u147, stroke: K)
     // UTxO circles, hollow: RED = spent output / external input, BLACK = the two unspent UTxOs
     let rc(p) = circle(p, radius: 0.09, fill: white, stroke: R)
     let bc(p) = circle(p, radius: 0.09, fill: white, stroke: K)
@@ -397,12 +452,12 @@
     bc(u95); bc(u147)
     // labels (placed beside the edges, never crossing them)
     let lbl(x, y, b) = content((x, y), b)
-    lbl(1.0, 5.25, $rho_6$); lbl(1.0, 3.6, $rho_7$); lbl(1.5, 1.5, $rho_8$)
-    lbl(2.5, 3.95, $(1, v_2)$); lbl(3.45, 3.8, $rho_2$)
-    lbl(4.1, 5.4, $(5, v_1)$); lbl(6.25, 4.1, $rho_1$)
-    lbl(3.0, 2.8, $(2, v_3)$); lbl(4.05, 2.45, $rho_3$)
-    lbl(5.05, 3.35, $(3, v_6)$); lbl(5.9, 2.72, $rho_5$)
-    lbl(3.7, 1.25, $(6, v_4)$); lbl(5.35, 1.5, $rho_4$)
-    lbl(3.5, 0.45, $(9, v_5)$); lbl(7.25, 3.15, $(14, v_7)$)
+    lbl(1.0, 5.2, $rho_6$); lbl(1.0, 3.6, $rho_7$); lbl(1.5, 1.45, $rho_8$)
+    lbl(2.55, 3.9, $(1, v_2)$); lbl(3.5, 3.7, $rho_2$)
+    lbl(4.0, 5.25, $(5, v_1)$); lbl(6.25, 4.0, $rho_1$)
+    lbl(3.0, 2.65, $(2, v_3)$); lbl(3.95, 2.4, $rho_3$)
+    lbl(5.0, 3.35, $(3, v_6)$); lbl(5.9, 2.72, $rho_5$)
+    lbl(3.7, 1.2, $(6, v_4)$); lbl(5.3, 1.5, $rho_4$)
+    lbl(3.45, 0.55, $(9, v_5)$); lbl(7.25, 3.1, $(14, v_7)$)
   })
 }
