@@ -42,9 +42,7 @@ head output and ensures contract continuity~@eutxo.
 
 #figure(
   stack(spacing: 1.2em, deposit-fsm, head-fsm),
-  caption: [Possible state transitions of a Hydra head. The lower (main) state
-    machine is rendered from the same transition data that `check-refs.sh`
-    verifies against the Agda `_⟶⟨_⟩_` relation in @sec:on-chain.],
+  caption: [Maintain state diagram for this version of the Hydra protocol],
 ) <fig:head-protocol-states>
 
 The head is opened with an empty UTxO set. Participants can then add funds to the
