@@ -191,6 +191,13 @@
   width: _w-script,
 )
 
+// A "wallet" UTxO entry: a hollow circle pin followed by a concrete-value label, for the external
+// (wallet) UTxOs the originals draw inside a dashed box (e.g. in₁: 15 ada). Use with `inGroup`.
+#let wallet-utxo(body) = {
+  set text(7.5pt)
+  box(grid(columns: (auto, auto), column-gutter: 4pt, align: horizon, circle(radius: 2.2pt, stroke: 0.6pt, fill: white), body))
+}
+
 // A head UTxO box in `state` (KEY); datum = the state's `state-fields` line.
 #let head-utxo(state, value: none, redeemer: none, kind: "in") = script-utxo(
   $nuHead$,
@@ -205,7 +212,8 @@
   set text(size: 7.5pt)
   box(stroke: 0.7pt, radius: 3pt, clip: true, inset: 0pt, fill: _cell, width: _w-tx)[
     #set block(spacing: 0pt)
-    #_band(strong(name), fill: _hdr-tx, sep: false)
+    // the box label is the transaction name + "Tx" (e.g. depositTx), as in the original figures
+    #_band(strong(name + $italic("Tx")$), fill: _hdr-tx, sep: false)
     #if bands.pos().len() == 0 {
       // a tx with no on-chain checks to show (e.g. deposit): a tall empty body,
       // like the original figures, so the box does not collapse to a thin bar.
@@ -214,7 +222,7 @@
   ]
 }
 
-#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none, refArc: none) = {
+#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none, refArc: none, inGroup: false) = {
   let h = calc.max(inputs.len(), outputs.len(), 1)
   let mid = (h - 1) / 2
   let bands = ()
@@ -225,6 +233,13 @@
     node-inset: 0pt,
     spacing: (9mm, 5mm),
     ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)))),
+    // optional dashed "wallet" box enclosing all inputs (the external UTxOs, as in the originals)
+    ..(if inGroup {
+      (node(
+        enclose: range(inputs.len()).map(i => label("txin-" + str(i))),
+        stroke: (thickness: 0.6pt, dash: "dashed"), corner-radius: 5pt, inset: 8pt,
+      ),)
+    } else { () }),
     node((2, mid), tx-box(name, ..bands), name: <txbox>),
     ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)))),
     // curved edges (hand-drawn look): inputs arrow INTO the tx (left), outputs end in a hollow
@@ -239,7 +254,7 @@
     ..(if refArc != none {
       (edge(
         label("txin-" + str(refArc.at(0))), label("txout-" + str(refArc.at(1))), "-|>",
-        stroke: (thickness: 0.5pt, dash: "dashed"), bend: 60deg,
+        stroke: (thickness: 0.5pt, dash: "dashed"), bend: 18deg,
       ),)
     } else { () }),
   )
@@ -266,8 +281,9 @@
 // Deposit (§5.2): spends committed UTxOs into a νDeposit output.
 #let depositTx-diagram = tx-diagram(
   $mtxDeposit$,
-  (utxo-box($o_(sans("dep"), 1)$, kind: "in"), utxo-box($o_(sans("dep"), m)$, kind: "in")),
-  (script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, value: $valDeposit$, kind: "out"),),
+  (wallet-utxo([$italic("in")_1$: 15 ada]), wallet-utxo([$italic("in")_2$: 7 ada])),
+  (script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, value: [22 ada], kind: "out"),),
+  inGroup: true,
   refArc: (0, 0),
 )
 
