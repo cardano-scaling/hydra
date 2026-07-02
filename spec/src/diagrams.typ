@@ -154,7 +154,7 @@
 #let _band(body, fill: _cell, sep: true) = block(
   width: 100%,
   fill: fill,
-  inset: (x: 6pt, y: 3.5pt),
+  inset: (x: 7pt, y: 5.5pt),
   stroke: if sep { (top: 0.5pt) } else { none },
 )[#align(center, body)]
 
@@ -163,7 +163,7 @@
 // whole row even when the datum wraps to more lines than the redeemer; cells are centred.
 #let _split(a, b) = block(width: 100%, stroke: (top: 0.5pt), inset: 0pt, grid(
   columns: (1.3fr, 1fr),
-  inset: (x: 5pt, y: 3.5pt),
+  inset: (x: 6pt, y: 5.5pt),
   align: center + horizon,
   grid.vline(x: 1, stroke: 0.5pt),
   a, b,
@@ -236,7 +236,9 @@
     node-stroke: none,
     node-inset: 0pt,
     spacing: (9mm, 5mm),
-    ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)))),
+    // shape: "rect" on every box — fletcher otherwise auto-switches near-square boxes to a
+    // circle, whose larger bounding shape leaves the edges disconnected from the box.
+    ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)), shape: "rect")),
     // optional dashed "wallet" box enclosing all inputs (the external UTxOs, as in the originals)
     ..(if inGroup {
       (node(
@@ -244,8 +246,8 @@
         stroke: (thickness: 0.6pt, dash: "dashed"), corner-radius: 5pt, inset: 8pt,
       ),)
     } else { () }),
-    node((2, mid), tx-box(name, ..bands), name: <txbox>),
-    ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)))),
+    node((2, mid), tx-box(name, ..bands), name: <txbox>, shape: "rect"),
+    ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)), shape: "rect")),
     // optional dashed "wallet" box enclosing all outputs (e.g. recover restores the
     // deposited UTxOs to the wallet, as in the originals); mirrors inGroup.
     ..(if outGroup {
@@ -262,7 +264,9 @@
       // wallet outputs: aim at the node's WEST anchor so the circle pin lands at a fixed
       // left-centre point (left of the label) regardless of the curve's approach angle.
       let tgt = if outGroup { (name: "txout-" + str(i), anchor: "west") } else { label("txout-" + str(i)) }
-      if i == 0 and qty != none { edge(<txbox>, tgt, marks: (none, "o"), bend: b, label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, tgt, marks: (none, "o"), bend: b) }
+      // qty label ("1") sits ABOVE the first output edge (toward that output), so with several
+      // outputs it reads on the head-output arrow rather than drifting into the gap below it.
+      if i == 0 and qty != none { edge(<txbox>, tgt, marks: (none, "o"), bend: b, label: qty, label-side: left, label-pos: 0.7, label-size: 7pt) } else { edge(<txbox>, tgt, marks: (none, "o"), bend: b) }
     }),
     // optional dashed reference arc from an input, up and OVER the tx box, to an output (the
     // committed-UTxO / datum reference the originals draw on deposit and recover). refArc = (in, out).
@@ -329,11 +333,13 @@
 // Decrement (§5.5): removes UTxOs from the open head.
 #let decrementTx-diagram = tx-diagram(
   $mtxDecrement$,
-  (head-utxo(_from("decrement"), redeemer: $sans("decrement") med xi_sans("ms")$, value: $valHead$, kind: "in"),),
+  (head-utxo(_from("decrement"), value: $valHead$, kind: "in"),),
   (
     head-utxo(_to("decrement"), value: $valHead'$, kind: "out"),
-    utxo-box($sans("decommitted")$, datum: $o_1 dots.h o_k$, kind: "plain"),
+    utxo-box($U_omega$, datum: $o_1 dots.h o_k$, kind: "plain"),
   ),
+  redeemer: $sans("decrement") med xi_sans("ms")$,
+  outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
   mint: $sans("mint") = emptyset$,
