@@ -118,7 +118,7 @@
 // === Document configuration ===
 
 #let hydra-spec(title: none, subtitle: none, authors: (), body) = {
-  set page(paper: "a4", margin: (x: 1in, y: 1in), numbering: "1")
+  set page(paper: "us-letter", margin: (x: 1in, y: 1in), numbering: "1")
   set par(justify: true, leading: 0.65em)
   set text(size: 11pt, font: "New Computer Modern")
   show math.equation: set text(font: "New Computer Modern Math")

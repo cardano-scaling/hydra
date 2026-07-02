@@ -159,10 +159,14 @@
 )[#align(center, body)]
 
 // A body row split into two cells (datum | redeemer, or redeemer | output-ref).
+// The divider is a full-height grid line (not the right cell's border), so it spans the
+// whole row even when the datum wraps to more lines than the redeemer; cells are centred.
 #let _split(a, b) = block(width: 100%, stroke: (top: 0.5pt), inset: 0pt, grid(
   columns: (1.3fr, 1fr),
-  block(width: 100%, inset: (x: 5pt, y: 3.5pt))[#align(center, a)],
-  block(width: 100%, inset: (x: 5pt, y: 3.5pt), stroke: (left: 0.5pt))[#align(center, b)],
+  inset: (x: 5pt, y: 3.5pt),
+  align: center + horizon,
+  grid.vline(x: 1, stroke: 0.5pt),
+  a, b,
 ))
 
 // A UTxO box: rounded rect, coloured title bar, optional datum (split with the
@@ -222,7 +226,7 @@
   ]
 }
 
-#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none, refArc: none, inGroup: false) = {
+#let tx-diagram(name, inputs, outputs, redeemer: none, outref: none, validity: none, kappa: none, mint: none, qty: none, refArc: none, inGroup: false, outGroup: false) = {
   let h = calc.max(inputs.len(), outputs.len(), 1)
   let mid = (h - 1) / 2
   let bands = ()
@@ -242,12 +246,23 @@
     } else { () }),
     node((2, mid), tx-box(name, ..bands), name: <txbox>),
     ..outputs.enumerate().map(((i, c)) => node((4, i), c, name: label("txout-" + str(i)))),
+    // optional dashed "wallet" box enclosing all outputs (e.g. recover restores the
+    // deposited UTxOs to the wallet, as in the originals); mirrors inGroup.
+    ..(if outGroup {
+      (node(
+        enclose: range(outputs.len()).map(i => label("txout-" + str(i))),
+        stroke: (thickness: 0.6pt, dash: "dashed"), corner-radius: 5pt, inset: 8pt,
+      ),)
+    } else { () }),
     // curved edges (hand-drawn look): inputs arrow INTO the tx (left), outputs end in a hollow
     // circle "pin" at the produced UTxO (right); the bend fans them out from/into the tx box.
     ..inputs.enumerate().map(((i, _)) => edge(label("txin-" + str(i)), <txbox>, "-|>", bend: (mid - i) * 14deg)),
     ..outputs.enumerate().map(((i, _)) => {
       let b = (i - mid) * 14deg
-      if i == 0 and qty != none { edge(<txbox>, label("txout-" + str(i)), marks: (none, "o"), bend: b, label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, label("txout-" + str(i)), marks: (none, "o"), bend: b) }
+      // wallet outputs: aim at the node's WEST anchor so the circle pin lands at a fixed
+      // left-centre point (left of the label) regardless of the curve's approach angle.
+      let tgt = if outGroup { (name: "txout-" + str(i), anchor: "west") } else { label("txout-" + str(i)) }
+      if i == 0 and qty != none { edge(<txbox>, tgt, marks: (none, "o"), bend: b, label: qty, label-side: right, label-size: 7pt) } else { edge(<txbox>, tgt, marks: (none, "o"), bend: b) }
     }),
     // optional dashed reference arc from an input, up and OVER the tx box, to an output (the
     // committed-UTxO / datum reference the originals draw on deposit and recover). refArc = (in, out).
@@ -291,8 +306,9 @@
 #let recoverTx-diagram = tx-diagram(
   $mtxRecover$,
   (script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Recover") med m$, value: $valDeposit$, kind: "in"),),
-  (utxo-box($sans("recovered") med C$, kind: "plain"),),
+  (box(inset: (left: 6pt), text(7.5pt)[$italic("out")_1$: 15 ada]), box(inset: (left: 6pt), text(7.5pt)[$italic("out")_2$: 7 ada])),
   validity: $sans("validity") = (t_sans("rec"), infinity)$,
+  outGroup: true,
   refArc: (0, 0),
 )
 
@@ -300,10 +316,10 @@
 #let incrementTx-diagram = tx-diagram(
   $mtxIncrement$,
   (
-    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi med sans("ref")$, value: $valHead$, kind: "in"),
-    script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: $valDeposit$, kind: "in"),
+    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi med sans("ref")$, value: ${st, pt_sans("alice"), dots.h}$, kind: "in"),
+    script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: [22 ada], kind: "in"),
   ),
-  (head-utxo(_to("increment"), value: $valHead union valDeposit$, kind: "out"),),
+  (head-utxo(_to("increment"), value: [${st, pt_sans("alice"), dots.h}$ + 22 ada], kind: "out"),),
   validity: $t_sans("max")$,
   kappa: $kappa = {k_i^\#}$,
   mint: $sans("mint") = emptyset$,
