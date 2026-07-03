@@ -1,15 +1,16 @@
+```
 -- The machine-checked PROOFS of the §7 security properties. Factored out of `Security.lagda.typ` so
--- that the rendered §7 shows the model + the property STATEMENTS, while this typecheck-only module
--- (imported by Main, not rendered, not extracted) carries the proof terms: the invariant and its
--- corollaries (L1/L2/L3), `consistency`/`soundness`/`completeness`, the once-honest-then-corrupt
--- extension, the seen-set invariant, and the off-chain⇒on-chain `reflects` bridge. Every name here is
--- imported by the spec build, so the properties remain machine-checked; only their derivations live
--- out of the prose document.
+-- that the rendered §7 shows the model + the property STATEMENTS first, and this literate module
+-- renders the machine-checked RESULTS (the statements below appear in the document and in the
+-- appendix; the proof terms are typechecked as part of the build but not rendered): the invariant
+-- and its corollaries (L1/L2/L3), `consistency`/`soundness`/`completeness`, the
+-- once-honest-then-corrupt extension, the seen-set invariant, and the off-chain⇒on-chain `reflects`
+-- bridge. Every name here is imported by the spec build, so the properties remain machine-checked.
 module Hydra.Protocol.SecurityProofs where
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.OffChain
-open import Hydra.Protocol.Preliminaries using (Output)
+open import Hydra.Protocol.Preliminaries using (Output; ValidityInterval; Context)
 open import Data.Fin using (Fin)
 open import Data.Nat using (z≤n; s≤s)
 open import Data.Nat.Properties using (≤-total; ≤-antisym; ≤-refl; ≤-trans; m≤n⇒m≤1+n; 1+n≰n; +-identityʳ; +-suc; suc-injective; m+[n∸m]≡n; m+n≡0⇒m≡0)
@@ -29,7 +30,28 @@ open import Data.Empty using (⊥-elim)
 import Hydra.Protocol.OnChain as OC
 open import Hydra.Protocol.Security
 open System  -- bring the System field projections (parties/honest/localOf/U₀/seen/onChain) into scope
+```
 
+#import "/template.typ": *
+#import "/macros.typ": *
+
+== Machine-checked results <sec:security-theorems>
+
+The properties of the preceding section are not only stated over the execution
+model; they are proved. This section renders the machine-checked results: each
+statement below is the actual Agda type of a theorem in the module
+`SecurityProofs`, shown here and in @agda-appendix, while the proof terms are
+typechecked as part of this document's build but not rendered. All results are
+inductions over the `Reachable` closure of the step relation `_⟶ˢ_`
+(@sec:security); none of them is temporal (liveness remains out of scope, P3).
+The trust base is exactly the one enumerated in the Proofs preamble: the ledger
+postulates (`applyTxs` and its laws), per-signature unforgeability plus the
+aggregation scheme's decomposition (from which `ms-unforgeable` is derived),
+the honest-behaviour premises of `signHonest`, and, where a result consumes an
+on-chain validity bundle, the per-instance signature-trust hypotheses noted
+with that result.
+
+```
 -- The empty tx list is always applicable (from the nil law).
 []-applicable : ∀ U → Applicable U []
 []-applicable U eq = bot (trans (sym (applyTxs-nil U)) eq)
@@ -64,15 +86,26 @@ Certified-mono _ cert i = there (cert i)
 ≢nothing→just : ∀ {A : Set} (m : Maybe A) → ¬ (m ≡ nothing) → Σ[ x ∈ A ] (m ≡ just x)
 ≢nothing→just (just x) _  = x , refl
 ≢nothing→just nothing  ¬n = ⊥-elim (¬n refl)
+```
 
--- The invariants hold at every reachable system. The key safety facts are derived from the
--- structure: `confApp` (L3) discharges applicability at `confirm` from `sigApp` (a certified
--- snapshot carries the honest confirmer's own signature; honest signatures are only on applicable
--- snapshots); and `sigChain` records, for every honest signature, an extending certified-or-genesis
--- predecessor (from `signHonest`'s guards + `confCert`), which gives L2 (`confirmed-nest`).
--- Corruption only shrinks the honest set (`honest-mono`); `sigs` only grows (`Certified-mono`
--- carries facts forward).
+The workhorse is a single induction: every reachable system satisfies the
+eight-field invariant `Inv` of @sec:security (@agda-appendix: `invariant`).
+The safety content is derived from the structure of the steps rather than
+assumed: `confApp` (L3) is discharged at `confirm` from `sigApp` (a certified
+snapshot carries the honest confirmer's own signature, and honest signatures
+are only on applicable snapshots), and `sigChain` records, for every honest
+signature, an extending certified-or-genesis predecessor (from the
+`signHonest` premises together with `confCert`), which is what the nesting
+lemma below consumes. Corruption only ever shrinks the honest set, and `sigs`
+only grows, so certification facts are carried forward across steps. All of
+the L1/L2/L3 consequences used by the theorems of this section are projections
+of this one invariant.
+
+```agda
 invariant : ∀ sys → Reachable sys → Inv sys
+```
+
+```
 invariant sys (base (noSigs , allConfNumZero , allConfTxsEmpty , _ , _)) = record
   { sigApp   = λ {k} {snap} _ mem → ⊥-elim (∉[] (subst (λ z → (k , snap) ∈ˡ z) noSigs mem))
   ; sigDedup = λ {k} {s1} _ m1 _ _ → ⊥-elim (∉[] (subst (λ z → (k , s1) ∈ˡ z) noSigs m1))
@@ -374,7 +407,9 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
         ... | yes refl = subst (λ w → Snapshot.number snap ≤ LocalState.seenNumber w)
                                (sym (lookup∘update i (localOf a) st'))
                                (subst (Snapshot.number snap ≤_) (sym snPres) (signNumBound hk m))
+```
 
+```
 -- ── Derived corollaries of the invariant ───────────────────────────────────────────────────────
 -- L3 (applicability), exposed: every honest party's confirmed snapshot is applicable to U₀.
 conf-applicable : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i ≡ true
@@ -386,13 +421,22 @@ conf-applicable sys reach = Inv.confApp (invariant sys reach)
 cert-applicable : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
   → Certified sys snap → Applicable (U₀ sys) (Snapshot.txs snap)
 cert-applicable sys reach {h} hh cert = Inv.sigApp (invariant sys reach) hh (cert h)
+```
 
--- L1 (agreement at a number): two certified snapshots of the same number are equal, witnessed by
--- any honest party (who signed both, by `Certified`, and signs ≤1 per number, by `sigDed`).
+Agreement (L1) is the projection of the invariant's one-signature-per-number
+field: two certified snapshots of the same number are equal, witnessed by any
+honest party, who by `Certified` signed both (@agda-appendix: `agree`).
+
+```agda
 agree : ∀ sys → Reachable sys → ∀ {h s1 s2} → lookup (honest sys) h ≡ true
   → Certified sys s1 → Certified sys s2 → Snapshot.number s1 ≡ Snapshot.number s2 → s1 ≡ s2
-agree sys reach {h} hh c1 c2 = Inv.sigDedup (invariant sys reach) hh (c1 h) (c2 h)
+```
 
+```
+agree sys reach {h} hh c1 c2 = Inv.sigDedup (invariant sys reach) hh (c1 h) (c2 h)
+```
+
+```
 -- A certified snapshot has number > 0 (an honest party signed it, and honest signing is for the
 -- snapshot one above its confirmed number, hence ≥ 1).
 cert-pos : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
@@ -441,20 +485,40 @@ cert-nest-aux sys reach (suc d') {h} {s1} {s2} hh c1 c2 eq
     ns1≡0 = m+n≡0⇒m≡0 (Snapshot.number s1) (trans eq' preNumZero)
     1≤0 : 1 ≤ 0 → ⊥
     1≤0 ()
+```
 
+Certified snapshots nest by number (L2). The proof is an induction on the gap
+between the two numbers: at gap zero the snapshots are equal by `agree`;
+otherwise the higher snapshot has, by the invariant's `sigChain`, an extending
+certified-or-genesis predecessor one number below it, so the induction
+recurses to the predecessor and composes with the extension, the genesis case
+being impossible for a certified (hence positive-numbered) snapshot
+(@agda-appendix: `cert-nest`).
+
+```agda
 cert-nest : ∀ sys → Reachable sys → ∀ {h s1 s2}
   → lookup (honest sys) h ≡ true → Certified sys s1 → Certified sys s2
   → Snapshot.number s1 ≤ Snapshot.number s2 → Snapshot.txs s1 ⊆ˡ Snapshot.txs s2
+```
+
+```
 cert-nest sys reach {h} {s1} {s2} hh c1 c2 le =
   cert-nest-aux sys reach (Snapshot.number s2 ∸ Snapshot.number s1) hh c1 c2 (m+[n∸m]≡n le)
+```
 
--- L2, the §7 nesting obligation: two honest parties' confirmed snapshots nest by number. An honest
--- party's confirmed snapshot is the genesis (txs ⊆ anything) or certified; in the latter case
--- `cert-nest` applies.
+The §7 nesting obligation follows: two honest parties' confirmed snapshots
+nest by number, since an honest party's confirmed snapshot is the genesis
+(whose transaction list is empty, hence trivially contained) or is certified,
+in which case `cert-nest` applies (@agda-appendix: `confirmed-nest`).
+
+```agda
 confirmed-nest : ∀ sys → Reachable sys → ∀ i j
   → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
   → confirmedNo (lookup (localOf sys) i) ≤ confirmedNo (lookup (localOf sys) j)
   → confirmedTxs (lookup (localOf sys) i) ⊆ˡ confirmedTxs (lookup (localOf sys) j)
+```
+
+```
 confirmed-nest sys reach i j hi hj le with confCert-of sys reach hi
 ... | inj₁ (_ , ti≡[]) = subst (_⊆ˡ confirmedTxs (lookup (localOf sys) j)) (sym ti≡[]) []⊆
   where []⊆ : [] ⊆ˡ confirmedTxs (lookup (localOf sys) j)
@@ -467,8 +531,31 @@ confirmed-nest sys reach i j hi hj le with confCert-of sys reach hi
   where 1≤0 : 1 ≤ 0 → ⊥
         1≤0 ()
 ... | inj₂ cj = cert-nest sys reach hi ci cj le
+```
 
+=== Consistency
+
+#theorem(name: "Consistency")[
+  In any reachable system, the confirmed transaction sets of two honest
+  parties nest (one contains the other) and each is applicable to $Uinit$, so
+  their union never fails to apply; the union form is machine-checked as a
+  single transaction set containing both that is applicable to $Uinit$
+  (`consistency-union`), making the paper's
+  $Uinit compose (Tbar_i union Tbar_j) != bot$ literal. The property moreover
+  extends to once-honest-then-corrupt parties: _every_ party's confirmed
+  snapshot is genesis-or-certified unconditionally (`confCert-all`), because
+  `confirm` demands a verifying aggregate multisignature regardless of the
+  confirmer's honesty, so _any_ two parties' confirmed sets, including one a
+  party confirmed before (or even adopted after) being corrupted, nest and are
+  applicable, given at least one honest witness (`consistency-uncorrupted`)
+  (@agda-appendix).
+] <thm:consistency>
+
+```agda
 consistency : Consistency
+```
+
+```
 consistency sys reach i j hi hj =
   nested , conf-applicable sys reach hi , conf-applicable sys reach hj
   where
@@ -477,42 +564,46 @@ consistency sys reach i j hi hj =
     nested with ≤-total (confirmedNo (lookup (localOf sys) i)) (confirmedNo (lookup (localOf sys) j))
     ... | inj₁ le = inj₁ (confirmed-nest sys reach i j hi hj le)
     ... | inj₂ ge = inj₂ (confirmed-nest sys reach j i hj hi ge)
+```
 
--- §7 Consistency, the UNION form: the paper's literal `U₀ ∘ (T̄ᵢ ∪ T̄ⱼ) ≠ ⊥` made fully machine-
--- checked (not left as the "union = larger side, which is applicable" prose step). There is a single
--- tx set `T` containing both honest confirmed sets (their union, i.e. the ⊆-larger of the two, since
--- they nest) that is applicable to U₀. So the union of two honest confirmed sets never fails to apply.
+The union form: there is a single transaction set `T` containing both honest
+confirmed sets (their union, i.e. the inclusion-larger of the two, since they
+nest) that is applicable to $Uinit$.
+
+```agda
 consistency-union : ∀ sys → Reachable sys → ∀ i j
   → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
   → Σ[ T ∈ List Data ] (confirmedTxs (lookup (localOf sys) i) ⊆ˡ T
                       × confirmedTxs (lookup (localOf sys) j) ⊆ˡ T
                       × Applicable (U₀ sys) T)
+```
+
+```
 consistency-union sys reach i j hi hj
   with ≤-total (confirmedNo (lookup (localOf sys) i)) (confirmedNo (lookup (localOf sys) j))
 ... | inj₁ le = confirmedTxs (lookup (localOf sys) j)
               , confirmed-nest sys reach i j hi hj le , ⊆ˡ-refl , conf-applicable sys reach hj
 ... | inj₂ ge = confirmedTxs (lookup (localOf sys) i)
               , ⊆ˡ-refl , confirmed-nest sys reach j i hj hi ge , conf-applicable sys reach hi
+```
 
--- ── A5: Consistency over once-honest-then-corrupt parties ────────────────────────────────────────
--- The §7 random variables T̄ᵢ are the txs party i confirmed _while uncorrupted_; `consistency` above
--- covers only CURRENTLY-honest parties. We extend it to ANY party (including one corrupted after it
--- confirmed -- whose confirmed snapshot an on-chain close could be built against). The key: EVERY
--- confirmed snapshot is certified-or-genesis UNCONDITIONALLY (`confCert-all`), because `confirm`
--- requires an `AggVerified` multisignature regardless of the confirmer's honesty; and any two certified
--- snapshots nest / are applicable via a single honest witness (`cert-nest`/`cert-applicable`). So a
--- once-honest party's confirmed set stays consistent with every other party's, as long as ≥1 honest
--- party exists. (This is in fact STRONGER than the literal §7 "while uncorrupted" scoping: because
--- `confirm` requires certification regardless of honesty, it also covers any snapshot a corrupt party
--- adopts AFTER corruption -- those too must be certified, hence consistent.) Standalone (does not
--- perturb the `invariant`/`consistency` core).
+The §7 random variables $Tbar_i$ scope a party's confirmed set to a party
+_while uncorrupted_, and an on-chain close could be built against the
+confirmed snapshot of a party corrupted after confirming. The extension rests
+on the fact that certification is unconditional: the only step that changes a
+party's confirmed snapshot is `confirm`, which requires a verifying aggregate
+multisignature (hence, by unforgeability, a certificate) whatever the
+confirmer's honesty flag. This is in fact stronger than the literal §7
+scoping, since it also covers any snapshot a corrupt party adopts after
+corruption.
 
--- Every party's confirmed snapshot is the genesis or is certified, with no honesty hypothesis on the
--- party (the honest-only version is the `confCert` invariant component). The only step that changes a
--- party's confirmed snapshot is `confirm`, which requires `AggVerified` ⇒ (`ms-unforgeable`) certified.
+```agda
 confCert-all : ∀ sys → Reachable sys → ∀ i
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
     ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
+```
+
+```
 confCert-all sys (base (_ , cn≡0 , ct≡[] , _ , _)) i = inj₁ (cn≡0 i , ct≡[] i)
 confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
   where
@@ -562,7 +653,9 @@ confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
                                   (sym confPres) (ih i))
     ... | no  j≢i  = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ []) ⊎ Certified a (LocalState.confirmed w))
                            (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
+```
 
+```
 -- Nesting for ANY two parties (via the honest witness `h`), from `confCert-all` + `cert-nest`.
 nestU : ∀ sys → Reachable sys → ∀ {h} → lookup (honest sys) h ≡ true → ∀ i j
   → confirmedNo (lookup (localOf sys) i) ≤ confirmedNo (lookup (localOf sys) j)
@@ -586,14 +679,17 @@ appU : ∀ sys → Reachable sys → ∀ {h} → lookup (honest sys) h ≡ true 
 appU sys reach hh i with confCert-all sys reach i
 ... | inj₁ (_ , ti≡[]) = subst (Applicable (U₀ sys)) (sym ti≡[]) ([]-applicable (U₀ sys))
 ... | inj₂ ci = cert-applicable sys reach hh ci
+```
 
--- §7 Consistency, extended to once-honest-then-corrupt parties: ANY two parties' confirmed sets nest
--- and are applicable to U₀, given ≥1 honest witness. (`consistency` is the special case i, j honest.)
+```agda
 consistency-uncorrupted : ∀ sys → Reachable sys → ∀ {h} → lookup (honest sys) h ≡ true → ∀ i j
   → (confirmedTxs (lookup (localOf sys) i) ⊆ˡ confirmedTxs (lookup (localOf sys) j)
        ⊎ confirmedTxs (lookup (localOf sys) j) ⊆ˡ confirmedTxs (lookup (localOf sys) i))
    × Applicable (U₀ sys) (confirmedTxs (lookup (localOf sys) i))
    × Applicable (U₀ sys) (confirmedTxs (lookup (localOf sys) j))
+```
+
+```
 consistency-uncorrupted sys reach hh i j =
   nested , appU sys reach hh i , appU sys reach hh j
   where
@@ -602,7 +698,9 @@ consistency-uncorrupted sys reach hh i j =
     nested with ≤-total (confirmedNo (lookup (localOf sys) i)) (confirmedNo (lookup (localOf sys) j))
     ... | inj₁ le = inj₁ (nestU sys reach hh i j le)
     ... | inj₂ ge = inj₂ (nestU sys reach hh j i ge)
+```
 
+```
 -- ── Seen-set invariant: every honest signature is on txs that party has SEEN ───────────────────
 -- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is the `sigSeen`
 -- component of the main invariant (derived at `signHonest` from the handler's Δ ⊆ seen premise + the
@@ -611,76 +709,314 @@ sigSeen-inv : ∀ sys → Reachable sys → ∀ {k snap}
   → lookup (honest sys) k ≡ true → Signed sys k snap
   → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
 sigSeen-inv sys reach = Inv.sigSeen (invariant sys reach)
+```
 
+=== Soundness and completeness
+
+#theorem(name: "Soundness")[
+  In any reachable system with at least one honest party, if a snapshot's
+  aggregate multisignature verifies, then applying its transactions to
+  $Uinit$ succeeds (the final UTxO set exists and is conflict-free) and those
+  transactions have been seen by _every_ honest party
+  ($tilde(T) subset.eq inter.big_(j in honest) That_j$) (@agda-appendix:
+  `soundness`).
+] <thm:soundness>
+
+Both conjuncts are derived: `ms-unforgeable` makes the verified snapshot
+certified, an honest signer signs only applicable snapshots
+(`cert-applicable`, giving conflict-freedom), and only transactions it has
+seen (the `sigSeen` component of the invariant, giving the intersection-seen
+subset).
+
+```agda
 soundness : Soundness
+```
+
+```
 soundness sys reach {snap = snap} hh aggOK =
   let cert      = ms-unforgeable sys snap aggOK
       finalJust = ≢nothing→just (Ufinal sys snap) (cert-applicable sys reach hh cert)
   in proj₁ finalJust , proj₂ finalJust , (λ {j} hj → sigSeen-inv sys reach hj (cert j))
+```
 
--- §7 Completeness: every honest party's confirmed txs are contained in the finalized snapshot `snap`
--- (whose aggregate multisignature verifies), whenever that party's confirmed number ≤ `snap`'s. The
--- finalized snapshot is certified (`ms-unforgeable`); the party's confirmed snapshot is genesis
--- (txs = [], trivially ⊆) or certified (`confCert-of`); in the latter case the two certified
--- snapshots nest by number (`cert-nest`, L2), using the party itself as the honest witness.
+#theorem(name: "Completeness")[
+  Every honest party's confirmed transactions are contained in the finalized
+  snapshot (the snapshot whose aggregate multisignature verifies), whenever
+  that party's confirmed number is at most the finalized snapshot's number
+  (@agda-appendix: `completeness`).
+] <thm:completeness>
+
+The finalized snapshot is certified (`ms-unforgeable`); the party's confirmed
+snapshot is genesis (trivially contained) or certified (`confCert-of`), and
+two certified snapshots nest by number (`cert-nest`), using the party itself
+as the honest witness. The `confirmedNo ≤ number` premise is the "latest
+multi-signed snapshot wins the close/contest game" fact of §5.6/§5.7: the real
+close/contest process always settles on the latest multi-signed snapshot,
+whereas the model's `finalize` admits _any_ certified snapshot, so the fact
+enters as a per-party premise rather than being derived.
+
+```agda
 completeness : Completeness
+```
+
+```
 completeness sys reach {snap} aggOK i hi le with confCert-of sys reach hi
 ... | inj₁ (_ , ti≡[]) = subst (_⊆ˡ Snapshot.txs snap) (sym ti≡[]) []⊆snap
   where []⊆snap : [] ⊆ˡ Snapshot.txs snap
         []⊆snap ()
 ... | inj₂ ci = cert-nest sys reach hi ci (ms-unforgeable sys snap aggOK) le
+```
 
--- `Reflects` is constructed soundly. Given a system that has finalized against a snapshot whose
--- aggregate multisignature verifies (`AggVerified`; the `finalize` step supplies the snapshot-number
--- match `numEq`), the conflict-freedom conjunct is derived from `soundness` (an honest party signed
--- the certified snapshot, and honest signatures are applicable to U₀), and the number match is the
--- finalize witness. The accumulator commitment is supplied as the explicit per-finalization
--- hypothesis `ηEq`: the irreducible signature-trust assumption (νHead authenticates η via `msVfy`
--- over cid‖v‖s‖η#, not by recomputing `accUTxO(U)`: `closeValid`/`fanoutValid` only check
--- `η# ≡ hash (ηOf d')` plus the multisig). It is a hypothesis rather than a global postulate on
--- purpose: `finalize` admits any datum with a matching snapshot number, so a global
--- `∀ sys → … → ηOf ≡ accUTxO (outsOf U)` would have no model (two finalizations with the same final U
--- but different stored η). The finalizer discharges `ηEq` from the η it actually committed. Two of the
--- three `Reflects` conjuncts are derived; only the signature-trust conjunct is assumed.
+=== The on-chain reflection bridge
+
+#theorem(name: "On-chain settlement reflects the off-chain state")[
+  A finalization against a snapshot whose aggregate multisignature verifies
+  yields `Reflects`: the off-chain final UTxO exists (from
+  @thm:soundness), the on-chain snapshot number matches (the `finalize`
+  witness), and the stored accumulator commits to that UTxO. Conversely, when
+  the datum reflects a finalized snapshot, the outputs a valid on-chain
+  fan-out actually distributes are a subset of that off-chain final UTxO's
+  outputs (`reflect-sound`, `reflect-fanout-⊆`) (@agda-appendix).
+] <thm:reflection>
+
+Two of the three `Reflects` conjuncts are derived; the accumulator commitment
+is supplied as the explicit per-finalization hypothesis `ηEq`, the irreducible
+signature-trust assumption: $nuHead$ authenticates $eta$ via the
+multisignature over $cid || v || s || eta^(\#)$, not by recomputing
+$accUTxO(U)$. It is a hypothesis rather than a global postulate on purpose,
+since `finalize` admits any datum with a matching snapshot number, a global
+axiom would have no model, and the finalizer discharges `ηEq` from the $eta$
+it actually committed.
+
+```agda
 reflects : ∀ sys → Reachable sys → ∀ {h snap}
   → lookup (honest sys) h ≡ true
   → AggVerified sys snap
   → OC.snapNum (onChain sys) ≡ Snapshot.number snap
   → (∀ U → Ufinal sys snap ≡ just U → OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U))
   → Reflects sys snap
+```
+
+```
 reflects sys reach {snap = snap} hh aggOK numEq ηEq =
   let s        = soundness sys reach hh aggOK
       finalEq  = proj₁ (proj₂ s)
   in mkReflects (proj₁ s) finalEq numEq (ηEq (proj₁ s) finalEq)
+```
 
--- Reflected Soundness: when the on-chain datum reflects a finalized snapshot, its committed
--- accumulator commits to the conflict-free off-chain final UTxO U₀ ∘ (txs snap).
+```agda
 reflect-sound : ∀ sys → Reachable sys → ∀ {snap} → Reflects sys snap
   → Σ[ U ∈ UTxO ] (Ufinal sys snap ≡ just U)
                 × (OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U))
+```
+
+```
 reflect-sound sys reach (mkReflects U conflictFree _ accCommits) = U , conflictFree , accCommits
+```
 
--- The key link: the on-chain fanout distributes only outputs of the off-chain final UTxO. Its
--- membership-verified outputs (`OC.fanoutMembersOK`, i.e. `accVerify η outs π ≡ true`) are, by the
--- accumulator soundness law and the reflection bridge, a subset of outsOf(U). This ties the
--- on-chain `fanoutValid` distribution to the off-chain Soundness UTxO.
-reflect-fanout-⊆ : ∀ sys → ∀ {U outs π}
+The fan-out half consumes the bundle's membership conjunct through the
+accumulator soundness law: the outputs the transaction pays (the anchored
+`distributedOuts`) are a subset of the outputs of the off-chain final UTxO,
+tying the transaction's own outputs, not a free set parameter, to the
+Soundness UTxO.
+
+```agda
+reflect-fanout-⊆ : ∀ sys → ∀ {ctx U m π crs}
   → OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf U)
-  → OC.fanoutMembersOK (OC.ηOf (onChain sys)) outs π
-  → outs ⊆ outsOf U
-reflect-fanout-⊆ sys {U} {outs} {π} η≡ mem =
-  OC.accVerify-sound (subst (λ z → OC.accVerify z outs π ≡ true) η≡ mem)
+  → OC.FanoutValid ctx (onChain sys) m π crs
+  → OC.distributedOuts ctx m ⊆ outsOf U
+```
 
+```
+reflect-fanout-⊆ sys {ctx} {U} {m} {π} η≡ b =
+  OC.accVerify-sound
+    (subst (λ z → OC.accVerify z (OC.distributedOuts ctx m) π ≡ true) η≡ (OC.FanoutValid.membersOK b))
+```
 
--- ── A figure safety invariant lifted to the §7 system: NoBothInFlight across reachable executions ──
--- "A commit (tx_α) and a decommit (tx_ω) are never both in flight" for any party, throughout any
--- reachable multi-party adversarial execution. Seeded by `Initial` (a freshly-opened head) and
--- preserved by every `_⟶ˢ_` step: signHonest/confirm touch only a party's seenNumber/confirmed (the
--- pending slots are unchanged), signCorrupt/corrupt/finalize/see leave `localOf` untouched, and the
--- `offChain` step (a lifted deposit/decommit handler) preserves it via `noBothInFlight-step` (proved
--- over the handler model in Hydra.Protocol.OffChain). So the §6 `require tx_ω = ⊥ ∨ tx_α = ⊥`
--- discipline is a machine-checked property of the security model, not just the local handler model.
+=== No settlement without unanimity
+
+#theorem(name: "No settlement without unanimity")[
+  Every §5.4-§5.7 validity bundle carries a `sigOK` conjunct bottoming out in
+  `snapshotSigOK` ($msVfy$ over $cid || v || s || eta^(\#)$), and the model's
+  signing message `snapMsg` is _defined_ as that same concatenation. Once the
+  snapshot's identifying fields match the signed ones and the redeemer's
+  aggregate signature is the system-recorded one (the per-instance
+  signature-trust hypothesis `ξEq`, the same pattern as the reflection
+  bridge's `ηEq`), the on-chain conjunct is exactly `AggVerified`, and
+  unforgeability certifies: every party signed. Hence no increment, decrement,
+  close or contest settles without a unanimous certificate (`sig-certifies`
+  and the per-transaction `*-certified` corollaries); the certified snapshot's
+  accumulator hash is the hash of the accumulator actually stored in the
+  produced datum (`close-η-reflected`, `contest-η-reflected`); and a valid
+  deposit-claim transaction is both unanimously certified and posted before
+  the deposit's recover deadline (`claimTx-certified`) (@agda-appendix).
+] <thm:unanimity>
+
+These corollaries consume the previously-unconsumed `sigOK` fields of the
+on-chain bundles, so the off-chain certificate layer and the on-chain
+validity bundles now meet at the signature conjuncts, not only at datum
+accessors. The field-matching equalities are dischargeable by `refl` for the
+snapshot actually signed; `ξEq` is per-instance for the same reason `ηEq` is.
+
+```agda
+sig-certifies : ∀ sys (snap : Snapshot) {hk cid v s η# ξ}
+  → OC.snapshotSigOK hk cid v s η# ξ
+  → hk ≡ aggKey
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ s
+  → Snapshot.etaHash snap ≡ η#
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+```
+
+```
+sig-certifies sys snap sig refl refl refl refl refl refl = ms-unforgeable sys snap sig
+```
+
+The per-transaction corollaries each consume their bundle's `sigOK` field; the
+`closeUsed`/`contestUsed`/`closeAny` redeemer variants follow identically
+(their `sigOK` reduces to `snapshotSigOK` at version $v - 1$ or $v$), so the
+statements are given for the Unused redeemers, the versioned-snapshot common
+case.
+
+```agda
+increment-certified : ∀ sys {ctx cid v d d' ξ s ref} (snap : Snapshot)
+  → OC.IncrementValid ctx aggKey cid v d d' ξ s ref
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ s
+  → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+```
+
+```
+increment-certified sys snap b cidEq vEq sEq ηEq ξEq =
+  sig-certifies sys snap (OC.IncrementValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+```
+
+```agda
+decrement-certified : ∀ sys {ctx cid v d d' ξ s m} (snap : Snapshot)
+  → OC.DecrementValid ctx aggKey cid v d d' ξ s m
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ s
+  → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+```
+
+```
+decrement-certified sys snap b cidEq vEq sEq ηEq ξEq =
+  sig-certifies sys snap (OC.DecrementValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+```
+
+```agda
+close-certified : ∀ sys {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
+  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η#)
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ s'
+  → Snapshot.etaHash snap ≡ η#
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+```
+
+```
+close-certified sys snap b cidEq vEq sEq ηEq ξEq =
+  sig-certifies sys snap (OC.CloseValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+```
+
+```agda
+contest-certified : ∀ sys {ctx cid v s tfin d d' ξ η# kh} (snap : Snapshot)
+  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η#) kh
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ OC.snapNum d'
+  → Snapshot.etaHash snap ≡ η#
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+```
+
+```
+contest-certified sys snap b cidEq vEq sEq ηEq ξEq =
+  sig-certifies sys snap (OC.ContestValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+```
+
+On top of the certificate, close and contest cannot verify a signature over
+one accumulator while storing another: the `etaOK` conjunct binds the
+redeemer's $eta^(\#)$ to the hash of the accumulator stored in the produced
+datum.
+
+```agda
+close-η-reflected : ∀ {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
+  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η#)
+  → Snapshot.etaHash snap ≡ η#
+  → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+```
+
+```
+close-η-reflected snap b ηEq = trans ηEq (OC.CloseValid.etaOK b)
+```
+
+```agda
+contest-η-reflected : ∀ {ctx cid v s tfin d d' ξ η# kh} (snap : Snapshot)
+  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η#) kh
+  → Snapshot.etaHash snap ≡ η#
+  → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+```
+
+```
+contest-η-reflected snap b ηEq = trans ηEq (OC.ContestValid.etaOK b)
+```
+
+A valid deposit claim (the joint `ClaimTxValid` encoding, $nuHead$ increment
+and $nuDeposit$ claim both passing) is unanimously certified _and_ posted
+before the deposit's recover deadline: a deposit can be absorbed into the head
+neither without every party's signature nor after it has become recoverable.
+
+```agda
+claimTx-certified : ∀ sys {ctx dd cid n cp v η ada headOut ξ s ref} (snap : Snapshot)
+  → OC.ClaimTxValid ctx dd (OC.Open cid aggKey n cp v η ada) headOut ξ s ref
+  → Snapshot.cid snap ≡ cid
+  → Snapshot.version snap ≡ v
+  → Snapshot.number snap ≡ s
+  → Snapshot.etaHash snap ≡ hash (OC.ηOf headOut)
+  → ξ ≡ aggSigOf sys snap
+  → Certified sys snap
+    × (ValidityInterval.hi (Context.validity ctx) ≤ OC.DepositDatum.tRecover dd)
+```
+
+```
+claimTx-certified sys snap b cidEq vEq sEq ηEq ξEq =
+    increment-certified sys snap (OC.ClaimTxValid.headSideOK b) cidEq vEq sEq ηEq ξEq
+  , OC.ClaimValid.beforeRecoverDeadline (OC.ClaimTxValid.depositSideOK b)
+```
+
+=== Handler invariants across adversarial executions
+
+#invariant(name: "No commit/decommit overlap, version discipline (system level)")[
+  Throughout any reachable adversarial execution, for every party: a pending
+  commit ($tx_alpha$) and a pending decommit ($tx_omega$) are never both in
+  flight (`noBothInFlightˢ`), and the party's seen open-state version is its
+  confirmed snapshot's version or exactly one above (`versionDisciplineˢ`).
+  Both are seeded by the `Initial` predicate and preserved by every `_⟶ˢ_`
+  step, reusing the local handler-model preservation lemmas of
+  @sec:offchain-theorems on the `offChain` step's embedded handler witness
+  (@agda-appendix).
+] <inv:system-handler>
+
+This lifts the §6 figure's `require` disciplines from the single-party handler
+model to the multi-party adversarial system: the deposit/decommit exclusivity
+and the version discipline are properties of every reachable execution, not
+runtime assertions an honest node merely hopes to maintain.
+
+```agda
 noBothInFlightˢ : ∀ sys → Reachable sys → ∀ i → NoBothInFlight (lookup (localOf sys) i)
+```
+
+```
 noBothInFlightˢ sys (base (_ , _ , _ , nbf , _)) i = nbf i
 noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
   where
@@ -700,18 +1036,13 @@ noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
     nbStep {a} (offChain {i = j} {st' = st'} w _ _) ih i with j FinP.≟ i
     ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) st')) (noBothInFlight-step w (ih j))
     ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
+```
 
--- ── The version discipline lifted to the §7 system: VersionDiscipline across reachable executions ──
--- "A party's seen version is its confirmed version or exactly one above" (impl-C3) for every party,
--- throughout any reachable adversarial execution. Seeded by `Initial` (a freshly-opened head, seen
--- version = confirmed version = 0) and preserved by every `_⟶ˢ_` step: `confirm` sets `.confirmed = snap`
--- but carries the version premise (the snapshot is confirmed at the current or one-prior open version),
--- which is exactly the re-established discipline; `signHonest` bumps only `seenNumber` (seen version and
--- confirmed untouched); signCorrupt/corrupt/finalize/see leave `localOf` untouched; and `offChain`
--- preserves it via `versionDiscipline-step` (proved over the handler model in Hydra.Protocol.OffChain).
--- So the impl-C3 version invariant is a machine-checked property of the security model, not a runtime
--- assertion an honest node merely hopes to maintain.
+```agda
 versionDisciplineˢ : ∀ sys → Reachable sys → ∀ i → VersionDiscipline (lookup (localOf sys) i)
+```
+
+```
 versionDisciplineˢ sys (base (_ , _ , _ , _ , vd)) i = vd i
 versionDisciplineˢ sys (step {s} r tr) = vdStep tr (versionDisciplineˢ s r)
   where
@@ -731,3 +1062,4 @@ versionDisciplineˢ sys (step {s} r tr) = vdStep tr (versionDisciplineˢ s r)
     vdStep {a} (offChain {i = j} {st' = st'} w _ _) ih i with j FinP.≟ i
     ... | yes refl = subst VersionDiscipline (sym (lookup∘update j (localOf a) st')) (versionDiscipline-step w (ih j))
     ... | no  j≢i  = subst VersionDiscipline (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) st')) (ih i)
+```

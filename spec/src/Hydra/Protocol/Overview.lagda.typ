@@ -36,8 +36,8 @@ _init_ transaction to the mainchain that contains the Hydra protocol
 parameters and mints special _participation tokens (PT)_ identifying the
 head members. The _init_ transaction initializes a state machine (see
 @fig:head-protocol-states) that manages the life-cycle of UTxOs in the
-head. The state machine comprises the three states: $stOpen$, $stClosed$, and
-$stFinal$. A _state thread token (ST)_ minted in _init_ marks the
+head. The state machine comprises the four states: $stOpen$, $stClosed$,
+$stFanoutProgress$, and $stFinal$. A _state thread token (ST)_ minted in _init_ marks the
 head output and ensures contract continuity~@eutxo.
 
 #figure(

@@ -26,7 +26,8 @@ import Hydra.Protocol.Setup
 import Hydra.Protocol.OnChain
 import Hydra.Protocol.OffChain
 import Hydra.Protocol.Security
--- The machine-checked §7 proof terms (typecheck-only; the rendered §7 shows the model + statements).
+-- The machine-checked §7 proof terms (rendered: the statements appear under §7 "Machine-checked
+-- results", included below after Security; the proof bodies are typechecked but hidden).
 import Hydra.Protocol.SecurityProofs
 -- Extractable decidable reference checker + the bridge proving it reflects the on-chain
 -- validity bundles (Tier 2 differential-testing; not rendered in the document).
@@ -35,9 +36,7 @@ import Hydra.Protocol.ReferenceBridge
 -- Extractable decidable reference for the OFF-CHAIN HeadLogic figure (Tier 2 differential, off-chain
 -- side; typecheck-only here, extracted via regenerate.sh, not rendered in the document).
 import Hydra.Protocol.OffChainReference
--- On-chain coverage / non-stuckness: a reachability inductive over datums + the obligation that the
--- terminal fanout bundle is inhabited for the reachable empty head (typecheck-only; the dual of the
--- soundness corpus, ruling out an over-strict finalize conjunct like `FanoutValid.outputsPositive`).
+-- On-chain coverage / non-stuckness + safety invariants (rendered: included below after OnChain).
 import Hydra.Protocol.OnChainCoverage
 ```
 
@@ -46,8 +45,10 @@ import Hydra.Protocol.OnChainCoverage
 #include "Preliminaries.lagda.typ"
 #include "Setup.lagda.typ"
 #include "OnChain.lagda.typ"
+#include "OnChainCoverage.lagda.typ"
 #include "OffChain.lagda.typ"
 #include "Security.lagda.typ"
+#include "SecurityProofs.lagda.typ"
 
 #pagebreak()
 

@@ -101,23 +101,15 @@ Note that in the following, we make the parameter~$msParams$ implicit and leave
 out the $italic("ver")$ suffix for verification key such that $k = k^("ver")$ for better
 readability.
 
-As an Agda interface (@agda-appendix), a multisignature scheme is a record of the abstract key,
-signature and message types together with these algorithms (the public
-parameters $msParams$ are kept implicit, as above).
-
-```agda
-record MultiSignatureScheme : Set₁ where
-  field
-    VK SK Sig Msg : Set
-    keyGen    : VK × SK
-    sign      : SK → Msg → Sig
-    combineVK : List VK → VK                    -- aggregate verification key k̃
-    combine   : Msg → List VK → List Sig → Sig  -- aggregate signature σ̃
-    verify    : VK → Msg → Sig → Bool
-```
-
-The security definition (above) is a property over this interface: a `verify`
-against an aggregate key only succeeds if all honest key holders signed.
+In the Agda formalisation the scheme is instantiated directly at the
+protocol's types rather than packaged as a record: the verifier `msVfy` is an
+abstract function of an (aggregate) key, message and aggregate signature, used
+both by the on-chain signature conditions of @sec:on-chain (`snapshotSigOK`)
+and by the security model of @sec:security, where the security definition
+above is captured by the two assumptions `aggSound` (a verifying aggregate
+decomposes into verifying components) and `sigUnforge` (per-signature
+EUF-CMA), from which "a verifying aggregate means every party signed"
+(`ms-unforgeable`) is a derived theorem (@agda-appendix).
 
 == Extended UTxO <sec:eutxo>
 The Hydra Head protocol is specified to work on the so-called Extended UTxO (EUTxO) ledgers
@@ -339,19 +331,12 @@ An accumulator scheme over a universe $cal(U)$ is a set of algorithms where
 
 The security property guarantees that a valid membership witness can only be produced for sets genuinely committed under $eta$, and a valid exclusion witness can only be produced when the subset was genuinely removed.
 
-As an Agda interface (@agda-appendix), the scheme is a record over the abstract universe $cal(U)$
-(`Item`), commitments $eta$ (`Commitment`) and witnesses $pi$ (`Witness`).
-
-```agda
-record Accumulator : Set₁ where
-  field
-    Item Commitment Witness : Set
-    commit        : ℙ Item → Commitment                        -- η ← accUTxO(U)
-    combine       : Commitment → Commitment → Commitment       -- accCombine
-    witness       : Commitment → ℙ Item → ℙ Item → Witness     -- accWitness(η, S, U∖S)
-    verify        : Commitment → ℙ Item → Witness → Bool       -- accVerify
-    exclude       : Commitment → ℙ Item → Commitment           -- accExclude
-    verifyExclude : Commitment → ℙ Item → Commitment → Bool    -- accVerifyExclude
-```
+In the Agda formalisation the scheme is likewise instantiated directly at the
+protocol's types (@sec:on-chain, @agda-appendix): `accUTxO`, `accVerify` and
+`accVerifyExclude` are abstract functions over UTxO-output sets, commitments
+and witnesses, and the security property above is captured by the specifying
+laws `accVerify-sound` (a verified membership witness attests a genuine
+subset) and `accVerify-complete` (any genuine subset has a verifying witness),
+which the fan-out safety and coverage theorems consume.
 
 The implementation uses KZG polynomial commitments~@KZG10 over the BLS12-381 elliptic curve.

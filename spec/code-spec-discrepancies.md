@@ -110,7 +110,7 @@ check, matching Agda `closeSigOK`/`contestSigOK`) is correct **only if**
 a confirmed snapshot is chained before the next bump). It is now a machine-checked theorem, not an
 unchecked assumption: `VersionDiscipline` (`OffChain.lagda.typ`), proved preserved by every off-chain
 step (`versionDiscipline-step`) and across any run, and LIFTED to the §7 security model
-(`versionDisciplineˢ`, `SecurityProofs.agda`) alongside `noBothInFlightˢ`. It rests on the on-chain
+(`versionDisciplineˢ`, `SecurityProofs.lagda.typ`) alongside `noBothInFlightˢ`. It rests on the on-chain
 authorize-then-bump rule (`checkIncrement`'s `verifySnapshotSignature … prevVersion`). See
 `discrepancies-and-fixes.md` impl-C3.
 

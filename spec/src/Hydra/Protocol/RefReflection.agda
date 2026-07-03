@@ -15,13 +15,20 @@ import Hydra.Protocol.Reference as R
 
 -- Soundness of the BUILTIN Nat equality `_==_` w.r.t. propositional equality. The lovelace / deadline
 -- conjuncts are checked with `_==_` (native Integer equality at extraction) rather than the structural
--- `_==ᵇ_` (O(n) unary recursion, pathological on lovelace- / POSIXTime-scale values). The builtin does
--- not reduce on open terms, so this reflection lemma is postulated; it is trivially true and lives in
--- the same trust category as the builtin arithmetic (`_+_`) the bridge already relies on.
-postulate
-  ==-sound : ∀ {m n} → m ≡ n → (m == n) ≡ true
+-- `_==ᵇ_` (O(n) unary recursion, pathological on lovelace- / POSIXTime-scale values). The builtin only
+-- fails to reduce on NEUTRAL (variable-headed) terms; induction supplies constructor heads, so both
+-- lemmas are proved rather than postulated.
+==-refl : ∀ n → (n == n) ≡ true
+==-refl zero    = refl
+==-refl (suc n) = ==-refl n
+
+==-sound : ∀ {m n} → m ≡ n → (m == n) ≡ true
+==-sound {m} refl = ==-refl m
+
 -- Same, for the BUILTIN strict-less-than `_<ᴮ_` (used for the after-deadline conjunct).
-  <ᴮ-sound : ∀ {m n} → m < n → (m <ᴮ n) ≡ true
+<ᴮ-sound : ∀ {m n} → m < n → (m <ᴮ n) ≡ true
+<ᴮ-sound {zero}  {suc n} (s≤s _) = refl
+<ᴮ-sound {suc m} {suc n} (s≤s p) = <ᴮ-sound p
 
 -- Soundness of the builtin-based `_≤ᴮ_` (= `a <ᴮ suc b`; the posted-before-deadline conjuncts). Unlike
 -- the two postulates above this is PROVED: `m ≤ n` gives `m < suc n` (= `suc m ≤ suc n`) by `s≤s`, and

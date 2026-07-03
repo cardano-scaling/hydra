@@ -66,12 +66,11 @@ membership for partial fanout (a 2-element accumulator built directly over the o
 pre-image, so `e(oldAcc, G2) == e(newAcc, P_S(τ)·G2)` verifies against the real CRS G2 powers of
 tau). The reference returns only the decidable verdict for these conjuncts, but the agreement
 test runs the real validator's real crypto on the same inputs. Non-vacuity in the REJECT direction
-is asserted for the SIGNATURE conjuncts only: the real validator REJECTS a bad-snapshot Ed25519
-signature while both oracles accept the healthy, correctly signed input. The BLS pairing and KZG
-membership, by contrast, are exercised in the ACCEPT direction only (a valid proof run through the
-real primitives); they are not fed a corrupted proof, so a validator that accepted a forged
-membership proof would not be caught by this suite (the reference mocks that conjunct). Adding a
-wrong-proof rejection for BLS/KZG is the natural next strengthening.
+is asserted for the signature conjuncts (the real validator REJECTS a bad-snapshot Ed25519
+signature while both oracles accept the healthy, correctly signed input) AND for the accumulator
+conjuncts: the full-fanout BLS pairing rejects a wrong proof (2·G ≠ G against the real pairing) and
+the partial-fanout KZG membership rejects a continuing datum carrying the old commitment, both run
+through the real primitives.
 
 **Scope — what the agreement test establishes (do not over-sell):**
 
@@ -79,14 +78,22 @@ wrong-proof rejection for BLS/KZG is the natural next strengthening.
   family:
   - *close*: version + contestation-period preservation, contesters initialised empty,
     `closeInitial ⇒ v=0 ∧ s=0`, `closeAny ⇒ 0<s`, the recorded contestation deadline
-    `tfinal == validity.hi + cp`, and the bounded validity range `hi − lo ≤ cp`.
+    `tfinal == validity.hi + cp`, and the bounded validity range `hi − lo ≤ cp`. All FOUR close
+    redeemers are exercised: `CloseInitial` (unsigned), `CloseUnused`/`CloseAny` (signed at the
+    current version; CloseAny's `snapshotNumber > 0` rejected at 0 by both oracles) and
+    `CloseUsed` (signed at `version − 1`, plus a validator-only isolation reject for a valid
+    signature over a WRONG accumulator hash, `mustBindAccumulatorCommitment`).
   - *increment*: version `= suc`, lovelace AND total non-ada value conservation (head input +
     claimed deposit = head output).
   - *decrement*: version `= suc`, lovelace AND total non-ada value conservation (head output +
     decommit outputs = head input).
   - *contest*: version preserved, snapshot strictly increases, exactly one contester appended,
     posted before the contestation deadline (`validityHi ≤ tfinal`), and the conditional
-    deadline-UPDATE rule (`tfinal' = if all-contested then tfinal else tfinal+cp`).
+    deadline-UPDATE rule (`tfinal' = if all-contested then tfinal else tfinal+cp`) — the
+    deadline-PUSH accept branch is genuinely reached by an `n = 2` two-signer family
+    (2-of-2 multisig; a non-pushed deadline is rejected by BOTH oracles, `MustPushDeadline`).
+    Both contest redeemers are exercised (`ContestUnused`, and `ContestUsed` signed at
+    `version − 1`).
   - *init* (μHead): mint count `= n+1`, the ST is present, and the head output carries exactly
     `n+1` head-policy tokens (token PLACEMENT); plus a non-vacuity check that the real policy
     REJECTS a tx that does not consume the seed input.
@@ -98,11 +105,13 @@ wrong-proof rejection for BLS/KZG is the natural next strengthening.
     binding (`depositCid == headCid`).
   - shared, fully extractable (no mock): `mustBeSignedByParticipant` (participant overlap),
     `mustNotMintOrBurn`, and the referenced-output-is-spent checks (increment claimed deposit,
-    init seed). NB the init `versionZero` (`v ≡ 0`) is NOT a candidate: the μHead policy does not
+    init seed) — `checkRefSpent` is differentially exercised (a claim of an unspent deposit ref
+    is rejected by BOTH the extracted checker and the real validator, `DepositNotSpent`). NB the
+    init `versionZero` (`v ≡ 0`) is NOT a candidate: the μHead policy does not
     check the datum version, so it stays a spec-only field.
   - The increment/decrement lovelace checks use the builtin `_==_` (extracted to native integer
     equality; the structural `_==ᵇ_` is O(n) unary recursion and hangs on lovelace-scale values);
-    their bridge reflection rests on the `==-sound` postulate in `ReferenceBridge.agda`.
+    their bridge reflection (`==-sound`/`<ᴮ-sound` in `RefReflection.agda`) is proved by induction.
 - *Exercised against the real crypto* (the reference mocks the conjunct, but the real validator
   runs it in the test, with a bad-input rejection asserting non-vacuity): the snapshot multisig
   signature (Ed25519), the full-fanout BLS membership, and the partial-fanout KZG membership.
@@ -143,7 +152,6 @@ validator running the real check in the differential, where constructible):
 
 | postulate | assumes | trust family |
 |---|---|---|
-| `==-sound`, `<ᴮ-sound` (`RefReflection`) | builtin `_==_`/`_<_` are sound vs `_≡_` (irreducible on open terms) | builtin-arithmetic — the dominant base; underlies every deadline/value/count conjunct |
 | `cidToNat`, `refCodeOf` | head-id / out-ref → ℕ encodings (used with `cong` only, no injectivity) | encoding |
 | `signerCodes`, `ptCodes`, `participantSigned→ref` | tx-signer / PT-name encodings + a spec-valid tx makes them overlap | faithfulness (opaque set/Value model) |
 | `mintEntryCount`, `noMint→ref` | mint-entry count encoding + `noMint ⇒ count 0` | faithfulness (opaque Value model) |
@@ -154,14 +162,17 @@ into proved bridges + two-directional differential tests; `checkSignedParticipan
 deferred (its `¬∈ ⇒ false` bridge would need a *new* code-injectivity postulate).
 
 Precision note (the `headId`/`cp` param bridges are reflexive): `contestParams→ref` and `initHeadId→ref`
-are discharged by `==-sound refl` because the reference is called with the SAME `cid`/`cp` on both sides
+are discharged via `==-sound refl` because the reference is called with the SAME `cid`/`cp` on both sides
 (the produced datum reuses the source binders; init's `cid` = the currency). So the *bridge lemma* proves
 only that the reference ACCEPTS when the parameters are held fixed — it does not by itself exercise a
 parameter change; the teeth (a rejected `headId`/`cp` mutation) come from the two-directional differential
-test, not the bridge. Likewise, the fanout family's distributed-output set `S` is a free bundle parameter
-(not derived from the transaction's `outputs`); only the *value* conjunct pins the batch positionally, so
-the accumulator-membership conjunct's `S` is not tied to the context outputs. Both are documented
-boundaries, not soundness gaps in the `bundle ⇒ reference` direction.
+test, not the bridge. (The fanout family's distributed-output set used to be a free bundle parameter;
+it is now ANCHORED - `FanoutValid`/`FinalPartialFanoutValid.membersOK` check membership of
+`distributedOuts ctx m` = the first `m` transaction outputs, and `PartialFanoutValid.excludeOK` checks
+exclusion of `partialDistributedOuts ctx m` = the `m` outputs after the continuing head output - so the
+accumulator conjuncts and the value conjuncts constrain the SAME outputs, and
+`fanout-distributes-committed` / `reflect-fanout-⊆` are genuine no-fabrication theorems about the
+transaction rather than about a prover-chosen set.)
 
 ---
 
@@ -278,7 +289,7 @@ surfaced and corrected.
 construction: it only proves *accepted ⇒ safe*, and an over-strict conjunct merely shrinks the accept set
 (it can never falsify a soundness theorem). The violated property is its dual — *completeness-of-
 acceptance / non-stuckness*: the terminal fanout bundle must be **inhabited** for the states that reach it.
-`Hydra/Protocol/OnChainCoverage.agda` now supplies it: a `Reachable` inductive over `HeadDatum`, a proof
+`Hydra/Protocol/OnChainCoverage.lagda.typ` now supplies it: a `Reachable` inductive over `HeadDatum`, a proof
 that the empty Closed head is reachable (`reach-empty-closed`), and the inhabitation/coverage lemmas
 `fanout-empty-inhabited` / `finalize-reachable-empty` / `fanout-coverage`. Re-adding `outputsPositive : 0 <
 m` makes these fail to typecheck (`mkFanoutValid` would need a term of the empty type `0 < 0`) — verified
@@ -399,8 +410,8 @@ checks (no-in-flight for `reqDec`, `(j,·) ∉ Σ̂` for collect, n-of-n for con
 leader(s)=j` for sign). These are *faithful refinements* of the node: reshaped for the §7 Consistency
 proof, they assert nothing the handlers contradict, and the deposit/decommit flow is now wired into
 the §7 system (the `offChain` step relation), where `NoBothInFlight` is proved an invariant. The
-extracted decisions are additionally checked against a Haskell transcription of the figure and, for
-leader selection, against the real `Hydra.HeadLogic.isLeader` (see Part C).
+extracted decisions are additionally checked against the REAL node handlers (`HeadLogic.update` for
+reqSn/reqDec/tick, `isLeader` for leader selection; see Part C).
 
 Structural mapping (all MATCH or MATCH-different-form): Agda `Snapshot` ↔ `Hydra.Tx.Snapshot`
 (`txs↔confirmed`, `utxoInc↔utxoToCommit`, `utxoDec↔utxoToDecommit`, `etaHash`↔ the hash projected
@@ -441,21 +452,29 @@ Clarity notes (no bugs; documentation only):
   node's oldest-first `Seq.|>`. The §7 proofs are agnostic to `pending` ordering (typecheck unchanged),
   so this is a pure fidelity alignment.
 
-# Part C: off-chain differential (extracted reference vs transcription / node)
+# Part C: off-chain differential (extracted reference vs the real node)
 
 `OffChainReference.agda` is the executable, decidable half of the off-chain model: kept self-contained
 over `Agda.Builtin` types so MAlonzo extracts it to clean Haskell (`Hydra.Agda.OffChainReference`),
 exactly as `Reference.agda` does for the on-chain validators. Each decidable function is the guard of
-one handler arm, run as a second oracle in two test families:
+one handler arm, and the extracted guards are bound against the REAL node logic (an earlier layer
+compared them to same-repo Haskell transcriptions of the §6 figure, which only smoke-tests the
+extraction pipeline; those tests were removed in favour of the real bindings):
 
-- `hydra-tx` `OffChainDifferential` pins each extracted decision to a faithful Haskell transcription
-  of the §6 figure (golden cases + QuickCheck): the `tick` deposit-status transition
-  (`depositStatusRef`), reqSn signing eligibility (`signEligibleRef`), reqDec eligibility
-  (`reqDecEligibleRef`), ackSn-collect no-double-sign (`notAlreadySignedRef`), ackSn-confirm n-of-n
-  (`allSignedRef`), and contest re-post (`contestEligibleRef`).
+- `hydra-node` `OffChainAgreementSpec` drives the real `Hydra.HeadLogic.update` over minimal open
+  states and asserts agreement with the extracted guards: `signEligibleRef` vs `onOpenNetworkReqSn`
+  (accept ⟺ `SnapshotRequested`; `ReqSnNumberInvalid`/`ReqSnNotLeader` errors and the deliberate
+  `WaitOnSnapshotVersion` wait all map to non-accept), `reqDecEligibleRef` vs `onOpenNetworkReqDec`
+  (a pending deposit makes the node WAIT, `WaitOnUnresolvedCommit`; an in-flight decommit waits as
+  `DecommitAlreadyInFlight`), and `depositStatusRef` vs the real `Tick` transition (status read off
+  the `DepositActivated`/`DepositExpired` events, boundary-exact; domain `deadline ≥ T_deposit`
+  documented, below which Nat monus and `UTCTime` arithmetic diverge).
 - `hydra-node` `OffChainLeaderSpec` binds the extracted round-robin leader (`leaderRef`, the figure's
   `leader(s)`) to the REAL `Hydra.HeadLogic.isLeader`, closing the figure↔Agda↔node loop for leader
   selection. They agree for every party index at every `sn ≥ 1`; they diverge only at `sn = 0` (Nat
   truncated `0 ∸ 1 = 0` vs `Int` `-1 mod n = n-1`), which is outside the protocol's domain (snapshot
   numbers start at 1). This `sn = 0` boundary is exactly the kind of edge a real-node differential
   surfaces that a same-language transcription would not.
+- `hydra-tx` `OffChainDifferential` retains only concrete-value extraction pins for the three guards
+  without a proportionate real binding yet (`notAlreadySignedRef`, `allSignedRef`,
+  `contestEligibleRef` need a multi-party AckSn signing round / closed-head observation to drive).

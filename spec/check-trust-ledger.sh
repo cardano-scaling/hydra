@@ -4,8 +4,8 @@
 # The machine-checked `spec ⇒ extracted-reference` bridge rests on a FIXED, enumerated trusted base:
 #   (a) injected `Ops` mocks — the const-`true` boundaries the reference delegates (crypto / accumulator /
 #       value-map conjuncts), and
-#   (b) extraction-faithfulness / encoding postulates (builtin-arithmetic soundness, hash/out-ref encodings,
-#       and the participant / no-mint faithfulness assumptions).
+#   (b) extraction-faithfulness / encoding postulates (hash/out-ref encodings and the
+#       participant / no-mint faithfulness assumptions).
 #
 # This script extracts that set from the Agda sources and FAILS if it drifts from the documented ledger
 # (agda-haskell-alignment.md, "Trust ledger"). So a NEW mock or postulate cannot enter the trusted base
@@ -34,7 +34,7 @@ expected_mocks=$(printf '%s\n' \
   claimIncrementOK closeCryptoOK contestCryptoOK fanoutCryptoOK incCryptoOK initPlacementOK recoverHashOK \
   | sort -u)
 expected_postulates=$(printf '%s\n' \
-  '<ᴮ-sound' '==-sound' cidToNat mintEntryCount 'noMint→ref' 'participantSigned→ref' ptCodes refCodeOf signerCodes \
+  cidToNat mintEntryCount 'noMint→ref' 'participantSigned→ref' ptCodes refCodeOf signerCodes \
   | sort -u)
 
 fail=0
@@ -52,4 +52,4 @@ if [ "$fail" -ne 0 ]; then
   echo "Update spec/agda-haskell-alignment.md (the Trust ledger section) and the EXPECTED_* lists in this script."
   exit 1
 fi
-echo "check-trust-ledger: OK — trusted base is the 7 documented Ops mocks + 9 documented postulates."
+echo "check-trust-ledger: OK — trusted base is the 7 documented Ops mocks + 7 documented postulates."

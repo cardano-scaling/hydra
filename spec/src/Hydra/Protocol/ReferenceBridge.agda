@@ -8,15 +8,15 @@
 -- a faithful proxy for the spec. The hydra-tx `HeadValidatorAgreement` test then checks
 -- `reference === validator` on the SAME inputs, so spec-valid ⇒ reference-accepts ⇒ validator-accepts.
 --
--- NB the deadline / bounded-validity conjuncts of `closeValid` are currently absorbed into the
--- reference's injected (mock) `Ops` (they need the tx validity range + POSIXTime unit handling on
--- the Haskell side), so they are NOT part of `closeRefᵇ` yet; only the unit-robust conjuncts are.
+-- The deadline (`tfinal = hi + cp`) and bounded-validity (`hi - lo <= cp`) conjuncts ARE part of
+-- `closeRefᵇ` and are discharged from the bundle's `deadlineOK`/`validityBounded` fields; the
+-- crypto/accumulator conjuncts stay in the injected (mock) `Ops`.
 --
 -- One conjunct is NOT a closed proof: `participantSigned→ref` rests on a POSTULATED extraction-
 -- faithfulness boundary (`signerCodes`/`ptCodes` encode the tx's signer key-hashes / head PT names, and
 -- a spec-valid tx is ASSUMED to make those lists overlap). It is honest about this in-line; it is the
 -- one bridge clause whose correspondence is assumed rather than derived (same trust family as the
--- `cidToNat` / `==-sound` encoding postulates). Every other `*Valid → ref` clause is a genuine proof.
+-- `cidToNat`/`refCodeOf` encoding postulates). Every other `*Valid → ref` clause is a genuine proof.
 module Hydra.Protocol.ReferenceBridge where
 
 open import Hydra.Protocol.Prelude
@@ -245,19 +245,19 @@ contestValuePreserved→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin
 mockOpsFanout : R.OpsFanout
 mockOpsFanout = record { fanoutCryptoOK = λ _ → true }
 
-fanoutValid→ref : ∀ ctx cid hk n cp v s η C tfin ada outs m π crs
-  → fanoutValid ctx (Closed cid hk n cp v s η C tfin ada) outs m π crs
+fanoutValid→ref : ∀ ctx cid hk n cp v s η C tfin ada m π crs
+  → fanoutValid ctx (Closed cid hk n cp v s η C tfin ada) m π crs
   → R.fanoutRefᵇ mockOpsFanout
        (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
-fanoutValid→ref ctx cid hk n cp v s η C tfin ada outs m π crs b =
+fanoutValid→ref ctx cid hk n cp v s η C tfin ada m π crs b =
     &&-intro (==-sound (FanoutValid.burnAllTokens b))
    (&&-intro (<ᴮ-sound (FanoutValid.afterDeadline b)) refl)
 
-finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada outs m π crs
-  → finalPartialFanoutValid ctx (FanoutProgress cid hk n tfin η ada) outs m π crs
+finalPartialFanoutValid→ref : ∀ ctx cid hk n tfin η ada m π crs
+  → finalPartialFanoutValid ctx (FanoutProgress cid hk n tfin η ada) m π crs
   → R.fanoutRefᵇ mockOpsFanout
        (R.mkFanoutᶜ m (burnedCount ctx cid) n tfin (ValidityInterval.lo (Context.validity ctx))) ≡ true
-finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
+finalPartialFanoutValid→ref ctx cid hk n tfin η ada m π crs b =
     &&-intro (==-sound (FinalPartialFanoutValid.burnAllTokens b))
    (&&-intro (<ᴮ-sound (FinalPartialFanoutValid.afterDeadline b)) refl)
 
@@ -268,10 +268,10 @@ finalPartialFanoutValid→ref ctx cid hk n tfin η ada outs m π crs b =
 -- accumulator-exclusion/non-empty-progress (`excludeOK`/`notDoneOK`) and value-conservation conjuncts stay
 -- abstract; `mintEmpty` is the shared `noMintRefᵇ`. So a reference reject ⇒ the spec rejects ⇒ the
 -- validator rejects (`PartialFanoutZeroOutputs` / `LowerBoundBeforeContestationDeadline`).
-partialFanoutValid→ref : ∀ ctx d d′ S m crs
-  → partialFanoutValid ctx d d′ S m crs
+partialFanoutValid→ref : ∀ ctx d d′ m crs
+  → partialFanoutValid ctx d d′ m crs
   → R.partialFanoutRefᵇ m (tfinalOf d) (ValidityInterval.lo (Context.validity ctx)) ≡ true
-partialFanoutValid→ref ctx d d′ S m crs b =
+partialFanoutValid→ref ctx d d′ m crs b =
     &&-intro (<→<ᵇ (PartialFanoutValid.outputsPositive b))
              (<ᴮ-sound (PartialFanoutValid.afterDeadline b))
 
@@ -446,6 +446,8 @@ closeChainInitial→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
         (ValidityInterval.hi (Context.validity ctx)) (ValidityInterval.lo (Context.validity ctx)) ≡ true)
     × (R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
                          (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true)
+    × (R.noMintRefᵇ (mintEntryCount ctx) ≡ true)
 closeChainInitial→ref ctx cid hk n cp v η ada s′ η′ C tfin b =
     closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
   , closeValuePreserved→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
+  , noMint→ref ctx (CloseValid.mintEmpty b)

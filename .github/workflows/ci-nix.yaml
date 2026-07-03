@@ -87,6 +87,28 @@ jobs:
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
 
+  spec:
+    name: "Formal specification"
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    # Same derivations as the `spec` / `hydra-agda-generated` flake checks
+    # (checks are not resolved by bare `nix build .#name`, hence the full path):
+    # Agda-typechecks the literate spec and renders the PDF, then verifies the
+    # committed MAlonzo extraction under hydra-agda/generated is not stale.
+    - name: 📖 Build specification & check Agda extraction
+      run: |
+        nix build --no-link \
+          .#checks.x86_64-linux.spec \
+          .#checks.x86_64-linux.hydra-agda-generated
+
   benchmarks:
     name: "Benchmarks"
     runs-on: ubuntu-latest

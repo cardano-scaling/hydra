@@ -75,7 +75,13 @@ state_keys=$(awk '
   ins && /^\)/             { ins=0 }
   ins && /^  "[A-Za-z]+":/ { gsub(/[",:]/,"",$1); print $1 }
 ' "$DIAG" | sort -u)
-if [ -n "$datum_ctors" ] && [ "$datum_ctors" != "$state_keys" ]; then
+if [ -z "$datum_ctors" ] || [ -z "$state_keys" ]; then
+  # A silent skip here would let real drift through: if either parse comes back empty the
+  # anchors (`data HeadDatum :` / `#let state-fields = (`) no longer match the sources.
+  echo "ERROR: check (3) parsed no HeadDatum constructors or no state-fields keys (anchor drift);"
+  echo "  update the awk anchors in check-refs.sh to match the current source layout."
+  fail=1
+elif [ "$datum_ctors" != "$state_keys" ]; then
   echo "ERROR: diagrams.typ state-fields keys do not match HeadDatum constructors:"
   echo "  HeadDatum: $(echo $datum_ctors)"
   echo "  state-fields: $(echo $state_keys)"
@@ -108,7 +114,8 @@ fi
 
 if [ "$fail" -eq 0 ]; then
   echo "check-refs: OK — cited rules exist, the head-state diagram matches the Agda"
-  echo "relation, state-fields match HeadDatum, tx diagrams map to real rules, and"
+  echo "relation, state-fields KEYS match the HeadDatum constructors (names only, not"
+  echo "the per-state field tuples), tx diagrams map to real rules, and"
   echo "every code fence is bare or \`\`\`agda."
 fi
 exit "$fail"

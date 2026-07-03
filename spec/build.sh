@@ -21,7 +21,13 @@ bash check-trust-ledger.sh
 # Stage 2: render in place. --root=src so the root-relative imports (/template.typ,
 # /macros.typ, /short.bib, /agda.sublime-syntax) resolve; the .lagda.typ files include
 # each other by name, so no staging/extension-stripping is needed.
+#
+# JuliaMono (the code font, see template.typ) is not vendored: nix provides it
+# (nixpkgs `julia-mono`) via JULIAMONO_FONT_DIR, exported by both `nix build .#spec`
+# and the dev shell. Hard-error when unset: typst only warns on a missing font
+# family and would silently render code blocks with a fallback font.
 mkdir -p "$(dirname "$PDF")"
-typst compile --ignore-system-fonts --root "$SRC" --font-path "$SRC/fonts" \
+typst compile --ignore-system-fonts --root "$SRC" \
+  --font-path "${JULIAMONO_FONT_DIR:?not set: use the nix dev shell (or nix build .#spec), or point it at a directory with JuliaMono-*.ttf}" \
   --package-cache-path typst-packages "$ENTRY" "$PDF"
 echo "Wrote $PDF"

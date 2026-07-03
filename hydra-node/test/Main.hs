@@ -40,6 +40,7 @@ import Hydra.Node.InputQueueSpec qualified
 import Hydra.Node.RunSpec qualified
 import Hydra.Node.UtilSpec qualified
 import Hydra.NodeSpec qualified
+import Hydra.OffChainAgreementSpec qualified
 import Hydra.OffChainLeaderSpec qualified
 import Hydra.OptionsSpec qualified
 import Hydra.PartySpec qualified
@@ -96,6 +97,7 @@ main =
     , testSpec "Node.Run" Hydra.Node.RunSpec.spec
     , testSpec "Node.Util" Hydra.Node.UtilSpec.spec
     , testSpec "Node" Hydra.NodeSpec.spec
+    , testSpec "OffChainAgreement" Hydra.OffChainAgreementSpec.spec
     , testSpec "OffChainLeader" Hydra.OffChainLeaderSpec.spec
     , testSpec "Options" Hydra.OptionsSpec.spec
     , testSpec "Party" Hydra.PartySpec.spec

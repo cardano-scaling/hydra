@@ -500,7 +500,7 @@ authorize-then-bump rule (a version bump is signed at the confirmed snapshot's v
 `verifySnapshotSignature … prevVersion`), captured as the increment/decrement `v ≡ suc S̄.v` premise, so
 `v̂` never runs more than one version ahead of `S̄.v`. The node's `-- XXX: … Assert this fact?` is thereby a
 theorem; a runtime assertion is unnecessary. LIFTED to §7 (2026-06): `versionDisciplineˢ`
-(`SecurityProofs.agda`) carries `VersionDiscipline` across every reachable multi-party adversarial
+(`SecurityProofs.lagda.typ`) carries `VersionDiscipline` across every reachable multi-party adversarial
 `_⟶ˢ_` execution, alongside `noBothInFlightˢ` — `confirm` now carries the version premise (a snapshot is
 confirmed at the current or one-prior open version), `signHonest` bumps only the seen number, and the
 `offChain` step reuses `versionDiscipline-step`. So impl-C3 is a property of the security model, not only
@@ -600,8 +600,82 @@ model, differential testing+extraction, and the Typst/build/diagrams. Verdict: t
 - **BLS/KZG crypto coverage (doc + test).** The alignment doc was corrected: bad-input rejection is asserted
   for signatures (Ed25519) only; BLS/KZG membership are exercised accept-direction only. A wrong-proof
   rejection test for the fanout/partial paths was added to close the gap.
+- **Fanout distributed set was a free bundle parameter (MED, fixed).** `FanoutValid`/`FinalPartialFanoutValid`
+  took `outs : ℙ Output` (and `PartialFanoutValid` an `S`) as free parameters never tied to the transaction,
+  so `membersOK`/`excludeOK` constrained a prover-chosen set while `valueOK` constrained the real outputs -
+  `fanout-distributes-committed`/`reflect-fanout-⊆` were theorems about a phantom set. Fixed by ANCHORING:
+  `distributedOuts ctx m` (= `fromList (take m outputs)`, the full/final-fanout batch) and
+  `partialDistributedOuts ctx m` (= the `m` outputs after the continuing head output) replace the parameters,
+  so the accumulator and value conjuncts now constrain the SAME transaction outputs. `fanout-coverage`/
+  `progress-finalizable` gained the honest `distributedOuts ctx (setSize V) ≡ V` premise (the tx pays out
+  the committed set). Adversarially verified: re-freeing the set (membership over a constant `∅ˢ`) breaks
+  `fanout-coverage`/`fanout-distributes-committed` at compile time. No extraction impact (`fanoutRefᵇ`
+  unchanged; membership stays in the mocked `fanoutCryptoOK`).
+- **Builtin-soundness postulates eliminated (LOW, fixed).** `==-sound`/`<ᴮ-sound` (`RefReflection`) are now
+  PROVED by induction (builtins reduce on constructor-headed arguments; only neutral terms are irreducible).
+  Trusted base shrinks 9 → 7 postulates (`check-trust-ledger.sh` + alignment-doc ledger updated).
+- **Contest game bounded (MED, new theorems).** (i) Contesters are now key HASHES (`List ℍ`, matching the
+  on-chain `contesters :: [PubKeyHash]`; was `List VKey`, which needed an unavailable hash-injectivity to
+  reason about). (ii) `ContestValid` gained `contesterIsParticipant : quantityOf (headValue ctx) (cid , kh)
+  ≡ 1` (faithful: Plutus contester ≔ the sole signer + `mustBeSignedByParticipant` make this one on-chain
+  check); the `participantSigned` field is DROPPED and derived (`contest-participantSigned`). (iii)
+  `Reachableᵛ.contestᵛ` is stated on concrete datums, tying the bundle's `kh` to the datum's appended
+  contester (it was another phantom parameter). (iv) New `OnChainCoverage` theorems: `deadline-bounded`
+  (any validly-reachable Closed head has `tfin ≤ (hi + cp) + |C|·cp` for the close-time bound `hi` -
+  consumes the close/contest deadline equations across the run) and, under the `ContestBound` module
+  hypotheses (`ptKeysOf`/`pt-mem`, the once-only-mint fact - a module hypothesis, NOT a global postulate,
+  because a global law over the raw `Value` model would be falsifiable), `contesters-are-participants`,
+  `contesters-bounded` (`|C| ≤ n` via no-double-contest + fixed participant set), and
+  `contest-window-bounded` (`tfin ≤ (hi + cp) + n·cp`): the deadline moves at most n times, the atemporal
+  safety half of the close/contest game (the §7 completeness premise's on-chain counterpart).
+  Adversarially verified: dropping `contesterIsParticipant` or corrupting the contest deadline update to
+  `+ cp + cp` each breaks the corresponding proof at compile time.
+
+- **On-chain signature conjuncts now certify (MED, new theorems).** The `sigOK` fields of all four
+  §5.4-§5.7 bundles were unconsumed. `snapMsg` (the §7 signing message) is now DEFINED as the same §3.1
+  concatenation `snapshotSigOK` verifies (one fewer postulate; the two formalisations now meet
+  definitionally at the message, not only at datum accessors), and `SecurityProofs` gained
+  `sig-certifies` + `increment/decrement/close/contest-certified`: a valid on-chain
+  increment/decrement/close/contest whose parameters match a snapshot is unanimously certified (every
+  party signed), given the per-instance signature-trust hypothesis `ξ ≡ aggSigOf sys snap` (the
+  `reflects`/`ηEq` pattern). "No funds move and no settlement without unanimity" is now a theorem
+  consuming the previously-dead crypto conjuncts. Adversarially verified (dropping
+  `IncrementValid.sigOK` breaks `increment-certified`).
+- **Remaining unconsumed conjuncts swept (LOW, fixed/documented).** `close-η-reflected`/
+  `contest-η-reflected` consume the close/contest `etaOK` binding (certified snapshot's η# = hash of the
+  stored accumulator); `claimTx-certified` consumes the joint `ClaimTxValid` record on BOTH sides (head
+  certificate + deposit before-deadline); the flagship join `closeChainInitial→ref` now also discharges
+  the no-mint conjunct (the declared-but-never-applied `noMint→ref` postulate is applied to
+  `CloseValid.mintEmpty`); `finalPartialFanout-distributes-committed` consumes the final-partial
+  `membersOK`. The dead display-only `MultiSignatureScheme`/`Accumulator` records in Preliminaries were
+  DELETED (prose now points at the real instantiations: `msVfy` + `aggSound`/`sigUnforge` in §7 and the
+  `accVerify-*` laws in §5). Still deliberately unconsumed and documented: `cidIsSeedHash`/
+  `recoveredMatches` (hash equalities over the law-free `hash`), `excludeOK` (would need an
+  `accVerifyExclude` soundness law + set difference: future work enabling "a partial fan-out loses
+  nothing"), `mintEmpty` on contest/increment/decrement (pattern demonstrated on close), and the
+  `burnedValue` opacity (documented at its postulate).
+- **Theorems surfaced in the rendered document (presentation, fixed).** The headline results used to
+  live only in unrendered `.agda` files. `SecurityProofs` and `OnChainCoverage` are now literate
+  (`.lagda.typ`), rendering as "Machine-checked results" (§7) and "Machine-checked on-chain properties"
+  (§5) with theorem/invariant environments in the prose and the Agda SIGNATURES in the appendix; proof
+  bodies remain typechecked but hidden. The monolithic appendix fences were split (per-transaction
+  bundles under their §5.x sections; plumbing like `takeSumᵛ`/`valueAtOut`/field extractors demoted to
+  hidden fences), §7 was retitled from "WIP - Iteration 1", the contradictory prose about `signHonest`
+  (assumed vs proved) was made precise (numbering guard DERIVED; chain-extension/applicability/only-seen
+  are constructor premises), the "meet only at datum accessors" scope note now lists all three meeting
+  points, and the stale "three states" sentence in the overview says four. `check-refs.sh` check (3) now
+  fails loudly if its parse anchors drift (was a silent skip) and its OK message no longer overclaims.
+- **Differential coverage extended to every close/contest redeemer + the real off-chain handlers
+  (coverage, fixed).** `HeadValidatorAgreement` grew from 46 to 65 tests: CloseAny (snapshot-0 reject),
+  CloseUsed and ContestUsed (signatures at `version − 1`; CloseUsed also isolates
+  `mustBindAccumulatorCommitment`), an `n = 2` two-signer contest reaching the deadline-PUSH accept
+  branch (unreachable at n = 1), and `checkRefSpent` wired (unspent-deposit claim rejected by both
+  oracles). The off-chain transcription tests (spec compared against a same-repo copy of the spec) were
+  deleted in favour of `hydra-node` `OffChainAgreementSpec`, binding `signEligibleRef`/
+  `reqDecEligibleRef`/`depositStatusRef` against the real `HeadLogic.update` (including the new
+  ReqSn both-in-flight reject and ReqDec pending-deposit wait).
 
 Residual DOCUMENTED boundaries (not defects, honestly scoped): the reflexive `headId`/`cp` param bridges
-(teeth come from the differential, see "Trust ledger" precision note); the fanout family's free `S` set;
-the off-chain figure's 1-based `[1..n]` all-signed index vs the model/node 0-based `[0..n-1]`; and the
+(teeth come from the differential, see "Trust ledger" precision note); the
+off-chain figure's 1-based `[1..n]` all-signed index vs the model/node 0-based `[0..n-1]`; and the
 `ackSn-confirm` version premise being broader than the rendered §6 figure line (impl-C5, intentional).

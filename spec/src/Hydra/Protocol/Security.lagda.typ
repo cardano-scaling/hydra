@@ -3,7 +3,7 @@ module Hydra.Protocol.Security where
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.OffChain
-open import Hydra.Protocol.Preliminaries using (Output)
+open import Hydra.Protocol.Preliminaries using (Output; _‖_)
 open import Data.Fin using (Fin)
 open import Data.Nat using (z≤n; s≤s)
 open import Data.Nat.Properties using (≤-total; ≤-antisym; +-identityʳ; +-suc; suc-injective; m+[n∸m]≡n; m+n≡0⇒m≡0)
@@ -26,8 +26,7 @@ import Hydra.Protocol.OnChain as OC
 #import "/template.typ": *
 #import "/macros.typ": *
 
-= Security (WIP - Iteration 1) <sec:security>
-#todo[The security analysis is still *sketchy*, with the goal to make it more formal in upcoming iterations]
+= Security <sec:security>
 
 #todo[Add security experiment]
 Adversaries:
@@ -131,10 +130,13 @@ to a party _while uncorrupted_; corruption only shrinks the honest set, and the 
 constrain a once-honest-now-corrupt party's confirmed set). The safety perimeter - the assumptions
 the proofs rest on - is: (a) the ledger semantics (`applyTxs`); (b) per-signature _unforgeability_
 (`sigUnforge`, EUF-CMA) plus the aggregation scheme's n-of-n decomposition (`aggSound`), from which
-the aggregate-level `ms-unforgeable` is *derived*; (c) the honest-signing
-discipline baked into `signHonest` (sign only applicable,
-≤1 per number, extend own confirmed) - an explicit honest-_behaviour_ assumption from §6.2,
-not derived from the off-chain handlers; and (d) for the on-chain bridge only, that the finalized
+the aggregate-level `ms-unforgeable` is *derived*; (c) the honest-signing discipline of
+`signHonest`, part derived and part assumed: the numbering guard (sign exactly the number one
+above the signer's own confirmed snapshot, hence at most once per number) is *derived* from the
+fired `reqSn-sign` handler premise together with the no-in-flight precondition and the invariant's
+`signNumBound`, while chain-extension, applicability-of-the-delta and only-seen enter as
+*premises* of the `signHonest` constructor - explicit honest-_behaviour_ assumptions from §6.2;
+and (d) for the on-chain bridge only, that the finalized
 datum's stored accumulator commits to the off-chain final UTxO (the `ηEq` hypothesis of `reflects`,
 supplied per finalization), irreducible because νHead authenticates η via the multisignature, not by
 recomputing it. The verified aggregate is SYSTEM-RELATIVE (`AggVerified sys snap` checks the
@@ -147,10 +149,15 @@ further below give the informal arguments these proofs mirror.
 
 #dparagraph[Scope (what these proofs do and do not cover).] To avoid over-reading the word "unified":
 these §7 proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
-are *two distinct formalizations that meet only at datum-field accessors*. The security model reads the
-on-chain datum only through `OC.snapNum`/`OC.ηOf`/`OC.accUTxO`; the `finalize` step admits *any*
-datum with a matching snapshot number, so no safety theorem ever consumes a bundle's value-conservation,
-deadline, signature or contester checks. Those bundles are instead cross-checked against the real Plutus
+are two formalizations with *three deliberate meeting points*: the datum-field accessors (the
+security model reads the on-chain datum through `OC.snapNum`/`OC.ηOf`/`OC.accUTxO`), the signing
+message (`snapMsg` is _defined_ as the same `cid ‖ v ‖ s ‖ η#` concatenation the bundles'
+`snapshotSigOK` verifies, so the two formalizations meet definitionally at the message), and the
+certificate corollaries of @sec:security-theorems (`sig-certifies` and the `*-certified` family
+consume the bundles' `sigOK` conjuncts, together with the close/contest `etaOK` binding and the
+deposit side's before-deadline check). The `finalize` step still admits *any* datum with a
+matching snapshot number, so no reachability theorem consumes a bundle's value-conservation,
+deadline or contester checks; those are instead cross-checked against the real Plutus
 validator by the extracted differential oracle (the `Reference`/`ReferenceBridge` modules),
 not by these theorems. Two further honesty notes: (i) *non-vacuity* (that some confirmation is reachable) is a
 meta-level model-existence argument, not machine-checked, because `msVfy` is an abstract postulate so no
@@ -179,9 +186,10 @@ nest by number (`confirmed-nest`), from the honest "extend my own confirmed snap
 gap induction using (ii). `confirm` checks the §3.2 aggregate multisignature (`AggVerified`/`msVfy`).
 Beyond the ledger `applyTxs` and the scheme's unforgeability (per-signature `sigUnforge` + the
 `aggSound` decomposition, from which `ms-unforgeable` is derived), the safety argument
-relies on the honest-_behaviour_ assumption encoded in `signHonest` (see the modelling note below;
-it is what makes the confirmed chain linear and monotone, and is not derived from the off-chain
-handlers) and, for the on-chain side, on the finalization bridge's accumulator-commitment hypothesis.
+relies on the honest-behaviour *premises* of `signHonest` - chain-extension, applicability of the
+delta, only-seen (see the modelling note below; the numbering guard, by contrast, is derived from
+the fired handler) - which are what make the confirmed chain linear and monotone, and, for the
+on-chain side, on the finalization bridge's accumulator-commitment hypothesis.
 The off-chain⇒on-chain link is CONSTRUCTED (`reflects`, from a `finalize` step): the
 conflict-freedom and snapshot-number conjuncts of `Reflects` are derived, leaving the stored
 accumulator's commitment to the off-chain UTxO as the single assumed conjunct, supplied per
@@ -189,25 +197,38 @@ finalization as the explicit hypothesis `ηEq` (a hypothesis, not a global axiom
 admits any matching-number datum). *Liveness* additionally needs a
 temporal/fairness layer (P3).
 
-This section states the model and the property statements; the machine-checked *proof terms* (the
-`invariant` and its L1/L2/L3 corollaries, the `consistency`/`soundness`/`completeness` derivations, the
-once-honest-then-corrupt extension and the `reflects` bridge) live in the companion module
-#raw("Hydra.Protocol.SecurityProofs") so the prose stays focused on the statements. They are still
-checked by `nix build` (imported by `Main`), so the properties remain machine-verified.
+This section states the model and the property statements; the machine-checked results are
+rendered in @sec:security-theorems, and their *proof terms* (the `invariant` induction and its
+L1/L2/L3 corollaries, the `consistency`/`soundness`/`completeness` derivations, the
+once-honest-then-corrupt extension and the `reflects` bridge) live in the companion literate
+module #raw("Hydra.Protocol.SecurityProofs"), typechecked by the build (imported by `Main`)
+with the proof bodies not rendered, so the properties remain machine-verified.
 
-#dparagraph[Modelling note (honest signing discipline, derived).]
+#dparagraph[Modelling note (honest signing discipline: derived vs. assumed).]
 The `signHonest` move is DRIVEN by the off-chain handler model: an honest party signs by FIRING the
-`reqSn-sign` handler (OffChain `_handles_↝_`) with no snapshot in flight ($hats = bars$). From these
-operational inputs the four honest-signing guards are PROVED, not assumed: it signs the snapshot
-numbered exactly one above its _own_ confirmed snapshot (the handler's $s = bars + 1$, with $hats = bars$),
-whose transactions extend that snapshot's by an applicable observed delta, and signs at most one snapshot
-per number (because signing advances $hats$, so the invariant `signNumBound` bounds every prior signature
-strictly below the new number). Applicability to $Uinit$ follows by ledger compositionality
-(`applyTxs-compose`) from the party's confirmed-applicability invariant; only-seen follows from the
-delta-observed input and the `sigSeen` invariant. The §6 prose specifies this regime operationally
-(round-robin snapshot leader, $s = hats + 1$, the $hpRS$ 'wait' guards); the security model derives
-its safety consequences from a faithful transcription of that handler. It is
-what makes the confirmed chain provably linear (`agree`) and monotone (`confirmed-nest`).
+`reqSn-sign` handler (OffChain `_handles_↝_`) with no snapshot in flight ($hats = bars$). The four
+honest-signing guards divide as follows. The numbering guard is *derived*: the fired handler's
+premise $s = bars + 1$ (with $hats = bars$) makes the signed snapshot exactly one above the
+signer's _own_ confirmed snapshot, and since signing advances $hats$, the invariant `signNumBound`
+bounds every prior signature strictly below the new number, so at-most-one-signature-per-number
+(`sigDedup`) is proved rather than assumed. The other three guards are *premises* of the
+`signHonest` constructor - assumptions about honest behaviour, not derived from the off-chain
+handlers: the snapshot's transactions extend the signer's own confirmed snapshot by a delta
+(chain-extension), the delta applies on top of that confirmed snapshot (applicability), and the
+delta has been observed (only-seen). From these premises the invariant derives the
+whole-snapshot facts: applicability to $Uinit$ by ledger compositionality (`applyTxs-compose`)
+from the party's confirmed-applicability invariant, and only-seen for the whole snapshot from the
+`sigSeen` invariant. The §6 prose specifies this regime operationally (round-robin snapshot
+leader, $s = hats + 1$, the $hpRS$ 'wait' guards); the derived numbering guard and the
+honest-behaviour premises together are what make the confirmed chain provably linear (`agree`)
+and monotone (`confirmed-nest`).
+
+=== The system model
+
+A party's confirmed transactions and number are read off its local state; the
+global `System` records each party's local state, honesty flag, recorded
+signatures and seen sets; and `Certified` is the n-of-n signing predicate the
+proofs reason with (@agda-appendix).
 
 ```agda
 -- The ledger primitives (`applyTxs`, its `applyTxs-nil`/`applyTxs-compose` laws, and `Applicable`) are
@@ -221,7 +242,9 @@ confirmedTxs st = Snapshot.txs (LocalState.confirmed st)
 
 confirmedNo : LocalState → ℕ
 confirmedNo st = Snapshot.number (LocalState.confirmed st)
+```
 
+```agda
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 -- P1-real: DERIVING the agreement/applicability of confirmed snapshots from a signature model.
 -- We record individual party
@@ -256,13 +279,12 @@ Signed sys i snap = (i , snap) ∈ˡ sigs sys
 -- n-of-n multisignature, which the safety proofs reason with directly.
 Certified : (sys : System) → Snapshot → Set
 Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
+```
 
+```agda
 -- Operationally a node does not test `Certified` (all n individual signatures); it checks ONE
 -- AGGREGATE multisignature with the §3.2 scheme's verifier `msVfy`, under the head's aggregate key
--- (§4) over the snapshot's message cid‖v‖s‖η# (§6). `aggKey` is that aggregate key; `snapMsg` the §6
--- message SERIALISATION, a function of the snapshot's OWN identifying fields (version, number, η#) --
--- so the verified message `msgOf snap` manifestly depends only on those fields, not on a free
--- content-independent token (two snapshots agreeing on them have the same message, by definition).
+-- (§4) over the snapshot's message cid‖v‖s‖η# (§6). `aggKey` is that aggregate key.
 --
 -- `aggSigOf sys snap` is the AGGREGATE signature verified for `snap` -- the combination of the
 -- individual signatures the SYSTEM has recorded on `snap` (in `sigs sys`). It is therefore a function
@@ -272,8 +294,26 @@ Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
 -- yet SATISFIABLE for one where every party signed -- so an execution can genuinely confirm.
 postulate
   aggKey      : VKey
-  snapMsg     : ℍ → ℕ → ℕ → ℍ → ℍ
   aggSigOf    : System → Snapshot → AggSig
+```
+
+=== The signing message and unforgeability
+
+The signing message is the §6 serialisation, defined as the same concatenation
+the on-chain signature conjuncts verify; aggregate unforgeability is derived
+from per-signature EUF-CMA plus the aggregation scheme's decomposition
+(@agda-appendix).
+
+```agda
+-- `snapMsg` is the §6 message SERIALISATION -- DEFINED (not postulated) as the same §3.1 concatenation
+-- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η#`), so the off-chain
+-- certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message (consumed by
+-- `sig-certifies` and the per-transaction `*-certified` corollaries in `SecurityProofs`). It is a
+-- function of the snapshot's OWN identifying fields, so the verified message `msgOf snap` manifestly
+-- depends only on those fields (two snapshots agreeing on them have the same message, by definition);
+-- no injectivity is assumed (`_‖_` bottoms out in the law-free `concat`/`bytes`).
+snapMsg : ℍ → ℕ → ℕ → ℍ → ℍ
+snapMsg cid v s η# = cid ‖ v ‖ s ‖ η#
 
 -- The message a snapshot's aggregate signature is verified against: its own (cid, version, number, η#),
 -- the §6 signing message cid‖v‖s‖η#. cid is constant within a head, so adding it does not change the
@@ -285,7 +325,9 @@ msgOf snap = snapMsg (Snapshot.cid snap) (Snapshot.version snap) (Snapshot.numbe
 -- on `snap` verifies under the head key over `snap`'s message. System-relative (see above).
 AggVerified : System → Snapshot → Set
 AggVerified sys snap = msVfy aggKey (msgOf snap) (aggSigOf sys snap) ≡ true
+```
 
+```agda
 -- Aggregate unforgeability is FACTORED through the per-signature level (A2): rather than postulate
 -- "verifying aggregate ⇒ every party signed" monolithically, we postulate the two more-elementary facts
 -- it rests on and DERIVE it. `PartyVerified sys i snap` is party i's individual component of the
@@ -307,7 +349,16 @@ postulate
 -- (`confirm`, `soundness`, `reflects`, `confCert-all`) consume it through this unchanged type.
 ms-unforgeable : ∀ sys snap → AggVerified sys snap → Certified sys snap
 ms-unforgeable sys snap aggOK i = sigUnforge sys snap i (aggSound sys snap aggOK i)
+```
 
+=== The step relation
+
+The single-step relation captures honest signing (firing the `reqSn-sign`
+handler), corrupt signing, confirmation against a verifying aggregate,
+corruption, finalization, observation, and lifted local off-chain steps
+(@agda-appendix).
+
+```agda
 -- The single-step relation _⟶ˢ_:
 --   signHonest  : an honest party signs a snapshot by FIRING the off-chain `reqSn-sign` handler
 --                 (OffChain `_handles_↝_`): it requires no snapshot in flight (ŝ = s̄), the requested
@@ -382,7 +433,16 @@ data _⟶ˢ_ : System → System → Set where
     → LocalState.confirmed  st' ≡ LocalState.confirmed  (lookup (localOf sys) i)
     → LocalState.seenNumber st' ≡ LocalState.seenNumber (lookup (localOf sys) i)
     → sys ⟶ˢ record sys { localOf = localOf sys [ i ]≔ st' }
+```
 
+=== Initial systems, reachability and the invariant
+
+An initial system has no signatures and genesis confirmed snapshots; `Reachable`
+closes the step relation from an initial system; and `Inv` is the eight-field
+invariant carried through every reachable system, proved by the `invariant`
+induction of @sec:security-theorems (@agda-appendix).
+
+```agda
 -- An initial system: no signatures yet, every party's confirmed snapshot is the genesis (number 0,
 -- empty tx list, applicable by the nil law), and no commit/decommit is in flight (a freshly-opened
 -- head has neither; the genesis state `initialTx-obs` produces it, seeding the `NoBothInFlight` safety
@@ -399,7 +459,9 @@ Initial sys =
 data Reachable : System → Set where
   base : ∀ {s}    → Initial s → Reachable s
   step : ∀ {s s'} → Reachable s → s ⟶ˢ s' → Reachable s'
+```
 
+```agda
 -- Every honest signature on `snap` carries a predecessor snapshot `pre` it extends: `snap` is one
 -- number higher, contains `pre`'s txs, and `pre` is the genesis or is itself certified. (This is the
 -- §7 snapshot-extension discipline that yields L2 `confirmed-nest`.)
@@ -413,7 +475,9 @@ record PredecessorWitness (certified : Snapshot → Set) (snap : Snapshot) : Set
     numberSuc        : Snapshot.number snap ≡ suc (Snapshot.number pre)
     txsExtend        : Snapshot.txs pre ⊆ˡ Snapshot.txs snap
     preGenesisOrCert : (Snapshot.number pre ≡ 0) ⊎ certified pre
+```
 
+```agda
 -- The DERIVED invariants carried through every reachable system, one per field. Each honest-signature
 -- fact is DERIVED at the `signHonest` step from the `reqSn-sign` handler + the no-in-flight
 -- precondition + the invariants (`signNumBound`/`sigSeen`):
@@ -448,8 +512,14 @@ record Inv (sys : System) : Set where
     --   second conjunct of `soundness`.
     sigSeen      : ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap
                  → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
+```
 
+=== The property statements
 
+The §7 properties are stated as types; their proofs are the machine-checked
+results of @sec:security-theorems (@agda-appendix).
+
+```agda
 -- The §7 Consistency property: no two honest parties confirm conflicting transactions. We DERIVE
 -- that each honest party's confirmed set is applicable to U₀ (`conf-applicable`) and that the two
 -- sets nest (`confirmed-nest`); so their union is the larger set, which is applicable. "Conflicting"
@@ -467,8 +537,9 @@ HoldsAt sys =
 
 Consistency : Set
 Consistency = ∀ (sys : System) → Reachable sys → HoldsAt sys
+```
 
-
+```agda
 -- ── P2: Soundness and Completeness (Chain) ─────────────────────────────────────────────────
 -- The finalized on-chain UTxO is the closed/fanned-out snapshot applied to U₀. That snapshot is
 -- certified (the head closes only against a fully-signed snapshot), so by `cert-applicable` it is
@@ -486,8 +557,9 @@ Soundness : Set
 Soundness = ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true → AggVerified sys snap
           → Σ[ U ∈ UTxO ] (Ufinal sys snap ≡ just U)
                         × (∀ {j} → lookup (honest sys) j ≡ true → Snapshot.txs snap ⊆ˡ lookup (seen sys) j)
+```
 
-
+```agda
 -- Completeness (Chain), §7: every transaction an honest party confirmed (T̄ᵢ) is included in the
 -- FINALIZED snapshot T̃ (the closed/fanned-out snapshot, whose aggregate multisignature verifies),
 -- for every honest party whose confirmed number is ≤ T̃'s. DERIVED: T̃ is certified
@@ -502,8 +574,9 @@ Completeness = ∀ sys → Reachable sys → ∀ {snap} → AggVerified sys snap
   → ∀ i → lookup (honest sys) i ≡ true
   → confirmedNo (lookup (localOf sys) i) ≤ Snapshot.number snap
   → confirmedTxs (lookup (localOf sys) i) ⊆ˡ Snapshot.txs snap
+```
 
-
+```agda
 -- ── Linking the two Agda halves: off-chain confirmed snapshot ↔ on-chain close/fanout ──────────
 -- They meet at finalization: when the head closes/fans out, the on-chain Closed datum's accumulator
 -- commits to exactly the off-chain final UTxO U₀ ∘ (txs of the certified finalized snapshot).
@@ -521,8 +594,9 @@ record Reflects (sys : System) (snap : Snapshot) : Set where
     conflictFree  : Ufinal sys snap ≡ just finalUtxo                  -- the final UTxO is conflict-free
     numberMatches : OC.snapNum (onChain sys) ≡ Snapshot.number snap   -- on-chain snapshot number matches
     accCommits    : OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf finalUtxo)  -- on-chain accumulator commits to it
+```
 
-
+```agda
 -- Liveness (head; needs the temporal/fairness layer, P3) remains abstract.
 postulate
   Liveness : Set   -- TODO(D4-P3): under the liveness condition

@@ -364,6 +364,107 @@ unusedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Int
 unusedVal redeemer cv ccp cs cl dl tMax =
   Head.headValidator headScriptHash (HS.Open openDatumU) (HS.Close redeemer) (mkContextU redeemer cv ccp cs cl dl tMax)
 
+-- ── signed CloseAny: like CloseUnused (signature over the CURRENT version) PLUS snapshot number > 0 ─────
+-- The validator's CloseAny arm additionally requires snapshotNumber' > 0; the reference models the same
+-- via the anyOK conjunct on the CloseAnyT tag. The signature message is identical to CloseUnused's (open
+-- version 0), so the scaffolding (openDatumU, mkContextU, closeSigFor) is shared; only the redeemer and
+-- the reference tag differ.
+anyRedeemer :: Integer -> HS.CloseRedeemer
+anyRedeemer cs = HS.CloseAny{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash}
+
+anyRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
+anyRef cv ccp cs cl dl tMax =
+  Ref.checkClose
+    (Ref.mkOps (\_ _ _ -> True))
+    (Ref.MkOpen openVersionN openCpMs)
+    (Ref.MkClosed cv ccp cs cl dl)
+    Ref.CloseAnyT
+    tMax
+    validityLoN
+
+anyVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
+anyVal = unusedVal
+
+-- ── signed CloseUsed: the signature is over version - 1 (a pending inc/dec was already applied) ─────────
+-- The validator's CloseUsed arm verifies the snapshot signature at the PREVIOUS open version. We open at
+-- version 1, so version - 1 = 0 and the message is exactly `closeMsg` again (Plutus Integer subtraction
+-- and the Agda v ∸ 1 agree away from 0; the v = 0 corner lives inside the mocked crypto boundary). The
+-- reference sees the same fields under the CloseUsedT tag; version preservation now demands cv = 1.
+usedOpenVersionN :: Integer
+usedOpenVersionN = 1
+
+-- openDatumU at version 1; headSeed (unique to OpenDatum) pins the record-update type.
+openDatumUsed :: HS.OpenDatum
+openDatumUsed = openDatumU{HS.headSeed = ownRef, HS.version = usedOpenVersionN}
+
+usedRedeemer :: Integer -> HS.CloseRedeemer
+usedRedeemer cs = HS.CloseUsed{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash}
+
+-- mkContextU with the version-1 open datum (each family keeps its own builder).
+mkContextUsed :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
+mkContextUsed redeemer cv ccp cs cl dl tMax =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headInU]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOutU]
+          , txInfoFee = 0
+          , txInfoMint = emptyMintValue
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange =
+              Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close redeemer))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatumUsed))))
+    }
+ where
+  headInU = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open openDatumUsed)))) Nothing
+  headOutU = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (closedDatumU cv ccp cs cl dl))))) Nothing
+
+usedRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
+usedRef cv ccp cs cl dl tMax =
+  Ref.checkClose
+    (Ref.mkOps (\_ _ _ -> True))
+    (Ref.MkOpen usedOpenVersionN openCpMs)
+    (Ref.MkClosed cv ccp cs cl dl)
+    Ref.CloseUsedT
+    tMax
+    validityLoN
+
+usedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
+usedVal redeemer cv ccp cs cl dl tMax =
+  Head.headValidator headScriptHash (HS.Open openDatumUsed) (HS.Close redeemer) (mkContextUsed redeemer cv ccp cs cl dl tMax)
+
+-- CloseUsed hash-vs-datum coupling (mustBindAccumulatorCommitment): the redeemer's accumulatorHash must
+-- be the blake2b of the PRODUCED datum's commitment. Here the redeemer carries the hash of a DIFFERENT
+-- G1 point (2·G) and the signature is over that same wrong hash, so verifySnapshotSignature ACCEPTS and
+-- only the datum binding fails (a validator-only conjunct; the reference mocks the accumulator).
+usedWrongAccHash :: Builtins.BuiltinByteString
+usedWrongAccHash = Builtins.blake2b_256 (Builtins.bls12_381_G1_compress (Builtins.bls12_381_G1_add g1Generator g1Generator))
+
+usedRedeemerWrongHash :: Integer -> HS.CloseRedeemer
+usedRedeemerWrongHash cs =
+  HS.CloseUsed{HS.signature = [Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () msg snapshotSK))], HS.accumulatorHash = usedWrongAccHash}
+ where
+  -- the CloseUsed message at open version 1 signs the version slot v - 1 = 0 (= openVersionN).
+  msg :: ByteString
+  msg =
+    Builtins.fromBuiltin $
+      Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
+        <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
+        <> Builtins.serialiseData (PlutusTx.toBuiltinData cs)
+        <> Builtins.serialiseData (PlutusTx.toBuiltinData usedWrongAccHash)
+
 -- ── increment (Open→Open: version bump + value flow + a deposit script input + signature) ───────────────
 -- checkIncrement finds the head input by its STATE token (hasST), requires headIn ◇ Σdeposits == headOut,
 -- bumps the version, and verifies a signature over (headId, prevVersion, snapshotNumber, nextAccumulatorHash).
@@ -538,6 +639,26 @@ incPerAssetHeadOutHealthy = incHeadVal <> depVal <> singleton headPolicy tokenA 
 
 incPerAssetHeadOutSwap :: Value
 incPerAssetHeadOutSwap = incHeadVal <> depVal <> singleton headPolicy tokenB 1
+
+-- ref-spent attack (the increment claimedDepositIsSpent): the redeemer claims a deposit out-ref that is
+-- NOT among the tx inputs. Only that conjunct breaks (the signature message does not cover the claimed
+-- ref, and the deposit input still feeds mustPreserveValue), so both the extracted checkRefSpent and the
+-- real validator must reject; the healthy claim (= depRef) passes both.
+unspentDepRef :: TxOutRef
+unspentDepRef = TxOutRef (TxId "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") 0
+
+-- deterministic injective encoding of an out-ref (txid bytes big-endian, then the index): equal iff the
+-- out-refs are equal for index < 256 (all fixtures use index 0). The one encoding both checkRefSpent
+-- arguments share.
+encodeTxOutRef :: TxOutRef -> Integer
+encodeTxOutRef (TxOutRef (TxId tid) ix) = bytesToInteger tid * 256 + ix
+
+-- the increment tx's spent input out-refs (head + deposit), under the same encoding.
+incInputRefCodes :: [Integer]
+incInputRefCodes = encodeTxOutRef <$> [ownRef, depRef]
+
+incRedeemerUnspent :: Integer -> HS.IncrementRedeemer
+incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = unspentDepRef}
 
 -- ── decrement (Open→Open: version bump + value SHRINKS by decommit OUTPUTS + signature) ─────────────────
 -- checkDecrement finds the head input via findOwnInput and requires headIn == headOut ◇ Σdecommit-outputs
@@ -720,6 +841,151 @@ mkContestParamsContext producedDatum =
 contestParamsVal :: HS.ClosedDatum -> Bool
 contestParamsVal producedDatum =
   Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) (mkContestParamsContext producedDatum)
+
+-- ── signed ContestUsed: the contest signature is over version - 1 (pending inc/dec already applied) ─────
+-- The validator's ContestUsed arm verifies the snapshot signature at the PREVIOUS version. The closed
+-- input carries version 1, so version - 1 = 0 and the message is exactly `contestMsg` again (as with
+-- CloseUsed, the v = 0 monus corner lives inside the mocked crypto boundary). The reference has no
+-- contest tag: the redeemer choice only moves the signature message, which is the injected conjunct.
+contestUsedPrev :: HS.ClosedDatum
+contestUsedPrev =
+  HS.ClosedDatum
+    { HS.headId = headPolicy
+    , HS.parties = [snapshotParty]
+    , HS.contestationPeriod = UnsafeContestationPeriod (fromInteger openCpMs)
+    , HS.version = 1
+    , HS.snapshotNumber = 0
+    , HS.contesters = []
+    , HS.contestationDeadline = POSIXTime 2_000
+    , HS.accumulatorCommitment = g1Generator
+    , HS.headAdaOverhead = 0
+    }
+
+contestUsedNext :: Integer -> Integer -> HS.ClosedDatum
+contestUsedNext sPrime tfinPerturb =
+  contestUsedPrev{HS.snapshotNumber = sPrime, HS.contesters = [signerKH], HS.contestationDeadline = POSIXTime (2_000 + tfinPerturb)}
+
+contestUsedRedeemer :: Integer -> HS.ContestRedeemer
+contestUsedRedeemer sPrime = HS.ContestUsed{HS.signature = [contestSigFor sPrime], HS.accumulatorHash = emptyAccHash}
+
+mkContestUsedContext :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> ScriptContext
+mkContestUsedContext redeemer sPrime tfinPerturb tMax =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headIn]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOut]
+          , txInfoFee = 0
+          , txInfoMint = emptyMintValue
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contestUsedPrev))))
+    }
+ where
+  headIn = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed contestUsedPrev)))) Nothing
+  headOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (contestUsedNext sPrime tfinPerturb))))) Nothing
+
+contestUsedRef :: Integer -> Integer -> Integer -> Bool
+contestUsedRef sPrime tfinPerturb tMax =
+  Ref.checkContest
+    (Ref.mkOpsContest (const True))
+    (Ref.MkContestIO 1 1 0 sPrime 0 1 2_000 tMax (2_000 + tfinPerturb) 1 openCpMs)
+
+contestUsedVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
+contestUsedVal redeemer sPrime tfinPerturb tMax =
+  Head.headValidator headScriptHash (HS.Closed contestUsedPrev) (HS.Contest redeemer) (mkContestUsedContext redeemer sPrime tfinPerturb tMax)
+
+-- ── contest deadline-push (n = 2): the contest does NOT complete the round, so tfinal' = tfinal + cp ───
+-- With one party the deadline-push accept branch is unreachable (one contester is all of them), so the
+-- n = 1 family above only exercises the tfinal' = tfinal side of mustPushDeadline. Here TWO parties hold
+-- the head and ONE contests: contesters' (1) /= parties' (2), so the produced datum must record
+-- tfinal + cp. The snapshot multisignature needs BOTH parties' keys (verifySnapshotSignature zips
+-- parties with signatures), so a second deterministic Ed25519 key joins the head.
+snapshotSK2 :: SignKeyDSIGN Ed25519DSIGN
+snapshotSK2 = genKeyDSIGN (mkSeedFromBytes (digest (Proxy :: Proxy SHA256) ("hva-snapshot-seed-2" :: ByteString)))
+
+snapshotParty2 :: Party
+snapshotParty2 = partyFromVerificationKeyBytes (rawSerialiseVerKeyDSIGN (deriveVerKeyDSIGN snapshotSK2))
+
+contest2Prev :: HS.ClosedDatum
+contest2Prev =
+  HS.ClosedDatum
+    { HS.headId = headPolicy
+    , HS.parties = [snapshotParty, snapshotParty2]
+    , HS.contestationPeriod = UnsafeContestationPeriod (fromInteger openCpMs)
+    , HS.version = 0
+    , HS.snapshotNumber = 0
+    , HS.contesters = []
+    , HS.contestationDeadline = POSIXTime 2_000
+    , HS.accumulatorCommitment = g1Generator
+    , HS.headAdaOverhead = 0
+    }
+
+contest2Next :: Integer -> Integer -> HS.ClosedDatum
+contest2Next sPrime tfinPerturb =
+  contest2Prev{HS.snapshotNumber = sPrime, HS.contesters = [signerKH], HS.contestationDeadline = POSIXTime (2_000 + tfinPerturb)}
+
+-- both parties sign the same ContestUnused message (version 0), in parties order.
+contest2SigsFor :: Integer -> [HS.Signature]
+contest2SigsFor sPrime =
+  [ contestSigFor sPrime
+  , Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (contestMsg sPrime) snapshotSK2))
+  ]
+
+contest2Redeemer :: Integer -> HS.ContestRedeemer
+contest2Redeemer sPrime = HS.ContestUnused{HS.signature = contest2SigsFor sPrime, HS.accumulatorHash = emptyAccHash}
+
+mkContest2Context :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> ScriptContext
+mkContest2Context redeemer sPrime tfinPerturb tMax =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headIn]
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = [headOut]
+          , txInfoFee = 0
+          , txInfoMint = emptyMintValue
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contest2Prev))))
+    }
+ where
+  headIn = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed contest2Prev)))) Nothing
+  headOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Next sPrime tfinPerturb))))) Nothing
+
+-- reference with numParties = 2: the deadline-update rule now demands tfinal' = tfinal + cp.
+contest2Ref :: Integer -> Integer -> Integer -> Bool
+contest2Ref sPrime tfinPerturb tMax =
+  Ref.checkContest
+    (Ref.mkOpsContest (const True))
+    (Ref.MkContestIO 0 0 0 sPrime 0 1 2_000 tMax (2_000 + tfinPerturb) 2 openCpMs)
+
+contest2Val :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
+contest2Val redeemer sPrime tfinPerturb tMax =
+  Head.headValidator headScriptHash (HS.Closed contest2Prev) (HS.Contest redeemer) (mkContest2Context redeemer sPrime tfinPerturb tMax)
 
 -- ── init (μHead minting policy: token COUNT + PLACEMENT) ────────────────────────────────────────────────
 -- validateTokensMinting checks: the head policy MINTS exactly n+1 tokens (checkNumberOfTokens), the head
@@ -1278,6 +1544,76 @@ spec = parallel $ do
     let cs = 3; tMax = 1_100; dl = tMax + openCpMs
      in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
 
+  -- ── CloseAny: signature over the CURRENT version PLUS snapshot number > 0 (the anyOK conjunct) ──
+  prop "anchor: healthy CloseAny, BOTH oracles accept (real signature verified, snapshot > 0)" $
+    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+     in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
+          .&&. anyRef 0 100 cs 0 dl tMax === True
+
+  -- Agreement across a grid that INCLUDES snapshot number 0: there the signature still verifies (it is
+  -- over the same snapshot-0 message) but the validator's `snapshotNumber' > 0` and the reference's
+  -- anyOK both reject, so the tag-specific conjunct is exercised in both directions.
+  prop "close/CloseAny: reference === real validator (valid sig; includes snapshot 0)" $
+    forAll (choose (0, 1)) $ \cv ->
+      forAll (elements [50, 100]) $ \ccp ->
+        forAll (choose (0, 3)) $ \cs ->
+          forAll (choose (0, 1)) $ \cl ->
+            forAll (elements [1_050, 2_000]) $ \tMax ->
+              forAll (elements [0, 1]) $ \dExtra ->
+                let dl = tMax + openCpMs + dExtra
+                 in anyRef cv ccp cs cl dl tMax === anyVal (anyRedeemer cs) cv ccp cs cl dl tMax
+
+  prop "close/CloseAny: snapshot number 0, BOTH oracles reject" $
+    let tMax = 1_100; dl = tMax + openCpMs
+     in anyVal (anyRedeemer 0) 0 100 0 0 dl tMax === False
+          .&&. anyRef 0 100 0 0 dl tMax === False
+
+  prop "close/CloseAny: real validator REJECTS a bad-snapshot signature" $
+    let cs = 3
+        tMax = 1_100
+        dl = tMax + openCpMs
+        badRedeemer = HS.CloseAny{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash}
+     in anyVal badRedeemer 0 100 cs 0 dl tMax === False
+
+  prop "close/CloseAny: the healthy (correctly-signed) version of that tx IS accepted" $
+    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+     in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
+
+  -- ── CloseUsed: signature over version - 1 (open version 1 here, so the message is at version 0) ──
+  prop "anchor: healthy CloseUsed, BOTH oracles accept (real signature at version - 1 verified)" $
+    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+     in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
+          .&&. usedRef usedOpenVersionN 100 cs 0 dl tMax === True
+
+  -- Agreement on the decidable conjuncts WITH a valid signature: cv spans 0/1/2, so the
+  -- version-preservation boundary (accept only at cv = 1) is crossed in both directions.
+  prop "close/CloseUsed: reference === real validator (valid sig; decidable conjuncts)" $
+    forAll (choose (0, 2)) $ \cv ->
+      forAll (elements [50, 100]) $ \ccp ->
+        forAll (choose (1, 3)) $ \cs ->
+          forAll (choose (0, 1)) $ \cl ->
+            forAll (elements [1_050, 2_000]) $ \tMax ->
+              forAll (elements [0, 1]) $ \dExtra ->
+                let dl = tMax + openCpMs + dExtra
+                 in usedRef cv ccp cs cl dl tMax === usedVal (usedRedeemer cs) cv ccp cs cl dl tMax
+
+  prop "close/CloseUsed: real validator REJECTS a bad-snapshot signature" $
+    let cs = 3
+        tMax = 1_100
+        dl = tMax + openCpMs
+        badRedeemer = HS.CloseUsed{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash}
+     in usedVal badRedeemer usedOpenVersionN 100 cs 0 dl tMax === False
+
+  -- The hash-vs-datum coupling in isolation: the signature over the WRONG hash verifies, so the reject
+  -- comes from mustBindAccumulatorCommitment alone (the reference mocks the accumulator conjunct).
+  prop "close/CloseUsed: real validator REJECTS a redeemer hash that does not match the datum commitment" $
+    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+     in usedVal (usedRedeemerWrongHash cs) usedOpenVersionN 100 cs 0 dl tMax === False
+
+  prop "close/CloseUsed: the healthy (correctly-signed) version of that tx IS accepted" $
+    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+     in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
+
   -- ── increment: version bump + value conservation + a deposit script input + real signature ──
   prop "anchor: healthy increment — BOTH oracles accept (real signature verified)" $
     let cs = 3
@@ -1321,6 +1657,13 @@ spec = parallel $ do
   prop "increment/per-asset: the healthy (no swap) increment is accepted by both checkPerAsset and the real validator" $
     Ref.checkPerAsset [Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1] === True
       .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy) === True
+
+  prop "increment/ref-spent: a claimed deposit that is NOT a tx input is REJECTED by both checkRefSpent and the real validator" $
+    Ref.checkRefSpent (encodeTxOutRef unspentDepRef) incInputRefCodes === False
+      .&&. incVal (incRedeemerUnspent 3) 1 0 === False
+  prop "increment/ref-spent: the healthy (spent-deposit) claim is accepted by both" $
+    Ref.checkRefSpent (encodeTxOutRef depRef) incInputRefCodes === True
+      .&&. incVal (incRedeemer 3) 1 0 === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
   prop "anchor: healthy decrement — BOTH oracles accept (real signature verified)" $
@@ -1367,6 +1710,43 @@ spec = parallel $ do
   prop "contest/params: the parameter-preserving contest is accepted by both" $
     Ref.checkContestParams (cidToInteger headPolicy) (cidToInteger headPolicy) openCpMs openCpMs === True
       .&&. contestParamsVal (contestNext 1 0) === True
+
+  -- ── ContestUsed: the contest signature is over version - 1 (closed version 1 here) ──
+  prop "anchor: healthy ContestUsed, BOTH oracles accept (real signature at version - 1 verified)" $
+    let s' = 1; tMax = 1_500
+     in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True .&&. contestUsedRef s' 0 tMax === True
+
+  prop "contest/ContestUsed: reference === real validator (valid sig; snapshot increase + deadline + within-period)" $
+    forAll (choose (0, 2)) $ \s' ->
+      forAll (elements [0, 100]) $ \tfinPerturb ->
+        forAll (elements [1_500, 2_500]) $ \tMax ->
+          contestUsedRef s' tfinPerturb tMax === contestUsedVal (contestUsedRedeemer s') s' tfinPerturb tMax
+
+  prop "contest/ContestUsed: real validator REJECTS a bad snapshot signature" $
+    let s' = 1
+        tMax = 1_500
+        badRedeemer = HS.ContestUsed{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash}
+     in contestUsedVal badRedeemer s' 0 tMax === False
+
+  prop "contest/ContestUsed: the healthy (correctly-signed) version of that tx IS accepted" $
+    let s' = 1; tMax = 1_500 in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True
+
+  -- ── contest deadline-push (n = 2, 1 contester): the produced deadline MUST be tfinal + cp ──
+  prop "anchor: n = 2 contest with a pushed deadline, BOTH oracles accept (2-of-2 signature verified)" $
+    let s' = 1; tMax = 1_500
+     in contest2Val (contest2Redeemer s') s' openCpMs tMax === True
+          .&&. contest2Ref s' openCpMs tMax === True
+
+  prop "contest/deadline-push (n=2): a NON-pushed deadline is rejected by both (mustPushDeadline)" $
+    let s' = 1; tMax = 1_500
+     in contest2Val (contest2Redeemer s') s' 0 tMax === False
+          .&&. contest2Ref s' 0 tMax === False
+
+  prop "contest/deadline-push (n=2): reference === real validator (deadline-update rule both directions)" $
+    forAll (choose (0, 2)) $ \s' ->
+      forAll (elements [0, openCpMs, 2 * openCpMs]) $ \tfinPerturb ->
+        forAll (elements [1_500, 2_500]) $ \tMax ->
+          contest2Ref s' tfinPerturb tMax === contest2Val (contest2Redeemer s') s' tfinPerturb tMax
 
   -- ── init (μHead): minted-token count + ST/PT placement in the head output ──
   prop "anchor: healthy init — BOTH oracles accept (mint 2, ST 1, 1 PT)" $
@@ -1459,6 +1839,18 @@ spec = parallel $ do
           -- contest: accept + too-old-snapshot reject
           .&&. (contestRef 1 0 1_500 === contestVal (contestRedeemer 1) 1 0 1_500)
           .&&. (contestRef 0 0 1_500 === contestVal (contestRedeemer 0) 0 0 1_500)
+          -- close (CloseAny): snapshot > 0 accept + snapshot-0 reject
+          .&&. (anyRef 0 100 3 0 dl tMax === anyVal (anyRedeemer 3) 0 100 3 0 dl tMax)
+          .&&. (anyRef 0 100 0 0 dl tMax === anyVal (anyRedeemer 0) 0 100 0 0 dl tMax)
+          -- close (CloseUsed, signature at version - 1): version-preserved accept + changed-version reject
+          .&&. (usedRef usedOpenVersionN 100 3 0 dl tMax === usedVal (usedRedeemer 3) usedOpenVersionN 100 3 0 dl tMax)
+          .&&. (usedRef 0 100 3 0 dl tMax === usedVal (usedRedeemer 3) 0 100 3 0 dl tMax)
+          -- contest (ContestUsed, signature at version - 1): accept + too-old-snapshot reject
+          .&&. (contestUsedRef 1 0 1_500 === contestUsedVal (contestUsedRedeemer 1) 1 0 1_500)
+          .&&. (contestUsedRef 0 0 1_500 === contestUsedVal (contestUsedRedeemer 0) 0 0 1_500)
+          -- contest deadline-push (n = 2): pushed-deadline accept + non-pushed reject
+          .&&. (contest2Ref 1 openCpMs 1_500 === contest2Val (contest2Redeemer 1) 1 openCpMs 1_500)
+          .&&. (contest2Ref 1 0 1_500 === contest2Val (contest2Redeemer 1) 1 0 1_500)
           -- init (μHead): healthy accept + wrong-mint-count reject
           .&&. (initRef 2 1 1 === initVal 2 1 1)
           .&&. (initRef 3 1 1 === initVal 3 1 1)
@@ -1481,3 +1873,8 @@ spec = parallel $ do
           .&&. (contestParamsVal contestNextBadHeadId === False)
           .&&. (initHeadIdVal initOpenDatum === True)
           .&&. (initHeadIdVal initOpenDatumBadHeadId === False)
+          -- the ref-spent conjunct (increment claimedDepositIsSpent): spent accept + unspent reject
+          .&&. (Ref.checkRefSpent (encodeTxOutRef depRef) incInputRefCodes === True)
+          .&&. (incVal (incRedeemer 3) 1 0 === True)
+          .&&. (Ref.checkRefSpent (encodeTxOutRef unspentDepRef) incInputRefCodes === False)
+          .&&. (incVal (incRedeemerUnspent 3) 1 0 === False)

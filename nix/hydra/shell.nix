@@ -91,6 +91,10 @@
 
         CREATE_MISSING_GOLDEN = 1;
 
+        # Code font for the spec PDF; spec/build.sh passes it to typst
+        # (`just spec`), mirroring the hermetic `nix build .#spec`.
+        JULIAMONO_FONT_DIR = "${pkgs.julia-mono}/share/fonts/truetype";
+
         # Force a UTF-8 locale because many Haskell programs and tests
         # assume this.
         LANG = "en_US.UTF-8";
