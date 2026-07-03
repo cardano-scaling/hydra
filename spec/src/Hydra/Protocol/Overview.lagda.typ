@@ -48,8 +48,8 @@ head output and ensures contract continuity~@eutxo.
 The head is opened with an empty UTxO set. Participants can then add funds to the
 head by creating _deposit_ transactions on the mainchain, which are
 subsequently incorporated into the head via _increment_ transactions (see
-@sec:deposit-tx and @sec:increment-tx). Once the $stOpen$
-state is confirmed, the head members start running the off-chain head protocol,
+@sec:deposit-tx and @sec:increment-tx). Once in the $stOpen$
+state, the head members start running the off-chain head protocol,
 which evolves the UTxO set independently of the mainchain.
 
 
