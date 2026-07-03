@@ -30,15 +30,15 @@ application of a function $f$ to an argument $x$ is written as $f(x)$.
 #v(0.5em)
 Furthermore, given a set $cal(A)$, let
 
-- $cal(A)^? = cal(A) union lozenge$ denotes an option: a value from $cal(A)$ or no value at all indicated by $bot$,
-- $cal(A)^n$ be the set of all n-sized sequences over $cal(A)$,
-- $cal(A)^! = union.big_(i = 1)^(n in tyNatural) cal(A)^i$ be the set of non-empty sequences over $cal(A)$, and
+- $cal(A)^n$ be the set of all n-sized sequences over $cal(A)$, and
 - $cal(A)^* = union.big_(i = 0)^(n in tyNatural) cal(A)^i$ be
   the set of all sequences over $cal(A)$.
 
 #v(0.5em)
 With this, we further define:
 
+- $bot$ indicates the absence of a value, e.g. an optional or not-yet-set
+  variable holds $bot$
 - $tyBool = {mfalse, mtrue}$ are boolean values
 - $tyNatural$ are natural numbers ${0, 1, 2, dots.h}$
 - $tyInteger$ are integer numbers ${dots.h, -2, -1, 0, 1, 2, dots.h}$
