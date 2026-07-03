@@ -23,7 +23,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -202,7 +202,7 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
             _ -> False
 
-        prop "tracks depositTx of another head" $ \otherHeadId -> do
+        prop "does not track depositTx of another head" $ \otherHeadId -> do
           let depositOtherHead =
                 observeTx $
                   OnDepositTx
@@ -214,8 +214,147 @@ spec =
                     }
               s0 = inOpenState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          update bobEnv ledger now s0 depositOtherHead `hasStateChangedSatisfying` \case
-            DepositRecorded{headId, depositTxId} -> headId == otherHeadId && depositTxId == 1
+          update bobEnv ledger now s0 depositOtherHead `hasNoStateChangedSatisfying` \case
+            DepositRecorded{headId} -> headId == otherHeadId
+            _ -> False
+
+        prop "does not emit DepositRecovered for OnRecoverTx of another head while Open" $ \otherHeadId -> do
+          let recoverOtherHead =
+                observeTx $
+                  OnRecoverTx
+                    { headId = otherHeadId
+                    , recoveredTxId = 1
+                    , recoveredUTxO = mempty
+                    }
+              s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update bobEnv ledger now s0 recoverOtherHead `hasNoStateChangedSatisfying` \case
+            DepositRecovered{headId} -> headId == otherHeadId
+            _ -> False
+
+        it "emits DepositRecovered for OnRecoverTx of previous head's deposit while new head is Open" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              depositedUtxo = utxoRef 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUtxo
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = (inOpenState threeParties){pendingDeposits = Map.singleton depositTxId' deposit}
+              recoverOldHead = observeTx OnRecoverTx{headId = testHeadId, recoveredTxId = depositTxId', recoveredUTxO = depositedUtxo}
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update bobEnv ledger now' s0 recoverOldHead
+            `hasStateChangedSatisfying` \case
+              DepositRecovered{headId, depositTxId, recovered} ->
+                headId == testHeadId && depositTxId == depositTxId' && recovered == depositedUtxo
+              _ -> False
+
+        it "emits DepositRecorded for own head while Closed" $ do
+          let depositTxId' = 1
+              depositedUtxo = utxoRef 1
+          let depositOwnHead =
+                observeTx $
+                  OnDepositTx
+                    { headId = testHeadId
+                    , deposited = depositedUtxo
+                    , depositTxId = depositTxId'
+                    , created = genUTCTime `generateWith` 41
+                    , deadline = genUTCTime `generateWith` 42
+                    }
+              s0 = inClosedState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 depositOwnHead `hasStateChangedSatisfying` \case
+            DepositRecorded{headId, depositTxId, deposited} -> headId == testHeadId && depositTxId == depositTxId' && deposited == depositedUtxo
+            _ -> False
+
+        it "emits DepositRecovered for own head while Closed" $ do
+          now <- getCurrentTime
+          let ownDepositId = 1
+              recoveredUtxo = utxoRef 1
+              ownDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = recoveredUtxo
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = (inClosedState threeParties){pendingDeposits = Map.singleton ownDepositId ownDeposit}
+              recoverOwnDeposit =
+                observeTx $
+                  OnRecoverTx
+                    { headId = testHeadId
+                    , recoveredTxId = ownDepositId
+                    , recoveredUTxO = recoveredUtxo
+                    }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 recoverOwnDeposit `hasStateChangedSatisfying` \case
+            DepositRecovered{headId, depositTxId, recovered} -> headId == testHeadId && depositTxId == ownDepositId && recovered == recoveredUtxo
+            _ -> False
+
+        it "emits DepositRecovered while Idle (post-fanout recovery)" $ do
+          now <- getCurrentTime
+          let ownDepositId = 1
+              recoveredUtxo = utxoRef 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = recoveredUtxo
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = inIdleState{pendingDeposits = Map.singleton ownDepositId deposit}
+              recoverDeposit =
+                observeTx $
+                  OnRecoverTx
+                    { headId = testHeadId
+                    , recoveredTxId = ownDepositId
+                    , recoveredUTxO = recoveredUtxo
+                    }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 recoverDeposit `hasStateChangedSatisfying` \case
+            DepositRecovered{headId, depositTxId, recovered} -> headId == testHeadId && depositTxId == ownDepositId && recovered == recoveredUtxo
+            _ -> False
+
+        it "allows ClientInput Recover in Idle state for deposit surviving from previous head" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 1
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              -- Deposits from a previous head are never cleared on fanout, so they
+              -- remain in pendingDeposits when the node transitions to Idle.
+              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 (ClientInput (Recover depositTxId'))
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId}} -> headId == testHeadId && recoverTxId == depositTxId'
+              _ -> False
+
+        prop "ignores OnDepositTx while Idle" $ \anyHeadId -> do
+          let depositedUtxo = utxoRef 1
+              depositAnyHead =
+                observeTx $
+                  OnDepositTx
+                    { headId = anyHeadId
+                    , deposited = depositedUtxo
+                    , depositTxId = 1
+                    , created = genUTCTime `generateWith` 41
+                    , deadline = genUTCTime `generateWith` 42
+                    }
+          now <- nowFromSlot inIdleState.chainPointTime.currentSlot
+          update aliceEnv ledger now inIdleState depositAnyHead `hasNoStateChangedSatisfying` \case
+            DepositRecorded{headId, deposited} -> headId == anyHeadId && deposited == depositedUtxo
             _ -> False
 
         it "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ do
@@ -337,9 +476,27 @@ spec =
                   }
           let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
           case s1 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}, pendingDeposits} -> do
               chs.currentDepositTxId `shouldBe` Just ownDepositId
+              pendingDeposits `shouldBe` mempty
             _ -> fail "expected Open state"
+
+        it "DepositRecovered while Idle removes deposit from pendingDeposits" $ do
+          now <- getCurrentTime
+          let depositTxId' = 1
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 1
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
+          let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
+          case s1 of
+            NodeInSync{pendingDeposits} -> pendingDeposits `shouldBe` mempty
+            _ -> fail "expected NodeInSync"
 
         it "CommitFinalized from another head does not update version or localUTxO" $ do
           otherHeadId :: HeadId <- generate arbitrary
