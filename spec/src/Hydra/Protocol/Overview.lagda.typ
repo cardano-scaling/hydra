@@ -118,10 +118,9 @@ state $stClosed$ and each party can contest at most once. After the
 contestation period has elapsed, the state machine may proceed to the $stFinal$
 state. The state machine enforces that the outputs of the transaction leading to
 $stFinal$ correspond exactly to the latest UTxO set seen during the
-contestation period.
+contestation period. #todo[Update to capture details about partial fanout.]
 
 == Differences
-// TODO More details on what was in orig paper?
 In the Coordinated Head protocol, off-chain consensus is simplified by not
 having transactions confirmed concurrently to the snapshots (and to each other)
 but having the snapshot leader propose, in their snapshot, a set of transactions

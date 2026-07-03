@@ -124,8 +124,8 @@
   show math.equation: set text(font: "New Computer Modern Math")
   set heading(numbering: "1.1")
 
-  // Coloured, underlined hyperlinks (internal refs, citations and URLs all
-  // render as links, so this catches them too).
+  // Coloured, underlined hyperlinks (explicit `link()` calls only: `ref`/`cite`
+  // are separate element types, styled by their own rules below).
   show link: it => underline(text(fill: rgb("#1a4fb4"), it))
   // Table-of-contents entries are not `link` elements, so colour them directly.
   show outline.entry: set text(fill: rgb("#1a4fb4"))
@@ -151,6 +151,18 @@
     } else {
       underline(text(fill: rgb("#1a4fb4"), it))
     }
+  }
+
+  // Citations: Typst's built-in citation link covers only the bare number (a
+  // ~5pt hotspot; the style-supplied brackets around it are dead area), which
+  // is unusable in practice. Wrap the WHOLE citation in a link to the
+  // bibliography; the native per-entry link stays nested on the number, so a
+  // click anywhere on "[n]" navigates (the number precisely, the rest to the
+  // references section). Typst offers no per-entry link target (bibliography
+  // entries are not labelled elements), hence the section-level fallback.
+  show cite: it => context {
+    let bibs = query(bibliography)
+    if bibs.len() == 0 { it } else { link(bibs.first().location(), it) }
   }
 
   // Syntactic highlighting for Agda code via a vendored sublime-syntax grammar

@@ -31,7 +31,10 @@ agda src/Hydra/Protocol/Main.lagda.typ
 ```
 
 or build the PDF iteratively with the build script (Agda typecheck +
-`check-refs.sh` + `check-trust-ledger.sh` + Typst render):
+`check-refs.sh` + `check-trust-ledger.sh` + Typst render + a link-fixing
+post-process, `sort-named-dests.py`: Typst 0.14 emits the PDF's
+named-destination table unsorted, which leaves internal section links dead in
+spec-compliant viewers):
 
 ```sh
 ./build.sh

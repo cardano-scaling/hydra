@@ -12,9 +12,11 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
-        # For working on the formal specification (agda typecheck + typst render)
+        # For working on the formal specification (agda typecheck + typst render
+        # + the sort-named-dests.py PDF post-process, see spec/build.sh)
         self'.packages.spec-agda
         pkgs.typst
+        (pkgs.python3.withPackages (ps: [ ps.pikepdf ]))
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt

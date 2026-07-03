@@ -25,6 +25,8 @@
         nativeBuildInputs = [
           config.packages.spec-agda
           pkgs.typst
+          # for sort-named-dests.py (post-processes the Typst PDF, see build.sh)
+          (pkgs.python3.withPackages (ps: [ ps.pikepdf ]))
         ];
         meta = { };
         src = "${self}/spec";

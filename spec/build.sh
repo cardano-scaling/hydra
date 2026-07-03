@@ -27,7 +27,19 @@ bash check-trust-ledger.sh
 # and the dev shell. Hard-error when unset: typst only warns on a missing font
 # family and would silently render code blocks with a fallback font.
 mkdir -p "$(dirname "$PDF")"
+# Build via a temp file and rename into place ATOMICALLY: the output otherwise
+# changes twice per build (typst truncate-and-write, then the stage-3 rewrite),
+# and a PDF viewer auto-reloading on change (okular etc.) can catch a torn
+# mid-write file and sit on a broken parse with no working links.
+TMP="$(dirname "$PDF")/.$(basename "$PDF" .pdf).tmp.pdf"
 typst compile --ignore-system-fonts --root "$SRC" \
   --font-path "${JULIAMONO_FONT_DIR:?not set: use the nix dev shell (or nix build .#spec), or point it at a directory with JuliaMono-*.ttf}" \
-  --package-cache-path typst-packages "$ENTRY" "$PDF"
+  --package-cache-path typst-packages "$ENTRY" "$TMP"
+
+# Stage 3: sort the PDF's named-destination name tree. Typst 0.14 emits it
+# unsorted, which breaks every internal section link in viewers that
+# binary-search the tree per spec (pdf.js etc.; poppler tolerates it); see
+# sort-named-dests.py.
+python3 sort-named-dests.py "$TMP"
+mv -f "$TMP" "$PDF"
 echo "Wrote $PDF"
