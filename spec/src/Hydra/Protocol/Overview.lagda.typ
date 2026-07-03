@@ -69,10 +69,11 @@ protocol participants. The initial snapshot $U_0$ corresponds to the initial
 (empty) UTxO set, while snapshots thereafter $Uset_1, Uset_2, dots.h$ are created with
 monotonically increasing snapshot numbers.
 
-For this, the next snapshot leader (round-robin) requests his view of a new confirmed state to be
-signed by all participants as a new snapshot. The leader does not need to send his local state,
-but only indicate, by hashes, the set of transactions to be included in order to
-obtain the to-be-snapshotted UTxO set.
+For this, the next snapshot leader (round-robin) requests their view of a new
+confirmed state to be signed by all participants as a new snapshot. The leader
+does not need to send their local state, but only indicate, by hashes, the set
+of transactions to be included in order to obtain the to-be-snapshotted UTxO
+set.
 
 The other participants sign the snapshot as soon as they have (also) seen the
 transactions that are to be processed on top of its preceding snapshot: a
