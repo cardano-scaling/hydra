@@ -33,6 +33,7 @@ data HsMintIO = MkMintIO Integer Integer Integer Integer
 data HsClaimIO = MkClaimIO Integer Integer Integer Integer
 data HsSignerIO = MkSignerIO [Integer] [Integer]
 data HsAssetIO = MkAssetIO Integer Integer Integer
+data HsBurnIO = MkBurnIO Integer Integer
 -- Hydra.Protocol.Reference.CloseTagᶜ
 d_CloseTag'7580'_6 = ()
 type T_CloseTag'7580'_6 = HsCloseTag
@@ -884,3 +885,33 @@ d_contestParams'7495'_440 v0 v1 v2 v3
 -- Hydra.Protocol.Reference.initHeadIdᵇ
 d_initHeadId'7495'_450 :: Integer -> Integer -> Bool
 d_initHeadId'7495'_450 v0 v1 = coe eqInt (coe v0) (coe v1)
+-- Hydra.Protocol.Reference.BurnIOᶜ
+d_BurnIO'7580'_456 = ()
+type T_BurnIO'7580'_456 = HsBurnIO
+pattern C_mkBurnIO'7580'_466 a0 a1 = MkBurnIO a0 a1
+check_mkBurnIO'7580'_466 ::
+  Integer -> Integer -> T_BurnIO'7580'_456
+check_mkBurnIO'7580'_466 = MkBurnIO
+cover_BurnIO'7580'_456 :: HsBurnIO -> ()
+cover_BurnIO'7580'_456 x
+  = case x of
+      MkBurnIO _ _ -> ()
+-- Hydra.Protocol.Reference.BurnIOᶜ.mintedCountB
+d_mintedCountB_462 :: T_BurnIO'7580'_456 -> Integer
+d_mintedCountB_462 v0
+  = case coe v0 of
+      C_mkBurnIO'7580'_466 v1 v2 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.BurnIOᶜ.burnedCountB
+d_burnedCountB_464 :: T_BurnIO'7580'_456 -> Integer
+d_burnedCountB_464 v0
+  = case coe v0 of
+      C_mkBurnIO'7580'_466 v1 v2 -> coe v2
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.Reference.burnRefᵇ
+d_burnRef'7495'_468 :: T_BurnIO'7580'_456 -> Bool
+d_burnRef'7495'_468 v0
+  = coe
+      d__'38''38'__58
+      (coe eqInt (coe d_mintedCountB_462 (coe v0)) (coe (0 :: Integer)))
+      (coe ltInt (coe (0 :: Integer)) (coe d_burnedCountB_464 (coe v0)))

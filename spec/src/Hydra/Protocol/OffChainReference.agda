@@ -5,9 +5,12 @@
 -- `Hydra.HeadLogic`. (See `Reference.agda`'s header for why the imports stay minimal: Prelude/OffChain
 -- and stdlib do not extract / balloon the generated tree.)
 --
--- Decisions covered (off-chain differential, step 5): the deposit-status transition of the §6 `tick`
--- handler, and the reqSn signing-eligibility check. The module grows one decidable decision per handler
--- guard as the off-chain mechanization proceeds.
+-- Decisions covered (off-chain differential), one decidable function per handler guard: the
+-- deposit-status transition of the §6 `tick` handler (`depositStatusRef`), the reqSn
+-- signing-eligibility and reqDec eligibility checks (`signEligibleRef`/`reqDecEligibleRef`), the
+-- ackSn no-double-sign and all-signed guards (`notAlreadySignedRef`/`allSignedRef`), the
+-- close/contest eligibility gate (`contestEligibleRef`), and round-robin leader selection
+-- (`leaderRef`).
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool

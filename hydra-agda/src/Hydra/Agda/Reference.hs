@@ -71,10 +71,15 @@ module Hydra.Agda.Reference (
 
   -- * init datum head-id binding (μHead checkDatum: headId == currency)
   checkInitHeadId,
+
+  -- * μHead token burning (Burn redeemer)
+  HsBurnIO (..),
+  checkBurn,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.Reference (
   HsAssetIO (..),
+  HsBurnIO (..),
   HsClaimIO (..),
   HsCloseTag (..),
   HsClosed (..),
@@ -175,8 +180,8 @@ mkOpsRecover = M.C_OpsRecover'46'constructor_3947
 checkRecover :: OpsRecover -> HsRecoverIO -> Bool
 checkRecover = M.d_recoverRef'7495'_288
 
--- | Injected boundary for init: the seed-spent and datum-binding μHead checks (token PLACEMENT is now
--- checked by 'checkInit', no longer delegated).
+-- | Injected boundary for init: the seed-spent and datum-binding μHead checks (token PLACEMENT is
+-- checked by 'checkInit' itself, not delegated here).
 type OpsInit = M.T_OpsInit_314
 
 mkOpsInit :: (HsMintIO -> Bool) -> OpsInit
@@ -279,3 +284,13 @@ checkContestParams = M.d_contestParams'7495'_440
 -- postulate). The @seed == seedInput@ half and the @cid = hash(seed)@ binding stay documented boundaries.
 checkInitHeadId :: Integer -> Integer -> Bool
 checkInitHeadId = M.d_initHeadId'7495'_450
+
+-- | Decidable, fully-extractable μHead Burn-arm checker (@validateTokensBurning@): every head-policy
+-- entry of the mint field is negative — no positive entry exists and at least one negative one does
+-- (the real policy rejects a mint field without head-policy entries). The two 'HsBurnIO' fields are
+-- the counts of the positive and negative head-policy mint entries. No injected boundary. Proved to
+-- reflect @burnValid@ in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. Zero-quantity mint
+-- entries are outside the domain (not representable in canonical ledger values). WHICH burns are
+-- legitimate is νHead's concern (the fan-out family's burn count); μHead only guarantees burn-only.
+checkBurn :: HsBurnIO -> Bool
+checkBurn = M.d_burnRef'7495'_468

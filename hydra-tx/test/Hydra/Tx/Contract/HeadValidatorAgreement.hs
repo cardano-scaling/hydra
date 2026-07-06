@@ -406,6 +406,17 @@ projectInitHeadId ctx = case scriptContextScriptInfo ctx of
       _ -> error "projection: expected exactly one head output"
   _ -> error "projection: not a minting script"
 
+-- burn: counts of the positive / negative head-policy mint entries.
+projectBurn :: ScriptContext -> Bool
+projectBurn ctx = case scriptContextScriptInfo ctx of
+  MintingScript cid ->
+    let qs = [q | (cs, _, q) <- mintEntries ctx, cs == cid]
+     in Ref.checkBurn (Ref.MkBurnIO (count (> 0) qs) (count (< 0) qs))
+  _ -> error "projection: not a minting script"
+ where
+  count :: (Integer -> Bool) -> [Integer] -> Integer
+  count p = toInteger . length . filter p
+
 -- νDeposit: the deposit datum from the SpendingScript.
 projectDepositDatum :: ScriptContext -> Deposit.DepositDatum
 projectDepositDatum ctx = case scriptContextScriptInfo ctx of
@@ -1361,6 +1372,53 @@ initOpenDatumBadHeadId = initOpenDatum{HS.headId = otherHeadCid, HS.headSeed = i
 initHeadIdVal :: HS.OpenDatum -> Bool
 initHeadIdVal od = Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef od 2 1 1)
 
+-- ── μHead Burn arm (validateTokensBurning): burn-only mint field ────────────────────────────────
+-- The Burn arm requires head-policy entries to EXIST in the mint field and ALL to be negative
+-- (MintingNotAllowed otherwise); WHICH burns are legitimate is vHead's concern (the fanout family's
+-- burn count). We vary the head-policy entry quantities, asserting Ref.checkBurn ===
+-- validateTokensBurning. An empty list leaves the head policy out of the mint field entirely (the
+-- validator's lookup-Nothing branch); zero quantities are excluded (not representable in canonical
+-- ledger mint values).
+
+burnMint :: [Integer] -> MintValue
+burnMint qtys
+  | null qtys = UnsafeMintValue (AMap.unsafeFromList [])
+  | otherwise =
+      UnsafeMintValue
+        (AMap.unsafeFromList [(headPolicy, AMap.unsafeFromList (zip (stName : initPtNames) qtys))])
+
+mkBurnContext :: [Integer] -> ScriptContext
+mkBurnContext qtys =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = []
+          , txInfoReferenceInputs = []
+          , txInfoOutputs = []
+          , txInfoFee = 0
+          , txInfoMint = burnMint qtys
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData ())
+    , scriptContextScriptInfo = MintingScript headPolicy
+    }
+
+burnRef :: [Integer] -> Bool
+burnRef = projectBurn . mkBurnContext
+
+burnVal :: [Integer] -> Bool
+burnVal = Tokens.validateTokensBurning . mkBurnContext
+
 -- ── νDeposit (recover/claim): the REAL Aiken validator, run as compiled UPLC on a hand-built context ────
 -- The deposit validator is Aiken (deposit.ak), not a Haskell function, so we cannot call it directly. We
 -- deserialise the compiled validator from plutus.json, build a V3 EvaluationContext from the test cost
@@ -2215,6 +2273,17 @@ spec = parallel $ do
     projectInitHeadId (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
       .&&. initHeadIdVal initOpenDatum === True
 
+  -- ── μHead Burn arm: burn-only mint field ──
+  prop "anchor: healthy burn: BOTH oracles accept (all head-policy entries negative)" $
+    burnVal [-1, -1] === True .&&. burnRef [-1, -1] === True
+
+  prop "burn: reference === real validator (burn-only mint field, incl. the no-head-entries case)" $
+    forAll (elements [[], [-1], [1], [-1, -1], [-1, 1], [1, -1], [-2, -1], [2, 1], [-1, 2]]) $ \qtys ->
+      burnRef qtys === burnVal qtys
+
+  prop "burn: real validator REJECTS a mint alongside a burn (healthy burn-only accepts)" $
+    burnVal [1, -1] === False .&&. burnVal [-1, -1] === True
+
   -- ── νDeposit Recover: the real Aiken validator (compiled UPLC) vs Ref.checkRecover ──
   prop "anchor: healthy recover — BOTH oracles accept (posted after the deadline)" $
     recoverVal 1_000 1_050 === True .&&. recoverRef 1_000 1_050 === True
@@ -2328,6 +2397,9 @@ spec = parallel $ do
           -- init (μHead): healthy accept + wrong-mint-count reject
           .&&. (initRef 2 1 1 === initVal 2 1 1)
           .&&. (initRef 3 1 1 === initVal 3 1 1)
+          -- burn (μHead Burn arm): burn-only accept + mint-alongside-burn reject
+          .&&. (burnRef [-1, -1] === burnVal [-1, -1])
+          .&&. (burnRef [1, -1] === burnVal [1, -1])
           -- recover (νDeposit, real Aiken UPLC): after-deadline accept + not-after reject
           .&&. (recoverRef 1_000 1_050 === recoverVal 1_000 1_050)
           .&&. (recoverRef 1_000 950 === recoverVal 1_000 950)

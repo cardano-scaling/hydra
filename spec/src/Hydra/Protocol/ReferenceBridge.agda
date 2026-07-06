@@ -427,13 +427,13 @@ refSpent→ref ctx ref (i , i∈inputs , outRef≡ref) =
     i∈inputs (sym (cong refCodeOf outRef≡ref))
 
 -- init's `seedSpent` (the μHead `seedInputIsConsumed`) reuses the real `refSpent→ref` for the seed
--- out-ref. CONSUMES `InitValid.seedSpent` (was a cosmetic field - `initValid→ref` never projected it).
+-- out-ref, consuming `InitValid.seedSpent`.
 initSeedSpent→ref : ∀ ctx seed cid hk n cp v η ada
   → initValid ctx seed (Open cid hk n cp v η ada)
   → R.refSpentᵇ (refCodeOf seed) (inputRefCodes ctx) ≡ true
 initSeedSpent→ref ctx seed cid hk n cp v η ada b = refSpent→ref ctx seed (InitValid.seedSpent b)
 
--- ── composition (C3.5): the per-conjunct bridges JOIN into one spec ⇒ extracted-reference verdict ──
+-- ── composition: the per-conjunct bridges JOIN into one spec ⇒ extracted-reference verdict ──
 -- Demonstrated for the close flagship (closeInitial): a SINGLE `closeValid` discharges BOTH the core close
 -- reference checker AND the value-preservation checker at once. The other validators compose identically
 -- (each `*Valid` discharges its core `*Refᵇ` plus the pulled-out conjuncts via the lemmas above). This is
@@ -451,3 +451,11 @@ closeChainInitial→ref ctx cid hk n cp v η ada s′ η′ C tfin b =
     closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
   , closeValuePreserved→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
   , noMint→ref ctx (CloseValid.mintEmpty b)
+
+-- ── §5.1 burn (μHead Burn arm): the bundle implies the extracted burn checker ─────────────────
+-- Both conjuncts are genuine proofs: `==-sound` reflects `mintedCount ≡ 0` into the builtin `_==_`,
+-- and `<ᴮ-sound` reflects `1 ≤ burnedCount` (= `0 < burnedCount`) into the builtin `_<_`.
+burnValid→ref : ∀ ctx cid → burnValid ctx cid
+  → R.burnRefᵇ (R.mkBurnIOᶜ (mintedCount ctx cid) (burnedCount ctx cid)) ≡ true
+burnValid→ref ctx cid b =
+  &&-intro (==-sound (BurnValid.noneMinted b)) (<ᴮ-sound (BurnValid.somethingBurned b))

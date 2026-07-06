@@ -223,7 +223,7 @@ $hatmL$ changes (@agda-appendix).
 -- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
 -- `applyTxs-compose` is ledger COMPOSITIONALITY: applying `txs₁` then `txs₂` equals applying their
 -- concatenation (the one ledger law, alongside nil, that lets the §7 honest-signer applicability guard
--- be DERIVED against U₀, A4/D1). The off-chain handler arms below also use `applyTxs`/`Applicable`,
+-- be DERIVED against U₀). The off-chain handler arms below also use `applyTxs`/`Applicable`,
 -- which is why they live here; @sec:security re-exports them via its `open import` of this module.
 postulate
   applyTxs         : UTxO → List Data → Maybe UTxO
@@ -414,7 +414,7 @@ leader-multicast effects are not modelled at this level.
 ```agda
 -- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
 -- (chain events) below it transcribes the §6.4 handlers, the figure (`Protocol flow`) being the rendered
--- authority. Each arm now carries its §6 `require`/`wait` guards (normative, not merely illustrative):
+-- authority. Each arm carries its §6 `require`/`wait` guards as premises (normative):
 -- reqTx the applicability guard `wait L̂ ∘ tx ≠ ⊥` (de-abstracted over `applyTxs`) + ledger update;
 -- reqDec its no-in-flight + applicability guard (`U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥`) + ledger update;
 -- reqSn-sign the version/number guards (§7);
@@ -456,7 +456,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
     → Snapshot.number snap ≡ LocalState.seenNumber st    -- S̄'.s = ŝ
-    → (LocalState.seenVersion st ≡ Snapshot.version snap) ⊎ (LocalState.seenVersion st ≡ suc (Snapshot.version snap))  -- v̂ = S̄'.v or S̄'.v+1: a snapshot is confirmed at the current or one-prior version (supports `VersionDiscipline`; the v̂-1 case is the in-flight-during-bump snapshot of impl-C5)
+    → (LocalState.seenVersion st ≡ Snapshot.version snap) ⊎ (LocalState.seenVersion st ≡ suc (Snapshot.version snap))  -- v̂ = S̄'.v or S̄'.v+1: a snapshot is confirmed at the current or one-prior version (supports `VersionDiscipline`; the v̂ = S̄'.v+1 case is a snapshot signed before its increment/decrement version bump was observed)
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
 
   -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
@@ -493,7 +493,9 @@ increment/decrement observations, and the head-opening `initialTx` of the
 Initializing-the-head paragraph (@agda-appendix).
 
 ```agda
--- Chain events a party observes, restricted here (step 1b) to the deposit lifecycle.
+-- Chain events a party observes: the deposit lifecycle (deposit/recover/tick), the version-bumping
+-- increment/decrement observations, and the head-opening initialTx. Close/contest/fanout
+-- observations are not modelled (see the scope note above).
 data ChainEvent : Set where
   depositTx : (txα : Data) (U : UTxO) (created deadline : ℕ) → ChainEvent  -- on (depositTx, …)
   recoverTx : (txα : Data)                                   → ChainEvent  -- on (recoverTx, txα)
@@ -528,10 +530,9 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`); decrement leaves L̂ (its outputs left earlier, at
   -- the decommit request). Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
   -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: an unconditional `ŝ ← S̄.s` would
-  -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7); the implementation
-  -- instead preserves an in-flight snapshot, which is a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}.
-  -- This was discrepancy impl-C5 (a figure ↔ impl mismatch); the §6 figure now simply PRESERVES the
-  -- seen snapshot across the version bump (no reset line), matching this model and the node.
+  -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7). The §6 figure, this
+  -- model and the node agree: the seen snapshot is carried across the version bump (the node keeps an
+  -- in-flight `SeenSnapshot`, a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}).
   increment-obs : ∀ {st U v}
     → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- authorize-then-bump: v = S̄.v + 1 (the increment is signed at the confirmed snapshot's version); supports `VersionDiscipline`
     → st observes (incrementTx U v)
@@ -565,7 +566,7 @@ tick-preserves-deposits-length {st = st} tick-update = length-map _ (LocalState.
 -- The de-abstracted reqDec guard is load-bearing: reqDec fires ONLY from a no-decommit-in-flight state
 -- (tx_ω = ⊥) and results in exactly the requested decommit (so it never silently overwrites an
 -- in-flight one). Deleting the `pendingDecrement ≡ nothing` premise on `reqDec-pending` makes the first
--- conjunct underivable (the step-2 adversarial check that the guard carries weight).
+-- conjunct underivable (an adversarial check that the guard carries weight).
 reqDec-starts-decommit : ∀ {st tx st'}
   → st handles (reqDec tx) ↝ st'
   → (LocalState.pendingDecrement st ≡ nothing) × (LocalState.pendingDecrement st' ≡ just tx)
@@ -713,8 +714,8 @@ on the on-chain authorize-then-bump rule, captured as the increment/decrement
 observations' premise that a version bump is signed at the confirmed snapshot's
 version (so $hatv$ never runs more than one version ahead), while `ackSn-confirm`
 re-establishes the discipline from its own version premise. This turns an
-unchecked runtime assumption of the implementation (discrepancy impl-C3) into a
-theorem of the off-chain state machine.
+otherwise unchecked runtime assumption of the implementation into a theorem of
+the off-chain state machine.
 
 ```agda
 VersionDiscipline : LocalState → Set

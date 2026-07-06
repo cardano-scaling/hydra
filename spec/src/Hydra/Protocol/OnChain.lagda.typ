@@ -445,6 +445,8 @@ $sans("Burn")$ redeemer:
 - When evaluated with the $sans("Burn")$ redeemer,
   + All tokens for this policy in $txMint$ need to be of negative quantity
     $forall {cid |-> dot.c |-> q} in txMint : q < 0$.
+    (Formalised as the `BurnValid` bundle below; _which_ burns are legitimate is
+    $nuHead$'s concern, via the fan-out family's $n + 1$ burn count.)
 
 *Important:* The $muHead$ minting policy only ensures
 uniqueness of $cid$ and that the right amount of tokens have been minted and
@@ -498,6 +500,31 @@ record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η 
 initValid : Context → OutputRef → HeadDatum → Set
 initValid ctx seed (Open cid hk n cp v η ada) = InitValid ctx seed cid n v η
 initValid _ _ _ = ⊥
+```
+
+The $sans("Burn")$ arm's single check is the `BurnValid` bundle: every
+head-policy entry of the mint field is a burn - no head-policy token is minted
+and at least one is burned (the policy only runs when its currency appears in
+the mint field, and rejects a mint field without head-policy entries). It is
+bridged (`burnValid→ref`) and differentially tested (the
+`HeadValidatorAgreement` burn agreement, calling the real
+`validateTokensBurning`):
+
+```agda
+-- ── §5.1 burn (μHead minting policy, Burn redeemer) ──────────────────────────────────────────────
+-- The Burn arm forbids minting alongside a burn: every head-policy entry of the mint field is
+-- negative, i.e. no positive entry exists (`mintedCount ≡ 0`) and at least one token is burned
+-- (`1 ≤ burnedCount`; the real policy rejects a mint field without head-policy entries). WHICH
+-- burns are legitimate is νHead's concern (the fan-out family's `burnAllTokensOK` n+1 count);
+-- μHead only guarantees a burn-only mint field.
+record BurnValid (ctx : Context) (cid : ℍ) : Set where
+  constructor mkBurnValid
+  field
+    noneMinted      : mintedCount ctx cid ≡ 0
+    somethingBurned : 1 ≤ burnedCount ctx cid
+
+burnValid : Context → ℍ → Set
+burnValid = BurnValid
 ```
 
 #figure(initTx-diagram, caption: [$mtxInit$ transaction spending a seed UTxO and producing the head output directly in state $stOpen$.]) <fig:initTx>

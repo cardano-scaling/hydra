@@ -451,3 +451,23 @@ contestParamsᵇ cidIn cidOut cpIn cpOut = (cidIn == cidOut) && (cpIn == cpOut)
 -- `cid = hash(μHead seed)` binding stays the injected (hash) boundary. Appended last to avoid name drift.
 initHeadIdᵇ : Nat → Nat → Bool
 initHeadIdᵇ datumHeadId currency = datumHeadId == currency
+
+-- ══ μHead token burning (Burn redeemer, §5.1) ═══════════════════════════════════════════════════
+-- The μHead policy's Burn arm (`validateTokensBurning`): the mint field must carry head-policy
+-- entries and ALL of them must be negative (burn-only). Modelled as the counts of the positive and
+-- negative head-policy mint entries: accept iff no positive entry exists AND at least one negative
+-- one does (the real policy rejects a mint map without head-policy entries, mirrored by `0 < burned`;
+-- zero-quantity entries are not representable in canonical ledger values, a documented domain note).
+-- Fully extractable (no injected Ops). WHICH burns are legitimate is νHead's concern (the fan-out
+-- family's n+1 burn count); μHead only guarantees a burn-only mint field. BUILTIN `_==_`/`_<_`.
+-- Appended last to avoid MAlonzo name drift.
+record BurnIOᶜ : Set where
+  constructor mkBurnIOᶜ
+  field
+    mintedCountB : Nat   -- head-policy mint entries with positive quantity
+    burnedCountB : Nat   -- head-policy mint entries with negative quantity (counted positively)
+{-# FOREIGN GHC data HsBurnIO = MkBurnIO Integer Integer #-}
+{-# COMPILE GHC BurnIOᶜ = data HsBurnIO (MkBurnIO) #-}
+
+burnRefᵇ : BurnIOᶜ → Bool
+burnRefᵇ b = (BurnIOᶜ.mintedCountB b == 0) && (0 < BurnIOᶜ.burnedCountB b)
