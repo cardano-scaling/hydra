@@ -145,7 +145,11 @@ party's local state consists of the following variables:
   ]
 
 where constructor $"snObj"(v, n, T, U, U_alpha, U_omega)$ initializes a
-new snapshot object with $macron(cal(S)).(eta')^(\#) = bot$. \
+new snapshot object with $macron(cal(S)).(eta')^(\#) = bot$.
+The Agda `Snapshot` record additionally carries the head id $cid$ (the first
+signed component of the message $cid || v || s || (eta')^(\#)$) and the
+aggregate-signature slot $macron(mc(S)).sigma$ ($bot$ until confirmed), which
+the figure leaves implicit. \
 \
 Additionally, deposit objects are created using
 $"depositObj"(U, t_("created"), t_("deadline"), "status")$
@@ -400,7 +404,12 @@ The network-message handlers above are transcribed as the relation
 its §6 `require`/`wait` guards as premises (the reqTx applicability guard, the
 reqDec no-in-flight guards, the ackSn no-double-sign and all-signed guards, and
 the reqSn version/number guards). These are normative: the machine-checked
-results of @sec:security-theorems consume exactly these premises.
+results of @sec:security-theorems consume exactly these premises. The figure
+remains the authoritative statement of the full off-chain behaviour; the
+relations formalise exactly the arms those results consume - the four network
+handlers here and the deposit/tick/increment/decrement/initialTx chain
+observations below - while the close/contest/fanout observations and the
+leader-multicast effects are not modelled at this level.
 
 ```agda
 -- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
@@ -478,8 +487,8 @@ is incremented on each $mtxIncrement$ transaction as described in
 @sec:increment-tx
 
 Chain observations are transcribed likewise: `ChainEvent` enumerates the
-observed transactions and `_observes_↝_` gives one constructor per handler of
-the figure - the deposit lifecycle above, the version-bumping
+modelled chain observations and `_observes_↝_` gives one constructor per
+handler of the figure - the deposit lifecycle above, the version-bumping
 increment/decrement observations, and the head-opening `initialTx` of the
 Initializing-the-head paragraph (@agda-appendix).
 
@@ -521,8 +530,8 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: an unconditional `ŝ ← S̄.s` would
   -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7); the implementation
   -- instead preserves an in-flight snapshot, which is a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}.
-  -- This was discrepancy impl-C5 (a figure ↔ impl mismatch); the §6 figure now guards the reset on
-  -- ŝ = s̄ (no snapshot in flight), matching this model and the node.
+  -- This was discrepancy impl-C5 (a figure ↔ impl mismatch); the §6 figure now simply PRESERVES the
+  -- seen snapshot across the version bump (no reset line), matching this model and the node.
   increment-obs : ∀ {st U v}
     → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- authorize-then-bump: v = S̄.v + 1 (the increment is signed at the confirmed snapshot's version); supports `VersionDiscipline`
     → st observes (incrementTx U v)
@@ -666,7 +675,7 @@ NoBothInFlight : LocalState → Set
 NoBothInFlight st = (LocalState.currentDepositTxId st ≡ nothing) ⊎ (LocalState.pendingDecrement st ≡ nothing)
 ```
 
-```agda
+```
 noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → NoBothInFlight st'
 ```
 
@@ -714,7 +723,7 @@ VersionDiscipline st =
   ⊎ (LocalState.seenVersion st ≡ suc (Snapshot.version (LocalState.confirmed st)))
 ```
 
-```agda
+```
 versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st → VersionDiscipline st'
 ```
 
@@ -869,7 +878,7 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
 
             #proc([#kw("on") $(hpRS, v, s, underline(tx)_(sans("req")), tx_alpha, tx_omega)$ #kw("from") $party_j$])[
-              #kw("require") $v = hatv and s = hats + 1 and hpLdr(s) = j$ \
+              #kw("require") $s = hats + 1 and hpLdr(s) = j$ \
               #kw("wait") $hats = macron(mc(S)).s and v = hatv$
               #nst[
                 #kw("require") $tx_omega = bot or tx_alpha = bot$ \

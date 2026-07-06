@@ -13,6 +13,9 @@ open import Data.Nat.Properties using (≤-reflexive; ≤-trans; m≤m+n; +-mono
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Relation.Nullary using (yes; no)
 open import Relation.Binary.PropositionalEquality using (trans; cong; subst; sym)
+-- For the rendered bridge flagship (the spec ⇒ extracted-reference statement below).
+import Hydra.Protocol.Reference as R
+import Hydra.Protocol.ReferenceBridge as RB
 ```
 
 #import "/template.typ": *
@@ -523,4 +526,32 @@ module ContestBound
   contest-window-bounded {cp = cp} {C = C} pn reach =
     let (hi , le) = deadline-bounded reach
     in hi , ≤-trans le (+-monoʳ-≤ (hi + cp) (*-monoˡ-≤ cp (subst (length C ≤_) pn (contesters-bounded reach))))
+```
+
+=== The bridge to the extracted reference checker <sec:bridge-flagship>
+
+The `spec ⇒ extracted-reference` half of the differential chain (the Scope note
+of @sec:security) is proved per conjunct in the typecheck-only `ReferenceBridge`
+module. Its flagship composition lemma is re-stated here so the rendered
+document carries one representative: a single `closeValid` bundle (shown for the
+`closeInitial` case) discharges the extracted close checker, the value
+preservation checker and the no-mint checker at once, on the same inputs the
+`hydra-tx` `HeadValidatorAgreement` suite feeds the real validator. The other
+transaction families compose identically; their statements live in
+`ReferenceBridge`, and the injected mocks and encoding postulates the bridge
+rests on are the drift-checked ledger of @sec:assumption-inventory.
+
+```agda
+close-spec⇒reference : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
+  → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) closeInitial
+  → (R.closeRefᵇ RB.mockOps (R.mkOpenᶜ v cp) (R.mkClosedᶜ v cp s′ (length C) tfin)
+        (RB.closeTagOf closeInitial)
+        (ValidityInterval.hi (Context.validity ctx)) (ValidityInterval.lo (Context.validity ctx)) ≡ true)
+    × (R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
+                         (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true)
+    × (R.noMintRefᵇ (RB.mintEntryCount ctx) ≡ true)
+```
+
+```
+close-spec⇒reference = RB.closeChainInitial→ref
 ```

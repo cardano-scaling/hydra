@@ -43,7 +43,7 @@ statement below is the actual Agda type of a theorem in the module
 `SecurityProofs`, shown here and in @agda-appendix, while the proof terms are
 typechecked as part of this document's build but not rendered. All results are
 inductions over the `Reachable` closure of the step relation `_⟶ˢ_`
-(@sec:security); none of them is temporal (liveness remains out of scope, P3).
+(@sec:security); none of them is temporal (liveness remains out of scope).
 The trust base is exactly the one enumerated in the Proofs preamble: the ledger
 postulates (`applyTxs` and its laws), per-signature unforgeability plus the
 aggregation scheme's decomposition (from which `ms-unforgeable` is derived),
@@ -409,17 +409,25 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
                                (subst (Snapshot.number snap ≤_) (sym snPres) (signNumBound hk m))
 ```
 
-```
+```agda
 -- ── Derived corollaries of the invariant ───────────────────────────────────────────────────────
 -- L3 (applicability), exposed: every honest party's confirmed snapshot is applicable to U₀.
 conf-applicable : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i ≡ true
   → Applicable (U₀ sys) (confirmedTxs (lookup (localOf sys) i))
-conf-applicable sys reach = Inv.confApp (invariant sys reach)
+```
 
+```
+conf-applicable sys reach = Inv.confApp (invariant sys reach)
+```
+
+```agda
 -- L3 for certified snapshots: a CERTIFIED snapshot is applicable to U₀, witnessed by any honest
 -- party (who, by `Certified`, signed it, and whose signatures are only on applicable snapshots).
 cert-applicable : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
   → Certified sys snap → Applicable (U₀ sys) (Snapshot.txs snap)
+```
+
+```
 cert-applicable sys reach {h} hh cert = Inv.sigApp (invariant sys reach) hh (cert h)
 ```
 
@@ -436,24 +444,39 @@ agree : ∀ sys → Reachable sys → ∀ {h s1 s2} → lookup (honest sys) h �
 agree sys reach {h} hh c1 c2 = Inv.sigDedup (invariant sys reach) hh (c1 h) (c2 h)
 ```
 
-```
+```agda
 -- A certified snapshot has number > 0 (an honest party signed it, and honest signing is for the
 -- snapshot one above its confirmed number, hence ≥ 1).
 cert-pos : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
   → Certified sys snap → 0 < Snapshot.number snap
-cert-pos sys reach {h} hh cert = Inv.sigPos (invariant sys reach) hh (cert h)
+```
 
+```
+cert-pos sys reach {h} hh cert = Inv.sigPos (invariant sys reach) hh (cert h)
+```
+
+```agda
 -- An honest party's confirmed snapshot is the genesis (number 0, txs []) or is certified.
 confCert-of : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i ≡ true
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
     ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
-confCert-of sys reach = Inv.confCert (invariant sys reach)
+```
 
+```
+confCert-of sys reach = Inv.confCert (invariant sys reach)
+```
+
+```agda
 -- Every honest signature on `snap` has an extending certified-or-genesis predecessor `pre`.
 sigChain-of : ∀ sys → Reachable sys → ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap
   → PredecessorWitness (Certified sys) snap
-sigChain-of sys reach = Inv.sigChain (invariant sys reach)
+```
 
+```
+sigChain-of sys reach = Inv.sigChain (invariant sys reach)
+```
+
+```
 -- ── L2: certified snapshots nest ────────────────────────────────────────────────────────────────
 -- Certified snapshots nest by number. Proof by induction on the gap d = number s2 ∸ number s1: at
 -- d=0 the numbers are equal, so by agreement (L1) the snapshots are equal; at d=suc, the higher
@@ -700,7 +723,7 @@ consistency-uncorrupted sys reach hh i j =
     ... | inj₂ ge = inj₂ (nestU sys reach hh j i ge)
 ```
 
-```
+```agda
 -- ── Seen-set invariant: every honest signature is on txs that party has SEEN ───────────────────
 -- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is the `sigSeen`
 -- component of the main invariant (derived at `signHonest` from the handler's Δ ⊆ seen premise + the
@@ -708,6 +731,9 @@ consistency-uncorrupted sys reach hh i j =
 sigSeen-inv : ∀ sys → Reachable sys → ∀ {k snap}
   → lookup (honest sys) k ≡ true → Signed sys k snap
   → Snapshot.txs snap ⊆ˡ lookup (seen sys) k
+```
+
+```
 sigSeen-inv sys reach = Inv.sigSeen (invariant sys reach)
 ```
 
@@ -947,9 +973,10 @@ contest-certified sys snap b cidEq vEq sEq ηEq ξEq =
 On top of the certificate, close and contest cannot verify a signature over
 one accumulator while storing another: the `etaOK` conjunct binds the
 redeemer's $eta^(\#)$ to the hash of the accumulator stored in the produced
-datum.
+datum (the two-line corollaries `close-η-reflected` / `contest-η-reflected`,
+typechecked but not rendered).
 
-```agda
+```
 close-η-reflected : ∀ {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
   → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η#)
   → Snapshot.etaHash snap ≡ η#
@@ -960,7 +987,7 @@ close-η-reflected : ∀ {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
 close-η-reflected snap b ηEq = trans ηEq (OC.CloseValid.etaOK b)
 ```
 
-```agda
+```
 contest-η-reflected : ∀ {ctx cid v s tfin d d' ξ η# kh} (snap : Snapshot)
   → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η#) kh
   → Snapshot.etaHash snap ≡ η#

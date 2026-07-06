@@ -83,9 +83,11 @@ encodes the *state-machine shape* and the *version discipline* in the types:
 $sans("increment")$/$sans("decrement")$ bump the version (`suc v`),
 $sans("close")$/$sans("contest")$ preserve it (the same `v` reappears),
 $sans("close")$ initialises the contester list to the empty list, $sans("contest")$
-requires the new $keyHash in.not contesters$ (so the list grows by exactly one), and
+requires the new $keyHash in.not contesters$ (so the list grows by exactly one),
 the partial-fanout rules thread the intermediate $stFanoutProgress$ state through to
-$stFinal$. A rule violating any of *these* would fail to type-check. The
+$stFinal$, and every rule reuses the same `ada` binder on both sides, so the ADA
+overhead $adaO$ of §5.4-§5.7 is preserved by construction (there is no separate
+$adaO$ conjunct in the bundles below). A rule violating any of *these* would fail to type-check. The
 remaining per-transaction conditions (signatures, value conservation, deadlines)
 are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK`) applied
 alongside it.
@@ -236,50 +238,49 @@ decommitValue ctx m with Context.outputs ctx
 ```
 
 ```agda
--- Further obligations whose witnesses involve searching the context value/keys.
+-- The postulated search obligations (trust base): witnesses that involve searching the context's
+-- value/keys/mint, which the opaque Value and key-set models do not expose.
 postulate
   -- total value of the tokens burned by the transaction (the n+1 νHead PTs + ST at fan-out). The
   -- mint multiset is not modelled, so the burned VALUE stays abstract (the burned COUNT is
   -- `burnedCount` / `burnAllTokensOK`); only the OUTPUT-distribution half of conservation is concrete.
-  burnedValue : Context → Value
+  burnedValue   : Context → Value
+  -- `signerKeyHash ctx kh` = kh names one of the transaction's signers (∃ vk ∈ keys, hash vk ≡ kh).
+  -- The thin residue of the opaque key-set model; the PT-presence half of `signedByParticipant` is
+  -- structural via `quantityOf`.
+  signerKeyHash : Context → ℍ → Set
+  -- count of policy-cid tokens burnt (mint quantity -1); the (final) fan-out law is `≡ n+1` (§5.8)
+  burnedCount   : Context → ℍ → ℕ
+  -- §5.1 init (μHead minting policy): the seed-parameterised policy script and the mint count
+  μHead         : OutputRef → Script
+  mintedCount   : Context → ℍ → ℕ   -- count of policy-cid tokens minted (positive mint quantity)
 
+-- spec §5.4–5.7: the snapshot multisignature ξ verifies, under the aggregate
+-- hydra key, over the message cid ‖ v ‖ s ‖ η# (shared by increment, decrement,
+-- close and contest; §7's `snapMsg` is defined as this same concatenation).
+snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# : ℍ) (ξ : AggSig) → Set
+snapshotSigOK hydraKey cid v s η# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η#) ξ ≡ true
+```
+
+```
 -- A participant signed (§5.4–5.7): there is a key-hash `kh` that BOTH names one of the transaction's
 -- signers AND names a participation token present in the head value - i.e. the value carries the asset
 -- (cid , kh) with quantity 1. This is the spec prose `∃ {cid ↦ keyHashᵢ ↦ 1} ∈ valHead' ⇒ keyHashᵢ ∈
 -- txKeys`. The PT-presence half is structural via the per-asset
--- projection `quantityOf` (same trust family as `adaOf`/`nonAdaOf`). Only the signer-naming half stays
--- abstract - `keys : ℙ VKey` is the set-theory powerset, whose membership the (opaque) List-Model does
--- not expose for direct querying, so `signerKeyHash ctx kh` (= `∃ vk ∈ keys, hash vk ≡ kh`) is its thin
--- residue. The head currency `cid` is supplied by the caller's datum.
+-- projection `quantityOf` (same trust family as `adaOf`/`nonAdaOf`); the signer-naming half is the
+-- postulated `signerKeyHash` above. The head currency `cid` is supplied by the caller's datum.
 -- SCOPE NOTE: this reads the PT off `headValue` (the produced head OUTPUT). The real validator's
 -- `mustBeSignedByParticipant` loops over the spent INPUTS instead. The two coincide here: every bundle
 -- carrying this field also preserves/grows the head value with its PTs intact (close/contest/decrement
 -- preserve it exactly, increment adds a deposit), so the head input and output carry the same PTs under
 -- the single-head-script-UTxO assumption. They could differ only on a malformed multi-head tx.
-postulate
-  signerKeyHash : Context → ℍ → Set
-
 signedByParticipant : ℍ → Context → Set
 signedByParticipant cid ctx =
   ∃[ kh ] (signerKeyHash ctx kh) × (quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ)
-```
 
-```agda
 -- spec §5.6/§5.7: close and contest mint or burn nothing.
 noMint : Context → Set
 noMint ctx = Context.mint ctx ≡ εᵛ
-
--- spec §5.4–5.7: the snapshot multisignature ξ verifies, under the aggregate
--- hydra key, over the message cid ‖ v ‖ s ‖ η# (shared by increment, decrement,
--- close and contest).
-snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# : ℍ) (ξ : AggSig) → Set
-snapshotSigOK hydraKey cid v s η# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η#) ξ ≡ true
-
--- spec §5.8: (final) fan-out burns all n+1 head tokens (1 ST + n PTs) of policy
--- cid. The number of burned tokens is abstracted by `burnedCount`; the law is the
--- n+1 equality, with n taken from the (FanoutProgress/Closed) datum.
-postulate
-  burnedCount : Context → ℍ → ℕ  -- count of policy-cid tokens burnt (mint quantity -1)
 
 -- The outputs a fan-out step ACTUALLY distributes, as a set: the first `m` transaction outputs for a
 -- full/final fan-out (no continuing head output), and the `m` outputs FOLLOWING the continuing head
@@ -314,12 +315,6 @@ partialFanoutNotDoneOK η' = ¬ (η' ≡ G₁)
 -- out of scope; see the deposit/recover note.)
 depositSpentOK : Context → OutputRef → Set
 depositSpentOK ctx ref = ∃[ i ] (i ∈ˡ Context.inputs ctx) × (Input.outputRef i ≡ ref)
-
--- §5.1 init (μHead minting policy): the seed-parameterised policy script and the μHead mint
--- count, kept abstract; consumed by the init creation predicate `InitValid` (@sec:init-tx).
-postulate
-  μHead       : OutputRef → Script  -- the seed-parameterised minting policy script
-  mintedCount : Context → ℍ → ℕ     -- count of policy-cid tokens minted (positive mint quantity)
 ```
 
 ```
@@ -370,7 +365,15 @@ per-asset projection `quantityOf` on the opaque `Value`, crypto
 (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws. So value
 conservation is stated over the real head, increment-deposit and
 decrement-decommit values (modulo the abstract value algebra), while signature and
-accumulator soundness are assumed.
+accumulator soundness are assumed. Not everything the bundles use is rendered in
+@agda-appendix: the value projections and datum accessors (`valueAtOut`/`valueAtIn`,
+`headValue`/`headValueIn`, `depositsValue`, `decommitValue`, `takeSumᵛ`,
+`snapNum`/`ηOf`/`tfinalOf`/`headAda`) and the per-conjunct helper predicates
+(`noMint`, `signedByParticipant`, `distributedOuts`/`partialDistributedOuts`,
+`fanoutMembersOK`/`fanoutExcludeOK`/`partialFanoutNotDoneOK`, `depositSpentOK`)
+are defined in the typechecked source but hidden from the appendix, which shows
+the datum/redeemer types, the transition relation, the postulated trust base and
+the bundles themselves.
 
 == Init transaction <sec:init-tx>
 
@@ -422,7 +425,10 @@ Consequently, the $mtxInit$ transaction
   $stClosed$ / $stFanoutProgress$ states, where fan-out membership proofs require it. The
   two coincide for every open-state check, since those reference $eta$ only through
   $hash(eta)$ (e.g. the close / increment / decrement signature over
-  $cid || v || s || eta^(\#)$).]
+  $cid || v || s || eta^(\#)$). Similarly, the datum's `hydraKey` field is the single
+  _aggregate_ key of the multisignature scheme rather than the per-party key list
+  $hydraKeys$; the checks written $msVfy(hydraKeys, dots.h)$ in §5.4-§5.7 are verified
+  under this aggregate key (Agda `hk`).]
 })
 
 The $muHead(seed)$ minting policy is the only script that verifies
@@ -431,7 +437,7 @@ $sans("Burn")$ redeemer:
 - When evaluated with the $sans("Mint")$ redeemer,
   + The seed output is spent in this transaction. This guarantees uniqueness of the policy $cid$ because the EUTxO ledger ensures that $seed$ cannot be spent twice in the same chain.
     $(seed, dot.c) in txInputs$
-  + All entries of $txMint$ are of this policy and of single quantity $forall {c |-> dot.c |-> q} in txMint : c = cid and q = 1$
+  + All minted tokens of this policy are of single quantity $forall {cid |-> dot.c |-> q} in txMint : q = 1$. (The policy counts only its own currency and enforces unit quantities indirectly, via the head-output checks below; $txMint$ entries of _other_ policies are not constrained by $muHead$ - they validate themselves.)
   + Right number of tokens are minted $|txMint| = |hydraKeys| + 1$
   + State token is sent to the head validator $st in valHead$
   + All participation tokens are sent to the head output alongside the state token $forall i in [1 dots.h |hydraKeys|] : pt_i in valHead$
@@ -450,10 +456,12 @@ However, it is *crucial* that all head members check:
 See the initialTx behavior in @fig:off-chain-prot for details about these checks.
 The decidable core of these checks is formalised as the `initValid` predicate (a _creation_
 predicate - init has no predecessor datum, so it is not a `_⟶⟨_⟩_` step): $cid = hash(muHead(seed))$,
-the seed is spent, exactly $nop + 1$ tokens of $cid$ are minted, and the produced Open is initial
-($v = 0$, $eta = accUTxO(emptyset)$). Token placement into the head value is also modelled (the state
-token is present and the head output carries exactly the $nop + 1$ head-policy tokens); the seed-spend
-and datum binding remain hand-reviewed boundaries.
+the seed is spent (a structural conjunct, `seedSpent`), exactly $nop + 1$ tokens of $cid$ are minted,
+and the produced Open is initial ($v = 0$, $eta = accUTxO(emptyset)$). Token placement into the head
+value is also modelled (the state token is present and the head output carries exactly the $nop + 1$
+head-policy tokens). What remains hand-reviewed: the datum bindings - $cid = hash(muHead(seed))$ is
+stated over the law-free `hash`, and the datum's seed-reference field $seed = seed'$ has no Agda
+counterpart (the `Open` datum carries no seed field).
 
 The `InitValid` bundle and its dispatching `initValid` predicate follow
 (@agda-appendix):
@@ -672,8 +680,12 @@ checks:
   $ valHead plus.o valDeposit = valHead' $
 + Transaction is signed by a participant
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ No minting or burning
+  $ txMint = emptyset $
+  (the bundle's `mintEmpty` field)
 + The ADA overhead $adaO$ is preserved across the state transition:
   $ adaO' = adaO $
+  (enforced by the `step` field's type: the `increment` rule reuses the same `ada` binder on both sides)
 
 These conditions form the `IncrementValid` bundle, over the additive
 value-conservation predicate (@agda-appendix):
@@ -766,8 +778,12 @@ validator checks:
   $ valHead' plus.o (plus.o.big_(j=2)^(m+1) val_j) = valHead $
 + Transaction is signed by a participant
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
++ No minting or burning
+  $ txMint = emptyset $
+  (the bundle's `mintEmpty` field)
 + The ADA overhead $adaO$ is preserved across the state transition:
   $ adaO' = adaO $
+  (enforced by the `step` field's type: the `decrement` rule reuses the same `ada` binder on both sides)
 
 These conditions form the `DecrementValid` bundle (@agda-appendix):
 
@@ -856,7 +872,8 @@ transaction checks:
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
 + No minting or burning
   $ txMint = emptyset $
-+ The ADA overhead $adaO$ is propagated unchanged from the open datum to the closed datum:
++ The ADA overhead $adaO$ is propagated unchanged from the open datum to the closed datum
+  (enforced by the `close` rule's shared `ada` binder):
   $ adaO' = adaO $
   where $adaO$ is the ADA in the head UTxO not belonging to any L2 UTxO (minimum-UTxO overhead), set at initialisation time and unchanged for the head's lifetime. On fanout, the on-chain value conservation check treats $adaO$ as released from the head UTxO without requiring it in any distributed output, so it flows to whoever submits the fanout transaction as change (offsetting their transaction fee).
 
@@ -1003,13 +1020,17 @@ $sans("ContestType")$ is a hint how to verify the snapshot and checks:
   $ exists {cid |-> keyHash_i |-> 1} in valHead' => keyHash_i in txKeys $
 + No minting or burning
   $ txMint = emptyset $
-+ The ADA overhead $adaO$ is preserved in the output closed datum:
++ The ADA overhead $adaO$ is preserved in the output closed datum
+  (enforced by the `contest` rule's shared `ada` binder):
   $ adaO' = adaO $
 
 The contest checks - the conditional deadline update, the η-hash binding and the
 version-dependent signature obligation - form the `ContestValid` bundle; the
 shared signed-by-a-participant obligation is derived from its sharper contester
-fields (@agda-appendix):
+fields (@agda-appendix). NB the bundle's `contesterSigned` captures that the
+appended contester is _a_ transaction signer; the implementation's stronger
+sole-signer cardinality (${keyHash} = txKeys$, exactly one signer) is not
+modelled:
 
 ```agda
 -- spec §5.7: contest updates the deadline conditionally - it stays at the previous
@@ -1047,7 +1068,7 @@ record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
     snapIncreases     : s < snapNum d'                        -- snapshot strictly increases (§5.7)
     beforeDeadline    : ValidityInterval.hi (Context.validity ctx) ≤ tfin  -- posted before the deadline
     valuePreserved    : headValueIn ctx ≡ headValue ctx       -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
-    contesterSigned   : signerKeyHash ctx kh                  -- the appended contester `kh` is THE tx signer (§5.7; Plutus derives `contester` from the sole signer)
+    contesterSigned   : signerKeyHash ctx kh                  -- the appended contester `kh` is a tx signer (§5.7; Plutus derives `contester` from the SOLE signer - that exact-one cardinality is not modelled)
     -- the appended contester holds this head's participation token (§5.7; Plutus
     -- `mustBeSignedByParticipant` + contester ≔ the sole signer make these one check on-chain)
     contesterIsParticipant : quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ
@@ -1065,6 +1086,9 @@ contestValid _ _ _ _ = ⊥
 contest-participantSigned : ∀ {ctx hk cid v s tfin d d' ct kh}
   → ContestValid ctx hk cid v s tfin d d' ct kh
   → signedByParticipant cid ctx
+```
+
+```
 contest-participantSigned {kh = kh} b =
   kh , ContestValid.contesterSigned b , ContestValid.contesterIsParticipant b
 ```

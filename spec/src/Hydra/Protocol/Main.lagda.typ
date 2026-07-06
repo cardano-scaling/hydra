@@ -57,8 +57,12 @@ import Hydra.Protocol.OnChainCoverage
 The specification above is _literate Agda_: every definition, validity bundle, and proof is
 machine-checked by Agda (`agda Main.lagda.typ`) as part of building this document. To keep the body
 readable, the rendered Agda is collected here rather than shown inline; each block appears under the
-section it supports, in document order, and the body links here in place. This appendix is the
-rendered form of the same typechecked source, not a copy of it.
+section it supports, in document order, and the body links here in place. The appendix is a _curated
+view_ of the typechecked source, not a copy of it: proof bodies, value projections, datum accessors
+and other plumbing are typechecked but not rendered (the body flags this where it matters), and the
+typecheck-only modules `Prelude`, `Reference`, `ReferenceBridge`, `RefReflection` and
+`OffChainReference` do not render at all. @sec:assumption-inventory lists what the formalisation
+takes on trust.
 
 == Reading the Agda (for Haskell programmers) <sec:reading-agda>
 
@@ -71,10 +75,14 @@ glossary maps the Agda idioms you will meet to their Haskell intuition.
 block introduced by the Agda keyword `postulate` is an _assumption_ (an axiom the
 spec takes on trust, such as the ledger semantics or the cryptographic
 unforgeability of signatures), _not_ something proved. Everything else, given by a
-defining equation, is a definition or a type-checked proof. To audit exactly what
-the specification assumes, search the sources for `postulate`. In the rendered PDF a
+defining equation, is a definition or a type-checked proof. In the rendered PDF a
 `postulate` block looks like any other code, so this keyword is the thing to watch
-for.
+for. Postulates are not the only assumptions: some enter as module _hypotheses_ or
+constructor _premises_ (the honest-behaviour premises of `signHonest` in
+@sec:security, the `ContestBound` hypotheses of @sec:onchain-theorems, per-instance
+hypotheses like `ηEq`). @sec:assumption-inventory collects all of these in one
+place; auditing the sources means searching for `postulate` _and_ reading the
+flagged premises.
 
 #dparagraph[Types, values and proofs.] Agda is dependently typed: types may mention
 values. `Set` is the type of (small) types, Haskell's kind `Type`. A function type
@@ -94,7 +102,8 @@ _proofs_ that `a` and `b` are the same value, distinct from a `Bool`-valued test
 `a == b`. `refl` proves `a ≡ a`; `sym`/`trans`/`cong` are symmetry, transitivity and
 congruence; `subst P eq px` rewrites a proof `px : P a` along `eq : a ≡ b` into a
 `P b`. Where the spec runs a `Bool` equality and needs to turn it into `≡`, the
-bridge lemma is named `==-sound`.
+bridge lemma is named `==-sound` (proved in the typecheck-only `RefReflection`
+module, so it does not appear in this appendix).
 
 #dparagraph[Pattern matching.] Definitions are equations over constructors, as in
 Haskell. `with e` adds `e` as an extra argument to split on, refining the goal by
@@ -106,7 +115,8 @@ empty list), with no right-hand side.
 `nothing` as in Haskell; `Fin n` the naturals below `n` (a bounded index); `Vec A n`
 a length-`n` list; `ℙ A` a finite set and `_⇀_` a finite map (from the set-theory
 library); `_∈ˡ_` list membership and `_⊆ˡ_` list inclusion. Most unicode names are
-ordinary identifiers; search @sec:prel for their definitions.
+ordinary identifiers, defined in the typecheck-only `Prelude` module; @sec:prel is
+the rendered counterpart for the mathematical notation.
 
 #dparagraph[Relations as transitions.] The on-chain state machine is an
 inductively-defined relation `_⟶⟨_⟩_` (a datum steps to a datum under a redeemer),
@@ -117,14 +127,44 @@ run) is allowed; the proofs in @sec:security are inductions over these.
 #dparagraph[Validity bundles.] A validator's requirements are written as a `record`
 (e.g. `CloseValid`) with one named field per checkable condition (`step`, `deadlineOK`,
 `valuePreserved`, …) - like a Haskell record of proofs. The bundle is inhabited exactly for
-valid transactions, and a proof reads a condition by its field name (`b .deadlineOK`) rather
-than by tuple position. (The lowercase `closeValid ctx d d' ct` is the predicate that returns
+valid transactions, and a proof reads a condition by its field name (`CloseValid.deadlineOK b`)
+rather than by tuple position. (The lowercase `closeValid ctx d d' ct` is the predicate that returns
 this record for well-shaped datums, and is empty otherwise.)
 
 #dparagraph[Extraction.] The decidable checker in `Reference.agda` is compiled to
 Haskell by Agda's GHC backend (MAlonzo) and run in the `hydra-tx` test suite as a
 second oracle against the real Plutus validator (see @sec:security).
 
+== What the formalisation assumes <sec:assumption-inventory>
+
+The trust base, in five families:
+
+- *Ledger and crypto primitives* (the typecheck-only `Prelude`, postulates):
+  `hash`, `bytes`/`concat`, the multisignature verifier `msVfy`, the `Value`
+  algebra (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` with commutative-monoid and order laws) and its
+  projections (`adaOf`, `nonAdaOf`, `quantityOf`, `stQty`, `headTokenCount`);
+  the off-chain ledger `applyTxs` with its nil and compositionality laws (§6).
+- *Accumulator laws* (@sec:on-chain): `accUTxO`/`accVerify`/`accVerifyExclude`
+  with the specifying laws `accUTxO-∅`, `accVerify-sound`/`-complete`/`-self`
+  and `setSize`; the KZG construction itself is not modelled.
+- *On-chain search postulates* (@sec:on-chain): `burnedValue`, `burnedCount`,
+  `mintedCount`, `μHead`, `signerKeyHash` - witnesses over the opaque value and
+  key-set models.
+- *Security-model assumptions* (@sec:security): per-signature EUF-CMA
+  (`sigUnforge`) plus the aggregation scheme's decomposition (`aggSound`), from
+  which `ms-unforgeable` is _derived_; `aggKey`/`aggSigOf`/`PartyVerified` and
+  the glue `outsOf`; the honest-behaviour premises of the `signHonest`
+  constructor; and per-instance hypotheses supplied at each use (the `ηEq`
+  accumulator-commitment hypothesis of `reflects`, the `ξ ≡ aggSigOf` hypothesis
+  of the `*-certified` family). The `ContestBound` module hypotheses of
+  @sec:onchain-theorems are of the same kind.
+- *Bridge layer* (typecheck-only `ReferenceBridge`/`RefReflection`): 7 injected
+  const-true mocks (crypto/accumulator/hash conjuncts the differential covers
+  against the real validator) and 7 encoding/faithfulness postulates, enumerated
+  and drift-checked by `spec/check-trust-ledger.sh` - the build fails if this
+  set changes without the ledger being updated.
+
+Everything else is a definition or a machine-checked proof.
 
 #agda-appendix-mode.update(true)
 

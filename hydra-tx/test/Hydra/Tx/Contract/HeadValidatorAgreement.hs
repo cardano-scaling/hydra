@@ -46,7 +46,8 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Data.Party (Party, partyFromVerificationKeyBytes)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, singleton)
+import PlutusLedgerApi.V1.Time (fromMilliSeconds)
+import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, getValue, singleton)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
@@ -120,9 +121,10 @@ headVal = singleton adaSymbol adaToken 2_000_000 <> singleton headPolicy ptName 
 g1Generator :: Builtins.BuiltinBLS12_381_G1_Element
 g1Generator = Builtins.bls12_381_G1_uncompress Builtins.bls12_381_G1_compressed_generator
 
--- Open input version is fixed to 0 (CloseInitial requires version == 0); the OPEN contestation period
--- (ms) is fixed; the lower validity bound is fixed. The reject direction comes from varying the produced
--- (Closed) fields, not from a "healthy base + mutation".
+-- Healthy open input version (CloseInitial requires version == 0) and OPEN contestation period (ms);
+-- the lower validity bound is fixed. The CloseInitial grid also varies the INPUT version/period (via
+-- `openDatumAt`; no signature pins them), so a validator reading a constant instead of the datum is
+-- caught; the signed close families keep this healthy base.
 openVersionN :: Integer
 openVersionN = 0
 
@@ -144,6 +146,328 @@ openDatum =
     , HS.headAdaOverhead = 0
     }
 
+-- openDatum with the input version and contestation period (ms) as parameters (headSeed pins the
+-- record-update type).
+openDatumAt :: Integer -> Integer -> HS.OpenDatum
+openDatumAt inV inCp =
+  openDatum{HS.headSeed = ownRef, HS.version = inV, HS.contestationPeriod = UnsafeContestationPeriod (fromInteger inCp)}
+
+-- ── projections: reference arguments READ from the constructed State/Input/ScriptContext ──────────────
+-- Each family asserts `reference === validator` on one (state, input, ctx) triple. The reference
+-- checker's arguments are PROJECTED from that triple: datum fields from the State, redeemer fields
+-- from the Input, tx-level facts (validity bounds, mint, values, signers, spent refs) from the
+-- ScriptContext. Never hand-transcribed from the fixture constants, so the two oracles cannot
+-- silently diverge. Only the injected Ops mocks stay explicit: they stand for the crypto/value/
+-- accumulator conjuncts the reference does not model, so they have no ScriptContext counterpart.
+
+cpMs :: ContestationPeriod -> Integer
+cpMs = getPOSIXTime . fromMilliSeconds . milliseconds
+
+txValidityLo :: ScriptContext -> Integer
+txValidityLo ctx = case ivFrom (txInfoValidRange (scriptContextTxInfo ctx)) of
+  LowerBound (Finite (POSIXTime t)) _ -> t
+  _ -> error "projection: no finite lower validity bound"
+
+txValidityHi :: ScriptContext -> Integer
+txValidityHi ctx = case ivTo (txInfoValidRange (scriptContextTxInfo ctx)) of
+  UpperBound (Finite (POSIXTime t)) _ -> t
+  _ -> error "projection: no finite upper validity bound"
+
+-- the resolved head input: the SpendingScript's own out-ref among the tx inputs (findOwnInput).
+ownHeadInput :: ScriptContext -> TxOut
+ownHeadInput ctx = case scriptContextScriptInfo ctx of
+  SpendingScript ref _ ->
+    maybe (error "projection: own input not found") txInInfoResolved $
+      find (\i -> txInInfoOutRef i == ref) (txInfoInputs (scriptContextTxInfo ctx))
+  _ -> error "projection: not a spending script"
+
+outputState :: TxOut -> Maybe HS.State
+outputState o = case txOutDatum o of
+  OutputDatum (Datum d) -> PlutusTx.fromBuiltinData d
+  _ -> Nothing
+
+-- the produced head state: the FIRST tx output's datum (the validators' decodeHeadOutput*Datum).
+producedState :: ScriptContext -> HS.State
+producedState ctx = case txInfoOutputs (scriptContextTxInfo ctx) of
+  o : _ -> fromMaybe (error "projection: first output is not a head state") (outputState o)
+  [] -> error "projection: no outputs"
+
+assetList :: Value -> [((CurrencySymbol, TokenName), Integer)]
+assetList v = [((cs, tn), q) | (cs, m) <- AMap.toList (getValue v), (tn, q) <- AMap.toList m]
+
+adaOf :: Value -> Integer
+adaOf v = sum [q | ((cs, tn), q) <- assetList v, cs == adaSymbol && tn == adaToken]
+
+nonAdaOf :: Value -> Integer
+nonAdaOf v = sum [q | ((cs, _), q) <- assetList v, cs /= adaSymbol]
+
+-- non-zero asset entries in txInfoMint (checkNoMint's count) and the burned quantity of one policy.
+mintEntries :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintEntries ctx = case txInfoMint (scriptContextTxInfo ctx) of
+  UnsafeMintValue m -> [(cs, tn, q) | (cs, tns) <- AMap.toList m, (tn, q) <- AMap.toList tns, q /= 0]
+
+burnedCountOf :: CurrencySymbol -> ScriptContext -> Integer
+burnedCountOf cid ctx = negate (sum [q | (cs, _, q) <- mintEntries ctx, cs == cid])
+
+-- sum of every script input that is not the own head input (the increment's deposit value).
+scriptNonHeadInputsValue :: ScriptContext -> Value
+scriptNonHeadInputsValue ctx =
+  mconcat
+    [ txOutValue (txInInfoResolved i)
+    | i <- txInfoInputs (scriptContextTxInfo ctx)
+    , txInInfoOutRef i /= ownR
+    , isScript (txInInfoResolved i)
+    ]
+ where
+  ownR = case scriptContextScriptInfo ctx of
+    SpendingScript r _ -> r
+    _ -> error "projection: not a spending script"
+  isScript o = case addressCredential (txOutAddress o) of
+    ScriptCredential _ -> True
+    PubKeyCredential _ -> False
+
+headIdOfState :: HS.State -> CurrencySymbol
+headIdOfState (HS.Open HS.OpenDatum{HS.headId = cid}) = cid
+headIdOfState (HS.Closed HS.ClosedDatum{HS.headId = cid}) = cid
+headIdOfState (HS.FanoutProgress HS.FanoutProgressDatum{HS.headId = cid}) = cid
+headIdOfState HS.Final = error "projection: Final carries no head id"
+
+-- close: open fields from the input State, produced Closed fields from the first output's datum, the
+-- tag from the redeemer, the bounds from the validity range.
+projectClose :: HS.State -> HS.Input -> ScriptContext -> Bool
+projectClose st input ctx =
+  case (st, input, producedState ctx) of
+    ( HS.Open HS.OpenDatum{HS.version = v, HS.contestationPeriod = cp}
+      , HS.Close redeemer
+      , HS.Closed
+          HS.ClosedDatum
+            { HS.version = v'
+            , HS.contestationPeriod = cp'
+            , HS.snapshotNumber = s'
+            , HS.contesters = contesters'
+            , HS.contestationDeadline = POSIXTime tfinal'
+            }
+      ) ->
+        Ref.checkClose
+          (Ref.mkOps (\_ _ _ -> True))
+          (Ref.MkOpen v (cpMs cp))
+          (Ref.MkClosed v' (cpMs cp') s' (toInteger (length contesters')) tfinal')
+          (closeTag redeemer)
+          (txValidityHi ctx)
+          (txValidityLo ctx)
+    _ -> error "projectClose: not a close triple"
+ where
+  closeTag HS.CloseInitial = Ref.CloseInitialT
+  closeTag HS.CloseAny{} = Ref.CloseAnyT
+  closeTag HS.CloseUnused{} = Ref.CloseUnusedT
+  closeTag HS.CloseUsed{} = Ref.CloseUsedT
+
+-- increment/decrement share the IncIO shape: versions from the input/produced Open datums, ada and
+-- non-ada totals from the head input, the delta value and the head output.
+projectIncIO :: Integer -> Value -> ScriptContext -> Ref.HsIncIO
+projectIncIO vIn delta ctx =
+  Ref.MkIncIO vIn vOut (adaOf hIn) (adaOf delta) (adaOf hOut) (nonAdaOf hIn) (nonAdaOf delta) (nonAdaOf hOut)
+ where
+  vOut = case producedState ctx of
+    HS.Open HS.OpenDatum{HS.version = v} -> v
+    _ -> error "projectIncIO: produced state is not Open"
+  hIn = txOutValue (ownHeadInput ctx)
+  hOut = case txInfoOutputs (scriptContextTxInfo ctx) of
+    o : _ -> txOutValue o
+    [] -> error "projection: no outputs"
+
+-- increment: the delta is the spent deposit (every non-head script input).
+projectInc :: HS.State -> HS.Input -> ScriptContext -> Bool
+projectInc (HS.Open HS.OpenDatum{HS.version = vIn}) (HS.Increment _) ctx =
+  Ref.checkInc (Ref.mkOpsInc (const True)) (projectIncIO vIn (scriptNonHeadInputsValue ctx) ctx)
+projectInc _ _ _ = error "projectInc: not an increment triple"
+
+-- decrement: the delta is the decommitted outputs at indices [1..m] (m from the redeemer).
+projectDec :: HS.State -> HS.Input -> ScriptContext -> Bool
+projectDec (HS.Open HS.OpenDatum{HS.version = vIn}) (HS.Decrement HS.DecrementRedeemer{HS.numberOfDecommitOutputs = m}) ctx =
+  Ref.checkDec (Ref.mkOpsInc (const True)) (projectIncIO vIn decommitted ctx)
+ where
+  decommitted = mconcat (map txOutValue (take (fromInteger m) (drop 1 (txInfoOutputs (scriptContextTxInfo ctx)))))
+projectDec _ _ _ = error "projectDec: not a decrement triple"
+
+-- per-asset conservation, over the union of the non-ada assets of head input, delta and head output.
+projectPerAssetInc :: ScriptContext -> Bool
+projectPerAssetInc ctx = Ref.checkPerAsset [Ref.MkAssetIO (q hIn k) (q delta k) (q hOut k) | k <- assetKeys]
+ where
+  hIn = txOutValue (ownHeadInput ctx)
+  delta = scriptNonHeadInputsValue ctx
+  hOut = case txInfoOutputs (scriptContextTxInfo ctx) of
+    o : _ -> txOutValue o
+    [] -> error "projection: no outputs"
+  assetKeys = ordNub [k | v <- [hIn, delta, hOut], (k@(cs, _), _) <- assetList v, cs /= adaSymbol]
+  q v k = sum [n | (k', n) <- assetList v, k' == k]
+
+-- contest: input Closed fields from the State, produced Closed fields from the first output's datum,
+-- the upper validity bound from the ScriptContext. numParties is read from the produced datum, as the
+-- validator's mustPushDeadline compares contesters' against parties'.
+projectContest :: HS.State -> HS.Input -> ScriptContext -> Bool
+projectContest st input ctx =
+  case (st, input, producedState ctx) of
+    ( HS.Closed
+        HS.ClosedDatum
+          { HS.version = vIn
+          , HS.snapshotNumber = sIn
+          , HS.contesters = contestersIn
+          , HS.contestationDeadline = POSIXTime tfinal
+          , HS.contestationPeriod = cp
+          }
+      , HS.Contest _
+      , HS.Closed
+          HS.ClosedDatum
+            { HS.version = vOut
+            , HS.snapshotNumber = sOut
+            , HS.contesters = contestersOut
+            , HS.contestationDeadline = POSIXTime tfinal'
+            , HS.parties = parties'
+            }
+      ) ->
+        Ref.checkContest
+          (Ref.mkOpsContest (const True))
+          ( Ref.MkContestIO
+              vIn
+              vOut
+              sIn
+              sOut
+              (toInteger (length contestersIn))
+              (toInteger (length contestersOut))
+              tfinal
+              (txValidityHi ctx)
+              tfinal'
+              (toInteger (length parties'))
+              (cpMs cp)
+          )
+    _ -> error "projectContest: not a contest triple"
+
+-- contest parameter preservation: head id + period of the input vs the produced Closed datum.
+projectContestParams :: HS.State -> ScriptContext -> Bool
+projectContestParams st ctx =
+  case (st, producedState ctx) of
+    ( HS.Closed HS.ClosedDatum{HS.headId = cidIn, HS.contestationPeriod = cpIn}
+      , HS.Closed HS.ClosedDatum{HS.headId = cidOut, HS.contestationPeriod = cpOut}
+      ) ->
+        Ref.checkContestParams (cidToInteger cidIn) (cidToInteger cidOut) (cpMs cpIn) (cpMs cpOut)
+    _ -> error "projectContestParams: not a contest pair"
+
+-- value preservation (close/contest mustPreserveHeadValue): own head input vs first output.
+projectValuePreserved :: ScriptContext -> Bool
+projectValuePreserved ctx = Ref.checkValuePreserved (adaOf hIn) (adaOf hOut) (nonAdaOf hIn) (nonAdaOf hOut)
+ where
+  hIn = txOutValue (ownHeadInput ctx)
+  hOut = case txInfoOutputs (scriptContextTxInfo ctx) of
+    o : _ -> txOutValue o
+    [] -> error "projection: no outputs"
+
+-- participant signature: tx signers vs the head-policy token names of the head input.
+projectParticipant :: HS.State -> ScriptContext -> Bool
+projectParticipant st ctx = Ref.checkParticipantSigned (Ref.MkSignerIO signers pts)
+ where
+  cid = headIdOfState st
+  signers = bytesToInteger . getPubKeyHash <$> txInfoSignatories (scriptContextTxInfo ctx)
+  pts = [bytesToInteger (unTokenName tn) | ((cs, tn), q) <- assetList (txOutValue (ownHeadInput ctx)), cs == cid, q > 0]
+
+projectNoMint :: ScriptContext -> Bool
+projectNoMint ctx = Ref.checkNoMint (toInteger (length (mintEntries ctx)))
+
+-- referenced-output-is-spent: the increment redeemer's claimed deposit vs the tx's spent out-refs.
+projectRefSpent :: HS.Input -> ScriptContext -> Bool
+projectRefSpent (HS.Increment HS.IncrementRedeemer{HS.increment = claimed}) ctx =
+  Ref.checkRefSpent (encodeTxOutRef claimed) (encodeTxOutRef . txInInfoOutRef <$> txInfoInputs (scriptContextTxInfo ctx))
+projectRefSpent _ _ = error "projectRefSpent: not an increment redeemer"
+
+-- init (μHead minting policy, no State/Input): n from the head output datum's parties, the minted
+-- count from txInfoMint, ST quantity and head-policy token count COUNTED from the head output value.
+projectInitIO :: ScriptContext -> Ref.HsMintIO
+projectInitIO ctx = case scriptContextScriptInfo ctx of
+  MintingScript cid ->
+    case [(od, txOutValue o) | o <- txInfoOutputs (scriptContextTxInfo ctx), Just (HS.Open od) <- [outputState o]] of
+      [(HS.OpenDatum{HS.parties = ps}, headOutVal)] ->
+        Ref.MkMintIO
+          (toInteger (length ps))
+          (sum [q | (cs, _, q) <- mintEntries ctx, cs == cid])
+          (sum [q | ((cs, tn), q) <- assetList headOutVal, cs == cid, tn == stName])
+          (sum [q | ((cs, _), q) <- assetList headOutVal, cs == cid])
+      _ -> error "projection: expected exactly one head output"
+  _ -> error "projection: not a minting script"
+
+projectInit :: ScriptContext -> Bool
+projectInit = Ref.checkInit (Ref.mkOpsInit (const True)) . projectInitIO
+
+-- init datum head-id binding: the head output datum's headId vs the minting currency.
+projectInitHeadId :: ScriptContext -> Bool
+projectInitHeadId ctx = case scriptContextScriptInfo ctx of
+  MintingScript cid ->
+    case [od | o <- txInfoOutputs (scriptContextTxInfo ctx), Just (HS.Open od) <- [outputState o]] of
+      [HS.OpenDatum{HS.headId = did}] -> Ref.checkInitHeadId (cidToInteger did) (cidToInteger cid)
+      _ -> error "projection: expected exactly one head output"
+  _ -> error "projection: not a minting script"
+
+-- νDeposit: the deposit datum from the SpendingScript.
+projectDepositDatum :: ScriptContext -> Deposit.DepositDatum
+projectDepositDatum ctx = case scriptContextScriptInfo ctx of
+  SpendingScript _ (Just (Datum d)) -> fromMaybe (error "projection: not a deposit datum") (PlutusTx.fromBuiltinData d)
+  _ -> error "projection: no spending datum"
+
+projectRecover :: ScriptContext -> Bool
+projectRecover ctx = Ref.checkRecover (Ref.mkOpsRecover (const True)) (Ref.MkRecoverIO deadline (txValidityLo ctx))
+ where
+  (_, POSIXTime deadline, _) = projectDepositDatum ctx
+
+-- claim: deadline + head id from the deposit datum; the spent head's id is the policy whose ST is
+-- carried by another tx input.
+projectClaim :: ScriptContext -> Bool
+projectClaim ctx =
+  Ref.checkClaim
+    (Ref.mkOpsClaim (const True))
+    (Ref.MkClaimIO deadline (txValidityHi ctx) (cidToInteger depCid) (cidToInteger headCid))
+ where
+  (depCid, POSIXTime deadline, _) = projectDepositDatum ctx
+  ownR = case scriptContextScriptInfo ctx of
+    SpendingScript r _ -> r
+    _ -> error "projection: not a spending script"
+  headCid = case stCarriers of
+    [cs] -> cs
+    _ -> error "projection: expected exactly one head input"
+  stCarriers =
+    [ cs
+    | i <- txInfoInputs (scriptContextTxInfo ctx)
+    , txInInfoOutRef i /= ownR
+    , ((cs, tn), q) <- assetList (txOutValue (txInInfoResolved i))
+    , tn == stName
+    , q > 0
+    ]
+
+-- fanout (full AND final partial: the bridge maps finalPartialFanoutValid onto the same extracted
+-- fanoutRef): m from the redeemer, the burned count from txInfoMint, n/tfinal from the input datum,
+-- the lower bound from the validity range. The Ops mock is per family: the mocked conjuncts differ
+-- (see fpfOps at the final-partial fixture).
+projectFanout :: Ref.OpsFanout -> HS.State -> HS.Input -> ScriptContext -> Bool
+projectFanout ops st input ctx =
+  case (st, input) of
+    (HS.Closed HS.ClosedDatum{HS.parties = ps, HS.contestationDeadline = POSIXTime tfinal}, HS.Fanout{HS.numberOfFanoutOutputs = m}) ->
+      go ps tfinal m
+    (HS.FanoutProgress HS.FanoutProgressDatum{HS.parties = ps, HS.contestationDeadline = POSIXTime tfinal}, HS.FinalPartialFanout{HS.numberOfPartialOutputs = m}) ->
+      go ps tfinal m
+    _ -> error "projectFanout: not a fanout triple"
+ where
+  go ps tfinal m =
+    Ref.checkFanout ops (Ref.MkFanout m (burnedCountOf (headIdOfState st) ctx) (toInteger (length ps)) tfinal (txValidityLo ctx))
+
+-- non-final partial fanout: (m, tfinal, validityLo) in checkPartialFanout's order, read from the
+-- redeemer/input datum/ScriptContext. This is the ONLY call site, so the historical partialRef/
+-- partialVal argument-order swap cannot recur.
+projectPartial :: HS.State -> HS.Input -> ScriptContext -> Bool
+projectPartial st (HS.PartialFanout{HS.numberOfPartialOutputs = m}) ctx =
+  case st of
+    HS.Closed HS.ClosedDatum{HS.contestationDeadline = POSIXTime tfinal} -> Ref.checkPartialFanout m tfinal (txValidityLo ctx)
+    HS.FanoutProgress HS.FanoutProgressDatum{HS.contestationDeadline = POSIXTime tfinal} -> Ref.checkPartialFanout m tfinal (txValidityLo ctx)
+    _ -> error "projectPartial: not a partial-fanout input state"
+projectPartial _ _ _ = error "projectPartial: not a partial-fanout redeemer"
+
 -- ── the constructed inputs, parameterized over the fields the reference models ────────────────────────
 
 closedDatum :: Integer -> Integer -> Integer -> Integer -> Integer -> HS.ClosedDatum
@@ -160,8 +484,8 @@ closedDatum closedVersion closedCpMs closedSnap contestersLen deadline =
     , HS.headAdaOverhead = 0
     }
 
-mkContext :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
-mkContext closedVersion closedCpMs closedSnap contestersLen deadline tMax =
+mkContext :: HS.OpenDatum -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
+mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -184,10 +508,10 @@ mkContext closedVersion closedCpMs closedSnap contestersLen deadline tMax =
           , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close HS.CloseInitial))
-    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatum))))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open od))))
     }
  where
-  headInputOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open openDatum)))) Nothing
+  headInputOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open od)))) Nothing
   headOutputOut =
     TxOut
       headAddr
@@ -199,19 +523,12 @@ mkContext closedVersion closedCpMs closedSnap contestersLen deadline tMax =
 
 -- The real Plutus validator (a plain Haskell function). The leading ScriptHash (the CRS) is unused for
 -- close.
-validatorVerdict :: ScriptContext -> Bool
-validatorVerdict = Head.headValidator headScriptHash (HS.Open openDatum) (HS.Close HS.CloseInitial)
+validatorVerdict :: HS.OpenDatum -> ScriptContext -> Bool
+validatorVerdict od = Head.headValidator headScriptHash (HS.Open od) (HS.Close HS.CloseInitial)
 
--- The Agda-extracted reference on the SAME modeled fields.
-referenceVerdict :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
-referenceVerdict closedVersion closedCpMs closedSnap contestersLen deadline tMax =
-  Ref.checkClose
-    (Ref.mkOps (\_ _ _ -> True))
-    (Ref.MkOpen openVersionN openCpMs)
-    (Ref.MkClosed closedVersion closedCpMs closedSnap contestersLen deadline)
-    Ref.CloseInitialT
-    tMax
-    validityLoN
+-- The Agda-extracted reference, projected from the SAME open datum and context.
+referenceVerdict :: HS.OpenDatum -> ScriptContext -> Bool
+referenceVerdict od = projectClose (HS.Open od) (HS.Close HS.CloseInitial)
 
 -- ── close value preservation demo (C3.4): mustPreserveHeadValue is the EXACT `==` on the head value ──
 -- A CloseInitial healthy in every other conjunct, with the head OUTPUT value's ada parameterized: equal to
@@ -254,7 +571,10 @@ mkCloseValueContext headOutAda =
       Nothing
 
 closeValueVal :: Integer -> Bool
-closeValueVal headOutAda = validatorVerdict (mkCloseValueContext headOutAda)
+closeValueVal headOutAda = validatorVerdict openDatum (mkCloseValueContext headOutAda)
+
+closeValueRef :: Integer -> Bool
+closeValueRef headOutAda = projectValuePreserved (mkCloseValueContext headOutAda)
 
 -- ── signed CloseUnused: a REAL Ed25519 signature over the exact validator message ──────────────────────
 -- CloseInitial needs no signature. CloseUnused does: the validator runs `verifySnapshotSignature` for real
@@ -352,13 +672,7 @@ unusedRedeemer cs = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulat
 -- both oracles on a valid-signature CloseUnused (decidable-conjunct agreement: crypto valid on both sides).
 unusedRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 unusedRef cv ccp cs cl dl tMax =
-  Ref.checkClose
-    (Ref.mkOps (\_ _ _ -> True))
-    (Ref.MkOpen openVersionN openCpMs)
-    (Ref.MkClosed cv ccp cs cl dl)
-    Ref.CloseUnusedT
-    tMax
-    validityLoN
+  projectClose (HS.Open openDatumU) (HS.Close (unusedRedeemer cs)) (mkContextU (unusedRedeemer cs) cv ccp cs cl dl tMax)
 
 unusedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 unusedVal redeemer cv ccp cs cl dl tMax =
@@ -374,13 +688,7 @@ anyRedeemer cs = HS.CloseAny{HS.signature = [closeSigFor cs], HS.accumulatorHash
 
 anyRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 anyRef cv ccp cs cl dl tMax =
-  Ref.checkClose
-    (Ref.mkOps (\_ _ _ -> True))
-    (Ref.MkOpen openVersionN openCpMs)
-    (Ref.MkClosed cv ccp cs cl dl)
-    Ref.CloseAnyT
-    tMax
-    validityLoN
+  projectClose (HS.Open openDatumU) (HS.Close (anyRedeemer cs)) (mkContextU (anyRedeemer cs) cv ccp cs cl dl tMax)
 
 anyVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 anyVal = unusedVal
@@ -433,13 +741,7 @@ mkContextUsed redeemer cv ccp cs cl dl tMax =
 
 usedRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 usedRef cv ccp cs cl dl tMax =
-  Ref.checkClose
-    (Ref.mkOps (\_ _ _ -> True))
-    (Ref.MkOpen usedOpenVersionN openCpMs)
-    (Ref.MkClosed cv ccp cs cl dl)
-    Ref.CloseUsedT
-    tMax
-    validityLoN
+  projectClose (HS.Open openDatumUsed) (HS.Close (usedRedeemer cs)) (mkContextUsed (usedRedeemer cs) cv ccp cs cl dl tMax)
 
 usedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 usedVal redeemer cv ccp cs cl dl tMax =
@@ -549,13 +851,11 @@ mkIncContext redeemer nextV vPerturb =
       (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open (incOpenNext nextV)))))
       Nothing
 
--- reference: version bump + value conservation (ada + non-ada totals). The healthy increment adds
--- 500_000 ada and no tokens; ST+PT give non-ada total 2 on both head input and output.
+-- reference: version bump + value conservation (ada + non-ada totals), projected from the same
+-- constructed context (the redeemer's snapshot number only feeds the mocked crypto conjunct).
 incRef :: Integer -> Integer -> Bool
 incRef nextV vPerturb =
-  Ref.checkInc
-    (Ref.mkOpsInc (const True))
-    (Ref.MkIncIO openVersionN nextV 2_000_000 500_000 (2_500_000 + vPerturb) 2 0 2)
+  projectInc (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3)) (mkIncContext (incRedeemer 3) nextV vPerturb)
 
 incVal :: HS.IncrementRedeemer -> Integer -> Integer -> Bool
 incVal redeemer nextV vPerturb =
@@ -619,11 +919,6 @@ incHealthyHeadOut = incHeadVal <> depVal
 nonParticipantKH :: PubKeyHash
 nonParticipantKH = PubKeyHash "99999999999999999999999999999999999999999999999999999999"
 
--- the extracted participant checker: tx signers' key-hashes vs the head value's PT names must OVERLAP.
-participantRef :: [PubKeyHash] -> Bool
-participantRef signers =
-  Ref.checkParticipantSigned (Ref.MkSignerIO (map (bytesToInteger . getPubKeyHash) signers) [bytesToInteger (unTokenName ptName)])
-
 -- per-asset attack: a balanced A→B token swap (the non-ada TOTAL is preserved, but one asset is not).
 tokenA :: TokenName
 tokenA = TokenName (Builtins.toBuiltin ("token-A" :: ByteString))
@@ -652,10 +947,6 @@ unspentDepRef = TxOutRef (TxId "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 -- arguments share.
 encodeTxOutRef :: TxOutRef -> Integer
 encodeTxOutRef (TxOutRef (TxId tid) ix) = bytesToInteger tid * 256 + ix
-
--- the increment tx's spent input out-refs (head + deposit), under the same encoding.
-incInputRefCodes :: [Integer]
-incInputRefCodes = encodeTxOutRef <$> [ownRef, depRef]
 
 incRedeemerUnspent :: Integer -> HS.IncrementRedeemer
 incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = unspentDepRef}
@@ -708,9 +999,7 @@ mkDecContext redeemer nextV vPerturb =
 
 decRef :: Integer -> Integer -> Bool
 decRef nextV vPerturb =
-  Ref.checkDec
-    (Ref.mkOpsInc (const True))
-    (Ref.MkIncIO openVersionN nextV 2_500_000 500_000 (2_000_000 + vPerturb) 2 0 2)
+  projectDec (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) (mkDecContext (decRedeemer 3) nextV vPerturb)
 
 decVal :: HS.DecrementRedeemer -> Integer -> Integer -> Bool
 decVal redeemer nextV vPerturb =
@@ -782,9 +1071,10 @@ mkContestContext redeemer sPrime tfinPerturb tMax =
 
 contestRef :: Integer -> Integer -> Integer -> Bool
 contestRef sPrime tfinPerturb tMax =
-  Ref.checkContest
-    (Ref.mkOpsContest (const True))
-    (Ref.MkContestIO 0 0 0 sPrime 0 1 2_000 tMax (2_000 + tfinPerturb) 1 openCpMs)
+  projectContest
+    (HS.Closed contestPrev)
+    (HS.Contest (contestRedeemer sPrime))
+    (mkContestContext (contestRedeemer sPrime) sPrime tfinPerturb tMax)
 
 contestVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
 contestVal redeemer sPrime tfinPerturb tMax =
@@ -899,9 +1189,10 @@ mkContestUsedContext redeemer sPrime tfinPerturb tMax =
 
 contestUsedRef :: Integer -> Integer -> Integer -> Bool
 contestUsedRef sPrime tfinPerturb tMax =
-  Ref.checkContest
-    (Ref.mkOpsContest (const True))
-    (Ref.MkContestIO 1 1 0 sPrime 0 1 2_000 tMax (2_000 + tfinPerturb) 1 openCpMs)
+  projectContest
+    (HS.Closed contestUsedPrev)
+    (HS.Contest (contestUsedRedeemer sPrime))
+    (mkContestUsedContext (contestUsedRedeemer sPrime) sPrime tfinPerturb tMax)
 
 contestUsedVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
 contestUsedVal redeemer sPrime tfinPerturb tMax =
@@ -919,12 +1210,15 @@ snapshotSK2 = genKeyDSIGN (mkSeedFromBytes (digest (Proxy :: Proxy SHA256) ("hva
 snapshotParty2 :: Party
 snapshotParty2 = partyFromVerificationKeyBytes (rawSerialiseVerKeyDSIGN (deriveVerKeyDSIGN snapshotSK2))
 
-contest2Prev :: HS.ClosedDatum
-contest2Prev =
+-- Task-3 axis: the INPUT datum's contestation period (ms) is a parameter (the contest signature
+-- message does not cover it), so a validator reading a constant instead of the datum's period in the
+-- deadline push is caught.
+contest2Prev :: Integer -> HS.ClosedDatum
+contest2Prev cp =
   HS.ClosedDatum
     { HS.headId = headPolicy
     , HS.parties = [snapshotParty, snapshotParty2]
-    , HS.contestationPeriod = UnsafeContestationPeriod (fromInteger openCpMs)
+    , HS.contestationPeriod = UnsafeContestationPeriod (fromInteger cp)
     , HS.version = 0
     , HS.snapshotNumber = 0
     , HS.contesters = []
@@ -933,9 +1227,9 @@ contest2Prev =
     , HS.headAdaOverhead = 0
     }
 
-contest2Next :: Integer -> Integer -> HS.ClosedDatum
-contest2Next sPrime tfinPerturb =
-  contest2Prev{HS.snapshotNumber = sPrime, HS.contesters = [signerKH], HS.contestationDeadline = POSIXTime (2_000 + tfinPerturb)}
+contest2Next :: Integer -> Integer -> Integer -> HS.ClosedDatum
+contest2Next cp sPrime tfinPerturb =
+  (contest2Prev cp){HS.snapshotNumber = sPrime, HS.contesters = [signerKH], HS.contestationDeadline = POSIXTime (2_000 + tfinPerturb)}
 
 -- both parties sign the same ContestUnused message (version 0), in parties order.
 contest2SigsFor :: Integer -> [HS.Signature]
@@ -947,8 +1241,8 @@ contest2SigsFor sPrime =
 contest2Redeemer :: Integer -> HS.ContestRedeemer
 contest2Redeemer sPrime = HS.ContestUnused{HS.signature = contest2SigsFor sPrime, HS.accumulatorHash = emptyAccHash}
 
-mkContest2Context :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> ScriptContext
-mkContest2Context redeemer sPrime tfinPerturb tMax =
+mkContest2Context :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
+mkContest2Context redeemer cp sPrime tfinPerturb tMax =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -970,22 +1264,23 @@ mkContest2Context redeemer sPrime tfinPerturb tMax =
           , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
-    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contest2Prev))))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Prev cp)))))
     }
  where
-  headIn = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed contest2Prev)))) Nothing
-  headOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Next sPrime tfinPerturb))))) Nothing
+  headIn = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Prev cp))))) Nothing
+  headOut = TxOut headAddr headVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Next cp sPrime tfinPerturb))))) Nothing
 
 -- reference with numParties = 2: the deadline-update rule now demands tfinal' = tfinal + cp.
-contest2Ref :: Integer -> Integer -> Integer -> Bool
-contest2Ref sPrime tfinPerturb tMax =
-  Ref.checkContest
-    (Ref.mkOpsContest (const True))
-    (Ref.MkContestIO 0 0 0 sPrime 0 1 2_000 tMax (2_000 + tfinPerturb) 2 openCpMs)
+contest2Ref :: Integer -> Integer -> Integer -> Integer -> Bool
+contest2Ref cp sPrime tfinPerturb tMax =
+  projectContest
+    (HS.Closed (contest2Prev cp))
+    (HS.Contest (contest2Redeemer sPrime))
+    (mkContest2Context (contest2Redeemer sPrime) cp sPrime tfinPerturb tMax)
 
-contest2Val :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
-contest2Val redeemer sPrime tfinPerturb tMax =
-  Head.headValidator headScriptHash (HS.Closed contest2Prev) (HS.Contest redeemer) (mkContest2Context redeemer sPrime tfinPerturb tMax)
+contest2Val :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Integer -> Bool
+contest2Val redeemer cp sPrime tfinPerturb tMax =
+  Head.headValidator headScriptHash (HS.Closed (contest2Prev cp)) (HS.Contest redeemer) (mkContest2Context redeemer cp sPrime tfinPerturb tMax)
 
 -- ── init (μHead minting policy: token COUNT + PLACEMENT) ────────────────────────────────────────────────
 -- validateTokensMinting checks: the head policy MINTS exactly n+1 tokens (checkNumberOfTokens), the head
@@ -1051,8 +1346,7 @@ mkInitContext inputSeedRef headDatum mintedCount stQty numPT =
   headOut = TxOut headAddr (initHeadVal stQty numPT) (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open headDatum)))) Nothing
 
 initRef :: Integer -> Integer -> Integer -> Bool
-initRef mintedCount stQty numPT =
-  Ref.checkInit (Ref.mkOpsInit (const True)) (Ref.MkMintIO 1 mintedCount stQty (stQty + numPT))
+initRef mintedCount stQty numPT = projectInit (mkInitContext initSeedRef initOpenDatum mintedCount stQty numPT)
 
 initVal :: Integer -> Integer -> Integer -> Bool
 initVal mintedCount stQty numPT =
@@ -1142,8 +1436,7 @@ mkRecoverContext deadline validityLo =
   depIn = TxOut depositScriptAddr (singleton adaSymbol adaToken 3_000_000) (OutputDatum (depositDatum headPolicy deadline)) Nothing
 
 recoverRef :: Integer -> Integer -> Bool
-recoverRef deadline validityLo =
-  Ref.checkRecover (Ref.mkOpsRecover (const True)) (Ref.MkRecoverIO deadline validityLo)
+recoverRef deadline validityLo = projectRecover (mkRecoverContext deadline validityLo)
 
 recoverVal :: Integer -> Integer -> Bool
 recoverVal deadline validityLo = depositAccepts (mkRecoverContext deadline validityLo)
@@ -1194,8 +1487,7 @@ cidToInteger :: CurrencySymbol -> Integer
 cidToInteger = bytesToInteger . unCurrencySymbol
 
 claimRef :: Integer -> Integer -> CurrencySymbol -> Bool
-claimRef deadline validityHi depHeadCid =
-  Ref.checkClaim (Ref.mkOpsClaim (const True)) (Ref.MkClaimIO deadline validityHi (cidToInteger depHeadCid) (cidToInteger headPolicy))
+claimRef deadline validityHi depHeadCid = projectClaim (mkClaimContext deadline validityHi depHeadCid)
 
 claimVal :: Integer -> Integer -> CurrencySymbol -> Bool
 claimVal deadline validityHi depHeadCid = depositAccepts (mkClaimContext deadline validityHi depHeadCid)
@@ -1299,7 +1591,11 @@ mkFanoutContext burnedCount validityLo tfinal =
 
 fanoutRef :: Integer -> Integer -> Integer -> Bool
 fanoutRef burnedCount validityLo tfinal =
-  Ref.checkFanout (Ref.mkOpsFanout (const True)) (Ref.MkFanout 0 burnedCount 1 tfinal validityLo)
+  projectFanout
+    (Ref.mkOpsFanout (const True))
+    (HS.Closed (fanoutClosedDatum tfinal))
+    fanoutRedeemer
+    (mkFanoutContext burnedCount validityLo tfinal)
 
 fanoutVal :: Integer -> Integer -> Integer -> Bool
 fanoutVal burnedCount validityLo tfinal =
@@ -1407,8 +1703,10 @@ pfHeadInVal = pfHeadOutVal <> singleton adaSymbol adaToken 1_500_000
 pfRedeemer :: Integer -> HS.Input
 pfRedeemer m = HS.PartialFanout{HS.numberOfPartialOutputs = m, HS.crsRef = crsRefOut}
 
-mkPartialContext :: Integer -> Integer -> Integer -> ScriptContext
-mkPartialContext m validityLo tfinal =
+-- the spent head input's state: Closed (first batch) or FanoutProgress (mid-chain batch); the
+-- validator routes BOTH through the same checkPartialFanout.
+mkPartialContext :: HS.State -> Integer -> Integer -> Integer -> ScriptContext
+mkPartialContext inputState m validityLo tfinal =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -1430,21 +1728,49 @@ mkPartialContext m validityLo tfinal =
           , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (pfRedeemer m))
-    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed (pfClosedDatum tfinal)))))
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData inputState)))
     }
  where
-  headIn = TxOut headAddr pfHeadInVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (pfClosedDatum tfinal))))) Nothing
+  headIn = TxOut headAddr pfHeadInVal (OutputDatum (Datum (PlutusTx.toBuiltinData inputState))) Nothing
   continuingOut = TxOut headAddr pfHeadOutVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (pfProgressOut tfinal))))) Nothing
 
--- the reference checks 0 < m AND tfinal < validityLo (args in that order).
+-- both oracles take (m, validityLo, tfinal); the reference's (m, tfinal, lo) order lives only inside
+-- projectPartial, which reads the fields by name.
 partialRef :: Integer -> Integer -> Integer -> Bool
-partialRef = Ref.checkPartialFanout
+partialRef m validityLo tfinal =
+  projectPartial
+    (HS.Closed (pfClosedDatum tfinal))
+    (pfRedeemer m)
+    (mkPartialContext (HS.Closed (pfClosedDatum tfinal)) m validityLo tfinal)
 
--- NB: argument order DIFFERS from partialRef above — here it is (m, validityLo, tfinal),
--- there it is (m, tfinal, validityLo). Every call site below swaps the last two to match.
 partialVal :: Integer -> Integer -> Integer -> Bool
 partialVal m validityLo tfinal =
-  Head.headValidator crsScriptHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContext m validityLo tfinal)
+  Head.headValidator
+    crsScriptHash
+    (HS.Closed (pfClosedDatum tfinal))
+    (pfRedeemer m)
+    (mkPartialContext (HS.Closed (pfClosedDatum tfinal)) m validityLo tfinal)
+
+-- ── mid-chain partial fanout (FanoutProgress → FanoutProgress): the SAME checkPartialFanout arm, but
+-- driven from a FanoutProgress INPUT datum (the batch after the first). Fixtures are shared with the
+-- Closed → FanoutProgress family; only the spent input's state differs.
+pfProgressIn :: Integer -> HS.FanoutProgressDatum
+pfProgressIn tfinal = HS.progressFromClosed (pfClosedDatum tfinal)
+
+partialMidRef :: Integer -> Integer -> Integer -> Bool
+partialMidRef m validityLo tfinal =
+  projectPartial
+    (HS.FanoutProgress (pfProgressIn tfinal))
+    (pfRedeemer m)
+    (mkPartialContext (HS.FanoutProgress (pfProgressIn tfinal)) m validityLo tfinal)
+
+partialMidVal :: Integer -> Integer -> Integer -> Bool
+partialMidVal m validityLo tfinal =
+  Head.headValidator
+    crsScriptHash
+    (HS.FanoutProgress (pfProgressIn tfinal))
+    (pfRedeemer m)
+    (mkPartialContext (HS.FanoutProgress (pfProgressIn tfinal)) m validityLo tfinal)
 
 -- A WRONG KZG membership: the continuing FanoutProgress output claims the head did NOT shrink (its
 -- commitment = the OLD full-accumulator commitment), so e(oldAcc, G2) == e(newAcc, P_S(τ)·G2) fails
@@ -1465,12 +1791,112 @@ mkPartialContextBadProof :: Integer -> Integer -> Integer -> ScriptContext
 mkPartialContextBadProof m validityLo tfinal =
   base{scriptContextTxInfo = (scriptContextTxInfo base){txInfoOutputs = [continuingOutBad, pfDistributedOut]}}
  where
-  base = mkPartialContext m validityLo tfinal
+  base = mkPartialContext (HS.Closed (pfClosedDatum tfinal)) m validityLo tfinal
   continuingOutBad = TxOut headAddr pfHeadOutVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (pfProgressOutBad tfinal))))) Nothing
 
 partialValBadProof :: Integer -> Integer -> Integer -> Bool
 partialValBadProof m validityLo tfinal =
   Head.headValidator crsScriptHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContextBadProof m validityLo tfinal)
+
+-- ── final partial fanout (FanoutProgress → finalised: burn n+1, distribute the LAST batch) ─────────────
+-- checkFinalPartialFanout requires m > 0 outputs, all n+1 tokens burned, posted after the deadline,
+-- value conservation (outputs + burned tokens + overhead == head input) and the KZG membership of the
+-- last batch. The input FanoutProgress accumulator commits to the remaining TWO outputs and the final
+-- batch distributes exactly those, so the remainder is empty and the membership proof is the
+-- empty-set commitment = the G1 generator (as in the empty-head full fanout); the pairing runs against
+-- the real CRS. The bridged reference is the shared checkFanout (finalPartialFanoutValid→ref). n = 1.
+
+fpfOutA :: TxOut
+fpfOutA = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton adaSymbol adaToken 1_200_000) NoOutputDatum Nothing
+
+fpfOutB :: TxOut
+fpfOutB = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton adaSymbol adaToken 1_800_000) NoOutputDatum Nothing
+
+-- the input accumulator commits to exactly the two remaining outputs (same element pre-image as the
+-- on-chain txOutsToSubsetScalars: hashTxOuts per output).
+fpfAcc :: Accumulator.HydraAccumulator
+fpfAcc = Accumulator.build (Builtins.fromBuiltin . hashTxOuts . (: []) <$> [fpfOutA, fpfOutB])
+
+fpfProgressDatum :: Integer -> HS.FanoutProgressDatum
+fpfProgressDatum tfinal =
+  HS.FanoutProgressDatum
+    { HS.headId = headPolicy
+    , HS.parties = [snapshotParty]
+    , HS.contestationDeadline = POSIXTime tfinal
+    , HS.accumulatorCommitment = Accumulator.getAccumulatorCommitment fpfAcc
+    , HS.headAdaOverhead = fanoutOverhead
+    }
+
+-- head input = both distributed outputs + the n+1 head tokens (to burn) + the locked overhead.
+fpfHeadInVal :: Value
+fpfHeadInVal =
+  singleton headPolicy stName 1
+    <> singleton headPolicy ptName 1
+    <> singleton adaSymbol adaToken (1_200_000 + 1_800_000 + fanoutOverhead)
+
+fpfRedeemer :: Integer -> Builtins.BuiltinBLS12_381_G1_Element -> HS.Input
+fpfRedeemer m proof = HS.FinalPartialFanout{HS.numberOfPartialOutputs = m, HS.proof = proof, HS.crsRef = crsRefOut}
+
+mkFinalPartialContext :: HS.Input -> Integer -> Integer -> Integer -> ScriptContext
+mkFinalPartialContext redeemer burnedCount validityLo tfinal =
+  ScriptContext
+    { scriptContextTxInfo =
+        TxInfo
+          { txInfoInputs = [TxInInfo ownRef headIn]
+          , txInfoReferenceInputs = [pfCrsRefInput]
+          , txInfoOutputs = [fpfOutA, fpfOutB]
+          , txInfoFee = 0
+          , txInfoMint = fanoutMint burnedCount
+          , txInfoTxCerts = []
+          , txInfoWdrl = AMap.empty
+          , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLo)) True) (UpperBound PosInf True)
+          , txInfoSignatories = [signerKH]
+          , txInfoRedeemers = AMap.empty
+          , txInfoData = AMap.empty
+          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+          , txInfoVotes = AMap.empty
+          , txInfoProposalProcedures = []
+          , txInfoCurrentTreasuryAmount = Nothing
+          , txInfoTreasuryDonation = Nothing
+          }
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData redeemer)
+    , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (fpfProgressDatum tfinal)))))
+    }
+ where
+  headIn = TxOut headAddr fpfHeadInVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (fpfProgressDatum tfinal))))) Nothing
+
+-- The reference's mocked conjuncts here are outputsPositive (in the spec's FinalPartialFanoutValid
+-- record but NOT bridged into fanoutRef, see ReferenceBridge), the KZG membership and value
+-- conservation. In THIS fixture all three hold exactly when the full 2-output batch is distributed,
+-- so the mock computes that fixture truth and the grid can cross the output-count axis under ===.
+fpfOps :: Ref.OpsFanout
+fpfOps = Ref.mkOpsFanout (\(Ref.MkFanout m _ _ _ _) -> m == 2)
+
+finalPartialRef :: Integer -> Integer -> Integer -> Integer -> Bool
+finalPartialRef m burnedCount validityLo tfinal =
+  projectFanout
+    fpfOps
+    (HS.FanoutProgress (fpfProgressDatum tfinal))
+    (fpfRedeemer m g1Generator)
+    (mkFinalPartialContext (fpfRedeemer m g1Generator) burnedCount validityLo tfinal)
+
+finalPartialVal :: Integer -> Integer -> Integer -> Integer -> Bool
+finalPartialVal m burnedCount validityLo tfinal =
+  Head.headValidator
+    crsScriptHash
+    (HS.FanoutProgress (fpfProgressDatum tfinal))
+    (fpfRedeemer m g1Generator)
+    (mkFinalPartialContext (fpfRedeemer m g1Generator) burnedCount validityLo tfinal)
+
+-- a wrong membership proof (2·G ≠ G, the empty-remainder commitment): only the pairing fails, so the
+-- reject is the REAL BLS crypto (mocked on the reference side).
+finalPartialValBadProof :: Integer -> Integer -> Integer -> Integer -> Bool
+finalPartialValBadProof m burnedCount validityLo tfinal =
+  Head.headValidator
+    crsScriptHash
+    (HS.FanoutProgress (fpfProgressDatum tfinal))
+    (fpfRedeemer m fanoutBadProof)
+    (mkFinalPartialContext (fpfRedeemer m fanoutBadProof) burnedCount validityLo tfinal)
 
 -- ── the agreement property ───────────────────────────────────────────────────────────────────────────
 
@@ -1480,34 +1906,42 @@ spec = parallel $ do
   -- well-formed CloseInitial and genuinely REJECTS one with a changed version, and the reference matches
   -- both. (Healthy: version'=0, cp'=100, snap'=0, contesters=0, deadline = tMax + cp.)
   prop "anchor: healthy CloseInitial — BOTH oracles accept" $
-    let tMax = 1_100; deadline = tMax + openCpMs
-     in validatorVerdict (mkContext 0 100 0 0 deadline tMax) === True
-          .&&. referenceVerdict 0 100 0 0 deadline tMax === True
+    let tMax = 1_100
+        deadline = tMax + openCpMs
+        ctx = mkContext openDatum 0 100 0 0 deadline tMax
+     in validatorVerdict openDatum ctx === True
+          .&&. referenceVerdict openDatum ctx === True
 
   prop "anchor: changed version — BOTH oracles reject" $
-    let tMax = 1_100; deadline = tMax + openCpMs
-     in validatorVerdict (mkContext 1 100 0 0 deadline tMax) === False
-          .&&. referenceVerdict 1 100 0 0 deadline tMax === False
+    let tMax = 1_100
+        deadline = tMax + openCpMs
+        ctx = mkContext openDatum 1 100 0 0 deadline tMax
+     in validatorVerdict openDatum ctx === False
+          .&&. referenceVerdict openDatum ctx === False
 
   -- ── close mustPreserveHeadValue (C3.4: bridged from closeValid.valuePreserved + tested here) ──
   prop "close/value: a siphoned head output is REJECTED by both checkValuePreserved and the real validator" $
-    Ref.checkValuePreserved 2_000_000 1_500_000 1 1 === False
+    closeValueRef 1_500_000 === False
       .&&. closeValueVal 1_500_000 === False
   prop "close/value: the value-preserving close is accepted by both" $
-    Ref.checkValuePreserved 2_000_000 2_000_000 1 1 === True
+    closeValueRef 2_000_000 === True
       .&&. closeValueVal 2_000_000 === True
 
+  -- The INPUT open datum's version and contestation period are varied too (CloseInitial carries no
+  -- signature, so nothing pins them).
   prop "close/CloseInitial: extracted Agda reference === real validator (function-level, no tx, no mutation)" $
-    forAll (choose (0, 2)) $ \closedVersion ->
-      forAll (elements [50, 100, 200]) $ \closedCpMs ->
-        forAll (choose (0, 1)) $ \closedSnap ->
-          forAll (choose (0, 1)) $ \contestersLen ->
-            forAll (elements [1_050, 1_100, 2_000]) $ \tMax ->
-              forAll (elements [0, 1]) $ \deadlineExtra ->
-                let deadline = tMax + openCpMs + deadlineExtra
-                    ctx = mkContext closedVersion closedCpMs closedSnap contestersLen deadline tMax
-                 in referenceVerdict closedVersion closedCpMs closedSnap contestersLen deadline tMax
-                      === validatorVerdict ctx
+    forAll (elements [0, 1]) $ \inV ->
+      forAll (elements [100, 86_400_000]) $ \inCp ->
+        forAll (choose (0, 2)) $ \closedVersion ->
+          forAll (elements [50, inCp, 200]) $ \closedCpMs ->
+            forAll (choose (0, 1)) $ \closedSnap ->
+              forAll (choose (0, 1)) $ \contestersLen ->
+                forAll (elements [1_050, 1_100, 2_000]) $ \tMax ->
+                  forAll (elements [0, 1]) $ \deadlineExtra ->
+                    let od = openDatumAt inV inCp
+                        deadline = tMax + inCp + deadlineExtra
+                        ctx = mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax
+                     in referenceVerdict od ctx === validatorVerdict od ctx
 
   -- ── CloseUnused: the validator runs verifySnapshotSignature FOR REAL (signed with our test key) ──
   -- Anchor: a healthy CloseUnused (version preserved = 0, valid signature over the snapshot) is accepted by
@@ -1635,35 +2069,38 @@ spec = parallel $ do
 
   -- ── increment conjunct demos (extracted checker + real validator both catch a single-conjunct attack) ──
   prop "increment/no-mint: a minting increment is REJECTED by both checkNoMint and the real validator" $
-    Ref.checkNoMint 1 === False
-      .&&. incDemoVal (mkIncDemoContext incAttackMint [signerKH] incHeadVal incHealthyHeadOut) === False
+    let ctx = mkIncDemoContext incAttackMint [signerKH] incHeadVal incHealthyHeadOut
+     in projectNoMint ctx === False .&&. incDemoVal ctx === False
   prop "increment/no-mint: the healthy (no-mint) increment is accepted by both" $
-    Ref.checkNoMint 0 === True
-      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut) === True
+    let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
+     in projectNoMint ctx === True .&&. incDemoVal ctx === True
 
   prop "increment/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
-    participantRef [nonParticipantKH] === False
-      .&&. incDemoVal (mkIncDemoContext emptyMintValue [nonParticipantKH] incHeadVal incHealthyHeadOut) === False
+    let ctx = mkIncDemoContext emptyMintValue [nonParticipantKH] incHeadVal incHealthyHeadOut
+     in projectParticipant (HS.Open incOpenPrev) ctx === False .&&. incDemoVal ctx === False
   prop "increment/participant: a participant signer is accepted by both" $
-    participantRef [signerKH] === True
-      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut) === True
+    let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
+     in projectParticipant (HS.Open incOpenPrev) ctx === True .&&. incDemoVal ctx === True
 
   -- a balanced A→B swap keeps the non-ada TOTAL (3 in, 3 out), so the scalar-total checkInc accepts it,
   -- but per-asset conservation (and the validator's Value ==) does not.
   prop "increment/per-asset: a balanced token swap passes the non-ada TOTAL but is REJECTED by checkPerAsset and the real validator" $
-    Ref.checkInc (Ref.mkOpsInc (const True)) (Ref.MkIncIO openVersionN 1 2_000_000 500_000 2_500_000 3 0 3) === True
-      .&&. Ref.checkPerAsset [Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 0, Ref.MkAssetIO 0 0 1] === False
-      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutSwap) === False
+    let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutSwap
+     in projectInc (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3)) ctx === True
+          .&&. projectPerAssetInc ctx === False
+          .&&. incDemoVal ctx === False
   prop "increment/per-asset: the healthy (no swap) increment is accepted by both checkPerAsset and the real validator" $
-    Ref.checkPerAsset [Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1, Ref.MkAssetIO 1 0 1] === True
-      .&&. incDemoVal (mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy) === True
+    let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy
+     in projectPerAssetInc ctx === True .&&. incDemoVal ctx === True
 
   prop "increment/ref-spent: a claimed deposit that is NOT a tx input is REJECTED by both checkRefSpent and the real validator" $
-    Ref.checkRefSpent (encodeTxOutRef unspentDepRef) incInputRefCodes === False
-      .&&. incVal (incRedeemerUnspent 3) 1 0 === False
+    let ctx = mkIncContext (incRedeemerUnspent 3) 1 0
+     in projectRefSpent (HS.Increment (incRedeemerUnspent 3)) ctx === False
+          .&&. incVal (incRedeemerUnspent 3) 1 0 === False
   prop "increment/ref-spent: the healthy (spent-deposit) claim is accepted by both" $
-    Ref.checkRefSpent (encodeTxOutRef depRef) incInputRefCodes === True
-      .&&. incVal (incRedeemer 3) 1 0 === True
+    let ctx = mkIncContext (incRedeemer 3) 1 0
+     in projectRefSpent (HS.Increment (incRedeemer 3)) ctx === True
+          .&&. incVal (incRedeemer 3) 1 0 === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
   prop "anchor: healthy decrement — BOTH oracles accept (real signature verified)" $
@@ -1705,10 +2142,10 @@ spec = parallel $ do
 
   -- ── contest mustNotChangeParameters (C3.3: bridged from the contest transition + tested here) ──
   prop "contest/params: a changed head id is REJECTED by both checkContestParams and the real validator" $
-    Ref.checkContestParams (cidToInteger headPolicy) (cidToInteger otherHeadCid) openCpMs openCpMs === False
+    projectContestParams (HS.Closed contestPrev) (mkContestParamsContext contestNextBadHeadId) === False
       .&&. contestParamsVal contestNextBadHeadId === False
   prop "contest/params: the parameter-preserving contest is accepted by both" $
-    Ref.checkContestParams (cidToInteger headPolicy) (cidToInteger headPolicy) openCpMs openCpMs === True
+    projectContestParams (HS.Closed contestPrev) (mkContestParamsContext (contestNext 1 0)) === True
       .&&. contestParamsVal (contestNext 1 0) === True
 
   -- ── ContestUsed: the contest signature is over version - 1 (closed version 1 here) ──
@@ -1734,19 +2171,22 @@ spec = parallel $ do
   -- ── contest deadline-push (n = 2, 1 contester): the produced deadline MUST be tfinal + cp ──
   prop "anchor: n = 2 contest with a pushed deadline, BOTH oracles accept (2-of-2 signature verified)" $
     let s' = 1; tMax = 1_500
-     in contest2Val (contest2Redeemer s') s' openCpMs tMax === True
-          .&&. contest2Ref s' openCpMs tMax === True
+     in contest2Val (contest2Redeemer s') openCpMs s' openCpMs tMax === True
+          .&&. contest2Ref openCpMs s' openCpMs tMax === True
 
   prop "contest/deadline-push (n=2): a NON-pushed deadline is rejected by both (mustPushDeadline)" $
     let s' = 1; tMax = 1_500
-     in contest2Val (contest2Redeemer s') s' 0 tMax === False
-          .&&. contest2Ref s' 0 tMax === False
+     in contest2Val (contest2Redeemer s') openCpMs s' 0 tMax === False
+          .&&. contest2Ref openCpMs s' 0 tMax === False
 
+  -- the INPUT datum's contestation period is varied too (Task-3 axis; the deadline perturbation is in
+  -- units of cp, so the push boundary is crossed at every period).
   prop "contest/deadline-push (n=2): reference === real validator (deadline-update rule both directions)" $
-    forAll (choose (0, 2)) $ \s' ->
-      forAll (elements [0, openCpMs, 2 * openCpMs]) $ \tfinPerturb ->
-        forAll (elements [1_500, 2_500]) $ \tMax ->
-          contest2Ref s' tfinPerturb tMax === contest2Val (contest2Redeemer s') s' tfinPerturb tMax
+    forAll (elements [100, 86_400_000]) $ \cp ->
+      forAll (choose (0, 2)) $ \s' ->
+        forAll (elements [0, cp, 2 * cp]) $ \tfinPerturb ->
+          forAll (elements [1_500, 2_500]) $ \tMax ->
+            contest2Ref cp s' tfinPerturb tMax === contest2Val (contest2Redeemer s') cp s' tfinPerturb tMax
 
   -- ── init (μHead): minted-token count + ST/PT placement in the head output ──
   prop "anchor: healthy init — BOTH oracles accept (mint 2, ST 1, 1 PT)" $
@@ -1769,10 +2209,10 @@ spec = parallel $ do
 
   -- ── init datum head-id binding (C3.2: bridged from the spec's cid identity + tested here) ──
   prop "init/datum: a head output datum naming a different head id is REJECTED by both checkInitHeadId and the real policy" $
-    Ref.checkInitHeadId (cidToInteger otherHeadCid) (cidToInteger headPolicy) === False
+    projectInitHeadId (mkInitContext initSeedRef initOpenDatumBadHeadId 2 1 1) === False
       .&&. initHeadIdVal initOpenDatumBadHeadId === False
   prop "init/datum: the head-id-binding datum is accepted by both" $
-    Ref.checkInitHeadId (cidToInteger headPolicy) (cidToInteger headPolicy) === True
+    projectInitHeadId (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
       .&&. initHeadIdVal initOpenDatum === True
 
   -- ── νDeposit Recover: the real Aiken validator (compiled UPLC) vs Ref.checkRecover ──
@@ -1809,16 +2249,47 @@ spec = parallel $ do
 
   -- ── partial fanout (real 2-element accumulator, distribute 1): membership + 0<m + after-deadline ──
   prop "anchor: healthy partial fanout — BOTH oracles accept (real KZG membership verified)" $
-    partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_000 1_050 === True
+    partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_050 1_000 === True
 
   prop "partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
     forAll (elements [0, 1]) $ \m ->
       forAll (elements [950, 1_050]) $ \validityLo ->
         let tfinal = 1_000
-         in partialRef m tfinal validityLo === partialVal m validityLo tfinal
+         in partialRef m validityLo tfinal === partialVal m validityLo tfinal
 
   prop "partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
     partialVal 1 1_050 1_000 === True .&&. partialValBadProof 1 1_050 1_000 === False
+
+  -- ── mid-chain partial fanout ((FanoutProgress, PartialFanout): the same checkPartialFanout arm,
+  -- driven from a FanoutProgress input datum) ──
+  prop "anchor: healthy mid-chain partial fanout: BOTH oracles accept (real KZG membership verified)" $
+    partialMidVal 1 1_050 1_000 === True .&&. partialMidRef 1 1_050 1_000 === True
+
+  prop "mid-chain partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
+    forAll (elements [0, 1]) $ \m ->
+      forAll (elements [950, 1_050]) $ \validityLo ->
+        let tfinal = 1_000
+         in partialMidRef m validityLo tfinal === partialMidVal m validityLo tfinal
+
+  prop "mid-chain partial fanout: a before-deadline batch is REJECTED by both" $
+    partialMidRef 1 950 1_000 === False .&&. partialMidVal 1 950 1_000 === False
+
+  -- ── final partial fanout ((FanoutProgress, FinalPartialFanout): burn n+1, last batch, real KZG) ──
+  prop "anchor: healthy final partial fanout: BOTH oracles accept (last-batch KZG verified, n+1 burned)" $
+    finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialRef 2 2 1_050 1_000 === True
+
+  prop "final partial fanout: reference === real validator (output count + burned count + after-deadline)" $
+    forAll (choose (0, 2)) $ \m ->
+      forAll (choose (1, 3)) $ \burnedCount ->
+        forAll (elements [950, 1_050]) $ \validityLo ->
+          let tfinal = 1_000
+           in finalPartialRef m burnedCount validityLo tfinal === finalPartialVal m burnedCount validityLo tfinal
+
+  prop "final partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
+    finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialValBadProof 2 2 1_050 1_000 === False
+
+  prop "final partial fanout: real validator REJECTS a before-deadline final batch" $
+    finalPartialVal 2 2 950 1_000 === False
 
   -- ── C3.5: the JOIN as one checked artifact ──
   -- The bridge proves spec-bundle ⇒ extracted-reference (Agda). This single property checks the other half,
@@ -1826,10 +2297,13 @@ spec = parallel $ do
   -- one reject each), so the end-to-end spec ⇒ validator chain (modulo the documented postulates) is a
   -- single named, checked artifact rather than per-family scattered tests.
   prop "end-to-end (join): the bridged reference === the real validator across every family (accept + reject)" $
-    let dl = 1_200; tMax = 1_100
+    let dl = 1_200
+        tMax = 1_100
+        closeCtxAccept = mkContext openDatum 0 100 0 0 dl tMax
+        closeCtxReject = mkContext openDatum 1 100 0 0 dl tMax
      in -- close (CloseInitial): healthy accept + changed-version reject
-        (referenceVerdict 0 100 0 0 dl tMax === validatorVerdict (mkContext 0 100 0 0 dl tMax))
-          .&&. (referenceVerdict 1 100 0 0 dl tMax === validatorVerdict (mkContext 1 100 0 0 dl tMax))
+        (referenceVerdict openDatum closeCtxAccept === validatorVerdict openDatum closeCtxAccept)
+          .&&. (referenceVerdict openDatum closeCtxReject === validatorVerdict openDatum closeCtxReject)
           -- increment: version-bump accept + no-bump reject
           .&&. (incRef 1 0 === incVal (incRedeemer 3) 1 0)
           .&&. (incRef 0 0 === incVal (incRedeemer 3) 0 0)
@@ -1849,8 +2323,8 @@ spec = parallel $ do
           .&&. (contestUsedRef 1 0 1_500 === contestUsedVal (contestUsedRedeemer 1) 1 0 1_500)
           .&&. (contestUsedRef 0 0 1_500 === contestUsedVal (contestUsedRedeemer 0) 0 0 1_500)
           -- contest deadline-push (n = 2): pushed-deadline accept + non-pushed reject
-          .&&. (contest2Ref 1 openCpMs 1_500 === contest2Val (contest2Redeemer 1) 1 openCpMs 1_500)
-          .&&. (contest2Ref 1 0 1_500 === contest2Val (contest2Redeemer 1) 1 0 1_500)
+          .&&. (contest2Ref openCpMs 1 openCpMs 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 openCpMs 1_500)
+          .&&. (contest2Ref openCpMs 1 0 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 0 1_500)
           -- init (μHead): healthy accept + wrong-mint-count reject
           .&&. (initRef 2 1 1 === initVal 2 1 1)
           .&&. (initRef 3 1 1 === initVal 3 1 1)
@@ -1864,8 +2338,14 @@ spec = parallel $ do
           .&&. (fanoutRef 2 1_050 1_000 === fanoutVal 2 1_050 1_000)
           .&&. (fanoutRef 3 1_050 1_000 === fanoutVal 3 1_050 1_000)
           -- partial fanout (real KZG): 0<m accept + m=0 reject
-          .&&. (partialRef 1 1_000 1_050 === partialVal 1 1_050 1_000)
-          .&&. (partialRef 0 1_000 1_050 === partialVal 0 1_050 1_000)
+          .&&. (partialRef 1 1_050 1_000 === partialVal 1 1_050 1_000)
+          .&&. (partialRef 0 1_050 1_000 === partialVal 0 1_050 1_000)
+          -- mid-chain partial fanout (FanoutProgress input): 0<m accept + m=0 reject
+          .&&. (partialMidRef 1 1_050 1_000 === partialMidVal 1 1_050 1_000)
+          .&&. (partialMidRef 0 1_050 1_000 === partialMidVal 0 1_050 1_000)
+          -- final partial fanout (real KZG last batch): accept + wrong-burn-count reject
+          .&&. (finalPartialRef 2 2 1_050 1_000 === finalPartialVal 2 2 1_050 1_000)
+          .&&. (finalPartialRef 2 3 1_050 1_000 === finalPartialVal 2 3 1_050 1_000)
           -- the C3 pulled-out conjuncts (value preservation, contest params, init head-id)
           .&&. (closeValueVal 2_000_000 === True)
           .&&. (closeValueVal 1_500_000 === False)
@@ -1874,7 +2354,7 @@ spec = parallel $ do
           .&&. (initHeadIdVal initOpenDatum === True)
           .&&. (initHeadIdVal initOpenDatumBadHeadId === False)
           -- the ref-spent conjunct (increment claimedDepositIsSpent): spent accept + unspent reject
-          .&&. (Ref.checkRefSpent (encodeTxOutRef depRef) incInputRefCodes === True)
+          .&&. (projectRefSpent (HS.Increment (incRedeemer 3)) (mkIncContext (incRedeemer 3) 1 0) === True)
           .&&. (incVal (incRedeemer 3) 1 0 === True)
-          .&&. (Ref.checkRefSpent (encodeTxOutRef unspentDepRef) incInputRefCodes === False)
+          .&&. (projectRefSpent (HS.Increment (incRedeemerUnspent 3)) (mkIncContext (incRedeemerUnspent 3) 1 0) === False)
           .&&. (incVal (incRedeemerUnspent 3) 1 0 === False)

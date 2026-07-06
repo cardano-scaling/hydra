@@ -30,8 +30,8 @@
         ];
         meta = { };
         src = "${self}/spec";
-        # build.sh typechecks the literate-Typst sources with Agda, stages them,
-        # and renders the PDF with Typst (no LaTeX/Inkscape toolchain needed).
+        # build.sh typechecks the literate-Typst sources with Agda and renders
+        # the PDF with Typst (no LaTeX/Inkscape toolchain needed).
         # --ignore-system-fonts keeps Typst reproducible: only the fonts bundled
         # with Typst plus JuliaMono from nixpkgs (code blocks, wired through
         # JULIAMONO_FONT_DIR, see build.sh) are used.

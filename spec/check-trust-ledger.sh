@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3.6 trust-ledger drift check.
+# Trust-ledger drift check (bridge layer).
 #
 # The machine-checked `spec ⇒ extracted-reference` bridge rests on a FIXED, enumerated trusted base:
 #   (a) injected `Ops` mocks — the const-`true` boundaries the reference delegates (crypto / accumulator /
@@ -11,8 +11,10 @@
 # So a NEW mock or postulate cannot enter the trusted base silently: adding one fails the build until
 # both the EXPECTED_* lists and this ledger table are updated.
 #
-# Trust ledger (what each trusted item assumes; the HeadValidatorAgreement test covers each against the
-# real validator/crypto where constructible):
+# Bridge-layer trust ledger (what each trusted item assumes; the HeadValidatorAgreement test covers each
+# against the real validator/crypto where constructible). SCOPE: this gates ReferenceBridge/RefReflection
+# only; the abstract model's own axioms (Prelude value/crypto laws, accumulator laws, §7 assumptions) are
+# inventoried in the spec's "What the formalisation assumes" appendix section, not drift-checked here.
 #   Ops mocks (const-true boundaries the reference delegates):
 #     closeCryptoOK    close snapshot signature + accumulator-commitment hash (real Ed25519 in the test)
 #     incCryptoOK      increment/decrement snapshot signature (real Ed25519, bad-sig rejected)
@@ -67,4 +69,4 @@ if [ "$fail" -ne 0 ]; then
   echo "Update the trust-ledger table in this script's header comment and the EXPECTED_* lists."
   exit 1
 fi
-echo "check-trust-ledger: OK — trusted base is the 7 documented Ops mocks + 7 documented postulates."
+echo "check-trust-ledger: OK — the bridge-layer trusted base is the 7 documented Ops mocks + 7 documented postulates."

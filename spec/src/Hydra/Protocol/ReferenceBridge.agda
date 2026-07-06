@@ -24,8 +24,8 @@ open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.OnChain
 import Hydra.Protocol.Reference as R
 -- The Bool-check ⇄ proposition reflection lemmas (==ᵇ-refl, ≡→==ᵇ, ≤→≤ᵇ, <→<ᵇ, &&-intro) and the
--- builtin-soundness postulates (==-sound, <ᴮ-sound) live in `RefReflection`; this module is just the
--- `*Valid → ref` correspondence.
+-- builtin-soundness lemmas (==-sound, <ᴮ-sound, both PROVED by induction, not postulated) live in
+-- `RefReflection`; this module is just the `*Valid → ref` correspondence.
 open import Hydra.Protocol.RefReflection
 open import Relation.Binary.PropositionalEquality using (trans; sym; cong)
 open import Relation.Nullary using (yes; no)

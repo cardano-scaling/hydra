@@ -62,9 +62,10 @@ With this, we further define:
 - $tyData$ is a universal data type of nested sums and products built up
   recursively from the base types of $tyInteger$ and $tyBytes$.
 
-Note: The concatenation operator (@agda-appendix) is defined in Agda directly in terms of $bytes$ and
-$concat$; Agda checks that the operands are serialised before being concatenated
-(i.e. that the operation is well-typed).
+Note: The concatenation operator (@agda-appendix) is defined in Agda directly in terms of $bytes$
+and $concat$ (both law-free primitives; the definition fixes the encoding shape, it does not
+constrain the operands). Readers new to Agda may want @sec:reading-agda, which maps the idioms
+used from here on to their Haskell counterparts.
 
 ```agda
 infixl 6 _‖_

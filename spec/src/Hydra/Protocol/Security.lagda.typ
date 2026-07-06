@@ -135,7 +135,8 @@ the aggregate-level `ms-unforgeable` is *derived*; (c) the honest-signing discip
 above the signer's own confirmed snapshot, hence at most once per number) is *derived* from the
 fired `reqSn-sign` handler premise together with the no-in-flight precondition and the invariant's
 `signNumBound`, while chain-extension, applicability-of-the-delta and only-seen enter as
-*premises* of the `signHonest` constructor - explicit honest-_behaviour_ assumptions from §6.2;
+*premises* of the `signHonest` constructor - explicit honest-_behaviour_ assumptions from §6.4
+(the protocol-flow figure);
 and (d) for the on-chain bridge only, that the finalized
 datum's stored accumulator commits to the off-chain final UTxO (the `ηEq` hypothesis of `reflects`,
 supplied per finalization), irreducible because νHead authenticates η via the multisignature, not by
@@ -143,9 +144,9 @@ recomputing it. The verified aggregate is SYSTEM-RELATIVE (`AggVerified sys snap
 aggregate `aggSigOf sys snap` built from `sigs sys`), which keeps the confirmation layer
 non-vacuous: tying it to the signing system's recorded signatures makes `AggVerified sys snap`
 correctly false where the signatures are absent yet satisfiable where every party signed, so a model
-with genuine confirmations exists. #propName[Liveness] remains a postulate pending the
-temporal/fairness layer (P3). The prose lemmas
-further below give the informal arguments these proofs mirror.
+with genuine confirmations exists. #propName[Liveness] is not yet even _stated_: its type is left
+abstract pending a deferred temporal/fairness layer, so nothing about it is assumed to hold. The
+prose lemmas further below give the informal arguments these proofs mirror.
 
 #dparagraph[Scope (what these proofs do and do not cover).] To avoid over-reading the word "unified":
 these §7 proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
@@ -195,7 +196,7 @@ conflict-freedom and snapshot-number conjuncts of `Reflects` are derived, leavin
 accumulator's commitment to the off-chain UTxO as the single assumed conjunct, supplied per
 finalization as the explicit hypothesis `ηEq` (a hypothesis, not a global axiom, since `finalize`
 admits any matching-number datum). *Liveness* additionally needs a
-temporal/fairness layer (P3).
+temporal/fairness layer (deferred).
 
 This section states the model and the property statements; the machine-checked results are
 rendered in @sec:security-theorems, and their *proof terms* (the `invariant` induction and its
@@ -246,7 +247,7 @@ confirmedNo st = Snapshot.number (LocalState.confirmed st)
 
 ```agda
 -- ════════════════════════════════════════════════════════════════════════════════════════════
--- P1-real: DERIVING the agreement/applicability of confirmed snapshots from a signature model.
+-- The signature model: DERIVING the agreement/applicability of confirmed snapshots.
 -- We record individual party
 -- signatures, declare a snapshot CONFIRMABLE (`Certified`) only once EVERY party signed it (the
 -- coordinated head's full multisignature), and constrain HONEST signing to applicable snapshots,
@@ -348,6 +349,9 @@ postulate
 -- plus the aggregation scheme's structure, not a monolithic aggregate-level axiom. Downstream uses
 -- (`confirm`, `soundness`, `reflects`, `confCert-all`) consume it through this unchanged type.
 ms-unforgeable : ∀ sys snap → AggVerified sys snap → Certified sys snap
+```
+
+```
 ms-unforgeable sys snap aggOK i = sigUnforge sys snap i (aggSound sys snap aggOK i)
 ```
 
@@ -540,7 +544,7 @@ Consistency = ∀ (sys : System) → Reachable sys → HoldsAt sys
 ```
 
 ```agda
--- ── P2: Soundness and Completeness (Chain) ─────────────────────────────────────────────────
+-- ── Soundness and Completeness (Chain) ─────────────────────────────────────────────────────
 -- The finalized on-chain UTxO is the closed/fanned-out snapshot applied to U₀. That snapshot is
 -- certified (the head closes only against a fully-signed snapshot), so by `cert-applicable` it is
 -- conflict-free.
@@ -596,10 +600,11 @@ record Reflects (sys : System) (snap : Snapshot) : Set where
     accCommits    : OC.ηOf (onChain sys) ≡ OC.accUTxO (outsOf finalUtxo)  -- on-chain accumulator commits to it
 ```
 
-```agda
--- Liveness (head; needs the temporal/fairness layer, P3) remains abstract.
+```
+-- Liveness (head) is deliberately not yet STATED: the temporal/fairness layer it needs is
+-- deferred, so its type is left abstract (nothing about it is assumed to hold).
 postulate
-  Liveness : Set   -- TODO(D4-P3): under the liveness condition
+  Liveness : Set
 ```
 
 #dparagraph[Consistency.]
@@ -618,7 +623,7 @@ postulate
   it follows that
   $Uinit applytx (Tbar_i union Tbar_j) != bot$
 
-  _Machine-checked as `consistency` (above), *derived* from the signature model: each honest
+  _Machine-checked as `consistency` (@sec:security-theorems), *derived* from the signature model: each honest
   party's confirmed set is applicable (`conf-applicable`: a confirmed snapshot is certified, so it
   carries that party's own signature, and honest parties sign only applicable snapshots), and the two
   confirmed sets nest (`confirmed-nest`, derived via `cert-nest` from the honest extend-your-own-confirmed
@@ -704,7 +709,7 @@ We call this the _liveness condition_.
   $Ufinal != bot$ (i.e., $Ufinal$ is a valid state), and soundness
   follows.
 
-  _Machine-checked as #raw("soundness") above ($Ufinal = U_0 applytx tilde(T) != bot$ with
+  _Machine-checked as #raw("soundness") in @sec:security-theorems ($Ufinal = U_0 applytx tilde(T) != bot$ with
   $tilde(T)$ the certified finalized snapshot). The $!= bot$ is *derived*: a
   certified snapshot carries an honest party's signature, and honest parties sign only applicable
   snapshots (`cert-applicable`). The $tilde(T) subset.eq inter.big_(i in honest) That_i$ conjunct
@@ -725,7 +730,7 @@ We call this the _liveness condition_.
   $union.big_(p_i in Hcont) Tbar_i subset.eq inter.big_(p_i in honest) That_i$,
   and completeness follows.
 
-  _Machine-checked as #raw("completeness") above: each honest party's $Tbar_i subset.eq tilde(T)$
+  _Machine-checked as #raw("completeness") in @sec:security-theorems: each honest party's $Tbar_i subset.eq tilde(T)$
   (the finalized snapshot itself) whenever $bars_i <= s_f$, *derived* from `cert-nest` (L2),
   `confCert-of` (the party's confirmed snapshot is genesis-or-certified) and `ms-unforgeable` (the
   finalized snapshot is certified). The $bars_i <= s_f$ premise is the "latest multi-signed snapshot
