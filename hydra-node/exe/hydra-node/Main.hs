@@ -6,7 +6,7 @@ module Main where
 import Hydra.Prelude hiding (fromList, intercalate)
 
 import Control.Concurrent (mkWeakThreadId)
-import Control.Exception (AsyncException (UserInterrupt), throwTo)
+import Control.Exception (AsyncException (UserInterrupt), IOException, throwTo)
 import Data.ByteString (intercalate)
 import Data.List (stripPrefix)
 import GHC.Weak (deRefWeak)
@@ -16,6 +16,7 @@ import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Config (loadConfig)
 import Hydra.Logging (Verbosity (..))
+import Hydra.Logging.Convert (ConvertFailure (..), ConvertResult (..), convertLogStream)
 import Hydra.Network (showHost)
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
@@ -23,7 +24,8 @@ import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
-  Command (GenHydraKey, Publish, Run),
+  Command (ConvertLogs, GenHydraKey, Publish, Run),
+  ConvertLogsOptions (..),
   PublishOptions (..),
   RunOptions (..),
   defaultRunOptions,
@@ -78,7 +80,31 @@ main = do
         `catch` \(SomeException e) -> die $ displayException e
     GenHydraKey outputFile ->
       either (die . show) pure =<< genHydraKeys outputFile
+    ConvertLogs options ->
+      -- NOTE: Only 'IOException' (e.g. missing input file); the 'ExitCode'
+      -- from 'exitFailure' on truncated input must propagate.
+      convertLogs options
+        `catch` \(e :: IOException) -> die $ displayException e
  where
+  convertLogs ConvertLogsOptions{logFile, outputFile} =
+    withInput $ \inH ->
+      withOutput $ \outH -> do
+        ConvertResult{converted, failedAt} <- convertLogStream inH outH
+        case failedAt of
+          Nothing -> pure ()
+          Just ConvertFailure{byteOffset, failureReason} -> do
+            hPutStrLn stderr $
+              "Warning: stopped after "
+                <> show converted
+                <> " entries; undecodable data at byte offset "
+                <> show byteOffset
+                <> ": "
+                <> toString failureReason
+            exitFailure
+   where
+    withInput f = maybe (f stdin) (\fp -> withFile fp ReadMode f) logFile
+    withOutput f = maybe (f stdout) (\fp -> withFile fp WriteMode f) outputFile
+
   publish PublishOptions{chainBackendOptions, publishSigningKey} = do
     (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackendOptions of

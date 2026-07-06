@@ -5,6 +5,7 @@ module Hydra.API.ServerSpec where
 import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
 import Conduit (yieldMany)
 import Control.Concurrent.Class.MonadSTM (
   check,
@@ -24,8 +25,9 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
+import Hydra.API.ClientInput (ClientInput (Init))
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (InvalidInput (..), input)
+import Hydra.API.ServerOutput (ApiMessage (..), InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
@@ -314,6 +316,65 @@ spec =
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
+    describe "CBOR encoding" $ do
+      it "sends a CBOR-encoded greeting when connecting with encoding=cbor" $
+        failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer ->
+            withFreePort $ \port ->
+              withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+                withClient port "/?encoding=cbor&history=no" $ \conn -> do
+                  bytes :: ByteString <- receiveData conn
+                  case decodeFull' @(ApiMessage SimpleTx) bytes of
+                    Left err -> failure $ "Failed to decode CBOR greeting: " <> show err
+                    Right ApiGreetings{} -> pure ()
+                    Right other -> failure $ "Expected ApiGreetings, but got: " <> show other
+
+      it "sends server outputs CBOR-encoded to clients connected with encoding=cbor" $
+        failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer ->
+            withFreePort $ \port ->
+              withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
+                withClient port "/?encoding=cbor&history=no" $ \conn -> do
+                  _greeting :: ByteString <- receiveData conn
+                  arbitraryEvent <- generate genStateEventForApi
+                  let expectedMessage =
+                        fromMaybe (error "failed to convert stateEvent") $
+                          mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
+                  putEvent arbitraryEvent
+                  bytes :: ByteString <- receiveData conn
+                  case decodeFull' @(ApiMessage SimpleTx) bytes of
+                    Left err -> failure $ "Failed to decode CBOR server output: " <> show err
+                    Right (ApiTimedServerOutput timedOutput) -> timedOutput `shouldBe` expectedMessage
+                    Right other -> failure $ "Expected ApiTimedServerOutput, but got: " <> show other
+
+      it "accepts CBOR-encoded client inputs when connected with encoding=cbor" $
+        failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer ->
+            withFreePort $ \port -> do
+              inputs <- newLabelledTQueueIO "cbor-inputs"
+              let recordInput = atomically . writeTQueue inputs
+              withTestAPIServerWithCallback port alice (mockSource []) tracer recordInput $ \_ ->
+                withClient port "/?encoding=cbor&history=no" $ \conn -> do
+                  _greeting :: ByteString <- receiveData conn
+                  sendBinaryData conn $ serialize' (Init :: ClientInput SimpleTx)
+                  failAfter 1 $ atomically (readTQueue inputs) `shouldReturn` Init
+
+      it "sends a CBOR-encoded InvalidInput when input is not valid CBOR" $
+        failAfter 5 $
+          showLogsOnFailure "ServerSpec" $ \tracer ->
+            withFreePort $ \port ->
+              withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+                withClient port "/?encoding=cbor&history=no" $ \conn -> do
+                  _greeting :: ByteString <- receiveData conn
+                  let garbage = "not a valid CBOR message" :: ByteString
+                  sendBinaryData conn garbage
+                  bytes :: ByteString <- receiveData conn
+                  case decodeFull' @(ApiMessage SimpleTx) bytes of
+                    Left err -> failure $ "Failed to decode CBOR InvalidInput: " <> show err
+                    Right (ApiInvalidInput InvalidInput{input = echoed}) ->
+                      echoed `shouldBe` encodeBase16 garbage
+                    Right other -> failure $ "Expected ApiInvalidInput, but got: " <> show other
+
     describe "TLS support" $ do
       it "accepts TLS connections when configured" $ do
         showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -397,7 +458,20 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer =
-  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
+  withTestAPIServerWithCallback port actor eventSource tracer noop
+
+-- | Like 'withTestAPIServer', but with an explicit callback invoked for every
+-- 'ClientInput' received by the server.
+withTestAPIServerWithCallback ::
+  PortNumber ->
+  Party ->
+  EventSource (StateEvent SimpleTx) IO ->
+  Tracer IO APIServerLog ->
+  (ClientInput SimpleTx -> IO ()) ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
+  IO ()
+withTestAPIServerWithCallback port actor eventSource tracer =
+  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 

@@ -48,6 +48,20 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
+instance IsChainState tx => ToCBOR (HeadState tx) where
+  toCBOR = \case
+    Idle st -> toCBOR ("Idle" :: Text) <> toCBOR st
+    Open st -> toCBOR ("Open" :: Text) <> toCBOR st
+    Closed st -> toCBOR ("Closed" :: Text) <> toCBOR st
+
+instance IsChainState tx => FromCBOR (HeadState tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Idle" :: Text) -> Idle <$> fromCBOR
+      "Open" -> Open <$> fromCBOR
+      "Closed" -> Closed <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded HeadState"
+
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
@@ -87,6 +101,12 @@ deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
+instance IsChainState tx => ToCBOR (IdleState tx) where
+  toCBOR IdleState{chainState} = toCBOR chainState
+
+instance IsChainState tx => FromCBOR (IdleState tx) where
+  fromCBOR = IdleState <$> fromCBOR
+
 -- ** Open
 
 -- | An 'Open' head with a 'CoordinatedHeadState' tracking off-chain
@@ -104,6 +124,17 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
+
+instance IsChainState tx => ToCBOR (OpenState tx) where
+  toCBOR OpenState{parameters, coordinatedHeadState, chainState, headId, headSeed} =
+    toCBOR parameters
+      <> toCBOR coordinatedHeadState
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+
+instance IsChainState tx => FromCBOR (OpenState tx) where
+  fromCBOR = OpenState <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -135,6 +166,29 @@ deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
 deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+
+instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} =
+    toCBOR localUTxO
+      <> toCBOR localTxs
+      <> toCBOR allTxs
+      <> toCBOR confirmedSnapshot
+      <> toCBOR seenSnapshot
+      <> toCBOR currentDepositTxId
+      <> toCBOR decommitTx
+      <> toCBOR version
+
+instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
+  fromCBOR =
+    CoordinatedHeadState
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -199,6 +253,28 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
         pure $ mkSeenSnapshot snapshot signatories
       other -> fail $ "unknown SeenSnapshot tag: " <> toString other
 
+-- Manual instances that exclude 'signableBytes' from CBOR (it is derived from
+-- 'snapshot' and recomputed on deserialisation), like the JSON instances above.
+instance IsTx tx => ToCBOR (SeenSnapshot tx) where
+  toCBOR = \case
+    NoSeenSnapshot ->
+      toCBOR ("NoSeenSnapshot" :: Text)
+    LastSeenSnapshot{lastSeen} ->
+      toCBOR ("LastSeenSnapshot" :: Text) <> toCBOR lastSeen
+    RequestedSnapshot{lastSeen, requested} ->
+      toCBOR ("RequestedSnapshot" :: Text) <> toCBOR lastSeen <> toCBOR requested
+    SeenSnapshot{snapshot, signatories} ->
+      toCBOR ("SeenSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatories
+
+instance IsTx tx => FromCBOR (SeenSnapshot tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("NoSeenSnapshot" :: Text) -> pure NoSeenSnapshot
+      "LastSeenSnapshot" -> LastSeenSnapshot <$> fromCBOR
+      "RequestedSnapshot" -> RequestedSnapshot <$> fromCBOR <*> fromCBOR
+      "SeenSnapshot" -> mkSeenSnapshot <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded SeenSnapshot"
+
 -- | Smart constructor for 'SeenSnapshot' that computes and caches
 -- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
 mkSeenSnapshot ::
@@ -261,3 +337,30 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
+
+instance IsChainState tx => ToCBOR (ClosedState tx) where
+  toCBOR ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version, remainingFanoutOutputs, distributedFanoutOutputs} =
+    toCBOR parameters
+      <> toCBOR confirmedSnapshot
+      <> toCBOR contestationDeadline
+      <> toCBOR readyToFanoutSent
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+      <> toCBOR version
+      <> toCBOR remainingFanoutOutputs
+      <> toCBOR distributedFanoutOutputs
+
+instance IsChainState tx => FromCBOR (ClosedState tx) where
+  fromCBOR =
+    ClosedState
+      <$> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR

@@ -55,7 +55,7 @@ import Hydra.Cardano.Api (
   deserialiseFromRawBytesHex,
   serialiseToRawBytesHexText,
  )
-import Hydra.Logging (Verbosity (..))
+import Hydra.Logging (LogFormat (..), Verbosity (..))
 import Hydra.Network (Host (..), NodeId (..), PortNumber, WhichEtcd (..), readHost, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -164,6 +164,7 @@ parseRunOptions :: Value -> Parser RunOptions
 parseRunOptions = withObject "RunOptions" $ \o -> do
   checkUnknownKeys
     [ "quiet"
+    , "log-format"
     , "node-id"
     , "listen"
     , "advertise"
@@ -185,6 +186,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
     o
   quiet <- o .:? "quiet" .!= False
   let verbosity = if quiet then Quiet else Verbose "HydraNode"
+  logFormat <- o .:? "log-format" .!= JsonFormat
   nodeId <- NodeId <$> (o .:? "node-id" .!= "hydra-node-1")
   listenStr <- o .:? "listen" .!= ("0.0.0.0:5001" :: String)
   listen <- parseHost "listen" listenStr
@@ -217,6 +219,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   pure
     RunOptions
       { verbosity
+      , logFormat
       , nodeId
       , listen
       , advertise
@@ -481,6 +484,7 @@ renderConfig opts =
   object $
     [ "node-id" .= opts.nodeId
     , "quiet" .= (opts.verbosity == Quiet)
+    , "log-format" .= opts.logFormat
     , "listen" .= showHost opts.listen
     , "api-host" .= (show opts.apiHost :: Text)
     , "api-port" .= opts.apiPort

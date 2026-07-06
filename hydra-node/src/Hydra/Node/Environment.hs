@@ -86,6 +86,41 @@ instance FromJSON Environment where
       <*> o .: "unsyncedPeriod"
       <*> o .: "configuredPeers"
 
+-- | Like the JSON instance above, 'ToCBOR' deliberately omits 'signingKey'
+-- (CBOR-encoding a 'Secret' is a compile-time error by design).
+instance ToCBOR Environment where
+  toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, unsyncedPeriod, configuredPeers} =
+    toCBOR party
+      <> toCBOR otherParties
+      <> toCBOR participants
+      <> toCBOR contestationPeriod
+      <> toCBOR depositPeriod
+      <> toCBOR unsyncedPeriod
+      <> toCBOR configuredPeers
+
+-- | Like the JSON instance above, the decoded signing key is
+-- 'placeholderSigningKey', NOT the real key.
+instance FromCBOR Environment where
+  fromCBOR = do
+    party <- fromCBOR
+    otherParties <- fromCBOR
+    participants <- fromCBOR
+    contestationPeriod <- fromCBOR
+    depositPeriod <- fromCBOR
+    unsyncedPeriod <- fromCBOR
+    configuredPeers <- fromCBOR
+    pure
+      Environment
+        { party
+        , signingKey = placeholderSigningKey
+        , otherParties
+        , participants
+        , contestationPeriod
+        , depositPeriod
+        , unsyncedPeriod
+        , configuredPeers
+        }
+
 -- | Sentinel signing key used when an 'Environment' has to be
 -- reconstructed without access to the real one (e.g. JSON roundtrip
 -- tests). Exported so 'Arbitrary' generators can use the same value,

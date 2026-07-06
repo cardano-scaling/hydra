@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Logging (LogFormat (..))
 import Hydra.Network (Host (Host))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
@@ -23,8 +24,9 @@ import Hydra.Options (
   ChainBackendOptions (..),
   ChainConfig (..),
   Command (..),
+  ConvertLogsOptions (..),
   DirectOptions (..),
-  GenerateKeyPair (GenerateKeyPair),
+  GenerateKeyPair (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
@@ -37,7 +39,6 @@ import Hydra.Options (
   defaultLedgerConfig,
   defaultPublishOptions,
   defaultRunOptions,
-  outputFile,
   parseHydraCommandFromArgs,
   renderFailure,
   toArgs,
@@ -520,6 +521,30 @@ spec = parallel $
 
       it "should parse gen-hydra-keys without the output-file flag using default file name" $
         ["gen-hydra-key"] `shouldParse` GenHydraKey GenerateKeyPair{outputFile = "hydra-key"}
+
+    describe "log-format" $ do
+      it "parses --log-format cbor" $
+        ["--log-format", "cbor"]
+          `shouldParse` Run defaultRunOptions{logFormat = CborFormat}
+
+      it "defaults to json" $
+        [] `shouldParse` Run defaultRunOptions{logFormat = JsonFormat}
+
+      it "rejects unknown formats" $
+        shouldNotParse ["--log-format", "yaml"]
+
+    describe "convert-logs sub-command" $ do
+      it "parses convert-logs without arguments (stdin to stdout)" $
+        ["convert-logs"]
+          `shouldParse` ConvertLogs ConvertLogsOptions{logFile = Nothing, outputFile = Nothing}
+
+      it "parses convert-logs with input file and output option" $
+        mconcat
+          [ ["convert-logs"]
+          , ["logs.cbor"]
+          , ["--output", "logs.json"]
+          ]
+          `shouldParse` ConvertLogs ConvertLogsOptions{logFile = Just "logs.cbor", outputFile = Just "logs.json"}
 
     roundtripAndGoldenSpecs (Proxy @RunOptions)
 

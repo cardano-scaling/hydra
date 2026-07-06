@@ -7,7 +7,7 @@ newtype ApiTransactionTimeout = ApiTransactionTimeout
   { apiTransactionTimeoutNominalDiffTime :: NominalDiffTime
   }
   deriving stock (Eq, Ord)
-  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON)
+  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 -- | Truncates to whole seconds.
 instance Integral ApiTransactionTimeout where

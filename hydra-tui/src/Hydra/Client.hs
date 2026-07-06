@@ -4,13 +4,15 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Control.Concurrent.Async (link)
 import Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
 import Control.Exception (Handler (Handler), IOException, catches)
-import Data.Aeson (eitherDecodeStrict, encode)
+import Data.Aeson (encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
+import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..))
+import Hydra.API.WireFormat (decodeWire)
 import Hydra.Cardano.Api (TxId, UTxO)
 import Hydra.Cardano.Api.Prelude (
   PaymentKey,
@@ -32,27 +34,12 @@ import Network.WebSockets (Connection, ConnectionException, receiveData, runClie
 data HydraEvent tx
   = ClientConnected
   | ClientDisconnected
-  | Update (AllPossibleAPIMessages tx)
+  | Update (ApiMessage tx)
   | Tick UTCTime
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (HydraEvent tx)
 deriving stock instance IsChainState tx => Show (HydraEvent tx)
-
--- | All possible messages that expect to receive from the hydra-node.
-data AllPossibleAPIMessages tx
-  = ApiTimedServerOutput (TimedServerOutput tx)
-  | ApiClientMessage (ClientMessage tx)
-  | ApiGreetings (Greetings tx)
-  | ApiInvalidInput InvalidInput
-  deriving stock (Eq, Show)
-
-instance IsChainState tx => FromJSON (AllPossibleAPIMessages tx) where
-  parseJSON v =
-    (ApiTimedServerOutput <$> parseJSON v)
-      <|> (ApiClientMessage <$> parseJSON v)
-      <|> (ApiGreetings <$> parseJSON v)
-      <|> (ApiInvalidInput <$> parseJSON v)
 
 -- | Handle to interact with Hydra node
 data Client tx m = Client
@@ -75,7 +62,7 @@ withClient ::
   IsChainState tx =>
   Options ->
   ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoConnection} callback action = do
+withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoConnection, apiEncoding} callback action = do
   sk <- readExternalSk
   q <- newLabelledTBQueueIO "tui-client-queue" 10
   withAsyncLabelled ("client-reconnect", reconnect $ client q) $ \thread -> do
@@ -91,22 +78,29 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         }
  where
   readExternalSk = mkSecret <$> readFileTextEnvelopeThrow cardanoSigningKey
+
+  queryString = case apiEncoding of
+    JsonEncoding -> "/?history=yes"
+    CborEncoding -> "/?history=yes&encoding=cbor"
+
   -- TODO(SN): ping thread?
-  client q = runClient (toString hostname) (fromIntegral port) "/?history=yes" $ \con -> do
+  client q = runClient (toString hostname) (fromIntegral port) queryString $ \con -> do
     -- REVIEW(SN): is sharing the 'con' fine?
     callback ClientConnected
     raceLabelled_ ("receive-outputs", receiveOutputs con) ("send-inputs", sendInputs q con)
 
   receiveOutputs con = forever $ do
     msg <- receiveData con
-    case eitherDecodeStrict msg :: Either String (AllPossibleAPIMessages tx) of
+    case decodeWire apiEncoding (fromStrict msg) :: Either String (ApiMessage tx) of
       Left err -> throwIO $ ClientJSONDecodeError err msg
       Right output -> callback $ Update output
 
   sendInputs :: TBQueue IO (ClientInput tx) -> Connection -> IO ()
   sendInputs q con = forever $ do
     input <- atomically $ readTBQueue q
-    sendBinaryData con $ encode input
+    case apiEncoding of
+      JsonEncoding -> sendBinaryData con $ encode input
+      CborEncoding -> sendBinaryData con $ serialize' input
 
   reconnect f =
     f

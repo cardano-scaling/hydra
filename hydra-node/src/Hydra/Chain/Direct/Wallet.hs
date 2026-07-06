@@ -508,3 +508,22 @@ data TinyWalletLog
   deriving stock (Eq, Generic, Show)
 
 deriving anyclass instance ToJSON TinyWalletLog
+
+instance ToCBOR TinyWalletLog where
+  toCBOR = \case
+    BeginInitialize -> toCBOR ("BeginInitialize" :: Text)
+    EndInitialize{initialUTxO, tip} ->
+      toCBOR ("EndInitialize" :: Text) <> toCBOR initialUTxO <> toCBOR tip
+    BeginUpdate{point} -> toCBOR ("BeginUpdate" :: Text) <> toCBOR point
+    EndUpdate{newUTxO} -> toCBOR ("EndUpdate" :: Text) <> toCBOR newUTxO
+    SkipUpdate{point} -> toCBOR ("SkipUpdate" :: Text) <> toCBOR point
+
+instance FromCBOR TinyWalletLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("BeginInitialize" :: Text) -> pure BeginInitialize
+      "EndInitialize" -> EndInitialize <$> fromCBOR <*> fromCBOR
+      "BeginUpdate" -> BeginUpdate <$> fromCBOR
+      "EndUpdate" -> EndUpdate <$> fromCBOR
+      "SkipUpdate" -> SkipUpdate <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded TinyWalletLog"

@@ -21,6 +21,7 @@ import Data.List (nub)
 import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (showVersion)
+import Hydra.CBOR.Orphans ()
 import Hydra.Cardano.Api (
   ChainPoint (..),
   File (..),
@@ -35,7 +36,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Verbosity (..))
+import Hydra.Logging (LogFormat (..), Verbosity (..), readLogFormat)
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -47,6 +48,7 @@ import Options.Applicative (
   Parser,
   ParserInfo,
   ParserResult (..),
+  argument,
   auto,
   command,
   completer,
@@ -74,6 +76,7 @@ import Options.Applicative (
   renderFailure,
   short,
   showDefault,
+  showDefaultWith,
   strOption,
   value,
  )
@@ -85,6 +88,7 @@ data Command
   = Run RunOptions
   | Publish PublishOptions
   | GenHydraKey GenerateKeyPair
+  | ConvertLogs ConvertLogsOptions
   deriving stock (Show, Eq)
 
 -- | Subcommand names recognized by 'commandParser'.
@@ -93,13 +97,16 @@ data Command
 -- below, so that 'Main.hs' can't drift out of sync with the parser when a
 -- new subcommand is added.
 subcommandNames :: [String]
-subcommandNames = [publishScriptsName, genHydraKeyName]
+subcommandNames = [publishScriptsName, genHydraKeyName, convertLogsName]
 
 publishScriptsName :: String
 publishScriptsName = "publish-scripts"
 
 genHydraKeyName :: String
 genHydraKeyName = "gen-hydra-key"
+
+convertLogsName :: String
+convertLogsName = "convert-logs"
 
 commandParser :: Parser Command
 commandParser =
@@ -110,6 +117,7 @@ commandParser =
     hsubparser $
       publishScriptsCommand
         <> genHydraKeyCommand
+        <> convertLogsCommand
 
   publishScriptsCommand =
     command
@@ -147,6 +155,44 @@ commandParser =
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
       )
 
+  convertLogsCommand =
+    command
+      convertLogsName
+      ( info
+          (ConvertLogs <$> convertLogsOptionsParser)
+          ( progDesc
+              "Convert a CBOR-encoded log stream (as written with \
+              \--log-format cbor) back to newline-delimited JSON. \
+              \JSON input is passed through unchanged."
+          )
+      )
+
+data ConvertLogsOptions = ConvertLogsOptions
+  { logFile :: Maybe FilePath
+  -- ^ CBOR log file to read; 'Nothing' means stdin.
+  , outputFile :: Maybe FilePath
+  -- ^ File to write JSON lines to; 'Nothing' means stdout.
+  }
+  deriving stock (Show, Eq, Generic)
+
+convertLogsOptionsParser :: Parser ConvertLogsOptions
+convertLogsOptionsParser =
+  ConvertLogsOptions
+    <$> optional
+      ( argument
+          str
+          ( metavar "FILE"
+              <> help "CBOR log file to convert. Reads from stdin if not given."
+          )
+      )
+    <*> optional
+      ( strOption
+          ( long "output"
+              <> metavar "FILE"
+              <> help "File to write JSON lines to. Writes to stdout if not given."
+          )
+      )
+
 data PublishOptions = PublishOptions
   { chainBackendOptions :: ChainBackendOptions
   , publishSigningKey :: FilePath
@@ -174,6 +220,18 @@ data ChainBackendOptions
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR ChainBackendOptions where
+  toCBOR = \case
+    Direct direct -> toCBOR ("Direct" :: Text) <> toCBOR direct
+    Blockfrost blockfrost -> toCBOR ("Blockfrost" :: Text) <> toCBOR blockfrost
+
+instance FromCBOR ChainBackendOptions where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Direct" :: Text) -> Direct <$> fromCBOR
+      "Blockfrost" -> Blockfrost <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded ChainBackendOptions"
+
 data DirectOptions = DirectOptions
   { networkId :: NetworkId
   -- ^ Network identifier to which we expect to connect.
@@ -183,6 +241,13 @@ data DirectOptions = DirectOptions
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR DirectOptions where
+  toCBOR DirectOptions{networkId, nodeSocket} =
+    toCBOR networkId <> toCBOR nodeSocket
+
+instance FromCBOR DirectOptions where
+  fromCBOR = DirectOptions <$> fromCBOR <*> fromCBOR
+
 data BlockfrostOptions = BlockfrostOptions
   { projectPath :: FilePath
   -- ^ Path to the blockfrost project file
@@ -191,6 +256,13 @@ data BlockfrostOptions = BlockfrostOptions
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR BlockfrostOptions where
+  toCBOR BlockfrostOptions{projectPath, queryTimeout, retryTimeout} =
+    toCBOR (toText projectPath) <> toCBOR queryTimeout <> toCBOR retryTimeout
+
+instance FromCBOR BlockfrostOptions where
+  fromCBOR = BlockfrostOptions <$> (toString <$> fromCBOR @Text) <*> fromCBOR <*> fromCBOR
 
 defaultBlockfrostOptions :: BlockfrostOptions
 defaultBlockfrostOptions =
@@ -212,6 +284,7 @@ publishOptionsParser =
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
+  , logFormat :: LogFormat
   , nodeId :: NodeId
   , listen :: Host
   , advertise :: Maybe Host
@@ -233,6 +306,72 @@ data RunOptions = RunOptions
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR RunOptions where
+  toCBOR RunOptions{verbosity, logFormat, nodeId, listen, advertise, peers, apiHost, apiPort, tlsCertPath, tlsKeyPath, monitoringPort, hydraSigningKey, hydraVerificationKeys, persistenceDir, persistenceRotateAfter, chainConfig, ledgerConfig, whichEtcd, apiTransactionTimeout} =
+    toCBOR verbosity
+      <> toCBOR logFormat
+      <> toCBOR nodeId
+      <> toCBOR listen
+      <> toCBOR advertise
+      <> toCBOR peers
+      <> toCBOR apiHost
+      <> toCBOR apiPort
+      <> toCBOR (toText <$> tlsCertPath)
+      <> toCBOR (toText <$> tlsKeyPath)
+      <> toCBOR monitoringPort
+      <> toCBOR (toText hydraSigningKey)
+      <> toCBOR (toText <$> hydraVerificationKeys)
+      <> toCBOR (toText persistenceDir)
+      <> toCBOR persistenceRotateAfter
+      <> toCBOR chainConfig
+      <> toCBOR ledgerConfig
+      <> toCBOR whichEtcd
+      <> toCBOR apiTransactionTimeout
+
+instance FromCBOR RunOptions where
+  fromCBOR = do
+    verbosity <- fromCBOR
+    logFormat <- fromCBOR
+    nodeId <- fromCBOR
+    listen <- fromCBOR
+    advertise <- fromCBOR
+    peers <- fromCBOR
+    apiHost <- fromCBOR
+    apiPort <- fromCBOR
+    tlsCertPath <- fmap toString <$> fromCBOR @(Maybe Text)
+    tlsKeyPath <- fmap toString <$> fromCBOR @(Maybe Text)
+    monitoringPort <- fromCBOR
+    hydraSigningKey <- toString <$> fromCBOR @Text
+    hydraVerificationKeys <- fmap toString <$> fromCBOR @[Text]
+    persistenceDir <- toString <$> fromCBOR @Text
+    persistenceRotateAfter <- fromCBOR
+    chainConfig <- fromCBOR
+    ledgerConfig <- fromCBOR
+    whichEtcd <- fromCBOR
+    apiTransactionTimeout <- fromCBOR
+    pure
+      RunOptions
+        { verbosity
+        , logFormat
+        , nodeId
+        , listen
+        , advertise
+        , peers
+        , apiHost
+        , apiPort
+        , tlsCertPath
+        , tlsKeyPath
+        , monitoringPort
+        , hydraSigningKey
+        , hydraVerificationKeys
+        , persistenceDir
+        , persistenceRotateAfter
+        , chainConfig
+        , ledgerConfig
+        , whichEtcd
+        , apiTransactionTimeout
+        }
+
 -- Orphan instances
 instance ToJSON a => ToJSON (Positive a) where
   toJSON (Positive a) = toJSON a
@@ -240,11 +379,18 @@ instance ToJSON a => ToJSON (Positive a) where
 instance FromJSON a => FromJSON (Positive a) where
   parseJSON v = Positive <$> parseJSON v
 
+instance (Typeable a, ToCBOR a) => ToCBOR (Positive a) where
+  toCBOR (Positive a) = toCBOR a
+
+instance (Typeable a, FromCBOR a) => FromCBOR (Positive a) where
+  fromCBOR = Positive <$> fromCBOR
+
 -- | Default options as they should also be provided by 'runOptionsParser'.
 defaultRunOptions :: RunOptions
 defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
+    , logFormat = JsonFormat
     , nodeId = NodeId "hydra-node-1"
     , listen = Host "0.0.0.0" 5001
     , advertise = Nothing
@@ -273,6 +419,7 @@ instance Semigroup RunOptions where
   base <> cli =
     RunOptions
       { verbosity = o defaultRunOptions.verbosity base.verbosity cli.verbosity
+      , logFormat = o defaultRunOptions.logFormat base.logFormat cli.logFormat
       , nodeId = o defaultRunOptions.nodeId base.nodeId cli.nodeId
       , listen = o defaultRunOptions.listen base.listen cli.listen
       , advertise = o defaultRunOptions.advertise base.advertise cli.advertise
@@ -408,6 +555,7 @@ runOptionsParser :: Parser RunOptions
 runOptionsParser =
   RunOptions
     <$> verbosityParser
+    <*> logFormatParser
     <*> nodeIdParser
     <*> listenParser
     <*> optional advertiseParser
@@ -490,6 +638,12 @@ newtype LedgerConfig = CardanoLedgerConfig
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR LedgerConfig where
+  toCBOR (CardanoLedgerConfig fp) = toCBOR (toText fp)
+
+instance FromCBOR LedgerConfig where
+  fromCBOR = CardanoLedgerConfig . toString <$> fromCBOR @Text
+
 defaultLedgerConfig :: LedgerConfig
 defaultLedgerConfig =
   CardanoLedgerConfig
@@ -531,6 +685,18 @@ instance FromJSON ChainConfig where
         "CardanoChainConfig" -> Cardano <$> parseJSON (Object o)
         tag -> fail $ "unexpected tag " <> tag
 
+instance ToCBOR ChainConfig where
+  toCBOR = \case
+    Offline cfg -> toCBOR ("OfflineChainConfig" :: Text) <> toCBOR cfg
+    Cardano cfg -> toCBOR ("CardanoChainConfig" :: Text) <> toCBOR cfg
+
+instance FromCBOR ChainConfig where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("OfflineChainConfig" :: Text) -> Offline <$> fromCBOR
+      "CardanoChainConfig" -> Cardano <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded ChainConfig"
+
 data OfflineChainConfig = OfflineChainConfig
   { offlineHeadSeed :: HeadSeed
   -- ^ Manually provided seed of the offline head.
@@ -541,6 +707,19 @@ data OfflineChainConfig = OfflineChainConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR OfflineChainConfig where
+  toCBOR OfflineChainConfig{offlineHeadSeed, initialUTxOFile, ledgerGenesisFile} =
+    toCBOR offlineHeadSeed
+      <> toCBOR (toText initialUTxOFile)
+      <> toCBOR (toText <$> ledgerGenesisFile)
+
+instance FromCBOR OfflineChainConfig where
+  fromCBOR =
+    OfflineChainConfig
+      <$> fromCBOR
+      <*> (toString <$> fromCBOR @Text)
+      <*> (fmap toString <$> fromCBOR @(Maybe Text))
 
 data CardanoChainConfig = CardanoChainConfig
   { hydraScriptsTxId :: [TxId]
@@ -560,6 +739,29 @@ data CardanoChainConfig = CardanoChainConfig
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR CardanoChainConfig where
+  toCBOR CardanoChainConfig{hydraScriptsTxId, cardanoSigningKey, cardanoVerificationKeys, startChainFrom, contestationPeriod, depositPeriod, unsyncedPeriod, chainBackendOptions} =
+    toCBOR hydraScriptsTxId
+      <> toCBOR (toText cardanoSigningKey)
+      <> toCBOR (toText <$> cardanoVerificationKeys)
+      <> toCBOR startChainFrom
+      <> toCBOR contestationPeriod
+      <> toCBOR depositPeriod
+      <> toCBOR unsyncedPeriod
+      <> toCBOR chainBackendOptions
+
+instance FromCBOR CardanoChainConfig where
+  fromCBOR =
+    CardanoChainConfig
+      <$> fromCBOR
+      <*> (toString <$> fromCBOR @Text)
+      <*> (fmap toString <$> fromCBOR @[Text])
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
+      <*> fromCBOR
 
 defaultCardanoChainConfig :: CardanoChainConfig
 defaultCardanoChainConfig =
@@ -807,6 +1009,20 @@ verbosityParser =
     ( long "quiet"
         <> short 'q'
         <> help "Turns off logging."
+    )
+
+logFormatParser :: Parser LogFormat
+logFormatParser =
+  option
+    (eitherReader readLogFormat)
+    ( long "log-format"
+        <> metavar "json|cbor"
+        <> value JsonFormat
+        <> showDefaultWith (\case JsonFormat -> "json"; CborFormat -> "cbor")
+        <> help
+          "Format of the log stream written to stdout: newline-delimited \
+          \JSON or a binary CBOR sequence. CBOR logs can be converted back \
+          \to JSON with 'hydra-node convert-logs'."
     )
 
 listenParser :: Parser Host
@@ -1125,6 +1341,7 @@ toArgs :: RunOptions -> [String]
 toArgs
   RunOptions
     { verbosity
+    , logFormat
     , nodeId
     , listen
     , advertise
@@ -1144,6 +1361,7 @@ toArgs
     , apiTransactionTimeout
     } =
     isVerbose verbosity
+      <> toArgLogFormat logFormat
       <> ["--node-id", unpack nId]
       <> ["--listen", showHost listen]
       <> maybe [] (\h -> ["--advertise", showHost h]) advertise
@@ -1171,6 +1389,10 @@ toArgs
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
+
+    toArgLogFormat = \case
+      JsonFormat -> []
+      CborFormat -> ["--log-format", "cbor"]
 
     toArgPeer :: Host -> [String]
     toArgPeer p =

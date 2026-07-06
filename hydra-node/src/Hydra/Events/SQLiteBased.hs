@@ -82,6 +82,23 @@ data SQLiteLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+instance ToCBOR SQLiteLog where
+  toCBOR = \case
+    MigratingFromFileBased{legacyFile} ->
+      toCBOR ("MigratingFromFileBased" :: Text) <> toCBOR (toText legacyFile)
+    MigrationSkipped{legacyFile} ->
+      toCBOR ("MigrationSkipped" :: Text) <> toCBOR (toText legacyFile)
+    MigrationComplete{legacyFile} ->
+      toCBOR ("MigrationComplete" :: Text) <> toCBOR (toText legacyFile)
+
+instance FromCBOR SQLiteLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("MigratingFromFileBased" :: Text) -> MigratingFromFileBased . toString <$> fromCBOR @Text
+      "MigrationSkipped" -> MigrationSkipped . toString <$> fromCBOR @Text
+      "MigrationComplete" -> MigrationComplete . toString <$> fromCBOR @Text
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded SQLiteLog"
+
 -- | Items in the write-behind queue: either an event row to insert or a flush
 -- marker that the writer thread signals after processing all preceding items.
 type WriteItem = Either (TMVar IO ()) (Word64, ByteString)

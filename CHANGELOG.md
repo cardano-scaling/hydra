@@ -10,6 +10,23 @@ changes.
 
 ## [UNRELEASED]
 
+- Add a binary CBOR encoding option for the client API and the node logs
+  ([#1585](https://github.com/cardano-scaling/hydra/issues/1585),
+  [#2543](https://github.com/cardano-scaling/hydra/issues/2543), see also
+  [ADR-34](https://hydra.family/head-protocol/adr/34)):
+  - WebSocket clients opt in per connection with the `encoding=cbor` query
+    parameter; HTTP requests negotiate per request via
+    `Content-Type: application/cbor` and `Accept: application/cbor`. JSON
+    remains the default and existing clients are unaffected.
+  - A new `--log-format json|cbor` option (default `json`) switches the log
+    stream to a compact CBOR sequence, and a new `hydra-node convert-logs`
+    subcommand converts such logs back to JSON lines for inspection.
+  - `hydra-tui` gained a `--cbor` flag to use the binary encoding on its
+    WebSocket connection.
+  - The end-to-end benchmark (`hydra-cluster bench`) gained a `--cbor` flag
+    (all sub-commands) connecting its clients via the CBOR encoding, allowing
+    apples-to-apples throughput comparisons of the two API encodings.
+
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
   path and noticeably increases sustained in-head throughput for script-heavy

@@ -63,6 +63,7 @@ import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
+import Hydra.CBOR.Orphans ()
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
@@ -822,3 +823,41 @@ data EtcdLog
     BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance ToCBOR EtcdLog where
+  toCBOR = \case
+    EtcdLog{etcd} -> toCBOR ("EtcdLog" :: Text) <> toCBOR etcd
+    Reconnecting -> toCBOR ("Reconnecting" :: Text)
+    BroadcastFailed{reason} -> toCBOR ("BroadcastFailed" :: Text) <> toCBOR reason
+    FailedToDecodeLog{log = logLine, reason} ->
+      toCBOR ("FailedToDecodeLog" :: Text) <> toCBOR logLine <> toCBOR reason
+    FailedToDecodeValue{key, value, reason} ->
+      toCBOR ("FailedToDecodeValue" :: Text) <> toCBOR key <> toCBOR value <> toCBOR reason
+    CreatedLease{leaseId} -> toCBOR ("CreatedLease" :: Text) <> toCBOR leaseId
+    LowLeaseTTL{ttlRemaining} -> toCBOR ("LowLeaseTTL" :: Text) <> toCBOR ttlRemaining
+    NoKeepAliveResponse -> toCBOR ("NoKeepAliveResponse" :: Text)
+    MatchingProtocolVersion{version} ->
+      toCBOR ("MatchingProtocolVersion" :: Text) <> toCBOR version
+    WatchMessagesStartRevision{startRevision} ->
+      toCBOR ("WatchMessagesStartRevision" :: Text) <> toCBOR startRevision
+    WatchMessagesFallbackTo{compactRevision} ->
+      toCBOR ("WatchMessagesFallbackTo" :: Text) <> toCBOR compactRevision
+    BroadcastDeduped{previousModRev, observedModRev} ->
+      toCBOR ("BroadcastDeduped" :: Text) <> toCBOR previousModRev <> toCBOR observedModRev
+
+instance FromCBOR EtcdLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("EtcdLog" :: Text) -> EtcdLog <$> fromCBOR
+      "Reconnecting" -> pure Reconnecting
+      "BroadcastFailed" -> BroadcastFailed <$> fromCBOR
+      "FailedToDecodeLog" -> FailedToDecodeLog <$> fromCBOR <*> fromCBOR
+      "FailedToDecodeValue" -> FailedToDecodeValue <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "CreatedLease" -> CreatedLease <$> fromCBOR
+      "LowLeaseTTL" -> LowLeaseTTL <$> fromCBOR
+      "NoKeepAliveResponse" -> pure NoKeepAliveResponse
+      "MatchingProtocolVersion" -> MatchingProtocolVersion <$> fromCBOR
+      "WatchMessagesStartRevision" -> WatchMessagesStartRevision <$> fromCBOR
+      "WatchMessagesFallbackTo" -> WatchMessagesFallbackTo <$> fromCBOR
+      "BroadcastDeduped" -> BroadcastDeduped <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded EtcdLog"

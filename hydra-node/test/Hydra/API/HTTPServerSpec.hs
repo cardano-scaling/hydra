@@ -4,6 +4,7 @@ import Hydra.Prelude hiding (delete, get)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
@@ -19,7 +20,7 @@ import Hydra.API.HTTPServer (
   SubmitL2TxRequest (..),
   SubmitL2TxResponse (..),
   SubmitTxRequest (..),
-  TransactionSubmitted,
+  TransactionSubmitted (..),
   httpApp,
  )
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
@@ -31,7 +32,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain, PostTxError (..), draftDepositTx, submitTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
@@ -49,7 +50,8 @@ import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), delete, get, post, shouldRespondWith, with)
+import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody, matchHeaders), delete, get, post, shouldRespondWith, with, (<:>))
+import Test.Hspec.Wai qualified as Wai
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.Chain.Direct.State ()
@@ -973,12 +975,125 @@ apiServerSpec = do
           $ do
             delete ("/commits/" <> txidText) `shouldRespondWith` 503
 
+    describe "CBOR negotiation" $ do
+      responseChannel <- runIO newTChanIO
+
+      prop "GET /snapshot/last-seen responds CBOR given Accept: application/cbor" $ \nodeState -> do
+        let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot (headState nodeState)
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure nodeState)
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+          )
+          $ do
+            Wai.request "GET" "/snapshot/last-seen" [("Accept", "application/cbor")] mempty
+              `shouldRespondWith` 200
+                { matchHeaders = ["Content-Type" <:> "application/cbor"]
+                , matchBody = matchCBOR seenSnapshot
+                }
+
+      it "POST /cardano-transaction accepts a CBOR-encoded transaction" $ do
+        let tx = SimpleTx 1 mempty mempty
+            submittingChainHandle :: Chain SimpleTx IO
+            submittingChainHandle = dummyChainHandle{submitTx = const (pure ())}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              submittingChainHandle
+              testEnvironment
+              defaultPParams
+              getNodeState
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+          )
+          $ do
+            Wai.request
+              "POST"
+              "/cardano-transaction"
+              [("Content-Type", "application/cbor"), ("Accept", "application/cbor")]
+              (LBS.fromStrict $ serialize' tx)
+              `shouldRespondWith` 200
+                { matchHeaders = ["Content-Type" <:> "application/cbor"]
+                , matchBody = matchCBOR TransactionSubmitted
+                }
+
+      it "responds 400 given a malformed CBOR body with Content-Type: application/cbor" $ do
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              getNodeState
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+          )
+          $ do
+            Wai.request
+              "POST"
+              "/cardano-transaction"
+              [("Content-Type", "application/cbor")]
+              "not a valid CBOR transaction"
+              `shouldRespondWith` 400
+
+      prop "GET /snapshot/last-seen still responds JSON without CBOR headers" $ \nodeState -> do
+        let seenSnapshot :: SeenSnapshot SimpleTx = getSeenSnapshot (headState nodeState)
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure nodeState)
+              cantCommit
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+          )
+          $ do
+            get "/snapshot/last-seen"
+              `shouldRespondWith` 200
+                { matchHeaders = ["Content-Type" <:> "application/json"]
+                , matchBody = matchJSON seenSnapshot
+                }
+
 -- * Helpers
 
 -- | Create a 'ResponseMatcher' or 'MatchBody' from a JSON serializable value
 -- (using their 'IsString' instances).
 matchJSON :: (IsString s, ToJSON a) => a -> s
 matchJSON = fromString . decodeUtf8 . encode
+
+-- | Create a 'MatchBody' that CBOR-decodes the response body and compares it
+-- to an expected value.
+matchCBOR :: (Eq a, Show a, FromCBOR a) => a -> MatchBody
+matchCBOR expected =
+  MatchBody $ \_headers body ->
+    case decodeFull' (toStrict body) of
+      Left err -> Just $ "failed to decode CBOR body: " <> show err
+      Right actual
+        | actual == expected -> Nothing
+        | otherwise ->
+            Just $ "decoded CBOR body: " <> show actual <> "\ndoes not match expected: " <> show expected
 
 -- | Create a 'MatchBody' that validates the returned JSON response against a
 -- schema. NOTE: This raises impure exceptions, so only use it in this test

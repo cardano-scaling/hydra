@@ -16,23 +16,43 @@ import Data.ByteString.Lazy qualified as LBS
 import System.Directory (getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 
-import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
+import Hydra.CBOR.Orphans ()
+import Hydra.Logging (Envelope (..), LogFormat (..), defaultQueueSize, encodeEnvelopeCbor, encodeEnvelopeJson, mkEnvelope, withTracerOutputTo, withTracerOutputToFormat)
 
 main :: IO ()
 main = do
   n <- fromMaybe 10000 . (>>= readMaybe) <$> lookupEnv "LOG_N"
+  reportSizes
   defaultMain
     [ bgroup
         "logging"
         [ bench "buffered" $ nfIO (runBuffered n)
+        , bench "buffered-cbor" $ nfIO (runBufferedCbor n)
         , bench "flush-each" $ nfIO (runFlushEach n)
         ]
     ]
+
+-- | Report the encoded sizes of the benchmark message in both log formats.
+reportSizes :: IO ()
+reportSizes = do
+  e <- mkEnvelope "logging-bench" benchMessage
+  putStrLn $
+    "encoded log entry size: json="
+      <> show (LBS.length $ encodeEnvelopeJson e)
+      <> " bytes, cbor="
+      <> show (LBS.length $ encodeEnvelopeCbor e)
+      <> " bytes"
 
 runBuffered :: Int -> IO ()
 runBuffered n =
   withTempLogFile $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "logging-bench" $ \tracer ->
+      replicateM_ n (traceWith tracer benchMessage)
+
+runBufferedCbor :: Int -> IO ()
+runBufferedCbor n =
+  withTempLogFile $ \hdl ->
+    withTracerOutputToFormat CborFormat (BlockBuffering (Just 64000)) hdl "logging-bench" $ \tracer ->
       replicateM_ n (traceWith tracer benchMessage)
 
 runFlushEach :: Int -> IO ()

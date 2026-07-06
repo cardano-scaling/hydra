@@ -12,17 +12,10 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Encoding qualified as TLE
-import Hydra.API.ServerOutput (
-  ClientMessage (..),
-  DecommitInvalidReason (..),
-  Greetings (..),
-  InvalidInput (..),
-  ServerOutput (..),
-  TimedServerOutput (..),
- )
+import Hydra.API.ServerOutput (ApiMessage (..), ClientMessage (..), DecommitInvalidReason (..), Greetings (..), InvalidInput (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api hiding (Active, txId)
 import Hydra.Chain (PostTxError (..), failureReason, reason, redeemerPtr)
-import Hydra.Client (AllPossibleAPIMessages (..))
+import Hydra.Chain.Direct.State ()
 import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 import Hydra.Tx (HeadId, Snapshot (..), SnapshotNumber, txId)
@@ -51,7 +44,7 @@ toLogMessage RenderedMessage{rmSeverity, rmTime, rmSummary, rmDetail, rmRawJson}
     }
 
 -- | Render any API message into its three representations: summary, detail, raw JSON.
-renderMessage :: UTCTime -> AllPossibleAPIMessages Tx -> RenderedMessage
+renderMessage :: UTCTime -> ApiMessage Tx -> RenderedMessage
 renderMessage now = \case
   ApiTimedServerOutput tso@TimedServerOutput{time, output} ->
     renderServerOutput time output (encodeJson tso)

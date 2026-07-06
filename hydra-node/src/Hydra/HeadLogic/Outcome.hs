@@ -45,6 +45,23 @@ deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
 
+instance IsChainState tx => ToCBOR (Effect tx) where
+  toCBOR = \case
+    ClientEffect{clientMessage} ->
+      toCBOR ("ClientEffect" :: Text) <> toCBOR clientMessage
+    NetworkEffect{message} ->
+      toCBOR ("NetworkEffect" :: Text) <> toCBOR message
+    OnChainEffect{postChainTx} ->
+      toCBOR ("OnChainEffect" :: Text) <> toCBOR postChainTx
+
+instance IsChainState tx => FromCBOR (Effect tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ClientEffect" :: Text) -> ClientEffect <$> fromCBOR
+      "NetworkEffect" -> NetworkEffect <$> fromCBOR
+      "OnChainEffect" -> OnChainEffect <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Effect"
+
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
 data StateChanged tx
@@ -150,6 +167,189 @@ deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (Ch
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
+instance IsChainState tx => ToCBOR (StateChanged tx) where
+  toCBOR = \case
+    NetworkConnected ->
+      toCBOR ("NetworkConnected" :: Text)
+    NetworkDisconnected ->
+      toCBOR ("NetworkDisconnected" :: Text)
+    PeerConnected{peer} ->
+      toCBOR ("PeerConnected" :: Text) <> toCBOR peer
+    PeerDisconnected{peer} ->
+      toCBOR ("PeerDisconnected" :: Text) <> toCBOR peer
+    NetworkVersionMismatch{ourVersion, theirVersion} ->
+      toCBOR ("NetworkVersionMismatch" :: Text) <> toCBOR ourVersion <> toCBOR theirVersion
+    NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers} ->
+      toCBOR ("NetworkClusterIDMismatch" :: Text) <> toCBOR clusterPeers <> toCBOR misconfiguredPeers
+    HeadOpened{parameters, chainState, headId, headSeed, parties} ->
+      toCBOR ("HeadOpened" :: Text)
+        <> toCBOR parameters
+        <> toCBOR chainState
+        <> toCBOR headId
+        <> toCBOR headSeed
+        <> toCBOR parties
+    TransactionReceived{tx} ->
+      toCBOR ("TransactionReceived" :: Text) <> toCBOR tx
+    TransactionAppliedToLocalUTxO{headId, tx} ->
+      toCBOR ("TransactionAppliedToLocalUTxO" :: Text) <> toCBOR headId <> toCBOR tx
+    SnapshotRequestDecided{snapshotNumber} ->
+      toCBOR ("SnapshotRequestDecided" :: Text) <> toCBOR snapshotNumber
+    SnapshotRequested{requestedSnapshot, newLocalTxs, newCurrentDepositTxId} ->
+      toCBOR ("SnapshotRequested" :: Text)
+        <> toCBOR requestedSnapshot
+        <> toCBOR newLocalTxs
+        <> toCBOR newCurrentDepositTxId
+    PartySignedSnapshot{snapshotNumber, party, signature} ->
+      toCBOR ("PartySignedSnapshot" :: Text)
+        <> toCBOR snapshotNumber
+        <> toCBOR party
+        <> toCBOR signature
+    SnapshotConfirmed{headId, snapshot, signatures} ->
+      toCBOR ("SnapshotConfirmed" :: Text)
+        <> toCBOR headId
+        <> toCBOR snapshot
+        <> toCBOR signatures
+    DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
+      toCBOR ("DepositRecorded" :: Text)
+        <> toCBOR chainState
+        <> toCBOR headId
+        <> toCBOR depositTxId
+        <> toCBOR deposited
+        <> toCBOR created
+        <> toCBOR deadline
+    DepositActivated{depositTxId, chainTime, deposit} ->
+      toCBOR ("DepositActivated" :: Text)
+        <> toCBOR depositTxId
+        <> toCBOR chainTime
+        <> toCBOR deposit
+    DepositExpired{depositTxId, chainTime, deposit} ->
+      toCBOR ("DepositExpired" :: Text)
+        <> toCBOR depositTxId
+        <> toCBOR chainTime
+        <> toCBOR deposit
+    DepositRecovered{chainState, headId, depositTxId, recovered} ->
+      toCBOR ("DepositRecovered" :: Text)
+        <> toCBOR chainState
+        <> toCBOR headId
+        <> toCBOR depositTxId
+        <> toCBOR recovered
+    CommitApproved{headId, utxoToCommit} ->
+      toCBOR ("CommitApproved" :: Text) <> toCBOR headId <> toCBOR utxoToCommit
+    CommitFinalized{chainState, headId, newVersion, depositTxId} ->
+      toCBOR ("CommitFinalized" :: Text)
+        <> toCBOR chainState
+        <> toCBOR headId
+        <> toCBOR newVersion
+        <> toCBOR depositTxId
+    DecommitRecorded{headId, decommitTx} ->
+      toCBOR ("DecommitRecorded" :: Text) <> toCBOR headId <> toCBOR decommitTx
+    DecommitApproved{headId, decommitTxId, utxoToDecommit} ->
+      toCBOR ("DecommitApproved" :: Text)
+        <> toCBOR headId
+        <> toCBOR decommitTxId
+        <> toCBOR utxoToDecommit
+    DecommitInvalid{headId, decommitTx, decommitInvalidReason} ->
+      toCBOR ("DecommitInvalid" :: Text)
+        <> toCBOR headId
+        <> toCBOR decommitTx
+        <> toCBOR decommitInvalidReason
+    DecommitFinalized{chainState, headId, distributedUTxO, newVersion} ->
+      toCBOR ("DecommitFinalized" :: Text)
+        <> toCBOR chainState
+        <> toCBOR headId
+        <> toCBOR distributedUTxO
+        <> toCBOR newVersion
+    HeadClosed{headId, snapshotNumber, chainState, contestationDeadline} ->
+      toCBOR ("HeadClosed" :: Text)
+        <> toCBOR headId
+        <> toCBOR snapshotNumber
+        <> toCBOR chainState
+        <> toCBOR contestationDeadline
+    HeadContested{headId, chainState, contestationDeadline, snapshotNumber} ->
+      toCBOR ("HeadContested" :: Text)
+        <> toCBOR headId
+        <> toCBOR chainState
+        <> toCBOR contestationDeadline
+        <> toCBOR snapshotNumber
+    HeadIsReadyToFanout{headId} ->
+      toCBOR ("HeadIsReadyToFanout" :: Text) <> toCBOR headId
+    HeadFannedOut{headId, finalizedOutputs, chainState} ->
+      toCBOR ("HeadFannedOut" :: Text)
+        <> toCBOR headId
+        <> toCBOR finalizedOutputs
+        <> toCBOR chainState
+    HeadPartialFannedOut{headId, distributedOutputs, remainingOutputs, chainState} ->
+      toCBOR ("HeadPartialFannedOut" :: Text)
+        <> toCBOR headId
+        <> toCBOR distributedOutputs
+        <> toCBOR remainingOutputs
+        <> toCBOR chainState
+    ChainRolledBack{chainState} ->
+      toCBOR ("ChainRolledBack" :: Text) <> toCBOR chainState
+    TickObserved{chainPoint} ->
+      toCBOR ("TickObserved" :: Text) <> toCBOR chainPoint
+    IgnoredHeadInitializing{headId, contestationPeriod, parties, participants} ->
+      toCBOR ("IgnoredHeadInitializing" :: Text)
+        <> toCBOR headId
+        <> toCBOR contestationPeriod
+        <> toCBOR parties
+        <> toCBOR participants
+    TxInvalid{headId, utxo, transaction, validationError} ->
+      toCBOR ("TxInvalid" :: Text)
+        <> toCBOR headId
+        <> toCBOR utxo
+        <> toCBOR transaction
+        <> toCBOR validationError
+    LocalStateCleared{headId, snapshotNumber} ->
+      toCBOR ("LocalStateCleared" :: Text) <> toCBOR headId <> toCBOR snapshotNumber
+    Checkpoint{state = nodeState} ->
+      toCBOR ("Checkpoint" :: Text) <> toCBOR nodeState
+    NodeUnsynced{chainSlot, chainTime, drift} ->
+      toCBOR ("NodeUnsynced" :: Text) <> toCBOR chainSlot <> toCBOR chainTime <> toCBOR drift
+    NodeSynced{chainSlot, chainTime, drift} ->
+      toCBOR ("NodeSynced" :: Text) <> toCBOR chainSlot <> toCBOR chainTime <> toCBOR drift
+
+instance IsChainState tx => FromCBOR (StateChanged tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("NetworkConnected" :: Text) -> pure NetworkConnected
+      "NetworkDisconnected" -> pure NetworkDisconnected
+      "PeerConnected" -> PeerConnected <$> fromCBOR
+      "PeerDisconnected" -> PeerDisconnected <$> fromCBOR
+      "NetworkVersionMismatch" -> NetworkVersionMismatch <$> fromCBOR <*> fromCBOR
+      "NetworkClusterIDMismatch" -> NetworkClusterIDMismatch <$> fromCBOR <*> fromCBOR
+      "HeadOpened" -> HeadOpened <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "TransactionReceived" -> TransactionReceived <$> fromCBOR
+      "TransactionAppliedToLocalUTxO" -> TransactionAppliedToLocalUTxO <$> fromCBOR <*> fromCBOR
+      "SnapshotRequestDecided" -> SnapshotRequestDecided <$> fromCBOR
+      "SnapshotRequested" -> SnapshotRequested <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "PartySignedSnapshot" -> PartySignedSnapshot <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "SnapshotConfirmed" -> SnapshotConfirmed <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DepositRecorded" -> DepositRecorded <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DepositActivated" -> DepositActivated <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DepositExpired" -> DepositExpired <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DepositRecovered" -> DepositRecovered <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "CommitApproved" -> CommitApproved <$> fromCBOR <*> fromCBOR
+      "CommitFinalized" -> CommitFinalized <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DecommitRecorded" -> DecommitRecorded <$> fromCBOR <*> fromCBOR
+      "DecommitApproved" -> DecommitApproved <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DecommitInvalid" -> DecommitInvalid <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "DecommitFinalized" -> DecommitFinalized <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "HeadClosed" -> HeadClosed <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "HeadContested" -> HeadContested <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "HeadIsReadyToFanout" -> HeadIsReadyToFanout <$> fromCBOR
+      "HeadFannedOut" -> HeadFannedOut <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "HeadPartialFannedOut" -> HeadPartialFannedOut <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "ChainRolledBack" -> ChainRolledBack <$> fromCBOR
+      "TickObserved" -> TickObserved <$> fromCBOR
+      "IgnoredHeadInitializing" -> IgnoredHeadInitializing <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "TxInvalid" -> TxInvalid <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "LocalStateCleared" -> LocalStateCleared <$> fromCBOR <*> fromCBOR
+      "Checkpoint" -> Checkpoint <$> fromCBOR
+      "NodeUnsynced" -> NodeUnsynced <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "NodeSynced" -> NodeSynced <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded StateChanged"
+
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
     Continue {stateChanges :: [StateChanged tx], effects :: [Effect tx]}
@@ -169,6 +369,23 @@ instance Semigroup (Outcome tx) where
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
+
+instance IsChainState tx => ToCBOR (Outcome tx) where
+  toCBOR = \case
+    Continue{stateChanges, effects} ->
+      toCBOR ("Continue" :: Text) <> toCBOR stateChanges <> toCBOR effects
+    Wait{reason, stateChanges} ->
+      toCBOR ("Wait" :: Text) <> toCBOR reason <> toCBOR stateChanges
+    Error{error = logicError} ->
+      toCBOR ("Error" :: Text) <> toCBOR logicError
+
+instance IsChainState tx => FromCBOR (Outcome tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Continue" :: Text) -> Continue <$> fromCBOR <*> fromCBOR
+      "Wait" -> Wait <$> fromCBOR <*> fromCBOR
+      "Error" -> Error <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Outcome"
 
 noop :: Outcome tx
 noop = Continue [] []
@@ -206,3 +423,47 @@ data WaitReason tx
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
+
+instance IsTx tx => ToCBOR (WaitReason tx) where
+  toCBOR = \case
+    WaitOnNotApplicableTx{validationError} ->
+      toCBOR ("WaitOnNotApplicableTx" :: Text) <> toCBOR validationError
+    WaitOnSnapshotNumber{waitingForNumber} ->
+      toCBOR ("WaitOnSnapshotNumber" :: Text) <> toCBOR waitingForNumber
+    WaitOnSnapshotVersion{waitingForVersion} ->
+      toCBOR ("WaitOnSnapshotVersion" :: Text) <> toCBOR waitingForVersion
+    WaitOnSeenSnapshot ->
+      toCBOR ("WaitOnSeenSnapshot" :: Text)
+    WaitOnTxs{waitingForTxIds} ->
+      toCBOR ("WaitOnTxs" :: Text) <> toCBOR waitingForTxIds
+    WaitOnContestationDeadline ->
+      toCBOR ("WaitOnContestationDeadline" :: Text)
+    WaitOnNotApplicableDecommitTx{notApplicableReason} ->
+      toCBOR ("WaitOnNotApplicableDecommitTx" :: Text) <> toCBOR notApplicableReason
+    WaitOnUnresolvedCommit{commitUTxO} ->
+      toCBOR ("WaitOnUnresolvedCommit" :: Text) <> toCBOR commitUTxO
+    WaitOnUnresolvedDecommit{decommitTx} ->
+      toCBOR ("WaitOnUnresolvedDecommit" :: Text) <> toCBOR decommitTx
+    WaitOnDepositObserved{depositTxId} ->
+      toCBOR ("WaitOnDepositObserved" :: Text) <> toCBOR depositTxId
+    WaitOnDepositActivation{depositTxId} ->
+      toCBOR ("WaitOnDepositActivation" :: Text) <> toCBOR depositTxId
+    WaitOnNodeInSync{currentSlot} ->
+      toCBOR ("WaitOnNodeInSync" :: Text) <> toCBOR currentSlot
+
+instance IsTx tx => FromCBOR (WaitReason tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("WaitOnNotApplicableTx" :: Text) -> WaitOnNotApplicableTx <$> fromCBOR
+      "WaitOnSnapshotNumber" -> WaitOnSnapshotNumber <$> fromCBOR
+      "WaitOnSnapshotVersion" -> WaitOnSnapshotVersion <$> fromCBOR
+      "WaitOnSeenSnapshot" -> pure WaitOnSeenSnapshot
+      "WaitOnTxs" -> WaitOnTxs <$> fromCBOR
+      "WaitOnContestationDeadline" -> pure WaitOnContestationDeadline
+      "WaitOnNotApplicableDecommitTx" -> WaitOnNotApplicableDecommitTx <$> fromCBOR
+      "WaitOnUnresolvedCommit" -> WaitOnUnresolvedCommit <$> fromCBOR
+      "WaitOnUnresolvedDecommit" -> WaitOnUnresolvedDecommit <$> fromCBOR
+      "WaitOnDepositObserved" -> WaitOnDepositObserved <$> fromCBOR
+      "WaitOnDepositActivation" -> WaitOnDepositActivation <$> fromCBOR
+      "WaitOnNodeInSync" -> WaitOnNodeInSync <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded WaitReason"

@@ -23,6 +23,18 @@ This setup includes a [docker-compose.yaml](https://github.com/cardano-scaling/h
 
 Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line.
 
+In high-throughput scenarios the JSON encoding can become a significant overhead (transactions are hex-encoded inside JSON and inflate several-fold). Passing `--log-format cbor` switches the log stream to a compact binary encoding: an [RFC 8742](https://www.rfc-editor.org/rfc/rfc8742) CBOR sequence where each log entry is a self-delimiting CBOR item wrapped in tag 55799, so the stream always starts with the magic bytes `D9 D9 F7`, and appending or concatenating log files stays safe.
+
+Binary logs are inconvenient to inspect directly, so the same `hydra-node` binary can convert them back to the familiar JSON lines:
+
+```shell
+hydra-node convert-logs node.log.cbor --output node.log.json
+# or streaming:
+cat node.log.cbor | hydra-node convert-logs | jq .message.tag
+```
+
+The converter auto-detects JSON input and passes it through unchanged, and converts everything decodable from truncated files (e.g. after a crash), reporting the byte offset of any undecodable trailing data.
+
 ## Monitoring
 
 When the `--monitoring-port PORT` argument is provided, the `hydra-node` executable will expose a [Prometheus](https://prometheus.io) compatible HTTP `/metrics` endpoint on the specified port to enable metrics scraping.

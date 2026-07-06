@@ -5,7 +5,7 @@ import Hydra.Prelude
 -- | A new type wrapped period of time to be used in deposit validity.
 newtype DepositPeriod = DepositPeriod {toNominalDiffTime :: NominalDiffTime}
   deriving stock (Eq, Ord)
-  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON)
+  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 -- | Truncates to whole seconds.
 instance Integral DepositPeriod where

@@ -8,6 +8,7 @@ module HydraNode (
 import Hydra.Cardano.Api hiding (getVerificationKey)
 import Hydra.Prelude hiding (STM, delete)
 
+import Cardano.Binary (serialize')
 import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
@@ -23,10 +24,13 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
+import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
+import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (Timing (..), readConfigFile)
-import Hydra.Logging (Tracer, Verbosity (..), traceWith)
+import Hydra.Logging (LogFormat (..), Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
@@ -38,7 +42,7 @@ import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
 import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
-import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
+import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendBinaryData, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -69,6 +73,10 @@ data HydraClient = HydraClient
   -- ^ Port the hydra-node exposes Prometheus metrics on, if enabled.
   , connection :: Connection
   , tracer :: Tracer IO HydraNodeLog
+  , apiEncoding :: ApiEncoding
+  -- ^ Which wire encoding was negotiated for 'connection' (via the
+  -- @encoding=cbor@ query param). 'send' and 'waitNext' translate between
+  -- CBOR on the wire and the 'Aeson.Value's used by test assertions.
   }
 
 -- | Create an input as expected by 'send'.
@@ -76,12 +84,19 @@ input :: Text -> [Pair] -> Aeson.Value
 input tag pairs = object $ ("tag" .= tag) : pairs
 
 send :: HydraClient -> Aeson.Value -> IO ()
-send HydraClient{tracer, hydraNodeId, connection} v = do
-  sendTextData connection (Aeson.encode v)
+send HydraClient{tracer, hydraNodeId, connection, apiEncoding} v = do
+  case apiEncoding of
+    JsonEncoding -> sendTextData connection (Aeson.encode v)
+    CborEncoding ->
+      -- Convert the 'Aeson.Value' to a typed 'ClientInput' and send its CBOR.
+      case Aeson.fromJSON v of
+        Aeson.Error err -> failure $ "send: cannot convert to ClientInput for CBOR encoding: " <> err
+        Aeson.Success (clientInput :: ClientInput Tx) ->
+          sendBinaryData connection (serialize' clientInput)
   traceWith tracer $ SentMessage hydraNodeId v
 
 waitNext :: HasCallStack => HydraClient -> IO Aeson.Value
-waitNext HydraClient{connection} = do
+waitNext HydraClient{connection, apiEncoding} = do
   -- NOTE: We delay on connection errors to give other assertions the chance to
   -- provide more detail (e.g. checkProcessHasNotDied) before this fails.
   bytes <-
@@ -90,9 +105,17 @@ waitNext HydraClient{connection} = do
         threadDelay 1
         failure $ "waitNext: " <> show err
       Right msg -> pure msg
-  case Aeson.eitherDecode' bytes of
-    Left err -> failure $ "WaitNext failed to decode msg: " <> err
-    Right value -> pure value
+  case apiEncoding of
+    JsonEncoding ->
+      case Aeson.eitherDecode' bytes of
+        Left err -> failure $ "WaitNext failed to decode msg: " <> err
+        Right value -> pure value
+    CborEncoding ->
+      -- Decode the typed message and re-encode as a JSON 'Aeson.Value', so
+      -- that existing lens-based assertions keep working unchanged.
+      case decodeWire CborEncoding bytes of
+        Left err -> failure $ "WaitNext failed to decode CBOR msg: " <> err
+        Right (msg :: ApiMessage Tx) -> pure $ toJSON msg
 
 -- | Create an output as expected by 'waitFor' and 'waitForAll'.
 output :: Text -> [Pair] -> Aeson.Value
@@ -510,6 +533,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   pure $
     RunOptions
       { verbosity = Verbose "HydraNode"
+      , logFormat = JsonFormat
       , nodeId = NodeId $ show hydraNodeId
       , listen = Host "0.0.0.0" listenPort
       , advertise = Nothing
@@ -732,11 +756,17 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} monitor
 
   queryParams = fromMaybe "/" mQueryParams
 
+  -- NOTE: Derived from the query string, so callers opt into CBOR by adding
+  -- @encoding=cbor@ to their query params.
+  apiEncoding
+    | "encoding=cbor" `List.isInfixOf` queryParams = CborEncoding
+    | otherwise = JsonEncoding
+
   doConnect connectedOnce = runClient (T.unpack hostname) (fromInteger . toInteger $ port) queryParams $
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
-      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer}
+      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding}
       sendClose connection ("Bye" :: Text)
       pure res
 

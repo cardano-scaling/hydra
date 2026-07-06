@@ -476,3 +476,48 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
+
+instance IsChainState tx => ToCBOR (HydraNodeLog tx) where
+  toCBOR = \case
+    BeginInput{by, inputId, input} ->
+      toCBOR ("BeginInput" :: Text) <> toCBOR by <> toCBOR inputId <> toCBOR input
+    EndInput{by, inputId} ->
+      toCBOR ("EndInput" :: Text) <> toCBOR by <> toCBOR inputId
+    BeginEffect{by, inputId, effectId, effect} ->
+      toCBOR ("BeginEffect" :: Text)
+        <> toCBOR by
+        <> toCBOR inputId
+        <> toCBOR effectId
+        <> toCBOR effect
+    EndEffect{by, inputId, effectId} ->
+      toCBOR ("EndEffect" :: Text) <> toCBOR by <> toCBOR inputId <> toCBOR effectId
+    LogicOutcome{by, outcome} ->
+      toCBOR ("LogicOutcome" :: Text) <> toCBOR by <> toCBOR outcome
+    DroppedFromQueue{inputId, input} ->
+      toCBOR ("DroppedFromQueue" :: Text) <> toCBOR inputId <> toCBOR input
+    LoadingState ->
+      toCBOR ("LoadingState" :: Text)
+    LoadedState{lastEventId, nodeState} ->
+      toCBOR ("LoadedState" :: Text) <> toCBOR (getLast lastEventId) <> toCBOR nodeState
+    LoadedChainState{lastKnownChainPoint} ->
+      toCBOR ("LoadedChainState" :: Text) <> toCBOR lastKnownChainPoint
+    ReplayingState ->
+      toCBOR ("ReplayingState" :: Text)
+    Misconfiguration{misconfigurationErrors} ->
+      toCBOR ("Misconfiguration" :: Text) <> toCBOR misconfigurationErrors
+
+instance IsChainState tx => FromCBOR (HydraNodeLog tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("BeginInput" :: Text) -> BeginInput <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "EndInput" -> EndInput <$> fromCBOR <*> fromCBOR
+      "BeginEffect" -> BeginEffect <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "EndEffect" -> EndEffect <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "LogicOutcome" -> LogicOutcome <$> fromCBOR <*> fromCBOR
+      "DroppedFromQueue" -> DroppedFromQueue <$> fromCBOR <*> fromCBOR
+      "LoadingState" -> pure LoadingState
+      "LoadedState" -> LoadedState . Last <$> fromCBOR <*> fromCBOR
+      "LoadedChainState" -> LoadedChainState <$> fromCBOR
+      "ReplayingState" -> pure ReplayingState
+      "Misconfiguration" -> Misconfiguration <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded HydraNodeLog"

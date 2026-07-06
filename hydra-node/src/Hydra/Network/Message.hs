@@ -23,6 +23,20 @@ data NetworkEvent msg
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance (Typeable msg, ToCBOR msg) => ToCBOR (NetworkEvent msg) where
+  toCBOR = \case
+    ConnectivityEvent connectivity ->
+      toCBOR ("ConnectivityEvent" :: Text) <> toCBOR connectivity
+    ReceivedMessage{sender, msg} ->
+      toCBOR ("ReceivedMessage" :: Text) <> toCBOR sender <> toCBOR msg
+
+instance (Typeable msg, FromCBOR msg) => FromCBOR (NetworkEvent msg) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ConnectivityEvent" :: Text) -> ConnectivityEvent <$> fromCBOR
+      "ReceivedMessage" -> ReceivedMessage <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded NetworkEvent"
+
 data Message tx
   = ReqTx {transaction :: tx}
   | ReqSn

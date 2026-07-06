@@ -28,6 +28,7 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
+import Hydra.API.ServerOutput (ApiEncoding (..))
 import Hydra.Cardano.Api (Coin)
 import Hydra.Cluster.Faucet (
   FaucetLog,
@@ -426,6 +427,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                     networkId
                 , cardanoSigningKey = externalKeyFilePath
                 , fuelVerificationKey = Nothing
+                , apiEncoding = JsonEncoding
                 }
         )
         ( "action-brick-test"
@@ -480,6 +482,7 @@ setupNodeAndTUI' hostname lovelace action =
                         networkId
                     , cardanoSigningKey = externalKeyFilePath
                     , fuelVerificationKey = Nothing
+                    , apiEncoding = JsonEncoding
                     }
               )
               ("action-brick-test", action brickTest)

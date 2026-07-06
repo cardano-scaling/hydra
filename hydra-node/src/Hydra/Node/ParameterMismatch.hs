@@ -21,3 +21,20 @@ data ParamMismatch
   | SavedNetworkPartiesInconsistent {numberOfParties :: Int}
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON)
+
+instance ToCBOR ParamMismatch where
+  toCBOR = \case
+    ContestationPeriodMismatch{loadedCp, configuredCp} ->
+      toCBOR ("ContestationPeriodMismatch" :: Text) <> toCBOR loadedCp <> toCBOR configuredCp
+    PartiesMismatch{loadedParties, configuredParties} ->
+      toCBOR ("PartiesMismatch" :: Text) <> toCBOR loadedParties <> toCBOR configuredParties
+    SavedNetworkPartiesInconsistent{numberOfParties} ->
+      toCBOR ("SavedNetworkPartiesInconsistent" :: Text) <> toCBOR numberOfParties
+
+instance FromCBOR ParamMismatch where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ContestationPeriodMismatch" :: Text) -> ContestationPeriodMismatch <$> fromCBOR <*> fromCBOR
+      "PartiesMismatch" -> PartiesMismatch <$> fromCBOR <*> fromCBOR
+      "SavedNetworkPartiesInconsistent" -> SavedNetworkPartiesInconsistent <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded ParamMismatch"

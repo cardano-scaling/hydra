@@ -472,6 +472,7 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
   "api-host": "127.0.0.1",
   "api-port": 4001,
   "quiet": false,
+  "log-format": "json",
   "hydra-signing-key": "/abs/path/to/alice.sk",
   "hydra-verification-keys": ["/abs/path/to/bob.vk"],
   "peers": ["127.0.0.1:5002"],

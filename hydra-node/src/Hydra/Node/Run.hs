@@ -26,7 +26,7 @@ import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
-import Hydra.Logging (Tracer, traceWith, withTracer)
+import Hydra.Logging (Tracer, traceWith, withTracerFormat)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
@@ -83,7 +83,7 @@ run opts = do
   -- node is still initialising the cryptographic setup.
   void $ evaluate $ either (error . show) length KZG.g1BuiltinPoints
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  withTracer verbosity $ \tracer' -> do
+  withTracerFormat logFormat verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
     withMonitoring monitoringPort tracer' $ \tracer -> do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
@@ -162,6 +162,7 @@ run opts = do
 
   RunOptions
     { verbosity
+    , logFormat
     , monitoringPort
     , persistenceDir
     , persistenceRotateAfter

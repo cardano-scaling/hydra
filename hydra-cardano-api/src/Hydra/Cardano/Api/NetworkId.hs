@@ -25,3 +25,17 @@ instance FromJSON NetworkId where
       "Mainnet" -> pure Mainnet
       "Testnet" -> Testnet <$> o .: "magic"
       _ -> fail "Expected tag to be Mainnet | Testnet"
+
+-- missing CBOR instances
+
+instance ToCBOR NetworkId where
+  toCBOR = \case
+    Mainnet -> toCBOR ("Mainnet" :: Text)
+    Testnet (NetworkMagic magic) -> toCBOR ("Testnet" :: Text) <> toCBOR magic
+
+instance FromCBOR NetworkId where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Mainnet" :: Text) -> pure Mainnet
+      "Testnet" -> Testnet . NetworkMagic <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded NetworkId"

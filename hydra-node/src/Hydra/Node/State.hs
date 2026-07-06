@@ -26,6 +26,13 @@ data ChainPointTime = ChainPointTime
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR ChainPointTime where
+  toCBOR ChainPointTime{currentSlot, currentChainTime, drift} =
+    toCBOR currentSlot <> toCBOR currentChainTime <> toCBOR drift
+
+instance FromCBOR ChainPointTime where
+  fromCBOR = ChainPointTime <$> fromCBOR <*> fromCBOR <*> fromCBOR
+
 data NodeState tx
   = -- | Normal operation of the node where it is connected and has a recent
     -- view of the chain.
@@ -54,6 +61,26 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
 
+instance IsChainState tx => ToCBOR (NodeState tx) where
+  toCBOR = \case
+    NodeInSync{headState, pendingDeposits, chainPointTime} ->
+      toCBOR ("NodeInSync" :: Text)
+        <> toCBOR headState
+        <> toCBOR pendingDeposits
+        <> toCBOR chainPointTime
+    NodeCatchingUp{headState, pendingDeposits, chainPointTime} ->
+      toCBOR ("NodeCatchingUp" :: Text)
+        <> toCBOR headState
+        <> toCBOR pendingDeposits
+        <> toCBOR chainPointTime
+
+instance IsChainState tx => FromCBOR (NodeState tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("NodeInSync" :: Text) -> NodeInSync <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "NodeCatchingUp" -> NodeCatchingUp <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
+
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
   NodeCatchingUp
@@ -77,6 +104,18 @@ data SyncedStatus = InSync | CatchingUp
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR SyncedStatus where
+  toCBOR = \case
+    InSync -> toCBOR ("InSync" :: Text)
+    CatchingUp -> toCBOR ("CatchingUp" :: Text)
+
+instance FromCBOR SyncedStatus where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("InSync" :: Text) -> pure InSync
+      "CatchingUp" -> pure CatchingUp
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded SyncedStatus"
+
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
 syncedStatus NodeCatchingUp{} = CatchingUp
@@ -97,9 +136,34 @@ deriving stock instance IsTx tx => Show (Deposit tx)
 deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
+instance IsTx tx => ToCBOR (Deposit tx) where
+  toCBOR Deposit{headId, deposited, created, deadline, status} =
+    toCBOR headId
+      <> toCBOR deposited
+      <> toCBOR created
+      <> toCBOR deadline
+      <> toCBOR status
+
+instance IsTx tx => FromCBOR (Deposit tx) where
+  fromCBOR = Deposit <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+
 data DepositStatus = Inactive | Active | Expired
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR DepositStatus where
+  toCBOR = \case
+    Inactive -> toCBOR ("Inactive" :: Text)
+    Active -> toCBOR ("Active" :: Text)
+    Expired -> toCBOR ("Expired" :: Text)
+
+instance FromCBOR DepositStatus where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Inactive" :: Text) -> pure Inactive
+      "Active" -> pure Active
+      "Expired" -> pure Expired
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded DepositStatus"
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

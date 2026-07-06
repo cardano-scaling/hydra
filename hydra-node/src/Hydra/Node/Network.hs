@@ -39,7 +39,7 @@
 module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
-  NetworkLog,
+  NetworkLog (..),
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)
@@ -84,3 +84,15 @@ data NetworkLog
   | Etcd EtcdLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance ToCBOR NetworkLog where
+  toCBOR = \case
+    Authenticate authLog -> toCBOR ("Authenticate" :: Text) <> toCBOR authLog
+    Etcd etcdLog -> toCBOR ("Etcd" :: Text) <> toCBOR etcdLog
+
+instance FromCBOR NetworkLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Authenticate" :: Text) -> Authenticate <$> fromCBOR
+      "Etcd" -> Etcd <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded NetworkLog"

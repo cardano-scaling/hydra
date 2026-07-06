@@ -96,3 +96,13 @@ data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Part
 -- Without the tag, the message is pretty cryptic in the logs
 instance ToJSON AuthLog where
   toJSON = genericToJSON defaultOptions{tagSingleConstructors = True}
+
+instance ToCBOR AuthLog where
+  toCBOR MessageDropped{message, signature, party} =
+    toCBOR ("MessageDropped" :: Text) <> toCBOR message <> toCBOR signature <> toCBOR party
+
+instance FromCBOR AuthLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("MessageDropped" :: Text) -> MessageDropped <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded AuthLog"

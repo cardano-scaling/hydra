@@ -648,6 +648,23 @@ data StartingDecision
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+instance ToCBOR StartingDecision where
+  toCBOR = \case
+    FromProvided chainPoint ->
+      toCBOR ("FromProvided" :: Text) <> toCBOR chainPoint
+    FromTip chainPoint ->
+      toCBOR ("FromTip" :: Text) <> toCBOR chainPoint
+    FromPersisted{chainPoint, startChainFromSet} ->
+      toCBOR ("FromPersisted" :: Text) <> toCBOR chainPoint <> toCBOR startChainFromSet
+
+instance FromCBOR StartingDecision where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("FromProvided" :: Text) -> FromProvided <$> fromCBOR
+      "FromTip" -> FromTip <$> fromCBOR
+      "FromPersisted" -> FromPersisted <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded StartingDecision"
+
 data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: TxId}
@@ -661,3 +678,38 @@ data CardanoChainLog
   | PartialFanoutFailed {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance ToCBOR CardanoChainLog where
+  toCBOR = \case
+    ToPost{toPost} -> toCBOR ("ToPost" :: Text) <> toCBOR toPost
+    PostingTx{txId = postedTxId} -> toCBOR ("PostingTx" :: Text) <> toCBOR postedTxId
+    PostedTx{txId = postedTxId} -> toCBOR ("PostedTx" :: Text) <> toCBOR postedTxId
+    PostingFailed{tx, postTxError} ->
+      toCBOR ("PostingFailed" :: Text) <> toCBOR tx <> toCBOR postTxError
+    RolledForward{point, receivedTxIds} ->
+      toCBOR ("RolledForward" :: Text) <> toCBOR point <> toCBOR receivedTxIds
+    RolledBackward{point} ->
+      toCBOR ("RolledBackward" :: Text) <> toCBOR point
+    Wallet walletLog ->
+      toCBOR ("Wallet" :: Text) <> toCBOR walletLog
+    StartingChainDecision decision ->
+      toCBOR ("StartingChainDecision" :: Text) <> toCBOR decision
+    BlockfrostTransientError{reason, retryDelay} ->
+      toCBOR ("BlockfrostTransientError" :: Text) <> toCBOR reason <> toCBOR retryDelay
+    PartialFanoutFailed{reason} ->
+      toCBOR ("PartialFanoutFailed" :: Text) <> toCBOR reason
+
+instance FromCBOR CardanoChainLog where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("ToPost" :: Text) -> ToPost <$> fromCBOR
+      "PostingTx" -> PostingTx <$> fromCBOR
+      "PostedTx" -> PostedTx <$> fromCBOR
+      "PostingFailed" -> PostingFailed <$> fromCBOR <*> fromCBOR
+      "RolledForward" -> RolledForward <$> fromCBOR <*> fromCBOR
+      "RolledBackward" -> RolledBackward <$> fromCBOR
+      "Wallet" -> Wallet <$> fromCBOR
+      "StartingChainDecision" -> StartingChainDecision <$> fromCBOR
+      "BlockfrostTransientError" -> BlockfrostTransientError <$> fromCBOR <*> fromCBOR
+      "PartialFanoutFailed" -> PartialFanoutFailed <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded CardanoChainLog"

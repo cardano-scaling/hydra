@@ -7,6 +7,7 @@ import Hydra.API.HTTPServerSpec qualified
 import Hydra.API.ServerOutputSpec qualified
 import Hydra.API.ServerSpec qualified
 import Hydra.BehaviorSpec qualified
+import Hydra.CBORSpec qualified
 import Hydra.Chain.BlockfrostSpec qualified
 import Hydra.Chain.Direct.HandlersSpec qualified
 import Hydra.Chain.Direct.ScriptRegistrySpec qualified
@@ -28,6 +29,7 @@ import Hydra.JSONSchemaSpec qualified
 import Hydra.Ledger.Cardano.TimeSpec qualified
 import Hydra.Ledger.CardanoSpec qualified
 import Hydra.Ledger.SimpleSpec qualified
+import Hydra.Logging.ConvertSpec qualified
 import Hydra.Logging.MonitoringSpec qualified
 import Hydra.LoggingSpec qualified
 import Hydra.Model.MockChainSpec qualified
@@ -61,6 +63,7 @@ main =
     , testSpec "Chain.Direct.Tx" Hydra.Chain.Direct.TxSpec.spec
     , testSpec "Chain.Direct.TxTrace" Hydra.Chain.Direct.TxTraceSpec.spec
     , testSpec "Chain.Direct.Wallet" Hydra.Chain.Direct.WalletSpec.spec
+    , testSpec "CBOR" Hydra.CBORSpec.spec
     , testSpec "Chain.ScriptRegistry" Hydra.Chain.ScriptRegistrySpec.spec
     , testSpec "Config" Hydra.ConfigSpec.spec
     , testSpec "Crypto" Hydra.CryptoSpec.spec
@@ -74,6 +77,7 @@ main =
     , testSpec "Ledger.Cardano" Hydra.Ledger.CardanoSpec.spec
     , testSpec "Ledger.Cardano.Time" Hydra.Ledger.Cardano.TimeSpec.spec
     , testSpec "Ledger.Simple" Hydra.Ledger.SimpleSpec.spec
+    , testSpec "Logging.Convert" Hydra.Logging.ConvertSpec.spec
     , testSpec "Logging.Monitoring" Hydra.Logging.MonitoringSpec.spec
     , testSpec "Logging" Hydra.LoggingSpec.spec
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec

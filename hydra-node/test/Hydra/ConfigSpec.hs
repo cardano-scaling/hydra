@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Config (isSelfAddress, loadConfig, resolvePaths)
-import Hydra.Logging (Verbosity (..))
+import Hydra.Logging (LogFormat (..), Verbosity (..))
 import Hydra.Network (Host (..))
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -207,6 +207,11 @@ spec = do
       withYaml "quiet: true\n" $ \path _dir -> do
         opts <- loadConfig path
         verbosity opts `shouldBe` Quiet
+
+    it "parses log-format" $ do
+      withYaml "log-format: cbor\n" $ \path _dir -> do
+        opts <- loadConfig path
+        logFormat opts `shouldBe` CborFormat
 
     it "parses hydra-signing-key" $ do
       withYaml "hydra-signing-key: my.sk\n" $ \path dir -> do

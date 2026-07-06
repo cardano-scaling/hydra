@@ -10,7 +10,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 -- Beyond this period the node will refuse to process new transactions and signing snapshots.
 newtype UnsyncedPeriod = UnsyncedPeriod {unsyncedPeriodToNominalDiffTime :: NominalDiffTime}
   deriving stock (Eq, Ord)
-  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON)
+  deriving newtype (Show, Read, Num, Enum, Real, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 -- | Truncates to whole seconds.
 instance Integral UnsyncedPeriod where
