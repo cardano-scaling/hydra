@@ -7,9 +7,24 @@
 #   (b) extraction-faithfulness / encoding postulates (hash/out-ref encodings and the
 #       participant / no-mint faithfulness assumptions).
 #
-# This script extracts that set from the Agda sources and FAILS if it drifts from the documented ledger
-# (agda-haskell-alignment.md, "Trust ledger"). So a NEW mock or postulate cannot enter the trusted base
-# silently: adding one fails the build until both the EXPECTED_* lists here and the ledger are updated.
+# This script extracts that set from the Agda sources and FAILS if it drifts from the ledger below.
+# So a NEW mock or postulate cannot enter the trusted base silently: adding one fails the build until
+# both the EXPECTED_* lists and this ledger table are updated.
+#
+# Trust ledger (what each trusted item assumes; the HeadValidatorAgreement test covers each against the
+# real validator/crypto where constructible):
+#   Ops mocks (const-true boundaries the reference delegates):
+#     closeCryptoOK    close snapshot signature + accumulator-commitment hash (real Ed25519 in the test)
+#     incCryptoOK      increment/decrement snapshot signature (real Ed25519, bad-sig rejected)
+#     contestCryptoOK  contest snapshot signature, η binding, contest-once (real Ed25519)
+#     fanoutCryptoOK   fanout KZG membership + value conservation (real BLS pairing, empty subset)
+#     recoverHashOK    recover recovered-outputs serialisation hash (empty-deposit case)
+#     initPlacementOK  μHead seed-spent + token placement (real validateTokensMinting)
+#     claimIncrementOK νDeposit Claim Increment-redeemer coupling (head-id half IS checked)
+#   Postulates (typecheck-only):
+#     cidToNat, refCodeOf                          head-id / out-ref → ℕ encodings (used with cong only)
+#     signerCodes, ptCodes, participantSigned→ref  signer / PT-name encodings + overlap faithfulness
+#     mintEntryCount, noMint→ref                   mint-entry count encoding + noMint faithfulness
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -49,7 +64,7 @@ if [ "$actual_postulates" != "$expected_postulates" ]; then
   fail=1
 fi
 if [ "$fail" -ne 0 ]; then
-  echo "Update spec/agda-haskell-alignment.md (the Trust ledger section) and the EXPECTED_* lists in this script."
+  echo "Update the trust-ledger table in this script's header comment and the EXPECTED_* lists."
   exit 1
 fi
 echo "check-trust-ledger: OK — trusted base is the 7 documented Ops mocks + 7 documented postulates."

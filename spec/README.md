@@ -66,8 +66,8 @@ When you change something, the places to update:
   decidable, mirror it in `Reference.agda`, prove the bundle implies it in
   `ReferenceBridge.agda`, run `hydra-agda/regenerate.sh`, expose it in the
   `hydra-agda` shim, and extend the `HeadValidatorAgreement` family. New
-  mocks/postulates in the bridge fail `check-trust-ledger.sh` until both its
-  manifest and the alignment doc's trust ledger are updated.
+  mocks/postulates in the bridge fail `check-trust-ledger.sh` until its
+  trust-ledger table and `EXPECTED_*` lists are updated.
 - **Off-chain node behaviour** (`hydra-node` `HeadLogic`): update the §6
   handler arms in `src/Hydra/Protocol/OffChain.lagda.typ` (and the protocol
   figure if the visible behaviour changed); mirror decidable decisions in
@@ -77,6 +77,7 @@ When you change something, the places to update:
   (`src/diagrams.typ` `state-fields`); `check-refs.sh` fails on constructor
   drift, but the per-state field *tuples* it does not compare, so eyeball the
   rendered figures.
-- **Discrepancies**: anything found between spec and implementation goes in
-  `discrepancies-and-fixes.md` (the canonical log); `agda-haskell-alignment.md`
-  documents what the differential layer covers and its trust ledger.
+- **Discrepancies**: record anything found between the spec and the
+  implementation in the PR description or an issue; the differential layer's
+  trusted base (injected mocks and encoding/faithfulness postulates) is
+  enumerated and drift-checked by `check-trust-ledger.sh`.
