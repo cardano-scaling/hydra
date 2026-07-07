@@ -68,7 +68,7 @@ instance ChainBackend ATestBackend where
   queryUTxOFor _ vk' = ATestBackend $ do
     vk <- ask
     if vk == vk'
-      then throwIO $ BlockfrostError (NoUTxOFound (toAddress vk))
+      then throwIO $ BlockfrostClientError (NoUTxOFound (toAddress vk))
       else failure $ "queryUTxOFor received unexpected VerificationKey: " <> show vk'
 
   -- Other methods are not needed for this test.
