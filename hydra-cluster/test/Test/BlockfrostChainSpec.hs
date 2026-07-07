@@ -71,7 +71,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
   -- Blockfrost API returns inline datums as base16-encoded CBOR text. Dropping the
   -- datum when converting queried UTxO loses the CRS datum of the script registry,
   -- which makes every fanout fail validation with H9 (NoOutputDatumError).
-  it "queryScriptRegistry preserves the CRS inline datum" $ \_tracer -> do
+  it "queryScriptRegistry preserves the CRS inline datum @requiresBlockfrost" $ \_tracer -> do
     prj <- Blockfrost.projectFromFile blockfrostProjectPath
     -- Officially published hydra scripts for this network as recorded in networks.json
     hydraScriptsTxIds <- parseNetworkTxIds hydraNodeVersion "preview"
@@ -83,6 +83,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       TxOutDatumInline _ -> pure ()
       other -> failure $ "CRS reference output " <> show crsIn <> " lost its inline datum: " <> show other
 
+  -- Parked until #2753 makes the Blockfrost lifecycle fast enough to run in CI.
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
     pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
     withTempDir "hydra-cluster" $ \tmp -> do

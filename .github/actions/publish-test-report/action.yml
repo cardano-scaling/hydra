@@ -14,6 +14,10 @@ inputs:
   artifact-name:
     description: Name used for the uploaded JUnit XML artifact.
     required: true
+  require-tests:
+    description: Fail the check when the JUnit report contains no tests.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -27,7 +31,7 @@ runs:
         check_name: ${{ inputs.check-name }}
         detailed_summary: true
         include_passed: false
-        require_tests: false
+        require_tests: ${{ inputs.require-tests }}
 
     - name: 💾 Upload JUnit XML
       if: always()
