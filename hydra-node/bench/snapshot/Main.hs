@@ -116,7 +116,7 @@ benchCell n m = do
           -- NodeState forces the strict-field cascade like state hydration
           -- does. Compare against full-update to isolate the aggregate share.
           bench "update-and-aggregate" $
-            whnf (\i -> aggregateState st (update testEnvironment ledger now st i)) reqSn
+            whnf (aggregateState st . update testEnvironment ledger now st) reqSn
         , bench "ledger-reapply-only" $ whnf (reapplyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit
