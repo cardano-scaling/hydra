@@ -324,20 +324,38 @@ initValid→ref ctx seed cid hk n cp v η ada b =
 -- does not require). `cidToNat` is a typecheck-only encoding postulate (it is not part of the extracted
 -- reference; the `HeadValidatorAgreement` test supplies a concrete deterministic encoding, `cidToInteger`,
 -- injective on the distinct head ids it compares, on the Haskell side).
--- The Increment-redeemer coupling stays injected. So a reference reject ⇒ the spec rejects ⇒ (by the
--- deposit.ak Claim arm) the validator rejects (`DepositPeriodSurpassed` / `expect_increment_redeemer`).
+-- The Increment-redeemer coupling comes from the JOINT bundle below. So a reference reject ⇒ the
+-- spec rejects ⇒ (by the deposit.ak Claim arm) the validator rejects (`DepositPeriodSurpassed` /
+-- `expect_increment_redeemer`).
 postulate cidToNat : ℍ → ℕ
 
-mockOpsClaim : R.OpsClaim
-mockOpsClaim = record { claimIncrementOK = λ _ → true }
+-- The abstract redeemer's pinned on-chain constructor index (the `makeIsDataIndexed ''Input` list in
+-- HeadState.hs, which deposit.ak's `is_head_increment` reads raw; the alignment fact is that the Agda
+-- and Plutus constructor orders coincide). A definition, not a postulate: the coupling bridge below
+-- discharges `redeemerIndex (Increment …) == 0` by computation.
+redeemerIndex : HeadRedeemer → ℕ
+redeemerIndex (Increment _ _ _)          = 0
+redeemerIndex (Decrement _ _ _)          = 1
+redeemerIndex (Close _)                  = 2
+redeemerIndex (Contest _)                = 3
+redeemerIndex (Fanout _ _ _)             = 4
+redeemerIndex (PartialFanout _ _)        = 5
+redeemerIndex (FinalPartialFanout _ _ _) = 6
 
-claimValid→ref : ∀ ctx cid tRec C hcid hk n cp v η ada
-  → claimValid ctx (mkDepositDatum cid tRec C) (Open hcid hk n cp v η ada)
-  → R.claimRefᵇ mockOpsClaim
-       (R.mkClaimIOᶜ tRec (ValidityInterval.hi (Context.validity ctx)) (cidToNat cid) (cidToNat hcid)) ≡ true
-claimValid→ref ctx cid tRec C hcid hk n cp v η ada b =
-  &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline b))
- (&&-intro (==-sound (cong cidToNat (ClaimValid.claimedByOwnHead b))) refl)
+-- Joint claim bundle ⇒ the extracted claim checker. The before-deadline and own-head conjuncts come
+-- from the νDeposit side (`ClaimTxValid.depositSideOK`); the Increment-redeemer coupling comes from
+-- the νHEAD side - the joint bundle's head input is spent with `Increment ξ s ref` BY TYPE
+-- (`ClaimTxValid.headSideOK`'s step), so its pinned index is 0 definitionally and the reference's
+-- `headRedeemerIdxC == 0` conjunct is discharged by `refl`. No mock and no new postulate: the only
+-- assumed piece remains the `cidToNat` encoding (used with `cong`, no injectivity).
+claimTxValid→ref : ∀ ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref
+  → claimTxValid ctx (mkDepositDatum cid tRec C) (Open hcid hk n cp v η ada) headOut ξ s ref
+  → R.claimRefᵇ
+      (R.mkClaimIOᶜ tRec (ValidityInterval.hi (Context.validity ctx)) (cidToNat cid) (cidToNat hcid)
+         (redeemerIndex (Increment ξ s ref))) ≡ true
+claimTxValid→ref ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref b =
+  &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline (ClaimTxValid.depositSideOK b)))
+ (&&-intro (==-sound (cong cidToNat (ClaimValid.claimedByOwnHead (ClaimTxValid.depositSideOK b)))) refl)
 
 -- ── contest parameter preservation (scalar half of mustNotChangeParameters: headId + cp) ─────────
 -- The contest transition's produced `Closed` reuses the SAME `cid`/`cp` binders, so head-id and

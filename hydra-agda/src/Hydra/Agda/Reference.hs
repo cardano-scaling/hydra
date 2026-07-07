@@ -46,8 +46,6 @@ module Hydra.Agda.Reference (
 
   -- * deposit claim (νDeposit)
   HsClaimIO (..),
-  OpsClaim,
-  mkOpsClaim,
   checkClaim,
 
   -- * participant signature (shared: close / contest / increment / decrement)
@@ -136,7 +134,7 @@ checkDec = M.d_decRef'7495'_168
 -- reflect @incrementValueOK@ per asset via @quantityOfᴺ-+ᵛ@ (@incPerAsset→ref@). Catches a selective
 -- single-token siphon that leaves the two scalar totals balanced.
 checkPerAsset :: [HsAssetIO] -> Bool
-checkPerAsset = M.d_perAssetConserved'7495'_406
+checkPerAsset = M.d_perAssetConserved'7495'_402
 
 -- | Injected boundary for contest.
 type OpsContest = M.T_OpsContest_222
@@ -197,21 +195,16 @@ mkOpsInit = M.C_OpsInit'46'constructor_4075
 checkInit :: OpsInit -> HsMintIO -> Bool
 checkInit = M.d_initRef'7495'_320
 
--- | Injected boundary for deposit claim: the Increment-redeemer coupling of @expect_increment_redeemer@
--- (the deposit is spent by an @Increment@ of the head). The head-id equality half is now checked.
-type OpsClaim = M.T_OpsClaim_346
-
-mkOpsClaim :: (HsClaimIO -> Bool) -> OpsClaim
-mkOpsClaim = M.C_OpsClaim'46'constructor_4229
-
 -- | Decidable deposit-claim checker (@deposit.ak@ Claim arm): the increment tx collecting the deposit
 -- is posted BEFORE the recover deadline (@validityHi \<= tRecover@, i.e. txValidityMax <= t_recover,
--- the validator's @before_deadline@ / @DepositPeriodSurpassed@) AND the deposit datum's head id equals
+-- the validator's @before_deadline@ / @DepositPeriodSurpassed@), the deposit datum's head id equals
 -- the spent head's id (@depositCid == headCid@, the head-id half of @expect_increment_redeemer@; the
--- ids are passed as the two trailing 'HsClaimIO' integer encodings); proved to reflect @claimValid@ in
--- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The Increment-redeemer coupling is delegated.
-checkClaim :: OpsClaim -> HsClaimIO -> Bool
-checkClaim = M.d_claimRef'7495'_352
+-- ids are passed as 'HsClaimIO' integer encodings), AND the redeemer spending the head input has the
+-- @Increment@ constructor index 0 (the other half of @expect_increment_redeemer@, deposit.ak's
+-- @is_head_increment@; the observed index is the last 'HsClaimIO' field). No injected boundary;
+-- proved to reflect the joint @claimTxValid@ in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
+checkClaim :: HsClaimIO -> Bool
+checkClaim = M.d_claimRef'7495'_350
 
 -- | Decidable, fully-extractable participant-signature checker (the §5.4–5.7
 -- @mustBeSignedByParticipant@, shared by close\/contest\/increment\/decrement): SOME transaction
@@ -222,7 +215,7 @@ checkClaim = M.d_claimRef'7495'_352
 -- disjoint and the reference reject. Proved to reflect @signedByParticipant@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkParticipantSigned :: HsSignerIO -> Bool
-checkParticipantSigned = M.d_participantSignedRef'7495'_386
+checkParticipantSigned = M.d_participantSignedRef'7495'_382
 
 -- | Decidable, fully-extractable no-mint\/no-burn checker (the §5.4–5.7 @mustNotMintOrBurn@, shared by
 -- close\/contest\/increment\/decrement): the tx mints and burns nothing. The differential supplies the
@@ -231,7 +224,7 @@ checkParticipantSigned = M.d_participantSignedRef'7495'_386
 -- count positive and the reference rejects. Proved to reflect @noMint@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkNoMint :: Integer -> Bool
-checkNoMint = M.d_noMintRef'7495'_412
+checkNoMint = M.d_noMintRef'7495'_408
 
 -- | Decidable, fully-extractable "referenced output is spent" checker (the increment
 -- @claimedDepositIsSpent@ and the μHead @seedInputIsConsumed@): a referenced out-ref is among the tx's
@@ -241,7 +234,7 @@ checkNoMint = M.d_noMintRef'7495'_412
 -- absent and the reference rejects. Proved to reflect @depositSpentOK@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkRefSpent :: Integer -> [Integer] -> Bool
-checkRefSpent = M.d_refSpent'7495'_416
+checkRefSpent = M.d_refSpent'7495'_412
 
 -- | Decidable non-final partial-fanout checker (νHead @checkPartialFanout@, the intermediate
 -- FanoutProgress→FanoutProgress batch): at least one output is distributed (@0 \< m@, the
@@ -251,7 +244,7 @@ checkRefSpent = M.d_refSpent'7495'_416
 -- shared 'checkNoMint'. Proved to reflect @partialFanoutValid@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
 checkPartialFanout :: Integer -> Integer -> Integer -> Bool
-checkPartialFanout = M.d_partialFanoutRef'7495'_422
+checkPartialFanout = M.d_partialFanoutRef'7495'_418
 
 -- | Decidable, fully-extractable value-preservation checker (the close \/ contest
 -- @mustPreserveHeadValue@, the exact @==@ on the head value): the ada total AND the non-ada total are
@@ -262,7 +255,7 @@ checkPartialFanout = M.d_partialFanoutRef'7495'_422
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong adaOf@\/@cong nonAdaOf@ + @==-sound@ (no new
 -- postulate).
 checkValuePreserved :: Integer -> Integer -> Integer -> Integer -> Bool
-checkValuePreserved = M.d_valuePreserved'7495'_430
+checkValuePreserved = M.d_valuePreserved'7495'_426
 
 -- | Decidable, fully-extractable contest parameter-preservation checker (the scalar half of contest
 -- @mustNotChangeParameters@): the produced datum keeps the same head id and contestation period. The four
@@ -273,7 +266,7 @@ checkValuePreserved = M.d_valuePreserved'7495'_430
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong cidToNat@ + @==-sound@ (no new postulate;
 -- the @parties@-list half stays a documented boundary, as the spec abstracts parties into a count).
 checkContestParams :: Integer -> Integer -> Integer -> Integer -> Bool
-checkContestParams = M.d_contestParams'7495'_440
+checkContestParams = M.d_contestParams'7495'_436
 
 -- | Decidable, fully-extractable init datum head-id binding (the decidable half of the μHead
 -- @checkDatum@): the head output datum declares its own minting policy as its head id
@@ -283,7 +276,7 @@ checkContestParams = M.d_contestParams'7495'_440
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via the existing @cidToNat@ encoding (no new
 -- postulate). The @seed == seedInput@ half and the @cid = hash(seed)@ binding stay documented boundaries.
 checkInitHeadId :: Integer -> Integer -> Bool
-checkInitHeadId = M.d_initHeadId'7495'_450
+checkInitHeadId = M.d_initHeadId'7495'_446
 
 -- | Decidable, fully-extractable μHead Burn-arm checker (@validateTokensBurning@): every head-policy
 -- entry of the mint field is negative — no positive entry exists and at least one negative one does
@@ -293,4 +286,4 @@ checkInitHeadId = M.d_initHeadId'7495'_450
 -- entries are outside the domain (not representable in canonical ledger values). WHICH burns are
 -- legitimate is νHead's concern (the fan-out family's burn count); μHead only guarantees burn-only.
 checkBurn :: HsBurnIO -> Bool
-checkBurn = M.d_burnRef'7495'_468
+checkBurn = M.d_burnRef'7495'_464

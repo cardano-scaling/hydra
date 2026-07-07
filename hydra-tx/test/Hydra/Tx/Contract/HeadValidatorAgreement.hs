@@ -428,29 +428,35 @@ projectRecover ctx = Ref.checkRecover (Ref.mkOpsRecover (const True)) (Ref.MkRec
  where
   (_, POSIXTime deadline, _) = projectDepositDatum ctx
 
--- claim: deadline + head id from the deposit datum; the spent head's id is the policy whose ST is
--- carried by another tx input.
+-- claim: deadline + head id from the deposit datum; the spent head's id and out-ref come from the
+-- ST-carrying tx input (deposit.ak's list.find), and the head redeemer's RAW constructor index is
+-- read off the redeemer map exactly as deposit.ak's is_head_increment does (un_constr_data).
 projectClaim :: ScriptContext -> Bool
 projectClaim ctx =
   Ref.checkClaim
-    (Ref.mkOpsClaim (const True))
-    (Ref.MkClaimIO deadline (txValidityHi ctx) (cidToInteger depCid) (cidToInteger headCid))
+    (Ref.MkClaimIO deadline (txValidityHi ctx) (cidToInteger depCid) (cidToInteger headCid) headRedeemerIdx)
  where
   (depCid, POSIXTime deadline, _) = projectDepositDatum ctx
   ownR = case scriptContextScriptInfo ctx of
     SpendingScript r _ -> r
     _ -> error "projection: not a spending script"
-  headCid = case stCarriers of
-    [cs] -> cs
+  (headCid, headRef) = case stCarriers of
+    [x] -> x
     _ -> error "projection: expected exactly one head input"
   stCarriers =
-    [ cs
+    [ (cs, txInInfoOutRef i)
     | i <- txInfoInputs (scriptContextTxInfo ctx)
     , txInInfoOutRef i /= ownR
     , ((cs, tn), q) <- assetList (txOutValue (txInInfoResolved i))
     , tn == stName
     , q > 0
     ]
+  headRedeemerIdx =
+    case [d | (Spending ref, Redeemer d) <- AMap.toList (txInfoRedeemers (scriptContextTxInfo ctx)), ref == headRef] of
+      [d] -> case Builtins.builtinDataToData d of
+        PlutusTx.Constr i _ -> i
+        _ -> error "projection: head redeemer is not a Constr"
+      _ -> error "projection: no spend redeemer for the head input"
 
 -- fanout (full AND final partial: the bridge maps finalPartialFanoutValid onto the same extracted
 -- fanoutRef): m from the redeemer, the burned count from txInfoMint, n/tfinal from the input datum,
@@ -1509,14 +1515,19 @@ recoverVal deadline validityLo = depositAccepts (mkRecoverContext deadline valid
 claimHeadInRef :: TxOutRef
 claimHeadInRef = TxOutRef (TxId "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") 0
 
--- the redeemer spending the head input: an Increment (constr index 0), satisfying is_head_increment.
-claimHeadRedeemer :: Redeemer
-claimHeadRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Increment (incRedeemer 0)))
+-- the head-input redeemer under test: the healthy claim spends the head with an Increment (constr
+-- index 0, satisfying is_head_increment); any other constructor index is the coupling's reject
+-- direction (HeadRedeemerNotIncrement).
+claimIncrementInput :: HS.Input
+claimIncrementInput = HS.Increment (incRedeemer 0)
+
+claimDecrementInput :: HS.Input
+claimDecrementInput = HS.Decrement (decRedeemer 3)
 
 -- `depHeadCid` is the deposit datum's head id; the head input always carries headPolicy's ST. When they
 -- differ, expect_increment_redeemer finds no matching head input and the validator rejects (own-head bind).
-mkClaimContext :: Integer -> Integer -> CurrencySymbol -> ScriptContext
-mkClaimContext deadline validityHi depHeadCid =
+mkClaimContext :: HS.Input -> Integer -> Integer -> CurrencySymbol -> ScriptContext
+mkClaimContext headRedeemer deadline validityHi depHeadCid =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -1529,7 +1540,7 @@ mkClaimContext deadline validityHi depHeadCid =
           , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound NegInf True) (UpperBound (Finite (POSIXTime validityHi)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.unsafeFromList [(Spending claimHeadInRef, claimHeadRedeemer)]
+          , txInfoRedeemers = AMap.unsafeFromList [(Spending claimHeadInRef, Redeemer (PlutusTx.toBuiltinData headRedeemer))]
           , txInfoData = AMap.empty
           , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
           , txInfoVotes = AMap.empty
@@ -1549,11 +1560,11 @@ mkClaimContext deadline validityHi depHeadCid =
 cidToInteger :: CurrencySymbol -> Integer
 cidToInteger = bytesToInteger . unCurrencySymbol
 
-claimRef :: Integer -> Integer -> CurrencySymbol -> Bool
-claimRef deadline validityHi depHeadCid = projectClaim (mkClaimContext deadline validityHi depHeadCid)
+claimRef :: HS.Input -> Integer -> Integer -> CurrencySymbol -> Bool
+claimRef headRedeemer deadline validityHi depHeadCid = projectClaim (mkClaimContext headRedeemer deadline validityHi depHeadCid)
 
-claimVal :: Integer -> Integer -> CurrencySymbol -> Bool
-claimVal deadline validityHi depHeadCid = depositAccepts (mkClaimContext deadline validityHi depHeadCid)
+claimVal :: HS.Input -> Integer -> Integer -> CurrencySymbol -> Bool
+claimVal headRedeemer deadline validityHi depHeadCid = depositAccepts (mkClaimContext headRedeemer deadline validityHi depHeadCid)
 
 -- a head id distinct from headPolicy, for exercising the own-head-binding reject direction.
 otherHeadCid :: CurrencySymbol
@@ -2328,13 +2339,20 @@ spec = parallel $ do
 
   -- ── νDeposit Claim: the real Aiken validator (compiled UPLC) vs Ref.checkClaim ──
   prop "anchor: healthy claim — BOTH oracles accept (before deadline + own-head increment)" $
-    claimVal 1_000 950 headPolicy === True .&&. claimRef 1_000 950 headPolicy === True
+    claimVal claimIncrementInput 1_000 950 headPolicy === True
+      .&&. claimRef claimIncrementInput 1_000 950 headPolicy === True
 
-  prop "claim: reference === real Aiken validator (before-deadline + own-head binding)" $
+  prop "claim: reference === real Aiken validator (before-deadline + own-head binding + Increment coupling)" $
     forAll (elements [950, 1_000, 1_050]) $ \validityHi ->
       forAll (elements [headPolicy, otherHeadCid]) $ \depHeadCid ->
-        let deadline = 1_000
-         in claimRef deadline validityHi depHeadCid === claimVal deadline validityHi depHeadCid
+        forAll (elements [claimIncrementInput, claimDecrementInput]) $ \headRedeemer ->
+          let deadline = 1_000
+           in claimRef headRedeemer deadline validityHi depHeadCid
+                === claimVal headRedeemer deadline validityHi depHeadCid
+
+  prop "claim: real Aiken validator REJECTS a non-Increment head redeemer (healthy Increment accepts)" $
+    claimVal claimDecrementInput 1_000 950 headPolicy === False
+      .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
 
   -- ── full fanout (empty head): real BLS membership (empty subset) + burn count + deadline + value ──
   prop "anchor: healthy empty-head fanout — BOTH oracles accept (real BLS pairing verified)" $
@@ -2437,8 +2455,9 @@ spec = parallel $ do
           .&&. (recoverRef 1_000 1_050 === recoverVal 1_000 1_050)
           .&&. (recoverRef 1_000 950 === recoverVal 1_000 950)
           -- claim (νDeposit, real Aiken UPLC): before-deadline accept + own-head-mismatch reject
-          .&&. (claimRef 1_000 950 headPolicy === claimVal 1_000 950 headPolicy)
-          .&&. (claimRef 1_000 950 otherHeadCid === claimVal 1_000 950 otherHeadCid)
+          .&&. (claimRef claimIncrementInput 1_000 950 headPolicy === claimVal claimIncrementInput 1_000 950 headPolicy)
+          .&&. (claimRef claimDecrementInput 1_000 950 headPolicy === claimVal claimDecrementInput 1_000 950 headPolicy)
+          .&&. (claimRef claimIncrementInput 1_000 950 otherHeadCid === claimVal claimIncrementInput 1_000 950 otherHeadCid)
           -- full fanout (real BLS): burn-count accept + wrong-count reject
           .&&. (fanoutRef 2 1_050 1_000 === fanoutVal 2 1_050 1_000)
           .&&. (fanoutRef 3 1_050 1_000 === fanoutVal 3 1_050 1_000)

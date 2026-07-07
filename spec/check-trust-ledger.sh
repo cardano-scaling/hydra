@@ -22,7 +22,6 @@
 #     fanoutCryptoOK   fanout KZG membership + value conservation (real BLS pairing, empty subset)
 #     recoverHashOK    recover recovered-outputs serialisation hash (empty-deposit case)
 #     initPlacementOK  μHead seed-spent + token placement (real validateTokensMinting)
-#     claimIncrementOK νDeposit Claim Increment-redeemer coupling (head-id half IS checked)
 #   Postulates (typecheck-only):
 #     cidToNat, refCodeOf                          head-id / out-ref → ℕ encodings (used with cong only)
 #     signerCodes, ptCodes, participantSigned→ref  signer / PT-name encodings + overlap faithfulness
@@ -48,7 +47,7 @@ actual_postulates=$(awk '
 ' "$BR" "$RR" | sort -u)
 
 expected_mocks=$(printf '%s\n' \
-  claimIncrementOK closeCryptoOK contestCryptoOK fanoutCryptoOK incCryptoOK initPlacementOK recoverHashOK \
+  closeCryptoOK contestCryptoOK fanoutCryptoOK incCryptoOK initPlacementOK recoverHashOK \
   | sort -u)
 expected_postulates=$(printf '%s\n' \
   cidToNat mintEntryCount 'noMint→ref' 'participantSigned→ref' ptCodes refCodeOf signerCodes \
@@ -69,4 +68,4 @@ if [ "$fail" -ne 0 ]; then
   echo "Update the trust-ledger table in this script's header comment and the EXPECTED_* lists."
   exit 1
 fi
-echo "check-trust-ledger: OK — the bridge-layer trusted base is the 7 documented Ops mocks + 7 documented postulates."
+echo "check-trust-ledger: OK — the bridge-layer trusted base is the 6 documented Ops mocks + 7 documented postulates."

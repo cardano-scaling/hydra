@@ -755,13 +755,15 @@ since it conjoins `incrementValid` with the deposit-side bundle (@agda-appendix)
 -- type-enforced part of a valid claim transaction, mirroring
 -- that on-chain BOTH scripts must pass. (`dd` is supplied like `recoverValid`'s, not decoded here.)
 -- NB: this type-ENCODES the joint requirement (so `depositClaimedBy`/`claimValid` are both used).
--- The DECIDABLE conjuncts of the Claim arm (before-deadline `validityHi ≤ tRecover` + the head-id binding
--- `depositCid == headCid`) ARE bridged (`claimValid→ref`) + differentially tested (the `HeadValidatorAgreement`
--- claim agreement, running the compiled `deposit.ak` Claim arm as UPLC). The remaining boundary is the
--- full `claimTxValid` joint encoding: the Increment-redeemer-index coupling (the other half of
--- `expect_increment_redeemer`) is held healthy in the test, not driven to its reject direction, so it stays
--- hand-reviewed. (The Recover arm is likewise bridged + tested: `recoverValid→ref` + the
--- `HeadValidatorAgreement` recover agreement cover deposit.ak's after-deadline check.)
+-- ALL the decidable conjuncts of the Claim arm are bridged from this joint bundle (`claimTxValid→ref`):
+-- the before-deadline `validityHi ≤ tRecover` and head-id binding `depositCid == headCid` from the
+-- deposit side, and the Increment-redeemer-index coupling (the other half of
+-- `expect_increment_redeemer`) from the HEAD side - the joint bundle's head input is spent with
+-- `Increment` BY TYPE, so its pinned constructor index is 0 definitionally. All three are
+-- differentially tested (the `HeadValidatorAgreement` claim agreement, running the compiled
+-- `deposit.ak` Claim arm as UPLC, including a wrong-redeemer rejection). (The Recover arm is likewise
+-- bridged + tested: `recoverValid→ref` + the `HeadValidatorAgreement` recover agreement cover
+-- deposit.ak's after-deadline check.)
 record ClaimTxValid (ctx : Context) (dd : DepositDatum) (headIn headOut : HeadDatum)
                     (ξ : AggSig) (s : ℕ) (ref : OutputRef) : Set where
   constructor mkClaimTxValid

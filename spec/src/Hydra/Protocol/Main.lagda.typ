@@ -158,7 +158,7 @@ The trust base, in five families:
   accumulator-commitment hypothesis of `reflects`, the `ξ ≡ aggSigOf` hypothesis
   of the `*-certified` family). The `ContestBound` module hypotheses of
   @sec:onchain-theorems are of the same kind.
-- *Bridge layer* (typecheck-only `ReferenceBridge`/`RefReflection`): 7 injected
+- *Bridge layer* (typecheck-only `ReferenceBridge`/`RefReflection`): 6 injected
   const-true mocks (crypto/accumulator/hash conjuncts the differential covers
   against the real validator) and 7 encoding/faithfulness postulates, enumerated
   and drift-checked by `spec/check-trust-ledger.sh` - the build fails if this

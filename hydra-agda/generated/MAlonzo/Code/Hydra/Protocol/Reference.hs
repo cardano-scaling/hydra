@@ -30,7 +30,7 @@ data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer I
 data HsFanout = MkFanout Integer Integer Integer Integer Integer
 data HsRecoverIO = MkRecoverIO Integer Integer
 data HsMintIO = MkMintIO Integer Integer Integer Integer
-data HsClaimIO = MkClaimIO Integer Integer Integer Integer
+data HsClaimIO = MkClaimIO Integer Integer Integer Integer Integer
 data HsSignerIO = MkSignerIO [Integer] [Integer]
 data HsAssetIO = MkAssetIO Integer Integer Integer
 data HsBurnIO = MkBurnIO Integer Integer
@@ -701,147 +701,143 @@ d_initRef'7495'_320 v0 v1
 -- Hydra.Protocol.Reference.ClaimIOᶜ
 d_ClaimIO'7580'_326 = ()
 type T_ClaimIO'7580'_326 = HsClaimIO
-pattern C_mkClaimIO'7580'_344 a0 a1 a2 a3 = MkClaimIO a0 a1 a2 a3
-check_mkClaimIO'7580'_344 ::
+pattern C_mkClaimIO'7580'_348 a0 a1 a2 a3 a4 = MkClaimIO a0 a1 a2 a3 a4
+check_mkClaimIO'7580'_348 ::
+  Integer ->
   Integer -> Integer -> Integer -> Integer -> T_ClaimIO'7580'_326
-check_mkClaimIO'7580'_344 = MkClaimIO
+check_mkClaimIO'7580'_348 = MkClaimIO
 cover_ClaimIO'7580'_326 :: HsClaimIO -> ()
 cover_ClaimIO'7580'_326 x
   = case x of
-      MkClaimIO _ _ _ _ -> ()
+      MkClaimIO _ _ _ _ _ -> ()
 -- Hydra.Protocol.Reference.ClaimIOᶜ.tRecoverC
-d_tRecoverC_336 :: T_ClaimIO'7580'_326 -> Integer
-d_tRecoverC_336 v0
+d_tRecoverC_338 :: T_ClaimIO'7580'_326 -> Integer
+d_tRecoverC_338 v0
   = case coe v0 of
-      C_mkClaimIO'7580'_344 v1 v2 v3 v4 -> coe v1
+      C_mkClaimIO'7580'_348 v1 v2 v3 v4 v5 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.ClaimIOᶜ.validityHiC
-d_validityHiC_338 :: T_ClaimIO'7580'_326 -> Integer
-d_validityHiC_338 v0
+d_validityHiC_340 :: T_ClaimIO'7580'_326 -> Integer
+d_validityHiC_340 v0
   = case coe v0 of
-      C_mkClaimIO'7580'_344 v1 v2 v3 v4 -> coe v2
+      C_mkClaimIO'7580'_348 v1 v2 v3 v4 v5 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.ClaimIOᶜ.depositCidC
-d_depositCidC_340 :: T_ClaimIO'7580'_326 -> Integer
-d_depositCidC_340 v0
+d_depositCidC_342 :: T_ClaimIO'7580'_326 -> Integer
+d_depositCidC_342 v0
   = case coe v0 of
-      C_mkClaimIO'7580'_344 v1 v2 v3 v4 -> coe v3
+      C_mkClaimIO'7580'_348 v1 v2 v3 v4 v5 -> coe v3
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.ClaimIOᶜ.headCidC
-d_headCidC_342 :: T_ClaimIO'7580'_326 -> Integer
-d_headCidC_342 v0
+d_headCidC_344 :: T_ClaimIO'7580'_326 -> Integer
+d_headCidC_344 v0
   = case coe v0 of
-      C_mkClaimIO'7580'_344 v1 v2 v3 v4 -> coe v4
+      C_mkClaimIO'7580'_348 v1 v2 v3 v4 v5 -> coe v4
       _ -> MAlonzo.RTE.mazUnreachableError
--- Hydra.Protocol.Reference.OpsClaim
-d_OpsClaim_346 = ()
-newtype T_OpsClaim_346
-  = C_OpsClaim'46'constructor_4229 (T_ClaimIO'7580'_326 -> Bool)
--- Hydra.Protocol.Reference.OpsClaim.claimIncrementOK
-d_claimIncrementOK_350 ::
-  T_OpsClaim_346 -> T_ClaimIO'7580'_326 -> Bool
-d_claimIncrementOK_350 v0
+-- Hydra.Protocol.Reference.ClaimIOᶜ.headRedeemerIdxC
+d_headRedeemerIdxC_346 :: T_ClaimIO'7580'_326 -> Integer
+d_headRedeemerIdxC_346 v0
   = case coe v0 of
-      C_OpsClaim'46'constructor_4229 v1 -> coe v1
+      C_mkClaimIO'7580'_348 v1 v2 v3 v4 v5 -> coe v5
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.claimRefᵇ
-d_claimRef'7495'_352 ::
-  T_OpsClaim_346 -> T_ClaimIO'7580'_326 -> Bool
-d_claimRef'7495'_352 v0 v1
+d_claimRef'7495'_350 :: T_ClaimIO'7580'_326 -> Bool
+d_claimRef'7495'_350 v0
   = coe
       d__'38''38'__58
       (coe
-         d__'8804''7470'__84 (coe d_validityHiC_338 (coe v1))
-         (coe d_tRecoverC_336 (coe v1)))
+         d__'8804''7470'__84 (coe d_validityHiC_340 (coe v0))
+         (coe d_tRecoverC_338 (coe v0)))
       (coe
          d__'38''38'__58
          (coe
-            eqInt (coe d_depositCidC_340 (coe v1))
-            (coe d_headCidC_342 (coe v1)))
-         (coe d_claimIncrementOK_350 v0 v1))
+            eqInt (coe d_depositCidC_342 (coe v0))
+            (coe d_headCidC_344 (coe v0)))
+         (coe
+            eqInt (coe d_headRedeemerIdxC_346 (coe v0)) (coe (0 :: Integer))))
 -- Hydra.Protocol.Reference.elemᵇ
-d_elem'7495'_358 :: Integer -> [Integer] -> Bool
-d_elem'7495'_358 v0 v1
+d_elem'7495'_354 :: Integer -> [Integer] -> Bool
+d_elem'7495'_354 v0 v1
   = case coe v1 of
       [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8
       (:) v2 v3
         -> coe
              d__'124''124'__62 (coe eqInt (coe v0) (coe v2))
-             (coe d_elem'7495'_358 (coe v0) (coe v3))
+             (coe d_elem'7495'_354 (coe v0) (coe v3))
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.anySharedᵇ
-d_anyShared'7495'_366 :: [Integer] -> [Integer] -> Bool
-d_anyShared'7495'_366 v0 v1
+d_anyShared'7495'_362 :: [Integer] -> [Integer] -> Bool
+d_anyShared'7495'_362 v0 v1
   = case coe v0 of
       [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8
       (:) v2 v3
         -> coe
-             d__'124''124'__62 (coe d_elem'7495'_358 (coe v2) (coe v1))
-             (coe d_anyShared'7495'_366 (coe v3) (coe v1))
+             d__'124''124'__62 (coe d_elem'7495'_354 (coe v2) (coe v1))
+             (coe d_anyShared'7495'_362 (coe v3) (coe v1))
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.SignerIOᶜ
-d_SignerIO'7580'_374 = ()
-type T_SignerIO'7580'_374 = HsSignerIO
-pattern C_mkSignerIO'7580'_384 a0 a1 = MkSignerIO a0 a1
-check_mkSignerIO'7580'_384 ::
+d_SignerIO'7580'_370 = ()
+type T_SignerIO'7580'_370 = HsSignerIO
+pattern C_mkSignerIO'7580'_380 a0 a1 = MkSignerIO a0 a1
+check_mkSignerIO'7580'_380 ::
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
-  T_SignerIO'7580'_374
-check_mkSignerIO'7580'_384 = MkSignerIO
-cover_SignerIO'7580'_374 :: HsSignerIO -> ()
-cover_SignerIO'7580'_374 x
+  T_SignerIO'7580'_370
+check_mkSignerIO'7580'_380 = MkSignerIO
+cover_SignerIO'7580'_370 :: HsSignerIO -> ()
+cover_SignerIO'7580'_370 x
   = case x of
       MkSignerIO _ _ -> ()
 -- Hydra.Protocol.Reference.SignerIOᶜ.signerCodesS
-d_signerCodesS_380 :: T_SignerIO'7580'_374 -> [Integer]
-d_signerCodesS_380 v0
+d_signerCodesS_376 :: T_SignerIO'7580'_370 -> [Integer]
+d_signerCodesS_376 v0
   = case coe v0 of
-      C_mkSignerIO'7580'_384 v1 v2 -> coe v1
+      C_mkSignerIO'7580'_380 v1 v2 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.SignerIOᶜ.ptCodesS
-d_ptCodesS_382 :: T_SignerIO'7580'_374 -> [Integer]
-d_ptCodesS_382 v0
+d_ptCodesS_378 :: T_SignerIO'7580'_370 -> [Integer]
+d_ptCodesS_378 v0
   = case coe v0 of
-      C_mkSignerIO'7580'_384 v1 v2 -> coe v2
+      C_mkSignerIO'7580'_380 v1 v2 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.participantSignedRefᵇ
-d_participantSignedRef'7495'_386 :: T_SignerIO'7580'_374 -> Bool
-d_participantSignedRef'7495'_386 v0
+d_participantSignedRef'7495'_382 :: T_SignerIO'7580'_370 -> Bool
+d_participantSignedRef'7495'_382 v0
   = coe
-      d_anyShared'7495'_366 (coe d_signerCodesS_380 (coe v0))
-      (coe d_ptCodesS_382 (coe v0))
+      d_anyShared'7495'_362 (coe d_signerCodesS_376 (coe v0))
+      (coe d_ptCodesS_378 (coe v0))
 -- Hydra.Protocol.Reference.AssetIOᶜ
-d_AssetIO'7580'_390 = ()
-type T_AssetIO'7580'_390 = HsAssetIO
-pattern C_mkAssetIO'7580'_404 a0 a1 a2 = MkAssetIO a0 a1 a2
-check_mkAssetIO'7580'_404 ::
-  Integer -> Integer -> Integer -> T_AssetIO'7580'_390
-check_mkAssetIO'7580'_404 = MkAssetIO
-cover_AssetIO'7580'_390 :: HsAssetIO -> ()
-cover_AssetIO'7580'_390 x
+d_AssetIO'7580'_386 = ()
+type T_AssetIO'7580'_386 = HsAssetIO
+pattern C_mkAssetIO'7580'_400 a0 a1 a2 = MkAssetIO a0 a1 a2
+check_mkAssetIO'7580'_400 ::
+  Integer -> Integer -> Integer -> T_AssetIO'7580'_386
+check_mkAssetIO'7580'_400 = MkAssetIO
+cover_AssetIO'7580'_386 :: HsAssetIO -> ()
+cover_AssetIO'7580'_386 x
   = case x of
       MkAssetIO _ _ _ -> ()
 -- Hydra.Protocol.Reference.AssetIOᶜ.qInA
-d_qInA_398 :: T_AssetIO'7580'_390 -> Integer
-d_qInA_398 v0
+d_qInA_394 :: T_AssetIO'7580'_386 -> Integer
+d_qInA_394 v0
   = case coe v0 of
-      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v1
+      C_mkAssetIO'7580'_400 v1 v2 v3 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.AssetIOᶜ.qDeltaA
-d_qDeltaA_400 :: T_AssetIO'7580'_390 -> Integer
-d_qDeltaA_400 v0
+d_qDeltaA_396 :: T_AssetIO'7580'_386 -> Integer
+d_qDeltaA_396 v0
   = case coe v0 of
-      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v2
+      C_mkAssetIO'7580'_400 v1 v2 v3 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.AssetIOᶜ.qOutA
-d_qOutA_402 :: T_AssetIO'7580'_390 -> Integer
-d_qOutA_402 v0
+d_qOutA_398 :: T_AssetIO'7580'_386 -> Integer
+d_qOutA_398 v0
   = case coe v0 of
-      C_mkAssetIO'7580'_404 v1 v2 v3 -> coe v3
+      C_mkAssetIO'7580'_400 v1 v2 v3 -> coe v3
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.perAssetConservedᵇ
-d_perAssetConserved'7495'_406 :: [T_AssetIO'7580'_390] -> Bool
-d_perAssetConserved'7495'_406 v0
+d_perAssetConserved'7495'_402 :: [T_AssetIO'7580'_386] -> Bool
+d_perAssetConserved'7495'_402 v0
   = case coe v0 of
       [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
       (:) v1 v2
@@ -849,69 +845,69 @@ d_perAssetConserved'7495'_406 v0
              d__'38''38'__58
              (coe
                 eqInt
-                (coe addInt (coe d_qDeltaA_400 (coe v1)) (coe d_qInA_398 (coe v1)))
-                (coe d_qOutA_402 (coe v1)))
-             (coe d_perAssetConserved'7495'_406 (coe v2))
+                (coe addInt (coe d_qDeltaA_396 (coe v1)) (coe d_qInA_394 (coe v1)))
+                (coe d_qOutA_398 (coe v1)))
+             (coe d_perAssetConserved'7495'_402 (coe v2))
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.noMintRefᵇ
-d_noMintRef'7495'_412 :: Integer -> Bool
-d_noMintRef'7495'_412 v0
+d_noMintRef'7495'_408 :: Integer -> Bool
+d_noMintRef'7495'_408 v0
   = coe d__'61''61''7495'__66 (coe v0) (coe (0 :: Integer))
 -- Hydra.Protocol.Reference.refSpentᵇ
-d_refSpent'7495'_416 :: Integer -> [Integer] -> Bool
-d_refSpent'7495'_416 v0 v1 = coe d_elem'7495'_358 (coe v0) (coe v1)
+d_refSpent'7495'_412 :: Integer -> [Integer] -> Bool
+d_refSpent'7495'_412 v0 v1 = coe d_elem'7495'_354 (coe v0) (coe v1)
 -- Hydra.Protocol.Reference.partialFanoutRefᵇ
-d_partialFanoutRef'7495'_422 ::
+d_partialFanoutRef'7495'_418 ::
   Integer -> Integer -> Integer -> Bool
-d_partialFanoutRef'7495'_422 v0 v1 v2
+d_partialFanoutRef'7495'_418 v0 v1 v2
   = coe
       d__'38''38'__58
       (coe d__'60''7495'__78 (coe (0 :: Integer)) (coe v0))
       (coe ltInt (coe v1) (coe v2))
 -- Hydra.Protocol.Reference.valuePreservedᵇ
-d_valuePreserved'7495'_430 ::
+d_valuePreserved'7495'_426 ::
   Integer -> Integer -> Integer -> Integer -> Bool
-d_valuePreserved'7495'_430 v0 v1 v2 v3
+d_valuePreserved'7495'_426 v0 v1 v2 v3
   = coe
       d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
       (coe eqInt (coe v2) (coe v3))
 -- Hydra.Protocol.Reference.contestParamsᵇ
-d_contestParams'7495'_440 ::
+d_contestParams'7495'_436 ::
   Integer -> Integer -> Integer -> Integer -> Bool
-d_contestParams'7495'_440 v0 v1 v2 v3
+d_contestParams'7495'_436 v0 v1 v2 v3
   = coe
       d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
       (coe eqInt (coe v2) (coe v3))
 -- Hydra.Protocol.Reference.initHeadIdᵇ
-d_initHeadId'7495'_450 :: Integer -> Integer -> Bool
-d_initHeadId'7495'_450 v0 v1 = coe eqInt (coe v0) (coe v1)
+d_initHeadId'7495'_446 :: Integer -> Integer -> Bool
+d_initHeadId'7495'_446 v0 v1 = coe eqInt (coe v0) (coe v1)
 -- Hydra.Protocol.Reference.BurnIOᶜ
-d_BurnIO'7580'_456 = ()
-type T_BurnIO'7580'_456 = HsBurnIO
-pattern C_mkBurnIO'7580'_466 a0 a1 = MkBurnIO a0 a1
-check_mkBurnIO'7580'_466 ::
-  Integer -> Integer -> T_BurnIO'7580'_456
-check_mkBurnIO'7580'_466 = MkBurnIO
-cover_BurnIO'7580'_456 :: HsBurnIO -> ()
-cover_BurnIO'7580'_456 x
+d_BurnIO'7580'_452 = ()
+type T_BurnIO'7580'_452 = HsBurnIO
+pattern C_mkBurnIO'7580'_462 a0 a1 = MkBurnIO a0 a1
+check_mkBurnIO'7580'_462 ::
+  Integer -> Integer -> T_BurnIO'7580'_452
+check_mkBurnIO'7580'_462 = MkBurnIO
+cover_BurnIO'7580'_452 :: HsBurnIO -> ()
+cover_BurnIO'7580'_452 x
   = case x of
       MkBurnIO _ _ -> ()
 -- Hydra.Protocol.Reference.BurnIOᶜ.mintedCountB
-d_mintedCountB_462 :: T_BurnIO'7580'_456 -> Integer
-d_mintedCountB_462 v0
+d_mintedCountB_458 :: T_BurnIO'7580'_452 -> Integer
+d_mintedCountB_458 v0
   = case coe v0 of
-      C_mkBurnIO'7580'_466 v1 v2 -> coe v1
+      C_mkBurnIO'7580'_462 v1 v2 -> coe v1
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.BurnIOᶜ.burnedCountB
-d_burnedCountB_464 :: T_BurnIO'7580'_456 -> Integer
-d_burnedCountB_464 v0
+d_burnedCountB_460 :: T_BurnIO'7580'_452 -> Integer
+d_burnedCountB_460 v0
   = case coe v0 of
-      C_mkBurnIO'7580'_466 v1 v2 -> coe v2
+      C_mkBurnIO'7580'_462 v1 v2 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.burnRefᵇ
-d_burnRef'7495'_468 :: T_BurnIO'7580'_456 -> Bool
-d_burnRef'7495'_468 v0
+d_burnRef'7495'_464 :: T_BurnIO'7580'_452 -> Bool
+d_burnRef'7495'_464 v0
   = coe
       d__'38''38'__58
-      (coe eqInt (coe d_mintedCountB_462 (coe v0)) (coe (0 :: Integer)))
-      (coe ltInt (coe (0 :: Integer)) (coe d_burnedCountB_464 (coe v0)))
+      (coe eqInt (coe d_mintedCountB_458 (coe v0)) (coe (0 :: Integer)))
+      (coe ltInt (coe (0 :: Integer)) (coe d_burnedCountB_460 (coe v0)))

@@ -164,8 +164,10 @@ not by these theorems. Two further honesty notes: (i) *non-vacuity* (that some c
 meta-level model-existence argument, not machine-checked, because `msVfy` is an abstract postulate so no
 closed term proves `AggVerified`; (ii) the `ηEq` accumulator-commitment is supplied by the finalizer, not
 enforced by the model, so `Reflects` is conditional on the finalizer having posted the η it signed. The
-νDeposit validator (`deposit.ak`) and the off-chain handlers are likewise hand-reviewed coverage
-boundaries (see `claimTxValid`), not part of any machine-checked theorem here.
+νDeposit validator (`deposit.ak`) and the off-chain handlers are likewise not part of any machine-checked
+theorem here; their decidable conjuncts are covered by the extracted differential layer instead (the
+Claim arm fully - `claimTxValid→ref` and the claim agreement - the Recover arm modulo its
+serialisation-hash mock, and the handler guards by the `hydra-node` agreement tests).
 
 The confirmed-snapshot ordering that the safety argument actually relies on is machine-checked, not a
 free-standing predicate: `agree` (L1: two honest-certified snapshots of the same number coincide) and

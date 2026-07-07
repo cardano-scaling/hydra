@@ -314,32 +314,34 @@ initRefᵇ ops m =
   && initPlacementOK ops m
 
 -- ══ deposit claim (νDeposit, Claim redeemer) ══════════════════════════════════════════════════
--- The decidable conjunct of `claimValid` (deposit.ak's Claim arm, §5.2): the increment tx collecting
--- the deposit is posted BEFORE the recover deadline - txValidityMax ≤ tRecover, i.e.
--- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms), AND the own-head binding
--- (`depositClaimedBy`, deposit.ak `expect_increment_redeemer`): the deposit datum's head id equals the
--- head being spent. Head ids are hashes; the boundary represents each as the Integer `depositCidC` /
--- `headCidC` (a deterministic encoding supplied by the test) and checks equality with the BUILTIN `_==_`
--- (native Integer eq; the encodings may be large). The Increment-redeemer coupling stays injected.
+-- The decidable conjuncts of the deposit.ak Claim arm (§5.2): the increment tx collecting the
+-- deposit is posted BEFORE the recover deadline - txValidityMax ≤ tRecover, i.e.
+-- `validityHi ≤ᴮ tRecover` (BUILTIN-based `_≤ᴮ_`, POSIXTime ms); the own-head binding
+-- (`depositClaimedBy`, half of deposit.ak `expect_increment_redeemer`): the deposit datum's head id
+-- equals the head being spent - head ids are hashes, represented as the Integers `depositCidC` /
+-- `headCidC` (a deterministic encoding supplied by the test) and compared with the BUILTIN `_==_`
+-- (native Integer eq; the encodings may be large); AND the Increment-redeemer coupling (the other
+-- half): the redeemer SPENDING the located head input has constructor index 0, the index pinned for
+-- `Increment` by HeadState.hs's `makeIsDataIndexed` (deposit.ak `is_head_increment`). The boundary
+-- carries that OBSERVED index (`headRedeemerIdxC`), read from the tx's redeemer map exactly as
+-- deposit.ak reads it. Nothing in the Claim arm stays injected: locating the head input by its ST is
+-- the projection's job (deposit.ak's `list.find`), mirrored on the Haskell side.
 record ClaimIOᶜ : Set where
   constructor mkClaimIOᶜ
   field
-    tRecoverC   : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
-    validityHiC : Nat   -- the claim (increment) tx's upper validity bound (POSIXTime ms)
-    depositCidC : Nat   -- the deposit datum's head id, encoded as an Integer
-    headCidC    : Nat   -- the spent head's id, encoded as an Integer
-{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer Integer Integer #-}
+    tRecoverC        : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
+    validityHiC      : Nat   -- the claim (increment) tx's upper validity bound (POSIXTime ms)
+    depositCidC      : Nat   -- the deposit datum's head id, encoded as an Integer
+    headCidC         : Nat   -- the spent head's id, encoded as an Integer
+    headRedeemerIdxC : Nat   -- constructor index of the redeemer spending the head input
+{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer Integer Integer Integer #-}
 {-# COMPILE GHC ClaimIOᶜ = data HsClaimIO (MkClaimIO) #-}
 
-record OpsClaim : Set where
-  field claimIncrementOK : ClaimIOᶜ → Bool
-open OpsClaim public
-
-claimRefᵇ : OpsClaim → ClaimIOᶜ → Bool
-claimRefᵇ ops c =
+claimRefᵇ : ClaimIOᶜ → Bool
+claimRefᵇ c =
      (ClaimIOᶜ.validityHiC c ≤ᴮ ClaimIOᶜ.tRecoverC c)
   && (ClaimIOᶜ.depositCidC c == ClaimIOᶜ.headCidC c)
-  && claimIncrementOK ops c
+  && (ClaimIOᶜ.headRedeemerIdxC c == 0)
 
 -- ══ participant signature (shared: close / contest / increment / decrement) ════════════════════
 -- The §5.4–5.7 `mustBeSignedByParticipant` check, a fully-extractable conjunct of its own
