@@ -11,7 +11,7 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
 import Control.Concurrent.STM (newTChanIO)
-import Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import Control.Monad.Class.MonadAsync (cancel, link, waitCatch)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
@@ -376,6 +376,9 @@ withHydraNodeHandle tracer tmpDir nodeId options action = do
           putMVar clientVar client
           -- keep async alive as long as node is running
           forever (threadDelay 1_000_000)
+      -- Surface node crashes in the test instead of hanging on a dead node;
+      -- 'link' ignores the 'AsyncCancelled' thrown by 'stopNode'.
+      link a
       putMVar runningAsyncVar a
 
     stopNode = do

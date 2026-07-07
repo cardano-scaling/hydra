@@ -48,6 +48,12 @@
 --   ('processStateChanges'), so no concurrent enqueues can occur between the
 --   flush and the rotation write. The archive is taken before the DELETE, so a
 --   backup failure aborts rotation and leaves the events intact.
+--
+-- * __Separate read connection__: 'sourceEvents' streams over a dedicated
+--   connection. It can run concurrently on API server threads (client
+--   history replay), and @VACUUM INTO@ fails with "SQL statements in
+--   progress" if a streaming statement is open on the same connection as the
+--   rotation. WAL mode makes readers on a separate connection safe.
 module Hydra.Events.SQLiteBased where
 
 import Hydra.Prelude
@@ -107,14 +113,14 @@ withSQLiteEventStore ::
   (EventStore e IO -> IO a) ->
   IO a
 withSQLiteEventStore tracer dbFile legacyStateFile callback = do
-  (conn, store, flush, reinitLastSeen, cancelWriter) <- mkSQLiteEventStore dbFile
+  (conn, store, flush, reinitLastSeen, cleanup) <- mkSQLiteEventStore dbFile
   migrateFromFileBased (Proxy @e) tracer legacyStateFile conn reinitLastSeen
   callback store
-    `finally` (flush >> cancelWriter >> close conn)
+    `finally` (flush >> cleanup >> close conn)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
--- Returns @(conn, store, flush, reinitLastSeen, cancelWriter)@. Internal —
+-- Returns @(conn, store, flush, reinitLastSeen, cleanup)@. Internal —
 -- prefer 'withSQLiteEventStore' which handles cleanup, migration, and flushing
 -- automatically.
 mkSQLiteEventStore ::
@@ -126,6 +132,11 @@ mkSQLiteEventStore dbFile = do
   createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
   initSchema conn
+  -- Dedicated connection for 'sourceEvents' streams, so concurrent client
+  -- history replay cannot hold statements open on the connection rotation
+  -- runs VACUUM INTO on (see module header).
+  readConn <- open dbFile
+  configurePragmas readConn
   eventIdV <- newLabelledTVarIO "sqlite-event-store-event-id" Nothing
   -- Initialise last-seen event id from existing rows.
   rows <- selectLastEventId conn
@@ -157,7 +168,7 @@ mkSQLiteEventStore dbFile = do
       bracketP openStmt closeStatement yieldRows
      where
       openStmt :: IO Statement
-      openStmt = getEventsASC conn
+      openStmt = getEventsASC readConn
 
       yieldRows :: Statement -> ConduitT () e (ResourceT IO) ()
       yieldRows stmt = do
@@ -221,7 +232,7 @@ mkSQLiteEventStore dbFile = do
         }
     , flushWriteQueue writeQueue
     , reinitLastSeen
-    , cancel writerThread
+    , cancel writerThread >> close readConn
     )
 
 -- | Background writer that drains the queue and batch-inserts into SQLite.
