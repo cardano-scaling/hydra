@@ -519,3 +519,18 @@ You can override this by setting the relevant `etcd` [environment variables](htt
 ETCD_AUTO_COMPACTION_MODE=periodic
 ETCD_AUTO_COMPACTION_RETENTION=168h
 ```
+
+### Snapshot signing thread pool
+
+Computing the snapshot accumulator commitment runs through a Rust library
+(`rust-accumulator`) which parallelizes with a [rayon](https://github.com/rayon-rs/rayon)
+thread pool sized to all visible cores by default. On hosts where hydra-node
+shares cores with other latency-sensitive processes (such as cardano-node), the
+pool size can be bounded via the environment:
+
+```
+RAYON_NUM_THREADS=2
+```
+
+This trades some per-snapshot signing latency on large UTxO sets for less
+scheduler interference; with small UTxO sets the effect is negligible.

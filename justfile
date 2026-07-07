@@ -102,10 +102,14 @@ test-index:
 # don't invalidate the regular dist-newstyle artifacts used by 'just test',
 # cabal repl, etc. (cabal keys its build cache on ghc-options, so mixing the
 # two would force a full rebuild on every switch).
+# Runs the formatter AND the -Werror build even when the former fails, so a
+# formatting/typos failure cannot silently mask compiler findings, and ends
+# with an unambiguous status line that survives output truncation.
 lint PKG="all":
   #!/usr/bin/env bash
   set -euo pipefail
-  nix fmt
+  rc=0
+  nix fmt || rc=1
   cabal build {{PKG}} \
     --builddir=dist-newstyle-lint \
     --ghc-options="-Werror \
@@ -116,7 +120,9 @@ lint PKG="all":
       -Wincomplete-uni-patterns \
       -Wmissing-deriving-strategies \
       -Wredundant-constraints \
-      -Wunused-packages"
+      -Wunused-packages" || rc=1
+  if [ "$rc" -ne 0 ]; then echo "lint: FAILED" >&2; exit 1; fi
+  echo "lint: OK"
 
 # run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
 # BENCH_MAX_UTXO=4000 includes the largest grid cells

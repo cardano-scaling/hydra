@@ -26,6 +26,7 @@ import Hydra.HeadLogic (
   OpenState (..),
   Outcome (Continue, effects),
   SeenSnapshot (LastSeenSnapshot),
+  aggregateState,
   isLeader,
   update,
  )
@@ -110,6 +111,12 @@ benchCell n m = do
     bgroup
       ("reqsn/utxo-" <> show n <> "/txs-" <> show m)
       ( [ bench "full-update" $ whnf (ackSignature . update testEnvironment ledger now st) reqSn
+        , -- update plus the state aggregation the node loop (and, today, the
+          -- API server again) performs on its outcome; WHNF of the resulting
+          -- NodeState forces the strict-field cascade like state hydration
+          -- does. Compare against full-update to isolate the aggregate share.
+          bench "update-and-aggregate" $
+            whnf (\i -> aggregateState st (update testEnvironment ledger now st i)) reqSn
         , bench "ledger-reapply-only" $ whnf (reapplyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit

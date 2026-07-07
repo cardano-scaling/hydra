@@ -152,3 +152,36 @@ aggregation at 1k UTxO done twice per event (node loop + API projection
 duplicate, see XXX at API/Server.hs), and the round floor is now one Raft
 commit + watch delivery. The maxTxsPerSnapshot default was left at 100; the
 cap=1000 column is the experiment data for changing it.
+
+## Sustained-load sweep and the maxTxsPerSnapshot promotion (2026-07-07)
+
+Larger generated datasets (not committed; bench-baselines/datasets-large/):
+`3-nodes-9k` = 3 clients x 3000 constant self-transfers; `1-node-1kutxo-3k` =
+plateau 1000 with 3000 txs. Unlike the committed burst datasets these hold a
+deep transaction backlog, exposing per-round costs that scale with the
+backlog (pruneTransactions and the localUTxO refold walk all pending txs on
+every snapshot).
+
+| config | 3-nodes-9k TPS | conf p50 | 1kutxo-3k TPS | peak node RSS |
+| --- | --- | --- | --- | --- |
+| cap=100, queue=100 (old defaults) | 264 | 24.8 s | 77 | 824 MB |
+| cap=1000, queue=100 | 1502 | 5.2 s | 357 | 826 MB |
+| cap=1000, queue=500 | 1585 | 4.9 s | 367 | 828 MB |
+
+Memory is flat, the input-queue raise is marginal (left at 100, see #2442),
+and cap=1000 recovers 4.6-5.7x under sustained load, so the default was
+promoted to 1000 (leader-side only; followers accept larger requests, pinned
+by a HeadLogicSpec test).
+
+Logging share probe: running the 1kutxo dataset with `hydra-node -q` (no
+logging) improves TPS by ~40% (170 -> 237) and conf p50 by 630 ms. The
+tracer serializes multi-hundred-KB LogicOutcome envelopes and blocks the
+node loop when its 500-slot queue fills; evidence attached to issue #2685
+rather than changing logging semantics here.
+
+The large datasets are not committed (multi-MB); regenerate with:
+
+```sh
+bench-e2e datasets --number-of-txs 3000 --cluster-size 3        # 3-nodes-9k
+bench-e2e datasets --utxo-size 'Plateau 1000' --number-of-txs 3000 --cluster-size 1
+```

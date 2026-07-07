@@ -25,7 +25,7 @@ module Hydra.Tx.Accumulator (
   createCRSG2Datum,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (show)
 
 import Accumulator (Accumulator, Element)
 import Accumulator qualified
@@ -44,6 +44,7 @@ import PlutusTx.Builtins (
   bls12_381_G2_uncompress,
   toBuiltin,
  )
+import Text.Show (Show (..))
 
 -- * HydraAccumulator
 
@@ -58,7 +59,13 @@ data HydraAccumulator = HydraAccumulator
   -- access; subsequent reads return the memoized value, avoiding repeated
   -- BLS12-381 multi-scalar multiplications for the same accumulator.
   }
-  deriving stock (Show)
+
+-- | Shows only the element map: the derived instance would force the cached
+-- commitment, so showing head state in logs or test output would compute a
+-- BLS commitment as a side effect.
+instance Show HydraAccumulator where
+  show HydraAccumulator{unHydraAccumulator = acc} =
+    "HydraAccumulator " <> show acc
 
 instance Eq HydraAccumulator where
   a == b = unHydraAccumulator a == unHydraAccumulator b
@@ -194,7 +201,7 @@ maxAccumulatorSize = KZG.maxAccumulatorSize
 -- exercised by the test suite. A failure here would indicate binary tampering
 -- or a corrupted build artefact.
 fromKZGSetup :: Either KZG.KZGSetupError a -> a
-fromKZGSetup = either (\e -> error $ "KZG trusted setup invariant violated: " <> show e) id
+fromKZGSetup = either (\e -> error . toText $ "KZG trusted setup invariant violated: " <> show e) id
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment = bls12_381_G1_uncompress . toBuiltin . _cachedCommitment
@@ -208,7 +215,7 @@ getAccumulatorCommitment = bls12_381_G1_uncompress . toBuiltin . _cachedCommitme
 computeG1CommitmentBytes :: Accumulator -> ByteString
 computeG1CommitmentBytes acc
   | n > KZG.maxAccumulatorSize =
-      error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
+      error . toText $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
   | otherwise =
       either (\e -> error $ "computeG1CommitmentBytes: " <> toText e) blsCompress $
         getPolyCommitOverG1 [] acc (crsG1Points (n + 1))

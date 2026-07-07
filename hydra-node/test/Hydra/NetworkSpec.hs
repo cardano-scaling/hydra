@@ -322,6 +322,22 @@ spec = do
                   broadcast n1 1001
                   waitCarol `shouldReturn` 1001
 
+      -- Sequential broadcasts force one etcd put each (batching only kicks
+      -- in when the queue backs up), so 5000 sends cross the broadcast
+      -- connection recycle boundary several times. Guards against the
+      -- long-lived connection blocking (issue #2167) with the reused
+      -- connection. Takes a few minutes, hence local-only.
+      around_ onlyLocal $ it "sustains sequential broadcasts across connection recycles" $ \tracer ->
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 600 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            (recordBob, waitBob, _) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ ->
+                forM_ [1 .. 5000 :: Int] $ \msg -> do
+                  broadcast n1 msg
+                  waitBob `shouldReturn` msg
+
       it "batches queued messages and delivers them in order" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
           failAfter 60 $ do
