@@ -249,7 +249,6 @@ benchmark accumulator-bench
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
-    , plutus-tx
     , QuickCheck
     , serialise
 
