@@ -269,11 +269,11 @@ toCardanoTxOut networkId addrTxt val mDatumHash mInlineDatum plutusScript = do
         -- NOTE: The Blockfrost API returns inline datums as base16 encoded CBOR.
         case decodeBase16 cborDatum :: Either String ByteString of
           Left err ->
-            liftIO $ throwIO $ BlockfrostError $ DeserialiseError $ "Failed to decode inline datum " <> cborDatum <> ": " <> toText err
+            liftIO $ throwIO $ BlockfrostClientError $ DeserialiseError $ "Failed to decode inline datum " <> cborDatum <> ": " <> toText err
           Right rawCborDatum ->
             case deserialiseFromCBOR (proxyToAsType (Proxy @HashableScriptData)) rawCborDatum of
               Left err ->
-                liftIO $ throwIO $ BlockfrostError $ DeserialiseError $ "Failed to deserialise inline datum " <> cborDatum <> ": " <> show err
+                liftIO $ throwIO $ BlockfrostClientError $ DeserialiseError $ "Failed to deserialise inline datum " <> cborDatum <> ": " <> show err
               Right hashableScriptData -> pure $ TxOutDatumInline hashableScriptData
   case plutusScript of
     Nothing -> do

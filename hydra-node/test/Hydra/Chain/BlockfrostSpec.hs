@@ -5,7 +5,7 @@ import Test.Hspec
 
 import Control.Tracer (nullTracer)
 import Hydra.Chain.Blockfrost (retryOnBlockfrostError)
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), isRetryable)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Logging (Tracer)
 
