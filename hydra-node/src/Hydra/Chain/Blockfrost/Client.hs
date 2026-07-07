@@ -79,7 +79,6 @@ data BlockfrostException
   | AssetNameMissing
   | DeserialiseError Text
   deriving stock (Show)
-  deriving anyclass (Exception)
 
 data APIBlockfrostError
   = BlockfrostError Text
