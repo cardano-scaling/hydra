@@ -16,14 +16,13 @@ import Criterion.Main (Benchmark, bench, bgroup, defaultMain, whnf)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Cardano.Api (Tx, UTxO)
+import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (NetworkEffect),
   HeadState (Open),
-  Input,
   OpenState (..),
   Outcome (Continue, effects),
   SeenSnapshot (LastSeenSnapshot),

@@ -335,7 +335,6 @@ benchmark snapshot
   main-is:        Main.hs
   type:           exitcode-stdio-1.0
   build-depends:
-    , base
     , cardano-api
     , containers
     , criterion

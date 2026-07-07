@@ -33,7 +33,7 @@ import Hydra.Tx.IsTx (IsTx (outputsOfUTxO, utxoToElement))
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (bls12_381_G1_compress, bls12_381_G1_uncompress, bls12_381_G2_uncompress, byteStringToInteger, fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Gen (genTxOutAdaOnly, genUTxOWithSimplifiedAddresses)
-import Test.QuickCheck (arbitrary, counterexample, forAll, property, resize, sublistOf, suchThat, (.&&.), (===), (==>))
+import Test.QuickCheck (counterexample, forAll, property, resize, sublistOf, suchThat, (.&&.), (===), (==>))
 
 spec :: Spec
 spec = parallel $ do
@@ -96,8 +96,8 @@ spec = parallel $ do
       (pure $! computeG1CommitmentBytes acc) `shouldThrow` anyErrorCall
 
     describe "golden commitments (recorded from the PlutusTx path before the FFI swap)" $
-      forM_ goldenCases $ \(label, els, expectedHex) ->
-        it ("matches golden for " <> label) $ do
+      forM_ goldenCases $ \(caseName, els, expectedHex) ->
+        it ("matches golden for " <> caseName) $ do
           let acc = unHydraAccumulator $ build els
           Base16.encode (computeG1CommitmentBytes acc) `shouldBe` expectedHex
 
