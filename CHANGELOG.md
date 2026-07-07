@@ -10,6 +10,8 @@ changes.
 
 ## [UNRELEASED]
 
+- Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
+
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
   path and noticeably increases sustained in-head throughput for script-heavy
