@@ -10,6 +10,7 @@ import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
 import Data.Time (secondsToNominalDiffTime)
+import Hydra.Cardano.Api (pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
   ChainEvent (..),
@@ -36,6 +37,7 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor', keysFor)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
+import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (
   BlockfrostOptions (..),
@@ -49,6 +51,7 @@ import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (
@@ -64,6 +67,22 @@ import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do
+  -- Regression test for https://github.com/cardano-scaling/hydra/issues/2751: the
+  -- Blockfrost API returns inline datums as base16-encoded CBOR text. Dropping the
+  -- datum when converting queried UTxO loses the CRS datum of the script registry,
+  -- which makes every fanout fail validation with H9 (NoOutputDatumError).
+  it "queryScriptRegistry preserves the CRS inline datum" $ \_tracer -> do
+    prj <- Blockfrost.projectFromFile blockfrostProjectPath
+    -- Officially published hydra scripts for this network as recorded in networks.json
+    hydraScriptsTxIds <- parseNetworkTxIds hydraNodeVersion "preview"
+    registry <-
+      Blockfrost.runBlockfrostM prj $
+        Blockfrost.queryScriptRegistry defaultBlockfrostOptions hydraScriptsTxIds
+    let (crsIn, TxOut _ _ crsDatum _) = crsReference registry
+    case crsDatum of
+      TxOutDatumInline _ -> pure ()
+      other -> failure $ "CRS reference output " <> show crsIn <> " lost its inline datum: " <> show other
+
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
     pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
     withTempDir "hydra-cluster" $ \tmp -> do
