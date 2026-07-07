@@ -367,8 +367,8 @@ initHeadId→ref ctx seed cid hk n cp v η ada _ = ==-sound {cidToNat cid} {cidT
 -- (the §5.4–5.7 `mustBeSignedByParticipant`). The abstract predicate is an existential over the opaque
 -- signer set (`signerKeyHash`) and the opaque value (`quantityOf`); NEITHER has a computational link to
 -- the extracted Integer code lists, so - unlike the `cong cidToNat` bridge - the correspondence is a
--- POSTULATED extraction-faithfulness boundary (typecheck-only, same trust family as `==-sound`/`<ᴮ-sound`/
--- `cidToNat`): `signerCodes`/`ptCodes` are the deterministic hash→Integer encodings the differential
+-- POSTULATED extraction-faithfulness boundary (typecheck-only, same trust family as `cidToNat`/
+-- `refCodeOf`): `signerCodes`/`ptCodes` are the deterministic hash→Integer encodings the differential
 -- supplies for real (the tx signers' key-hashes and the head value's PT names), and a spec-valid tx is
 -- asserted to make those two lists overlap. So a reference overlap-reject ⇒ the spec rejects ⇒ the
 -- validator rejects (`SignerIsNotAParticipant`). The encoding aligns by construction: a PT's token name
@@ -378,6 +378,34 @@ postulate
   ptCodes     : ℍ → Context → List ℕ
   participantSigned→ref : ∀ cid ctx → signedByParticipant cid ctx
     → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+
+-- Per-family wiring: each of the four bundles discharges the shared checker through its own
+-- participant evidence - close/increment/decrement project their `participantSigned` field, and
+-- contest derives the witness from its sharper contester fields (`contest-participantSigned`).
+closeParticipant→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
+  → closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) ct
+  → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+closeParticipant→ref ctx cid hk n cp v η ada s′ η′ C tfin ct b =
+  participantSigned→ref cid ctx (CloseValid.participantSigned b)
+
+incrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref
+  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref
+  → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+incrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s ref b =
+  participantSigned→ref cid ctx (IncrementValid.participantSigned b)
+
+decrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m
+  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m
+  → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+decrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s m b =
+  participantSigned→ref cid ctx (DecrementValid.participantSigned b)
+
+contestParticipant→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct
+  → contestValid ctx (Closed cid hk n cp v s η C tfin ada)
+                     (Closed cid hk n cp v s′ η′ (kh ∷ C) tfin′ ada) ct
+  → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
+contestParticipant→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct b =
+  participantSigned→ref cid ctx (contest-participantSigned b)
 
 -- ── no mint / no burn (shared: close / contest / increment / decrement) ────────────────────────
 -- The reference's `noMintRefᵇ (mintEntryCount ctx)` reflects `noMint ctx` (the §5.4–5.7 `mustNotMintOrBurn`).
@@ -434,8 +462,9 @@ initSeedSpent→ref : ∀ ctx seed cid hk n cp v η ada
 initSeedSpent→ref ctx seed cid hk n cp v η ada b = refSpent→ref ctx seed (InitValid.seedSpent b)
 
 -- ── composition: the per-conjunct bridges JOIN into one spec ⇒ extracted-reference verdict ──
--- Demonstrated for the close flagship (closeInitial): a SINGLE `closeValid` discharges BOTH the core close
--- reference checker AND the value-preservation checker at once. The other validators compose identically
+-- Demonstrated for the close flagship (closeInitial): a SINGLE `closeValid` discharges the core close
+-- reference checker, the value-preservation checker, the no-mint checker AND the shared
+-- participant-signature checker at once. The other validators compose identically
 -- (each `*Valid` discharges its core `*Refᵇ` plus the pulled-out conjuncts via the lemmas above). This is
 -- the `spec-bundle ⇒ extracted-reference` half; it is joined to the `extracted-reference === real-validator`
 -- differential (Hydra.Tx.Contract.HeadValidatorAgreement) at the SHARED extracted Reference module — the
@@ -447,10 +476,12 @@ closeChainInitial→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
     × (R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
                          (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true)
     × (R.noMintRefᵇ (mintEntryCount ctx) ≡ true)
+    × (R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true)
 closeChainInitial→ref ctx cid hk n cp v η ada s′ η′ C tfin b =
     closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
   , closeValuePreserved→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial b
   , noMint→ref ctx (CloseValid.mintEmpty b)
+  , participantSigned→ref cid ctx (CloseValid.participantSigned b)
 
 -- ── §5.1 burn (μHead Burn arm): the bundle implies the extracted burn checker ─────────────────
 -- Both conjuncts are genuine proofs: `==-sound` reflects `mintedCount ≡ 0` into the builtin `_==_`,

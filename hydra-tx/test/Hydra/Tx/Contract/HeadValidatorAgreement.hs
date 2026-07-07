@@ -930,6 +930,11 @@ incHealthyHeadOut = incHeadVal <> depVal
 nonParticipantKH :: PubKeyHash
 nonParticipantKH = PubKeyHash "99999999999999999999999999999999999999999999999999999999"
 
+-- Swap the tx signatories on a built context: the participant demos vary ONLY the signer set,
+-- keeping every other conjunct of the family's healthy fixture intact.
+withSignatories :: [PubKeyHash] -> ScriptContext -> ScriptContext
+withSignatories ks ctx = ctx{scriptContextTxInfo = (scriptContextTxInfo ctx){txInfoSignatories = ks}}
+
 -- per-asset attack: a balanced A→B token swap (the non-ada TOTAL is preserved, but one asset is not).
 tokenA :: TokenName
 tokenA = TokenName (Builtins.toBuiltin ("token-A" :: ByteString))
@@ -1985,6 +1990,14 @@ spec = parallel $ do
     closeValueRef 2_000_000 === True
       .&&. closeValueVal 2_000_000 === True
 
+  -- ── close participant signature (bridged from closeValid.participantSigned + tested here) ──
+  prop "close/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+    let ctx = withSignatories [nonParticipantKH] (mkContext openDatum 0 100 0 0 1_200 1_100)
+     in projectParticipant (HS.Open openDatum) ctx === False .&&. validatorVerdict openDatum ctx === False
+  prop "close/participant: a participant signer is accepted by both" $
+    let ctx = mkContext openDatum 0 100 0 0 1_200 1_100
+     in projectParticipant (HS.Open openDatum) ctx === True .&&. validatorVerdict openDatum ctx === True
+
   -- The INPUT open datum's version and contestation period are varied too (CloseInitial carries no
   -- signature, so nothing pins them).
   prop "close/CloseInitial: extracted Agda reference === real validator (function-level, no tx, no mutation)" $
@@ -2175,6 +2188,15 @@ spec = parallel $ do
         badRedeemer = HS.DecrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.numberOfDecommitOutputs = 1}
      in decVal badRedeemer 1 0 === False
 
+  prop "decrement/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+    let ctx = withSignatories [nonParticipantKH] (mkDecContext (decRedeemer 3) 1 0)
+     in projectParticipant (HS.Open incOpenPrev) ctx === False
+          .&&. Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === False
+  prop "decrement/participant: a participant signer is accepted by both" $
+    let ctx = mkDecContext (decRedeemer 3) 1 0
+     in projectParticipant (HS.Open incOpenPrev) ctx === True
+          .&&. Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === True
+
   prop "decrement: the healthy (correctly-signed) version of that tx IS accepted" $
     let cs = 3 in decVal (decRedeemer cs) 1 0 === True
 
@@ -2205,6 +2227,17 @@ spec = parallel $ do
   prop "contest/params: the parameter-preserving contest is accepted by both" $
     projectContestParams (HS.Closed contestPrev) (mkContestParamsContext (contestNext 1 0)) === True
       .&&. contestParamsVal (contestNext 1 0) === True
+
+  -- ── contest participant signature (derived spec-side via contest-participantSigned + tested here;
+  -- the swapped signer also breaks the validator's contester derivation, which only strengthens the reject) ──
+  prop "contest/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+    let ctx = withSignatories [nonParticipantKH] (mkContestContext (contestRedeemer 1) 1 0 1_500)
+     in projectParticipant (HS.Closed contestPrev) ctx === False
+          .&&. Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === False
+  prop "contest/participant: a participant signer is accepted by both" $
+    let ctx = mkContestContext (contestRedeemer 1) 1 0 1_500
+     in projectParticipant (HS.Closed contestPrev) ctx === True
+          .&&. Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === True
 
   -- ── ContestUsed: the contest signature is over version - 1 (closed version 1 here) ──
   prop "anchor: healthy ContestUsed, BOTH oracles accept (real signature at version - 1 verified)" $

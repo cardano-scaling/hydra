@@ -535,11 +535,12 @@ of @sec:security) is proved per conjunct in the typecheck-only `ReferenceBridge`
 module. Its flagship composition lemma is re-stated here so the rendered
 document carries one representative: a single `closeValid` bundle (shown for the
 `closeInitial` case) discharges the extracted close checker, the value
-preservation checker and the no-mint checker at once, on the same inputs the
-`hydra-tx` `HeadValidatorAgreement` suite feeds the real validator. The other
-transaction families compose identically; their statements live in
-`ReferenceBridge`, and the injected mocks and encoding postulates the bridge
-rests on are the drift-checked ledger of @sec:assumption-inventory.
+preservation checker, the no-mint checker and the shared participant-signature
+checker at once, on the same inputs the `hydra-tx` `HeadValidatorAgreement`
+suite feeds the real validator. The other transaction families compose
+identically; their statements live in `ReferenceBridge`, and the injected mocks
+and encoding postulates the bridge rests on are the drift-checked ledger of
+@sec:assumption-inventory.
 
 ```agda
 close-spec⇒reference : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
@@ -550,6 +551,7 @@ close-spec⇒reference : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
     × (R.valuePreservedᵇ (adaOf (headValueIn ctx)) (adaOf (headValue ctx))
                          (nonAdaOf (headValueIn ctx)) (nonAdaOf (headValue ctx)) ≡ true)
     × (R.noMintRefᵇ (RB.mintEntryCount ctx) ≡ true)
+    × (R.participantSignedRefᵇ (R.mkSignerIOᶜ (RB.signerCodes ctx) (RB.ptCodes cid ctx)) ≡ true)
 ```
 
 ```

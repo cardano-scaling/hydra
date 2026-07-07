@@ -23,11 +23,29 @@
 --     one tick at time t yields 'DepositExpired' / 'DepositActivated' / no status event, mapping to
 --     ExpiredS / ActiveS / InactiveS.
 --
+--   * @notAlreadySignedRef@ vs @onOpenNetworkAckSn@'s @requireNotSignedYet@: over a directly
+--     constructed in-flight 'SeenSnapshot' whose signatories map holds REAL signatures, an @AckSn@
+--     from a sender already in the map is the node's 'SnapshotAlreadySigned'; a fresh sender is not.
+--
+--   * @allSignedRef@ vs the round completion of @onOpenNetworkAckSn@: a fresh sender's ack CONFIRMS
+--     (the node aggregates the real signatures in order and verifies the real multisignature before
+--     emitting 'SnapshotConfirmed') exactly when it completes the n-of-n signer set; the composed
+--     decision is @notAlreadySignedRef ∧ allSignedRef (sender ∷ Σ̂)@.
+--
+--   * @contestEligibleRef@ vs @onOpenChainCloseTx@: observing a close of snapshot s_c while our
+--     confirmed snapshot is S̄.s posts a 'ContestTx' exactly when S̄.s > s_c.
+--
 -- Domain note (deposit status): the extracted decision uses Nat truncated subtraction for
 -- @deadline − T_deposit@ whereas the node subtracts over 'UTCTime'; the two agree whenever
 -- @deadline ≥ T_deposit@, which the protocol guarantees (an observed deposit deadline sits a full
 -- deposit period after creation). The property therefore quantifies over that domain, with all times
 -- as whole POSIX seconds (exact in both representations).
+--
+-- Scope note (ackSn): the extracted guards model the COUNTING decisions (who signed, n-of-n); the
+-- collected signatures themselves are held healthy, exactly as the on-chain reference holds crypto
+-- conjuncts healthy. The real node additionally verifies the aggregate multisignature at
+-- confirmation; a corrupt collected signature makes it reject ('InvalidMultisignature') where the
+-- counting reference alone would accept, demonstrated as a validator-only rejection below.
 module Hydra.OffChainAgreementSpec (spec) where
 
 import Hydra.Prelude
@@ -38,14 +56,18 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
+  allSignedRef,
+  contestEligibleRef,
   depositStatusRef,
   leaderRef,
+  notAlreadySignedRef,
   reqDecEligibleRef,
   signEligibleRef,
  )
-import Hydra.Chain (ChainEvent (..))
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
+  Effect (..),
   Input (..),
   LogicError (..),
   Outcome (..),
@@ -53,20 +75,22 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
   StateChanged (..),
   WaitReason (..),
+  mkSeenSnapshot,
   update,
  )
-import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', receiveMessageFrom, testSnapshot)
+import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', observeTx, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx.Crypto (aggregate)
+import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, aggregate, sign)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, deriveOnChainId, testHeadId)
-import Test.QuickCheck (choose, elements, forAll, (===))
+import Hydra.Tx.Secret (Secret)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
+import Test.QuickCheck (choose, elements, forAll, sublistOf, (===))
 
 threeParties :: [Party]
 threeParties = [alice, bob, carol]
@@ -218,6 +242,107 @@ realTickStatus created deadline tDep t =
     DepositActivated{} -> True
     _ -> False
 
+-- ── ackSn collect/confirm ────────────────────────────────────────────────────────────────────────────
+
+-- Index ↔ party ↔ signing key, positional in 'threeParties' (as everywhere in this module).
+partySks :: [(Party, Secret (SigningKey HydraKey))]
+partySks = [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]
+
+partySkAt :: Integer -> (Party, Secret (SigningKey HydraKey))
+partySkAt i = case drop (fromInteger i) partySks of
+  x : _ -> x
+  [] -> Prelude.error "partySkAt: index out of range"
+
+-- The in-flight round's snapshot (ŝ = 1 on v̂ = 0) and its real per-party signatures.
+ackSnapshot :: Snapshot SimpleTx
+ackSnapshot = testSnapshot 1 0 [] mempty
+
+ackSigFor :: Integer -> (Party, Signature (Snapshot SimpleTx))
+ackSigFor i = let (p, sk) = partySkAt i in (p, sign sk ackSnapshot)
+
+-- Open state mid-round: the seen snapshot is in flight with the given parties' REAL signatures
+-- already collected ('mkSeenSnapshot' caches the signable bytes the verification runs over).
+ackState :: [(Party, Signature (Snapshot SimpleTx))] -> NodeState SimpleTx
+ackState collected =
+  inOpenState' threeParties $
+    CoordinatedHeadState
+      { localUTxO = mempty
+      , allTxs = mempty
+      , localTxs = mempty
+      , confirmedSnapshot = InitialSnapshot testHeadId
+      , seenSnapshot = mkSeenSnapshot ackSnapshot (Map.fromList collected)
+      , currentDepositTxId = Nothing
+      , decommitTx = Nothing
+      , version = 0
+      }
+
+-- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.
+ackOutcome :: [Integer] -> Integer -> Outcome SimpleTx
+ackOutcome signedIdxs senderIdx =
+  update aliceEnv simpleLedger time0 (ackState (ackSigFor <$> signedIdxs)) $
+    receiveMessageFrom sender (AckSn senderSig 1)
+ where
+  (sender, _) = partySkAt senderIdx
+  (_, senderSig) = ackSigFor senderIdx
+
+-- The already-signed reject direction: the node's SnapshotAlreadySigned require failure.
+ackAlreadySigned :: Outcome SimpleTx -> Bool
+ackAlreadySigned = \case
+  Error (RequireFailed SnapshotAlreadySigned{}) -> True
+  _ -> False
+
+-- The round completes: SnapshotConfirmed is emitted (behind the real multisignature verification).
+ackConfirms :: Outcome SimpleTx -> Bool
+ackConfirms = \case
+  Continue{stateChanges} -> any isConfirmed stateChanges
+  _ -> False
+ where
+  isConfirmed :: StateChanged SimpleTx -> Bool
+  isConfirmed = \case
+    SnapshotConfirmed{} -> True
+    _ -> False
+
+-- Validator-only rejection (the crypto boundary): alice's COLLECTED signature is over garbage, and
+-- carol's final ack completes the signer set, so the counting guards pass but the real aggregate
+-- verification fails.
+ackOutcomeCorrupt :: Outcome SimpleTx
+ackOutcomeCorrupt =
+  update aliceEnv simpleLedger time0 (ackState [corrupt, ackSigFor 1]) $
+    receiveMessageFrom sender (AckSn senderSig 1)
+ where
+  corrupt = (alice, coerce (sign aliceSk ("garbage" :: ByteString)))
+  (sender, _) = partySkAt 2
+  (_, senderSig) = ackSigFor 2
+
+ackInvalidMultisig :: Outcome SimpleTx -> Bool
+ackInvalidMultisig = \case
+  Error (RequireFailed InvalidMultisignature{}) -> True
+  _ -> False
+
+-- ── contest eligibility on a close observation ───────────────────────────────────────────────────────
+
+-- Observe a close of snapshot s_c while our confirmed snapshot is S̄.s ('reqSnState' already builds
+-- exactly the open state with a confirmed snapshot at a given number; version 0 here).
+contestOutcome :: Integer -> Integer -> Outcome SimpleTx
+contestOutcome sBar sc =
+  update aliceEnv simpleLedger time0 (reqSnState 0 sBar) $
+    observeTx
+      OnCloseTx
+        { headId = testHeadId
+        , snapshotNumber = fromInteger sc
+        , contestationDeadline = posixTime 1_000
+        }
+
+contestPosts :: Outcome SimpleTx -> Bool
+contestPosts = \case
+  Continue{effects} -> any isContest effects
+  _ -> False
+ where
+  isContest :: Effect SimpleTx -> Bool
+  isContest = \case
+    OnChainEffect{postChainTx = ContestTx{}} -> True
+    _ -> False
+
 spec :: Spec
 spec = parallel $ do
   describe "reqSn signing eligibility: extracted signEligibleRef vs the real onOpenNetworkReqSn" $ do
@@ -280,3 +405,41 @@ spec = parallel $ do
              in forAll (choose (0, deadline + tDep + 1)) $ \t ->
                   depositStatusRef created deadline tDep t
                     === realTickStatus created deadline tDep t
+
+  describe "ackSn collect/confirm: extracted notAlreadySignedRef/allSignedRef vs the real onOpenNetworkAckSn" $ do
+    it "anchor: a fresh, non-final ack is collected (neither already-signed nor confirmed)" $ do
+      notAlreadySignedRef [0] 1 `shouldBe` True
+      allSignedRef 3 [1, 0] `shouldBe` False
+      ackAlreadySigned (ackOutcome [0] 1) `shouldBe` False
+      ackConfirms (ackOutcome [0] 1) `shouldBe` False
+    it "anchor: the final ack CONFIRMS (real signatures aggregated in order and verified)" $ do
+      allSignedRef 3 [2, 0, 1] `shouldBe` True
+      ackConfirms (ackOutcome [0, 1] 2) `shouldBe` True
+    it "a duplicate ack is the node's SnapshotAlreadySigned" $ do
+      notAlreadySignedRef [0, 1] 1 `shouldBe` False
+      ackAlreadySigned (ackOutcome [0, 1] 1) `shouldBe` True
+    prop "notAlreadySignedRef === real not-already-signed across (signed subset, sender)" $
+      forAll (sublistOf [0, 1, 2]) $ \signedIdxs ->
+        forAll (elements [0, 1, 2]) $ \senderIdx ->
+          notAlreadySignedRef signedIdxs senderIdx
+            === not (ackAlreadySigned (ackOutcome signedIdxs senderIdx))
+    prop "composed: the ack CONFIRMS iff the sender is fresh AND completes the n-of-n signer set" $
+      forAll (sublistOf [0, 1, 2]) $ \signedIdxs ->
+        forAll (elements [0, 1, 2]) $ \senderIdx ->
+          (notAlreadySignedRef signedIdxs senderIdx && allSignedRef 3 (senderIdx : signedIdxs))
+            === ackConfirms (ackOutcome signedIdxs senderIdx)
+    it "scope: a corrupt collected signature fails the real multisignature verification (the counting reference alone would accept)" $ do
+      allSignedRef 3 [2, 0, 1] `shouldBe` True
+      ackInvalidMultisig ackOutcomeCorrupt `shouldBe` True
+
+  describe "contest eligibility: extracted contestEligibleRef vs the real onOpenChainCloseTx" $ do
+    it "anchor: a newer confirmed snapshot posts a ContestTx" $ do
+      contestEligibleRef 1 0 `shouldBe` True
+      contestPosts (contestOutcome 1 0) `shouldBe` True
+    it "an equal snapshot number does NOT contest (strictly-greater boundary)" $ do
+      contestEligibleRef 1 1 `shouldBe` False
+      contestPosts (contestOutcome 1 1) `shouldBe` False
+    prop "contestEligibleRef === real contest re-post across (S̄.s, s_c)" $
+      forAll (choose (0, 2)) $ \sBar ->
+        forAll (choose (0, 3)) $ \sc ->
+          contestEligibleRef sBar sc === contestPosts (contestOutcome sBar sc)
