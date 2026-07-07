@@ -161,9 +161,13 @@ data SeenSnapshot tx
       { snapshot :: Snapshot tx
       , signatories :: Map Party (Signature (Snapshot tx))
       -- ^ Collected signatures so far.
-      , signableBytes :: ByteString
+      , signableBytes :: ~ByteString
       -- ^ Pre-computed result of 'getSignableRepresentation snapshot', cached
-      -- to avoid recomputing the expensive UTxO hash on every AckSn verification.
+      -- to avoid recomputing the expensive UTxO hash on every AckSn
+      -- verification. Explicitly lazy under StrictData: state hydration folds
+      -- every historical 'NodeState' to WHNF, and a strict field here would
+      -- force one full accumulator commitment per replayed SnapshotRequested
+      -- event. At runtime it is forced once, on the first AckSn.
       }
   deriving stock (Generic)
 

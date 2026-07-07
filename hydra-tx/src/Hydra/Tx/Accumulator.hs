@@ -5,11 +5,13 @@ module Hydra.Tx.Accumulator (
   unHydraAccumulator,
   getAccumulatorHash,
   getAccumulatorCommitment,
+  computeG1CommitmentBytes,
   accumulatorSize,
   maxAccumulatorSize,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
+  applyUTxODelta,
 
   -- * CRS (Common Reference String)
   crsG2Points,
@@ -33,17 +35,13 @@ import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompr
 import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Data.Map.Strict qualified as Map
-import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Tx.IsTx (IsTx (..))
-import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
-  bls12_381_G1_compress,
+  bls12_381_G1_uncompress,
   bls12_381_G2_uncompress,
-  byteStringToInteger,
-  fromBuiltin,
   toBuiltin,
  )
 
@@ -51,9 +49,13 @@ import PlutusTx.Builtins (
 
 data HydraAccumulator = HydraAccumulator
   { unHydraAccumulator :: Accumulator
+  , _cachedCommitment :: ByteString
+  -- ^ Lazy thunk: compressed G1 commitment. Forced at most once per value,
+  -- shared by the hash below and by 'getAccumulatorCommitment' (datum
+  -- construction at close/contest/fanout).
   , _cachedHash :: ByteString
-  -- ^ Lazy thunk: blake2b-256 of the compressed G1 commitment. Forced once on
-  -- first access; subsequent reads return the memoized value, avoiding repeated
+  -- ^ Lazy thunk: blake2b-256 of '_cachedCommitment'. Forced once on first
+  -- access; subsequent reads return the memoized value, avoiding repeated
   -- BLS12-381 multi-scalar multiplications for the same accumulator.
   }
   deriving stock (Show)
@@ -62,11 +64,10 @@ instance Eq HydraAccumulator where
   a == b = unHydraAccumulator a == unHydraAccumulator b
 
 mkHydraAccumulator :: Accumulator -> HydraAccumulator
-mkHydraAccumulator acc = HydraAccumulator acc cachedHash
+mkHydraAccumulator acc = HydraAccumulator acc cachedCommitment cachedHash
  where
-  cachedHash =
-    digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $
-      computeG1Commitment acc
+  cachedCommitment = computeG1CommitmentBytes acc
+  cachedHash = digest (Proxy @Blake2b_256) cachedCommitment
 
 build :: [ByteString] -> HydraAccumulator
 build = mkHydraAccumulator . Accumulator.buildAccumulator
@@ -131,6 +132,37 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
       <> fromMaybe mempty mUtxoToCommit
       <> fromMaybe mempty mUtxoToDecommit
 
+-- | Update an accumulator from one snapshot's combined UTxO set to the next
+-- by adding and removing only the changed outputs, avoiding the per-output
+-- serialization and hashing of a full rebuild. Extensionally equal to
+-- 'buildFromUTxO' on the new set (see the property in
+-- "Hydra.Tx.AccumulatorSpec"): the underlying map tracks element multiplicity
+-- and the TxIn-keyed set difference removes exactly one occurrence per
+-- consumed input. Falls back to a full rebuild if a removed element is
+-- missing, which would indicate the given accumulator was not built from the
+-- given previous UTxO set.
+applyUTxODelta ::
+  forall tx.
+  IsTx tx =>
+  -- | Accumulator built from the previous combined UTxO set
+  HydraAccumulator ->
+  -- | The previous combined UTxO set
+  UTxOType tx ->
+  -- | The new combined UTxO set
+  UTxOType tx ->
+  HydraAccumulator
+applyUTxODelta prevAcc prevUTxO nextUTxO
+  | all (`Accumulator.elementExists` prev) removedEls =
+      mkHydraAccumulator $
+        foldl' (flip Accumulator.removeElement) (foldl' Accumulator.addElement prev addedEls) removedEls
+  | otherwise = buildFromUTxO @tx nextUTxO
+ where
+  prev = unHydraAccumulator prevAcc
+
+  removedEls = utxoToElement @tx <$> outputsOfUTxO @tx (prevUTxO `withoutUTxO` nextUTxO)
+
+  addedEls = utxoToElement @tx <$> outputsOfUTxO @tx (nextUTxO `withoutUTxO` prevUTxO)
+
 -- | Get a blake2b-256 hash of the accumulator commitment (compressed G1 point).
 --
 -- This is a pure function that returns a 32-byte deterministic hash of the
@@ -165,18 +197,23 @@ fromKZGSetup :: Either KZG.KZGSetupError a -> a
 fromKZGSetup = either (\e -> error $ "KZG trusted setup invariant violated: " <> show e) id
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
-getAccumulatorCommitment = computeG1Commitment . unHydraAccumulator
+getAccumulatorCommitment = bls12_381_G1_uncompress . toBuiltin . _cachedCommitment
 
-computeG1Commitment :: Accumulator -> BuiltinBLS12_381_G1_Element
-computeG1Commitment acc =
-  let expandedElems = concatMap (\(hash, count) -> replicate count hash) $ Map.elems acc
-      n = length expandedElems
-   in if n > KZG.maxAccumulatorSize
-        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
-        else
-          let crsG1 = take (n + 1) $ fromKZGSetup KZG.g1BuiltinPoints
-           in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin) $
-                expandedElems
+-- | Compute the compressed G1 commitment for an accumulator through the
+-- rust-accumulator FFI (divide-and-conquer FFT polynomial expansion and a
+-- Pippenger multi-scalar multiplication), which is orders of magnitude
+-- faster than expanding the polynomial in Haskell. Bit-for-bit equal to the
+-- PlutusTx reference path; see the equivalence properties and golden values
+-- in "Hydra.Tx.AccumulatorSpec".
+computeG1CommitmentBytes :: Accumulator -> ByteString
+computeG1CommitmentBytes acc
+  | n > KZG.maxAccumulatorSize =
+      error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
+  | otherwise =
+      either (\e -> error $ "computeG1CommitmentBytes: " <> toText e) blsCompress $
+        getPolyCommitOverG1 [] acc (crsG1Points (n + 1))
+ where
+  n = sum (snd <$> Map.elems acc)
 
 -- * CRS (Common Reference String)
 

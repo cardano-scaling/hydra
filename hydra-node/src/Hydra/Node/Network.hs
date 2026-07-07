@@ -74,8 +74,11 @@ withNetwork tracer conf callback action = do
 
 -- | The latest hydra network protocol version. Used to identify
 -- incompatibilities ahead of time.
+--
+-- Version 2: broadcast values carry a CBOR list of messages per etcd
+-- revision (batched broadcast) instead of a single message.
 currentNetworkProtocolVersion :: ProtocolVersion
-currentNetworkProtocolVersion = ProtocolVersion 1
+currentNetworkProtocolVersion = ProtocolVersion 2
 
 -- * Tracing
 

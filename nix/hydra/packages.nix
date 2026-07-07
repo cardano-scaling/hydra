@@ -1,7 +1,7 @@
 # A set of buildables we typically build for releases
 
 { self, ... }: {
-  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, ... }: {
+  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, hsPkgsProfiled, ... }: {
     packages =
       let
         # Creates a fixed length string by padding with given filler as suffix.
@@ -187,6 +187,7 @@
           buildInputs = [
             nativePkgs.hydra-node.components.benchmarks.tx-cost
             nativePkgs.hydra-node.components.benchmarks.micro
+            nativePkgs.hydra-node.components.benchmarks.snapshot
           ];
         };
         hydra-cluster-bench = pkgs.mkShellNoCC {
@@ -195,6 +196,25 @@
             [
               nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
               hydra-node
+              pkgs.cardano-node
+              pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
+            ];
+        };
+
+        # Cost-centre profiled hydra-node (-fprof-late, profiled libraries).
+        # No revision embedding: only meant for local profiling runs.
+        hydra-node-prof = hsPkgsProfiled.hydra-node.components.exes.hydra-node;
+
+        # Like hydra-cluster-bench, but the profiled hydra-node comes first on
+        # PATH so bench runs spawn it; see hydra-cluster/bench/README.md for
+        # how to collect .prof/eventlog files from a bench run.
+        hydra-cluster-bench-prof = pkgs.mkShellNoCC {
+          name = "hydra-cluster-bench-prof";
+          buildInputs =
+            [
+              hydra-node-prof
+              nativePkgs.hydra-cluster.components.benchmarks.bench-e2e
               pkgs.cardano-node
               pkgs.cardano-cli
               pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd

@@ -6,6 +6,7 @@ module Hydra.NetworkSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Binary (serialize')
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
@@ -23,9 +24,10 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (EtcdLog (..), getClientPort, isTransientGrpcError, peerPortToClientPort, putMessage, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), batchValue, connParams, getClientPort, grpcServer, isTransientGrpcError, peerPortToClientPort, putMessage, queryInitialModRev, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
+import Network.GRPC.Client (withConnection)
 import Network.GRPC.Common (GrpcError (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
@@ -133,7 +135,8 @@ spec = do
                 -- Compare against 0 must fail (real modRev > 0); the
                 -- failure branch should adopt the observed revision
                 -- and trace BroadcastDeduped instead of writing.
-                putMessage @Int captureTracer config host staleVar 99
+                withConnection (connParams captureTracer Nothing) (grpcServer config) $ \conn ->
+                  putMessage captureTracer conn host staleVar (batchValue [serialize' (99 :: Int)])
                 captured <- map message <$> readTVarIO traces
                 captured
                   `shouldSatisfy` any
@@ -318,6 +321,48 @@ spec = do
                 withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
                   broadcast n1 1001
                   waitCarol `shouldReturn` 1001
+
+      it "batches queued messages and delivers them in order" $ \tracer -> do
+        withTempDir "test-etcd" $ \tmp -> do
+          failAfter 60 $ do
+            PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+            (recordBob, waitBob, _) <- newRecordingCallback
+            withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
+              withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
+                -- Broadcast without waiting in between, so the sender's queue
+                -- accumulates and messages travel as multi-message batch
+                -- values. Delivery must still be in order, exactly once.
+                forM_ [1 .. 200] $ broadcast n1
+                forM_ [1 .. 200] $ \msg -> waitBob `shouldReturn` msg
+
+      it "delivers legacy single-message values" $ \tracer -> do
+        failAfter 30 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
+              let host = Host lo port
+                  config =
+                    NetworkConfiguration
+                      { listen = host
+                      , advertise = host
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      , whichEtcd = SystemEtcd
+                      }
+              (recordingCallback, waitNext, _) <- newRecordingCallback
+              withEtcdNetwork @Int tracer v1 config recordingCallback $ \n -> do
+                broadcast n 1
+                waitNext `shouldReturn` 1
+                -- Write a value in the pre-batching wire format (a single
+                -- CBOR message, not a list); the watch must deliver it
+                -- through the legacy fallback decoder.
+                rev <- queryInitialModRev tracer config host
+                revVar <- newLabelledTVarIO "legacy-value-mod-rev" rev
+                withConnection (connParams tracer Nothing) (grpcServer config) $ \conn ->
+                  putMessage tracer conn host revVar (serialize' (7 :: Int))
+                waitNext `shouldReturn` 7
 
       it "handles compaction and lost local state" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do

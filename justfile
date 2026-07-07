@@ -117,3 +117,22 @@ lint PKG="all":
       -Wmissing-deriving-strategies \
       -Wredundant-constraints \
       -Wunused-packages"
+
+# run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
+# BENCH_MAX_UTXO=4000 includes the largest grid cells
+bench-snapshot OPTIONS="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  mkdir -p test-reports
+  cabal bench hydra-node:snapshot \
+    --benchmark-options "--json $(pwd)/test-reports/snapshot-bench.json {{OPTIONS}}"
+
+# run the end-to-end cluster benchmark on a dataset file, e.g.
+# `just bench-e2e hydra-cluster/datasets/3-nodes.json`
+bench-e2e DATASET:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  outdir=$(mktemp -d bench-e2e-XXXX --tmpdir)
+  nix develop .#hydra-cluster-bench \
+    --command bench-e2e single "{{DATASET}}" --output-directory "$outdir"
+  echo "Results in: $outdir"
