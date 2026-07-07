@@ -416,26 +416,13 @@ processStateChanges node stateChanges = do
     , nodeStateHandler = NodeStateHandler{getNextEventId}
     } = node
 
-processEffects ::
-  ( MonadAsync m
-  , MonadCatch m
-  , IsChainState tx
-  ) =>
-  HydraNode tx m ->
-  Tracer m (HydraNodeLog tx) ->
-  Word64 ->
-  [Effect tx] ->
-  m ()
-processEffects node tracer inputId effects =
-  processIndexedEffects node tracer inputId (zip effects [0 ..])
-
 isNetworkEffect :: Effect tx -> Bool
 isNetworkEffect = \case
   NetworkEffect{} -> True
   _ -> False
 
--- | Like 'processEffects', but for effects pre-paired with their effect id,
--- so a partitioned dispatch keeps the original numbering in the logs.
+-- | Process effects pre-paired with their effect id, so a partitioned
+-- dispatch keeps the original numbering in the logs.
 processIndexedEffects ::
   ( MonadAsync m
   , MonadCatch m
