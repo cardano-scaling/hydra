@@ -544,10 +544,12 @@ withTUITest region action = do
           -- Poll the frame buffer until @expected@ appears or the budget runs
           -- out. The TUI updates asynchronously (vty render + WebSocket event
           -- stream), so a single point check after a fixed 'threadDelay' is
-          -- racy under CI load — especially after 'restartNode', where the
-          -- ~700 ms hydra-node KZG warm-up eats most of the post-restart
-          -- budget before the head state is even pushed to the TUI.
-          let budget = 5 :: NominalDiffTime
+          -- racy under CI load — especially after 'restartNode', where a full
+          -- node restart (etcd spawn, KZG warm-up, state hydration) plus the
+          -- TUI reconnect must fit in the budget. Generous on purpose: the
+          -- poll returns as soon as the bytes appear, so passing tests do not
+          -- pay for it, and 5s proved too eager on loaded CI runners.
+          let budget = 30 :: NominalDiffTime
           deadline <- addUTCTime budget <$> getCurrentTime
           let loop = do
                 bytes <- getPicture
