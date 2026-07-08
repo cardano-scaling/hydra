@@ -11,7 +11,7 @@ import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
 import Control.Concurrent.STM (newTChanIO)
-import Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import Control.Monad.Class.MonadAsync (cancel, link, waitCatch)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
@@ -376,6 +376,9 @@ withHydraNodeHandle tracer tmpDir nodeId options action = do
           putMVar clientVar client
           -- keep async alive as long as node is running
           forever (threadDelay 1_000_000)
+      -- Surface node crashes in the test instead of hanging on a dead node;
+      -- 'link' ignores the 'AsyncCancelled' thrown by 'stopNode'.
+      link a
       putMVar runningAsyncVar a
 
     stopNode = do
@@ -541,10 +544,12 @@ withTUITest region action = do
           -- Poll the frame buffer until @expected@ appears or the budget runs
           -- out. The TUI updates asynchronously (vty render + WebSocket event
           -- stream), so a single point check after a fixed 'threadDelay' is
-          -- racy under CI load — especially after 'restartNode', where the
-          -- ~700 ms hydra-node KZG warm-up eats most of the post-restart
-          -- budget before the head state is even pushed to the TUI.
-          let budget = 5 :: NominalDiffTime
+          -- racy under CI load — especially after 'restartNode', where a full
+          -- node restart (etcd spawn, KZG warm-up, state hydration) plus the
+          -- TUI reconnect must fit in the budget. Generous on purpose: the
+          -- poll returns as soon as the bytes appear, so passing tests do not
+          -- pay for it, and 5s proved too eager on loaded CI runners.
+          let budget = 30 :: NominalDiffTime
           deadline <- addUTCTime budget <$> getCurrentTime
           let loop = do
                 bytes <- getPicture
