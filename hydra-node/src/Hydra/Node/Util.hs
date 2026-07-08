@@ -6,13 +6,15 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO (totalValue)
 import Hydra.Cardano.Api (
+  AsType (AsPaymentExtendedKey, AsPaymentKey, AsSigningKey, AsVerificationKey),
   AssetId (..),
   CardanoSigningKey (..),
   File (..),
+  FileError,
+  FromSomeType (..),
   HasTextEnvelope,
-  PaymentExtendedKey,
   PaymentKey,
-  SigningKey,
+  TextEnvelopeError,
   UTxO,
   Value,
   VerificationKey,
@@ -20,8 +22,15 @@ import Hydra.Cardano.Api (
   filterValue,
   getCardanoPaymentVerificationKey,
   readFileTextEnvelope,
+  readFileTextEnvelopeAnyOf,
  )
 import Hydra.Tx.Secret (Secret, mkSecret)
+
+-- | Thrown when a cardano key file could not be read as any of the accepted
+-- text envelope formats.
+newtype KeyFileError = KeyFileError (FileError TextEnvelopeError)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 -- | Read a cardano signing key pair from a text envelope file, accepting both
 -- normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.
@@ -35,30 +44,28 @@ readKeyPair keyPath = do
 -- | Read a 'CardanoSigningKey' from a text envelope file, accepting both
 -- normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.
 -- Extended keys are kept native (not converted) to preserve correct signing.
+-- Throws 'KeyFileError' listing both accepted formats if neither matches.
 readSigningKey :: FilePath -> IO CardanoSigningKey
-readSigningKey path = do
-  result <- readFileTextEnvelope (File path)
-  case result of
-    Right sk -> pure (CardanoSigningKey sk)
-    Left _normalError -> do
-      extResult <- readFileTextEnvelope @(SigningKey PaymentExtendedKey) (File path)
-      case extResult of
-        Right extSk -> pure (CardanoExtendedSigningKey extSk)
-        Left extError -> fail $ show extError
+readSigningKey path =
+  readFileTextEnvelopeAnyOf
+    [ FromSomeType (AsSigningKey AsPaymentKey) CardanoSigningKey
+    , FromSomeType (AsSigningKey AsPaymentExtendedKey) CardanoExtendedSigningKey
+    ]
+    (File path)
+    >>= either (throwIO . KeyFileError) pure
 
 -- | Read a 'VerificationKey PaymentKey' from a text envelope file, accepting
 -- both normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.
 -- Extended keys are converted using 'castVerificationKey'.
+-- Throws 'KeyFileError' listing both accepted formats if neither matches.
 readVerificationKey :: FilePath -> IO (VerificationKey PaymentKey)
-readVerificationKey path = do
-  result <- readFileTextEnvelope (File path)
-  case result of
-    Right vk -> pure vk
-    Left _normalError -> do
-      extResult <- readFileTextEnvelope @(VerificationKey PaymentExtendedKey) (File path)
-      case extResult of
-        Right extVk -> pure $ castVerificationKey extVk
-        Left extError -> fail $ show extError
+readVerificationKey path =
+  readFileTextEnvelopeAnyOf
+    [ FromSomeType (AsVerificationKey AsPaymentKey) id
+    , FromSomeType (AsVerificationKey AsPaymentExtendedKey) castVerificationKey
+    ]
+    (File path)
+    >>= either (throwIO . KeyFileError) pure
 
 -- XXX: Should accept a 'File' path
 readFileTextEnvelopeThrow ::

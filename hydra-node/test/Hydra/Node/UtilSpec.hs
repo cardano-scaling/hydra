@@ -3,12 +3,13 @@ module Hydra.Node.UtilSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.List (isInfixOf)
 import Hydra.Cardano.Api (
   CardanoSigningKey (..),
   getCardanoPaymentVerificationKey,
   verificationKeyHash,
  )
-import Hydra.Node.Util (readKeyPair, readSigningKey, readVerificationKey)
+import Hydra.Node.Util (KeyFileError (..), readKeyPair, readSigningKey, readVerificationKey)
 import Hydra.Tx.Secret (withSecret)
 
 spec :: Spec
@@ -42,6 +43,15 @@ spec = do
         CardanoSigningKey{} -> pure ()
         CardanoExtendedSigningKey{} -> expectationFailure "Expected normal signing key"
 
+    it "fails on a wrong key type mentioning both accepted formats" $
+      readSigningKey "test/fixtures/payment-normal.vk"
+        `shouldThrow` \(KeyFileError e) ->
+          all
+            (`isInfixOf` show e)
+            [ "PaymentSigningKeyShelley_ed25519"
+            , "PaymentExtendedSigningKeyShelley_ed25519_bip32"
+            ]
+
   describe "readVerificationKey" $ do
     it "loads a normal verification key" $ do
       vk <- readVerificationKey "test/fixtures/payment-normal.vk"
@@ -51,3 +61,12 @@ spec = do
       extVk <- readVerificationKey "test/fixtures/payment-extended.vk"
       normalVk <- readVerificationKey "test/fixtures/payment-normal.vk"
       verificationKeyHash extVk `shouldBe` verificationKeyHash normalVk
+
+    it "fails on a wrong key type mentioning both accepted formats" $
+      readVerificationKey "test/fixtures/payment-normal.sk"
+        `shouldThrow` \(KeyFileError e) ->
+          all
+            (`isInfixOf` show e)
+            [ "PaymentVerificationKeyShelley_ed25519"
+            , "PaymentExtendedVerificationKeyShelley_ed25519_bip32"
+            ]
