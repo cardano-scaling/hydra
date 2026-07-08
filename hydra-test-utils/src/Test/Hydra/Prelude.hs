@@ -17,6 +17,7 @@ module Test.Hydra.Prelude (
   withClearedPATH,
   onlyLocal,
   onlyNightly,
+  nightlyRuns,
   Gen,
   Arbitrary (..),
   genericArbitrary,
@@ -242,6 +243,11 @@ onlyNightly action = do
   lookupEnv "CI_NIGHTLY" >>= \case
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
+
+-- | QuickCheck example count for 'onlyNightly' properties, larger than the
+-- default 100 so nightly fuzzes deeper.
+nightlyRuns :: Int
+nightlyRuns = 1_000
 
 -- | Only run this test locally, i.e. when no CI environment variable is set.
 -- Useful for long-running stress tests that would kill CI runners.

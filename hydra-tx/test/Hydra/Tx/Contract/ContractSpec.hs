@@ -97,16 +97,24 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Instances ()
 
+-- | Shared by the per-commit (throttled) and nightly (deep) hashing runs.
+txOutHashingProps :: Spec
+txOutHashingProps = do
+  prop "hashUTxO == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentOnAndOffChainHashOfTxOuts
+  prop "OnChain.hashPreSerializedCommits == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentHashPreSerializedCommits
+  prop "does care about ordering of TxOut" prop_hashingCaresAboutOrderingOfTxOuts
+
 spec :: Spec
 spec = parallel $ do
   describe "Signature validator" $ do
     prop "verifies snapshot multi-signature" prop_verifySnapshotSignatures
 
-  describe "TxOut hashing" $ do
-    modifyMaxSuccess (const 20) $ do
-      prop "hashUTxO == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentOnAndOffChainHashOfTxOuts
-      prop "OnChain.hashPreSerializedCommits == OnChain.hashTxOuts (on sorted tx outs)" prop_consistentHashPreSerializedCommits
-      prop "does care about ordering of TxOut" prop_hashingCaresAboutOrderingOfTxOuts
+  -- Throttled to 20 per-commit for speed; re-run deeply nightly below.
+  describe "TxOut hashing" $
+    modifyMaxSuccess (const 20) txOutHashingProps
+  around_ onlyNightly $
+    describe "TxOut hashing (deep) @nightly" $
+      modifyMaxSuccess (const nightlyRuns) txOutHashingProps
 
   describe "Serializing commits" $
     prop "deserializeCommit . serializeCommit === id" prop_serializingCommitRoundtrip
