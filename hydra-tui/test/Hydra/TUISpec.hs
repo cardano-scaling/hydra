@@ -28,7 +28,10 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
-import Hydra.Cardano.Api (Coin)
+import Hydra.API.ServerOutput (ClientMessage (..), InvalidInput (..))
+import Hydra.Cardano.Api (Coin, Tx)
+import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Client (AllPossibleAPIMessages (..))
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -42,9 +45,12 @@ import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.State (SyncedStatus (..), initialChainTime)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing.Utils (renderTime)
+import Hydra.TUI.Handlers (logSyncDecision, recordLogMessage)
+import Hydra.TUI.Logging.Types (LogMessage (..), LogState (..))
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Crypto (getVerificationKey)
@@ -295,6 +301,64 @@ spec = do
       let time' = 1 * hours + 1 * minutes + 15 * seconds
       renderTime (-time' :: NominalDiffTime) `shouldBe` "-0d 1h 1m 15s"
 
+  context "sync-status log collapsing (#2749)" $ do
+    -- The node emits a 'SyncedStatusReport' on every chain tick once drift
+    -- crosses 80% of the unsynced period. 'logSyncDecision' collapses those
+    -- into a single log entry per status change so the TUI log is not flooded.
+    let mkSyncReport :: SyncedStatus -> AllPossibleAPIMessages Tx
+        mkSyncReport synced =
+          ApiClientMessage
+            SyncedStatusReport
+              { chainSlot = ChainSlot 0
+              , chainTime = initialChainTime
+              , drift = 1
+              , synced
+              }
+        otherMessage :: AllPossibleAPIMessages Tx
+        otherMessage = ApiInvalidInput InvalidInput{reason = "boom", input = "bad"}
+        -- Replay messages through 'logSyncDecision', counting how many would be
+        -- recorded in the log.
+        recordedCount :: [AllPossibleAPIMessages Tx] -> Int
+        recordedCount = fst . foldl' step (0, Nothing)
+         where
+          step :: (Int, Maybe Text) -> AllPossibleAPIMessages Tx -> (Int, Maybe Text)
+          step (n, lastSummary) msg =
+            let (record, lastSummary') = logSyncDecision lastSummary msg
+             in (if record then n + 1 else n, lastSummary')
+        -- Drive the *real* production log fold ('recordLogMessage', the pure
+        -- core of 'handleHydraEventsLog') over a stream of messages, mirroring
+        -- what the TUI does with the WebSocket event stream.
+        runLog :: [AllPossibleAPIMessages Tx] -> LogState
+        runLog =
+          foldl' (flip (recordLogMessage initialChainTime)) LogState{logMessages = [], lastSyncSummary = Nothing}
+        syncEntriesIn :: LogState -> Int
+        syncEntriesIn st = length [() | LogMessage{message} <- logMessages st, message == "Sync status: InSync"]
+
+    it "records the first sync report" $
+      logSyncDecision Nothing (mkSyncReport InSync) `shouldBe` (True, Just "InSync")
+    it "drops a repeated report with unchanged status" $
+      logSyncDecision (Just "InSync") (mkSyncReport InSync) `shouldBe` (False, Just "InSync")
+    it "records a report when the status changes" $
+      logSyncDecision (Just "InSync") (mkSyncReport CatchingUp) `shouldBe` (True, Just "CatchingUp")
+    it "always records non-sync messages and preserves the tracked status" $
+      logSyncDecision (Just "InSync") otherMessage `shouldBe` (True, Just "InSync")
+    it "collapses a flood of identical reports into a single entry" $
+      recordedCount (replicate 10 (mkSyncReport InSync)) `shouldBe` 1
+    it "keeps collapsing identical reports even when other messages interleave" $
+      -- one sync entry + two non-sync entries
+      recordedCount [mkSyncReport InSync, otherMessage, mkSyncReport InSync, otherMessage, mkSyncReport InSync]
+        `shouldBe` 3
+
+    -- The issue scenario ("submit 1000 txns -> too many sync reports"), driven
+    -- through the real rendering + dedup + append path the TUI uses.
+    it "renders a 1000-report flood as a single visible log entry (issue #2749 scenario)" $ do
+      let finalLog = runLog (replicate 1000 (mkSyncReport InSync))
+      syncEntriesIn finalLog `shouldBe` 1
+      length (logMessages finalLog) `shouldBe` 1
+    it "renders a 1000-report flood interleaved with other messages as one sync entry, rest preserved" $ do
+      let finalLog = runLog (concat (replicate 1000 [mkSyncReport InSync, otherMessage]))
+      syncEntriesIn finalLog `shouldBe` 1
+      length (logMessages finalLog) `shouldBe` 1001 -- 1 collapsed sync entry + 1000 other messages
   context "text rendering errors" $ do
     around setupNotEnoughFundsNodeAndTUI $ do
       it "should show not enough fuel message and suggestion" $

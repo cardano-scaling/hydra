@@ -27,11 +27,16 @@ data EventHistoryFilter = ShowAll | ErrorsOnly
   deriving stock (Eq, Show, Generic)
 
 type LogState :: Type
-newtype LogState = LogState
+data LogState = LogState
   { logMessages :: [LogMessage]
+  , lastSyncSummary :: Maybe Text
+  -- ^ Summary of the last recorded sync-status report. Used to collapse the
+  -- stream of per-tick 'SyncedStatusReport's into a single entry per status
+  -- change (see issue #2749).
   }
 
 makeLensesFor
   [ ("logMessages", "logMessagesL")
+  , ("lastSyncSummary", "lastSyncSummaryL")
   ]
   ''LogState

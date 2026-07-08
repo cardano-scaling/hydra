@@ -37,7 +37,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Config (TuiConfig (..), toggleTheme, writeConfig)
 import Hydra.TUI.Forms
-import Hydra.TUI.Logging.Types (EventHistoryFilter (..), LogMessage (..), Severity (..), logMessagesL)
+import Hydra.TUI.Logging.Types (EventHistoryFilter (..), LogMessage (..), LogState (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Style (own)
@@ -60,7 +60,7 @@ handleEvent cardanoClient client chan = \case
       handleHydraEventsConnectedState e
       zoom connectionL $ handleHydraEventsConnection now e
     beforeLen <- length <$> use (logStateL . logMessagesL)
-    zoom (logStateL . logMessagesL) $
+    zoom logStateL $
       handleHydraEventsLog now e
     afterLen <- length <$> use (logStateL . logMessagesL)
     when (afterLen > beforeLen) $
@@ -410,10 +410,53 @@ handleHydraEventsActiveLink e = do
       pendingIncrementsL .= activePendingIncrements
     _ -> pure ()
 
-handleHydraEventsLog :: UTCTime -> HydraEvent Tx -> EventM Name [LogMessage] ()
+handleHydraEventsLog :: UTCTime -> HydraEvent Tx -> EventM Name LogState ()
 handleHydraEventsLog now = \case
-  Update msg -> id %= (toLogMessage (renderMessage now msg) :)
+  Update msg -> modify (recordLogMessage now msg)
   _ -> pure ()
+
+-- | Fold a single API message into the log state: render and prepend it, unless
+-- it is a duplicate sync-status report that should be collapsed (see
+-- 'logSyncDecision' and issue #2749). This is the pure core of
+-- 'handleHydraEventsLog'.
+recordLogMessage :: UTCTime -> AllPossibleAPIMessages Tx -> LogState -> LogState
+recordLogMessage now msg logState =
+  let (record, newLastSummary) = logSyncDecision (lastSyncSummary logState) msg
+   in logState
+        { lastSyncSummary = newLastSummary
+        , logMessages =
+            if record
+              then toLogMessage (renderMessage now msg) : logMessages logState
+              else logMessages logState
+        }
+
+-- | A stable summary of a sync-status report, or 'Nothing' for other messages.
+-- Reports that share a summary are collapsed into a single log entry.
+syncReportSummary :: AllPossibleAPIMessages Tx -> Maybe Text
+syncReportSummary = \case
+  ApiClientMessage API.SyncedStatusReport{synced} -> Just (show synced)
+  _ -> Nothing
+
+-- | Decide whether an incoming message should be recorded in the log, given
+-- the summary of the last recorded sync-status report.
+--
+-- The node emits a 'SyncedStatusReport' on every chain tick once drift passes
+-- 80% of the unsynced period, which would otherwise flood the log with
+-- identical entries (see issue #2749). We keep only one entry per status
+-- change; the live sync indicator already reflects the current state. Non-sync
+-- messages are always recorded and leave the tracked summary untouched.
+logSyncDecision ::
+  -- | Summary of the last recorded sync-status report.
+  Maybe Text ->
+  AllPossibleAPIMessages Tx ->
+  -- | Whether to record the message, and the updated last-sync summary.
+  (Bool, Maybe Text)
+logSyncDecision lastSummary msg =
+  case syncReportSummary msg of
+    Nothing -> (True, lastSummary)
+    Just summary
+      | Just summary == lastSummary -> (False, lastSummary)
+      | otherwise -> (True, Just summary)
 
 -- * VtyEvent handlers
 
