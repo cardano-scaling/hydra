@@ -40,7 +40,10 @@ changes.
   no-op in `popPersistentQueue` could leave the broadcast queue permanently stuck
   at capacity, blocking all outbound messages. Node operators will now see
   explicit `PersistentQueueFull` and `PersistentQueueLoadFailed` log entries when
-  the queue is under pressure or fails to recover from disk on startup.
+  the queue is under pressure or fails to recover from disk on startup. Failing
+  to delete a sent message's backing file no longer crashes the network
+  component; it is logged as `PersistentQueueDeleteFailed` and the message may
+  be re-broadcast after a restart.
 
 ## [2.2.0] - 2026.06.12
 

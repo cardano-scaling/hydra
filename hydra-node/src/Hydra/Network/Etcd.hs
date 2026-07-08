@@ -387,7 +387,7 @@ broadcastMessages tracer config ourHost queue = do
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue queue)
+    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue tracer queue)
       `catch` \case
         e@GrpcException{grpcError, grpcErrorMessage}
           | isTransientGrpcError grpcError -> do
@@ -791,11 +791,16 @@ peekPersistentQueue PersistentQueue{queue} = do
 
 -- | Remove the head element from the queue. Must only be called after a
 -- successful 'peekPersistentQueue' by the same (single) consumer thread.
-popPersistentQueue :: (MonadSTM m, MonadIO m) => PersistentQueue m a -> m ()
-popPersistentQueue PersistentQueue{queue, directory} = do
+-- Failing to delete the backing file is traced but not fatal: the message was
+-- already broadcast, so a leftover file only means it may be re-broadcast
+-- after a restart (at-least-once delivery, same as the crash-recovery path).
+popPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> m ()
+popPersistentQueue tracer PersistentQueue{queue, directory} = do
   (ix, _) <- atomically $ readTBQueue queue
-  liftIO $ removeFile (directory </> show ix)
-    `catch` \e -> unless (isDoesNotExistError e) (throwIO e)
+  liftIO $
+    removeFile (directory </> show ix) `catch` \e ->
+      unless (isDoesNotExistError e) $
+        traceWith tracer PersistentQueueDeleteFailed{index = ix, reason = show e}
 
 -- * Tracing
 
@@ -822,5 +827,9 @@ data EtcdLog
   | -- | The persistent queue has reached capacity. The calling thread will
     -- block until the broadcast loop drains at least one item.
     PersistentQueueFull
+  | -- | Failed to delete the backing file of an already-broadcast item. The
+    -- queue keeps operating; the leftover file only means the message may be
+    -- re-broadcast after a restart.
+    PersistentQueueDeleteFailed {index :: Natural, reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
