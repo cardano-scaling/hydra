@@ -8,11 +8,12 @@
 --
 -- Benchmarking rules:
 --
---  * 'HydraAccumulator' memoizes its hash per value, so never measure a
---    cache-reading function (like 'getAccumulatorHash') applied to an
---    argument shared across iterations; either rebuild the accumulator inside
---    the measured function or measure one that recomputes unconditionally
---    (like 'getAccumulatorCommitment').
+--  * 'HydraAccumulator' memoizes its commitment and hash per value, so never
+--    measure a cache-reading function (like 'getAccumulatorHash' or
+--    'getAccumulatorCommitment') applied to an argument shared across
+--    iterations; either rebuild the accumulator inside the measured function
+--    or measure one that recomputes unconditionally (like
+--    'computeG1CommitmentBytes').
 --
 --  * Plutus builtin wrappers ('BuiltinBLS12_381_G1_Element' et al) are lazy:
 --    WHNF of a commitment point does none of the BLS math. Always force

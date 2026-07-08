@@ -389,6 +389,7 @@ broadcastMessages tracer config ourHost queue = do
   -- failure branch just adopts the new baseline and pops.
   initialModRev <- retryInitQuery
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
+  inFlightVar <- newLabelledTVarIO "etcd-broadcast-in-flight" Nothing
   withGrpcContext "broadcastMessages" . forever $ do
     -- Block for work before opening a connection, then reuse that connection
     -- for up to 'maxPutsPerConnection' queued messages. Per-message
@@ -401,7 +402,7 @@ broadcastMessages tracer config ourHost queue = do
     -- onset. Messages are only popped after a successful put, so a recycled
     -- or failed connection never loses a message.
     void $ peekPersistentQueue queue
-    sendPending lastModRevVar
+    sendPending lastModRevVar inFlightVar
       `catch` \case
         e@GrpcException{grpcError, grpcErrorMessage}
           | isTransientGrpcError grpcError -> do
@@ -409,20 +410,17 @@ broadcastMessages tracer config ourHost queue = do
               threadDelay 1
           | otherwise -> throwIO e
  where
-  sendPending lastModRevVar =
+  sendPending lastModRevVar inFlightVar =
     withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn ->
       let go n
             | n <= 0 = pure ()
             | otherwise =
-                tryPeekPersistentQueue queue >>= \case
+                nextPendingBatch inFlightVar queue maxBatchCount maxBatchBytes >>= \case
                   Nothing -> pure ()
-                  Just _ -> do
-                    -- All pending messages (bounded below) are sent as a
-                    -- single etcd value, so a whole batch costs one Raft
-                    -- commit instead of one per message.
-                    batch <- peekBatchPersistentQueue queue maxBatchCount maxBatchBytes
+                  Just batch -> do
                     putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
                     popBatchPersistentQueue tracer queue batch
+                    atomically $ writeTVar inFlightVar Nothing
                     go (n - 1)
        in go maxPutsPerConnection
 
@@ -879,6 +877,39 @@ peekBatchPersistentQueue PersistentQueue{queue} maxCount maxBytes = atomically $
             | otherwise -> go (budget - BS.length bytes) (next : acc)
 
   remainingAfter (_, _, bytes) = maxBytes - BS.length bytes
+
+-- | Get the batch to broadcast next: the batch already in flight if there is
+-- one, otherwise a fresh one peeked from the queue (and recorded as in
+-- flight). Returns 'Nothing' when nothing is pending. The caller must clear
+-- the in-flight var after popping a successfully sent batch.
+--
+-- Pinning the in-flight batch across transient retries matters for the
+-- compare-fail dedup in 'putMessage': a put can commit server-side while the
+-- client sees e.g. 'GrpcDeadlineExceeded'. The retry must send (and
+-- afterwards pop) exactly the content of the committed attempt. Re-peeking
+-- on retry could pick up messages enqueued in the meantime; the dedup branch
+-- would then declare the grown batch delivered and the never-sent tail would
+-- be popped and lost.
+nextPendingBatch ::
+  MonadSTM m =>
+  TVar m (Maybe [(a, ByteString)]) ->
+  PersistentQueue m a ->
+  Int ->
+  Int ->
+  m (Maybe [(a, ByteString)])
+nextPendingBatch inFlightVar queue maxCount maxBytes =
+  readTVarIO inFlightVar >>= \case
+    Just batch -> pure (Just batch)
+    Nothing ->
+      tryPeekPersistentQueue queue >>= \case
+        Nothing -> pure Nothing
+        Just _ -> do
+          -- All pending messages (bounded by the given limits) are sent as a
+          -- single etcd value, so a whole batch costs one Raft commit
+          -- instead of one per message.
+          batch <- peekBatchPersistentQueue queue maxCount maxBytes
+          atomically $ writeTVar inFlightVar (Just batch)
+          pure (Just batch)
 
 -- | Remove a batch previously returned by 'peekBatchPersistentQueue'. Pops
 -- unconditionally, one item per batch entry: this thread is the sole

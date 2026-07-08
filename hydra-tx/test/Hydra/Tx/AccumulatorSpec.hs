@@ -77,6 +77,21 @@ spec = parallel $ do
                 delta = applyUTxODelta @Tx (buildFromUTxO @Tx prevU) prevU nextU
              in unHydraAccumulator delta === unHydraAccumulator (buildFromUTxO @Tx nextU)
 
+    prop "applyUTxODelta falls back to a fresh build on multiplicity mismatch" $
+      forAll arbitrary $ \(txIn1, txIn2, txIn3) ->
+        (txIn1 /= txIn2 && txIn2 /= txIn3 && txIn1 /= txIn3) ==>
+          forAll (genTxOutAdaOnly =<< arbitrary) $ \txOut ->
+            -- Mismatched precondition: the accumulator holds ONE copy of the
+            -- element while the claimed previous set carries it three times.
+            -- Removing two copies exceeds the held count; without the
+            -- multiplicity check 'Accumulator.removeElement' would silently
+            -- no-op past zero and drop the copy that 'nextU' still contains.
+            let accU = UTxO.fromList [(txIn1, txOut)]
+                prevU = UTxO.fromList [(txIn1, txOut), (txIn2, txOut), (txIn3, txOut)]
+                nextU = UTxO.fromList [(txIn3, txOut)]
+                delta = applyUTxODelta @Tx (buildFromUTxO @Tx accU) prevU nextU
+             in unHydraAccumulator delta === unHydraAccumulator (buildFromUTxO @Tx nextU)
+
     prop "accumulator hash is the blake2b of the commitment in the datum" $
       -- Off-chain mirror of the on-chain mustMatchAccumulatorCommitmentHash
       -- check: the signed hash must bind to the G1 commitment stored in

@@ -146,8 +146,9 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
 -- "Hydra.Tx.AccumulatorSpec"): the underlying map tracks element multiplicity
 -- and the TxIn-keyed set difference removes exactly one occurrence per
 -- consumed input. Falls back to a full rebuild if a removed element is
--- missing, which would indicate the given accumulator was not built from the
--- given previous UTxO set.
+-- missing or has lower multiplicity than the removals require, which would
+-- indicate the given accumulator was not built from the given previous UTxO
+-- set.
 applyUTxODelta ::
   forall tx.
   IsTx tx =>
@@ -159,12 +160,22 @@ applyUTxODelta ::
   UTxOType tx ->
   HydraAccumulator
 applyUTxODelta prevAcc prevUTxO nextUTxO
-  | all (`Accumulator.elementExists` prev) removedEls =
+  | removalsCovered =
       mkHydraAccumulator $
         foldl' (flip Accumulator.removeElement) (foldl' Accumulator.addElement prev addedEls) removedEls
   | otherwise = buildFromUTxO @tx nextUTxO
  where
   prev = unHydraAccumulator prevAcc
+
+  -- Multiset containment: every element must be present with at least the
+  -- multiplicity about to be removed. Membership alone would let a
+  -- mismatched (accumulator, previous UTxO) pair skip the fallback:
+  -- 'Accumulator.removeElement' silently no-ops once a count is exhausted,
+  -- yielding a commitment that does not bind 'nextUTxO'.
+  removalsCovered =
+    Map.isSubmapOfBy (\needed (_, held) -> needed <= held) removedCounts prev
+
+  removedCounts = Map.fromListWith (+) [(el, 1 :: Int) | el <- removedEls]
 
   removedEls = utxoToElement @tx <$> outputsOfUTxO @tx (prevUTxO `withoutUTxO` nextUTxO)
 

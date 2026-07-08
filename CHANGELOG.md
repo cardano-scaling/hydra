@@ -28,6 +28,24 @@ changes.
   Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
   natively supported, removing the need to manually convert them before use.
 
+- **BREAKING** Network protocol version bumped to 2: broadcast messages are
+  now batched into a single etcd value (one Raft commit per batch) and the
+  broadcast path reuses gRPC connections, substantially increasing in-head
+  throughput. Nodes on different protocol versions cannot exchange messages
+  (older nodes drop batched values); all members of a head must upgrade
+  together before reopening network connections. A version mismatch is
+  surfaced as a `NetworkVersionMismatch` server output but does not stop the
+  node. [#2752](https://github.com/cardano-scaling/hydra/pull/2752)
+
+- Snapshot creation is much faster on large UTxO sets: the accumulator
+  commitment is computed through the rust-accumulator FFI (bit-identical
+  output) and updated incrementally from the previous confirmed snapshot.
+  [#2752](https://github.com/cardano-scaling/hydra/pull/2752)
+
+- `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
+  coordinated upgrade required).
+  [#2752](https://github.com/cardano-scaling/hydra/pull/2752)
+
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it

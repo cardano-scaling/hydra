@@ -16,7 +16,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
-import Data.List (partition)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
@@ -330,16 +329,8 @@ stepHydraNode now node = do
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
-      -- Network effects are dispatched before state changes reach the event
-      -- sinks: the in-memory state was already updated atomically in
-      -- 'processNextInput' and persistence is asynchronous write-behind, so
-      -- this widens no crash-failure window; it only keeps e.g. the AckSn
-      -- broadcast from waiting on event encoding and API projections. Client
-      -- and chain effects keep their ordering relative to persistence.
-      let (networkEffects, otherEffects) = partition (isNetworkEffect . fst) (zip effects [0 ..])
-      processIndexedEffects node tracer queuedId networkEffects
       processStateChanges node stateChanges
-      processIndexedEffects node tracer queuedId otherEffects
+      processEffects node tracer queuedId effects
       releaseParkedWhenSynced stateChanges
     Wait{reason, stateChanges} -> do
       processStateChanges node stateChanges
@@ -416,14 +407,7 @@ processStateChanges node stateChanges = do
     , nodeStateHandler = NodeStateHandler{getNextEventId}
     } = node
 
-isNetworkEffect :: Effect tx -> Bool
-isNetworkEffect = \case
-  NetworkEffect{} -> True
-  _ -> False
-
--- | Process effects pre-paired with their effect id, so a partitioned
--- dispatch keeps the original numbering in the logs.
-processIndexedEffects ::
+processEffects ::
   ( MonadAsync m
   , MonadCatch m
   , IsChainState tx
@@ -431,10 +415,10 @@ processIndexedEffects ::
   HydraNode tx m ->
   Tracer m (HydraNodeLog tx) ->
   Word64 ->
-  [(Effect tx, Word32)] ->
+  [Effect tx] ->
   m ()
-processIndexedEffects node tracer inputId effects = do
-  mapM_ processEffect effects
+processEffects node tracer inputId effects = do
+  mapM_ processEffect $ zip effects [0 ..]
  where
   processEffect (effect, effectId) = do
     traceWith tracer $ BeginEffect party inputId effectId effect
