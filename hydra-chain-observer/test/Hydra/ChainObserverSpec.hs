@@ -68,4 +68,5 @@ prop_allValidTransitionsObserved =
                 Just (PartialFanout{}) -> transition === Transition.PartialFanout
                 Just (Fanout{}) -> transition === Transition.Fanout
                 Just (FinalPartialFanout{}) -> transition === Transition.FinalPartialFanout
-                _ -> property False
+                Just NoHeadTx -> property False
+                Nothing -> property False
