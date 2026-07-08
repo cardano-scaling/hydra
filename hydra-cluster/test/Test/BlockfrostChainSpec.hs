@@ -10,7 +10,7 @@ import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
 import Data.Time (secondsToNominalDiffTime)
-import Hydra.Cardano.Api (pattern TxOut, pattern TxOutDatumInline)
+import Hydra.Cardano.Api (CardanoSigningKey (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
   ChainEvent (..),
@@ -52,6 +52,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
+import Hydra.Tx.Secret (mkSecret, withSecret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (
@@ -92,7 +93,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       (aliceCardanoVk, _) <- keysFor Alice
       (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair
       let blockfrostOpts = defaultBlockfrostOptions{projectPath = blockfrostProjectPath}
-      hydraScriptsTxId <- runBlockfrostBackend blockfrostOpts $ publishHydraScripts sk
+      hydraScriptsTxId <- runBlockfrostBackend blockfrostOpts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
 
       Blockfrost.Genesis
         { _genesisNetworkMagic

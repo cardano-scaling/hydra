@@ -33,7 +33,7 @@ import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance, txId)
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
-import Hydra.Tx.Secret (Secret, withSecret)
+import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 
@@ -277,7 +277,7 @@ retryOnExceptions tracer opts action =
 publishHydraScriptsAs :: ChainBackendOptions -> Actor -> IO [TxId]
 publishHydraScriptsAs opts actor = do
   (_, sk) <- keysFor actor
-  txids <- runBackend opts $ publishHydraScripts sk
+  txids <- runBackend opts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
   delayBF opts
   pure txids
 

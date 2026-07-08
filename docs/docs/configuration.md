@@ -153,6 +153,10 @@ cardano-cli address key-gen \
   --signing-key-file cardano.sk
 ```
 
+:::tip HD wallet keys supported
+The `hydra-node` also accepts **extended keys** (`PaymentExtendedSigningKeyShelley_ed25519_bip32` / `PaymentExtendedVerificationKeyShelley_ed25519_bip32`) as produced by HD wallets (e.g., Daedalus, hardware wallets). Extended keys are natively supported, so no manual conversion is needed.
+:::
+
 These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, posting a spurious `Close`). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
 
 ### Hydra keys

@@ -26,6 +26,7 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
+  CardanoSigningKey (..),
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
@@ -96,14 +97,14 @@ spec = parallel $ do
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret sk) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret (CardanoSigningKey sk)) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
         utxo <- atomically (getUTxO wallet)
         utxo `shouldSatisfy` \m -> Map.size m > 0
 
     prop "re-queries UTxO from the tip, even on reset" $
       forAll genKeyPair $ \(vk, sk) -> do
         (queryFn, assertQueryPoint) <- setupQuery vk
-        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret sk) queryFn mockQueryEpochInfo mockQueryPParams
+        wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret (CardanoSigningKey sk)) queryFn mockQueryEpochInfo mockQueryPParams
         assertQueryPoint QueryTip
         reset wallet
         assertQueryPoint QueryTip
