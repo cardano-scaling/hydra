@@ -14,6 +14,8 @@ import Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
+import Data.Aeson.Types (parseEither)
+import Data.ByteString qualified as BS
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyCons, NonEmptyOne))
 import Data.Text (unpack)
 import GHC.IsList (IsList (..))
@@ -49,11 +51,13 @@ import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genOutputFor, genTxOut, gen
 import Test.QuickCheck (
   Property,
   checkCoverage,
+  choose,
   conjoin,
   counterexample,
   cover,
   forAll,
   forAllBlind,
+  listOf1,
   property,
   (===),
  )
@@ -135,6 +139,39 @@ spec =
               \  {\"address\":\"addr1vx35vu6aqmdw6uuc34gkpdymrpsd3lsuh6ffq6d9vja0s6spkenss\",\
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
+
+      xprop "round-trips TxOut with non-canonical inline datum via cardano-api FromJSON (pending cardano-api fix)" $
+        forAll genNonCanonicalHashableScriptData $ \hsd ->
+          let (vk, _) = genKeyPair `generateWith` 42
+              addr = mkVkAddress testNetworkId vk
+              txOut =
+                TxOut
+                  addr
+                  (lovelaceToValue 2_000_000)
+                  (TxOutDatumInline hsd)
+                  ReferenceScriptNone ::
+                  TxOut CtxUTxO
+           in case Aeson.eitherDecode @(TxOut CtxUTxO) (Aeson.encode txOut) of
+                Left err -> counterexample err False
+                Right _ -> property True
+
+      prop "parseTxOutFromJSON preserves hash for non-canonical inline datum" $
+        forAll genNonCanonicalHashableScriptData $ \hsd ->
+          let (vk, _) = genKeyPair `generateWith` 42
+              addr = mkVkAddress testNetworkId vk
+              txOut =
+                TxOut
+                  addr
+                  (lovelaceToValue 2_000_000)
+                  (TxOutDatumInline hsd)
+                  ReferenceScriptNone ::
+                  TxOut CtxUTxO
+           in case parseEither parseTxOutFromJSON (Aeson.toJSON txOut) of
+                Left err -> counterexample err False
+                Right (TxOut _ _ (TxOutDatumInline hsd') _) ->
+                  hashScriptDataBytes hsd === hashScriptDataBytes hsd'
+                Right _ ->
+                  counterexample "Expected TxOutDatumInline after round-trip" False
 
     describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
@@ -380,3 +417,19 @@ multiEraHistory =
             , eraPerasRoundLength = NoPerasEnabled
             }
       }
+
+-- | Generate 'HashableScriptData' whose CBOR uses a definite-length array for
+-- constructor fields instead of the Plutus-canonical indefinite-length form.
+-- Both encodings are valid on L1, but cardano-api's 'FromJSON' re-canonicalises,
+-- producing a different hash — the root cause of the replay crash-loop.
+genNonCanonicalHashableScriptData :: Gen HashableScriptData
+genNonCanonicalHashableScriptData = do
+  constrIdx <- choose (0, 6 :: Int)
+  args <- listOf1 $ choose (0, 23 :: Int)
+  let tagBytes = [0xd8, 0x79 + fromIntegral constrIdx] :: [Word8]
+      arrayHdr = [0x80 + fromIntegral (length args)] :: [Word8]
+      argBytes = map fromIntegral args :: [Word8]
+      bytes = BS.pack (tagBytes <> arrayHdr <> argBytes)
+  case deserialiseFromCBOR AsHashableScriptData bytes of
+    Left _ -> genNonCanonicalHashableScriptData
+    Right hsd -> pure hsd
