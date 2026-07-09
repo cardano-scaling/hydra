@@ -150,6 +150,11 @@ isScriptTxOut script txOut =
 -- original bytes directly (preserving them), patches @inlineDatumhash@ in the
 -- JSON to the canonical hash so the cardano-api parser succeeds, then replaces
 -- the datum with one carrying the original bytes.
+-- FIXME: Once this PR is merged
+-- https://github.com/IntersectMBO/cardano-api/pull/1238
+-- revisit and remove the diff added in
+-- https://github.com/cardano-scaling/hydra/pull/2746
+-- to fix this issue.
 parseTxOutFromJSON :: Aeson.Value -> Parser (TxOut CtxUTxO Era)
 parseTxOutFromJSON v@(Aeson.Object o) = do
   mRawHex <- o .:? "inlineDatumRaw"
