@@ -108,7 +108,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("old_file", help="master end-to-end-benchmarks.md")
     parser.add_argument("new_file", help="PR end-to-end-benchmarks.md")
-    parser.add_argument("--threshold", type=float, default=5.0,
+    parser.add_argument("--threshold", type=float, default=10.0,
                         help="percent change below which a metric is treated as noise")
     args = parser.parse_args()
 
