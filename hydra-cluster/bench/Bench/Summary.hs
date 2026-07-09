@@ -34,7 +34,9 @@ data Summary = Summary
   , numberOfFanoutOutputs :: Int
   , endToEndTps :: Double
   , runWallClockSeconds :: Double
-  , snapshotTpsQuantiles :: Vector Double
+  , peakSustainedTps :: Double
+  -- ^ Highest transaction-confirmation rate sustained over any
+  -- 'peakWindowSeconds'-wide window (see 'Bench.EndToEnd.computeThroughput').
   , numberOfSnapshots :: Int
   , incrementalCommitTimes :: [NominalDiffTime]
   , incrementalDecommitTimes :: [NominalDiffTime]
@@ -56,7 +58,7 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , numberOfFanoutOutputs = 0
     , endToEndTps = 0
     , runWallClockSeconds = 0
-    , snapshotTpsQuantiles = mempty
+    , peakSustainedTps = 0
     , numberOfSnapshots = 0
     , incrementalCommitTimes = []
     , incrementalDecommitTimes = []
@@ -79,17 +81,12 @@ makeQuantiles :: [NominalDiffTime] -> Vector Double
 makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 
-makeDoubleQuantiles :: [Double] -> Vector Double
-makeDoubleQuantiles [] = mempty
-makeDoubleQuantiles xs =
-  Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList xs)
-
 -- | Render a time value with at most one decimal place.
 oneDec :: Real a => a -> Text
 oneDec x = pack $ printf "%.1f" (realToFrac x :: Double)
 
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
+textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, peakSustainedTps, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -105,14 +102,7 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
            )
         ++ [pack $ printf "End-to-end TPS: %.2f tx/s" endToEndTps]
         ++ [pack $ printf "Snapshots observed: %d" numberOfSnapshots]
-        ++ ( if length snapshotTpsQuantiles == 100
-              then
-                [ pack $ printf "Per-snapshot TPS P50: %.2f tx/s" (snapshotTpsQuantiles ! 50)
-                , pack $ printf "Per-snapshot TPS P95: %.2f tx/s" (snapshotTpsQuantiles ! 95)
-                , pack $ printf "Per-snapshot TPS max: %.2f tx/s" (snapshotTpsQuantiles ! 99)
-                ]
-              else []
-           )
+        ++ [pack $ printf "Peak sustained TPS: %.2f tx/s" peakSustainedTps]
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
         ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
         ++ incrementalLines "Incremental commit" incrementalCommitTimes
@@ -162,7 +152,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
+formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, peakSustainedTps, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -198,15 +188,8 @@ formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, qua
            )
         ++ [ pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps
            , "| _Snapshots observed_ | " <> show numberOfSnapshots <> " |"
+           , pack $ printf "| _Peak sustained TPS_ | %.2f tx/s |" peakSustainedTps
            ]
-        ++ ( if length snapshotTpsQuantiles == 100
-              then
-                [ pack $ printf "| _Per-snapshot TPS P50_ | %.2f tx/s |" (snapshotTpsQuantiles ! 50)
-                , pack $ printf "| _Per-snapshot TPS P95_ | %.2f tx/s |" (snapshotTpsQuantiles ! 95)
-                , pack $ printf "| _Per-snapshot TPS max_ | %.2f tx/s |" (snapshotTpsQuantiles ! 99)
-                ]
-              else []
-           )
         ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
            ]
         ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
@@ -268,24 +251,21 @@ comparisonTable summaries =
     \measured elapsed time from the first tx submission to the last \
     \confirmation. Times are rounded to one decimal."
   , ""
-  , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
+  , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Peak sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
   , "| -- | -- | -- | -- | -- | -- | -- |"
   ]
     <> map row summaries
     <> [""]
  where
   row :: (Summary, SystemStats) -> Text
-  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, runWallClockSeconds, snapshotTpsQuantiles}, _)
+  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, runWallClockSeconds, peakSustainedTps}, _)
     | numberOfTxs == 0 =
         "| "
           <> summaryTitle
           <> " | 0 | n/a | n/a | n/a | n/a | n/a |"
     | otherwise =
         let p95Conf = if length quantiles == 100 then oneDec (quantiles ! 95) else "n/a"
-            p50Tps =
-              if length snapshotTpsQuantiles == 100
-                then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
-                else "n/a"
+            peakTps = pack $ printf "%.2f" peakSustainedTps
             wallClock =
               if runWallClockSeconds > 0
                 then oneDec runWallClockSeconds
@@ -299,7 +279,7 @@ comparisonTable summaries =
               <> " | "
               <> pack (printf "%.2f" endToEndTps)
               <> " | "
-              <> p50Tps
+              <> peakTps
               <> " | "
               <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime)
               <> " | "

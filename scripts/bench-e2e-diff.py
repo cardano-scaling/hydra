@@ -15,9 +15,7 @@ import sys
 # better. Keys must match Summary.hs exactly.
 METRICS = [
     ("End-to-end TPS", "End-to-end TPS (tx/s)", +1),
-    ("Per-snapshot TPS P50", "Per-snapshot TPS P50 (tx/s)", +1),
-    ("Per-snapshot TPS P95", "Per-snapshot TPS P95 (tx/s)", +1),
-    ("Per-snapshot TPS max", "Per-snapshot TPS max (tx/s)", +1),
+    ("Peak sustained TPS", "Peak sustained TPS (tx/s)", +1),
     ("Avg. Confirmation Time (ms)", "Avg. Confirmation Time (ms)", -1),
     ("P50", "P50 confirmation (ms)", -1),
     ("P95", "P95 confirmation (ms)", -1),
