@@ -10,6 +10,11 @@ changes.
 
 ## [UNRELEASED]
 
+- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
+  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
+  so deposits recorded before a rotation survive a node
+  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
+
 - Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
 verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
 Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
