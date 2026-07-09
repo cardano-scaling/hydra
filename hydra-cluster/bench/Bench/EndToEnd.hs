@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), SystemStats, makeDoubleQuantiles, makeQuantiles)
+import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -30,7 +30,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Data.Vector (Vector)
+import Data.Vector qualified as V
 import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, lovelaceToValue, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -278,7 +278,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
-      (endToEndTps, runWallClockSeconds, snapshotTpsQuantiles, numberOfSnapshots) =
+      (endToEndTps, runWallClockSeconds, peakSustainedTps, numberOfSnapshots) =
         computeThroughput processedTransactions snapshotsSeen
 
   pure $
@@ -294,7 +294,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       , numberOfFanoutOutputs
       , endToEndTps
       , runWallClockSeconds
-      , snapshotTpsQuantiles
+      , peakSustainedTps
       , numberOfSnapshots
       , incrementalCommitTimes
       , incrementalDecommitTimes
@@ -780,15 +780,23 @@ analyze = \case
     Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
--- | Measured wall-clock span, end-to-end TPS over the run, and quantiles of
--- per-snapshot TPS.
+-- | Width of the sliding window used for 'peak sustained TPS'. One second is
+-- long enough to average out per-message scheduling jitter yet short enough to
+-- capture a genuine throughput peak.
+peakWindowSeconds :: Double
+peakWindowSeconds = 1.0
+
+-- | Measured wall-clock span, end-to-end TPS over the run, peak sustained TPS,
+-- and the number of snapshots observed.
 --
 -- The wall-clock span is the elapsed time from the earliest tx submission to
 -- the latest confirmation; end-to-end TPS is the confirmed tx count divided by
--- that span. Per-snapshot TPS is derived for snapshots that confirmed at least
--- one tx by dividing the tx count by the gap to the previous observation (or
--- the earliest submission time for the first snapshot).
-computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Double, Vector Double, Int)
+-- that span. Peak sustained TPS is the highest confirmation rate held over any
+-- 'peakWindowSeconds' window (see 'peakWindowedTps'); it replaces the earlier
+-- per-snapshot instantaneous rate, which divided a snapshot's tx count by the
+-- gap between two client-side observations and so blew up for closely-spaced
+-- notifications and was estimated over only a handful of snapshots per run.
+computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Double, Double, Int)
 computeThroughput txs snapshots =
   let submitted = map submittedAtFor (Map.elems txs)
       confirmed = mapMaybe confirmedAt (Map.elems txs)
@@ -797,28 +805,39 @@ computeThroughput txs snapshots =
         (_ : _, _ : _) -> realToFrac (List.maximum confirmed `diffUTCTime` List.minimum submitted) :: Double
         _ -> 0
       e2eTps = if wallClockSeconds > 0 then fromIntegral numberOfTxs / wallClockSeconds else 0
-      sortedSnapshots = sortOn fst (Map.toList snapshots)
-      anchor = case submitted of
-        [] -> Nothing
-        _ -> Just (List.minimum submitted)
-      perSnapshotRates = perSnapshotTps anchor sortedSnapshots
-   in (e2eTps, wallClockSeconds, makeDoubleQuantiles perSnapshotRates, length sortedSnapshots)
+      peakTps = peakWindowedTps peakWindowSeconds confirmed
+   in (e2eTps, wallClockSeconds, peakTps, Map.size snapshots)
  where
   submittedAtFor Event{submittedAt} = submittedAt
-  perSnapshotTps :: Maybe UTCTime -> [(Scientific, (UTCTime, Int))] -> [Double]
-  perSnapshotTps = go
-   where
-    go :: Maybe UTCTime -> [(Scientific, (UTCTime, Int))] -> [Double]
-    go _ [] = []
-    go prev ((_, (t, c)) : rest)
-      | c <= 0 = go (Just t) rest
-      | otherwise =
-          case prev of
-            Just p ->
-              let dt = realToFrac (t `diffUTCTime` p) :: Double
-                  rate = if dt > 0 then fromIntegral c / dt else 0
-               in rate : go (Just t) rest
-            Nothing -> go (Just t) rest
+
+-- | Peak transaction-confirmation throughput: the largest number of
+-- confirmations falling within any window of the given width, divided by that
+-- width. Every confirmation feeds it (hundreds of samples per run), so it is
+-- stable across runs and is not distorted by how many transactions a single
+-- snapshot happened to batch or by how closely two snapshot notifications were
+-- observed on the client.
+peakWindowedTps :: Double -> [UTCTime] -> Double
+peakWindowedTps windowSeconds times
+  | windowSeconds <= 0 = 0
+  | n == 0 = 0
+  | otherwise = fromIntegral (loop 0 0 0) / windowSeconds
+ where
+  sorted = V.fromList (sort times)
+  n = V.length sorted
+  window = realToFrac windowSeconds :: NominalDiffTime
+  -- Two pointers over the sorted confirmation times. An optimal window can
+  -- always be slid left until its start coincides with a confirmation, so it
+  -- suffices to anchor the left edge 'i' at each point and extend the
+  -- exclusive right edge 'j' over everything within 'window'. 'j' never moves
+  -- backwards as 'i' advances, so this is O(n).
+  loop i j best
+    | i >= n = best
+    | otherwise =
+        let j' = advance i (max j (i + 1))
+         in loop (i + 1) j' (max best (j' - i))
+  advance i j
+    | j < n && (sorted V.! j) `diffUTCTime` (sorted V.! i) < window = advance i (j + 1)
+    | otherwise = j
 
 writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do

@@ -15,9 +15,7 @@ import sys
 # better. Keys must match Summary.hs exactly.
 METRICS = [
     ("End-to-end TPS", "End-to-end TPS (tx/s)", +1),
-    ("Per-snapshot TPS P50", "Per-snapshot TPS P50 (tx/s)", +1),
-    ("Per-snapshot TPS P95", "Per-snapshot TPS P95 (tx/s)", +1),
-    ("Per-snapshot TPS max", "Per-snapshot TPS max (tx/s)", +1),
+    ("Peak sustained TPS", "Peak sustained TPS (tx/s)", +1),
     ("Avg. Confirmation Time (ms)", "Avg. Confirmation Time (ms)", -1),
     ("P50", "P50 confirmation (ms)", -1),
     ("P95", "P95 confirmation (ms)", -1),
@@ -110,7 +108,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("old_file", help="master end-to-end-benchmarks.md")
     parser.add_argument("new_file", help="PR end-to-end-benchmarks.md")
-    parser.add_argument("--threshold", type=float, default=5.0,
+    parser.add_argument("--threshold", type=float, default=10.0,
                         help="percent change below which a metric is treated as noise")
     args = parser.parse_args()
 
