@@ -5,13 +5,14 @@ import Test.Hydra.Prelude
 
 import Control.Monad (foldM)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger, utxoRef)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
@@ -78,6 +79,28 @@ spec = parallel $ do
           case stateChanged checkpoint of
             Checkpoint{state = NodeInSync{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
+      it "preserves pending deposits after restarting with rotation" $ \testHydrate -> do
+        failAfter 1 $ do
+          eventStore <- createMockEventStore
+          -- Rotate aggressively so the stored history ends with a single
+          -- checkpoint capturing the recorded deposit.
+          let rotationConfig = RotateAfter (Positive 1)
+          let s0 = initNodeState 0
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          now <- getCurrentTime
+          let deadline = toNominalDiffTime cperiod `addUTCTime` now
+          let depositTxId = 1
+          let depositInput = observationInput $ OnDepositTx testHeadId depositTxId (utxoRef 1) now deadline
+          testHydrate rotatingEventStore []
+            >>= notConnect
+            >>= primeWithTime
+            >>= primeWith (inputsToOpenHead <> [depositInput])
+            >>= runToCompletion
+          -- Restart reconstructs the node state exactly like 'hydrate' does:
+          -- fold the stored events (a single checkpoint) with 'aggregateNodeState'.
+          events <- getEvents (eventSource rotatingEventStore)
+          let restored = foldl' mkAggregator s0 events
+          Map.keys (pendingDeposits restored) `shouldBe` [depositTxId]
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
         now <- getCurrentTime

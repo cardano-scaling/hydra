@@ -2010,6 +2010,11 @@ aggregateNodeState nodeState sc =
               NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, chainPointTime = ChainPointTime chainSlot chainTime drift}
             NodeSynced{chainSlot, chainTime, drift} ->
               NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, chainPointTime = ChainPointTime chainSlot chainTime drift}
+            -- Restore the full snapshot: a checkpoint carries the aggregated
+            -- 'pendingDeposits' and 'chainPointTime' (and synced constructor),
+            -- which the default arm below would otherwise drop on replay.
+            Checkpoint checkpointedNodeState ->
+              checkpointedNodeState
             _ ->
               nodeState{headState = st}
 
