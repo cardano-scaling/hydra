@@ -44,6 +44,8 @@ import Hydra.PartySpec qualified
 import Hydra.PersistentQueueSpec qualified
 import Hydra.UtilsSpec qualified
 import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
+import Test.Tasty (DependencyType (AllFinish), after, localOption)
+import Test.Tasty.Runners (NumThreads (..))
 
 main :: IO ()
 main =
@@ -80,7 +82,12 @@ main =
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec
     , testSpec "Model" Hydra.ModelSpec.spec
     , testSpec "Network.Authenticate" Hydra.Network.AuthenticateSpec.spec
-    , testSpec "Network" Hydra.NetworkSpec.spec
+    , -- NetworkSpec spins up etcd clusters that lose RAFT quorum when CPU is
+      -- oversubscribed. Run it last (after all other tests finish) and
+      -- single-threaded so the etcd processes get the box to themselves, while
+      -- the rest of the suite runs in parallel.
+      localOption (NumThreads 1) . after AllFinish "$2 != \"Network\""
+        <$> testSpec "Network" Hydra.NetworkSpec.spec
     , testSpec "NetworkVersions" Hydra.NetworkVersionsSpec.spec
     , testSpec "Node.InputQueue" Hydra.Node.InputQueueSpec.spec
     , testSpec "Node.Run" Hydra.Node.RunSpec.spec
