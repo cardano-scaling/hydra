@@ -348,7 +348,11 @@ benchmark logging
 
 test-suite tests
   import:         project-config
-  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+
+  -- -A64m enlarges the GC nursery: the suite now runs in parallel (see
+  -- test/Main.hs), and the default nursery causes heavy parallel-GC
+  -- stop-the-world contention that balloons allocation-heavy io-sim tests.
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -A64m"
   hs-source-dirs: test
   other-modules:
     Hydra.API.ClientInputSpec
@@ -462,6 +466,7 @@ test-suite tests
     , sop-extras
     , sqlite-simple
     , stm
+    , tasty
     , temporary
     , text
     , time

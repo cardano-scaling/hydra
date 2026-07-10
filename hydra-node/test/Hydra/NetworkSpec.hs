@@ -44,11 +44,11 @@ spec = do
   -- TODO: add tests about advertise being honored
   --
   -- Each Etcd test spins up a 2- or 3-node etcd cluster on loopback ports.
-  -- Running these in parallel (tasty's default on developer machines) means
-  -- multiple subprocesses fight for ports and CPU at the same instant, which
-  -- can cause failures. Force sequential execution within this describe;
-  -- CI already pins '--num-threads=1' for the whole hydra-node
-  -- suite, so this only changes behaviour for local runs.
+  -- Running these in parallel, or alongside the rest of the suite, makes the
+  -- subprocesses fight for ports and CPU at the same instant, which can make
+  -- etcd lose RAFT quorum and the tests fail. The "Network" group is gated in
+  -- test/Main.hs to run last and single-threaded so these clusters get the box
+  -- to themselves; the 'sequential' below is belt-and-suspenders for local runs.
   --
   -- Per-test 'failAfter' budgets in this block are deliberately generous
   -- (60s). The previous 15–30s budgets fired too eagerly when an etcd
