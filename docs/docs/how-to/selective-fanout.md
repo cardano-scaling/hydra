@@ -68,6 +68,20 @@ initiating node goes offline), driving each step sequentially.
 
 :::
 
+:::caution Driver liveness
+
+Only the node that issued a command advances the fanout. In particular, a plain `Fanout`
+puts the initiating node into an automatic-drain mode where it keeps posting the remaining
+steps by itself; the other nodes only observe and wait. If that node goes offline
+mid-fanout, the remainder is **not** drained automatically — any other party must resume it
+by issuing `PartialFanout` commands (selecting the remaining set) until the head is empty.
+
+If a step is rolled back on chain, the driving node re-posts the next fanout transaction to
+resume. As with all rollback handling, this assumes the rolled-back transactions eventually
+re-appear; a deeply divergent rollback may require re-issuing a `PartialFanout`.
+
+:::
+
 To confirm, query the funds of the wallet on layer 1 from a `cardano-node`:
 
 ```shell

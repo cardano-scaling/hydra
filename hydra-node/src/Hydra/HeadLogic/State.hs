@@ -267,8 +267,18 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 
 -- ** PartialFanout
 
+-- Terminology note: the selective-fanout feature spans several near-synonymous
+-- names; they map as follows:
+--
+--   * PartialFanout          — the client input (a user-selected subset to fan out)
+--   * HeadPartiallyFannedOut — the server output reporting one observed step
+--   * FanningOut             — the client-visible HeadStatus
+--   * FanoutProgress         — this off-chain HeadState constructor (and the
+--                              matching on-chain head datum), holding a PartialFanoutState
+--   * FanoutMode             — how the next step is chosen while in FanoutProgress
+
 -- | How the node decides which UTxOs to distribute in the next fanout step
--- while the head is in 'PartialFanout'.
+-- while the head is in 'FanoutProgress'.
 data FanoutMode tx
   = -- | Entered only via the 'Fanout' client command: drain the whole remaining
     -- set automatically, dynamically chunked, ending in the final fanout.

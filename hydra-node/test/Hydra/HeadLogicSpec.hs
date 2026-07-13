@@ -2228,6 +2228,34 @@ spec =
           FanoutProgress{} -> pure ()
           other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
 
+      it "resumes the fanout after a chain rollback instead of stalling" $ do
+        -- A rollback mid-fanout may erase the in-flight fanout tx observation. The
+        -- node must re-post the next fanout step so the fanout continues; otherwise
+        -- it wedges in FanoutProgress with nothing driving it forward. Mirrors the
+        -- Increment/Decrement re-post on rollback.
+        let fullUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. 5]]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st0 = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st0.chainPointTime.currentSlot
+        -- Become the driver and observe one partial fanout distributing {1,2}.
+        let st1 = aggregateState st0 (update bobEnv ledger now st0 (ClientInput Fanout))
+            distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            observed = update bobEnv ledger now st1 (observeTxAtSlot 1 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
+            st2 = aggregateState st1 observed
+        -- Sanity: mid-fanout with a narrowed remaining set.
+        case headState st2 of
+          FanoutProgress PartialFanoutState{remainingOutputs} ->
+            remainingOutputs `shouldBe` Set.fromList [SimpleTxOut 3, SimpleTxOut 4, SimpleTxOut 5]
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+        -- Roll back the partial fanout observation; the node must re-post a fanout
+        -- step to resume rather than stall.
+        let rolledBack = update bobEnv ledger now st2 (ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now})
+        rolledBack `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          _ -> False
+
       it "client fanout without prior partial fanout uses full snapshot utxo" $ do
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot

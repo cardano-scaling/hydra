@@ -1373,27 +1373,40 @@ onClosedClientFanout ::
   Outcome tx
 onClosedClientFanout closedState =
   newState HeadFanoutInitiated{headId, remainingOutputs = computeFullFanoutUTxO closedState}
-    <> cause OnChainEffect{postChainTx = fanoutTx}
+    <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
  where
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
-  fanoutTx =
-    FanoutTx
-      { utxo
-      , -- Include utxoToCommit only if the increment has been applied on chain
-        -- (version bumped). Otherwise it was never used and must not be distributed.
-        utxoToCommit =
-          if snapshotVersion == version then Nothing else utxoToCommit
-      , -- Include utxoToDecommit only if the decrement has NOT been applied on
-        -- chain yet. If it was applied the UTxO is gone and must not be re-distributed.
-        utxoToDecommit =
-          if snapshotVersion == version then utxoToDecommit else Nothing
-      , -- Always use the snapshot's original (unfiltered) full UTxO set to rebuild
-        -- the accumulator that matches the closed datum.
-        utxoForProof = snapshotUTxO (getSnapshot confirmedSnapshot)
-      , headSeed
-      , contestationDeadline
-      }
+
+-- | Build the full automatic 'FanoutTx' from a confirmed snapshot at the given
+-- on-chain version. Shared by 'onClosedClientFanout' and the rollback re-post in
+-- 'FanoutProgress' ('repostFanoutStep').
+mkFullFanoutTx ::
+  IsTx tx =>
+  ConfirmedSnapshot tx ->
+  SnapshotVersion ->
+  HeadSeed ->
+  UTCTime ->
+  PostChainTx tx
+mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
+  FanoutTx
+    { utxo
+    , -- Include utxoToCommit only if the increment has been applied on chain
+      -- (version bumped). Otherwise it was never used and must not be distributed.
+      utxoToCommit =
+        if snapshotVersion == version then Nothing else utxoToCommit
+    , -- Include utxoToDecommit only if the decrement has NOT been applied on
+      -- chain yet. If it was applied the UTxO is gone and must not be re-distributed.
+      utxoToDecommit =
+        if snapshotVersion == version then utxoToDecommit else Nothing
+    , -- Always use the snapshot's original (unfiltered) full UTxO set to rebuild
+      -- the accumulator that matches the closed datum.
+      utxoForProof = snapshotUTxO snapshot
+    , headSeed
+    , contestationDeadline
+    }
+ where
+  snapshot = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = snapshot
 
 -- | Client request to fan out a user-selected subset of a freshly closed head.
 -- Validates the selection is a non-empty sub-multiset (by content) of the
@@ -1726,6 +1739,37 @@ emitPartialFanoutStep target remaining onChainIsFanoutProgress confirmedSnapshot
     -- not-yet-distributed set plus any pre-settled elements.
     | otherwise = remaining <> presettled
 
+-- | Re-post the next fanout step after a chain rollback while in
+-- 'FanoutProgress', so the fanout resumes instead of stalling with the
+-- rolled-back transaction gone and nothing re-posted. This mirrors the
+-- Increment/Decrement re-post on rollback ('maybeRepostIncrementTx' /
+-- 'maybeRepostDecrementTx'): it uses the current best-effort bookkeeping and,
+-- like those re-posts, assumes the rolled-back transactions re-appear — it does
+-- not attempt to reconstruct fanout progress across a divergent rollback (the
+-- same limitation the general rollback handling has).
+--
+-- @distributedOutputs@ being empty means no partial fanout has landed on chain
+-- yet (the head datum is still @Closed@); otherwise the datum is
+-- @FanoutProgress@ and a 'FinalPartialFanoutTx' is possible.
+repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
+repostFanoutStep pfs =
+  case mode of
+    -- Manual mode paused on the user: nothing to re-post, wait for the next
+    -- 'PartialFanout' command.
+    AwaitingSelection -> noop
+    AutoDrain
+      -- Nothing distributed yet: re-post the full automatic fanout, exactly as
+      -- the original 'Fanout' command did.
+      | not onChainIsFanoutProgress ->
+          cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
+      | otherwise ->
+          emitPartialFanoutStep remainingOutputs remainingOutputs True confirmedSnapshot version headSeed contestationDeadline
+    DistributingSelection selection ->
+      emitPartialFanoutStep selection remainingOutputs onChainIsFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+ where
+  onChainIsFanoutProgress = not (nullOutputs distributedOutputs)
+  PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs, mode} = pfs
+
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.
 handleOutOfSync ::
@@ -2014,6 +2058,13 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
         <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) currentDepositTxId confirmedSnapshot
         <> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot
+  -- FanoutProgress + Rollback: re-post the next fanout step so the fanout
+  -- resumes rather than stalling (the in-flight fanout tx may have been rolled
+  -- back). Mirrors the Open re-post above.
+  (FanoutProgress partialFanoutState, ChainInput Rollback{rolledBackChainState, chainTime}) ->
+    newState ChainRolledBack{chainState = rolledBackChainState}
+      <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
+      <> repostFanoutStep partialFanoutState
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}

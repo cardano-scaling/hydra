@@ -430,7 +430,10 @@ handleHydraEventsActiveLink e = do
       -- next selection (or fan out the rest). Full 'Fanout' is no longer offered.
       utxoL .= remainingUTxO
       activeHeadStateL .= FanningOut{fanoutRemaining = remainingUTxO}
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{}}) -> do
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{finalizedUTxO}}) -> do
+      -- Show the full cumulative set that was fanned out across all (partial)
+      -- fanout steps, not just the last batch that happened to be left in 'utxoL'.
+      utxoL .= finalizedUTxO
       activeHeadStateL .= Final
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitRequested{utxoToDecommit}}) -> do
       ActiveLink{utxo} <- get
@@ -852,14 +855,25 @@ refreshFanoutForm = do
       mUTxO <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . utxoL)
       let u = maybe mempty UTxO.toMap mUTxO
           prevSelection = formState form
-      case utxoCheckboxFieldWith (Just prevSelection) u of
-        Just refreshed | stillFanningOut -> fanoutSelectionFormL .= Just refreshed
-        -- Head finalized or left a fanout-capable state, or nothing remains:
-        -- close the modal so the user cannot submit against a stale UTxO set.
-        _ -> do
+      if not stillFanningOut || Map.null u
+        then do
+          -- Head finalized or left a fanout-capable state, or nothing remains:
+          -- close the modal so the user cannot submit against a stale UTxO set.
           fanoutSelectionFormL .= Nothing
           tab <- use activeTabL
           when (tab == ModalTab) leaveModal
+        else
+          -- Only rebuild the form when the underlying UTxO set actually changed
+          -- (e.g. a 'HeadPartiallyFannedOut' step shrank it). 'newForm' resets the
+          -- focus to the first field, so rebuilding on every tick would make the
+          -- selection jump back to the top and the list unusable.
+          when (Map.keysSet u /= Map.keysSet prevSelection) $
+            case utxoCheckboxFieldWith (Just prevSelection) u of
+              Just refreshed -> fanoutSelectionFormL .= Just refreshed
+              Nothing -> do
+                fanoutSelectionFormL .= Nothing
+                tab <- use activeTabL
+                when (tab == ModalTab) leaveModal
 
 -- | Run an IO action in a background thread, reporting any exception through
 -- the TUI's event channel as a 'TxBuildError' (visible in the pending-action
