@@ -36,6 +36,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..))
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
@@ -92,6 +93,14 @@ healthyCloseAnySnapshot =
 healthyCloseAnyAccumulatorHash :: Head.Hash
 healthyCloseAnyAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCloseAnySnapshot
+
+healthyCloseAnyDecommitOutputsHash :: Head.Hash
+healthyCloseAnyDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyCloseAnySnapshot))
+
+healthyCloseAnyCommitOutputsHash :: Head.Hash
+healthyCloseAnyCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCloseAnySnapshot))
 
 healthyCloseAnyOpenDatum :: Head.State
 healthyCloseAnyOpenDatum =
@@ -181,7 +190,7 @@ genCloseAnyMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber 0) headTxOut
     , SomeMutation (pure $ toErrorCode FailedCloseAny) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseAny{signature, accumulatorHash = healthyCloseAnyAccumulatorHash}
+        pure $ Head.Close Head.CloseAny{signature, accumulatorHash = healthyCloseAnyAccumulatorHash, decommitOutputsHash = healthyCloseAnyDecommitOutputsHash, commitOutputsHash = healthyCloseAnyCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseAny) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseAnySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -241,6 +250,8 @@ genCloseAnyMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCloseAnySnapshot
                             , accumulatorHash = healthyCloseAnyAccumulatorHash
+                            , decommitOutputsHash = healthyCloseAnyDecommitOutputsHash
+                            , commitOutputsHash = healthyCloseAnyCommitOutputsHash
                             }
                       )
                 )

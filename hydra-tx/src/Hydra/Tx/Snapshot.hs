@@ -65,23 +65,36 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', and 'accumulatorHash' according to CDDL schemata:
+-- 'headId', 'version', 'number', 'accumulatorHash', 'decommitOutputsHash', and
+-- 'commitOutputsHash' according to CDDL schemata:
 --
 -- headId = bytes .size 28
 -- version = uint
 -- number = uint
 -- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
+-- decommitOutputsHash = bytes .size 32  ; sha2-256 of the ordered decommit outputs (Uω)
+-- commitOutputsHash = bytes .size 32  ; sha2-256 of the ordered commit outputs (Uα)
 --
--- The BLS accumulator commitment (bound via accumulatorHash) commits to the full UTxO set.
-instance SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, accumulator} =
+-- The BLS accumulator commitment (bound via accumulatorHash) commits to the full
+-- UTxO set. 'decommitOutputsHash' and 'commitOutputsHash' additionally bind the
+-- exact ordered sets of decommit (Uω) and commit (Uα) outputs, so the on-chain
+-- decrement and increment validators can recompute them from the materialized L1
+-- decommit outputs / claimed deposit and reject any redirected/altered output.
+instance IsTx tx => SignableRepresentation (Snapshot tx) where
+  getSignableRepresentation Snapshot{headId, version, number, accumulator, utxoToCommit, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData $ toBuiltin accumulatorBytes)
+        <> serialise (toData $ toBuiltin decommitOutputsHash)
+        <> serialise (toData $ toBuiltin commitOutputsHash)
    where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
+    -- Matches on-chain 'Hydra.Contract.Util.hashTxOuts' over the same outputs in
+    -- the same (TxIn-sorted) order; empty-list hash when there is nothing pending.
+    decommitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToDecommit)
+    commitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToCommit)
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator} =

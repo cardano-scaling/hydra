@@ -27,6 +27,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -96,14 +97,16 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
         Head.CloseInitial
       ConfirmedSnapshot{signatures} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+            decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+            commitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
             sig = toPlutusSignatures signatures
          in case incrementalAction of
               NoThing ->
-                Head.CloseAny{signature = sig, accumulatorHash = accHash}
+                Head.CloseAny{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
               _ ->
                 if version == openVersion
-                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash}
-                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash}
+                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore

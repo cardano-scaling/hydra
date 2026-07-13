@@ -68,6 +68,7 @@ tests =
                   { HeadState.signature = []
                   , HeadState.snapshotNumber = 0
                   , HeadState.increment = someRef
+                  , HeadState.decommitOutputsHash = toBuiltin (BS.replicate 32 0)
                   }
         case toData incrementInput of
           Constr n _ -> n @?= 0

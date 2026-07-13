@@ -18,6 +18,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.CRS (CRSDatum, checkMembershipPairing)
 import Hydra.Contract.CRS qualified as CRS
+import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (
   CloseRedeemer (..),
@@ -35,7 +36,7 @@ import Hydra.Contract.HeadState (
   State (..),
   progressFromClosed,
  )
-import Hydra.Contract.Util (hasST, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -147,14 +148,30 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
       ScriptCredential _ -> True
       PubKeyCredential _ -> False
 
-  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
+  IncrementRedeemer{signature, snapshotNumber, increment, decommitOutputsHash} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
+
+  -- Bind the exact committed deposit into the multi-signature: recompute the
+  -- commit-outputs hash from the CLAIMED deposit input's own datum, so claiming a
+  -- different deposit than the one parties approved changes the signed message and
+  -- fails signature verification. Without this only aggregate value is checked, and
+  -- a participant could reuse a valid all-party signature while committing a
+  -- different (equal-value) deposit.
+  commitOutputsHash = hashPreSerializedCommits claimedDepositCommits
+
+  claimedDepositCommits =
+    case L.find (\i -> txInInfoOutRef i == increment) inputs of
+      Nothing -> traceError $(errorCode DepositInputNotFound)
+      Just TxInInfo{txInInfoResolved} ->
+        case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum txInInfoResolved) of
+          Just (_, _, commits) -> commits
+          Nothing -> traceError $(errorCode DepositDatumInvalid)
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -206,7 +223,15 @@ checkDecrement ctx openBefore redeemer =
     && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
+
+  -- Bind the exact decommit output set into the multi-signature: the hash is
+  -- recomputed from the transaction's own decommit outputs, so changing any
+  -- output's address, datum, reference script, ordering or count changes the
+  -- signed message and fails signature verification. Without this, only the
+  -- aggregate value is checked and a single participant could reuse a valid
+  -- all-party signature while redirecting the decommitted value elsewhere.
+  decommitOutputsHash = hashTxOuts decommitOutputs
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -216,7 +241,7 @@ checkDecrement ctx openBefore redeemer =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
-  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
+  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs, commitOutputsHash} = redeemer
 
   OpenDatum
     { parties = prevParties
@@ -319,24 +344,24 @@ checkClose ctx openBefore redeemer =
             -- so a closer cannot seed a degenerate commitment that would later
             -- be trusted by progressFromClosed and checkMembershipPairing.
             && isG1Generator accumulatorCommitment'
-      CloseAny{signature, accumulatorHash} ->
+      CloseAny{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', accumulatorHash)
+              (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
               signature
-      CloseUnused{signature, accumulatorHash} ->
+      CloseUnused{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedCloseUnused) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', accumulatorHash)
+            (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
             signature
-      CloseUsed{signature, accumulatorHash} ->
+      CloseUsed{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedCloseUsed) $
           verifySnapshotSignature
             parties
-            (headId, version - 1, snapshotNumber', accumulatorHash)
+            (headId, version - 1, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
             signature
 
   checkDeadline =
@@ -402,17 +427,17 @@ checkContest ctx closedDatum redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      ContestUnused{signature, accumulatorHash} ->
+      ContestUnused{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedContestUnused) $
           verifySnapshotSignature
             parties
-            (headId, version, snapshotNumber', accumulatorHash)
+            (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
             signature
-      ContestUsed{signature, accumulatorHash} ->
+      ContestUsed{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedContestUsed) $
           verifySnapshotSignature
             parties
-            (headId, version - 1, snapshotNumber', accumulatorHash)
+            (headId, version - 1, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
             signature
 
   mustBeWithinContestationPeriod =
@@ -793,7 +818,7 @@ getTxOutDatum o =
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', and 'accumulatorHash'. See 'SignableRepresentation Snapshot'
 -- for more details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash) -> [Signature] -> Bool
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
     L.length parties == L.length sigs
@@ -802,8 +827,8 @@ verifySnapshotSignature parties msg sigs =
 
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash) -> Party -> Signature -> Bool
-verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash) party =
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
+verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash, decommitOutputsHash, commitOutputsHash) party =
   verifyEd25519Signature (vkey party) message
  where
   message =
@@ -811,6 +836,8 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash) 
       <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
       <> Builtins.serialiseData (toBuiltinData accumulatorHash)
+      <> Builtins.serialiseData (toBuiltinData decommitOutputsHash)
+      <> Builtins.serialiseData (toBuiltinData commitOutputsHash)
 {-# INLINEABLE verifyPartySignature #-}
 
 unappliedValidator :: CompiledCode (ScriptHash -> ValidatorType)

@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Contract.Commit (Commit)
+import Hydra.Contract.Commit (Commit, serializeCommit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
@@ -30,6 +30,7 @@ import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
@@ -172,6 +173,12 @@ data IncrementMutation
   | -- | Change the head id stored in the deposit datum away from the
     -- head being incremented; checkIncrement must reject this.
     DepositMutateHeadId
+  | -- | SECURITY: redirect the committed outputs recorded in the claimed
+    -- deposit's datum to an attacker address, preserving each output's value
+    -- (and the deposit UTxO's own value). Only the committed identity changes,
+    -- so the recomputed commit hash no longer matches the signed snapshot and
+    -- signature verification must fail.
+    RedirectCommitOutput
   | -- | Change parties in increment output datum
     IncrementMutateParties
   | -- | New version is incremented correctly
@@ -211,6 +218,23 @@ genIncrementMutation (tx, utxo) =
                     (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
         pure $ ChangeInput depositIn newOutput (Just $ toScriptData Claim)
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) RedirectCommitOutput <$> do
+        attackerVk <- genVerificationKey
+        let attackerAddr = mkVkAddress testNetworkId attackerVk
+            -- Redirect every committed output to the attacker, preserving each
+            -- output's value; keep the deposit UTxO's own addr/val/rscript so the
+            -- head value check is unaffected and only the committed identity moves.
+            mutatedCommits =
+              mapMaybe
+                (\(i, o) -> serializeCommit (i, modifyTxOutAddress (const attackerAddr) o))
+                (UTxO.toList healthyDeposited)
+            datum =
+              txOutDatum $
+                flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
+                  ((headCS', deadline, _commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
+                    (headCS', deadline, mutatedCommits)
+        let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
+        pure $ ChangeInput depositIn newOutput (Just $ toScriptData Claim)
     , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
@@ -226,6 +250,7 @@ genIncrementMutation (tx, utxo) =
                   invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef healthyDepositInput
+              , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -241,6 +266,7 @@ genIncrementMutation (tx, utxo) =
               { signature = toPlutusSignatures healthySignature
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
+              , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)

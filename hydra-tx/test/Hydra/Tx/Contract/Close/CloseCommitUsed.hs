@@ -44,6 +44,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
@@ -108,6 +109,14 @@ healthyCommitAppliedSnapshot =
 healthyCommitAppliedAccumulatorHash :: Head.Hash
 healthyCommitAppliedAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCommitAppliedSnapshot
+
+healthyCommitAppliedDecommitOutputsHash :: Head.Hash
+healthyCommitAppliedDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyCommitAppliedSnapshot))
+
+healthyCommitAppliedCommitOutputsHash :: Head.Hash
+healthyCommitAppliedCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCommitAppliedSnapshot))
 
 -- | Commit was applied: both healthySplitUTxOInHead and healthyDepositUTxO are in the head.
 healthyCommitAppliedHeadAdaOverhead :: Integer
@@ -217,7 +226,7 @@ genCloseCommitUsedMutation (tx, _utxo) =
       -- causes the CloseUnused validator path to fail.
       SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitAppliedAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitAppliedAccumulatorHash, decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash, commitOutputsHash = healthyCommitAppliedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCommitAppliedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -280,6 +289,8 @@ genCloseCommitUsedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCommitAppliedSnapshot
                             , accumulatorHash = healthyCommitAppliedAccumulatorHash
+                            , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
+                            , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
                             }
                       )
                 )
@@ -299,6 +310,8 @@ genCloseCommitUsedMutation (tx, _utxo) =
             Head.CloseUsed
               { signature
               , accumulatorHash = healthyCommitAppliedAccumulatorHash
+              , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
+              , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateCloseType . ChangeHeadRedeemer <$> do
         pure $
@@ -306,6 +319,8 @@ genCloseCommitUsedMutation (tx, _utxo) =
             Head.CloseUnused
               { signature = toPlutusSignatures $ signatures healthyCommitAppliedConfirmedSnapshot
               , accumulatorHash = healthyCommitAppliedAccumulatorHash
+              , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
+              , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
         wrongOverhead <- arbitrary `suchThat` (/= healthyCommitAppliedHeadAdaOverhead)

@@ -46,6 +46,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
@@ -121,6 +122,14 @@ healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedSnapshot healthyOutdat
 healthyOutdatedAccumulatorHash :: Head.Hash
 healthyOutdatedAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyOutdatedSnapshot
+
+healthyOutdatedDecommitOutputsHash :: Head.Hash
+healthyOutdatedDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyOutdatedSnapshot))
+
+healthyOutdatedCommitOutputsHash :: Head.Hash
+healthyOutdatedCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyOutdatedSnapshot))
 
 healthyCloseOutdatedTx :: (Tx, UTxO)
 healthyCloseOutdatedTx =
@@ -254,7 +263,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyOutdatedAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyOutdatedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -324,6 +333,8 @@ genCloseOutdatedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyOutdatedSnapshot
                             , accumulatorHash = healthyOutdatedAccumulatorHash
+                            , decommitOutputsHash = healthyOutdatedDecommitOutputsHash
+                            , commitOutputsHash = healthyOutdatedCommitOutputsHash
                             }
                       )
                 )
@@ -348,12 +359,14 @@ genCloseOutdatedMutation (tx, _utxo) =
             Head.CloseUsed
               { signature
               , accumulatorHash = healthyOutdatedAccumulatorHash
+              , decommitOutputsHash = healthyOutdatedDecommitOutputsHash
+              , commitOutputsHash = healthyOutdatedCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateCloseType . ChangeHeadRedeemer <$> do
         -- Close redeemer claims whether the snapshot is valid against current
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
-        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
         wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
         pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)

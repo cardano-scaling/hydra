@@ -44,6 +44,7 @@ import Hydra.Tx.Contract.Contest.Healthy (
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -83,6 +84,14 @@ import Test.QuickCheck.Instances ()
 healthyContestAccumulatorHash :: Head.Hash
 healthyContestAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
+
+healthyContestDecommitOutputsHash :: Head.Hash
+healthyContestDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestSnapshot))
+
+healthyContestCommitOutputsHash :: Head.Hash
+healthyContestCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestSnapshot))
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
@@ -186,6 +195,8 @@ genContestMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
+              , decommitOutputsHash = healthyContestDecommitOutputsHash
+              , commitOutputsHash = healthyContestCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
@@ -207,6 +218,8 @@ genContestMutation (tx, _utxo) =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
                     , accumulatorHash = healthyContestAccumulatorHash
+                    , decommitOutputsHash = healthyContestDecommitOutputsHash
+                    , commitOutputsHash = healthyContestCommitOutputsHash
                     }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -230,6 +243,8 @@ genContestMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
                             , accumulatorHash = healthyContestAccumulatorHash
+                            , decommitOutputsHash = healthyContestDecommitOutputsHash
+                            , commitOutputsHash = healthyContestCommitOutputsHash
                             }
                       )
                 )

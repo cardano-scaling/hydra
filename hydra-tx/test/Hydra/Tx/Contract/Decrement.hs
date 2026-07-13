@@ -39,6 +39,7 @@ import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
@@ -181,6 +182,12 @@ data DecrementMutation
     ChangeHeadValue
   | -- | Drop one of the decommit outputs from the tx. This should trigger snapshot signature validation to fail.
     DropDecommitOutput
+  | -- | SECURITY (decommit-output binding): redirect a decommit output to an
+    -- attacker-controlled address while preserving its exact Value, datum and
+    -- reference script. The Head validator MUST reject this. Currently only the
+    -- aggregate Value is checked, so this passes phase-2 today — this mutation
+    -- is the regression test for the missing binding.
+    RedirectDecommitOutputAddress
   | ExtractSomeValue
   | -- | Invalidates the tx by changing the snapshot version in resulting head
     -- output.
@@ -218,6 +225,7 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
+              , commitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthySnapshot))
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
@@ -236,6 +244,18 @@ genDecrementMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
+    , -- SECURITY: Redirect a decommit output to an attacker-controlled address
+      -- while preserving its exact Value, datum and reference script. The Head
+      -- validator must bind decommit-output identity to the signed snapshot, so
+      -- the recomputed decommit-outputs hash no longer matches what parties
+      -- signed and signature verification fails.
+      SomeMutation (pure $ toErrorCode SignatureVerificationFailed) RedirectDecommitOutputAddress <$> do
+        let outs = txOuts' tx
+        -- NOTE: index 0 is the Head output; indices 1.. are the decommit outputs.
+        ix <- choose (1, length outs - 1)
+        let out = fromJust (outs !!? ix)
+        attackerAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutAddress (const attackerAddress) out)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) DecrementAddExtraDepositInput <$> do
