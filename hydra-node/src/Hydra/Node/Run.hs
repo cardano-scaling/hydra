@@ -19,6 +19,7 @@ import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Events (EventSink)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.Events.SQLiteBased (withSQLiteEventStore)
@@ -53,7 +54,6 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Tx.KZGTrustedSetup qualified as KZG
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))

@@ -35,8 +35,8 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Data.Map.Strict qualified as Map
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.KZGTrustedSetup qualified as KZG
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
@@ -208,7 +208,7 @@ crsG2Points n = take n $ fromKZGSetup KZG.g2Points
 -- 'defaultItems' requires re-publishing the CRS UTxO and is bounded
 -- above by @KZGTrustedSetup.maxFanoutBatchSize + 1@.
 defaultItems :: Int
-defaultItems = 30
+defaultItems = KZG.defaultItems
 
 -- | Returns the number of G1 CRS points required for this accumulator.
 -- An n-element accumulator polynomial has degree n, so needs n+1 G1 points

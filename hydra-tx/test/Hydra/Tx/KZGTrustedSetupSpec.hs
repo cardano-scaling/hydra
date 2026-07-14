@@ -8,8 +8,8 @@ import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
+import Hydra.Contract.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
 import Hydra.Tx.Accumulator (build, createMembershipProof, crsG1Points, getAccumulatorCommitment, requiredCRSPointCount)
-import Hydra.Tx.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
 import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuiltin)
 
 spec :: Spec

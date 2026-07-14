@@ -11,8 +11,6 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
-import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Char8 qualified as BSC
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (
   PlutusScript,
@@ -37,6 +35,7 @@ import Hydra.Contract.HeadState (
   State (..),
   progressFromClosed,
  )
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
@@ -851,14 +850,11 @@ compiledValidator =
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 canonicalCRSDatumHash
 
 -- | BLAKE2b-256 of the canonical CRS datum: the published EIP-4844 trusted setup
--- (first 'Hydra.Tx.Accumulator.defaultItems' G2 points) hashed by 'hashCRSDatum'.
--- Baked into the validator so every fanout rejects a reference input carrying any
--- other powers-of-tau setup. Kept in sync with the off-chain setup by a hydra-tx
--- test asserting it equals the hash of the embedded setup.
+-- (first 'KZG.defaultItems' G2 points) hashed by 'hashCRSDatum'. Baked into the
+-- validator so every fanout rejects a reference input carrying any other
+-- powers-of-tau setup. Computed directly from the embedded setup — no hardcoded value.
 canonicalCRSDatumHash :: BuiltinByteString
-canonicalCRSDatumHash =
-  Builtins.toBuiltin . Base16.decodeLenient $
-    BSC.pack "83567ed65ad3a78cb7ea5d295797223c2b44b035472d0e910f2ca927a20b4fac"
+canonicalCRSDatumHash = hashCRSDatum KZG.canonicalG2Points
 
 validatorScript :: PlutusScript
 validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator

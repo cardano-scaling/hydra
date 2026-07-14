@@ -11,6 +11,7 @@ import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.KZGTrustedSetup (g2BuiltinPoints)
 import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProofFromUTxO,
@@ -21,7 +22,6 @@ import Hydra.Tx.Accumulator (
   requiredCRSPointCount,
  )
 import Hydra.Tx.IsTx (IsTx (outputsOfUTxO, utxoToElement))
-import Hydra.Tx.KZGTrustedSetup (g2BuiltinPoints)
 import PlutusTx.Builtins (bls12_381_G1_uncompress, bls12_381_G2_uncompress, byteStringToInteger, toBuiltin)
 import Test.Hydra.Tx.Gen (genUTxOWithSimplifiedAddresses)
 import Test.QuickCheck (counterexample, forAll, property, resize, sublistOf, suchThat, (===))
@@ -67,14 +67,14 @@ spec = parallel $ do
                  in checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 (utxoScalars subsetB)
                       === False
 
-  -- Guards the CRS-datum hash baked into the head validator against drift from the
-  -- off-chain trusted setup. If either 'defaultItems' or the embedded setup changes,
-  -- the baked constant must be regenerated.
+  -- Ties the off-chain publisher path (createCRSG2Datum via crsG2Points defaultItems) to
+  -- the on-chain validator's canonical CRS points, so a fanout accepts exactly the CRS
+  -- datum the script registry publishes and nothing else.
   describe "canonical CRS datum" $
-    it "baked hash matches the embedded EIP-4844 trusted setup" $
-      let canonicalCRSDatum =
+    it "on-chain canonical hash matches the published CRS datum" $
+      let publishedCRSDatum =
             bls12_381_G2_uncompress . toBuiltin . blsCompress <$> crsG2Points defaultItems
-       in Head.canonicalCRSDatumHash `shouldBe` Head.hashCRSDatum canonicalCRSDatum
+       in Head.canonicalCRSDatumHash `shouldBe` Head.hashCRSDatum publishedCRSDatum
 
 utxoScalars :: UTxO -> [Integer]
 utxoScalars utxo = toInt <$> filter (/= mempty) (utxoToElement @Tx <$> outputsOfUTxO @Tx utxo)

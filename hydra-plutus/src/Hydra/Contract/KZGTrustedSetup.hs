@@ -45,7 +45,7 @@
 -- hold up to __4095 UTxOs__. This is enforced by 'maxAccumulatorSize'.
 -- The on-chain G2 CRS only needs batch-size-many points per partial fanout step,
 -- so the 65 G2 points do not constrain the accumulator size.
-module Hydra.Tx.KZGTrustedSetup (
+module Hydra.Contract.KZGTrustedSetup (
   KZGSetupError (..),
   g1Points,
   g2Points,
@@ -53,6 +53,8 @@ module Hydra.Tx.KZGTrustedSetup (
   g2BuiltinPoints,
   maxAccumulatorSize,
   maxFanoutBatchSize,
+  defaultItems,
+  canonicalG2Points,
 ) where
 
 import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
@@ -162,3 +164,19 @@ g1BuiltinPoints = fmap (fmap (bls12_381_G1_uncompress . toBuiltin . blsCompress)
 -- Derived from 'g2Points' by re-compressing to bytes; shares the same parsed data.
 g2BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G2_Element]
 g2BuiltinPoints = fmap (fmap (bls12_381_G2_uncompress . toBuiltin . blsCompress)) g2Points
+
+-- | Number of G2 monomial points published in the on-chain CRS reference UTxO
+-- (see 'Hydra.Tx.Accumulator.createCRSG2Datum'), hence the size of the canonical CRS
+-- datum the head validator binds. Bounded above by 'maxFanoutBatchSize' + 1; raising
+-- it requires re-publishing the CRS UTxO.
+defaultItems :: Int
+defaultItems = 30
+
+-- | The canonical on-chain CRS datum: the first 'defaultItems' G2 monomial points of
+-- the embedded EIP-4844 setup, as the on-chain builtin element type. This is exactly
+-- what 'Hydra.Tx.Accumulator.createCRSG2Datum' publishes and what the head validator
+-- binds via its baked datum hash. Errors only if the embedded setup is corrupt.
+canonicalG2Points :: [BuiltinBLS12_381_G2_Element]
+canonicalG2Points =
+  take defaultItems $
+    either (\e -> error $ "KZG trusted setup invariant violated: " <> show e) id g2BuiltinPoints
