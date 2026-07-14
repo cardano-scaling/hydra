@@ -155,6 +155,10 @@ data FanoutMutation
   | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
     -- Exposes that withCRSLookup must also validate txOutAddress.
     MutateFanoutWrongAddressCRS
+  | -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
+    -- A substituted powers-of-tau setup lets a crafted fanout forge membership
+    -- proofs and redirect funds, so the CRS datum content must be validated.
+    MutateFanoutNonCanonicalCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -228,6 +232,36 @@ genFanoutMutation (tx, _utxo) =
           Changes
             [ AddReferenceInput fakeCRSIn fakeCRSOut
             , ChangeHeadRedeemer fakeRedeemer
+            ]
+    , -- A CRS reference input at the correct address and reference script but carrying a
+      -- non-canonical SRS datum must be rejected. Validating only the CRS location and
+      -- not its datum lets an attacker publish a powers-of-tau setup whose tau they know;
+      -- then proof = (1/P_S(tau))*commitment satisfies the membership pairing for ANY
+      -- subset, defeating the check that pins which outputs a fanout distributes.
+      --
+      -- We witness the gap with a same-tau CRS carrying one extra G2 point: the pairing
+      -- still succeeds (the MSM ignores points beyond the polynomial degree, as the
+      -- published 30-point CRS is for small fanouts) while its datum bytes differ from
+      -- the canonical CRS.
+      SomeMutation (pure $ toErrorCode InvalidCRSDatum) MutateFanoutNonCanonicalCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        substitutedCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        let substitutedCRSOut =
+              TxOut
+                (txOutAddress legitCRSOut)
+                (txOutValue legitCRSOut)
+                (Accumulator.createCRSG2Datum (Accumulator.defaultItems + 1))
+                (mkScriptRef CRS.validatorScript)
+            substitutedRedeemer =
+              Head.Fanout
+                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
+                , Head.proof = fanoutProof
+                , Head.crsRef = toPlutusTxOutRef substitutedCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput substitutedCRSIn substitutedCRSOut
+            , ChangeHeadRedeemer substitutedRedeemer
             ]
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
         extraIn <- genTxIn
