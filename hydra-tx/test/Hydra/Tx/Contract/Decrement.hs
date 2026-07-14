@@ -231,7 +231,7 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeDecrementedValue <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ChangeDecrementedValue <$> do
         let outs = txOuts' tx
         -- NOTE: Skip the first output since this is the Head output.
         (ix, out) <- elements (zip [1 .. length outs - 1] outs)
@@ -241,7 +241,7 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) DropDecommitOutput <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) DropDecommitOutput <$> do
         ix <- choose (1, length (txOuts' tx) - 1)
         pure $ RemoveOutput (fromIntegral ix)
     , -- SECURITY: Redirect a decommit output to an attacker-controlled address

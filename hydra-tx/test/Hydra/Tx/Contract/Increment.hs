@@ -189,7 +189,10 @@ data IncrementMutation
     ChangeHeadValue
   | -- | Change the required signers
     AlterRequiredSigner
-  | -- | Alter the Claim redeemer `TxOutRef`
+  | -- | Alter the Claim redeemer `TxOutRef` to a deposit input not spent by the
+    -- tx. 'checkIncrement' recomputes the committed-outputs hash from the CLAIMED
+    -- deposit input, so a missing claim ref hard-fails with 'DepositInputNotFound'
+    -- (this now precedes and subsumes the 'DepositNotSpent' check).
     IncrementDifferentClaimRedeemer
   | -- | Add a second v_deposit input alongside an attacker-controlled
     -- output that redirects its value away from the head's continuation.
@@ -258,7 +261,7 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode DepositInputNotFound) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
         invalidDepositRef <- genTxIn
         pure $
           Head.Increment
