@@ -2161,15 +2161,26 @@ applyEvent st = \case
                     -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
                     -- is guaranteed to apply), making 'applyTxTo' safe to use
                     -- without ledger validation.
+                    --
+                    -- A pending commit ('utxoToCommit') is only spendable once its
+                    -- on-chain increment has landed (chain 'version' ahead of the
+                    -- snapshot's). Before then it must NOT be part of the spendable
+                    -- localUTxO, otherwise the same deposit UTxO could be spent once
+                    -- per snapshot round (it is re-injected here) and inflate the L2
+                    -- balance. Mirrors 'confirmedUTxO'; the deposit enters localUTxO
+                    -- at 'CommitFinalized'.
                     localUTxO =
-                      let activeUTxO = snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
+                      let activeUTxO =
+                            if version > snapshot.version
+                              then snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
+                              else snapshot.utxo
                        in foldl' (flip applyTxTo) activeUTxO newLocalTxs
                   , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }
             }
        where
-        CoordinatedHeadState{allTxs} = coordinatedHeadState
+        CoordinatedHeadState{allTxs, version} = coordinatedHeadState
       _otherState -> st
   PartySignedSnapshot{party, signature} ->
     case st of
