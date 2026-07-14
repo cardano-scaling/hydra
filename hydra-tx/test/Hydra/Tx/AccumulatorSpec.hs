@@ -4,21 +4,25 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (blsCompress)
 import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Contract.CRS (checkMembershipPairing)
+import Hydra.Contract.Head qualified as Head
 import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProofFromUTxO,
   crsG1Points,
+  crsG2Points,
+  defaultItems,
   getAccumulatorCommitment,
   requiredCRSPointCount,
  )
 import Hydra.Tx.IsTx (IsTx (outputsOfUTxO, utxoToElement))
 import Hydra.Tx.KZGTrustedSetup (g2BuiltinPoints)
-import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuiltin)
+import PlutusTx.Builtins (bls12_381_G1_uncompress, bls12_381_G2_uncompress, byteStringToInteger, toBuiltin)
 import Test.Hydra.Tx.Gen (genUTxOWithSimplifiedAddresses)
 import Test.QuickCheck (counterexample, forAll, property, resize, sublistOf, suchThat, (===))
 
@@ -62,6 +66,15 @@ spec = parallel $ do
                 let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
                  in checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 (utxoScalars subsetB)
                       === False
+
+  -- Guards the CRS-datum hash baked into the head validator against drift from the
+  -- off-chain trusted setup. If either 'defaultItems' or the embedded setup changes,
+  -- the baked constant must be regenerated.
+  describe "canonical CRS datum" $
+    it "baked hash matches the embedded EIP-4844 trusted setup" $
+      let canonicalCRSDatum =
+            bls12_381_G2_uncompress . toBuiltin . blsCompress <$> crsG2Points defaultItems
+       in Head.canonicalCRSDatumHash `shouldBe` Head.hashCRSDatum canonicalCRSDatum
 
 utxoScalars :: UTxO -> [Integer]
 utxoScalars utxo = toInt <$> filter (/= mempty) (utxoToElement @Tx <$> outputsOfUTxO @Tx utxo)

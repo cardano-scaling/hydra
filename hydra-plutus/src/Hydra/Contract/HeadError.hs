@@ -61,12 +61,10 @@ data HeadError
   | PartialFanoutChangedParameters
   | AccumulatorCommitmentHashMismatch
   | FinalPartialFanoutMembershipFailed
-  | InvalidCRSRefScript
   | FinalPartialFanoutZeroOutputs
   | PartialFanoutZeroOutputs
   | PartialFanoutCannotBeLastBatch
   | ChangedHeadAdaOverhead
-  | InvalidCRSRefAddress
   | DepositDatumInvalid
   | InvalidCRSDatum
 
@@ -135,11 +133,9 @@ instance ToErrorCode HeadError where
     PartialFanoutChangedParameters -> "H58"
     AccumulatorCommitmentHashMismatch -> "H59"
     FinalPartialFanoutMembershipFailed -> "H60"
-    InvalidCRSRefScript -> "H61"
     FinalPartialFanoutZeroOutputs -> "H62"
     PartialFanoutZeroOutputs -> "H63"
     PartialFanoutCannotBeLastBatch -> "H64"
     ChangedHeadAdaOverhead -> "H65"
-    InvalidCRSRefAddress -> "H66"
     DepositDatumInvalid -> "H67"
     InvalidCRSDatum -> "H68"

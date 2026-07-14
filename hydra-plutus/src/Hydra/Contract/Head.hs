@@ -11,13 +11,14 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Char8 qualified as BSC
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
  )
 import Hydra.Contract.CRS (CRSDatum, checkMembershipPairing)
-import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (
@@ -39,7 +40,7 @@ import Hydra.Contract.HeadState (
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
+import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
@@ -56,7 +57,6 @@ import PlutusLedgerApi.V3 (
   POSIXTime,
   PubKeyHash (getPubKeyHash),
   ScriptContext (..),
-  ScriptHash,
   TokenName (..),
   TxInInfo (..),
   TxInfo (..),
@@ -83,12 +83,12 @@ type RedeemerType = Input
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
-  ScriptHash ->
+  BuiltinByteString ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator crsHash oldState input ctx =
+headValidator crsDatumHash oldState input ctx =
   case (oldState, input) of
     (Open openDatum, Increment redeemer) ->
       checkIncrement ctx openDatum redeemer
@@ -99,13 +99,13 @@ headValidator crsHash oldState input ctx =
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, proof, crsRef}) ->
-      headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef
+      headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crsRef
     (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
-      checkPartialFanout crsHash ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
+      checkPartialFanout crsDatumHash ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
     (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
-      checkPartialFanout crsHash ctx progressDatum numberOfPartialOutputs crsRef
+      checkPartialFanout crsDatumHash ctx progressDatum numberOfPartialOutputs crsRef
     (FanoutProgress progressDatum, FinalPartialFanout{numberOfPartialOutputs, proof, crsRef}) ->
-      checkFinalPartialFanout crsHash ctx progressDatum numberOfPartialOutputs proof crsRef
+      checkFinalPartialFanout crsDatumHash ctx progressDatum numberOfPartialOutputs proof crsRef
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -504,7 +504,7 @@ checkContest ctx closedDatum redeemer =
 -- | Verify a fanout transaction using a KZG membership proof.
 -- All distributed outputs are verified as members of the accumulator in a single proof.
 headIsFinalizedWith ::
-  ScriptHash ->
+  BuiltinByteString ->
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
@@ -515,7 +515,7 @@ headIsFinalizedWith ::
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
+headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
@@ -540,7 +540,7 @@ headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
   -- enforced by mustConserveValue instead.
   checkCRSAndMembership =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
-      withCRSLookup crsHash txInfo crsRef $ \crsData ->
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
 
   -- Strict equality: fanout outputs + burned tokens + fixed overhead must equal the
@@ -563,7 +563,7 @@ headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
 -- The continuing head output must be the first transaction output. Distributed
 -- UTxOs follow at indices [1 .. numberOfPartialOutputs].
 checkPartialFanout ::
-  ScriptHash ->
+  BuiltinByteString ->
   ScriptContext ->
   -- | Progress state (extracted from either Closed or FanoutProgress input)
   FanoutProgressDatum ->
@@ -572,7 +572,7 @@ checkPartialFanout ::
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
+checkPartialFanout crsDatumHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
   mustHaveOutputs
     && mustNotBeLastBatch
     && mustNotMintOrBurn txInfo
@@ -649,7 +649,7 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
   -- removed from the accumulator.
   checkCRSAndMembership =
     traceIfFalse $(errorCode PartialFanoutMembershipFailed) $
-      withCRSLookup crsHash txInfo crsRef $ \crsData ->
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment newAccumulatorCommitment crsData subsetScalars
 {-# INLINEABLE checkPartialFanout #-}
 
@@ -664,7 +664,7 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
 -- would target the wrong token set). contestationDeadline was locked in by earlier
 -- checkPartialFanout steps and is trustworthy from the on-chain datum.
 checkFinalPartialFanout ::
-  ScriptHash ->
+  BuiltinByteString ->
   ScriptContext ->
   -- | FanoutProgress state before the final fanout
   FanoutProgressDatum ->
@@ -675,7 +675,7 @@ checkFinalPartialFanout ::
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
+checkFinalPartialFanout crsDatumHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
   mustHaveOutputs
     && mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
@@ -715,7 +715,7 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
 
   checkCRSAndMembership =
     traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
-      withCRSLookup crsHash txInfo crsRef $ \crsData ->
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
 {-# INLINEABLE checkFinalPartialFanout #-}
 
@@ -839,7 +839,7 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash, 
       <> Builtins.serialiseData (toBuiltinData commitOutputsHash)
 {-# INLINEABLE verifyPartySignature #-}
 
-unappliedValidator :: CompiledCode (ScriptHash -> ValidatorType)
+unappliedValidator :: CompiledCode (BuiltinByteString -> ValidatorType)
 unappliedValidator =
   $$(PlutusTx.compile [||wrap . headValidator||])
  where
@@ -848,7 +848,17 @@ unappliedValidator =
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   unappliedValidator
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash CRS.validatorScript)
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 canonicalCRSDatumHash
+
+-- | BLAKE2b-256 of the canonical CRS datum: the published EIP-4844 trusted setup
+-- (first 'Hydra.Tx.Accumulator.defaultItems' G2 points) hashed by 'hashCRSDatum'.
+-- Baked into the validator so every fanout rejects a reference input carrying any
+-- other powers-of-tau setup. Kept in sync with the off-chain setup by a hydra-tx
+-- test asserting it equals the hash of the embedded setup.
+canonicalCRSDatumHash :: BuiltinByteString
+canonicalCRSDatumHash =
+  Builtins.toBuiltin . Base16.decodeLenient $
+    BSC.pack "83567ed65ad3a78cb7ea5d295797223c2b44b035472d0e910f2ca927a20b4fac"
 
 validatorScript :: PlutusScript
 validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
@@ -889,33 +899,37 @@ afterContestationDeadline txInfo deadline =
 
 -- | Find a CRS reference input by 'TxOutRef' and decode its non-empty datum.
 -- Errors on missing input, undecoded datum, or empty CRS list.
-resolveCRS :: TxInfo -> TxOutRef -> (TxOut, CRSDatum)
+resolveCRS :: TxInfo -> TxOutRef -> CRSDatum
 resolveCRS txInfo crsRef =
   case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
     Nothing -> traceError $(errorCode MissingCRSRefInput)
     Just txInInfo ->
-      let resolved = txInInfoResolved txInInfo
-       in case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum resolved) of
-            Just d@(_ : _) -> (resolved, d)
-            _ -> traceError $(errorCode MissingCRSDatum)
+      case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
+        Just d@(_ : _) -> d
+        _ -> traceError $(errorCode MissingCRSDatum)
 {-# INLINEABLE resolveCRS #-}
 
--- | Look up the CRS datum from a reference input and pass it to a continuation.
--- Verifies that the reference input carries the expected CRS validator script hash.
+-- | Hash a CRS datum by its content: BLAKE2b-256 over the concatenation of the
+-- compressed G2 points. Binding the datum content is what keeps the membership
+-- proof sound — the trusted-setup τ is fixed and public, so any other setup would
+-- let a crafted fanout forge proofs.
+hashCRSDatum :: CRSDatum -> BuiltinByteString
+hashCRSDatum = Builtins.blake2b_256 . F.foldMap Builtins.bls12_381_G2_compress
+{-# INLINEABLE hashCRSDatum #-}
+
+-- | Look up the CRS datum from a reference input and pass it to a continuation,
+-- rejecting any reference input whose datum is not the canonical trusted setup.
 withCRSLookup ::
-  ScriptHash ->
+  BuiltinByteString ->
   TxInfo ->
   TxOutRef ->
   (CRSDatum -> Bool) ->
   Bool
-withCRSLookup expectedHash txInfo crsRef cont =
-  let (resolved, crsData) = resolveCRS txInfo crsRef
-   in if txOutReferenceScript resolved /= Just expectedHash
-        then traceError $(errorCode InvalidCRSRefScript)
-        else
-          if addressCredential (txOutAddress resolved) /= ScriptCredential expectedHash
-            then traceError $(errorCode InvalidCRSRefAddress)
-            else cont crsData
+withCRSLookup expectedDatumHash txInfo crsRef cont =
+  let crsData = resolveCRS txInfo crsRef
+   in if hashCRSDatum crsData /= expectedDatumHash
+        then traceError $(errorCode InvalidCRSDatum)
+        else cont crsData
 {-# INLINEABLE withCRSLookup #-}
 
 -- | Compute the accumulator scalar for each output in the list.

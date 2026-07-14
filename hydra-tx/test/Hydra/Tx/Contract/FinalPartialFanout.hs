@@ -11,7 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefAddress, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSDatum, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -27,13 +27,13 @@ import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (fanoutChunkSize, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
 scriptRegistry :: ScriptRegistry
-scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
+scriptRegistry = genScriptRegistry `generateWith` 42
 
 -- | A healthy final partial fanout transaction. It distributes all remaining
 -- UTxOs (from a FanoutProgress state) and burns all head tokens.
@@ -126,8 +126,8 @@ data FinalPartialFanoutMutation
   | -- | Claiming fewer outputs in the redeemer than are actually in the tx
     -- uses a different scalar set, breaking the membership proof
     MutateFinalPartialFanoutOutputCount
-  | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
-    MutateFinalPartialFanoutFakeCRS
+  | -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
+    MutateFinalPartialFanoutNonCanonicalCRS
   | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's value
     -- is left unaccounted.
     MutateFinalPartialFanoutStealAda
@@ -138,9 +138,6 @@ data FinalPartialFanoutMutation
     MutateFinalPartialFanoutZeroOutputs
   | -- | Changing headAdaOverhead in the input FanoutProgressDatum breaks value conservation.
     MutateFinalPartialFanoutHeadAdaOverhead
-  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
-    -- Exposes that withCRSLookup must also validate txOutAddress.
-    MutateFinalPartialFanoutWrongAddressCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -180,15 +177,21 @@ genFinalPartialFanoutMutation (tx, _utxo) =
                   , Head.proof = dummyProof
                   , Head.crsRef = crsRef
                   }
-    , SomeMutation (pure $ toErrorCode InvalidCRSRefScript) MutateFinalPartialFanoutFakeCRS <$> do
-        -- Build a fake CRS UTxO: same datum as the real CRS but at an attacker's
-        -- address with no reference script. The G2 data is valid so the pairing
-        -- check passes, but the script-hash guard (once added) rejects it.
-        let ScriptRegistry{crsReference = (_, legitCRSOut)} = scriptRegistry
-            fakeCRSDatum = txOutDatum legitCRSOut
-        fakeCRSIn <- arbitrary `suchThat` (/= fst (crsReference scriptRegistry))
-        someAddress <- genAddressInEra testNetworkId
-        let fakeCRSOut = TxOut someAddress (txOutValue legitCRSOut) fakeCRSDatum ReferenceScriptNone
+    , -- A CRS reference input at the correct address and reference script but carrying a
+      -- non-canonical SRS datum must be rejected: binding only the CRS location and not
+      -- its datum lets an attacker substitute a powers-of-tau setup whose tau they know
+      -- and forge membership proofs. A same-tau CRS with one extra G2 point keeps the
+      -- pairing valid while its datum bytes differ from the canonical CRS.
+      SomeMutation (pure $ toErrorCode InvalidCRSDatum) MutateFinalPartialFanoutNonCanonicalCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        substitutedCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        let substitutedCRSOut :: TxOut CtxUTxO
+            substitutedCRSOut =
+              TxOut
+                (txOutAddress legitCRSOut)
+                (txOutValue legitCRSOut)
+                (Accumulator.createCRSG2Datum (Accumulator.defaultItems + 1))
+                (mkScriptRef CRS.validatorScript)
             realProof =
               bls12_381_G1_uncompress $
                 toBuiltin $
@@ -197,16 +200,16 @@ genFinalPartialFanoutMutation (tx, _utxo) =
                       healthyDistributeUTxO
                       healthyRemainingAccumulator
                       (Accumulator.crsG1Points crsSize)
-            fakeRedeemer =
+            substitutedRedeemer =
               Head.FinalPartialFanout
                 { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
                 , Head.proof = realProof
-                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                , Head.crsRef = toPlutusTxOutRef substitutedCRSIn
                 }
         pure $
           Changes
-            [ AddReferenceInput fakeCRSIn fakeCRSOut
-            , ChangeHeadRedeemer fakeRedeemer
+            [ AddReferenceInput substitutedCRSIn substitutedCRSOut
+            , ChangeHeadRedeemer substitutedRedeemer
             ]
     , -- The fund-theft attack: numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
       -- With an empty subset, getFinalPoly [] = [1] so getG2Commitment = G2, reducing the
@@ -231,32 +234,6 @@ genFinalPartialFanoutMutation (tx, _utxo) =
         -- the on-chain headInValue == outputs + overhead check fails.
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead (Head.FanoutProgress healthyProgressDatum))
-    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
-      -- The script-hash check passes because the reference script bytes are legitimate,
-      -- but the address check (once enforced) must reject it.
-      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutateFinalPartialFanoutWrongAddressCRS <$> do
-        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
-        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
-        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
-        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
-            fakeRedeemer =
-              Head.FinalPartialFanout
-                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
-                , Head.proof =
-                    bls12_381_G1_uncompress $
-                      toBuiltin $
-                        either error id $
-                          Accumulator.createMembershipProofFromUTxO @Tx
-                            healthyDistributeUTxO
-                            healthyRemainingAccumulator
-                            (Accumulator.crsG1Points crsSize)
-                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
-                }
-        pure $
-          Changes
-            [ AddReferenceInput fakeCRSIn fakeCRSOut
-            , ChangeHeadRedeemer fakeRedeemer
-            ]
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
       -- valid proof for n-1 elements. The conservation check catches this: the sum of
       -- n-1 outputs is less than headInValue, so HeadValueIsNotPreserved fires before

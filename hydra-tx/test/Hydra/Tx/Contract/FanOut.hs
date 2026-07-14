@@ -32,13 +32,13 @@ import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 scriptRegistry :: ScriptRegistry
-scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
+scriptRegistry = genScriptRegistry `generateWith` 42
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
@@ -150,11 +150,6 @@ data FanoutMutation
     FanoutAbsorbForeignDeposit
   | -- | Change headAdaOverhead in the input ClosedDatum, breaking value conservation.
     MutateHeadAdaOverhead
-  | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
-    MutateFanoutFakeCRS
-  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
-    -- Exposes that withCRSLookup must also validate txOutAddress.
-    MutateFanoutWrongAddressCRS
   | -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
     -- A substituted powers-of-tau setup lets a crafted fanout forge membership
     -- proofs and redirect funds, so the CRS datum content must be validated.
@@ -197,42 +192,6 @@ genFanoutMutation (tx, _utxo) =
         -- baseline, so the on-chain headInValue == outputs + overhead check fails.
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead healthyFanoutDatum)
-    , -- Fake CRS UTxO with no reference script — the script-hash check rejects it.
-      SomeMutation (pure $ toErrorCode InvalidCRSRefScript) MutateFanoutFakeCRS <$> do
-        let ScriptRegistry{crsReference = (_, legitCRSOut)} = scriptRegistry
-        fakeCRSIn <- arbitrary `suchThat` (/= fst (crsReference scriptRegistry))
-        someAddress <- genAddressInEra testNetworkId
-        let fakeCRSOut = TxOut someAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) ReferenceScriptNone
-            fakeRedeemer =
-              Head.Fanout
-                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
-                , Head.proof = fanoutProof
-                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
-                }
-        pure $
-          Changes
-            [ AddReferenceInput fakeCRSIn fakeCRSOut
-            , ChangeHeadRedeemer fakeRedeemer
-            ]
-    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
-      -- The script-hash check passes because the reference script bytes are legitimate,
-      -- but the address check (once enforced) must reject it.
-      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutateFanoutWrongAddressCRS <$> do
-        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
-        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
-        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
-        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
-            fakeRedeemer =
-              Head.Fanout
-                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
-                , Head.proof = fanoutProof
-                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
-                }
-        pure $
-          Changes
-            [ AddReferenceInput fakeCRSIn fakeCRSOut
-            , ChangeHeadRedeemer fakeRedeemer
-            ]
     , -- A CRS reference input at the correct address and reference script but carrying a
       -- non-canonical SRS datum must be rejected. Validating only the CRS location and
       -- not its datum lets an attacker publish a powers-of-tau setup whose tau they know;
@@ -246,7 +205,8 @@ genFanoutMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode InvalidCRSDatum) MutateFanoutNonCanonicalCRS <$> do
         let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
         substitutedCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
-        let substitutedCRSOut =
+        let substitutedCRSOut :: TxOut CtxUTxO
+            substitutedCRSOut =
               TxOut
                 (txOutAddress legitCRSOut)
                 (txOutValue legitCRSOut)
