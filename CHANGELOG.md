@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [UNRELEASED]
+## [2.3.0] - 2026.07.15
 
 - Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
   restart. `aggregateNodeState` now restores the full checkpoint snapshot,
@@ -16,9 +16,9 @@ changes.
   restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
 
 - Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
-verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
-Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
-natively supported, removing the need to manually convert them before use.
+  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+  natively supported, removing the need to manually convert them before use.
 
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
@@ -53,7 +53,7 @@ natively supported, removing the need to manually convert them before use.
   the queue is under pressure or fails to recover from disk on startup. Failing
   to delete a sent message's backing file no longer crashes the network
   component; it is logged as `PersistentQueueDeleteFailed` and the message may
-  be re-broadcast after a restart.
+  be re-broadcast after a restart. [#2742](https://github.com/cardano-scaling/hydra/pull/2742)
 
 ## [2.2.0] - 2026.06.12
 
