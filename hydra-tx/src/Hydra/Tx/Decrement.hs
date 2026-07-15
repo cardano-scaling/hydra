@@ -14,6 +14,7 @@ import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
@@ -56,6 +57,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
+          , commitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
           }
 
   decrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
@@ -96,7 +98,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , headAdaOverhead = prevHeadAdaOverhead
           }
 
-  Snapshot{utxoToDecommit, number, version, accumulator} = snapshot
+  Snapshot{utxoToCommit, utxoToDecommit, number, version, accumulator} = snapshot
 
 -- * Observation
 

@@ -31,6 +31,7 @@ import Hydra.Tx.Contract.Contest.Healthy (
  )
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -70,6 +71,14 @@ healthyContestIncSnapshot =
 healthyContestIncAccumulatorHash :: Head.Hash
 healthyContestIncAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestIncSnapshot
+
+healthyContestIncDecommitOutputsHash :: Head.Hash
+healthyContestIncDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestIncSnapshot))
+
+healthyContestIncCommitOutputsHash :: Head.Hash
+healthyContestIncCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestIncSnapshot))
 
 -- | ClosedDatum whose accumulatorCommitment was derived from a commit-type snapshot.
 healthyContestIncClosedState :: Head.State
@@ -150,6 +159,8 @@ genContestIncMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestIncAccumulatorHash
+              , decommitOutputsHash = healthyContestIncDecommitOutputsHash
+              , commitOutputsHash = healthyContestIncCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUsedIncAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])

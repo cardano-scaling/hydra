@@ -17,6 +17,7 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyContestSnapshot,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Mutation (
@@ -32,6 +33,14 @@ import Test.QuickCheck.Instances ()
 healthyContestAccumulatorHash :: Head.Hash
 healthyContestAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
+
+healthyContestDecommitOutputsHash :: Head.Hash
+healthyContestDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestSnapshot))
+
+healthyContestCommitOutputsHash :: Head.Hash
+healthyContestCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestSnapshot))
 
 data ContestDecMutation
   = ContestUnusedDecAlterRedeemerDecommitHash
@@ -51,6 +60,8 @@ genContestDecMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
+              , decommitOutputsHash = healthyContestDecommitOutputsHash
+              , commitOutputsHash = healthyContestCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUsedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])

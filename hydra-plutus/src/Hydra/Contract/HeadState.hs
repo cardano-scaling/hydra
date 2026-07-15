@@ -114,6 +114,12 @@ data CloseRedeemer
       { signature :: [Signature]
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
+      , decommitOutputsHash :: Hash
+      -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
+      -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
+      , commitOutputsHash :: Hash
+      -- ^ Digest of the ordered commit outputs (Uα); empty-list hash when the
+      -- signed snapshot has no pending commit. Binds Uα into the multi-signature.
       }
   | -- | Closing snapshot refers to the current state version (pending inc/dec not yet applied)
     CloseUnused
@@ -121,6 +127,12 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
+      , decommitOutputsHash :: Hash
+      -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
+      -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
+      , commitOutputsHash :: Hash
+      -- ^ Digest of the ordered commit outputs (Uα); empty-list hash when the
+      -- signed snapshot has no pending commit. Binds Uα into the multi-signature.
       }
   | -- | Closing snapshot refers to the previous state version (pending inc/dec already applied)
     CloseUsed
@@ -128,6 +140,12 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
+      , decommitOutputsHash :: Hash
+      -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
+      -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
+      , commitOutputsHash :: Hash
+      -- ^ Digest of the ordered commit outputs (Uα); empty-list hash when the
+      -- signed snapshot has no pending commit. Binds Uα into the multi-signature.
       }
   deriving stock (Show, Generic)
 
@@ -147,6 +165,12 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
+      , decommitOutputsHash :: Hash
+      -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
+      -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
+      , commitOutputsHash :: Hash
+      -- ^ Digest of the ordered commit outputs (Uα); empty-list hash when the
+      -- signed snapshot has no pending commit. Binds Uα into the multi-signature.
       }
   | -- | Contesting snapshot refers to the previous state version (pending inc/dec already applied)
     ContestUsed
@@ -154,6 +178,12 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
+      , decommitOutputsHash :: Hash
+      -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
+      -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
+      , commitOutputsHash :: Hash
+      -- ^ Digest of the ordered commit outputs (Uα); empty-list hash when the
+      -- signed snapshot has no pending commit. Binds Uα into the multi-signature.
       }
   deriving stock (Show, Generic)
 
@@ -168,6 +198,10 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
+  , decommitOutputsHash :: Hash
+  -- ^ Digest of the ordered decommit outputs (Uω) of the signed snapshot. Needed
+  -- to reconstruct the multi-signed message; commit and decommit are not mutually
+  -- exclusive in a snapshot, so an increment's snapshot may still carry a decommit.
   }
   deriving stock (Show, Generic)
 
@@ -181,6 +215,10 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
+  , commitOutputsHash :: Hash
+  -- ^ Digest of the ordered commit outputs (Uα) of the signed snapshot. Needed to
+  -- reconstruct the multi-signed message; a decrement's snapshot may still carry a
+  -- pending commit (commit and decommit are not mutually exclusive).
   }
   deriving stock (Show, Generic)
 

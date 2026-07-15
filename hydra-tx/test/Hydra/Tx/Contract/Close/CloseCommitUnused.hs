@@ -36,6 +36,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
@@ -98,6 +99,14 @@ healthyCommitPendingSnapshot =
 healthyCommitPendingAccumulatorHash :: Head.Hash
 healthyCommitPendingAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCommitPendingSnapshot
+
+healthyCommitPendingDecommitOutputsHash :: Head.Hash
+healthyCommitPendingDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyCommitPendingSnapshot))
+
+healthyCommitPendingCommitOutputsHash :: Head.Hash
+healthyCommitPendingCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCommitPendingSnapshot))
 
 healthyCommitPendingOpenDatum :: Head.State
 healthyCommitPendingOpenDatum =
@@ -189,7 +198,7 @@ genCloseCommitUnusedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitPendingAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitPendingAccumulatorHash, decommitOutputsHash = healthyCommitPendingDecommitOutputsHash, commitOutputsHash = healthyCommitPendingCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCommitPendingSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -249,6 +258,8 @@ genCloseCommitUnusedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCommitPendingSnapshot
                             , accumulatorHash = healthyCommitPendingAccumulatorHash
+                            , decommitOutputsHash = healthyCommitPendingDecommitOutputsHash
+                            , commitOutputsHash = healthyCommitPendingCommitOutputsHash
                             }
                       )
                 )

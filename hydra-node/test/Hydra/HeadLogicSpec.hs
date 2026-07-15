@@ -202,6 +202,68 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
             _ -> False
 
+        it "makes a deposit spendable on L2 only after its on-chain increment" $ do
+          -- Regression: a deposit committed via an increment snapshot lives in
+          -- 'utxoToCommit' until the on-chain increment (CommitFinalized). It must
+          -- not be spendable on L2 before then; otherwise the same deposit UTxO can
+          -- be spent once per snapshot round (it is re-injected into localUTxO on
+          -- every SnapshotRequested), inflating the L2 balance. It must become
+          -- spendable once the increment is observed. We use the SAME tx for both
+          -- checks so the pre-increment rejection is clearly about the deposit's
+          -- availability, not a malformed tx.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+              depositTime = plusTime now
+              depositTxId = 42 :: Integer
+              depositedUtxo = utxoRef depositTxId
+              deposit =
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId
+                  , deposited = depositedUtxo
+                  , created = depositTime 1
+                  , deadline = depositTime 600
+                  }
+              activateTick =
+                ChainInput $
+                  Tick
+                    { chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+                    , chainPoint = 2
+                    }
+              -- Spends the deposited UTxO; applicable iff that UTxO is spendable.
+              spendDeposit = SimpleTx 100 depositedUtxo (utxoRef 100)
+
+          -- Observe + activate the deposit, then request the increment snapshot
+          -- (this is where localUTxO is rebuilt).
+          s <- runHeadLogic aliceEnv' ledger (inOpenState [alice]) $ do
+            step (observeTxAtSlot 1 deposit)
+            step activateTick
+            step (receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId))
+            getState
+
+          -- Before the on-chain increment lands, the deposit is NOT spendable: the
+          -- tx is deferred as not-yet-applicable (it would apply if the deposit were
+          -- available, as the post-increment check below shows).
+          now' <- nowFromSlot s.chainPointTime.currentSlot
+          update aliceEnv' ledger now' s (receiveMessage $ ReqTx spendDeposit)
+            `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+
+          -- Once the increment is observed on-chain (CommitFinalized), the SAME tx
+          -- becomes applicable.
+          sIncremented <- runHeadLogic aliceEnv' ledger s $ do
+            step (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId})
+            getState
+          now'' <- nowFromSlot sIncremented.chainPointTime.currentSlot
+          update aliceEnv' ledger now'' sIncremented (receiveMessage $ ReqTx spendDeposit)
+            `hasStateChangedSatisfying` \case
+              TransactionAppliedToLocalUTxO{tx} -> tx == spendDeposit
+              _ -> False
+
         prop "does not track depositTx of another head" $ \otherHeadId -> do
           let depositOtherHead =
                 observeTx $

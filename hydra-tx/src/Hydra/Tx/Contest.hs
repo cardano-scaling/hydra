@@ -14,6 +14,7 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
@@ -66,7 +67,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, accumulator} = snapshot
+  Snapshot{number, version, accumulator, utxoToCommit, utxoToDecommit} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -86,10 +87,14 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
 
+  decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+
+  commitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
+
   contestRedeemer =
     if version == openVersion
-      then Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash}
-      else Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash}
+      then Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+      else Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 

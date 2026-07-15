@@ -94,7 +94,7 @@ import Hydra.Logging (Tracer)
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
-import Hydra.Tx (HeadId, IsTx (balance), headIdToCurrencySymbol, headIdToPolicyId, txId)
+import Hydra.Tx (HeadId, IsTx (balance, hashUTxO), headIdToCurrencySymbol, headIdToPolicyId, txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot))
@@ -496,6 +496,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef deposit1In
+                , Head.decommitOutputsHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
                 }
         headWitness =
           BuildTxWith $
@@ -887,6 +888,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef leaderDepositIn
+                , Head.decommitOutputsHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
                 }
         headWitness =
           BuildTxWith $

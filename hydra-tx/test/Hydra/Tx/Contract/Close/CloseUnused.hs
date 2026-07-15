@@ -37,6 +37,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
@@ -132,6 +133,14 @@ healthyCurrentSnapshot =
 healthyCurrentAccumulatorHash :: Head.Hash
 healthyCurrentAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCurrentSnapshot
+
+healthyCurrentDecommitOutputsHash :: Head.Hash
+healthyCurrentDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyCurrentSnapshot))
+
+healthyCurrentCommitOutputsHash :: Head.Hash
+healthyCurrentCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCurrentSnapshot))
 
 -- | Decommit is pending: decommitted UTxO is still in the head, so overhead
 -- is computed over both halves of healthyUTxO.
@@ -238,7 +247,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCurrentAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCurrentAccumulatorHash, decommitOutputsHash = healthyCurrentDecommitOutputsHash, commitOutputsHash = healthyCurrentCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -303,6 +312,8 @@ genCloseCurrentMutation (tx, _utxo) =
                           Head.CloseUnused
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
                             , accumulatorHash = healthyCurrentAccumulatorHash
+                            , decommitOutputsHash = healthyCurrentDecommitOutputsHash
+                            , commitOutputsHash = healthyCurrentCommitOutputsHash
                             }
                       )
                 )

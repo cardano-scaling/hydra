@@ -9,7 +9,9 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: plutus.json
+extra-source-files:
+  plutus.json
+  trusted_setup.json
 
 source-repository head
   type:     git
@@ -54,6 +56,7 @@ library
     Hydra.Contract.HeadState
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError
+    Hydra.Contract.KZGTrustedSetup
     Hydra.Contract.MintAction
     Hydra.Contract.Util
     Hydra.Contract.UtilError
@@ -67,6 +70,7 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , cardano-crypto-class
     , file-embed
     , hydra-cardano-api
     , hydra-plutus-extras
@@ -74,12 +78,13 @@ library
     , lens
     , lens-aeson
     , plutus-accumulator
-    , plutus-core          >=1.55
-    , plutus-ledger-api    >=1.55
-    , plutus-tx            >=1.53
-    , plutus-tx-plugin     >=1.53
+    , plutus-core           >=1.55
+    , plutus-ledger-api     >=1.55
+    , plutus-tx             >=1.53
+    , plutus-tx-plugin      >=1.53
     , serialise
     , template-haskell
+    , text
     , time
 
 library testlib
