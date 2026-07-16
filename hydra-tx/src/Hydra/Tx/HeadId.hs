@@ -21,6 +21,7 @@ import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
 newtype HeadId = UnsafeHeadId ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
+  deriving newtype (ToCBOR, FromCBOR)
 
 instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (UnsafeHeadId bytes) = bytes
@@ -53,6 +54,7 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 newtype HeadSeed = UnsafeHeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
+  deriving newtype (ToCBOR, FromCBOR)
 
 instance IsString HeadSeed where
   fromString = UnsafeHeadSeed . fromString

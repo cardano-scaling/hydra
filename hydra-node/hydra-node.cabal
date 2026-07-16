@@ -56,6 +56,7 @@ library
     Hydra.API.ServerOutput
     Hydra.API.ServerOutputFilter
     Hydra.API.WSServer
+    Hydra.CBOR.Orphans
     Hydra.Chain
     Hydra.Chain.Backend
     Hydra.Chain.Blockfrost
@@ -127,6 +128,7 @@ library
     , cardano-slotting
     , cardano-strict-containers
     , cborg
+    , cborg-json
     , conduit
     , containers
     , contra-tracer
@@ -190,6 +192,7 @@ library testlib
     Test.Hydra.API.ClientInput
     Test.Hydra.API.HTTPServer
     Test.Hydra.API.ServerOutput
+    Test.Hydra.CBOR
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
@@ -223,6 +226,7 @@ library testlib
     , cardano-ledger-core
     , cardano-ledger-core:testlib
     , cardano-slotting
+    , cborg
     , containers
     , directory
     , filepath
@@ -362,6 +366,7 @@ test-suite tests
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
+    Hydra.CBORSpec
     Hydra.Chain.BlockfrostSpec
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec

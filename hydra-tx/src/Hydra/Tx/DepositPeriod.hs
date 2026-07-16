@@ -9,7 +9,7 @@ import Text.Show (Show (..))
 -- Nodes within the same Head must configure identical values.
 newtype DepositPeriod = DepositPeriod {toNominalDiffTime :: NominalDiffTime}
   deriving stock (Eq, Ord)
-  deriving newtype (Read, Num, Real, ToJSON, FromJSON)
+  deriving newtype (Read, Num, Real, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 instance Show DepositPeriod where
   show (DepositPeriod dt) = show (round dt :: Integer) <> "s"

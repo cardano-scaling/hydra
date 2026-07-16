@@ -14,3 +14,10 @@ data HeadParameters = HeadParameters
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR HeadParameters where
+  toCBOR HeadParameters{contestationPeriod, depositPeriod, parties} =
+    toCBOR contestationPeriod <> toCBOR depositPeriod <> toCBOR parties
+
+instance FromCBOR HeadParameters where
+  fromCBOR = HeadParameters <$> fromCBOR <*> fromCBOR <*> fromCBOR

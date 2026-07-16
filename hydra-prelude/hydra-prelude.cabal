@@ -31,6 +31,7 @@ library
     , io-classes:si-timers
     , pretty-simple
     , relude
+    , time
     , transformers
 
   default-language:   GHC2021

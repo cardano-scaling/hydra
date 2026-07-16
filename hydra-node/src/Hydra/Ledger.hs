@@ -46,3 +46,4 @@ data ValidationResult
 newtype ValidationError = ValidationError {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+  deriving newtype (ToCBOR, FromCBOR)

@@ -61,6 +61,18 @@ data WhichEtcd = EmbeddedEtcd | SystemEtcd
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR WhichEtcd where
+  toCBOR = \case
+    EmbeddedEtcd -> toCBOR ("EmbeddedEtcd" :: Text)
+    SystemEtcd -> toCBOR ("SystemEtcd" :: Text)
+
+instance FromCBOR WhichEtcd where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("EmbeddedEtcd" :: Text) -> pure EmbeddedEtcd
+      "SystemEtcd" -> pure SystemEtcd
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded WhichEtcd"
+
 -- | Configuration for a `Node` network layer.
 data NetworkConfiguration = NetworkConfiguration
   { persistenceDir :: FilePath
@@ -116,7 +128,7 @@ instance FromJSON PortNumber where
 -- ** NodeId
 
 newtype NodeId = NodeId {nodeId :: Text}
-  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
+  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 -- ** Host
 
@@ -182,6 +194,28 @@ data Connectivity
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR Connectivity where
+  toCBOR = \case
+    PeerConnected{peer} -> toCBOR ("PeerConnected" :: Text) <> toCBOR peer
+    PeerDisconnected{peer} -> toCBOR ("PeerDisconnected" :: Text) <> toCBOR peer
+    NetworkConnected -> toCBOR ("NetworkConnected" :: Text)
+    NetworkDisconnected -> toCBOR ("NetworkDisconnected" :: Text)
+    VersionMismatch{ourVersion, theirVersion} ->
+      toCBOR ("VersionMismatch" :: Text) <> toCBOR ourVersion <> toCBOR theirVersion
+    ClusterIDMismatch{clusterPeers} ->
+      toCBOR ("ClusterIDMismatch" :: Text) <> toCBOR clusterPeers
+
+instance FromCBOR Connectivity where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("PeerConnected" :: Text) -> PeerConnected <$> fromCBOR
+      "PeerDisconnected" -> PeerDisconnected <$> fromCBOR
+      "NetworkConnected" -> pure NetworkConnected
+      "NetworkDisconnected" -> pure NetworkDisconnected
+      "VersionMismatch" -> VersionMismatch <$> fromCBOR <*> fromCBOR
+      "ClusterIDMismatch" -> ClusterIDMismatch <$> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Connectivity"
 
 newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)

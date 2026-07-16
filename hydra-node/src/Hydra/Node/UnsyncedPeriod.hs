@@ -8,7 +8,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 -- Beyond this period the node will refuse to process new transactions and signing snapshots.
 newtype UnsyncedPeriod = UnsyncedPeriod {unsyncedPeriodToNominalDiffTime :: NominalDiffTime}
   deriving stock (Eq, Ord)
-  deriving newtype (Show, Read, Num, Real, ToJSON, FromJSON)
+  deriving newtype (Show, Read, Num, Real, ToJSON, FromJSON, ToCBOR, FromCBOR)
 
 -- | Compute a default 'UnsyncedPeriod' based on the 'ContestationPeriod'.
 -- This is the legacy behavior: half of the contestation period.

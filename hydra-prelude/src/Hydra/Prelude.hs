@@ -1,5 +1,7 @@
 -- NOTE: Usage of 'trace' in 'spy' is accepted here.
 {-# OPTIONS_GHC -Wno-deprecations #-}
+-- NOTE: For the 'NominalDiffTime' CBOR instances below.
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Prelude (
   module Relude,
@@ -108,7 +110,9 @@ import Data.Aeson.Encode.Pretty (
   encodePretty,
  )
 import Data.ByteString.Base16 qualified as Base16
+import Data.Fixed (Fixed (..))
 import Data.Text qualified as T
+import Data.Time.Clock (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
 import Relude hiding (
   MVar,
   Nat,
@@ -157,6 +161,15 @@ import Relude.Extra.Map (
  )
 import System.IO qualified
 import Text.Pretty.Simple (pShow)
+
+-- Orphan CBOR instances: cardano-binary provides 'UTCTime' instances, but
+-- lacks 'NominalDiffTime'. Encoded as integer picoseconds, which is lossless
+-- since 'NominalDiffTime' has fixed picosecond resolution.
+instance ToCBOR NominalDiffTime where
+  toCBOR ndt = case nominalDiffTimeToSeconds ndt of MkFixed i -> toCBOR i
+
+instance FromCBOR NominalDiffTime where
+  fromCBOR = secondsToNominalDiffTime . MkFixed <$> fromCBOR
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.

@@ -134,6 +134,30 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
+-- NOTE: Like the JSON encoding, the accumulator is not transmitted (only
+-- derived data) and gets rebuilt from the UTxO sets on decode.
+instance IsTx tx => ToCBOR (Snapshot tx) where
+  toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} =
+    toCBOR headId
+      <> toCBOR version
+      <> toCBOR number
+      <> toCBOR confirmed
+      <> toCBOR utxo
+      <> toCBOR utxoToCommit
+      <> toCBOR utxoToDecommit
+
+instance IsTx tx => FromCBOR (Snapshot tx) where
+  fromCBOR = do
+    headId <- fromCBOR
+    version <- fromCBOR
+    number <- fromCBOR
+    confirmed <- fromCBOR
+    utxo <- fromCBOR
+    utxoToCommit <- fromCBOR
+    utxoToDecommit <- fromCBOR
+    let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
+    pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
 snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx
 snapshotUTxO Snapshot{utxo, utxoToCommit, utxoToDecommit} =
@@ -154,6 +178,20 @@ data ConfirmedSnapshot tx
       }
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance IsTx tx => ToCBOR (ConfirmedSnapshot tx) where
+  toCBOR = \case
+    InitialSnapshot{headId} ->
+      toCBOR ("InitialSnapshot" :: Text) <> toCBOR headId
+    ConfirmedSnapshot{snapshot, signatures} ->
+      toCBOR ("ConfirmedSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatures
+
+instance IsTx tx => FromCBOR (ConfirmedSnapshot tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("InitialSnapshot" :: Text) -> InitialSnapshot <$> fromCBOR
+      "ConfirmedSnapshot" -> ConfirmedSnapshot <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded ConfirmedSnapshot"
 
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
 --

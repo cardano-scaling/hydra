@@ -9,6 +9,20 @@ import Cardano.Ledger.Mary.Value qualified as Ledger
 import Hydra.Cardano.Api.ScriptHash ()
 import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
 
+-- * Orphans
+
+-- missing CBOR instances
+
+instance ToCBOR PolicyId where
+  toCBOR = toCBOR . serialiseToRawBytes
+
+instance FromCBOR PolicyId where
+  fromCBOR = do
+    bs <- fromCBOR
+    case deserialiseFromRawBytes AsPolicyId bs of
+      Left err -> fail (show err)
+      Right v -> pure v
+
 -- * Type conversions
 
 -- | Convert Cardano api 'PolicyId' to Cardano ledger `PolicyID`.
