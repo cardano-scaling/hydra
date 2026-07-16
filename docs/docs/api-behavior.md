@@ -20,6 +20,7 @@ There are some options for API clients to control the server outputs. Server out
 
 + `history=no` -> Prevents historical outputs display. All server outputs are recorded and when a client re-connects these outputs are replayed unless `history=no` query param is used.
 + `snapshot-utxo=no` -> In case of a `SnapshotConfirmed` message the `utxo` field in the inner `Snapshot` will be omitted.
++ `encoding=cbor` -> All messages on this connection are exchanged as binary WebSocket frames containing a compact CBOR encoding instead of JSON text frames. Each message starts with a text tag identical to the JSON `tag` value, followed by the constructor fields in declaration order. HTTP endpoints negotiate the same encoding per request via `Content-Type: application/cbor` (request bodies) and `Accept: application/cbor` (responses). Note that combined with `snapshot-utxo=no`, the snapshot `utxo` is sent as an empty set rather than omitted.
 + `address=$address` -> In the case of a `TxValid` or a `TxInvalid` message, it will be filtered if its `transaction` address does not contain a reference to the provided. In the case of a `SnapshotConfirmed` message, it will be filtered if its `confirmed` transactions do not contain an address that references the one provided.
 
 ## Replay of past server outputs

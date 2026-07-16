@@ -9,6 +9,8 @@ info:
     Therefore, once connected, clients receive a stream of outputs as they arrive. Clients get to decide (using query parameters) if they want to observe the history of outputs and the transaction format.
     For example if client provides a path that looks like this `/?history=no&snapshot-utxo=no` the server will not serve prior history of server outputs, and the utxo field in the json will be omitted.
 
+    Besides JSON, a binary CBOR encoding of all messages is available. WebSocket clients opt in per connection with the `encoding=cbor` query parameter; messages are then exchanged as binary frames. HTTP clients negotiate per request using `Content-Type: application/cbor` for request bodies and `Accept: application/cbor` for responses. The CBOR encoding of every message is a text tag identical to the JSON `tag` value, followed by the constructor fields in declaration order (using the same CBOR codecs as the Hydra network layer). One exception: instead of the flattened JSON representation, `TimedServerOutput` is encoded as tag `TimedServerOutput` followed by `seq`, `timestamp` and the inner `ServerOutput`.
+
     They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
 
     See [the documentation](https://hydra.family/head-protocol/docs/dev/architecture#api) for more details on the overall API behavior.
@@ -66,6 +68,11 @@ channels:
             description: Specify whether the client wants see the transaction server outputs filtered by given address.
             schema:
               type: string
+          encoding:
+            description: Wire encoding for all messages on this connection. With `cbor`, messages are exchanged as binary WebSocket frames containing the CBOR encoding described above. Default is JSON text frames.
+            schema:
+              type: string
+              enum: ["cbor"]
 
     subscribe:
       summary: Events emitted by the Hydra node.

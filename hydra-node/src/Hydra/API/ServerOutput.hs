@@ -2,7 +2,10 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.API.ServerOutput where
+module Hydra.API.ServerOutput (
+  module Hydra.API.ServerOutput,
+  ApiEncoding (..),
+) where
 
 import Cardano.Binary (Decoder)
 import Control.Lens ((.~))
@@ -11,6 +14,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.WireFormat (ApiEncoding (..))
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
@@ -54,6 +58,8 @@ instance IsChainState tx => FromJSON (TimedServerOutput tx) where
 
 -- NOTE: Unlike the JSON instance, which merges 'seq' and 'timestamp' into the
 -- inner 'ServerOutput' object, the CBOR encoding is a plain tagged envelope.
+-- The tag makes any server-sent message start with a unique text token, so
+-- clients can dispatch on it (see 'ApiMessage').
 instance IsChainState tx => ToCBOR (TimedServerOutput tx) where
   toCBOR = genericToCBOR
 
@@ -107,7 +113,17 @@ instance IsChainState tx => ToCBOR (ClientMessage tx) where
   toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (ClientMessage tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR = fromCBOR >>= decodeClientMessageBody
+
+-- | Decode a 'ClientMessage' given its already-decoded constructor tag (used
+-- for tag-based dispatch in 'ApiMessage').
+decodeClientMessageBody :: IsChainState tx => Text -> Decoder s (ClientMessage tx)
+decodeClientMessageBody = \case
+  "CommandFailed" -> CommandFailed <$> fromCBOR <*> fromCBOR
+  "PostTxOnChainFailed" -> PostTxOnChainFailed <$> fromCBOR <*> fromCBOR
+  "RejectedInputBecauseUnsynced" -> RejectedInputBecauseUnsynced <$> fromCBOR <*> fromCBOR
+  "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
+  tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
 -- | A friendly welcome message which tells a client something about the
 -- node. Currently used for knowing what signing key the server uses (it
@@ -165,7 +181,7 @@ instance IsChainState tx => FromCBOR (Greetings tx) where
       tag -> fail $ show tag <> " is not a proper CBOR-encoded Greetings"
 
 -- | Decode a 'Greetings' after its @Greetings@ tag has already been consumed
--- (used for tag-based dispatch).
+-- (used for tag-based dispatch in 'ApiMessage').
 decodeGreetingsBody :: IsChainState tx => Decoder s (Greetings tx)
 decodeGreetingsBody = do
   me <- fromCBOR
@@ -199,12 +215,60 @@ instance FromCBOR InvalidInput where
       tag -> fail $ show tag <> " is not a proper CBOR-encoded InvalidInput"
 
 -- | Decode an 'InvalidInput' after its @InvalidInput@ tag has already been
--- consumed (used for tag-based dispatch).
+-- consumed (used for tag-based dispatch in 'ApiMessage').
 decodeInvalidInputBody :: Decoder s InvalidInput
 decodeInvalidInputBody = do
   reason <- toString <$> fromCBOR @Text
   input <- fromCBOR
   pure InvalidInput{reason, input}
+
+-- | Union of all messages the hydra-node sends to clients. Only used for
+-- decoding on the client side; the server encodes and sends the individual
+-- types directly (their encodings are the same as the union's).
+--
+-- In CBOR, every server-sent message starts with a text tag that is unique
+-- across the whole API surface, so a single tag read suffices to dispatch.
+data ApiMessage tx
+  = ApiTimedServerOutput (TimedServerOutput tx)
+  | ApiClientMessage (ClientMessage tx)
+  | ApiGreetings (Greetings tx)
+  | ApiInvalidInput InvalidInput
+  deriving stock (Generic)
+
+deriving stock instance IsChainState tx => Eq (ApiMessage tx)
+deriving stock instance IsChainState tx => Show (ApiMessage tx)
+
+instance IsChainState tx => ToJSON (ApiMessage tx) where
+  toJSON = \case
+    ApiTimedServerOutput o -> toJSON o
+    ApiClientMessage m -> toJSON m
+    ApiGreetings g -> toJSON g
+    ApiInvalidInput i -> toJSON i
+
+instance IsChainState tx => FromJSON (ApiMessage tx) where
+  parseJSON v =
+    (ApiTimedServerOutput <$> parseJSON v)
+      <|> (ApiClientMessage <$> parseJSON v)
+      <|> (ApiGreetings <$> parseJSON v)
+      <|> (ApiInvalidInput <$> parseJSON v)
+
+instance IsChainState tx => ToCBOR (ApiMessage tx) where
+  toCBOR = \case
+    ApiTimedServerOutput o -> toCBOR o
+    ApiClientMessage m -> toCBOR m
+    ApiGreetings g -> toCBOR g
+    ApiInvalidInput i -> toCBOR i
+
+instance IsChainState tx => FromCBOR (ApiMessage tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("TimedServerOutput" :: Text) ->
+        -- Tag already consumed; decode the fields in declaration order as
+        -- 'genericFromCBOR' would.
+        ApiTimedServerOutput <$> (TimedServerOutput <$> fromCBOR <*> fromCBOR <*> fromCBOR)
+      "Greetings" -> ApiGreetings <$> decodeGreetingsBody
+      "InvalidInput" -> ApiInvalidInput <$> decodeInvalidInputBody
+      tag -> ApiClientMessage <$> decodeClientMessageBody tag
 
 data ServerOutput tx
   = NetworkConnected
@@ -312,6 +376,7 @@ data WithAddressedTx = WithAddressedTx Text | WithoutAddressedTx
 data ServerOutputConfig = ServerOutputConfig
   { utxoInSnapshot :: WithUTxO
   , addressInTx :: WithAddressedTx
+  , encoding :: ApiEncoding
   }
   deriving stock (Eq, Show)
 
@@ -339,7 +404,15 @@ prepareServerOutput config response =
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
     SnapshotConfirmed{} ->
-      handleUtxoInclusion config removeSnapshotUTxO encodedResponse
+      case utxoInSnapshot config of
+        WithUTxO -> encodedResponse
+        WithoutUTxO ->
+          -- Filter before serializing: 'handleUtxoInclusionTyped' empties the
+          -- utxo so its (potentially huge) 'Value' tree is never built, and
+          -- 'removeSnapshotUTxO' drops the residual empty key on the 'Value'
+          -- to keep the wire format identical (utxo key absent). This avoids
+          -- the old encode -> re-parse -> re-encode byte surgery.
+          encode . removeSnapshotUTxO . toJSON $ handleUtxoInclusionTyped config response
     IgnoredHeadInitializing{} -> encodedResponse
     DecommitRequested{} -> encodedResponse
     DecommitApproved{} -> encodedResponse
@@ -364,14 +437,45 @@ prepareServerOutput config response =
  where
   encodedResponse = encode response
 
-removeSnapshotUTxO :: LBS.ByteString -> LBS.ByteString
+-- | Drop the snapshot @utxo@ key from an already-converted JSON 'Value'.
+-- Working on the 'Value' (rather than encoded bytes) avoids a full re-parse
+-- and re-encode of the message.
+removeSnapshotUTxO :: Value -> Value
 removeSnapshotUTxO = key "snapshot" . atKey "utxo" .~ Nothing
 
-handleUtxoInclusion :: ServerOutputConfig -> (a -> a) -> a -> a
-handleUtxoInclusion config f bs =
+-- | Typed snapshot-utxo filter: with 'WithoutUTxO', the snapshot's utxo is
+-- replaced by 'mempty' before encoding. Used directly on CBOR connections
+-- (which keep the empty utxo set on the wire) and on the JSON path combined
+-- with 'removeSnapshotUTxO' (which then drops the residual empty key).
+--
+-- NOTE: These are display-only filters and not meant to round-trip back into
+-- a valid 'Snapshot'.
+handleUtxoInclusionTyped :: IsTx tx => ServerOutputConfig -> TimedServerOutput tx -> TimedServerOutput tx
+handleUtxoInclusionTyped config timed =
   case utxoInSnapshot config of
-    WithUTxO -> bs
-    WithoutUTxO -> bs & f
+    WithUTxO -> timed
+    WithoutUTxO ->
+      case output timed of
+        SnapshotConfirmed{headId, snapshot = Snapshot{headId = snapHeadId, version, number, confirmed, utxoToCommit, utxoToDecommit, accumulator}, signatures} ->
+          timed
+            { output =
+                SnapshotConfirmed
+                  { headId
+                  , snapshot =
+                      Snapshot
+                        { headId = snapHeadId
+                        , version
+                        , number
+                        , confirmed
+                        , utxo = mempty
+                        , utxoToCommit
+                        , utxoToDecommit
+                        , accumulator
+                        }
+                  , signatures
+                  }
+            }
+        _ -> timed
 
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
@@ -405,6 +509,12 @@ data FanoutProgressMode
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR FanoutProgressMode where
+  toCBOR = genericToCBOR
+
+instance FromCBOR FanoutProgressMode where
+  fromCBOR = genericFromCBOR
+
 -- | Project the internal 'FanoutMode' to its client-facing 'FanoutProgressMode'.
 -- Both auto-drain and mid-selection draining present as 'AutoFanningOut' (the
 -- node advances by itself); only an exhausted selection awaits client input.
@@ -413,12 +523,6 @@ fanoutProgressMode = \case
   AutoDrain -> AutoFanningOut
   DistributingSelection{} -> AutoFanningOut
   AwaitingSelection -> AwaitingFanoutSelection
-
-instance ToCBOR FanoutProgressMode where
-  toCBOR = genericToCBOR
-
-instance FromCBOR FanoutProgressMode where
-  fromCBOR = genericFromCBOR
 
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
