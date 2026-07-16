@@ -15,11 +15,15 @@
 # against the real validator/crypto where constructible). SCOPE: this gates ReferenceBridge/RefReflection
 # only; the abstract model's own axioms (Prelude value/crypto laws, accumulator laws, §7 assumptions) are
 # inventoried in the spec's "What the formalisation assumes" appendix section, not drift-checked here.
-#   Ops mocks (const-true boundaries the reference delegates):
-#     closeCryptoOK    close snapshot signature + accumulator-commitment hash (real Ed25519 in the test)
-#     incCryptoOK      increment/decrement snapshot signature (real Ed25519, bad-sig rejected)
+#   Ops mocks (const-true boundaries the reference delegates). The snapshot signature is the 6-tuple
+#   message cid‖v‖s‖η#‖δ#‖κ# (accumulator + decommit-/commit-output-set hashes):
+#     closeCryptoOK    close snapshot signature + accumulator-commitment hash (real Ed25519 in the test,
+#                      incl. a tampered-δ#/κ# reject)
+#     incCryptoOK      increment/decrement snapshot signature incl. the recomputed commit-set hash
+#                      (increment, DepositDatumInvalid) / decommit-set hash (decrement) (real Ed25519)
 #     contestCryptoOK  contest snapshot signature, η binding, contest-once (real Ed25519)
-#     fanoutCryptoOK   fanout KZG membership + value conservation (real BLS pairing, empty subset)
+#     fanoutCryptoOK   fanout KZG membership + value conservation + the canonical-CRS datum binding
+#                      (crsBindOK; real BLS pairing, InvalidCRSDatum reject in the test)
 #     recoverHashOK    recover recovered-outputs serialisation hash (empty-deposit case)
 #     initPlacementOK  μHead seed-spent + token placement (real validateTokensMinting)
 #   Postulates (typecheck-only):

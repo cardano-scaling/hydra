@@ -152,7 +152,7 @@ prose lemmas further below give the informal arguments these proofs mirror.
 these §7 proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
 are two formalizations with *three deliberate meeting points*: the datum-field accessors (the
 security model reads the on-chain datum through `OC.snapNum`/`OC.ηOf`/`OC.accUTxO`), the signing
-message (`snapMsg` is _defined_ as the same `cid ‖ v ‖ s ‖ η#` concatenation the bundles'
+message (`snapMsg` is _defined_ as the same `cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#` concatenation the bundles'
 `snapshotSigOK` verifies, so the two formalizations meet definitionally at the message), and the
 certificate corollaries of @sec:security-theorems (`sig-certifies` and the `*-certified` family
 consume the bundles' `sigOK` conjuncts, together with the close/contest `etaOK` binding and the
@@ -287,7 +287,7 @@ Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
 ```agda
 -- Operationally a node does not test `Certified` (all n individual signatures); it checks ONE
 -- AGGREGATE multisignature with the §3.2 scheme's verifier `msVfy`, under the head's aggregate key
--- (§4) over the snapshot's message cid‖v‖s‖η# (§6). `aggKey` is that aggregate key.
+-- (§4) over the snapshot's message cid‖v‖s‖η#‖δ#‖κ# (§6). `aggKey` is that aggregate key.
 --
 -- `aggSigOf sys snap` is the AGGREGATE signature verified for `snap` -- the combination of the
 -- individual signatures the SYSTEM has recorded on `snap` (in `sigs sys`). It is therefore a function
@@ -309,20 +309,24 @@ from per-signature EUF-CMA plus the aggregation scheme's decomposition
 
 ```agda
 -- `snapMsg` is the §6 message SERIALISATION -- DEFINED (not postulated) as the same §3.1 concatenation
--- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η#`), so the off-chain
--- certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message (consumed by
+-- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#`), so the
+-- off-chain certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message (consumed by
 -- `sig-certifies` and the per-transaction `*-certified` corollaries in `SecurityProofs`). It is a
 -- function of the snapshot's OWN identifying fields, so the verified message `msgOf snap` manifestly
 -- depends only on those fields (two snapshots agreeing on them have the same message, by definition);
 -- no injectivity is assumed (`_‖_` bottoms out in the law-free `concat`/`bytes`).
-snapMsg : ℍ → ℕ → ℕ → ℍ → ℍ
-snapMsg cid v s η# = cid ‖ v ‖ s ‖ η#
+snapMsg : ℍ → ℕ → ℕ → ℍ → ℍ → ℍ → ℍ
+snapMsg cid v s η# δ# κ# = cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#
 
--- The message a snapshot's aggregate signature is verified against: its own (cid, version, number, η#),
--- the §6 signing message cid‖v‖s‖η#. cid is constant within a head, so adding it does not change the
--- proofs (which use `msgOf` abstractly), but the message now matches the implementation faithfully.
+-- The message a snapshot's aggregate signature is verified against: its own (cid, version, number,
+-- η#, δ#, κ#), the §6 signing message cid‖v‖s‖η#‖δ#‖κ#. cid is constant within a head, so it does
+-- not affect the proofs (which use `msgOf` abstractly), but carrying it keeps the message faithful
+-- to the implementation. The decommit/commit-set hashes δ#/κ# are snapshot fields like η#: honest
+-- signing leaves them unconstrained in the model (they are authenticated only through the signature),
+-- exactly the status η# has.
 msgOf : Snapshot → ℍ
-msgOf snap = snapMsg (Snapshot.cid snap) (Snapshot.version snap) (Snapshot.number snap) (Snapshot.etaHash snap)
+msgOf snap = snapMsg (Snapshot.cid snap) (Snapshot.version snap) (Snapshot.number snap)
+                     (Snapshot.etaHash snap) (Snapshot.decHash snap) (Snapshot.comHash snap)
 
 -- The operational check `confirm` performs: the aggregate built from THIS system's recorded signatures
 -- on `snap` verifies under the head key over `snap`'s message. System-relative (see above).

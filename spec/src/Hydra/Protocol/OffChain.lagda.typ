@@ -87,7 +87,9 @@ off-chain protocol logic relies on these assumptions:
   accordingly.
 
 == Notation
-#todo[missing:, apply tx]
+- $U applytx tx$ applies transaction $tx$ to the UTxO set $U$, yielding the
+  updated set, or $bot$ if $tx$ does not apply (a conflict). It is kept
+  abstract as part of the off-chain trust base; see the `applyTxs` laws below.
 - $sans("On")~italic("event")$ specifies how the protocol reacts on a given input
   $italic("event")$. Further information may be available from the constituents of
   $italic("event")$ and origin of the input.
@@ -147,9 +149,12 @@ party's local state consists of the following variables:
 where constructor $"snObj"(v, n, T, U, U_alpha, U_omega)$ initializes a
 new snapshot object with $macron(cal(S)).(eta')^(\#) = bot$.
 The Agda `Snapshot` record additionally carries the head id $cid$ (the first
-signed component of the message $cid || v || s || (eta')^(\#)$) and the
-aggregate-signature slot $macron(mc(S)).sigma$ ($bot$ until confirmed), which
-the figure leaves implicit. \
+signed component of the message
+$cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)$), the decommit- and
+commit-output-set hashes $delta^(\#)$/$kappa^(\#)$ (the node's
+`decommitOutputsHash`/`commitOutputsHash`, bound into the signed message) and
+the aggregate-signature slot $macron(mc(S)).sigma$ ($bot$ until confirmed),
+which the figure leaves implicit. \
 \
 Additionally, deposit objects are created using
 $"depositObj"(U, t_("created"), t_("deadline"), "status")$
@@ -178,7 +183,7 @@ record DepositObj : Set where      -- §6 depositObj(U, t_created, t_deadline, s
 
 record Snapshot : Set where        -- the confirmed snapshot object S̄
   field
-    cid     : ℍ                    -- S̄.cid (head currency id; the FIRST signed component, cid‖v‖s‖η#)
+    cid     : ℍ                    -- S̄.cid (head currency id; the FIRST signed component, cid‖v‖s‖η#‖δ#‖κ#)
     version : ℕ                    -- S̄.v
     number  : ℕ                    -- S̄.s
     txs     : List Data            -- S̄.T
@@ -186,6 +191,8 @@ record Snapshot : Set where        -- the confirmed snapshot object S̄
     utxoInc : UTxO                 -- S̄.U_α (pending increment)
     utxoDec : UTxO                 -- S̄.U_ω (pending decrement)
     etaHash : ℍ                    -- S̄.(η')# (accumulator-commitment hash; always present, like the node's HydraAccumulator)
+    decHash : ℍ                    -- S̄.δ# (decommit-output-set hash, node `decommitOutputsHash`; signed 5th component)
+    comHash : ℍ                    -- S̄.κ# (commit-output-set hash, node `commitOutputsHash`; signed 6th component)
     sig     : Maybe AggSig         -- S̄.σ (aggregate multisignature; ⊥ until confirmed — the sole signing-status marker)
 
 record LocalState : Set where      -- a party's local state (besides setup params)
@@ -917,7 +924,9 @@ preventing inconsistency between the on-chain and off-chain state.
                 $hats <- s$ \
                 $eta' <- accUTxO(U)$ \
                 $(eta')^(\#) <- hash(eta')$ \
-                $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#)))$ \
+                $delta^(\#) <- hash(sans("outputs")(tx_omega))$ #text(size: 0.8em)[(the hash of the empty set if $tx_omega = bot$)] \
+                $kappa^(\#) <- hash(U_alpha)$ #text(size: 0.8em)[(the hash of the empty set if no deposit is claimed)] \
+                $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)))$ \
                 $hatSigma <- emptyset$ \
                 #kw("multicast") $(hpAS, hats, msSig_i)$ \
                 $forall tx in underline(tx)_(sans("req")):$ #kw("output") $(hpSeen, tx)$ \

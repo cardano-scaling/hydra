@@ -808,7 +808,7 @@ completeness sys reach {snap} aggOK i hi le with confCert-of sys reach hi
 Two of the three `Reflects` conjuncts are derived; the accumulator commitment
 is supplied as the explicit per-finalization hypothesis `ηEq`, the irreducible
 signature-trust assumption: $nuHead$ authenticates $eta$ via the
-multisignature over $cid || v || s || eta^(\#)$, not by recomputing
+multisignature over $cid || v || s || eta^(\#) || delta^(\#) || kappa^(\#)$, not by recomputing
 $accUTxO(U)$. It is a hypothesis rather than a global postulate on purpose,
 since `finalize` admits any datum with a matching snapshot number, a global
 axiom would have no model, and the finalizer discharges `ηEq` from the $eta$
@@ -863,7 +863,8 @@ reflect-fanout-⊆ sys {ctx} {U} {m} {π} η≡ b =
 
 #theorem(name: "No settlement without unanimity")[
   Every §5.4-§5.7 validity bundle carries a `sigOK` conjunct bottoming out in
-  `snapshotSigOK` ($msVfy$ over $cid || v || s || eta^(\#)$), and the model's
+  `snapshotSigOK` ($msVfy$ over
+  $cid || v || s || eta^(\#) || delta^(\#) || kappa^(\#)$), and the model's
   signing message `snapMsg` is _defined_ as that same concatenation. Once the
   snapshot's identifying fields match the signed ones and the redeemer's
   aggregate signature is the system-recorded one (the per-instance
@@ -878,26 +879,28 @@ reflect-fanout-⊆ sys {ctx} {U} {m} {π} η≡ b =
   the deposit's recover deadline (`claimTx-certified`) (@agda-appendix).
 ] <thm:unanimity>
 
-These corollaries consume the previously-unconsumed `sigOK` fields of the
-on-chain bundles, so the off-chain certificate layer and the on-chain
-validity bundles now meet at the signature conjuncts, not only at datum
-accessors. The field-matching equalities are dischargeable by `refl` for the
-snapshot actually signed; `ξEq` is per-instance for the same reason `ηEq` is.
+These corollaries consume the `sigOK` fields of the on-chain bundles, so the
+off-chain certificate layer and the on-chain validity bundles meet at the
+signature conjuncts, not only at datum accessors. The field-matching
+equalities are dischargeable by `refl` for the snapshot actually signed;
+`ξEq` is per-instance for the same reason `ηEq` is.
 
 ```agda
-sig-certifies : ∀ sys (snap : Snapshot) {hk cid v s η# ξ}
-  → OC.snapshotSigOK hk cid v s η# ξ
+sig-certifies : ∀ sys (snap : Snapshot) {hk cid v s η# δ# κ# ξ}
+  → OC.snapshotSigOK hk cid v s η# δ# κ# ξ
   → hk ≡ aggKey
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ s
   → Snapshot.etaHash snap ≡ η#
+  → Snapshot.decHash snap ≡ δ#
+  → Snapshot.comHash snap ≡ κ#
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
 ```
 
 ```
-sig-certifies sys snap sig refl refl refl refl refl refl = ms-unforgeable sys snap sig
+sig-certifies sys snap sig refl refl refl refl refl refl refl refl = ms-unforgeable sys snap sig
 ```
 
 The per-transaction corollaries each consume their bundle's `sigOK` field; the
@@ -907,67 +910,75 @@ statements are given for the Unused redeemers, the versioned-snapshot common
 case.
 
 ```agda
-increment-certified : ∀ sys {ctx cid v d d' ξ s ref} (snap : Snapshot)
-  → OC.IncrementValid ctx aggKey cid v d d' ξ s ref
+increment-certified : ∀ sys {ctx cid v d d' ξ s ref δ#} (snap : Snapshot)
+  → OC.IncrementValid ctx aggKey cid v d d' ξ s ref δ#
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ s
   → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+  → Snapshot.decHash snap ≡ δ#
+  → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
 ```
 
 ```
-increment-certified sys snap b cidEq vEq sEq ηEq ξEq =
-  sig-certifies sys snap (OC.IncrementValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+increment-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
+  sig-certifies sys snap (OC.IncrementValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
 ```agda
-decrement-certified : ∀ sys {ctx cid v d d' ξ s m} (snap : Snapshot)
-  → OC.DecrementValid ctx aggKey cid v d d' ξ s m
+decrement-certified : ∀ sys {ctx cid v d d' ξ s m κ#} (snap : Snapshot)
+  → OC.DecrementValid ctx aggKey cid v d d' ξ s m κ#
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ s
   → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
+  → Snapshot.decHash snap ≡ OC.decommitOutputsHashOf ctx m
+  → Snapshot.comHash snap ≡ κ#
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
 ```
 
 ```
-decrement-certified sys snap b cidEq vEq sEq ηEq ξEq =
-  sig-certifies sys snap (OC.DecrementValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+decrement-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
+  sig-certifies sys snap (OC.DecrementValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
 ```agda
-close-certified : ∀ sys {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
-  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η#)
+close-certified : ∀ sys {ctx cid v cp s' d d' ξ η# δ# κ#} (snap : Snapshot)
+  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η# δ# κ#)
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ s'
   → Snapshot.etaHash snap ≡ η#
+  → Snapshot.decHash snap ≡ δ#
+  → Snapshot.comHash snap ≡ κ#
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
 ```
 
 ```
-close-certified sys snap b cidEq vEq sEq ηEq ξEq =
-  sig-certifies sys snap (OC.CloseValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+close-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
+  sig-certifies sys snap (OC.CloseValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
 ```agda
-contest-certified : ∀ sys {ctx cid v s tfin d d' ξ η# kh} (snap : Snapshot)
-  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η#) kh
+contest-certified : ∀ sys {ctx cid v s tfin d d' ξ η# δ# κ# kh} (snap : Snapshot)
+  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η# δ# κ#) kh
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ OC.snapNum d'
   → Snapshot.etaHash snap ≡ η#
+  → Snapshot.decHash snap ≡ δ#
+  → Snapshot.comHash snap ≡ κ#
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
 ```
 
 ```
-contest-certified sys snap b cidEq vEq sEq ηEq ξEq =
-  sig-certifies sys snap (OC.ContestValid.sigOK b) refl cidEq vEq sEq ηEq ξEq
+contest-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
+  sig-certifies sys snap (OC.ContestValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
 On top of the certificate, close and contest cannot verify a signature over
@@ -977,8 +988,8 @@ datum (the two-line corollaries `close-η-reflected` / `contest-η-reflected`,
 typechecked but not rendered).
 
 ```
-close-η-reflected : ∀ {ctx cid v cp s' d d' ξ η#} (snap : Snapshot)
-  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η#)
+close-η-reflected : ∀ {ctx cid v cp s' d d' ξ η# δ# κ#} (snap : Snapshot)
+  → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η# δ# κ#)
   → Snapshot.etaHash snap ≡ η#
   → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
 ```
@@ -988,8 +999,8 @@ close-η-reflected snap b ηEq = trans ηEq (OC.CloseValid.etaOK b)
 ```
 
 ```
-contest-η-reflected : ∀ {ctx cid v s tfin d d' ξ η# kh} (snap : Snapshot)
-  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η#) kh
+contest-η-reflected : ∀ {ctx cid v s tfin d d' ξ η# δ# κ# kh} (snap : Snapshot)
+  → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η# δ# κ#) kh
   → Snapshot.etaHash snap ≡ η#
   → Snapshot.etaHash snap ≡ hash (OC.ηOf d')
 ```
@@ -1004,20 +1015,22 @@ before the deposit's recover deadline: a deposit can be absorbed into the head
 neither without every party's signature nor after it has become recoverable.
 
 ```agda
-claimTx-certified : ∀ sys {ctx dd cid n cp v η ada headOut ξ s ref} (snap : Snapshot)
-  → OC.ClaimTxValid ctx dd (OC.Open cid aggKey n cp v η ada) headOut ξ s ref
+claimTx-certified : ∀ sys {ctx dd cid n cp v η ada headOut ξ s ref δ#} (snap : Snapshot)
+  → OC.ClaimTxValid ctx dd (OC.Open cid aggKey n cp v η ada) headOut ξ s ref δ#
   → Snapshot.cid snap ≡ cid
   → Snapshot.version snap ≡ v
   → Snapshot.number snap ≡ s
   → Snapshot.etaHash snap ≡ hash (OC.ηOf headOut)
+  → Snapshot.decHash snap ≡ δ#
+  → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref
   → ξ ≡ aggSigOf sys snap
   → Certified sys snap
     × (ValidityInterval.hi (Context.validity ctx) ≤ OC.DepositDatum.tRecover dd)
 ```
 
 ```
-claimTx-certified sys snap b cidEq vEq sEq ηEq ξEq =
-    increment-certified sys snap (OC.ClaimTxValid.headSideOK b) cidEq vEq sEq ηEq ξEq
+claimTx-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
+    increment-certified sys snap (OC.ClaimTxValid.headSideOK b) cidEq vEq sEq ηEq δEq κEq ξEq
   , OC.ClaimValid.beforeRecoverDeadline (OC.ClaimTxValid.depositSideOK b)
 ```
 

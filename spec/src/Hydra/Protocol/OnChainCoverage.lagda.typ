@@ -78,10 +78,10 @@ data Reachableᵛ : HeadDatum → Set where
         (Closed cid hk n cp v s η C tfin ada)
         (Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada) ct kh
     → Reachableᵛ (Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada)
-  incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref}
-    → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref → Reachableᵛ d'
-  decrementᵛ : ∀ {ctx hk cid v d d' ξ s m}
-    → Reachableᵛ d → DecrementValid ctx hk cid v d d' ξ s m → Reachableᵛ d'
+  incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref δ#}
+    → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref δ# → Reachableᵛ d'
+  decrementᵛ : ∀ {ctx hk cid v d d' ξ s m κ#}
+    → Reachableᵛ d → DecrementValid ctx hk cid v d d' ξ s m κ# → Reachableᵛ d'
   partialᵛ : ∀ {ctx d d' m crs}
     → Reachableᵛ d → PartialFanoutValid ctx d d' m crs → Reachableᵛ d'
 ```
@@ -103,14 +103,15 @@ reachableᵛ→reachable (partialᵛ r pv)   = reach-step (reachableᵛ→reacha
   The machine reaches an empty `Closed` head (init opens empty, close-initial
   keeps it empty), and that reachable state admits a valid $m = 0$ full
   fan-out: given the context facts (past the deadline, the $n+1$ tokens
-  burned, value conserved), the terminal `Fanout` bundle is inhabited, with
-  the $0$-output membership witness derived from the accumulator laws
+  burned, value conserved, the canonical CRS reference resolved), the
+  terminal `Fanout` bundle is inhabited, with the $0$-output membership
+  witness derived from the accumulator laws
   (@agda-appendix: `fanout-empty-inhabited`, `finalize-reachable-empty`).
 ] <thm:empty-finalisable>
 
 An `outputsPositive : 0 < m` conjunct on `FanoutValid` would make these
 lemmas fail to compile (the empty head forces $m = 0$), so the build itself
-now rejects re-introducing that over-strict guard, which is exactly the
+rejects introducing that over-strict guard, which is exactly the
 defect class this direction exists to catch.
 
 ```agda
@@ -118,13 +119,14 @@ fanout-empty-inhabited : ∀ {ctx cid hk n cp tfin ada} {crs}
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (emptyClosed cid hk n cp tfin ada)
   → fanoutValueOK ctx ada 0
+  → crsBindOK ctx crs
   → ∃[ π ] FanoutValid ctx (emptyClosed cid hk n cp tfin ada) 0 π crs
 ```
 
 ```
-fanout-empty-inhabited aft burn val =
+fanout-empty-inhabited aft burn val crsOK =
   let π , mem = accVerify-self ∅ˢ
-   in π , mkFanoutValid fanout burn mem aft val
+   in π , mkFanoutValid fanout burn mem aft val crsOK
 ```
 
 ```agda
@@ -132,13 +134,14 @@ finalize-reachable-empty : ∀ {ctx cid hk n cp tfin ada} {crs}
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (emptyClosed cid hk n cp tfin ada)
   → fanoutValueOK ctx ada 0
+  → crsBindOK ctx crs
   → Reachable (emptyClosed cid hk n cp tfin ada)
     × (∃[ π ] FanoutValid ctx (emptyClosed cid hk n cp tfin ada) 0 π crs)
 ```
 
 ```
-finalize-reachable-empty aft burn val =
-  reach-empty-closed , fanout-empty-inhabited aft burn val
+finalize-reachable-empty aft burn val crsOK =
+  reach-empty-closed , fanout-empty-inhabited aft burn val crsOK
 ```
 
 #theorem(name: "Reachable heads can finalise")[
@@ -146,10 +149,11 @@ finalize-reachable-empty aft burn val =
   ($eta = accUTxO(V)$) admits a valid full fan-out of $V$, provided the
   transaction actually distributes $V$; the membership witness is derived
   from the accumulator laws, so only the genuinely contextual antecedents
-  (deadline, burn, value conservation, pays-out-$V$) remain. Likewise, a
-  reachable `FanoutProgress` is never stuck: its remaining accumulator is
-  provably non-empty (`progress-nonEmpty`), which _derives_ the final
-  batch's $0 < m$ requirement rather than assuming it
+  (deadline, burn, value conservation, pays-out-$V$, the canonical CRS
+  reference resolved) remain. Likewise, a reachable `FanoutProgress` is
+  never stuck: its remaining accumulator is provably non-empty
+  (`progress-nonEmpty`), which _derives_ the final batch's $0 < m$
+  requirement rather than assuming it
   (@agda-appendix: `fanout-coverage`, `progress-finalizable`).
 ] <thm:coverage>
 
@@ -160,14 +164,15 @@ fanout-coverage : ∀ {ctx cid hk n cp v s C tfin ada V crs}
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada)
   → fanoutValueOK ctx ada (setSize V)
+  → crsBindOK ctx crs
   → ∃[ π ] FanoutValid ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada) (setSize V) π crs
 ```
 
 ```
-fanout-coverage {V = V} _ outsEq aft burn val =
+fanout-coverage {V = V} _ outsEq aft burn val crsOK =
   let (π , mem) = accVerify-self V
    in π , mkFanoutValid fanout burn
-            (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem) aft val
+            (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem) aft val crsOK
 ```
 
 ```agda
@@ -193,16 +198,17 @@ progress-finalizable : ∀ {ctx cid hk n tfin ada V crs}
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (FanoutProgress cid hk n tfin (accUTxO V) ada)
   → fanoutValueOK ctx ada (setSize V)
+  → crsBindOK ctx crs
   → ∃[ π ] FinalPartialFanoutValid ctx (FanoutProgress cid hk n tfin (accUTxO V) ada) (setSize V) π crs
 ```
 
 ```
-progress-finalizable {V = V} reach outsEq aft burn val =
+progress-finalizable {V = V} reach outsEq aft burn val crsOK =
   let (π , mem) = accVerify-self V
    in π , mkFinalPartialFanoutValid finalPartialFanout burn
             (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem)
             (setSize-pos (λ V≡∅ → progress-nonEmpty reach (trans (cong accUTxO V≡∅) accUTxO-∅)))
-            aft val
+            aft val crsOK
 ```
 
 === Safety invariants of reachable states

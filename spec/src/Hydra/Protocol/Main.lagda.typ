@@ -149,7 +149,11 @@ The trust base, in five families:
   and `setSize`; the KZG construction itself is not modelled.
 - *On-chain search postulates* (@sec:on-chain): `burnedValue`, `burnedCount`,
   `mintedCount`, `μHead`, `signerKeyHash` - witnesses over the opaque value and
-  key-set models.
+  key-set models - plus the context lookups the `Context` model does not expose:
+  `depositCommitsHashOf` (the increment's recomputed commit-set hash, from the
+  claimed deposit's datum) and `crsDatumHashAt`/`canonicalCRS#` (the CRS
+  reference-input datum hash and the canonical trusted-setup constant the
+  fanout bundles bind it to).
 - *Security-model assumptions* (@sec:security): per-signature EUF-CMA
   (`sigUnforge`) plus the aggregation scheme's decomposition (`aggSound`), from
   which `ms-unforgeable` is _derived_; `aggKey`/`aggSigOf`/`PartyVerified` and
