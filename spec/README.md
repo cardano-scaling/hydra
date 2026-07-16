@@ -2,6 +2,10 @@
 
 Literate-Agda + Typst specification for the hydra-protocol.
 
+For an overview of the approach (the trust story, extraction pipeline and
+agreement tests), see the developer docs page `docs/docs/dev/agda.md`
+("Agda formalisation" on the docs site).
+
 The prose, math and figures are written in [Typst](https://typst.app); the source
 files are literate Typst (`.lagda.typ`) so that Agda code blocks are type-checked.
 Code fences render as follows (see `src/template.typ`):

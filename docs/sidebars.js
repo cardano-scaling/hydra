@@ -76,6 +76,11 @@ module.exports = {
       id: "dev/specification",
       label: "Specification",
     },
+    {
+      type: "doc",
+      id: "dev/agda",
+      label: "Agda formalisation",
+    },
     "dev/protocol",
     "dev/commit",
     "dev/rollbacks/index",
