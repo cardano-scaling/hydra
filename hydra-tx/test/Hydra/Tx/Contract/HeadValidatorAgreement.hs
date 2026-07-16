@@ -9,7 +9,7 @@
 -- reference (@Ref.checkClose@) on the SAME inputs, and assert @reference === validator@. The fields the
 -- reference models are generated independently (so e.g. the produced version is sometimes equal to the
 -- input version, sometimes not), which exercises BOTH the accept and the reject directions in one
--- property — unlike the old approach, which reused the hydra mutation generators (a corpus that is
+-- property — unlike reusing the hydra mutation generators (a corpus that is
 -- validator-rejecting by construction, making @reference-reject ⇒ validator-reject@ vacuous).
 --
 -- Crypto is satisfied by construction: this spike covers @CloseInitial@, the one close case with no
@@ -553,7 +553,7 @@ referenceVerdict od = projectClose (HS.Open od) (HS.Close HS.CloseInitial)
 -- ── close value preservation demo (C3.4): mustPreserveHeadValue is the EXACT `==` on the head value ──
 -- A CloseInitial healthy in every other conjunct, with the head OUTPUT value's ada parameterized: equal to
 -- the input (2_000_000) is accepted; siphoned (< input) is rejected by mustPreserveHeadValue. Exercises the
--- extracted checkValuePreserved (now bridged from closeValid.valuePreserved) against the real validator.
+-- extracted checkValuePreserved (bridged from closeValid.valuePreserved) against the real validator.
 mkCloseValueContext :: Integer -> ScriptContext
 mkCloseValueContext headOutAda =
   ScriptContext
@@ -612,8 +612,8 @@ snapshotParty = partyFromVerificationKeyBytes (rawSerialiseVerKeyDSIGN (deriveVe
 emptyAccHash :: Builtins.BuiltinByteString
 emptyAccHash = Builtins.blake2b_256 (Builtins.bls12_381_G1_compress g1Generator)
 
--- Empty commit/decommit output-set hashes bound into every snapshot signature (master's commit- and
--- decommit-output binding). Close and Contest copy these straight from the redeemer into the signed
+-- Empty commit/decommit output-set hashes bound into every snapshot signature (the signature binds
+-- the exact commit/decommit output sets). Close and Contest copy these straight from the redeemer into the signed
 -- message, so any fixed value works as long as the signature covers it. Increment recomputes the commit
 -- side from the claimed deposit's commits (here empty, so == emptyCommitOutputsHash) and Decrement
 -- recomputes the decommit side from the tx outputs (see incMsg/decMsg).
@@ -622,6 +622,11 @@ emptyDecommitOutputsHash = hashTxOuts []
 
 emptyCommitOutputsHash :: HS.Hash
 emptyCommitOutputsHash = hashPreSerializedCommits []
+
+-- A decommit/commit-outputs hash DIFFERENT from the empty ones the fixtures sign: redirecting a signed
+-- redeemer's hash to this must break signature verification (the tampered-hash reject props).
+wrongOutputsHash :: HS.Hash
+wrongOutputsHash = hashTxOuts [pfDistributedOut]
 
 -- The exact bytes the validator reconstructs for CloseUnused: serialiseData of (headId, OPEN version,
 -- snapshotNumber', accumulatorHash). Signing this with snapshotSK makes verifySnapshotSignature accept.
@@ -854,7 +859,12 @@ incRedeemer snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snap
 -- build the increment context. `nextV` is the produced version; `vPerturb` adds extra ada to the head
 -- output (breaking value conservation when ≠ 0). Everything else is healthy.
 mkIncContext :: HS.IncrementRedeemer -> Integer -> Integer -> ScriptContext
-mkIncContext redeemer nextV vPerturb =
+mkIncContext = mkIncContextDep (depositDatum headPolicy 0)
+
+-- The same healthy increment context with the deposit input's DATUM as a knob (the
+-- DepositDatumInvalid reject swaps in an undecodable datum; everything else stays healthy).
+mkIncContextDep :: Datum -> HS.IncrementRedeemer -> Integer -> Integer -> ScriptContext
+mkIncContextDep depDatum redeemer nextV vPerturb =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
@@ -880,7 +890,7 @@ mkIncContext redeemer nextV vPerturb =
     }
  where
   headIn = TxOut headAddr incHeadVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev)))) Nothing
-  depIn = TxOut depAddr depVal (OutputDatum (depositDatum headPolicy 0)) Nothing
+  depIn = TxOut depAddr depVal (OutputDatum depDatum) Nothing
   headOut =
     TxOut
       headAddr
@@ -963,9 +973,9 @@ withSignatories ks ctx = ctx{scriptContextTxInfo = (scriptContextTxInfo ctx){txI
 
 -- On-chain, a script 'error' ('traceError') is a validation FAILURE, indistinguishable from returning
 -- False. The uncompiled validator instead throws, so normalise a verdict by reading a thrown error as
--- rejection (False), matching on-chain semantics and the reference's Bool model. Used where master's
+-- rejection (False), matching on-chain semantics and the reference's Bool model. Used where the
 -- validator hard-errors instead of returning False (e.g. an increment claiming a deposit that is not a
--- tx input now aborts with DepositInputNotFound while computing the commit-outputs hash).
+-- tx input aborts with DepositInputNotFound while computing the commit-outputs hash).
 rejectingErrors :: Bool -> Bool
 rejectingErrors b = unsafePerformIO $ fromRight False <$> (E.try (E.evaluate b) :: IO (Either E.SomeException Bool))
 {-# NOINLINE rejectingErrors #-}
@@ -1630,8 +1640,8 @@ otherHeadCid = CurrencySymbol "ababababababababababababababababababababababababa
 -- the lower validity bound to exercise both directions and assert Ref.checkFanout === headIsFinalizedWith.
 -- n = 1.
 
--- The address of the CRS reference input. The validator no longer binds the CRS by script hash; it binds
--- the datum content (hashCRSDatum crsData == canonicalCRSDatumHash), so this hash only fixes where the
+-- The address of the CRS reference input. The validator binds the CRS by datum content
+-- (hashCRSDatum crsData == canonicalCRSDatumHash), not by script hash, so this hash only fixes where the
 -- reference UTxO sits, not what makes it canonical.
 crsScriptHash :: ScriptHash
 crsScriptHash = ScriptHash "cccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -1647,6 +1657,24 @@ crsRefInput =
         (Address (ScriptCredential crsScriptHash) Nothing)
         (singleton adaSymbol adaToken 2_000_000)
         (OutputDatum (Datum (PlutusTx.toBuiltinData KZG.canonicalG2Points)))
+        (Just crsScriptHash)
+    )
+
+-- A NON-CANONICAL CRS datum: the canonical points padded with a duplicate of the first one. Same-τ
+-- prefix (any pairing over the prefix still verifies) and still decodes as a non-empty [G2], but the
+-- datum BYTES differ, so hashCRSDatum no longer matches the validator's canonicalCRSDatumHash and
+-- withCRSLookup must reject with InvalidCRSDatum before any pairing runs.
+paddedCrsData :: [Builtins.BuiltinBLS12_381_G2_Element]
+paddedCrsData = KZG.canonicalG2Points <> take 1 KZG.canonicalG2Points
+
+paddedCrsRefInput :: TxInInfo
+paddedCrsRefInput =
+  TxInInfo
+    crsRefOut
+    ( TxOut
+        (Address (ScriptCredential crsScriptHash) Nothing)
+        (singleton adaSymbol adaToken 2_000_000)
+        (OutputDatum (Datum (PlutusTx.toBuiltinData paddedCrsData)))
         (Just crsScriptHash)
     )
 
@@ -1685,12 +1713,17 @@ fanoutRedeemer :: HS.Input
 fanoutRedeemer = HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = g1Generator, HS.crsRef = crsRefOut}
 
 mkFanoutContext :: Integer -> Integer -> Integer -> ScriptContext
-mkFanoutContext burnedCount validityLo tfinal =
+mkFanoutContext = mkFanoutContextWith crsRefInput
+
+-- The same healthy full-fanout context with the CRS reference input as a knob (the padded-CRS
+-- reject swaps in 'paddedCrsRefInput'; everything else stays the healthy fixture).
+mkFanoutContextWith :: TxInInfo -> Integer -> Integer -> Integer -> ScriptContext
+mkFanoutContextWith crsIn burnedCount validityLo tfinal =
   ScriptContext
     { scriptContextTxInfo =
         TxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = [crsRefInput]
+          , txInfoReferenceInputs = [crsIn]
           , txInfoOutputs = []
           , txInfoFee = 0
           , txInfoMint = fanoutMint burnedCount
@@ -1739,6 +1772,17 @@ fanoutValBadProof burnedCount validityLo tfinal =
     (HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = fanoutBadProof, HS.crsRef = crsRefOut})
     (mkFanoutContext burnedCount validityLo tfinal)
 
+-- The healthy fanout with a NON-CANONICAL CRS reference-input datum (see 'paddedCrsData'): the
+-- validator must reject with InvalidCRSDatum inside withCRSLookup, before any pairing. traceError
+-- THROWS in the uncompiled validator, so callers assert via 'rejectingErrors'.
+fanoutValPaddedCrs :: Integer -> Integer -> Integer -> Bool
+fanoutValPaddedCrs burnedCount validityLo tfinal =
+  Head.headValidator
+    Head.canonicalCRSDatumHash
+    (HS.Closed (fanoutClosedDatum tfinal))
+    fanoutRedeemer
+    (mkFanoutContextWith paddedCrsRefInput burnedCount validityLo tfinal)
+
 -- ── partial fanout (Closed → FanoutProgress: distribute a subset, continue with the remaining acc) ──────
 -- checkPartialFanout requires m > 0 distributed outputs (mustHaveOutputs), no mint, after the deadline, the
 -- continuing FanoutProgress datum preserves the head parameters, value is conserved, and the membership
@@ -1773,7 +1817,7 @@ pfInputAccCommitment = Accumulator.getAccumulatorCommitment pfFullAcc
 pfNewAccCommitment :: Builtins.BuiltinBLS12_381_G1_Element
 pfNewAccCommitment = Accumulator.getAccumulatorCommitment pfRemainingAcc
 
--- the on-chain CRS: the canonical trusted-setup G2 powers of tau. The validator now binds the CRS by
+-- the on-chain CRS: the canonical trusted-setup G2 powers of tau. The validator binds the CRS by
 -- datum content (hashCRSDatum crsData == canonicalCRSDatumHash), so the reference input must carry
 -- exactly 'KZG.canonicalG2Points'. This is a prefix of the same setup the off-chain accumulator
 -- commitments were built against (Accumulator.crsG2Points = take n KZG.g2Points), so the membership
@@ -2112,6 +2156,22 @@ spec = parallel $ do
     let cs = 3; tMax = 1_100; dl = tMax + openCpMs
      in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
 
+  -- The exact attack the commit/decommit-output-set binding closes: the signature is VALID (over the
+  -- original, empty hashes) but the redeemer redirects decommitOutputsHash (resp. commitOutputsHash).
+  -- The validator rebuilds the signed message from the redeemer's hashes, so it no longer matches what
+  -- the parties signed and verifySnapshotSignature rejects. Distinct from the bad-signature props above
+  -- (there the signature is wrong for the carried message; here the message is redirected under a
+  -- genuinely valid signature).
+  prop "close/CloseUnused: real validator REJECTS a tampered decommit/commit-outputs hash under a VALID signature" $
+    let cs = 3
+        tMax = 1_100
+        dl = tMax + openCpMs
+        tamperDec = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = wrongOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+        tamperCom = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = wrongOutputsHash}
+     in unusedVal tamperDec 0 100 cs 0 dl tMax === False
+          .&&. unusedVal tamperCom 0 100 cs 0 dl tMax === False
+          .&&. unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
+
   -- ── CloseAny: signature over the CURRENT version PLUS snapshot number > 0 (the anyOK conjunct) ──
   prop "anchor: healthy CloseAny, BOTH oracles accept (real signature verified, snapshot > 0)" $
     let cs = 3; tMax = 1_100; dl = tMax + openCpMs
@@ -2235,6 +2295,21 @@ spec = parallel $ do
     let ctx = mkIncContext (incRedeemer 3) 1 0
      in projectRefSpent (HS.Increment (incRedeemer 3)) ctx === True
           .&&. incVal (incRedeemer 3) 1 0 === True
+
+  -- The commit-outputs hash is RECOMPUTED from the claimed deposit's own datum, so a deposit input
+  -- whose datum does not decode as (CurrencySymbol, POSIXTime, [Commit]) hard-fails the validator
+  -- with DepositDatumInvalid (a traceError, hence 'rejectingErrors'). This is the decode path the
+  -- deposit-datum binding introduced; on-chain a script error is a rejection.
+  prop "increment: real validator REJECTS a deposit input whose datum does not decode — DepositDatumInvalid" $
+    rejectingErrors
+      ( Head.headValidator
+          Head.canonicalCRSDatumHash
+          (HS.Open incOpenPrev)
+          (HS.Increment (incRedeemer 3))
+          (mkIncContextDep (Datum (PlutusTx.toBuiltinData (42 :: Integer))) (incRedeemer 3) 1 0)
+      )
+      === False
+      .&&. incVal (incRedeemer 3) 1 0 === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
   prop "anchor: healthy decrement — BOTH oracles accept (real signature verified)" $
@@ -2418,6 +2493,14 @@ spec = parallel $ do
 
   prop "fanout: real validator REJECTS a wrong BLS membership proof (healthy accepts, bad proof rejects)" $
     fanoutVal 2 1_050 1_000 === True .&&. fanoutValBadProof 2 1_050 1_000 === False
+
+  -- The canonical-CRS datum binding: a CRS reference input carrying a padded (same-τ prefix but
+  -- byte-different) setup must be rejected with InvalidCRSDatum inside withCRSLookup, BEFORE any
+  -- pairing runs (a traceError, hence 'rejectingErrors'). Without this binding a substituted
+  -- powers-of-tau setup would let an attacker forge membership proofs (permissionless fund theft).
+  prop "fanout: real validator REJECTS a padded (non-canonical) CRS ref-input datum — InvalidCRSDatum" $
+    rejectingErrors (fanoutValPaddedCrs 2 1_050 1_000) === False
+      .&&. fanoutVal 2 1_050 1_000 === True
 
   -- ── partial fanout (real 2-element accumulator, distribute 1): membership + 0<m + after-deadline ──
   prop "anchor: healthy partial fanout — BOTH oracles accept (real KZG membership verified)" $
