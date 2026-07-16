@@ -3,8 +3,9 @@
 -- | Function-level agreement between the Agda-extracted reference checker and the REAL Plutus
 -- validator, with NO transactions, NO ledger evaluation, and NO mutation generators.
 --
--- The validator is a plain Haskell function (@Head.headValidator :: ScriptHash -> State -> Input ->
--- ScriptContext -> Bool@). So we construct its inputs directly, run BOTH the validator and the Agda
+-- The validator is a plain Haskell function (@Head.headValidator :: BuiltinByteString -> State -> Input ->
+-- ScriptContext -> Bool@; the leading argument is the canonical CRS datum hash). So we construct its
+-- inputs directly, run BOTH the validator and the Agda
 -- reference (@Ref.checkClose@) on the SAME inputs, and assert @reference === validator@. The fields the
 -- reference models are generated independently (so e.g. the produced version is sometimes equal to the
 -- input version, sometimes not), which exercises BOTH the accept and the reject directions in one
@@ -29,10 +30,10 @@ import Cardano.Crypto.DSIGN (
   rawSerialiseVerKeyDSIGN,
   signDSIGN,
  )
-import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (blsCompress)
 import Cardano.Crypto.Hash (SHA256, digest)
 import Cardano.Crypto.Seed (mkSeedFromBytes)
 import Cardano.Ledger.Plutus.CostModels (getCostModelParams)
+import Control.Exception qualified as E
 import Control.Monad.Writer (runWriterT)
 import Data.ByteString qualified as BS
 import Hydra.Agda.Reference qualified as Ref
@@ -41,7 +42,8 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as HS
 import Hydra.Contract.HeadTokens qualified as Tokens
-import Hydra.Contract.Util (hashTxOuts, hydraHeadV2)
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
+import Hydra.Contract.Util (hashPreSerializedCommits, hashTxOuts, hydraHeadV2)
 import Hydra.Data.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Data.Party (Party, partyFromVerificationKeyBytes)
 import Hydra.Plutus (depositValidatorScript)
@@ -87,6 +89,7 @@ import PlutusLedgerApi.V3.MintValue (MintValue (..))
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AMap
 import PlutusTx.Builtins qualified as Builtins
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Hydra.Ledger.Cardano.Fixtures (plutusV3CostModel)
 import Test.Hydra.Prelude
 import Test.QuickCheck (choose, elements, forAll, (.&&.), (===))
@@ -541,7 +544,7 @@ mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax =
 -- The real Plutus validator (a plain Haskell function). The leading ScriptHash (the CRS) is unused for
 -- close.
 validatorVerdict :: HS.OpenDatum -> ScriptContext -> Bool
-validatorVerdict od = Head.headValidator headScriptHash (HS.Open od) (HS.Close HS.CloseInitial)
+validatorVerdict od = Head.headValidator Head.canonicalCRSDatumHash (HS.Open od) (HS.Close HS.CloseInitial)
 
 -- The Agda-extracted reference, projected from the SAME open datum and context.
 referenceVerdict :: HS.OpenDatum -> ScriptContext -> Bool
@@ -609,6 +612,17 @@ snapshotParty = partyFromVerificationKeyBytes (rawSerialiseVerKeyDSIGN (deriveVe
 emptyAccHash :: Builtins.BuiltinByteString
 emptyAccHash = Builtins.blake2b_256 (Builtins.bls12_381_G1_compress g1Generator)
 
+-- Empty commit/decommit output-set hashes bound into every snapshot signature (master's commit- and
+-- decommit-output binding). Close and Contest copy these straight from the redeemer into the signed
+-- message, so any fixed value works as long as the signature covers it. Increment recomputes the commit
+-- side from the claimed deposit's commits (here empty, so == emptyCommitOutputsHash) and Decrement
+-- recomputes the decommit side from the tx outputs (see incMsg/decMsg).
+emptyDecommitOutputsHash :: HS.Hash
+emptyDecommitOutputsHash = hashTxOuts []
+
+emptyCommitOutputsHash :: HS.Hash
+emptyCommitOutputsHash = hashPreSerializedCommits []
+
 -- The exact bytes the validator reconstructs for CloseUnused: serialiseData of (headId, OPEN version,
 -- snapshotNumber', accumulatorHash). Signing this with snapshotSK makes verifySnapshotSignature accept.
 closeMsg :: Integer -> ByteString
@@ -618,6 +632,8 @@ closeMsg snap =
       <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
       <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
       <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyAccHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
 
 closeSigFor :: Integer -> HS.Signature
 closeSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (closeMsg snap) snapshotSK))
@@ -684,7 +700,7 @@ mkContextU redeemer cv ccp cs cl dl tMax =
 
 -- The CloseUnused redeemer with a VALID signature over the given snapshot number.
 unusedRedeemer :: Integer -> HS.CloseRedeemer
-unusedRedeemer cs = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash}
+unusedRedeemer cs = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 -- both oracles on a valid-signature CloseUnused (decidable-conjunct agreement: crypto valid on both sides).
 unusedRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
@@ -693,7 +709,7 @@ unusedRef cv ccp cs cl dl tMax =
 
 unusedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 unusedVal redeemer cv ccp cs cl dl tMax =
-  Head.headValidator headScriptHash (HS.Open openDatumU) (HS.Close redeemer) (mkContextU redeemer cv ccp cs cl dl tMax)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Open openDatumU) (HS.Close redeemer) (mkContextU redeemer cv ccp cs cl dl tMax)
 
 -- ── signed CloseAny: like CloseUnused (signature over the CURRENT version) PLUS snapshot number > 0 ─────
 -- The validator's CloseAny arm additionally requires snapshotNumber' > 0; the reference models the same
@@ -701,7 +717,7 @@ unusedVal redeemer cv ccp cs cl dl tMax =
 -- version 0), so the scaffolding (openDatumU, mkContextU, closeSigFor) is shared; only the redeemer and
 -- the reference tag differ.
 anyRedeemer :: Integer -> HS.CloseRedeemer
-anyRedeemer cs = HS.CloseAny{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash}
+anyRedeemer cs = HS.CloseAny{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 anyRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 anyRef cv ccp cs cl dl tMax =
@@ -723,7 +739,7 @@ openDatumUsed :: HS.OpenDatum
 openDatumUsed = openDatumU{HS.headSeed = ownRef, HS.version = usedOpenVersionN}
 
 usedRedeemer :: Integer -> HS.CloseRedeemer
-usedRedeemer cs = HS.CloseUsed{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash}
+usedRedeemer cs = HS.CloseUsed{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 -- mkContextU with the version-1 open datum (each family keeps its own builder).
 mkContextUsed :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
@@ -762,7 +778,7 @@ usedRef cv ccp cs cl dl tMax =
 
 usedVal :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool
 usedVal redeemer cv ccp cs cl dl tMax =
-  Head.headValidator headScriptHash (HS.Open openDatumUsed) (HS.Close redeemer) (mkContextUsed redeemer cv ccp cs cl dl tMax)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Open openDatumUsed) (HS.Close redeemer) (mkContextUsed redeemer cv ccp cs cl dl tMax)
 
 -- CloseUsed hash-vs-datum coupling (mustBindAccumulatorCommitment): the redeemer's accumulatorHash must
 -- be the blake2b of the PRODUCED datum's commitment. Here the redeemer carries the hash of a DIFFERENT
@@ -773,7 +789,7 @@ usedWrongAccHash = Builtins.blake2b_256 (Builtins.bls12_381_G1_compress (Builtin
 
 usedRedeemerWrongHash :: Integer -> HS.CloseRedeemer
 usedRedeemerWrongHash cs =
-  HS.CloseUsed{HS.signature = [Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () msg snapshotSK))], HS.accumulatorHash = usedWrongAccHash}
+  HS.CloseUsed{HS.signature = [Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () msg snapshotSK))], HS.accumulatorHash = usedWrongAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
  where
   -- the CloseUsed message at open version 1 signs the version slot v - 1 = 0 (= openVersionN).
   msg :: ByteString
@@ -783,6 +799,8 @@ usedRedeemerWrongHash cs =
         <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
         <> Builtins.serialiseData (PlutusTx.toBuiltinData cs)
         <> Builtins.serialiseData (PlutusTx.toBuiltinData usedWrongAccHash)
+        <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
+        <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
 
 -- ── increment (Open→Open: version bump + value flow + a deposit script input + signature) ───────────────
 -- checkIncrement finds the head input by its STATE token (hasST), requires headIn ◇ Σdeposits == headOut,
@@ -824,12 +842,14 @@ incMsg snap =
       <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
       <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
       <> Builtins.serialiseData (PlutusTx.toBuiltinData incNextAccHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
 
 incSigFor :: Integer -> HS.Signature
 incSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (incMsg snap) snapshotSK))
 
 incRedeemer :: Integer -> HS.IncrementRedeemer
-incRedeemer snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = depRef}
+incRedeemer snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = depRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
 
 -- build the increment context. `nextV` is the produced version; `vPerturb` adds extra ada to the head
 -- output (breaking value conservation when ≠ 0). Everything else is healthy.
@@ -860,7 +880,7 @@ mkIncContext redeemer nextV vPerturb =
     }
  where
   headIn = TxOut headAddr incHeadVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev)))) Nothing
-  depIn = TxOut depAddr depVal (OutputDatum (Datum (PlutusTx.toBuiltinData (0 :: Integer)))) Nothing
+  depIn = TxOut depAddr depVal (OutputDatum (depositDatum headPolicy 0)) Nothing
   headOut =
     TxOut
       headAddr
@@ -876,7 +896,7 @@ incRef nextV vPerturb =
 
 incVal :: HS.IncrementRedeemer -> Integer -> Integer -> Bool
 incVal redeemer nextV vPerturb =
-  Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Increment redeemer) (mkIncContext redeemer nextV vPerturb)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Increment redeemer) (mkIncContext redeemer nextV vPerturb)
 
 -- ── increment conjunct demos: extracted conjunct checkers the family `checkInc` agreement does NOT exercise ──
 -- The family test above holds no-mint / participant / per-asset HEALTHY and varies only version + value
@@ -914,11 +934,11 @@ mkIncDemoContext mint signers hInVal hOutVal =
     }
  where
   headIn = TxOut headAddr hInVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev)))) Nothing
-  depIn = TxOut depAddr depVal (OutputDatum (Datum (PlutusTx.toBuiltinData (0 :: Integer)))) Nothing
+  depIn = TxOut depAddr depVal (OutputDatum (depositDatum headPolicy 0)) Nothing
   headOut = TxOut headAddr hOutVal (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open (incOpenNext 1))))) Nothing
 
 incDemoVal :: ScriptContext -> Bool
-incDemoVal = Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3))
+incDemoVal = Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3))
 
 -- big-endian integer encoding of a builtin byte string (equal iff the bytes are equal): the encoding the
 -- extracted participant/cid checkers compare on the Haskell side.
@@ -940,6 +960,15 @@ nonParticipantKH = PubKeyHash "9999999999999999999999999999999999999999999999999
 -- keeping every other conjunct of the family's healthy fixture intact.
 withSignatories :: [PubKeyHash] -> ScriptContext -> ScriptContext
 withSignatories ks ctx = ctx{scriptContextTxInfo = (scriptContextTxInfo ctx){txInfoSignatories = ks}}
+
+-- On-chain, a script 'error' ('traceError') is a validation FAILURE, indistinguishable from returning
+-- False. The uncompiled validator instead throws, so normalise a verdict by reading a thrown error as
+-- rejection (False), matching on-chain semantics and the reference's Bool model. Used where master's
+-- validator hard-errors instead of returning False (e.g. an increment claiming a deposit that is not a
+-- tx input now aborts with DepositInputNotFound while computing the commit-outputs hash).
+rejectingErrors :: Bool -> Bool
+rejectingErrors b = unsafePerformIO $ fromRight False <$> (E.try (E.evaluate b) :: IO (Either E.SomeException Bool))
+{-# NOINLINE rejectingErrors #-}
 
 -- per-asset attack: a balanced A→B token swap (the non-ada TOTAL is preserved, but one asset is not).
 tokenA :: TokenName
@@ -971,7 +1000,7 @@ encodeTxOutRef :: TxOutRef -> Integer
 encodeTxOutRef (TxOutRef (TxId tid) ix) = bytesToInteger tid * 256 + ix
 
 incRedeemerUnspent :: Integer -> HS.IncrementRedeemer
-incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = unspentDepRef}
+incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = unspentDepRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
 
 -- ── decrement (Open→Open: version bump + value SHRINKS by decommit OUTPUTS + signature) ─────────────────
 -- checkDecrement finds the head input via findOwnInput and requires headIn == headOut ◇ Σdecommit-outputs
@@ -980,8 +1009,28 @@ incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], 
 decHeadInVal :: Value
 decHeadInVal = singleton adaSymbol adaToken 2_500_000 <> singleton headPolicy stName 1 <> singleton headPolicy ptName 1
 
+-- the single decommit output leaving the head (index 1 in the tx). The validator recomputes the
+-- decommit-outputs hash from exactly these outputs, so the signed message must hash the same list.
+decDecommitOut :: TxOut
+decDecommitOut = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton adaSymbol adaToken 500_000) NoOutputDatum Nothing
+
+-- decrement signs the RECOMPUTED decommit-outputs hash (hashTxOuts of the tx's decommit outputs) plus the
+-- redeemer's (empty) commit-outputs hash. prevVersion = openVersionN, nextAccumulatorHash = incNextAccHash.
+decMsg :: Integer -> ByteString
+decMsg snap =
+  Builtins.fromBuiltin $
+    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData incNextAccHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData (hashTxOuts [decDecommitOut]))
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
+
+decSigFor :: Integer -> HS.Signature
+decSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (decMsg snap) snapshotSK))
+
 decRedeemer :: Integer -> HS.DecrementRedeemer
-decRedeemer snap = HS.DecrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.numberOfDecommitOutputs = 1}
+decRedeemer snap = HS.DecrementRedeemer{HS.signature = [decSigFor snap], HS.snapshotNumber = snap, HS.numberOfDecommitOutputs = 1, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 -- `vPerturb` adds extra ada to the head output (breaking value decrease when ≠ 0). Decommit = 500_000 ada.
 mkDecContext :: HS.DecrementRedeemer -> Integer -> Integer -> ScriptContext
@@ -991,7 +1040,7 @@ mkDecContext redeemer nextV vPerturb =
         TxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
           , txInfoReferenceInputs = []
-          , txInfoOutputs = [headOut, decommitOut]
+          , txInfoOutputs = [headOut, decDecommitOut]
           , txInfoFee = 0
           , txInfoMint = emptyMintValue
           , txInfoTxCerts = []
@@ -1017,7 +1066,6 @@ mkDecContext redeemer nextV vPerturb =
       (singleton adaSymbol adaToken (2_000_000 + vPerturb) <> singleton headPolicy stName 1 <> singleton headPolicy ptName 1)
       (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open (incOpenNext nextV)))))
       Nothing
-  decommitOut = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton adaSymbol adaToken 500_000) NoOutputDatum Nothing
 
 decRef :: Integer -> Integer -> Bool
 decRef nextV vPerturb =
@@ -1025,7 +1073,7 @@ decRef nextV vPerturb =
 
 decVal :: HS.DecrementRedeemer -> Integer -> Integer -> Bool
 decVal redeemer nextV vPerturb =
-  Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Decrement redeemer) (mkDecContext redeemer nextV vPerturb)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement redeemer) (mkDecContext redeemer nextV vPerturb)
 
 -- ── contest (Closed→Closed: version preserved + snapshot increases + one contester + deadline + sig) ────
 -- One party (= one contester), so mustPushDeadline keeps the deadline (contesters'==parties'). The contester
@@ -1055,12 +1103,14 @@ contestMsg sPrime =
       <> Builtins.serialiseData (PlutusTx.toBuiltinData (0 :: Integer))
       <> Builtins.serialiseData (PlutusTx.toBuiltinData sPrime)
       <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyAccHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
 
 contestSigFor :: Integer -> HS.Signature
 contestSigFor sPrime = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (contestMsg sPrime) snapshotSK))
 
 contestRedeemer :: Integer -> HS.ContestRedeemer
-contestRedeemer sPrime = HS.ContestUnused{HS.signature = [contestSigFor sPrime], HS.accumulatorHash = emptyAccHash}
+contestRedeemer sPrime = HS.ContestUnused{HS.signature = [contestSigFor sPrime], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 mkContestContext :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> ScriptContext
 mkContestContext redeemer sPrime tfinPerturb tMax =
@@ -1100,7 +1150,7 @@ contestRef sPrime tfinPerturb tMax =
 
 contestVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
 contestVal redeemer sPrime tfinPerturb tMax =
-  Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest redeemer) (mkContestContext redeemer sPrime tfinPerturb tMax)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest redeemer) (mkContestContext redeemer sPrime tfinPerturb tMax)
 
 -- ── contest mustNotChangeParameters demo (C3.3): headId preservation (bridged from the contest transition) ──
 -- A healthy ContestUnused (s'=1) whose PRODUCED datum changes the head id. The snapshot signature is over the
@@ -1152,7 +1202,7 @@ mkContestParamsContext producedDatum =
 
 contestParamsVal :: HS.ClosedDatum -> Bool
 contestParamsVal producedDatum =
-  Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) (mkContestParamsContext producedDatum)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) (mkContestParamsContext producedDatum)
 
 -- ── signed ContestUsed: the contest signature is over version - 1 (pending inc/dec already applied) ─────
 -- The validator's ContestUsed arm verifies the snapshot signature at the PREVIOUS version. The closed
@@ -1178,7 +1228,7 @@ contestUsedNext sPrime tfinPerturb =
   contestUsedPrev{HS.snapshotNumber = sPrime, HS.contesters = [signerKH], HS.contestationDeadline = POSIXTime (2_000 + tfinPerturb)}
 
 contestUsedRedeemer :: Integer -> HS.ContestRedeemer
-contestUsedRedeemer sPrime = HS.ContestUsed{HS.signature = [contestSigFor sPrime], HS.accumulatorHash = emptyAccHash}
+contestUsedRedeemer sPrime = HS.ContestUsed{HS.signature = [contestSigFor sPrime], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 mkContestUsedContext :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> ScriptContext
 mkContestUsedContext redeemer sPrime tfinPerturb tMax =
@@ -1218,7 +1268,7 @@ contestUsedRef sPrime tfinPerturb tMax =
 
 contestUsedVal :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Bool
 contestUsedVal redeemer sPrime tfinPerturb tMax =
-  Head.headValidator headScriptHash (HS.Closed contestUsedPrev) (HS.Contest redeemer) (mkContestUsedContext redeemer sPrime tfinPerturb tMax)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestUsedPrev) (HS.Contest redeemer) (mkContestUsedContext redeemer sPrime tfinPerturb tMax)
 
 -- ── contest deadline-push (n = 2): the contest does NOT complete the round, so tfinal' = tfinal + cp ───
 -- With one party the deadline-push accept branch is unreachable (one contester is all of them), so the
@@ -1261,7 +1311,7 @@ contest2SigsFor sPrime =
   ]
 
 contest2Redeemer :: Integer -> HS.ContestRedeemer
-contest2Redeemer sPrime = HS.ContestUnused{HS.signature = contest2SigsFor sPrime, HS.accumulatorHash = emptyAccHash}
+contest2Redeemer sPrime = HS.ContestUnused{HS.signature = contest2SigsFor sPrime, HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
 
 mkContest2Context :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Integer -> ScriptContext
 mkContest2Context redeemer cp sPrime tfinPerturb tMax =
@@ -1302,7 +1352,7 @@ contest2Ref cp sPrime tfinPerturb tMax =
 
 contest2Val :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Integer -> Bool
 contest2Val redeemer cp sPrime tfinPerturb tMax =
-  Head.headValidator headScriptHash (HS.Closed (contest2Prev cp)) (HS.Contest redeemer) (mkContest2Context redeemer cp sPrime tfinPerturb tMax)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed (contest2Prev cp)) (HS.Contest redeemer) (mkContest2Context redeemer cp sPrime tfinPerturb tMax)
 
 -- ── init (μHead minting policy: token COUNT + PLACEMENT) ────────────────────────────────────────────────
 -- validateTokensMinting checks: the head policy MINTS exactly n+1 tokens (checkNumberOfTokens), the head
@@ -1575,15 +1625,14 @@ otherHeadCid = CurrencySymbol "ababababababababababababababababababababababababa
 -- contestation deadline (validityLo > tfinal), the distributed outputs are accumulator members
 -- (checkCRSAndMembership), and value is conserved (mustConserveValue). For the empty head m = 0, so the
 -- subset is empty and checkMembershipPairing reduces to commitment == proof: with the empty-accumulator
--- G1 generator as both the commitment and the proof, and a CRS reference input carrying [g2Generator], the
--- REAL BLS pairing check runs and passes. We vary the burned-token count and the lower validity bound to
--- exercise both directions and assert Ref.checkFanout === headIsFinalizedWith. n = 1.
+-- G1 generator as both the commitment and the proof, and a CRS reference input carrying the canonical
+-- trusted-setup G2 points, the REAL BLS pairing check runs and passes. We vary the burned-token count and
+-- the lower validity bound to exercise both directions and assert Ref.checkFanout === headIsFinalizedWith.
+-- n = 1.
 
-g2Generator :: Builtins.BuiltinBLS12_381_G2_Element
-g2Generator = Builtins.bls12_381_G2_uncompress Builtins.bls12_381_G2_compressed_generator
-
--- The CRS reference script hash (the leading argument to the head validator) and the reference input
--- carrying the trusted-setup G2 points. For the empty subset only the first point ([g2Generator]) is used.
+-- The address of the CRS reference input. The validator no longer binds the CRS by script hash; it binds
+-- the datum content (hashCRSDatum crsData == canonicalCRSDatumHash), so this hash only fixes where the
+-- reference UTxO sits, not what makes it canonical.
 crsScriptHash :: ScriptHash
 crsScriptHash = ScriptHash "cccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 
@@ -1597,7 +1646,7 @@ crsRefInput =
     ( TxOut
         (Address (ScriptCredential crsScriptHash) Nothing)
         (singleton adaSymbol adaToken 2_000_000)
-        (OutputDatum (Datum (PlutusTx.toBuiltinData [g2Generator])))
+        (OutputDatum (Datum (PlutusTx.toBuiltinData KZG.canonicalG2Points)))
         (Just crsScriptHash)
     )
 
@@ -1673,7 +1722,7 @@ fanoutRef burnedCount validityLo tfinal =
 
 fanoutVal :: Integer -> Integer -> Integer -> Bool
 fanoutVal burnedCount validityLo tfinal =
-  Head.headValidator crsScriptHash (HS.Closed (fanoutClosedDatum tfinal)) fanoutRedeemer (mkFanoutContext burnedCount validityLo tfinal)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed (fanoutClosedDatum tfinal)) fanoutRedeemer (mkFanoutContext burnedCount validityLo tfinal)
 
 -- A WRONG BLS membership proof: a G1 point ≠ the empty-accumulator commitment (g1Generator). For the
 -- empty head (m = 0) checkMembershipPairing reduces to `commitment == proof`, so feeding a mismatched
@@ -1685,7 +1734,7 @@ fanoutBadProof = Builtins.bls12_381_G1_add g1Generator g1Generator
 fanoutValBadProof :: Integer -> Integer -> Integer -> Bool
 fanoutValBadProof burnedCount validityLo tfinal =
   Head.headValidator
-    crsScriptHash
+    Head.canonicalCRSDatumHash
     (HS.Closed (fanoutClosedDatum tfinal))
     (HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = fanoutBadProof, HS.crsRef = crsRefOut})
     (mkFanoutContext burnedCount validityLo tfinal)
@@ -1724,10 +1773,13 @@ pfInputAccCommitment = Accumulator.getAccumulatorCommitment pfFullAcc
 pfNewAccCommitment :: Builtins.BuiltinBLS12_381_G1_Element
 pfNewAccCommitment = Accumulator.getAccumulatorCommitment pfRemainingAcc
 
--- the on-chain CRS: the real trusted-setup G2 powers of tau (4 ≥ subset degree 1 + 1), matching the G1
--- setup the off-chain commitments were built against.
+-- the on-chain CRS: the canonical trusted-setup G2 powers of tau. The validator now binds the CRS by
+-- datum content (hashCRSDatum crsData == canonicalCRSDatumHash), so the reference input must carry
+-- exactly 'KZG.canonicalG2Points'. This is a prefix of the same setup the off-chain accumulator
+-- commitments were built against (Accumulator.crsG2Points = take n KZG.g2Points), so the membership
+-- pairing still verifies against it.
 pfCrsData :: [Builtins.BuiltinBLS12_381_G2_Element]
-pfCrsData = Builtins.bls12_381_G2_uncompress . Builtins.toBuiltin . blsCompress <$> Accumulator.crsG2Points 4
+pfCrsData = KZG.canonicalG2Points
 
 pfCrsRefInput :: TxInInfo
 pfCrsRefInput =
@@ -1820,7 +1872,7 @@ partialRef m validityLo tfinal =
 partialVal :: Integer -> Integer -> Integer -> Bool
 partialVal m validityLo tfinal =
   Head.headValidator
-    crsScriptHash
+    Head.canonicalCRSDatumHash
     (HS.Closed (pfClosedDatum tfinal))
     (pfRedeemer m)
     (mkPartialContext (HS.Closed (pfClosedDatum tfinal)) m validityLo tfinal)
@@ -1841,7 +1893,7 @@ partialMidRef m validityLo tfinal =
 partialMidVal :: Integer -> Integer -> Integer -> Bool
 partialMidVal m validityLo tfinal =
   Head.headValidator
-    crsScriptHash
+    Head.canonicalCRSDatumHash
     (HS.FanoutProgress (pfProgressIn tfinal))
     (pfRedeemer m)
     (mkPartialContext (HS.FanoutProgress (pfProgressIn tfinal)) m validityLo tfinal)
@@ -1870,7 +1922,7 @@ mkPartialContextBadProof m validityLo tfinal =
 
 partialValBadProof :: Integer -> Integer -> Integer -> Bool
 partialValBadProof m validityLo tfinal =
-  Head.headValidator crsScriptHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContextBadProof m validityLo tfinal)
+  Head.headValidator Head.canonicalCRSDatumHash (HS.Closed (pfClosedDatum tfinal)) (pfRedeemer m) (mkPartialContextBadProof m validityLo tfinal)
 
 -- ── final partial fanout (FanoutProgress → finalised: burn n+1, distribute the LAST batch) ─────────────
 -- checkFinalPartialFanout requires m > 0 outputs, all n+1 tokens burned, posted after the deadline,
@@ -1957,7 +2009,7 @@ finalPartialRef m burnedCount validityLo tfinal =
 finalPartialVal :: Integer -> Integer -> Integer -> Integer -> Bool
 finalPartialVal m burnedCount validityLo tfinal =
   Head.headValidator
-    crsScriptHash
+    Head.canonicalCRSDatumHash
     (HS.FanoutProgress (fpfProgressDatum tfinal))
     (fpfRedeemer m g1Generator)
     (mkFinalPartialContext (fpfRedeemer m g1Generator) burnedCount validityLo tfinal)
@@ -1967,7 +2019,7 @@ finalPartialVal m burnedCount validityLo tfinal =
 finalPartialValBadProof :: Integer -> Integer -> Integer -> Integer -> Bool
 finalPartialValBadProof m burnedCount validityLo tfinal =
   Head.headValidator
-    crsScriptHash
+    Head.canonicalCRSDatumHash
     (HS.FanoutProgress (fpfProgressDatum tfinal))
     (fpfRedeemer m fanoutBadProof)
     (mkFinalPartialContext (fpfRedeemer m fanoutBadProof) burnedCount validityLo tfinal)
@@ -2053,7 +2105,7 @@ spec = parallel $ do
     let cs = 3
         tMax = 1_100
         dl = tMax + openCpMs
-        badRedeemer = HS.CloseUnused{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash}
+        badRedeemer = HS.CloseUnused{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
      in unusedVal badRedeemer 0 100 cs 0 dl tMax === False
 
   prop "close/CloseUnused: the healthy (correctly-signed) version of that tx IS accepted" $
@@ -2088,7 +2140,7 @@ spec = parallel $ do
     let cs = 3
         tMax = 1_100
         dl = tMax + openCpMs
-        badRedeemer = HS.CloseAny{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash}
+        badRedeemer = HS.CloseAny{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
      in anyVal badRedeemer 0 100 cs 0 dl tMax === False
 
   prop "close/CloseAny: the healthy (correctly-signed) version of that tx IS accepted" $
@@ -2117,7 +2169,7 @@ spec = parallel $ do
     let cs = 3
         tMax = 1_100
         dl = tMax + openCpMs
-        badRedeemer = HS.CloseUsed{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash}
+        badRedeemer = HS.CloseUsed{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
      in usedVal badRedeemer usedOpenVersionN 100 cs 0 dl tMax === False
 
   -- The hash-vs-datum coupling in isolation: the signature over the WRONG hash verifies, so the reject
@@ -2143,7 +2195,7 @@ spec = parallel $ do
 
   prop "increment: real validator REJECTS a bad snapshot signature" $
     let cs = 3
-        badRedeemer = HS.IncrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.increment = depRef}
+        badRedeemer = HS.IncrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.increment = depRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
      in incVal badRedeemer 1 0 === False
 
   prop "increment: the healthy (correctly-signed) version of that tx IS accepted" $
@@ -2178,7 +2230,7 @@ spec = parallel $ do
   prop "increment/ref-spent: a claimed deposit that is NOT a tx input is REJECTED by both checkRefSpent and the real validator" $
     let ctx = mkIncContext (incRedeemerUnspent 3) 1 0
      in projectRefSpent (HS.Increment (incRedeemerUnspent 3)) ctx === False
-          .&&. incVal (incRedeemerUnspent 3) 1 0 === False
+          .&&. rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False
   prop "increment/ref-spent: the healthy (spent-deposit) claim is accepted by both" $
     let ctx = mkIncContext (incRedeemer 3) 1 0
      in projectRefSpent (HS.Increment (incRedeemer 3)) ctx === True
@@ -2196,17 +2248,17 @@ spec = parallel $ do
 
   prop "decrement: real validator REJECTS a bad snapshot signature" $
     let cs = 3
-        badRedeemer = HS.DecrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.numberOfDecommitOutputs = 1}
+        badRedeemer = HS.DecrementRedeemer{HS.signature = [decSigFor (cs + 1)], HS.snapshotNumber = cs, HS.numberOfDecommitOutputs = 1, HS.commitOutputsHash = emptyCommitOutputsHash}
      in decVal badRedeemer 1 0 === False
 
   prop "decrement/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
     let ctx = withSignatories [nonParticipantKH] (mkDecContext (decRedeemer 3) 1 0)
      in projectParticipant (HS.Open incOpenPrev) ctx === False
-          .&&. Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === False
+          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === False
   prop "decrement/participant: a participant signer is accepted by both" $
     let ctx = mkDecContext (decRedeemer 3) 1 0
      in projectParticipant (HS.Open incOpenPrev) ctx === True
-          .&&. Head.headValidator headScriptHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === True
+          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === True
 
   prop "decrement: the healthy (correctly-signed) version of that tx IS accepted" $
     let cs = 3 in decVal (decRedeemer cs) 1 0 === True
@@ -2225,7 +2277,7 @@ spec = parallel $ do
   prop "contest: real validator REJECTS a bad snapshot signature" $
     let s' = 1
         tMax = 1_500
-        badRedeemer = HS.ContestUnused{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash}
+        badRedeemer = HS.ContestUnused{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
      in contestVal badRedeemer s' 0 tMax === False
 
   prop "contest: the healthy (correctly-signed) version of that tx IS accepted" $
@@ -2244,11 +2296,11 @@ spec = parallel $ do
   prop "contest/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
     let ctx = withSignatories [nonParticipantKH] (mkContestContext (contestRedeemer 1) 1 0 1_500)
      in projectParticipant (HS.Closed contestPrev) ctx === False
-          .&&. Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === False
+          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === False
   prop "contest/participant: a participant signer is accepted by both" $
     let ctx = mkContestContext (contestRedeemer 1) 1 0 1_500
      in projectParticipant (HS.Closed contestPrev) ctx === True
-          .&&. Head.headValidator headScriptHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === True
+          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === True
 
   -- ── ContestUsed: the contest signature is over version - 1 (closed version 1 here) ──
   prop "anchor: healthy ContestUsed, BOTH oracles accept (real signature at version - 1 verified)" $
@@ -2264,7 +2316,7 @@ spec = parallel $ do
   prop "contest/ContestUsed: real validator REJECTS a bad snapshot signature" $
     let s' = 1
         tMax = 1_500
-        badRedeemer = HS.ContestUsed{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash}
+        badRedeemer = HS.ContestUsed{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
      in contestUsedVal badRedeemer s' 0 tMax === False
 
   prop "contest/ContestUsed: the healthy (correctly-signed) version of that tx IS accepted" $
@@ -2481,4 +2533,4 @@ spec = parallel $ do
           .&&. (projectRefSpent (HS.Increment (incRedeemer 3)) (mkIncContext (incRedeemer 3) 1 0) === True)
           .&&. (incVal (incRedeemer 3) 1 0 === True)
           .&&. (projectRefSpent (HS.Increment (incRedeemerUnspent 3)) (mkIncContext (incRedeemerUnspent 3) 1 0) === False)
-          .&&. (incVal (incRedeemerUnspent 3) 1 0 === False)
+          .&&. (rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False)

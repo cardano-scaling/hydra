@@ -43,6 +43,7 @@ data HeadError
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
   | DepositNotSpent
+  | DepositInputNotFound
   | HeadInputNotFound
   | FailedCloseUnused
   | FailedCloseUsed
@@ -102,6 +103,7 @@ instance ToErrorCode HeadError where
     LowerBoundBeforeContestationDeadline -> "H41"
     FanoutNoLowerBoundDefined -> "H42"
     DepositNotSpent -> "H43"
+    DepositInputNotFound -> "H44"
     HeadInputNotFound -> "H45"
     FailedCloseAny -> "H46"
     FailedCloseUnused -> "H47"

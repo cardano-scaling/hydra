@@ -26,6 +26,13 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
 
+- The head logic now enforces the specification's "no commit and decommit in
+  flight at once" discipline on the message level: a `ReqSn` carrying both a
+  deposit and a decommit is rejected (`ReqSnDepositAndDecommit`), and a
+  `ReqDec` received while a deposit is pending waits for the deposit to
+  resolve instead of starting a decommit. Both rules mirror the
+  machine-checked `NoBothInFlight` invariant of the formal specification.
+
 ## [2.3.0] - 2026.07.15
 
 - Add **selective partial fanout**: distribute a chosen subset of a closed
@@ -47,13 +54,6 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   natively supported, removing the need to manually convert them before use.
 
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
-
-- The head logic now enforces the specification's "no commit and decommit in
-  flight at once" discipline on the message level: a `ReqSn` carrying both a
-  deposit and a decommit is rejected (`ReqSnDepositAndDecommit`), and a
-  `ReqDec` received while a deposit is pending waits for the deposit to
-  resolve instead of starting a decommit. Both rules mirror the
-  machine-checked `NoBothInFlight` invariant of the formal specification.
 
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
