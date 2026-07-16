@@ -35,10 +35,7 @@ agda src/Hydra/Protocol/Main.lagda.typ
 ```
 
 or build the PDF iteratively with the build script (Agda typecheck +
-`check-refs.sh` + `check-trust-ledger.sh` + Typst render + a link-fixing
-post-process, `sort-named-dests.py`: Typst 0.14 emits the PDF's
-named-destination table unsorted, which leaves internal section links dead in
-spec-compliant viewers):
+`check-refs.sh` + `check-trust-ledger.sh` + Typst render):
 
 ```sh
 ./build.sh
@@ -47,7 +44,10 @@ spec-compliant viewers):
 with the specification PDF available in `_build/hydra-spec.pdf`. The script
 needs `JULIAMONO_FONT_DIR` (the code font); the nix dev shell exports it, so
 run it from `nix develop` (or set it to a directory containing the JuliaMono
-TTFs).
+TTFs). Typst >= 0.14.1 is required (0.14.0 emits the PDF's named-destination
+table unsorted, typst#7248, which leaves internal section links dead in
+spec-compliant viewers); the dev shell and `nix build .#spec` provide a
+suitable typst.
 
 ## Keeping the spec and the code in sync
 

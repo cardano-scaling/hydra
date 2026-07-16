@@ -4,7 +4,7 @@
 
 { self, ... }: {
 
-  perSystem = { pkgs, hsPkgs, compiler, self', inputs', ... }:
+  perSystem = { pkgs, hsPkgs, compiler, self', inputs', pkgs-2511, ... }:
     let
       # Clean nixpkgs (no haskell.nix / nix-npm-buildpackage overlays). The
       # overlaid `pkgs` routes node packages through nix-npm-buildpackage,
@@ -12,11 +12,11 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
-        # For working on the formal specification (agda typecheck + typst render
-        # + the sort-named-dests.py PDF post-process, see spec/build.sh)
+        # For working on the formal specification (agda typecheck + typst
+        # render, see spec/build.sh). typst from pkgs-2511: same >= 0.14.1
+        # requirement as the nix build (see nix/hydra/spec.nix).
         self'.packages.spec-agda
-        pkgs.typst
-        (pkgs.python3.withPackages (ps: [ ps.pikepdf ]))
+        pkgs-2511.typst
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt

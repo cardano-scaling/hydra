@@ -15,6 +15,11 @@
     mithril.url = "github:input-output-hk/mithril/2617.0";
     nixpkgs.follows = "haskellNix/nixpkgs";
     nixpkgs-2411.url = "github:NixOS/nixpkgs/nixos-24.11";
+    # For typst >= 0.14.1 only: the main pin's typst 0.14.0 emits the PDF
+    # named-destination name tree unsorted (typst#7248), which kills internal
+    # section links in spec-compliant viewers. Drop when the main nixpkgs pin
+    # ships typst >= 0.14.1.
+    nixpkgs-2511.url = "github:NixOS/nixpkgs/nixos-25.11";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     rust-accumulator.url = "github:cardano-scaling/rust-accumulator";

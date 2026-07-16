@@ -1,6 +1,6 @@
 { self, inputs, ... }: {
 
-  perSystem = { config, pkgs, pkgs-2411, ... }:
+  perSystem = { config, pkgs, pkgs-2411, pkgs-2511, ... }:
     let
       agdaPackages = pkgs-2411.callPackage "${self}/spec/pkgs/initial-packages.nix" {
         inherit (pkgs-2411.haskellPackages) Agda;
@@ -24,9 +24,10 @@
         version = "0.0.1";
         nativeBuildInputs = [
           config.packages.spec-agda
-          pkgs.typst
-          # for sort-named-dests.py (post-processes the Typst PDF, see build.sh)
-          (pkgs.python3.withPackages (ps: [ ps.pikepdf ]))
+          # typst >= 0.14.1 (0.14.0 emits the PDF named-destination name tree
+          # unsorted, typst#7248, killing internal section links in viewers
+          # that binary-search it per spec: pdf.js, PDFium, macOS Preview).
+          pkgs-2511.typst
         ];
         meta = { };
         src = "${self}/spec";
