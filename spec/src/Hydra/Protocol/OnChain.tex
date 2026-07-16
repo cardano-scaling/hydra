@@ -240,10 +240,12 @@ $\redeemerDeposit = \mathsf{Claim}$ and ensures:
 \end{menumerate}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{increment}, \xi, s, \txOutRef_{\mathsf{increment}})$,
+$\redeemerHead = (\mathsf{increment}, \xi, s, \txOutRef_{\mathsf{increment}}, {U_\omega}^{\#})$,
 where $\xi$ is a multi-signature of the increment snapshot which authorizes
-addition of deposited UTxO, $s$ is the snapshot number and
-$\txOutRef_{\mathsf{deposit}}$ points to the claimed deposit. The validator
+addition of deposited UTxO, $s$ is the snapshot number,
+$\txOutRef_{\mathsf{deposit}}$ points to the claimed deposit and
+${U_\omega}^{\#}$ is the hash of the snapshot's ordered decommit outputs (the
+hash of the empty set if no decommit was pending). The validator
 checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
@@ -262,10 +264,18 @@ checks:
 	\]
 	\item $\xi$ is a valid multi-signature of the new head state $\eta'$
 	\[
-		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
 	\]
 	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
-	stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs.
+	stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs,
+	and ${U_\alpha}^{\#}$ is \emph{recomputed on-chain} from the deposited UTxOs $C$
+	recorded in the datum of the claimed deposit input:
+	\[
+		{U_\alpha}^{\#} = \hash(\mathsf{concat}({\sortOn(1, C)}^{\downarrow2}))
+	\]
+	This binds the identity of the committed UTxO into the multi-signature: a
+	deposit other than the one approved by the snapshot --- even one of equal
+	value --- makes the signature verification fail.
 	\item The value in the head output is increased accordingly
 	\[
 		\valHead \cup \valDeposit = \valHead'
@@ -301,9 +311,11 @@ a party to remove a UTxO from an already open head and consists of:
 \end{itemize}
 
 \noindent The state-machine validator $\nuHead$ is spent with
-$\redeemerHead = (\mathsf{decrement}, \xi, s, m)$, where $\xi$ is a multi-signature of
+$\redeemerHead = (\mathsf{decrement}, \xi, s, m, {U_\alpha}^{\#})$, where $\xi$ is a multi-signature of
 the decrement snapshot which authorizes removal of some UTxO, $s$ is the
-used snapshot number and $m$ is the number of outputs to distribute. The
+used snapshot number, $m$ is the number of outputs to distribute and
+${U_\alpha}^{\#}$ is the hash of the snapshot's ordered commit outputs (the
+hash of the empty set if no deposit was pending). The
 validator checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stOpen$ to
@@ -318,10 +330,19 @@ validator checks:
 	\]
 	\item $\xi$ is a valid multi-signature of the new snapshot state $\eta'$
 	\[
-		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
 	\]
 	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
-	stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs.
+	stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs,
+	and ${U_\omega}^{\#}$ is \emph{recomputed on-chain} as the hash of the ordered decommit
+	outputs $o_{2} \dots o_{m+1}$ materialized by this transaction:
+	\[
+		{U_\omega}^{\#} = \hash(\bigoplus_{j=2}^{m+1} \bytes(o_{j}))
+	\]
+	This binds address, value and datum of every decommitted output into the
+	multi-signature: redirecting the decommitted value to different outputs of
+	equal total value makes the signature verification fail, so value
+	conservation alone is no longer the only constraint on the decommit outputs.
 	\item The value in the head output is decreased accordingly
 	\[
 		\valHead' \cup (\bigcup_{j=2}^{m+1} \val_{j}) = \valHead
@@ -369,7 +390,7 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 		v' = v
 	\]
 
-	\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Any}, \xi, {\eta'}^{\#}) \cup (\mathsf{Unused}, \xi, {\eta'}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#})$, where $\xi$ is a multi-signature of the closing snapshot and ${\eta'}^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, four cases are distinguished. In each case the closed state carries a single unified accumulator $\eta'$:
+	\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Any}, \xi, {\eta'}^{\#}, {U_\omega}^{\#}, {U_\alpha}^{\#}) \cup (\mathsf{Unused}, \xi, {\eta'}^{\#}, {U_\omega}^{\#}, {U_\alpha}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#}, {U_\omega}^{\#}, {U_\alpha}^{\#})$, where $\xi$ is a multi-signature of the closing snapshot, ${\eta'}^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, and ${U_\omega}^{\#}$ and ${U_\alpha}^{\#}$ are the hashes of the snapshot's ordered decommit and commit output sets (the hash of the empty set when none was pending), four cases are distinguished. In each case the closed state carries a single unified accumulator $\eta'$:
 	\begin{menumerate}
 		\item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
 		\[
@@ -381,39 +402,57 @@ $\mathsf{CloseType}$ is a hint against which open state to close and checks:
 		\[
 			\eta' = \accUTxO(\emptyset)
 		\]
-		\item $\mathsf{Any}$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. The unified accumulator is simply the snapshotted state:
+		\item $\mathsf{Any}$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. With no pending delta the unified accumulator degenerates to the snapshotted state:
 		\[
 			\eta' = \accUTxO(U')
 		\]
 		\[
-			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
 		\]
 		\[
 			{\eta'}^{\#} = (\eta')^{\#}
 		\]
-		\item $\mathsf{Unused}$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is \emph{not} applied in the snapshot. The unified accumulator is the snapshotted state only:
-		\[
-			\eta' = \accUTxO(U')
-		\]
-		\[
-			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
-		\]
-		\[
-			{\eta'}^{\#} = (\eta')^{\#}
-		\]
-		\item $\mathsf{Used}$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement \emph{is} applied in the snapshot. The unified accumulator combines the snapshotted UTxOs with the pending delta:
+		\item $\mathsf{Unused}$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is \emph{not} settled on-chain. The parties nevertheless signed the unified accumulator, which already includes the pending delta:
 		\[
 			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
 		\]
 		\[
-			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#}),\xi) = \true
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
 		\]
 		\[
 			{\eta'}^{\#} = (\eta')^{\#}
 		\]
-		where $\eta_\Delta$ is the accumulator commitment of the pending delta UTxOs.
+		\item $\mathsf{Used}$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement \emph{is} settled on-chain (which incremented the version to $v$). The unified accumulator combines the snapshotted UTxOs with the settled delta:
+		\[
+			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
 	\end{menumerate}
-	% TODO: detailed CDDL definition of msg
+	where $\eta_\Delta$ is the accumulator commitment of the pending delta UTxOs
+	($U_\alpha$ or $U_\omega$; the accumulator of the empty set when nothing is
+	pending). In every signed case the closed datum stores the same unified
+	accumulator commitment $\eta'$ that the parties signed --- the case split
+	only selects the version ($v$ or $v - 1$) against which the multi-signature
+	is verified. Note that ${U_\omega}^{\#}$ and ${U_\alpha}^{\#}$ are supplied
+	via the redeemer here, but they are bound by the multi-signature.
+
+	The signed message is the concatenation of the six fields, each individually
+	CBOR-encoded as Plutus \texttt{Data}, according to the CDDL schema:
+	\begin{center}
+		\begin{tabular}{ll}
+			\texttt{headId = bytes .size 28}              & head identifier $\cid$                                                  \\
+			\texttt{version = uint}                       & snapshot version $v$                                                    \\
+			\texttt{number = uint}                        & snapshot number $s$                                                     \\
+			\texttt{accumulatorHash = bytes .size 32}     & ${\eta'}^{\#}$, hash of the compressed unified accumulator commitment   \\
+			\texttt{decommitOutputsHash = bytes .size 32} & ${U_\omega}^{\#}$, hash of the ordered decommit outputs                 \\
+			\texttt{commitOutputsHash = bytes .size 32}   & ${U_\alpha}^{\#}$, hash of the ordered commit outputs                   \\
+		\end{tabular}
+	\end{center}
 
 	\item Initializes the set of contesters
 	\[
@@ -489,32 +528,36 @@ $\mathsf{ContestType}$ is a hint how to verify the snapshot and checks:
 	\[
 		s' > s
 	\]
-	\item Based on the redeemer $\mathsf{ContestType} = (\mathsf{Unused}, \xi, {\eta'}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#})$, where $\xi$ is a multi-signature of the contesting snapshot and ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, two cases are distinguished:
+	\item Based on the redeemer $\mathsf{ContestType} = (\mathsf{Unused}, \xi, {\eta'}^{\#}, {U_\omega}^{\#}, {U_\alpha}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#}, {U_\omega}^{\#}, {U_\alpha}^{\#})$, where $\xi$ is a multi-signature of the contesting snapshot, ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, and ${U_\omega}^{\#}$ and ${U_\alpha}^{\#}$ are the hashes of the snapshot's ordered decommit and commit output sets, two cases are distinguished:
 
 	\begin{menumerate}
-		\item $\mathsf{Unused}$: Contesting snapshot refers to current state version $v$ (pending delta not applied in snapshot). The unified accumulator reflects only the snapshotted UTxOs:
-		\[
-			\eta' = \accUTxO(U')
-		\]
-		\[
-			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
-		\]
-		\[
-			{\eta'}^{\#} = (\eta')^{\#}
-		\]
-		\item $\mathsf{Used}$: Contesting snapshot refers to the previous state version $v - 1$ (pending delta applied in snapshot). The unified accumulator combines the snapshotted UTxOs with the pending delta:
+		\item $\mathsf{Unused}$: Contesting snapshot refers to current state version $v$ (pending delta not settled on-chain). The parties nevertheless signed the unified accumulator, which already includes the pending delta:
 		\[
 			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
 		\]
 		\[
-			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#}),\xi) = \true
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
 		\]
 		\[
 			{\eta'}^{\#} = (\eta')^{\#}
 		\]
-		where $\eta_\Delta$ is the accumulator commitment of the pending delta UTxOs.
+		\item $\mathsf{Used}$: Contesting snapshot refers to the previous state version $v - 1$ (pending delta settled on-chain). The unified accumulator combines the snapshotted UTxOs with the settled delta:
+		\[
+			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		where $\eta_\Delta$ is the accumulator commitment of the pending delta
+		UTxOs (the accumulator of the empty set when nothing is pending). As for
+		\mtxClose{}, in both cases the closed datum stores the unified
+		accumulator the parties signed and the case split only selects the
+		version against which the multi-signature is verified. The signed
+		message is constructed as defined in Section~\ref{sec:close-tx}.
 	\end{menumerate}
-	% TODO: detailed CDDL definition of msg
 
 	\item The single signer $\{\keyHash\} = \txKeys$ has not already contested and is added to the set of contesters
 	\[
@@ -576,11 +619,25 @@ $\redeemerHead = (\mathsf{fanout}, m, \pi, \mathsf{crsRef})$, where:
   \item $\pi$ is the KZG membership witness,
   \item $\mathsf{crsRef}$ is the output reference of the reference input holding the Common Reference String (CRS).
 \end{itemize}
+The head validator embeds the hash ${\mathsf{CRS}}^{\#}_{\mathsf{canonical}}$ of
+the \emph{canonical} CRS, computed over its (compressed) G2 points. The
+canonical CRS is fixed when the protocol scripts are compiled and stems from the
+Ethereum KZG ceremony. Since fanning out is permissionless --- no participant
+signature is required --- the CRS provided via the reference input must be
+authenticated by \emph{content}: binding only the location (address or
+reference script) of the reference input would allow an attacker to publish and
+substitute a setup with known trapdoor $\tau$ and forge membership proofs for
+arbitrary outputs, stealing all funds in the head.
+
 The validator checks:
 \begin{menumerate}
 	\item State is advanced from $\datumHead \sim \stClosed$ to terminal state $\stFinal$:
 	\[
 		(\stClosed,\cid,\hydraKeys,\Tcontest,v, s,\eta,\contesters,\tfinal) \xrightarrow[m,\pi]{\stFanout} \stFinal
+	\]
+	\item The reference input pointed to by $\mathsf{crsRef}$ carries a CRS datum $\mathsf{crs}$ matching the canonical CRS embedded in the validator:
+	\[
+		{\mathsf{crs}}^{\#} = {\mathsf{CRS}}^{\#}_{\mathsf{canonical}}
 	\]
 	\item All $m$ outputs are verified as members of the unified accumulator $\eta$ using the membership witness $\pi$:
 	\[
@@ -595,6 +652,20 @@ The validator checks:
 	\]
 	where $\adaO$ is the ADA overhead carried from the closed datum, and $\val_{\mathsf{burned}}$ is the value of all burned head tokens.
 \end{menumerate}
+
+Note that the unified accumulator $\eta$ may contain \emph{pre-settled}
+elements, which are no longer backed by head value at fanout time: outputs of a
+pending decommit that was settled on-chain before closing (they were already
+paid out by the \mtxDecrement{} transaction), or outputs of a pending deposit
+that was never incremented (they never entered the head and are instead
+recoverable through the deposit validator, see
+Section~\ref{sec:recover-tx}). Such elements are simply not distributed:
+membership verification proves that the distributed outputs are committed under
+$\eta$, while the strict value conservation forces the entire head value to be
+paid to exactly those outputs. Pre-settled elements remain in the accumulator
+undistributed; likewise for partial fanout below, exclusion witnesses only ever
+remove distributed batches and the final membership check ignores leftover
+pre-settled elements.
 
 \begin{figure}[H]
 	\centering
@@ -628,6 +699,7 @@ $\redeemerHead = (\mathsf{partialFanout}, m, \mathsf{crsRef})$, where $m$ is the
 The validator checks:
 \begin{menumerate}
   \item $m > 0$ (no zero-output batches).
+  \item The reference input pointed to by $\mathsf{crsRef}$ carries a CRS datum $\mathsf{crs}$ matching the canonical CRS embedded in the validator: ${\mathsf{crs}}^{\#} = {\mathsf{CRS}}^{\#}_{\mathsf{canonical}}$.
   \item State transitions into $\stFanoutProgress$ with updated accumulator. For a $\stClosed$ input:
   \[
 	(\stClosed,\cid,\hydraKeys,\Tcontest,v,s,\eta,\contesters,\tfinal) \xrightarrow[m]{\stPartialFanout} (\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta',\adaO)
@@ -675,6 +747,7 @@ $\redeemerHead = (\mathsf{finalPartialFanout}, m, \pi, \mathsf{crsRef})$, where 
 The validator checks:
 \begin{menumerate}
   \item $m > 0$ (prevents fund theft via a zero-output proof bypass).
+  \item The reference input pointed to by $\mathsf{crsRef}$ carries a CRS datum $\mathsf{crs}$ matching the canonical CRS embedded in the validator: ${\mathsf{crs}}^{\#} = {\mathsf{CRS}}^{\#}_{\mathsf{canonical}}$.
   \item State is advanced from $\stFanoutProgress$ to terminal state $\stFinal$:
   \[
 	(\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta,\adaO) \xrightarrow[m,\pi]{\stFinalPartialFanout} \stFinal

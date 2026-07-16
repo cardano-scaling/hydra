@@ -268,6 +268,13 @@ The security property guarantees that a valid membership witness can only be pro
 
 The implementation uses KZG polynomial commitments~\cite{KZG10} over the BLS12-381 elliptic curve.
 
+The common reference string produced by $\accSetup$ is not generated per head:
+the protocol fixes a single \emph{canonical} CRS, obtained from the Ethereum KZG
+ceremony (EIP-4844), whose G2 points are embedded in the protocol scripts at
+compile time. On-chain validators receive the CRS via a reference input and
+authenticate it by comparing the hash of its datum against the hash of the
+canonical CRS embedded in the validator (see Section~\ref{sec:fanout-tx}).
+
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-master: "main"

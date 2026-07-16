@@ -117,6 +117,8 @@ party's local state consists of the following variables:
 	      applying $\hatmT$ to $\bar{S}.U$ to validate requested transactions.
 	\item $\hatmT \in \mT^{*}$: List of transactions applied locally and pending
 	      inclusion in a snapshot (if this party is the next leader).
+	\item $\hatmU$: UTxO set of the last requested (seen) snapshot, from which
+	      the local ledger state is rebuilt.
 	\item $\tx_\alpha \in \mathcal{T}$: Pending deposit transaction\footnote{In
 		      fact this would only need to be a transaction id to look up the
 		      corresponding deposit in $\mc D$} to be used for incrementing the head
@@ -135,7 +137,7 @@ party's local state consists of the following variables:
 			      $\bar{\mc S}.U$        & snapshotted UTxO set                                        \\ \hline
 			      $\bar{\mc S}.U_\alpha$ & pending UTxO to increment                                   \\ \hline
 			      $\bar{\mc S}.U_\omega$           & pending UTxO to decrement                                        \\ \hline
-			      $\bar{\mc S}.{\eta'}^{\#}$       & hash of the accumulator commitment over the snapshotted UTxO set \\ \hline
+			      $\bar{\mc S}.{\eta'}^{\#}$       & hash of the unified accumulator commitment over $U \cup U_\alpha \cup U_\omega$ \\ \hline
 		      \end{tabular}
 	      \end{center}
 \end{itemize}
@@ -245,7 +247,14 @@ Furthermore, the protocol validates the snapshot request by:
 	\item If a decommit is requested: verify the transaction is applicable to the
 	      last confirmed UTxO set and update the active utxo set with it
 	\item If a deposit is requested: verify the corresponding deposit is
-	      $\text{Active}$ and update the active utxo set with it
+	      $\text{Active}$ and add the deposited UTxO to the active UTxO set used
+	      to validate the requested transactions. The deposited UTxO is recorded
+	      as pending $U_{\alpha}$ but \emph{not} added to the local ledger
+	      state: it becomes spendable on L2 only once the corresponding
+	      $\mathtt{incrementTx}$ is observed on-chain. Otherwise the same
+	      deposit would be re-injected into the spendable UTxO set on every
+	      snapshot round and could be spent once per snapshot, inflating the L2
+	      balance.
 	\item If we are on the same version as the last snapshot, any requested
 	      decommit or deposit must match the last snapshot.
 	\item Verify all requested transactions $\underline{\tx}_{\mathsf{req}}$ are
@@ -254,17 +263,29 @@ Furthermore, the protocol validates the snapshot request by:
 Only then, $\party_i$ increments their seen-snapshot counter $\hats$, resets the
 signature accumulator $\hatSigma$, and computes the UTxO set of the new local
 snapshot as
-$U \gets U_{\mathsf{active}} \applytx \underline{\tx}_{\mathsf{req}}$. Then,
-$\party_i$ creates a signature $\msSig_i$ using their signing key
-$\hydraSigningKey$ on a message comprised by the $\cid$, the new snapshot number
-$\hats$, the new $\eta$ resulting from canonically combining $U$ (see
-Section~\ref{sec:close-tx} for details), and either $\eta_{\alpha}$ or
-$\eta_{\omega}$ derived from deposited $U_{\alpha}$ or decommit transaction
-$\tx_{\omega}$ respectively. The signature is sent to all head members via
-message $(\hpAS,\hats,\msSig_i)$. Finally, the local ledger state $\hatmL$ and
-pending transaction set $\hatmT$ get pruned by re-applying all locally pending
-transactions $\hatmT$ to the just requested snapshot's UTxO set iteratively and
-ultimately yielding a ``pruned'' version of $\hatmT$ and $\hatmL$. \\
+$\hatmU \gets (U_{\mathsf{active}} \applytx \underline{\tx}_{\mathsf{req}}) \setminus U_{\alpha}$
+--- a pending deposit is part of the active set only to validate the requested
+transactions, it is not part of the snapshotted UTxO set. Then, $\party_i$
+creates a signature $\msSig_i$ using their signing key $\hydraSigningKey$ on the
+message
+\[
+	\cid || v || \hats || {\eta'}^{\#} || {U_\omega}^{\#} || {U_\alpha}^{\#}
+\]
+where ${\eta'}^{\#}$ is the hash of the unified accumulator commitment
+$\eta' = \accUTxO(\hatmU \cup U_{\alpha} \cup U_{\omega})$ over the snapshotted
+UTxO set and any pending commit or decommit UTxOs, and ${U_\omega}^{\#}$ and
+${U_\alpha}^{\#}$ are the hashes of the ordered decommit outputs
+$U_{\omega} = \mathsf{outputs}(\tx_{\omega})$ and the deposited $U_{\alpha}$
+respectively (the hash of the empty set when no decommit or deposit is
+pending). Binding ${U_\omega}^{\#}$ and ${U_\alpha}^{\#}$ into the signature
+allows the \mtxDecrement{} and \mtxIncrement{} validators to recompute them
+from the materialized L1 outputs and the claimed deposit (see
+Sections~\ref{sec:decrement-tx} and~\ref{sec:increment-tx}). The signature is
+sent to all head members via message $(\hpAS,\hats,\msSig_i)$. Finally, the
+local ledger state $\hatmL$ and pending transaction set $\hatmT$ get pruned by
+re-applying all locally pending transactions $\hatmT$ to the just requested
+snapshot's UTxO set $\hatmU$ iteratively and ultimately yielding a ``pruned''
+version of $\hatmT$ and $\hatmL$. \\
 
 \dparagraph{$\hpAS$.}\quad Upon receiving acknowledgment $(\hpAS,s,\msSig_j)$, all
 participants $\Req$ that it is from an expected snapshot (either the last seen
@@ -296,10 +317,11 @@ Section~\ref{sec:decrement-tx}. \\
 \dparagraph{$\mathtt{incrementTx}$.}\quad Upon observing the \mtxIncrement{}
 transaction, which added outputs $U$ to the head, the local ledger state
 $\hatmL$ is extended with the newly added UTxO while the pending increment
-state $U_{\alpha}$ is cleared. Also the observed version $v$ is used for future
-snapshots by setting $\hatv = v$. Note that the version of the open head state
-is incremented on each \mtxIncrement{} transaction as described in
-Section~\ref{sec:increment-tx}
+state $U_{\alpha}$ is cleared. This is the point at which the deposited UTxO
+becomes spendable on L2 (see $\hpRS$ above). Also the observed version $v$ is
+used for future snapshots by setting $\hatv = v$. Note that the version of the
+open head state is incremented on each \mtxIncrement{} transaction as described
+in Section~\ref{sec:increment-tx}
 
 \subsubsection{Closing the head}
 
