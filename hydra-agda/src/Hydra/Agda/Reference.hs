@@ -116,7 +116,7 @@ mkOpsInc = M.C_OpsInc'46'constructor_2927
 -- | Decidable increment checker: the produced version is @suc@ the input version
 -- (@VersionNotIncremented@) AND the head value grows by the deposit on BOTH the lovelace component
 -- (@adaIn + adaDelta == adaOut@) and the total non-ada token quantity
--- (@nonAdaIn + nonAdaDelta == nonAdaOut@) — the validator's @mustPreserveValue@, now catching a
+-- (@nonAdaIn + nonAdaDelta == nonAdaOut@) — the validator's @mustPreserveValue@, which also catches a
 -- native-token siphon that an ada-only check would miss. Crypto delegated to @OpsInc@.
 checkInc :: OpsInc -> HsIncIO -> Bool
 checkInc = M.d_incRef'7495'_162

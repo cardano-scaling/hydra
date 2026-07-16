@@ -1,33 +1,41 @@
 cabal-version: 3.0
 name:          hydra-agda
-version:       2.2.0
+version:       2.3.0
 synopsis:
-  Agda-extracted decidable reference checker for the Hydra on-chain validator.
+  Agda-extracted decidable reference checkers for the Hydra on-chain validator and off-chain head logic.
 
 description:
-  The on-chain validity conditions are specified in Agda (spec/). The
-  decidable core (`spec/src/Hydra/Protocol/Reference.agda`) is extracted to
-  Haskell via MAlonzo and exposed here through a thin shim
-  ('Hydra.Agda.Reference'). It is used as a second oracle in the hydra-tx
-  differential tests, so the real Plutus validator and the spec are checked
-  to agree. The 'generated/' tree is MAlonzo output — do not edit it by hand;
-  run 'regenerate.sh' (which re-extracts from the Agda) to refresh it.
+  The on-chain validity conditions and the off-chain handler decisions are
+  specified in Agda (spec/). The decidable cores
+  (`spec/src/Hydra/Protocol/Reference.agda` and
+  `spec/src/Hydra/Protocol/OffChainReference.agda`) are extracted to Haskell
+  via MAlonzo and exposed here through thin shims ('Hydra.Agda.Reference' and
+  'Hydra.Agda.OffChainReference'). They are used as second oracles in the
+  hydra-tx and hydra-node agreement tests, so the real Plutus validator and
+  the real HeadLogic handlers are checked to agree with the spec. The
+  'generated/' tree is MAlonzo output — do not edit it by hand; run
+  'regenerate.sh' (which re-extracts from the Agda) to refresh it.
 
 author:        IOG
+copyright:     2026 IOG
 license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
 build-type:    Simple
 
 library
   default-language: GHC2021
   hs-source-dirs:   src generated
-
-  -- Silence warnings in the generated MAlonzo tree (it is checked -Werror-clean
-  -- by Agda's own GHC backend; we do not lint it as first-party code).
-  ghc-options:      -w
+  ghc-options:      -Wall
   exposed-modules:
     Hydra.Agda.OffChainReference
     Hydra.Agda.Reference
 
+  -- The generated MAlonzo modules are self-silencing: regenerate.sh stamps
+  -- every generated file with {-# OPTIONS_GHC -w #-}, so -Wall above lints
+  -- only the hand-written shims in src/.
   other-modules:
     MAlonzo.Code.Agda.Builtin.Bool
     MAlonzo.Code.Agda.Builtin.List
