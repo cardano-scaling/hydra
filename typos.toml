@@ -7,3 +7,5 @@
 "ommit" = "ommit"
 # Cardano.Ledger.Compactible module name
 "Compactible" = "Compactible"
+# 2[nd] ordinal suffix macro in spec/src/macros.tex
+"nd" = "nd"

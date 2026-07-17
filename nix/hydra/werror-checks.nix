@@ -2,7 +2,7 @@
 # -Werror by default (see project.nix), these point at the *same* derivations as
 # `.#packages` / `.#devShells.*-tests` and the builds GitHub CI pushes to the
 # cardano-scaling cachix: no override, no duplicate compilation. This replaces
-# the werrorwolf-generated `-werror` checks (disabled in coding-standards.nix).
+# the `-werror` checks that hydra-coding-standards used to generate via werrorwolf.
 #
 # We gate library + sublibrary + test components only; exes and benchmarks are
 # already built/verified by `nix build .#release` and the benchmark jobs.
