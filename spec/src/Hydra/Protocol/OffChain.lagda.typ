@@ -90,22 +90,22 @@ off-chain protocol logic relies on these assumptions:
 - $U applytx tx$ applies transaction $tx$ to the UTxO set $U$, yielding the
   updated set, or $bot$ if $tx$ does not apply (a conflict). It is kept
   abstract as part of the off-chain trust base; see the `applyTxs` laws below.
-- $sans("On")~italic("event")$ specifies how the protocol reacts on a given input
-  $italic("event")$. Further information may be available from the constituents of
-  $italic("event")$ and origin of the input.
-- $sans("Req")~p$ means that boolean expression $p in tyBool$ must be satisfied
+- #kw("on") _event_ specifies how the protocol reacts on a given input
+  _event_. Further information may be available from the constituents of
+  _event_ and origin of the input.
+- #kw("require") $p$ means that boolean expression $p in tyBool$ must be satisfied
   for the further execution of a routine, while discontinued on $not p$. A
   conservative protocol actor could interpret this as a reason to close
   the head.
-- $sans("Wait")~p$ is a non-blocking wait for boolean predicate $p in tyBool$
+- #kw("wait") $p$ is a non-blocking wait for boolean predicate $p in tyBool$
   to be satisfied. On $not p$, the execution of the routine is stopped,
   queued, and reactivated at latest when $p$ is satisfied.
-- $sans("Multi")~italic("msg")$ means that a message $italic("msg")$ is (channel-) authenticated
+- #kw("multicast") _msg_ means that a message _msg_ is (channel-) authenticated
   and sent to all participants of this head, including the sender.
-- $sans("PostTx")~tx$ has a party create transaction $tx$, potentially from
+- #kw("postTx") $tx$ has a party create transaction $tx$, potentially from
   some data, and submit it on-chain. See @sec:on-chain for
   individual transaction details.
-- $sans("Out")~italic("event")$ signals an observation of $italic("event")$, which is used in the
+- #kw("output") _event_ signals an observation of _event_, which is used in the
   security definition and proofs of @sec:security. This
   keyword can be ignored when implementing the protocol.
 
@@ -300,7 +300,7 @@ created after each transaction.\
 \
 #dparagraph[$hpRT$.]#h(1em) Upon receiving request $(hpRT,tx)$, the transaction
 is applied to the _local_ ledger state $hatmL applytx tx$. If not
-applicable yet, the protocol does $sans("Wait")$ to retry later or eventually marks
+applicable yet, the protocol does #kw("wait") to retry later or eventually marks
 this transaction as invalid (see assumption about events piling up). After
 applying and if there is no current snapshot in flight ($hats = macron(mc(S)).s$)
 and the receiving party $party_(i)$ is the next snapshot leader, a message to
@@ -309,7 +309,7 @@ request snapshot signatures $hpRS$ is sent. \
 #dparagraph[$hpRD$.]#h(1em) Upon receiving request $(hpRD,tx_omega)$, the
 transaction is checked against the _local_ ledger state and if it is not
 applicable yet or another deposit or decommit is pending still, the protocol does
-$sans("Wait")$ to retry later or eventually marks the decommit as invalid. After
+#kw("wait") to retry later or eventually marks the decommit as invalid. After
 applying $tx$, its outputs are removed from _local_ ledger state $hatmL$
 so that they are not available any more and the decommit transaction is kept in
 the local state ($tx_omega$). If there is no current snapshot in flight
@@ -362,7 +362,7 @@ depositStatusAt Tdep t D =
 $(hpRS,v,s,underline(tx)_(sans("req")), tx_alpha, tx_omega)$#footnote[Snapshot
 requests with only transaction identifiers and output references are possible
 if all parties keep an index of previously seen transactions and their
-identifiers.] from party $party_j$, the receiving $party_i$ $sans("Req")$s that
+identifiers.] from party $party_j$, the receiving $party_i$ #kw("require")s that
 only a deposit or decommit may be pending, and that $v$ refers to the current
 open state version, $s$ is the next snapshot number and that party $party_j$ is
 responsible for leading its creation. Party $party_i$ may have to wait until
@@ -392,12 +392,12 @@ transactions $hatmT$ to the just requested snapshot's UTxO set iteratively and
 ultimately yielding a "pruned" version of $hatmT$ and $hatmL$. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
-participants $sans("Req")$ that it is from an expected snapshot (either the last seen
-$hats$ or + 1), potentially $sans("Wait")$ for the corresponding $hpRS$ such that
-$hats = s$ and $sans("Req")$ that the signature is not yet included in $hatSigma$.
+participants #kw("require") that it is from an expected snapshot (either the last seen
+$hats$ or + 1), potentially #kw("wait") for the corresponding $hpRS$ such that
+$hats = s$ and #kw("require") that the signature is not yet included in $hatSigma$.
 They store the received signature in the signature accumulator $hatSigma$, and
 if the signature from each party has been collected, $party_i$ aggregates the
-multisignature $msCSig$ and $sans("Req")$ it to be valid (constructing the signed
+multisignature $msCSig$ and #kw("require") it to be valid (constructing the signed
 message as in $hpRS$). If everything is fine, the snapshot can be considered
 confirmed by creating the snapshot object
 $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_(alpha), sans("outputs")(tx_(omega)))$
@@ -649,10 +649,15 @@ transaction, burning all head tokens and transitioning to $stFinal$.
 
 == Machine-checked handler invariants <sec:offchain-theorems>
 
-Two disciplines of @fig:off-chain-prot are not merely transcribed but proved to be
-maintained by every off-chain step. A step of the handler model is a
-network-message handling or a chain observation (`_⟶ᴴ_`), and `Reachableᴴ`
-closes it reflexively-transitively from a given start state.
+Two `require` disciplines of @fig:off-chain-prot — commit/decommit
+_exclusivity_ (at most one of a pending deposit $tx_alpha$ or a pending
+decommit $tx_omega$ in flight, the ReqSn handler's
+#kw("require") $tx_omega = bot or tx_alpha = bot$) and the _version
+discipline_ (the seen open-state version $hatv$ is the confirmed snapshot's
+version or exactly one above) — are not merely transcribed as handler guards
+but proved to be maintained by every off-chain step. A step of the handler
+model is a network-message handling or a chain observation (`_⟶ᴴ_`), and
+`Reachableᴴ` closes it reflexively-transitively from a given start state.
 
 ```
 -- One off-chain step: handle a network message OR observe a chain event.
