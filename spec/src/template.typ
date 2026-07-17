@@ -123,6 +123,12 @@
   set text(size: 11pt, font: "New Computer Modern")
   show math.equation: set text(font: "New Computer Modern Math")
   set heading(numbering: "1.1")
+  // Indent lists relative to the surrounding paragraph (typst's default puts
+  // markers flush with the text edge; LaTeX-style documents indent them), and
+  // give items a little more air than the 0.65em text leading.
+  set list(indent: 1em, spacing: 0.9em)
+  set enum(indent: 1em, spacing: 0.9em)
+  set terms(indent: 1em, spacing: 0.9em)
 
   // Coloured, underlined hyperlinks (explicit `link()` calls only: `ref`/`cite`
   // are separate element types, styled by their own rules below).

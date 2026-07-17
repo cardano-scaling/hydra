@@ -25,15 +25,27 @@
 
 // The authoritative head-protocol transitions. `from`/`rule`/`to` are checked
 // against the Agda relation by check-refs.sh; `label`/`bend` are presentation.
+// `primed` lists the TARGET-tuple field indices whose values change in the
+// step (rendered with a prime in the inline transition arrows, as in the
+// per-transaction prose); `redeemer` is the redeemer payload rendered under
+// the arrow. Both presentation-only (check-refs.sh checks from/rule/to).
 #let head-fsm-transitions = (
-  (from: "Open", rule: "increment", to: "Open", label: $sans("increment")$, bend: 130deg),
-  (from: "Open", rule: "decrement", to: "Open", label: $sans("decrement")$, bend: -130deg),
-  (from: "Open", rule: "close", to: "Closed", label: $sans("close")$, bend: 0deg),
-  (from: "Closed", rule: "contest", to: "Closed", label: $sans("contest")$, bend: 130deg),
-  (from: "Closed", rule: "fanout", to: "Final", label: $sans("fanout")$, bend: 25deg),
-  (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 40deg),
-  (from: "FanoutProgress", rule: "partialFanoutStep", to: "FanoutProgress", label: $sans("partialFanout")$, bend: 130deg),
-  (from: "FanoutProgress", rule: "finalPartialFanout", to: "Final", label: $sans("finalPartialFanout")$, bend: -20deg),
+  (from: "Open", rule: "increment", to: "Open", label: $sans("increment")$, bend: 130deg,
+   primed: (4, 5), redeemer: $xi, s, txOutRef_(sans("increment")), delta^(\#)$),
+  (from: "Open", rule: "decrement", to: "Open", label: $sans("decrement")$, bend: -130deg,
+   primed: (4, 5), redeemer: $xi, s, m, kappa^(\#)$),
+  (from: "Open", rule: "close", to: "Closed", label: $sans("close")$, bend: 0deg,
+   primed: (4, 5, 6), redeemer: $sans("CloseType")$),
+  (from: "Closed", rule: "contest", to: "Closed", label: $sans("contest")$, bend: 130deg,
+   primed: (4, 5, 6, 7, 8), redeemer: $sans("ContestType")$),
+  (from: "Closed", rule: "fanout", to: "Final", label: $sans("fanout")$, bend: 25deg,
+   primed: (), redeemer: $m, pi, sans("crsRef")$),
+  (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 40deg,
+   primed: (4,), redeemer: $m, sans("crsRef")$),
+  (from: "FanoutProgress", rule: "partialFanoutStep", to: "FanoutProgress", label: $sans("partialFanout")$, bend: 130deg,
+   primed: (4,), redeemer: $m, sans("crsRef")$),
+  (from: "FanoutProgress", rule: "finalPartialFanout", to: "Final", label: $sans("finalPartialFanout")$, bend: -20deg,
+   primed: (), redeemer: $m, pi, sans("crsRef")$),
 )
 
 // Source/target state symbol of a transition rule, single-sourced from the
@@ -65,9 +77,10 @@
   "Final": (),
 )
 
-#let _state-tuple(st) = {
+#let _state-tuple(st, primes: ()) = {
   let fs = state-fields.at(st)
   if fs.len() == 0 { _fsm-disp.at(st) } else {
+    let fs = fs.enumerate().map(((i, f)) => if i in primes { math.attach(f, tr: sym.prime) } else { f })
     $(#_fsm-disp.at(st), #fs.join($\,$))$
   }
 }
@@ -78,7 +91,9 @@
 #let transition-arrow(rule) = {
   let t = head-fsm-transitions.find(x => x.rule == rule)
   assert(t != none, message: "unknown transition rule: " + rule)
-  align(center, $#_state-tuple(t.from) stretch(-->)^(sans(#rule)) #_state-tuple(t.to)$)
+  align(center, $#_state-tuple(t.from)
+    stretch(-->)^(sans(#rule))_(#text(size: 0.8em, t.redeemer))
+    #_state-tuple(t.to, primes: t.primed)$)
 }
 
 #let head-fsm = {
