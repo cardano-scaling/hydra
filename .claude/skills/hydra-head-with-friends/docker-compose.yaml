@@ -1,0 +1,82 @@
+# One participant's stack: a cardano-node (preprod) plus a hydra-node, joined
+# with your friends into a single Hydra head. Every friend runs this same file
+# on their own machine; only the values in .env and config/hydra-node.yaml differ.
+#
+#   docker compose up -d cardano-node     # start L1, let it finish syncing
+#   docker compose up -d hydra-node       # start L2 once the node is synced
+#   docker compose run --rm hydra-tui     # optional interactive client
+#
+# Run ./setup.sh once first (fetches configs + keys + a Mithril DB snapshot).
+
+name: hydra-friends
+
+services:
+  # ---------------------------------------------------------------------------
+  # Cardano layer 1. Explicit preprod config (fetched by setup.sh) rather than
+  # the image's NETWORK shortcut, so the paths line up with the Mithril-seeded
+  # database at data/db.
+  # ---------------------------------------------------------------------------
+  cardano-node:
+    image: ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
+    restart: unless-stopped
+    volumes:
+      - ./cardano-conf:/config:ro
+      - ./data/db:/data/db
+      - ./data/ipc:/ipc
+    environment:
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [ "run"
+      , "--config", "/config/config.json"
+      , "--topology", "/config/topology.json"
+      , "--database-path", "/data/db"
+      , "--socket-path", "/ipc/node.socket"
+      ]
+
+  # ---------------------------------------------------------------------------
+  # Hydra layer 2. Configured entirely from config/hydra-node.yaml. The etcd
+  # peer-to-peer layer is embedded in this image, so no extra service is needed.
+  # ---------------------------------------------------------------------------
+  hydra-node:
+    image: ghcr.io/cardano-scaling/hydra-node:${HYDRA_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - cardano-node
+    volumes:
+      - ./config:/config:ro           # hydra-node.yaml + protocol-parameters.json
+      - ./credentials:/credentials:ro # your signing keys
+      - ./peers:/peers:ro             # every participant's verification keys
+      - ./data/ipc:/ipc               # cardano-node socket (rw: connecting needs write)
+      - ./persistence:/persistence    # head state + embedded etcd data
+    ports:
+      # Peer-to-peer (etcd/Raft) port. This is the ONLY port your friends need
+      # to reach. Publishing it here binds 0.0.0.0 on the host, so also forward
+      # it on your router/firewall (or run everyone over a VPN, recommended:
+      # the peer traffic is not encrypted).
+      - "${PEER_PORT:-5001}:5001"
+      # Client API, published to host loopback ONLY (it is unauthenticated).
+      # Reach it from this machine as ws://127.0.0.1:4001 ; the hydra-tui below
+      # reaches it directly over the compose network.
+      - "127.0.0.1:${API_PORT:-4001}:4001"
+    command: [ "--config", "/config/hydra-node.yaml" ]
+
+  # ---------------------------------------------------------------------------
+  # Optional terminal UI. Enable with:  docker compose --profile tui run --rm hydra-tui
+  # Uses your FUNDS key (the one you commit into and spend inside the head).
+  # ---------------------------------------------------------------------------
+  hydra-tui:
+    image: ghcr.io/cardano-scaling/hydra-tui:${HYDRA_VERSION}
+    profiles: [ tui ]
+    stdin_open: true
+    tty: true
+    depends_on:
+      - hydra-node
+    volumes:
+      - ./credentials:/credentials:ro
+      - ./data/ipc:/ipc                 # rw: the TUI submits L1 txs via this socket
+    command:
+      [ "--connect", "hydra-node:4001"
+      , "--node-socket", "/ipc/node.socket"
+      , "--testnet-magic", "1"
+      , "--cardano-signing-key", "/credentials/${MY_NAME}-funds.sk"
+      ]

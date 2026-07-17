@@ -1,0 +1,10 @@
+# Never share secrets or local state when distributing this bundle.
+.env
+credentials/
+data/
+persistence/
+cardano-conf/
+
+# Peers' PUBLIC verification keys are safe to keep, but ignore by default so a
+# shared template repo stays clean; force-add the ones you want to track.
+peers/*.vk

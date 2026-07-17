@@ -1,0 +1,102 @@
+# =============================================================================
+# hydra-node configuration for a Hydra head shared between friends (preprod).
+#
+# Loaded by the hydra-node container as: hydra-node --config /config/hydra-node.yaml
+# All paths below are ABSOLUTE container paths (see the mounts in docker-compose.yaml).
+#
+# WHAT IS SHARED vs WHAT IS PERSONAL
+#   Personal (edit for yourself):   node-id, advertise, hydra-signing-key,
+#                                   chain.cardano-signing-key
+#   Shared (BYTE-IDENTICAL for everyone in the head):
+#                                   peers, ledger-protocol-parameters,
+#                                   chain.network, chain.contestation-period
+#   If the shared values differ between participants, the `Init` transaction is
+#   ignored and the head never opens.
+# =============================================================================
+
+# --- Your identity -----------------------------------------------------------
+# A label unique to you within the head.
+node-id: "alice"
+
+# Address the node BINDS inside the container. Leave as-is for Docker; the
+# container port 5001 is published to the host by docker-compose.yaml.
+listen: "0.0.0.0:5001"
+
+# Your PUBLIC endpoint, reachable by your friends (public IP / DNS, or a VPN
+# address). This is what the peer-to-peer layer advertises to the others, and
+# it MUST be byte-for-byte what each friend puts in their `peers:` list for you
+# (host and port). If you leave it as the bind address the others cannot reach
+# you. Example: "203.0.113.7:5001" or "alice.duckdns.org:5001".
+advertise: "YOUR_PUBLIC_HOST:5001"
+
+# Client API (used by hydra-tui / websocat / curl). Bound to 0.0.0.0 so the
+# hydra-tui container can reach it over the compose network; docker-compose.yaml
+# only publishes it to host loopback. The API is UNAUTHENTICATED, so never
+# expose this port to the internet: anyone who can reach it can close the head.
+api-host: "0.0.0.0"
+api-port: 4001
+monitoring-port: 6001
+
+# Your Hydra (layer-2) signing key, used to multi-sign snapshots.
+hydra-signing-key: "/credentials/alice-hydra.sk"
+
+# --- All participants (SHARED block: identical in everyone's file) -----------
+# List every participant exactly once, including yourself. Your own entry is
+# detected and dropped automatically (it is the one whose address equals your
+# `advertise` above), which is why this whole block can be copy-pasted verbatim
+# into every friend's config.
+#
+# Rules:
+#   - Each `address` MUST equal that person's own `advertise` value.
+#   - A signing peer needs BOTH keys; an observer needs NEITHER. Supplying
+#     exactly one of the two is rejected at startup.
+#   - Files live in /peers (see setup.sh); exchange the two *.vk files with
+#     each friend out of band (Signal, email, ...). Verification keys are
+#     public, so this is safe. Never share a *.sk file.
+peers:
+  - address: "ALICE_PUBLIC_HOST:5001"
+    hydra-verification-key: "/peers/alice-hydra.vk"
+    cardano-verification-key: "/peers/alice-node.vk"
+  - address: "BOB_PUBLIC_HOST:5001"
+    hydra-verification-key: "/peers/bob-hydra.vk"
+    cardano-verification-key: "/peers/bob-node.vk"
+  - address: "CAROL_PUBLIC_HOST:5001"
+    hydra-verification-key: "/peers/carol-hydra.vk"
+    cardano-verification-key: "/peers/carol-node.vk"
+
+# Ledger rules used INSIDE the head. Shipped with this bundle so everyone runs
+# the identical file (fees zeroed; safe to change only tx-level params). SHARED.
+ledger-protocol-parameters: "/config/protocol-parameters.json"
+
+# Head state and the node's embedded etcd data are written here.
+persistence-dir: "/persistence"
+
+chain:
+  mode: cardano
+
+  # Selects the pre-published Hydra reference scripts for THIS released
+  # hydra-node version and this network. IMPORTANT: `network` sets ONLY the
+  # scripts; it does NOT set the Cardano network magic. The magic is
+  # `backend.testnet-magic` below. (preprod = 1, preview = 2.) SHARED.
+  network: preprod
+
+  # Your Cardano (layer-1) signing key. Its address pays fees for the on-chain
+  # protocol transactions (Init/Close/Contest/Fanout); this is the node's
+  # "fuel". Fund it with a little test ada (see setup.sh output). Personal.
+  cardano-signing-key: "/credentials/alice-node.sk"
+
+  # After `Close`, everyone has at least this many seconds to `Contest`. All
+  # participants MUST use the same value. 600s is fine for a testnet; the
+  # mainnet-safe value is >= 43200 (12h). SHARED.
+  contestation-period: 600
+
+  # Governs incremental deposits into an open head. Not a protocol parameter,
+  # so it may differ per node, but keeping it uniform avoids surprises.
+  deposit-period: 300
+
+  backend:
+    mode: direct
+    # THE network magic. preprod = 1. Without this it silently defaults to 42.
+    testnet-magic: 1
+    # The cardano-node's IPC socket, shared with the cardano-node container.
+    node-socket: "/ipc/node.socket"
