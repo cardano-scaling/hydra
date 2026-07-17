@@ -18,6 +18,8 @@ import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
 import Control.Monad (foldM)
+import Data.Aeson (Result (Success), Value (..), fromJSON)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.List qualified as List
 import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
@@ -2254,6 +2256,44 @@ spec =
           OnChainEffect{postChainTx = FanoutTx{}} -> True
           OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
           OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          _ -> False
+
+      it "decodes a legacy HeadPartialFannedOut without 'mode' as AwaitingSelection" $ do
+        -- Backwards compatibility: events persisted before the 'mode' field
+        -- existed must still decode, so a node mid-fanout can restart after
+        -- upgrading rather than failing to replay its event log.
+        let event =
+              HeadPartialFannedOut
+                { headId = testHeadId
+                , distributedOutputs = utxoRefs [1]
+                , remainingOutputs = utxoRefs [2]
+                , chainState = SimpleChainState 0
+                , mode = AutoDrain
+                } ::
+                StateChanged SimpleTx
+            legacy = case toJSON event of
+              Object o -> Object (KeyMap.delete "mode" o)
+              v -> v
+        case fromJSON legacy :: Result (StateChanged SimpleTx) of
+          Success HeadPartialFannedOut{mode} -> mode `shouldBe` AwaitingSelection
+          other -> failure $ "Expected HeadPartialFannedOut, got: " <> show other
+
+      it "records a deposit observed while fanning out (stays recoverable)" $ do
+        -- Regression: a deposit observed mid-fanout must be recorded (as when the
+        -- head was still Closed), otherwise it is dropped and cannot be recovered.
+        let st = inAutoDrainProgress threeParties (utxoRefs [1, 2])
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let deposit =
+              OnDepositTx
+                { headId = testHeadId
+                , depositTxId = 7
+                , deposited = utxoRef 9
+                , created = now
+                , deadline = now
+                }
+            outcome = update bobEnv ledger now st (observeTx deposit)
+        outcome `hasStateChangedSatisfying` \case
+          DepositRecorded{depositTxId} -> depositTxId == 7
           _ -> False
 
       it "client fanout without prior partial fanout uses full snapshot utxo" $ do

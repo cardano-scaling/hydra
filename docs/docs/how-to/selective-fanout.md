@@ -5,7 +5,7 @@ sidebar_position: 6.5
 # Selective fanout
 
 When a head is closed and ready to fan out, the plain `Fanout` command distributes the
-**whole** head at once. With a _selective_ (partial) fanout you instead choose exactly
+**whole UTxO set** at once. With a _selective_ (partial) fanout you instead choose exactly
 which `UTXO` to distribute, and in which order — paying the on-chain cost only for what
 you care about, and leaving the rest in the head to fan out later.
 
@@ -42,11 +42,15 @@ several transactions if the selection is too large to fit in one) and replies wi
   "tag": "HeadPartiallyFannedOut",
   "headId": "...",
   "distributedUTxO": { /* what this step put back on layer 1 */ },
-  "remainingUTxO": { /* what is still in the head */ }
+  "remainingUTxO": { /* what is still in the head */ },
+  "fanoutMode": "AwaitingFanoutSelection"
 }
 ```
 
-Use `remainingUTxO` to choose your next selection. Keep issuing `PartialFanout` commands —
+`fanoutMode` tells you whether the node is still draining on its own
+(`AutoFanningOut`, e.g. after a plain `Fanout`) or is waiting for your next
+selection (`AwaitingFanoutSelection`) — so a client can show the right prompt
+instead of guessing. Use `remainingUTxO` to choose your next selection. Keep issuing `PartialFanout` commands —
 selecting the entire remaining set when you want to finish — until the head is drained. On
 the final step the node automatically submits the transaction that burns the head tokens
 and emits `HeadIsFinalized` with the complete distributed `utxo`.

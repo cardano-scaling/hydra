@@ -1288,6 +1288,7 @@ components:
         - headId
         - distributedUTxO
         - remainingUTxO
+        - fanoutMode
         - seq
         - timestamp
       properties:
@@ -1300,10 +1301,22 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         remainingUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
+        fanoutMode:
+          $ref: "api.yaml#/components/schemas/FanoutProgressMode"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
+
+    FanoutProgressMode:
+      title: FanoutProgressMode
+      type: string
+      description: >-
+        Whether a fanning-out head keeps draining on its own or is waiting for
+        the client to choose the next PartialFanout selection.
+      enum:
+        - AutoFanningOut
+        - AwaitingFanoutSelection
 
     HeadIsFinalized:
       type: object

@@ -15,6 +15,7 @@ import Brick.Forms (Form)
 import Brick.Widgets.List qualified as BrickList
 import Data.Map qualified as Map
 import Data.Vector qualified as Vec
+import Hydra.API.ServerOutput (FanoutProgressMode (..), fanoutProgressMode)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
@@ -161,8 +162,10 @@ data ActiveHeadState
   | FanoutPossible
   | -- | A selective partial fanout is in progress (on-chain @FanoutProgress@):
     -- some UTxO has been distributed and 'fanoutRemaining' is still in the head.
-    -- Only further partial fanouts are accepted (no full 'Fanout').
-    FanningOut {fanoutRemaining :: UTxO}
+    -- Only further partial fanouts are accepted (no full 'Fanout'). 'fanoutMode'
+    -- (reported by the node) says whether it keeps draining on its own or awaits
+    -- the next selection, driving what the UI offers.
+    FanningOut {fanoutRemaining :: UTxO, fanoutMode :: FanoutProgressMode}
   | Final
 
 type Name = Text
@@ -252,6 +255,9 @@ fundsL1ViewportName = "funds-l1"
 fundsFuelViewportName :: Name
 fundsFuelViewportName = "funds-fuel"
 
+fanoutSelectionViewportName :: Name
+fanoutSelectionViewportName = "fanout-selection"
+
 emptyEventHistoryList :: BrickList.List Name LogMessage
 emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1
 
@@ -338,6 +344,7 @@ recoverHeadState now current nodeState =
         , headId
         , confirmedSnapshot
         , remainingOutputs
+        , mode
         } ->
         let Snapshot{utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
          in Active
@@ -347,7 +354,7 @@ recoverHeadState now current nodeState =
                 , pendingIncrements
                 , parties = HeadParameters.parties parameters
                 , headId
-                , activeHeadState = FanningOut{fanoutRemaining = remainingOutputs}
+                , activeHeadState = FanningOut{fanoutRemaining = remainingOutputs, fanoutMode = fanoutProgressMode mode}
                 }
  where
   pendingIncrements =

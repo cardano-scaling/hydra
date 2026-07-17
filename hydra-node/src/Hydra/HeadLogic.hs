@@ -1377,6 +1377,26 @@ onClosedClientFanout closedState =
  where
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
 
+-- | Given the on-chain @version@ and a snapshot's own version, decide which of a
+-- pending commit / decommit is still to be distributed on fanout. When the
+-- increment has landed on chain (versions match) the commit was already applied
+-- (drop it) while a pending decommit still applies; otherwise the commit still
+-- applies and the decommit was already paid out. Centralises the version check
+-- shared by 'mkFullFanoutTx' and 'fanoutUTxOFromSnapshot'.
+effectiveCommitDecommit ::
+  -- | On-chain version
+  SnapshotVersion ->
+  -- | Snapshot version
+  SnapshotVersion ->
+  -- | Pending commit
+  Maybe (UTxOType tx) ->
+  -- | Pending decommit
+  Maybe (UTxOType tx) ->
+  (Maybe (UTxOType tx), Maybe (UTxOType tx))
+effectiveCommitDecommit onChainVersion snapshotVersion utxoToCommit utxoToDecommit
+  | snapshotVersion == onChainVersion = (Nothing, utxoToDecommit)
+  | otherwise = (utxoToCommit, Nothing)
+
 -- | Build the full automatic 'FanoutTx' from a confirmed snapshot at the given
 -- on-chain version. Shared by 'onClosedClientFanout' and the rollback re-post in
 -- 'FanoutProgress' ('repostFanoutStep').
@@ -1390,14 +1410,8 @@ mkFullFanoutTx ::
 mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
   FanoutTx
     { utxo
-    , -- Include utxoToCommit only if the increment has been applied on chain
-      -- (version bumped). Otherwise it was never used and must not be distributed.
-      utxoToCommit =
-        if snapshotVersion == version then Nothing else utxoToCommit
-    , -- Include utxoToDecommit only if the decrement has NOT been applied on
-      -- chain yet. If it was applied the UTxO is gone and must not be re-distributed.
-      utxoToDecommit =
-        if snapshotVersion == version then utxoToDecommit else Nothing
+    , utxoToCommit = effectiveCommit
+    , utxoToDecommit = effectiveDecommit
     , -- Always use the snapshot's original (unfiltered) full UTxO set to rebuild
       -- the accumulator that matches the closed datum.
       utxoForProof = snapshotUTxO snapshot
@@ -1405,6 +1419,7 @@ mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
     , contestationDeadline
     }
  where
+  (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
   snapshot = getSnapshot confirmedSnapshot
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = snapshot
 
@@ -1431,7 +1446,7 @@ onClosedClientPartialFanout closedState selection
       newState HeadPartialFanoutSelected{headId, remainingOutputs = fullUTxO, selection}
         -- Fresh head: on-chain datum is still @Closed@, so the first step is a
         -- non-final 'PartialFanoutTx'.
-        <> emitPartialFanoutStep selection fullUTxO False confirmedSnapshot version headSeed contestationDeadline
+        <> emitPartialFanoutStep selection fullUTxO DatumClosed confirmedSnapshot version headSeed contestationDeadline
  where
   fullUTxO = computeFullFanoutUTxO closedState
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
@@ -1451,10 +1466,13 @@ onPartialFanoutClientPartialFanout pfs selection
       cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
   | otherwise =
       newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
-        -- Already in 'FanoutProgress' on chain.
-        <> emitPartialFanoutStep selection remainingOutputs True confirmedSnapshot version headSeed contestationDeadline
+        -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
+        -- actually landed (some outputs distributed); until then it is still
+        -- @Closed@ and a 'FinalPartialFanoutTx' is not yet valid. Compute this
+        -- the same way as 'repostFanoutStep' rather than assuming 'True'.
+        <> emitPartialFanoutStep selection remainingOutputs (onChainFanoutDatum distributedOutputs) confirmedSnapshot version headSeed contestationDeadline
  where
-  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs} = pfs
+  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs} = pfs
 
 -- | Observe a (full or final) fanout transaction, finalizing the head.
 --
@@ -1538,7 +1556,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
             , mode = newMode
             }
       -- Already in 'FanoutProgress' on chain, so any continuation may finalize.
-      finalize = emitPartialFanoutStep remaining remaining True confirmedSnapshot version headSeed contestationDeadline
+      finalize = emitPartialFanoutStep remaining remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
       continue
         -- The head's remaining set is now empty: emit the final (burning) step,
         -- which also distributes any pre-settled UTxO. This must happen regardless
@@ -1548,7 +1566,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
         | nullOutputs remaining = finalize
         | otherwise = case newMode of
             AutoDrain -> finalize
-            DistributingSelection sel' -> emitPartialFanoutStep sel' remaining True confirmedSnapshot version headSeed contestationDeadline
+            DistributingSelection sel' -> emitPartialFanoutStep sel' remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
             AwaitingSelection -> noop
    in record <> continue
  where
@@ -1593,14 +1611,7 @@ fanoutUTxOFromSnapshot confirmedSnapshot version =
     <> fromMaybe mempty effectiveDecommit
  where
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
-  effectiveCommit =
-    if snapshotVersion == version
-      then Nothing
-      else utxoToCommit
-  effectiveDecommit =
-    if snapshotVersion == version
-      then utxoToDecommit
-      else Nothing
+  (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
 
 -- | Build the 'PartialFanout' ('FanoutProgress') head state from a closed head,
 -- carrying over the snapshot/parameters and using the given chain state, remaining
@@ -1676,9 +1687,27 @@ isSubMultisetOf sub sup =
     - length (outputsOfUTxO sub)
 
 -- | Whether two UTxO sets have the same outputs (by content, as a multiset).
+-- The @a == b@ short-circuit avoids the O(n²) multiset comparison in the common
+-- case where both arguments are the same tracked set (e.g. the auto-drain
+-- @sameOutputs remaining remaining@ check on every observed chunk), which is
+-- exactly the large-UTxO heads partial fanout targets.
 sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 sameOutputs a b =
-  length (outputsOfUTxO a) == length (outputsOfUTxO b) && a `isSubMultisetOf` b
+  a == b || (length (outputsOfUTxO a) == length (outputsOfUTxO b) && a `isSubMultisetOf` b)
+
+-- | Which on-chain head datum the next fanout step will be posted against:
+-- still @Closed@ (no partial fanout has landed yet) or already @FanoutProgress@.
+-- A 'FinalPartialFanoutTx' (which burns the head tokens) is only valid once the
+-- datum is 'DatumFanoutProgress'.
+data OnChainFanoutDatum = DatumClosed | DatumFanoutProgress
+  deriving stock (Eq)
+
+-- | The on-chain datum implied by how much has been distributed so far: still
+-- @Closed@ while nothing has landed, @FanoutProgress@ once some has.
+onChainFanoutDatum :: IsTx tx => UTxOType tx -> OnChainFanoutDatum
+onChainFanoutDatum distributed
+  | nullOutputs distributed = DatumClosed
+  | otherwise = DatumFanoutProgress
 
 -- | Emit the next partial fanout on-chain effect.
 --
@@ -1694,17 +1723,17 @@ emitPartialFanoutStep ::
   UTxOType tx ->
   -- | The head's full remaining set
   UTxOType tx ->
-  -- | Whether the on-chain head datum is already @FanoutProgress@ (i.e. at least
-  --   one partial fanout has happened). 'False' only for the very first step from
-  --   a @Closed@ head, where 'FinalPartialFanout' is not yet possible.
-  Bool ->
+  -- | The on-chain datum the step is posted against. 'DatumClosed' only for the
+  --   very first step from a @Closed@ head, where 'FinalPartialFanoutTx' is not
+  --   yet possible.
+  OnChainFanoutDatum ->
   ConfirmedSnapshot tx ->
   SnapshotVersion ->
   HeadSeed ->
   UTCTime ->
   Outcome tx
-emitPartialFanoutStep target remaining onChainIsFanoutProgress confirmedSnapshot version headSeed contestationDeadline
-  | target `sameOutputs` remaining && onChainIsFanoutProgress =
+emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version headSeed contestationDeadline
+  | target `sameOutputs` remaining && onChainDatum == DatumFanoutProgress =
       cause
         OnChainEffect
           { postChainTx =
@@ -1734,7 +1763,7 @@ emitPartialFanoutStep target remaining onChainIsFanoutProgress confirmedSnapshot
   utxoForProof
     -- First step from a @Closed@ head: the datum's accumulator commits to the
     -- full snapshot UTxO.
-    | not onChainIsFanoutProgress = snapshotUTxO (getSnapshot confirmedSnapshot)
+    | onChainDatum == DatumClosed = snapshotUTxO (getSnapshot confirmedSnapshot)
     -- Otherwise the head is in @FanoutProgress@, whose accumulator commits to the
     -- not-yet-distributed set plus any pre-settled elements.
     | otherwise = remaining <> presettled
@@ -1760,14 +1789,14 @@ repostFanoutStep pfs =
     AutoDrain
       -- Nothing distributed yet: re-post the full automatic fanout, exactly as
       -- the original 'Fanout' command did.
-      | not onChainIsFanoutProgress ->
+      | onChainDatum == DatumClosed ->
           cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
       | otherwise ->
-          emitPartialFanoutStep remainingOutputs remainingOutputs True confirmedSnapshot version headSeed contestationDeadline
+          emitPartialFanoutStep remainingOutputs remainingOutputs DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
     DistributingSelection selection ->
-      emitPartialFanoutStep selection remainingOutputs onChainIsFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+      emitPartialFanoutStep selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
  where
-  onChainIsFanoutProgress = not (nullOutputs distributedOutputs)
+  onChainDatum = onChainFanoutDatum distributedOutputs
   PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs, mode} = pfs
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
@@ -2024,6 +2053,14 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     | otherwise ->
         Continue [] []
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+    | ourHeadId == headId ->
+        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+    | otherwise ->
+        Continue [] []
+  -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
+  -- (partial) fanout must still be recorded so it remains recoverable via
+  -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
+  (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->

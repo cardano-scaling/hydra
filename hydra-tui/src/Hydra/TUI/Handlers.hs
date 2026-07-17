@@ -24,7 +24,7 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
+import Hydra.API.ServerOutput (FanoutProgressMode (..), NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Cardano.Api.Prelude ()
@@ -197,9 +197,12 @@ handleEvent cardanoClient client chan = \case
         -- 'PartialFanout'. Only available once fanout is possible. This is a
         -- top-level modal flow (uses 'fanoutSelectionFormL'), like recovery.
         mLink <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL)
+        -- Offer partial fanout only when the node is actually waiting for a
+        -- selection: from 'FanoutPossible', or mid-fanout when the node reports
+        -- it is awaiting the next selection (not while it auto-drains).
         let canPartialFanout = \case
               FanoutPossible -> True
-              FanningOut{} -> True
+              FanningOut{fanoutMode} -> fanoutMode == AwaitingFanoutSelection
               _ -> False
         case mLink of
           Just ActiveLink{utxo = UTxO m, activeHeadState}
@@ -294,6 +297,10 @@ handleEvent cardanoClient client chan = \case
                 let allTicked = all (snd . snd) (Map.toList (formState form))
                     setAll b = Map.map (\(o, _) -> (o, b)) (formState form)
                  in fanoutSelectionFormL . _Just %= updateFormState (setAll (not allTicked))
+              -- Scroll the (possibly long) UTxO list with PageUp/PageDown, matching
+              -- the main/funds UTxO viewports.
+              (_, Just _, EvKey KPageUp []) -> vScrollBy (viewportScroll fanoutSelectionViewportName) (-10)
+              (_, Just _, EvKey KPageDown []) -> vScrollBy (viewportScroll fanoutSelectionViewportName) 10
               (_, Just _, _) ->
                 -- The multi-select is several separate checkbox fields, so brick
                 -- moves focus with Tab/BackTab. Map ↑/↓ to those so the arrow
@@ -424,12 +431,13 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.ReadyToFanout{}}) ->
       activeHeadStateL .= FanoutPossible
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadPartiallyFannedOut{remainingUTxO}}) -> do
-      -- A selective partial fanout step landed: move into the in-progress
-      -- 'FanningOut' state and reflect what is left so the operator can pick the
-      -- next selection (or fan out the rest). Full 'Fanout' is no longer offered.
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadPartiallyFannedOut{remainingUTxO, fanoutMode}}) -> do
+      -- A fanout step landed: move into the in-progress 'FanningOut' state and
+      -- reflect what is left. 'fanoutMode' (from the node) decides whether we
+      -- prompt for the next selection or just report auto-draining progress.
+      -- Full 'Fanout' is no longer offered either way.
       utxoL .= remainingUTxO
-      activeHeadStateL .= FanningOut{fanoutRemaining = remainingUTxO}
+      activeHeadStateL .= FanningOut{fanoutRemaining = remainingUTxO, fanoutMode}
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{finalizedUTxO}}) -> do
       -- Show the full cumulative set that was fanned out across all (partial)
       -- fanout steps, not just the last batch that happened to be left in 'utxoL'.

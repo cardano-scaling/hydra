@@ -197,7 +197,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot)
+              (rightToMaybe (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot))
               utxoForProof
               fullUTxO
               (UTxO.size fullUTxO - 1)
@@ -211,7 +211,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot)
+              (rightToMaybe (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot))
               (utxoToDistribute <> presettledUTxO)
               utxoToDistribute
               (UTxO.size utxoToDistribute - 1)
@@ -232,7 +232,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (Left () :: Either () Tx)
+              Nothing
               utxoForProof
               utxoToDistribute
               (UTxO.size utxoToDistribute)
@@ -606,7 +606,7 @@ fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
 --   * No chunk fits within budget → 'FailedToConstructPartialFanoutTx'
 --     (budget exhaustion; also not a race condition).
 findFittingFanoutTx ::
-  forall m e.
+  forall m.
   MonadThrow m =>
   Tracer m CardanoChainLog ->
   TinyWallet m ->
@@ -615,8 +615,8 @@ findFittingFanoutTx ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Left skips straight to the loop
-  Either e Tx ->
+  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); 'Nothing' skips straight to the fallback loop
+  Maybe Tx ->
   -- | UTxO for the accumulator check in the partial-fanout fallback (matches the on-chain datum)
   UTxO ->
   -- | UTxOs to distribute in the partial-fanout fallback
@@ -637,7 +637,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
-  findBest = either (const findFallback) tryPreferred ePreferred
+  findBest = maybe findFallback tryPreferred ePreferred
    where
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 

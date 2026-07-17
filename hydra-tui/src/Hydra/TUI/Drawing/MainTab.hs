@@ -134,9 +134,9 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               [ drawFanoutPossibleMessage
               , utxoBlock utxo
               ]
-          FanningOut{fanoutRemaining} ->
+          FanningOut{fanoutRemaining, fanoutMode} ->
             vBox
-              [ drawFanningOutMessage fanoutRemaining
+              [ drawFanningOutMessage fanoutMode fanoutRemaining
               , utxoBlock fanoutRemaining
               ]
           Final ->

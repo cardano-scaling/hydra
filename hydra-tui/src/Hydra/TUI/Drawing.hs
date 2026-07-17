@@ -10,6 +10,7 @@ import Brick.Forms (formState, renderForm)
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
+import Hydra.API.ServerOutput (FanoutProgressMode (..))
 import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Client (Client (..))
@@ -17,6 +18,7 @@ import Hydra.TUI.Config (Theme (..))
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventHistoryTab)
 import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab, drawRecoverFormWithDetail)
 import Hydra.TUI.Drawing.MainTab (drawMainTab)
+import Hydra.TUI.Drawing.Utils (scrollableViewport)
 import Hydra.TUI.Logging.Types (EventHistoryFilter (..))
 import Hydra.TUI.Model
 import Hydra.TUI.Style
@@ -113,9 +115,9 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
                 total = length entries
                 selected = length (filter snd entries)
              in vBox
-                  [ withAttr sectionHeaderA $ txt "Select UTxOs to fan out (Space toggle, A all):"
+                  [ withAttr sectionHeaderA $ txt "Select UTxOs to fan out (Space toggle, A all, PgUp/PgDn scroll):"
                   , withAttr neutral $ txt ("Selected " <> show selected <> " of " <> show total <> " UTxO")
-                  , renderForm form
+                  , scrollableViewport fanoutSelectionViewportName $ renderForm form
                   ]
           Nothing -> case s ^. connectedStateL of
             Disconnected -> emptyWidget
@@ -163,15 +165,18 @@ drawActionBar s =
     Open{} -> [("I", "ncrement"), ("D", "ecommit")] <> recoverIf <> [("U", "pdate"), ("Q", "uit")]
     Closed{} -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
     FanoutPossible{} -> recoverIf <> [("F", "anout"), ("P", "artial fanout"), ("U", "pdate"), ("Q", "uit")]
-    -- Mid partial fanout: only further partial fanouts (no full 'Fanout').
-    FanningOut{} -> recoverIf <> [("P", "artial fanout"), ("U", "pdate"), ("Q", "uit")]
+    -- Mid fanout: offer [P] only when the node awaits a selection; while it
+    -- auto-drains there is nothing for the user to do. Full 'Fanout' is gone.
+    FanningOut{fanoutMode = AwaitingFanoutSelection} -> recoverIf <> [("P", "artial fanout"), ("U", "pdate"), ("Q", "uit")]
+    FanningOut{} -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
     Final{} -> recoverIf <> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
   -- Per-state actions on every other (non-Funds, non-EventHistory) tab.
   mainTabActions = \case
     Open{} -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement")] <> recoverIf <> [("C", "lose"), ("Q", "uit")]
     Closed{} -> recoverIf <> [("Q", "uit")]
     FanoutPossible{} -> recoverIf <> [("F", "anout"), ("P", "artial fanout"), ("Q", "uit")]
-    FanningOut{} -> recoverIf <> [("P", "artial fanout"), ("Q", "uit")]
+    FanningOut{fanoutMode = AwaitingFanoutSelection} -> recoverIf <> [("P", "artial fanout"), ("Q", "uit")]
+    FanningOut{} -> recoverIf <> [("Q", "uit")]
     Final{} -> recoverIf <> [("I", "nit"), ("Q", "uit")]
   recoverIf = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
     Just (_ : _) -> [("R", "ecover")]

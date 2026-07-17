@@ -11,6 +11,7 @@ import Data.Map qualified as Map
 import Data.Text qualified as T
 import Data.Time (defaultTimeLocale, formatTime, utctDayTime)
 import Data.Time.Format (FormatTime)
+import Hydra.API.ServerOutput (FanoutProgressMode (..))
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.TUI.Style (infoA, own, sectionHeaderA)
 import Hydra.Tx (HeadId, IsTx (..))
@@ -122,13 +123,21 @@ drawFanoutPossibleMessage :: Widget n
 drawFanoutPossibleMessage =
   withAttr sectionHeaderA $ txt "Contestation period passed — ready to fan out."
 
--- | Status message shown while a selective partial fanout is in progress,
--- reporting how many UTxO are still to be fanned out. Shared between the Main
--- and Funds tabs so the wording and count match.
-drawFanningOutMessage :: UTxO -> Widget n
-drawFanningOutMessage remaining =
-  withAttr infoA $
-    txt ("Partial fanout in progress — " <> show (UTxO.size remaining) <> " UTxO remaining (press [P] to fan out more)")
+-- | Status message shown while a fanout is in progress, reporting how many UTxO
+-- are still to be fanned out. The wording follows the node-reported
+-- 'FanoutProgressMode': while auto-draining we just report progress; when the
+-- node awaits the next selection we prompt for [P]. Shared between the Main and
+-- Funds tabs so the wording and count match.
+drawFanningOutMessage :: FanoutProgressMode -> UTxO -> Widget n
+drawFanningOutMessage mode remaining =
+  withAttr infoA $ txt message
+ where
+  count = show (UTxO.size remaining)
+  message = case mode of
+    AutoFanningOut ->
+      "Fanning out — " <> count <> " UTxO remaining…"
+    AwaitingFanoutSelection ->
+      "Partial fanout paused — " <> count <> " UTxO remaining (press [P] to fan out more)"
 
 -- | Status message shown when the head has been finalized, including the
 -- total ADA value of the distributed UTxO. Shared between the Main and

@@ -5,11 +5,13 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
+import Data.Aeson (Value (..), defaultOptions, genericParseJSON)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
-import Hydra.HeadLogic.State (FanoutMode)
+import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
@@ -177,7 +179,21 @@ data StateChanged tx
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+
+-- | Decoded generically, except that a 'HeadPartialFannedOut' persisted before
+-- the 'mode' field existed (event logs from an earlier node) is decoded with
+-- 'mode' defaulting to 'AwaitingSelection'. That is the safe default: the node
+-- waits for the next 'PartialFanout' rather than assuming an auto-drain, so a
+-- node mid-fanout can still restart. All other constructors decode as before.
+instance forall tx. (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx) where
+  parseJSON = genericParseJSON defaultOptions . withDefaultFanoutMode
+   where
+    withDefaultFanoutMode = \case
+      Object o
+        | Just (String "HeadPartialFannedOut") <- KeyMap.lookup "tag" o
+        , not (KeyMap.member "mode" o) ->
+            Object (KeyMap.insert "mode" (toJSON (AwaitingSelection :: FanoutMode tx)) o)
+      v -> v
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
