@@ -13,14 +13,21 @@
         standard-library-classes
         standard-library-meta
       ];
-    in
-    {
-      # Agda with the specification's libraries, reused by the spec build and
-      # exposed so the dev shell can offer the same `agda` for working on the spec.
-      packages.spec-agda = agdaPackages.withPackages agdaLibraries;
 
-      packages.spec = pkgs.stdenv.mkDerivation {
-        pname = "hydra-spec.pdf";
+      # The Agda typecheck + lints + Typst render, WITHOUT the notation-tooltip
+      # postprocess (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal:
+      # consume packages.spec, which adds the tooltips.
+      #
+      # The postprocess runs as the separate seconds-long derivation below so
+      # this minutes-long, disk-heavy build shares no build window with the
+      # python closure: a busy builder's mid-build auto-GC (observed on the
+      # aarch64-darwin CI builders, where no sandbox bind-mount keeps a
+      # collected path alive for a running build) once collected a late-used
+      # python package out from under the final build step. Inputs are
+      # re-validated when each derivation starts, so splitting shrinks the
+      # exposure of the python environment from the whole render to seconds.
+      spec-rendered = pkgs.stdenv.mkDerivation {
+        pname = "hydra-spec-unannotated.pdf";
         version = "0.0.1";
         nativeBuildInputs = [
           config.packages.spec-agda
@@ -37,6 +44,7 @@
         # with Typst plus JuliaMono from nixpkgs (code blocks, wired through
         # JULIAMONO_FONT_DIR, see build.sh) are used.
         JULIAMONO_FONT_DIR = "${pkgs.julia-mono}/share/fonts/truetype";
+        ANNOTATE_NOTATION = "skip";
         buildPhase = ''
           export HOME=$TMPDIR
           bash build.sh
@@ -44,6 +52,32 @@
         installPhase = ''
           mkdir $out
           cp _build/hydra-spec.pdf $out/hydra-spec.pdf
+        '';
+      };
+    in
+    {
+      # Agda with the specification's libraries, reused by the spec build and
+      # exposed so the dev shell can offer the same `agda` for working on the spec.
+      packages.spec-agda = agdaPackages.withPackages agdaLibraries;
+
+      # The publishable spec PDF: the render above plus the notation hover
+      # tooltips (build.sh stage 3, split out - see the spec-rendered comment).
+      packages.spec = pkgs.stdenv.mkDerivation {
+        pname = "hydra-spec.pdf";
+        version = "0.0.1";
+        nativeBuildInputs = [
+          # for annotate-notation.py (stamps the tooltips, needs PyMuPDF)
+          (pkgs-2511.python3.withPackages (ps: [ ps.pymupdf ]))
+        ];
+        meta = { };
+        dontUnpack = true;
+        buildPhase = ''
+          python3 ${self}/spec/annotate-notation.py \
+            ${spec-rendered}/hydra-spec.pdf hydra-spec.pdf
+        '';
+        installPhase = ''
+          mkdir $out
+          cp hydra-spec.pdf $out/hydra-spec.pdf
         '';
       };
 

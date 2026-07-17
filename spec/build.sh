@@ -41,5 +41,22 @@ typst compile --ignore-system-fonts --root "$SRC" \
   --font-path "${JULIAMONO_FONT_DIR:?not set: use the nix dev shell (or nix build .#spec), or point it at a directory with JuliaMono-*.ttf}" \
   --package-cache-path typst-packages "$ENTRY" "$TMP"
 
+
+# Stage 3: stamp invisible hover-tooltips (definitions of the notation symbols)
+# over the prose math; see annotate-notation.py. The rendered pages are
+# pixel-identical; viewers with annotation popups (okular, pdf.js, Acrobat)
+# show the definition on hover.
+#
+# ANNOTATE_NOTATION=skip skips the stage: `nix build .#spec` runs it as a
+# SEPARATE seconds-long derivation (nix/hydra/spec.nix), so the minutes-long
+# Agda+Typst build does not share a build window with the python closure - a
+# busy builder's mid-build auto-GC (observed on the darwin CI builders) could
+# otherwise collect the late-used python environment out from under this step.
+if [ "${ANNOTATE_NOTATION:-}" = "skip" ]; then
+  echo "ANNOTATE_NOTATION=skip: leaving the PDF without notation tooltips (postprocess elsewhere)"
+else
+  python3 annotate-notation.py "$TMP" "$TMP.annotated"
+  mv -f "$TMP.annotated" "$TMP"
+fi
 mv -f "$TMP" "$PDF"
 echo "Wrote $PDF"

@@ -35,7 +35,9 @@ agda src/Hydra/Protocol/Main.lagda.typ
 ```
 
 or build the PDF iteratively with the build script (Agda typecheck +
-`check-refs.sh` + `check-trust-ledger.sh` + Typst render):
+`check-refs.sh` + `check-trust-ledger.sh` + Typst render + a tooltip
+post-process, `annotate-notation.py`: invisible hover annotations giving the
+definition of each notation symbol; skip it with `ANNOTATE_NOTATION=skip`):
 
 ```sh
 ./build.sh

@@ -13,10 +13,12 @@
 
       buildInputs = [
         # For working on the formal specification (agda typecheck + typst
-        # render, see spec/build.sh). typst from pkgs-2511: same >= 0.14.1
-        # requirement as the nix build (see nix/hydra/spec.nix).
+        # render + the annotate-notation.py tooltip postprocess, see
+        # spec/build.sh). typst from pkgs-2511: same >= 0.14.1 requirement as
+        # the nix build (see nix/hydra/spec.nix).
         self'.packages.spec-agda
         pkgs-2511.typst
+        (pkgs-2511.python3.withPackages (ps: [ ps.pymupdf ]))
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt
