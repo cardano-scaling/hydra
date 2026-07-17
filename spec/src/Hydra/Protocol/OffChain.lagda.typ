@@ -321,7 +321,13 @@ decrement transaction $tx_omega$ is sent. \
 each party records the deposit index by deposit transaction id to their local
 deposit registry $cal(D)$ with status $"Inactive"$. The deposit
 contains deposited UTxO $U$, creation time $t_("created")$, and deadline
-$t_("deadline")$. \
+$t_("deadline")$. A transaction is only recognised as a deposit if its inline
+datum decodes as $datumDeposit$ and its declared commits total exactly the
+value locked at $nuDeposit$ (the node's deposit observation,
+`observeDepositTx`, drops anything else) — the observation-time gate that
+discharges the off-chain obligation of @sec:deposit-tx: a malformed deposit
+never enters $cal(D)$, so no honest party ever signs a snapshot claiming
+it. \
 \
 #dparagraph[$mono("recoverTx")$.]#h(1em) Upon observing a recover transaction,
 each party drops the corresponding entry from its deposit registry

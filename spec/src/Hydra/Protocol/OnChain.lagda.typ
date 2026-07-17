@@ -573,7 +573,20 @@ collection into the head via an $mtxIncrement$ transaction. Any transaction
 paying to $nuDeposit$ is a $mtxDeposit$ transaction as there is no on-chain
 verification in $mtxDeposit$ transactions. Consequently, protocol actors
 *must ensure off-chain* that a valid datum is used when paying to the
-$nuDeposit$ validator.#todo[explain why this is enough?]
+$nuDeposit$ validator. This is sufficient because a deposit is inert until
+claimed: on-chain validation at creation time is not even expressible
+(validators run on spend, not on receive), no head funds are exposed by a
+deposit's existence, and collection requires an $mtxIncrement$ transaction
+carrying the $n$-of-$n$ multisignature (@sec:increment-tx) — whose message
+binds the claimed deposit's exact commit set, recomputed on-chain from its
+datum. Every honest node refuses to treat a deposit as claimable unless its
+datum decodes and its declared commits total exactly the value locked — a
+mismatch would otherwise make the head's accumulator insolvent and the head
+unfanoutable — so a single honest party blocks any malformed deposit: the
+same unanimity gate that authenticates all other head content. A deposit
+whose datum does not decode is unspendable by both the claim and recover
+arms (@sec:recover-tx); only the depositor's own funds are at risk from a
+malformed datum.
 
 A valid deposit output is governed by $nuDeposit$ with value $valDeposit$ and datum
 $ datumDeposit = (cid, t_(sans("recover")), C) $
