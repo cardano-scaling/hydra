@@ -162,8 +162,15 @@
 // state KEY at each end of a rule (for state-fields / _fsm-disp lookup).
 #let _from(rule) = head-fsm-transitions.find(x => x.rule == rule).from
 #let _to(rule) = head-fsm-transitions.find(x => x.rule == rule).to
-// The datum line of a state: the state symbol followed by its HeadDatum fields.
-#let _state-line(st) = ((_fsm-disp.at(st),) + state-fields.at(st)).join([, ])
+// The rule's changed target fields (see head-fsm-transitions), primed in the
+// produced head box exactly as in the inline transition arrows.
+#let _primes(rule) = head-fsm-transitions.find(x => x.rule == rule).primed
+// The datum line of a state: the state symbol followed by its HeadDatum fields
+// (`primes` = field indices rendered with a prime, for produced states).
+#let _state-line(st, primes: ()) = {
+  let fs = state-fields.at(st).enumerate().map(((i, f)) => if i in primes { math.attach(f, tr: sym.prime) } else { f })
+  ((_fsm-disp.at(st),) + fs).join([, ])
+}
 
 // One full-width band of a box (title bar with `sep: false`, else a body row).
 #let _band(body, fill: _cell, sep: true) = block(
@@ -218,9 +225,9 @@
 }
 
 // A head UTxO box in `state` (KEY); datum = the state's `state-fields` line.
-#let head-utxo(state, value: none, redeemer: none, kind: "in") = script-utxo(
+#let head-utxo(state, value: none, redeemer: none, kind: "in", primes: ()) = script-utxo(
   $nuHead$,
-  datum: _state-line(state),
+  datum: _state-line(state, primes: primes),
   value: value,
   redeemer: redeemer,
   kind: kind,
@@ -335,10 +342,10 @@
 #let incrementTx-diagram = tx-diagram(
   $mtxIncrement$,
   (
-    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi med sans("ref")$, value: ${st, pt_sans("alice"), dots.h}$, kind: "in"),
+    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi, s, sans("ref"), delta^\#$, value: ${st, pt_sans("alice"), dots.h}$, kind: "in"),
     script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: [22 ada], kind: "in"),
   ),
-  (head-utxo(_to("increment"), value: [${st, pt_sans("alice"), dots.h}$ + 22 ada], kind: "out"),),
+  (head-utxo(_to("increment"), value: [${st, pt_sans("alice"), dots.h}$ + 22 ada], kind: "out", primes: _primes("increment")),),
   validity: $t_sans("max")$,
   kappa: $kappa = {k_i^\#}$,
   mint: $sans("mint") = emptyset$,
@@ -350,10 +357,10 @@
   $mtxDecrement$,
   (head-utxo(_from("decrement"), value: $valHead$, kind: "in"),),
   (
-    head-utxo(_to("decrement"), value: $valHead'$, kind: "out"),
+    head-utxo(_to("decrement"), value: $valHead'$, kind: "out", primes: _primes("decrement")),
     utxo-box($U_omega$, datum: $o_1 dots.h o_k$, kind: "plain"),
   ),
-  redeemer: $sans("decrement") med xi_sans("ms")$,
+  redeemer: $sans("decrement") \ xi, s, m, kappa^\#$,
   outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
@@ -365,8 +372,8 @@
 #let closeTx-diagram = tx-diagram(
   $mtxClose$,
   (head-utxo(_from("close"), value: $valHead$, kind: "in"),),
-  (head-utxo(_to("close"), value: $valHead'$, kind: "out"),),
-  redeemer: $sans("close") \ xi, eta^\#$,
+  (head-utxo(_to("close"), value: $valHead'$, kind: "out", primes: _primes("close")),),
+  redeemer: $sans("close") \ xi, (eta')^\#, delta^\#, kappa^\#$,
   outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
@@ -378,8 +385,8 @@
 #let contestTx-diagram = tx-diagram(
   $mtxContest$,
   (head-utxo(_from("contest"), value: $valHead$, kind: "in"),),
-  (head-utxo(_to("contest"), value: $valHead'$, kind: "out"),),
-  redeemer: $sans("contest") \ xi, eta^\#$,
+  (head-utxo(_to("contest"), value: $valHead'$, kind: "out", primes: _primes("contest")),),
+  redeemer: $sans("contest") \ xi, (eta')^\#, delta^\#, kappa^\#$,
   outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
@@ -392,7 +399,7 @@
   $mtxFanout$,
   (head-utxo(_from("fanout"), value: $valHead$, kind: "in"),),
   (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
-  redeemer: $sans("fanout") \ m, n, n'$,
+  redeemer: $sans("fanout") \ m, pi, sans("crsRef")$,
   outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
   kappa: $kappa = {k_i^\#}$,
@@ -404,7 +411,7 @@
   $mtxPartialFanout$,
   (head-utxo(_from("partialFanoutStart"), value: $valHead$, kind: "in"),),
   (
-    head-utxo(_to("partialFanoutStart"), value: $valHead'$, kind: "out"),
+    head-utxo(_to("partialFanoutStart"), value: $valHead'$, kind: "out", primes: _primes("partialFanoutStart")),
     utxo-box($o_1$, kind: "plain"),
     utxo-box($dots.v$, kind: "plain"),
     utxo-box($o_m$, kind: "plain"),
@@ -422,7 +429,7 @@
   $mtxFinalPartialFanout$,
   (head-utxo(_from("finalPartialFanout"), value: $valHead$, kind: "in"),),
   (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
-  redeemer: $sans("finalPartialFanout") \ m, pi$,
+  redeemer: $sans("finalPartialFanout") \ m, pi, sans("crsRef")$,
   outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
   kappa: $kappa = {k_i^\#}$,
