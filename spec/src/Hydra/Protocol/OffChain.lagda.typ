@@ -221,7 +221,7 @@ data Message : Set where           -- network messages of the coordinated head (
 
 The local-ledger application $applytx$ and the UTxO-map operations the handlers
 use are kept abstract, as the off-chain trust base: `applyTxs` with its nil and
-compositionality laws (the two ledger laws the §7 proofs consume), the
+compositionality laws (the two ledger laws the @sec:security proofs consume), the
 joint-applicability predicate `Applicable`, and the map operations recording how
 $hatmL$ changes.
 
@@ -408,7 +408,7 @@ corresponding $hpRS$ is distributed. \
 
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
-its §6 `require`/`wait` guards as premises (the reqTx applicability guard, the
+its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
 reqDec no-in-flight guards, the ackSn no-double-sign and all-signed guards, and
 the reqSn version/number guards). These are normative: the machine-checked
 results of @sec:security-theorems consume exactly these premises. The figure
@@ -643,7 +643,7 @@ transaction, burning all head tokens and transitioning to $stFinal$.
 
 == Machine-checked handler invariants <sec:offchain-theorems>
 
-Two disciplines of the §6 figure are not merely transcribed but proved to be
+Two disciplines of @fig:off-chain-prot are not merely transcribed but proved to be
 maintained by every off-chain step. A step of the handler model is a
 network-message handling or a chain observation (`_⟶ᴴ_`), and `Reachableᴴ`
 closes it reflexively-transitively from a given start state.

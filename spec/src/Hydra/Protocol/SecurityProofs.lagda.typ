@@ -530,7 +530,7 @@ cert-nest sys reach {h} {s1} {s2} hh c1 c2 le =
   cert-nest-aux sys reach (Snapshot.number s2 ∸ Snapshot.number s1) hh c1 c2 (m+[n∸m]≡n le)
 ```
 
-The §7 nesting obligation follows: two honest parties' confirmed snapshots
+The @sec:security nesting obligation follows: two honest parties' confirmed snapshots
 nest by number, since an honest party's confirmed snapshot is the genesis
 (whose transaction list is empty, hence trivially contained) or is certified,
 in which case `cert-nest` applies (@agda-appendix: `confirmed-nest`).
@@ -611,13 +611,13 @@ consistency-union sys reach i j hi hj
               , ⊆ˡ-refl , confirmed-nest sys reach j i hj hi ge , conf-applicable sys reach hi
 ```
 
-The §7 random variables $Tbar_i$ scope a party's confirmed set to a party
+The @sec:security random variables $Tbar_i$ scope a party's confirmed set to a party
 _while uncorrupted_, and an on-chain close could be built against the
 confirmed snapshot of a party corrupted after confirming. The extension rests
 on the fact that certification is unconditional: the only step that changes a
 party's confirmed snapshot is `confirm`, which requires a verifying aggregate
 multisignature (hence, by unforgeability, a certificate) whatever the
-confirmer's honesty flag. This is in fact stronger than the literal §7
+confirmer's honesty flag. This is in fact stronger than the literal @sec:security
 scoping, since it also covers any snapshot a corrupt party adopts after
 corruption.
 
@@ -777,7 +777,7 @@ The finalized snapshot is certified (`ms-unforgeable`); the party's confirmed
 snapshot is genesis (trivially contained) or certified (`confCert-of`), and
 two certified snapshots nest by number (`cert-nest`), using the party itself
 as the honest witness. The `confirmedNo ≤ number` premise is the "latest
-multi-signed snapshot wins the close/contest game" fact of §5.6/§5.7: the real
+multi-signed snapshot wins the close/contest game" fact of @sec:close-tx/@sec:contest-tx: the real
 close/contest process always settles on the latest multi-signed snapshot,
 whereas the model's `finalize` admits _any_ certified snapshot, so the fact
 enters as a per-party premise rather than being derived.
@@ -863,7 +863,7 @@ reflect-fanout-⊆ sys {ctx} {U} {m} {π} η≡ b =
 === No settlement without unanimity
 
 #theorem(name: "No settlement without unanimity")[
-  Every §5.4-§5.7 validity bundle carries a `sigOK` conjunct bottoming out in
+  Every @sec:increment-tx–@sec:contest-tx validity bundle carries a `sigOK` conjunct bottoming out in
   `snapshotSigOK` ($msVfy$ over
   $cid || v || s || eta^(\#) || delta^(\#) || kappa^(\#)$), and the model's
   signing message `snapMsg` is _defined_ as that same concatenation. Once the
@@ -1049,7 +1049,7 @@ claimTx-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
   (@agda-appendix).
 ] <inv:system-handler>
 
-This lifts the §6 figure's `require` disciplines from the single-party handler
+This lifts the `require` disciplines of @fig:off-chain-prot from the single-party handler
 model to the multi-party adversarial system: the deposit/decommit exclusivity
 and the version discipline are properties of every reachable execution, not
 runtime assertions an honest node merely hopes to maintain.

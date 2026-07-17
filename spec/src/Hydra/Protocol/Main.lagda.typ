@@ -145,7 +145,7 @@ The trust base, in five families:
   `hash`, `bytes`/`concat`, the multisignature verifier `msVfy`, the `Value`
   algebra (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` with commutative-monoid and order laws) and its
   projections (`adaOf`, `nonAdaOf`, `quantityOf`, `stQty`, `headTokenCount`);
-  the off-chain ledger `applyTxs` with its nil and compositionality laws (§6).
+  the off-chain ledger `applyTxs` with its nil and compositionality laws (@sec:offchain).
 - *Accumulator laws* (@sec:on-chain): `accUTxO`/`accVerify`/`accVerifyExclude`
   with the specifying laws `accUTxO-∅`, `accVerify-sound`/`-complete`/`-self`
   and `setSize`; the KZG construction itself is not modelled.

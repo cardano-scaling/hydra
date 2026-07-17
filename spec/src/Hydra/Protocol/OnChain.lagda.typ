@@ -92,7 +92,7 @@ $sans("close")$ initialises the contester list to the empty list, $sans("contest
 requires the new $keyHash in.not contesters$ (so the list grows by exactly one),
 the partial-fanout rules thread the intermediate $stFanoutProgress$ state through to
 $stFinal$, and every rule reuses the same `ada` binder on both sides, so the ADA
-overhead $adaO$ of §5.4-§5.7 is preserved by construction (there is no separate
+overhead $adaO$ of @sec:increment-tx–@sec:contest-tx is preserved by construction (there is no separate
 $adaO$ conjunct in the bundles below). A rule violating any of *these* would fail to type-check. The
 remaining per-transaction conditions (signatures, value conservation, deadlines)
 are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK`) applied
@@ -465,7 +465,7 @@ Consequently, the $mtxInit$ transaction
   $hash(eta)$ (e.g. the close / increment / decrement signature over
   $cid || v || s || eta^(\#) || delta^(\#) || kappa^(\#)$). Similarly, the datum's `hydraKey` field is the single
   _aggregate_ key of the multisignature scheme rather than the per-party key list
-  $hydraKeys$; the checks written $msVfy(hydraKeys, dots.h)$ in §5.4-§5.7 are verified
+  $hydraKeys$; the checks written $msVfy(hydraKeys, dots.h)$ in @sec:increment-tx–@sec:contest-tx are verified
   under this aggregate key (Agda `hk`).]
 })
 
@@ -640,9 +640,9 @@ to recover, and checks:
 
 The deposit datum and redeemer are formalised as `DepositDatum` / `DepositRedeemer`, and the recover
 checks as the `recoverValid` predicate: the recovered outputs match the deposited ones
-(`recoveredMatchesDeposited`, the §5.3.1 serialisation-hash equality, abstracted) and the transaction
+(`recoveredMatchesDeposited`, the @sec:recover-tx serialisation-hash equality, abstracted) and the transaction
 is posted strictly after the deadline (`t_recover < txValidityMin`, concrete). A deposit's collection
-into the head (Claim) is authorised by the `incrementValid` predicate's `depositSpentOK` check (§5.4);
+into the head (Claim) is authorised by the `incrementValid` predicate's `depositSpentOK` check (@sec:increment-tx);
 `depositClaimedBy` records that the deposit's `cid` must match the head it is claimed into.
 
 The recover conditions form the `RecoverValid` bundle (typechecked, not rendered).

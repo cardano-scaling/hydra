@@ -120,8 +120,8 @@ only _applicable_ snapshots, at most one per number, each extending the signer's
 snapshot. From these the Agda machine-checks that every honest party's confirmed snapshot is
 applicable to $Uinit$ (so confirmed sets never conflict), that two confirmations of the same snapshot
 number coincide, and that confirmed snapshots nest by number (`confirmed-nest`).
-`confirm` checks the §3.2 aggregate multisignature (`msVfy`); `msgOf` is the snapshot's
-own serialised content (`snapMsg` of its cid, version, number and η-hash, the §6 message
+`confirm` checks the @sec:multisig aggregate multisignature (`msVfy`); `msgOf` is the snapshot's
+own serialised content (`snapMsg` of its cid, version, number and η-hash, the @sec:offchain message
 cid‖v‖s‖η\#), so the verified message depends
 only on the snapshot's identifying fields rather than being a free token. The binding of a verifying
 signature to a snapshot is formally carried by `ms-unforgeable`. These are theorems about every
@@ -135,8 +135,8 @@ the aggregate-level `ms-unforgeable` is *derived*; (c) the honest-signing discip
 above the signer's own confirmed snapshot, hence at most once per number) is *derived* from the
 fired `reqSn-sign` handler premise together with the no-in-flight precondition and the invariant's
 `signNumBound`, while chain-extension, applicability-of-the-delta and only-seen enter as
-*premises* of the `signHonest` constructor - explicit honest-_behaviour_ assumptions from §6.4
-(the protocol-flow figure);
+*premises* of the `signHonest` constructor - explicit honest-_behaviour_ assumptions from
+the protocol flow (@fig:off-chain-prot);
 and (d) for the on-chain bridge only, that the finalized
 datum's stored accumulator commits to the off-chain final UTxO (the `ηEq` hypothesis of `reflects`,
 supplied per finalization), irreducible because νHead authenticates η via the multisignature, not by
@@ -149,7 +149,7 @@ abstract pending a deferred temporal/fairness layer, so nothing about it is assu
 prose lemmas further below give the informal arguments these proofs mirror.
 
 #dparagraph[Scope (what these proofs do and do not cover).] To avoid over-reading the word "unified":
-these §7 proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
+these proofs and the on-chain validity bundles of @sec:on-chain (`closeValid`, `incrementValid`, …)
 are two formalizations with *three deliberate meeting points*: the datum-field accessors (the
 security model reads the on-chain datum through `OC.snapNum`/`OC.ηOf`/`OC.accUTxO`), the signing
 message (`snapMsg` is _defined_ as the same `cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#` concatenation the bundles'
@@ -174,7 +174,7 @@ free-standing predicate: `agree` (L1: two honest-certified snapshots of the same
 `cert-nest` (L2: honest-certified snapshots nest by number), both proved over `Reachable` in
 @agda-appendix and consumed by the theorems below.
 
-The §7 properties quantify over whole multi-party executions in the presence of an
+The properties above quantify over whole multi-party executions in the presence of an
 adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs`, a global
 $sans("System")$ state recording each party's signatures, a concrete single-step relation
 $sans("_⟶ˢ_")$ (an honest party signs an _applicable_ snapshot; a corrupt party signs arbitrarily;
@@ -186,7 +186,7 @@ machine-checked invariant then *derives*: (i) every honest party's confirmed sna
 to $Uinit$, from the honest "sign only applicable" guard; (ii) two certified snapshots of the same
 number are equal, from the honest "one signature per number" guard; and (iii) confirmed snapshots
 nest by number (`confirmed-nest`), from the honest "extend my own confirmed snapshot" guard plus a
-gap induction using (ii). `confirm` checks the §3.2 aggregate multisignature (`AggVerified`/`msVfy`).
+gap induction using (ii). `confirm` checks the @sec:multisig aggregate multisignature (`AggVerified`/`msVfy`).
 Beyond the ledger `applyTxs` and the scheme's unforgeability (per-signature `sigUnforge` + the
 `aggSound` decomposition, from which `ms-unforgeable` is derived), the safety argument
 relies on the honest-behaviour *premises* of `signHonest` - chain-extension, applicability of the
@@ -221,7 +221,7 @@ handlers: the snapshot's transactions extend the signer's own confirmed snapshot
 delta has been observed (only-seen). From these premises the invariant derives the
 whole-snapshot facts: applicability to $Uinit$ by ledger compositionality (`applyTxs-compose`)
 from the party's confirmed-applicability invariant, and only-seen for the whole snapshot from the
-`sigSeen` invariant. The §6 prose specifies this regime operationally (round-robin snapshot
+`sigSeen` invariant. The @sec:offchain prose specifies this regime operationally (round-robin snapshot
 leader, $s = hats + 1$, the $hpRS$ 'wait' guards); the derived numbering guard and the
 honest-behaviour premises together are what make the confirmed chain provably linear (`agree`)
 and monotone (`confirmed-nest`).
@@ -302,7 +302,7 @@ postulate
 
 === The signing message and unforgeability
 
-The signing message is the §6 serialisation, defined as the same concatenation
+The signing message is the @sec:offchain serialisation, defined as the same concatenation
 the on-chain signature conjuncts verify; aggregate unforgeability is derived
 from per-signature EUF-CMA plus the aggregation scheme's decomposition
 (@agda-appendix).
@@ -527,7 +527,7 @@ record Inv (sys : System) : Set where
 
 === The property statements
 
-The §7 properties are stated as types; their proofs are the machine-checked
+The properties above are stated as types; their proofs are the machine-checked
 results of @sec:security-theorems (@agda-appendix).
 
 ```agda
@@ -636,7 +636,7 @@ postulate
   party's confirmed set is applicable (`conf-applicable`: a confirmed snapshot is certified, so it
   carries that party's own signature, and honest parties sign only applicable snapshots), and the two
   confirmed sets nest (`confirmed-nest`, derived via `cert-nest` from the honest extend-your-own-confirmed
-  guard + agreement). The only safety assumptions are the ledger and the §3.2 multisignature's
+  guard + agreement). The only safety assumptions are the ledger and the @sec:multisig multisignature's
   unforgeability (`ms-unforgeable`). The statement also covers parties corrupted AFTER
   confirming (`consistency-uncorrupted`): since `confirm` requires a multisignature regardless of the
   confirmer's honesty, EVERY confirmed snapshot is certified (`confCert-all`), so any party's confirmed
