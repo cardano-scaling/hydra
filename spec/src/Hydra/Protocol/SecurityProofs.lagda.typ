@@ -40,8 +40,9 @@ open System  -- bring the System field projections (parties/honest/localOf/U₀/
 The properties of the preceding section are not only stated over the execution
 model; they are proved. This section renders the machine-checked results: each
 statement below is the actual Agda type of a theorem in the module
-`SecurityProofs`, shown here and in @agda-appendix, while the proof terms are
-typechecked as part of this document's build but not rendered. All results are
+`SecurityProofs`, shown here and in @agda-appendix, while the proof terms - and
+the supporting lemmas and corollaries the prose cites by name - are typechecked
+as part of this document's build but not rendered. All results are
 inductions over the `Reachable` closure of the step relation `_⟶ˢ_`
 (@sec:security); none of them is temporal (liveness remains out of scope).
 The trust base is exactly the one enumerated in the Proofs preamble: the ledger
@@ -409,7 +410,7 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
                                (subst (Snapshot.number snap ≤_) (sym snPres) (signNumBound hk m))
 ```
 
-```agda
+```
 -- ── Derived corollaries of the invariant ───────────────────────────────────────────────────────
 -- L3 (applicability), exposed: every honest party's confirmed snapshot is applicable to U₀.
 conf-applicable : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i ≡ true
@@ -420,7 +421,7 @@ conf-applicable : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) 
 conf-applicable sys reach = Inv.confApp (invariant sys reach)
 ```
 
-```agda
+```
 -- L3 for certified snapshots: a CERTIFIED snapshot is applicable to U₀, witnessed by any honest
 -- party (who, by `Certified`, signed it, and whose signatures are only on applicable snapshots).
 cert-applicable : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
@@ -444,7 +445,7 @@ agree : ∀ sys → Reachable sys → ∀ {h s1 s2} → lookup (honest sys) h �
 agree sys reach {h} hh c1 c2 = Inv.sigDedup (invariant sys reach) hh (c1 h) (c2 h)
 ```
 
-```agda
+```
 -- A certified snapshot has number > 0 (an honest party signed it, and honest signing is for the
 -- snapshot one above its confirmed number, hence ≥ 1).
 cert-pos : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h ≡ true
@@ -455,7 +456,7 @@ cert-pos : ∀ sys → Reachable sys → ∀ {h snap} → lookup (honest sys) h 
 cert-pos sys reach {h} hh cert = Inv.sigPos (invariant sys reach) hh (cert h)
 ```
 
-```agda
+```
 -- An honest party's confirmed snapshot is the genesis (number 0, txs []) or is certified.
 confCert-of : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i ≡ true
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
@@ -466,7 +467,7 @@ confCert-of : ∀ sys → Reachable sys → ∀ {i} → lookup (honest sys) i �
 confCert-of sys reach = Inv.confCert (invariant sys reach)
 ```
 
-```agda
+```
 -- Every honest signature on `snap` has an extending certified-or-genesis predecessor `pre`.
 sigChain-of : ∀ sys → Reachable sys → ∀ {k snap} → lookup (honest sys) k ≡ true → Signed sys k snap
   → PredecessorWitness (Certified sys) snap
@@ -593,7 +594,7 @@ The union form: there is a single transaction set `T` containing both honest
 confirmed sets (their union, i.e. the inclusion-larger of the two, since they
 nest) that is applicable to $Uinit$.
 
-```agda
+```
 consistency-union : ∀ sys → Reachable sys → ∀ i j
   → lookup (honest sys) i ≡ true → lookup (honest sys) j ≡ true
   → Σ[ T ∈ List Data ] (confirmedTxs (lookup (localOf sys) i) ⊆ˡ T
@@ -620,7 +621,7 @@ confirmer's honesty flag. This is in fact stronger than the literal §7
 scoping, since it also covers any snapshot a corrupt party adopts after
 corruption.
 
-```agda
+```
 confCert-all : ∀ sys → Reachable sys → ∀ i
   → (confirmedNo (lookup (localOf sys) i) ≡ 0 × confirmedTxs (lookup (localOf sys) i) ≡ [])
     ⊎ Certified sys (LocalState.confirmed (lookup (localOf sys) i))
@@ -723,7 +724,7 @@ consistency-uncorrupted sys reach hh i j =
     ... | inj₂ ge = inj₂ (nestU sys reach hh j i ge)
 ```
 
-```agda
+```
 -- ── Seen-set invariant: every honest signature is on txs that party has SEEN ───────────────────
 -- `Snapshot.txs snap ⊆ lookup seen k` for any honest `k` that signed `snap`. This is the `sigSeen`
 -- component of the main invariant (derived at `signHonest` from the handler's Δ ⊆ seen premise + the
@@ -903,13 +904,14 @@ sig-certifies : ∀ sys (snap : Snapshot) {hk cid v s η# δ# κ# ξ}
 sig-certifies sys snap sig refl refl refl refl refl refl refl refl = ms-unforgeable sys snap sig
 ```
 
-The per-transaction corollaries each consume their bundle's `sigOK` field; the
-`closeUsed`/`contestUsed`/`closeAny` redeemer variants follow identically
-(their `sigOK` reduces to `snapshotSigOK` at version $v - 1$ or $v$), so the
-statements are given for the Unused redeemers, the versioned-snapshot common
-case.
+The per-transaction corollaries (`increment-certified`, `decrement-certified`,
+`close-certified`, `contest-certified`) each consume their bundle's `sigOK`
+field through a one-line application of `sig-certifies` (typechecked, not
+rendered); the `closeUsed`/`contestUsed`/`closeAny` redeemer variants follow
+identically (their `sigOK` reduces to `snapshotSigOK` at version $v - 1$ or
+$v$).
 
-```agda
+```
 increment-certified : ∀ sys {ctx cid v d d' ξ s ref δ#} (snap : Snapshot)
   → OC.IncrementValid ctx aggKey cid v d d' ξ s ref δ#
   → Snapshot.cid snap ≡ cid
@@ -927,7 +929,7 @@ increment-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
   sig-certifies sys snap (OC.IncrementValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
-```agda
+```
 decrement-certified : ∀ sys {ctx cid v d d' ξ s m κ#} (snap : Snapshot)
   → OC.DecrementValid ctx aggKey cid v d d' ξ s m κ#
   → Snapshot.cid snap ≡ cid
@@ -945,7 +947,7 @@ decrement-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
   sig-certifies sys snap (OC.DecrementValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
-```agda
+```
 close-certified : ∀ sys {ctx cid v cp s' d d' ξ η# δ# κ#} (snap : Snapshot)
   → OC.CloseValid ctx aggKey cid v cp s' d d' (OC.closeUnused ξ η# δ# κ#)
   → Snapshot.cid snap ≡ cid
@@ -963,7 +965,7 @@ close-certified sys snap b cidEq vEq sEq ηEq δEq κEq ξEq =
   sig-certifies sys snap (OC.CloseValid.sigOK b) refl cidEq vEq sEq ηEq δEq κEq ξEq
 ```
 
-```agda
+```
 contest-certified : ∀ sys {ctx cid v s tfin d d' ξ η# δ# κ# kh} (snap : Snapshot)
   → OC.ContestValid ctx aggKey cid v s tfin d d' (OC.contestUnused ξ η# δ# κ#) kh
   → Snapshot.cid snap ≡ cid

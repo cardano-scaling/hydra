@@ -162,9 +162,9 @@ where status can be $"Inactive"$, $"Active"$, or $"Expired"$.
 
 In Agda, a UTxO set is a finite map from output references to outputs, and a
 party's local state and the protocol messages are captured by dedicated record
-types (@agda-appendix).
+types.
 
-```agda
+```
 UTxO : Set
 UTxO = OutputRef ⇀ Output
 
@@ -223,9 +223,9 @@ The local-ledger application $applytx$ and the UTxO-map operations the handlers
 use are kept abstract, as the off-chain trust base: `applyTxs` with its nil and
 compositionality laws (the two ledger laws the §7 proofs consume), the
 joint-applicability predicate `Applicable`, and the map operations recording how
-$hatmL$ changes (@agda-appendix).
+$hatmL$ changes.
 
-```agda
+```
 -- Ledger application: apply a transaction list to a UTxO set; `nothing` = ⊥ (conflict). Kept abstract.
 -- `applyTxs-nil` is the (trivial) ledger law that applying no transactions never conflicts.
 -- `applyTxs-compose` is ledger COMPOSITIONALITY: applying `txs₁` then `txs₂` equals applying their
@@ -337,11 +337,11 @@ pending, and the party is the next snapshot leader, it may request a new
 snapshot including the deposit transaction $tx_(alpha)$. \
 \
 
-The `tick` deposit-status transition is the function `depositStatusAt`
-(@agda-appendix), the off-chain twin of the extracted reference's
+The `tick` deposit-status transition is the function `depositStatusAt`,
+the off-chain twin of the extracted reference's
 `depositStatusRef`.
 
-```agda
+```
 -- ── Chain observations (§6.4 `from chain`): the deposit lifecycle ────────────────────────────────
 -- The §6 `tick` deposit-status transition for one deposit, as a function of the deposit period
 -- T_deposit and the current time t (the off-chain twin of `OffChainReference.depositStatusRef`):
@@ -407,7 +407,7 @@ corresponding $hpRS$ is distributed. \
 \
 
 The network-message handlers above are transcribed as the relation
-`_handles_↝_` (@agda-appendix): one constructor per handler arm, each carrying
+`_handles_↝_`: one constructor per handler arm, each carrying
 its §6 `require`/`wait` guards as premises (the reqTx applicability guard, the
 reqDec no-in-flight guards, the ackSn no-double-sign and all-signed guards, and
 the reqSn version/number guards). These are normative: the machine-checked
@@ -418,7 +418,7 @@ handlers here and the deposit/tick/increment/decrement/initialTx chain
 observations below - while the close/contest/fanout observations and the
 leader-multicast effects are not modelled at this level.
 
-```agda
+```
 -- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
 -- (chain events) below it transcribes the §6.4 handlers, the figure (`Protocol flow`) being the rendered
 -- authority. Each arm carries its §6 `require`/`wait` guards as premises (normative):
@@ -497,9 +497,9 @@ Chain observations are transcribed likewise: `ChainEvent` enumerates the
 modelled chain observations and `_observes_↝_` gives one constructor per
 handler of the figure - the deposit lifecycle above, the version-bumping
 increment/decrement observations, and the head-opening `initialTx` of the
-Initializing-the-head paragraph (@agda-appendix).
+Initializing-the-head paragraph.
 
-```agda
+```
 -- Chain events a party observes: the deposit lifecycle (deposit/recover/tick), the version-bumping
 -- increment/decrement observations, and the head-opening initialTx. Close/contest/fanout
 -- observations are not modelled (see the scope note above).
@@ -646,9 +646,9 @@ transaction, burning all head tokens and transitioning to $stFinal$.
 Two disciplines of the §6 figure are not merely transcribed but proved to be
 maintained by every off-chain step. A step of the handler model is a
 network-message handling or a chain observation (`_⟶ᴴ_`), and `Reachableᴴ`
-closes it reflexively-transitively from a given start state (@agda-appendix).
+closes it reflexively-transitively from a given start state.
 
-```agda
+```
 -- One off-chain step: handle a network message OR observe a chain event.
 data _⟶ᴴ_ : LocalState → LocalState → Set where
   hstep : ∀ {st m st'} → st handles m  ↝ st' → st ⟶ᴴ st'

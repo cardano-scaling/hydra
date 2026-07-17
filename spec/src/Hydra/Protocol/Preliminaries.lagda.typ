@@ -62,12 +62,12 @@ With this, we further define:
 - $tyData$ is a universal data type of nested sums and products built up
   recursively from the base types of $tyInteger$ and $tyBytes$.
 
-Note: The concatenation operator (@agda-appendix) is defined in Agda directly in terms of $bytes$
+Note: The concatenation operator is defined in Agda directly in terms of $bytes$
 and $concat$ (both law-free primitives; the definition fixes the encoding shape, it does not
 constrain the operands). Readers new to Agda may want @sec:reading-agda, which maps the idioms
 used from here on to their Haskell counterparts.
 
-```agda
+```
 infixl 6 _‖_
 _‖_ : ∀ {A B : Set} → A → B → ℍ
 a ‖ b = concat (bytes a ∷ bytes b ∷ [])
@@ -253,10 +253,10 @@ ledger model~@eutxo-2@ledger-shelley-spec.
 ]
 
 As a first step of the machine-checked formalisation, these definitions are
-captured directly in Agda (@agda-appendix), with the value, script and key types
+captured directly in Agda, with the value, script and key types
 kept abstract for now.
 
-```agda
+```
 record Output : Set where
   field
     value   : Value
@@ -333,7 +333,7 @@ An accumulator scheme over a universe $cal(U)$ is a set of algorithms where
 The security property guarantees that a valid membership witness can only be produced for sets genuinely committed under $eta$, and a valid exclusion witness can only be produced when the subset was genuinely removed.
 
 In the Agda formalisation the scheme is likewise instantiated directly at the
-protocol's types (@sec:on-chain, @agda-appendix): `accUTxO`, `accVerify` and
+protocol's types (@sec:on-chain): `accUTxO`, `accVerify` and
 `accVerifyExclude` are abstract functions over UTxO-output sets, commitments
 and witnesses, and the security property above is captured by the specifying
 laws `accVerify-sound` (a verified membership witness attests a genuine

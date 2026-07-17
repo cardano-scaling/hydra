@@ -175,7 +175,7 @@ free-standing predicate: `agree` (L1: two honest-certified snapshots of the same
 @agda-appendix and consumed by the theorems below.
 
 The §7 properties quantify over whole multi-party executions in the presence of an
-adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs` (@agda-appendix), a global
+adversary, so they are stated over an explicit execution model: a ledger-application operation `applyTxs`, a global
 $sans("System")$ state recording each party's signatures, a concrete single-step relation
 $sans("_⟶ˢ_")$ (an honest party signs an _applicable_ snapshot; a corrupt party signs arbitrarily;
 a party confirms a snapshot whose aggregate multisignature verifies; the adversary corrupts a party),
@@ -231,9 +231,9 @@ and monotone (`confirmed-nest`).
 A party's confirmed transactions and number are read off its local state; the
 global `System` records each party's local state, honesty flag, recorded
 signatures and seen sets; and `Certified` is the n-of-n signing predicate the
-proofs reason with (@agda-appendix).
+proofs reason with.
 
-```agda
+```
 -- The ledger primitives (`applyTxs`, its `applyTxs-nil`/`applyTxs-compose` laws, and `Applicable`) are
 -- defined in the off-chain handler model `Hydra.Protocol.OffChain` (whose handler arms also use them)
 -- and are in scope here via this section's `open import` of that module.
@@ -247,7 +247,7 @@ confirmedNo : LocalState → ℕ
 confirmedNo st = Snapshot.number (LocalState.confirmed st)
 ```
 
-```agda
+```
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 -- The signature model: DERIVING the agreement/applicability of confirmed snapshots.
 -- We record individual party
@@ -284,7 +284,7 @@ Certified : (sys : System) → Snapshot → Set
 Certified sys snap = ∀ (i : Fin (parties sys)) → Signed sys i snap
 ```
 
-```agda
+```
 -- Operationally a node does not test `Certified` (all n individual signatures); it checks ONE
 -- AGGREGATE multisignature with the §3.2 scheme's verifier `msVfy`, under the head's aggregate key
 -- (§4) over the snapshot's message cid‖v‖s‖η#‖δ#‖κ# (§6). `aggKey` is that aggregate key.
@@ -307,7 +307,7 @@ the on-chain signature conjuncts verify; aggregate unforgeability is derived
 from per-signature EUF-CMA plus the aggregation scheme's decomposition
 (@agda-appendix).
 
-```agda
+```
 -- `snapMsg` is the §6 message SERIALISATION -- DEFINED (not postulated) as the same §3.1 concatenation
 -- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#`), so the
 -- off-chain certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message (consumed by
@@ -334,7 +334,7 @@ AggVerified : System → Snapshot → Set
 AggVerified sys snap = msVfy aggKey (msgOf snap) (aggSigOf sys snap) ≡ true
 ```
 
-```agda
+```
 -- Aggregate unforgeability is FACTORED through the per-signature level (A2): rather than postulate
 -- "verifying aggregate ⇒ every party signed" monolithically, we postulate the two more-elementary facts
 -- it rests on and DERIVE it. `PartyVerified sys i snap` is party i's individual component of the
@@ -348,7 +348,9 @@ postulate
   -- per-signature UNFORGEABILITY (EUF-CMA, the irreducible cryptographic hardness assumption): a
   -- verifying individual signature on `snap` means that party actually signed it (recorded in `sigs`).
   sigUnforge : ∀ sys snap (i : Fin (parties sys)) → PartyVerified sys i snap → Signed sys i snap
+```
 
+```agda
 -- MS-scheme unforgeability is a DERIVED THEOREM: a verifying aggregate ⇒
 -- every party signed. It FACTORS through the scheme's decomposition (`aggSound`) and per-signature
 -- unforgeability (`sigUnforge`) -- so the trusted base is the standard per-signature EUF-CMA assumption
@@ -365,10 +367,9 @@ ms-unforgeable sys snap aggOK i = sigUnforge sys snap i (aggSound sys snap aggOK
 
 The single-step relation captures honest signing (firing the `reqSn-sign`
 handler), corrupt signing, confirmation against a verifying aggregate,
-corruption, finalization, observation, and lifted local off-chain steps
-(@agda-appendix).
+corruption, finalization, observation, and lifted local off-chain steps.
 
-```agda
+```
 -- The single-step relation _⟶ˢ_:
 --   signHonest  : an honest party signs a snapshot by FIRING the off-chain `reqSn-sign` handler
 --                 (OffChain `_handles_↝_`): it requires no snapshot in flight (ŝ = s̄), the requested
@@ -452,7 +453,7 @@ closes the step relation from an initial system; and `Inv` is the eight-field
 invariant carried through every reachable system, proved by the `invariant`
 induction of @sec:security-theorems (@agda-appendix).
 
-```agda
+```
 -- An initial system: no signatures yet, every party's confirmed snapshot is the genesis (number 0,
 -- empty tx list, applicable by the nil law), and no commit/decommit is in flight (a freshly-opened
 -- head has neither; the genesis state `initialTx-obs` produces it, seeding the `NoBothInFlight` safety
@@ -471,7 +472,7 @@ data Reachable : System → Set where
   step : ∀ {s s'} → Reachable s → s ⟶ˢ s' → Reachable s'
 ```
 
-```agda
+```
 -- Every honest signature on `snap` carries a predecessor snapshot `pre` it extends: `snap` is one
 -- number higher, contains `pre`'s txs, and `pre` is the genesis or is itself certified. (This is the
 -- §7 snapshot-extension discipline that yields L2 `confirmed-nest`.)
@@ -586,7 +587,7 @@ Completeness = ∀ sys → Reachable sys → ∀ {snap} → AggVerified sys snap
   → confirmedTxs (lookup (localOf sys) i) ⊆ˡ Snapshot.txs snap
 ```
 
-```agda
+```
 -- ── Linking the two Agda halves: off-chain confirmed snapshot ↔ on-chain close/fanout ──────────
 -- They meet at finalization: when the head closes/fans out, the on-chain Closed datum's accumulator
 -- commits to exactly the off-chain final UTxO U₀ ∘ (txs of the certified finalized snapshot).
@@ -594,7 +595,9 @@ Completeness = ∀ sys → Reachable sys → ∀ {snap} → AggVerified sys snap
 -- Glue: the set of outputs held in a UTxO map (its range). Basic, assumed (not modelled in detail).
 postulate
   outsOf : UTxO → ℙ Output
+```
 
+```agda
 -- Bridge predicate: the on-chain head datum REFLECTS a finalized snapshot `snap` -- its snapshot
 -- number matches and its stored accumulator commits (`OC.accUTxO`) to U₀ ∘ (txs snap).
 record Reflects (sys : System) (snap : Snapshot) : Set where

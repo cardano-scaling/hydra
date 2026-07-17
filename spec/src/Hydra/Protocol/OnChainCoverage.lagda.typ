@@ -47,7 +47,7 @@ set of states a validating chain can occupy. The contest step of
 `Reachableᵛ` is stated on concrete datums so the bundle's contester is tied
 to the datum's newly-appended one.
 
-```agda
+```
 data Reachable : HeadDatum → Set where
   reach-init : ∀ {cid hk n cp ada}
     → Reachable (Open cid hk n cp 0 (accUTxO ∅ˢ) ada)
@@ -66,7 +66,7 @@ reach-empty-closed : ∀ {cid hk n cp tfin ada}
 reach-empty-closed = reach-step reach-init (close {ct = closeInitial})
 ```
 
-```agda
+```
 data Reachableᵛ : HeadDatum → Set where
   initᵛ : ∀ {cid hk n cp ada}
     → Reachableᵛ (Open cid hk n cp 0 (accUTxO ∅ˢ) ada)
@@ -227,7 +227,7 @@ compile time.
   `reachable-contesters-distinct`, `final-is-terminal`).
 ] <inv:contest-final>
 
-```agda
+```
 contestersOf : HeadDatum → List ℍ
 contestersOf (Closed _ _ _ _ _ _ _ C _ _) = C
 contestersOf _                            = []

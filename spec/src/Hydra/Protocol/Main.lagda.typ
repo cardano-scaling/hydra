@@ -57,12 +57,14 @@ import Hydra.Protocol.OnChainCoverage
 The specification above is _literate Agda_: every definition, validity bundle, and proof is
 machine-checked by Agda (`agda Main.lagda.typ`) as part of building this document. To keep the body
 readable, the rendered Agda is collected here rather than shown inline; each block appears under the
-section it supports, in document order, and the body links here in place. The appendix is a _curated
-view_ of the typechecked source, not a copy of it: proof bodies, value projections, datum accessors
-and other plumbing are typechecked but not rendered (the body flags this where it matters), and the
+section it supports, in document order, and the body links here in place. The appendix is
+deliberately restricted to the _machine-checked theorem statements_ (the coverage, safety,
+value-conservation and security results of @sec:onchain-theorems, @sec:offchain-theorems and
+@sec:security-theorems) together with the property types they inhabit. Everything else - the
+datum/redeemer types, the transition relations, the validity bundles, the helper definitions, every
+`postulate`, and all proof bodies - is typechecked as part of the build but not rendered, as are the
 typecheck-only modules `Prelude`, `Reference`, `ReferenceBridge`, `RefReflection` and
-`OffChainReference` do not render at all. @sec:assumption-inventory lists what the formalisation
-takes on trust.
+`OffChainReference`. @sec:assumption-inventory lists what the formalisation takes on trust.
 
 == Reading the Agda (for Haskell programmers) <sec:reading-agda>
 
@@ -75,14 +77,14 @@ glossary maps the Agda idioms you will meet to their Haskell intuition.
 block introduced by the Agda keyword `postulate` is an _assumption_ (an axiom the
 spec takes on trust, such as the ledger semantics or the cryptographic
 unforgeability of signatures), _not_ something proved. Everything else, given by a
-defining equation, is a definition or a type-checked proof. In the rendered PDF a
-`postulate` block looks like any other code, so this keyword is the thing to watch
-for. Postulates are not the only assumptions: some enter as module _hypotheses_ or
-constructor _premises_ (the honest-behaviour premises of `signHonest` in
-@sec:security, the `ContestBound` hypotheses of @sec:onchain-theorems, per-instance
-hypotheses like `ηEq`). @sec:assumption-inventory collects all of these in one
-place; auditing the sources means searching for `postulate` _and_ reading the
-flagged premises.
+defining equation, is a definition or a type-checked proof. Postulate blocks are
+not rendered in this document (only theorem statements are); the full inventory
+lives in @sec:assumption-inventory. Postulates are also not the only assumptions:
+some enter as module _hypotheses_ or constructor _premises_ (the honest-behaviour
+premises of `signHonest` in @sec:security, the `ContestBound` hypotheses of
+@sec:onchain-theorems, per-instance hypotheses like `ηEq`).
+@sec:assumption-inventory collects all of these in one place; auditing the
+sources means searching for `postulate` _and_ reading the flagged premises.
 
 #dparagraph[Types, values and proofs.] Agda is dependently typed: types may mention
 values. `Set` is the type of (small) types, Haskell's kind `Type`. A function type

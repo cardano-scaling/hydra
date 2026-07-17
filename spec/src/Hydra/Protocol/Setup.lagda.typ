@@ -44,10 +44,10 @@ action. Finally, at least one of the participants posts the $mtxInit$ transactio
 onchain as described next in @sec:on-chain.
 
 The parameters each party stores after a successful setup are captured by an
-Agda record (@agda-appendix; verification keys and the contestation period are kept
+Agda record (verification keys and the contestation period are kept
 abstract, the latter as a duration in time units).
 
-```agda
+```
 record HeadParameters : Set where
   field
     n                  : ℕ          -- number of participants (n)

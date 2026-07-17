@@ -44,10 +44,10 @@ The deposit protocol defines one validator script:
 
 The head output datum $datumHead$ ranges over the protocol states. The state
 machine and its per-state fields (as enumerated in the transitions below) are
-captured by an Agda type (@agda-appendix), with the redeemer $redeemerHead$ selecting
+captured by an Agda type, with the redeemer $redeemerHead$ selecting
 the $nuHead$ transition.
 
-```agda
+```
 -- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
 -- Besides the accumulator hash η#, the signed close/contest redeemers carry the
 -- decommit- and commit-output-set hashes δ# and κ# (implementation
@@ -84,7 +84,7 @@ data HeadRedeemer : Set where
 ```
 
 The admissible $nuHead$ state transitions are captured as a typed relation
-$d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"), defined in @agda-appendix. The relation
+$d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"). The relation
 encodes the *state-machine shape* and the *version discipline* in the types:
 $sans("increment")$/$sans("decrement")$ bump the version (`suc v`),
 $sans("close")$/$sans("contest")$ preserve it (the same `v` reappears),
@@ -98,7 +98,7 @@ remaining per-transaction conditions (signatures, value conservation, deadlines)
 are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK`) applied
 alongside it.
 
-```agda
+```
 data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
 
   increment : ∀ {cid hk n cp v η ada η' ξ s ref δ#}
@@ -131,7 +131,7 @@ data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
 ```
 
 Beyond the state-machine shape, individual $nuHead$ *checks* are stated as
-predicates (@agda-appendix) over the validation $sans("Context")$ and the datums. For example,
+predicates over the validation $sans("Context")$ and the datums. For example,
 the close transaction (@sec:close-tx) requires the recorded contestation
 deadline to be the transaction's upper validity bound extended by the
 contestation period. This condition is stated as a checkable proposition over
@@ -140,9 +140,9 @@ the context and the produced datum.
 The shared trust surface - the accumulator scheme and its specifying laws, the
 value projections, the signature check - and the predicates common to several
 transactions are stated once here; each transaction's own conditions are then
-given in its section below (@agda-appendix).
+given in its section below.
 
-```agda
+```
 -- spec §3.4/§5.8 accumulator operations (the §3.4 Accumulator scheme at the
 -- protocol's commitment/output/witness types), kept abstract, plus the G1
 -- generator representing the empty accumulator.
@@ -243,7 +243,7 @@ decommitValue ctx m with Context.outputs ctx
 ... | _ ∷ os = takeSumᵛ m os
 ```
 
-```agda
+```
 -- The postulated search obligations (trust base): witnesses that involve searching the context's
 -- value/keys/mint, which the opaque Value and key-set models do not expose.
 postulate
@@ -405,16 +405,13 @@ commit-set hash (`depositCommitsHashOf`, from the claimed deposit's datum) and t
 CRS reference-input datum hash with its canonical constant
 (`crsDatumHashAt`/`canonicalCRS#`). So value conservation is stated over the real
 head, increment-deposit and decrement-decommit values (modulo the abstract value
-algebra), while signature and accumulator soundness are assumed. Not everything
-the bundles use is rendered in @agda-appendix: the value projections and datum
-accessors (`valueAtOut`/`valueAtIn`, `headValue`/`headValueIn`, `depositsValue`,
-`decommitValue`, `takeSumᵛ`, `snapNum`/`ηOf`/`tfinalOf`/`headAda`) and the per-conjunct helper predicates
-(`noMint`, `signedByParticipant`, `distributedOuts`/`partialDistributedOuts`,
-`fanoutMembersOK`/`fanoutExcludeOK`/`partialFanoutNotDoneOK`, `crsBindOK`,
-`depositSpentOK`)
-are defined in the typechecked source but hidden from the appendix, which shows
-the datum/redeemer types, the transition relation, the postulated trust base and
-the bundles themselves.
+algebra), while signature and accumulator soundness are assumed. None of this
+on-chain layer is rendered in @agda-appendix: the datum/redeemer types, the
+transition relation, the postulated trust base, the helper predicates and the
+bundles themselves are all typechecked as part of this document's build but not
+shown - the appendix is reserved for the machine-checked theorem statements
+(@sec:onchain-theorems, @sec:offchain-theorems, @sec:security-theorems), and the
+trust base is inventoried in prose in @sec:assumption-inventory.
 
 == Init transaction <sec:init-tx>
 
@@ -506,10 +503,9 @@ head-policy tokens). What remains hand-reviewed: the datum bindings - $cid = has
 stated over the law-free `hash`, and the datum's seed-reference field $seed = seed'$ has no Agda
 counterpart (the `Open` datum carries no seed field).
 
-The `InitValid` bundle and its dispatching `initValid` predicate follow
-(@agda-appendix):
+The conditions are conjoined in the `InitValid` bundle with its dispatching `initValid` predicate (typechecked, not rendered).
 
-```agda
+```
 -- ── §5.1 init (μHead minting policy) ────────────────────────────────────────────────────────────
 -- A head is created by the seed-parameterised μHead policy. `cid` is the seed-derived policy id, the
 -- seed is spent (so the EUTxO ledger guarantees `cid` is unique), exactly n+1 tokens of `cid` are
@@ -549,9 +545,9 @@ and at least one is burned (the policy only runs when its currency appears in
 the mint field, and rejects a mint field without head-policy entries). It is
 bridged (`burnValid→ref`) and differentially tested (the
 `HeadValidatorAgreement` burn agreement, calling the real
-`validateTokensBurning`):
+`validateTokensBurning`).
 
-```agda
+```
 -- ── §5.1 burn (μHead minting policy, Burn redeemer) ──────────────────────────────────────────────
 -- The Burn arm forbids minting alongside a burn: every head-policy entry of the mint field is
 -- negative, i.e. no positive entry exists (`mintedCount ≡ 0`) and at least one token is burned
@@ -589,10 +585,10 @@ where
   the head.
 
 In Agda the deposit datum and the $nuDeposit$ redeemer are the `DepositDatum` /
-`DepositRedeemer` types (@agda-appendix); the deposit transaction itself has no
+`DepositRedeemer` types; the deposit transaction itself has no
 on-chain verification, so there is no corresponding validity bundle.
 
-```agda
+```
 -- ── §5.2–5.3 deposit / recover (νDeposit) ───────────────────────────────────────────────────────
 -- A deposit locks funds for later collection into the head via increment. The datum records the
 -- target head `cid`, a recover deadline, and the committed outputs C (refs + serialised outputs).
@@ -649,9 +645,9 @@ is posted strictly after the deadline (`t_recover < txValidityMin`, concrete). A
 into the head (Claim) is authorised by the `incrementValid` predicate's `depositSpentOK` check (§5.4);
 `depositClaimedBy` records that the deposit's `cid` must match the head it is claimed into.
 
-The recover conditions form the `RecoverValid` bundle (@agda-appendix):
+The recover conditions form the `RecoverValid` bundle (typechecked, not rendered).
 
-```agda
+```
 -- The deposit transaction itself has NO on-chain verification (§5.2: any payment to νDeposit is a
 -- deposit; eligibility is an off-chain check), so there is no `depositValid`. §5.3 recover: νDeposit,
 -- on `recover m`, checks the recovered outputs match the deposited ones (a serialisation-hash
@@ -675,10 +671,9 @@ recoverValid = RecoverValid
 
 The Claim arm's own checks - the head binding and the before-deadline check, the
 two checks $nuDeposit$ performs that $nuHead$ does not - form the `ClaimValid`
-bundle, consumed by the joint claim obligation stated in @sec:increment-tx
-(@agda-appendix):
+bundle, consumed by the joint claim obligation stated in @sec:increment-tx.
 
-```agda
+```
 -- §5.2 Claim: a deposit is collected by an increment of its OWN head. The head-binding `cid = hcid`:
 depositClaimedBy : DepositDatum → HeadDatum → Set
 depositClaimedBy (mkDepositDatum cid _ _) (Open hcid _ _ _ _ _ _) = cid ≡ hcid
@@ -764,9 +759,9 @@ checks:
   (enforced by the `step` field's type: the `increment` rule reuses the same `ada` binder on both sides)
 
 These conditions form the `IncrementValid` bundle, over the additive
-value-conservation predicate (@agda-appendix):
+value-conservation predicate `incrementValueOK`.
 
-```agda
+```
 -- Value conservation (additive, §5.4/§5.5). The head value grows by the deposit
 -- on increment and shrinks by the decommitted value on decrement.
 incrementValueOK : (valHead valDeposit valHead' : Value) → Set
@@ -796,9 +791,9 @@ incrementValid _ _ _ _ _ _ _ = ⊥
 A deposit claim must satisfy both validators run in the same transaction:
 $nuHead$'s `incrementValid` above and $nuDeposit$'s `claimValid`
 (@sec:recover-tx). The joint claim obligation is stated here as `ClaimTxValid`,
-since it conjoins `incrementValid` with the deposit-side bundle (@agda-appendix):
+since it conjoins `incrementValid` with the deposit-side bundle.
 
-```agda
+```
 -- A deposit is collected by an INCREMENT transaction that spends both the head and the deposit. Such a
 -- transaction must satisfy BOTH validators run in it: νHead's `incrementValid` (version/value/signature)
 -- AND νDeposit's `claimValid` for the claimed deposit datum `dd` (its `cid` binds to the head, and the
@@ -871,9 +866,9 @@ validator checks:
   $ adaO' = adaO $
   (enforced by the `step` field's type: the `decrement` rule reuses the same `ada` binder on both sides)
 
-These conditions form the `DecrementValid` bundle (@agda-appendix):
+These conditions form the `DecrementValid` bundle.
 
-```agda
+```
 decrementValueOK : (valHead valHead' valDecommit : Value) → Set
 decrementValueOK vh vh' vdec = vh' +ᵛ vdec ≡ vh
 
@@ -982,9 +977,9 @@ not recompute the off-chain $accUTxO$/$accCombine$ constructions, which are auth
 The close checks are formalised per condition - the deadline equation, the
 Initial-case constraint, the η-hash binding, the positive-snapshot Any case and
 the version-dependent signature obligation - and conjoined in the `CloseValid`
-bundle (@agda-appendix):
+bundle.
 
-```agda
+```
 -- spec §5.6 (close): the recorded contestation deadline is the transaction's
 -- upper validity bound extended by the contestation period, tfinal = txValidityMax
 -- + T_contest, and close must produce a Closed datum. (Contest's deadline update
@@ -1120,12 +1115,12 @@ $sans("ContestType")$ is a hint how to verify the snapshot and checks:
 The contest checks - the conditional deadline update, the η-hash binding and the
 version-dependent signature obligation - form the `ContestValid` bundle; the
 shared signed-by-a-participant obligation is derived from its sharper contester
-fields (@agda-appendix). NB the bundle's `contesterSigned` captures that the
+fields. NB the bundle's `contesterSigned` captures that the
 appended contester is _a_ transaction signer; the implementation's stronger
 sole-signer cardinality (${keyHash} = txKeys$, exactly one signer) is not
-modelled:
+modelled.
 
-```agda
+```
 -- spec §5.7: contest updates the deadline conditionally - it stays at the previous
 -- tfinal once all parties have contested (|contesters'| = n), otherwise it extends
 -- by the contestation period T (= cp). Fully computed: contesters is a List, so
@@ -1228,9 +1223,9 @@ The validator checks:
 
 The fan-out checks - the burn count, membership of the distributed outputs in the
 accumulator, the deadline, value conservation and the canonical-CRS binding - form
-the `FanoutValid` bundle (@agda-appendix):
+the `FanoutValid` bundle.
 
-```agda
+```
 burnAllTokensOK : Context → HeadDatum → Set
 burnAllTokensOK ctx (Closed cid _ n _ _ _ _ _ _ _)      = burnedCount ctx cid ≡ suc n
 burnAllTokensOK ctx (FanoutProgress cid _ n _ _ _)      = burnedCount ctx cid ≡ suc n
@@ -1307,10 +1302,9 @@ The validator checks:
 + The new accumulator $eta'$ from the output datum correctly represents the remaining UTxOs after removing $S = {o_1, dots.h, o_m}$. The output datum value serves as the exclusion witness:
   $ accVerifyExclude(eta, S, eta') = mtrue $
 
-An intermediate step's conditions form the `PartialFanoutValid` bundle
-(@agda-appendix):
+An intermediate step's conditions form the `PartialFanoutValid` bundle.
 
-```agda
+```
 -- §5.8.1 value conservation for an intermediate partial fan-out (DERIVED, no burn yet): the head input
 -- value equals the CONTINUING head output (the `FanoutProgress` output at the νHead script) plus the
 -- `m` distributed outputs after it -- exactly the decrement shape (`headValue +ᵛ decommit ≡ headValueIn`).
@@ -1365,10 +1359,9 @@ The validator checks:
 + Value is conserved:
   $ val_(sans("head"))^(sans("in")) = plus.o.big_(i=1)^(m) val(o_i) plus.o val_(sans("burned")) plus.o adaO $
 
-The final step's conditions form the `FinalPartialFanoutValid` bundle
-(@agda-appendix):
+The final step's conditions form the `FinalPartialFanoutValid` bundle.
 
-```agda
+```
 -- The last batch of a multi-step fan-out: like `FanoutValid` but from a `FanoutProgress` source.
 record FinalPartialFanoutValid (ctx : Context) (d : HeadDatum) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
   constructor mkFinalPartialFanoutValid
