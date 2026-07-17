@@ -19,7 +19,7 @@ any funds other than by consenting to give them away. In exchange for decreased
 liveness guarantees (stop any time), it can essentially proceed at network speed
 under good conditions, thereby reducing latency and increasing throughput. At
 the same time, the head protocol provides the same capabilities as the mainchain
-by reusing the same ledger model and transaction formats - making the protocol
+by reusing the same ledger model and transaction formats — making the protocol
 "isomorphic".
 
 == Opening the head
@@ -89,7 +89,7 @@ is now evidence that this state once existed during the head evolution.
 
 Besides processing "normal" transactions, participants can also request to
 withdraw some UTxO they can spend from the Head and make it available on main
-chain via a $mtxDecrement$~@sec:decrement-tx transaction - the overall
+chain via a $mtxDecrement$~@sec:decrement-tx transaction — the overall
 process is also called "decommit".
 
 To add UTxO to an open head, anyone may create a deposit of one or more UTxO

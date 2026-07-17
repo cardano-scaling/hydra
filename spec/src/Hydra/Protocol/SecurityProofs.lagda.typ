@@ -40,8 +40,8 @@ open System  -- bring the System field projections (parties/honest/localOf/U₀/
 The properties of the preceding section are not only stated over the execution
 model; they are proved. This section renders the machine-checked results: each
 statement below is the actual Agda type of a theorem in the module
-`SecurityProofs`, shown here and in @agda-appendix, while the proof terms - and
-the supporting lemmas and corollaries the prose cites by name - are typechecked
+`SecurityProofs`, shown here and in @agda-appendix, while the proof terms — and
+the supporting lemmas and corollaries the prose cites by name — are typechecked
 as part of this document's build but not rendered. All results are
 inductions over the `Reachable` closure of the step relation `_⟶ˢ_`
 (@sec:security); none of them is temporal (liveness remains out of scope).

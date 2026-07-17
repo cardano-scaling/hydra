@@ -121,7 +121,7 @@ model~@formal-model-of-bitcoin-transactions@Zahnentferner18-UTxO.
 Intuitively, it arranges transactions in a directed acyclic graph, such as the
 one in @fig:utxo-graph, where boxes represent transactions with
 (red) inputs to the left and (black) outputs to the right. A dangling
-(unconnected) output is an _unspent transaction output (UTxO)_ - there
+(unconnected) output is an _unspent transaction output (UTxO)_ — there
 are two UTxOs in the figure.
 
 #figure(utxo-graph, caption: [Example of a plain UTxO graph]) <fig:utxo-graph>

@@ -808,8 +808,8 @@ of on-chain state is effectively a rollback "past open". However, because the
 head opens with an empty UTxO set and funds are only added via deposits, the
 critical concern becomes rollbacks of deposit transactions. The deposit
 settlement period $Tdeposit$ (see @sec:offchain) ensures that a
-deposit is only considered $sans("Active")$ - and thus eligible for
-incrementing into the head - after sufficient time has elapsed since its
+deposit is only considered $sans("Active")$ — and thus eligible for
+incrementing into the head — after sufficient time has elapsed since its
 creation on-chain. This means that by the time a deposit is incremented, its
 on-chain transaction is sufficiently settled and unlikely to be rolled back,
 preventing inconsistency between the on-chain and off-chain state.

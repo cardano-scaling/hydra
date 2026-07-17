@@ -640,7 +640,7 @@ postulate
   unforgeability (`ms-unforgeable`). The statement also covers parties corrupted AFTER
   confirming (`consistency-uncorrupted`): since `confirm` requires a multisignature regardless of the
   confirmer's honesty, EVERY confirmed snapshot is certified (`confCert-all`), so any party's confirmed
-  set -- including a once-honest party's, the one an on-chain close could be built against -- stays
+  set — including a once-honest party's, the one an on-chain close could be built against — stays
   consistent with every other's, given at least one honest party._
 ]
 
@@ -669,7 +669,7 @@ We call this the _liveness condition_.
   Finally, the 'require' and 'wait' guards of the $hpAS$ code will be passed by every party
   since an $hpAS$ for snapshot number $s$ can only be received for $s in {hats, hats + 1}$
   as an acknowledgement can only be received for the current snapshot being worked on by $p_i$
-  or a snapshot that is one step ahead - implying that everybody will hold a valid multisignature
+  or a snapshot that is one step ahead — implying that everybody will hold a valid multisignature
   on the snapshot in consideration.
 ]
 

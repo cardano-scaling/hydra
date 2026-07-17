@@ -32,7 +32,7 @@ There is also a $mtxDecrement$ transaction~@sec:decrement-tx that allows for tak
 The head protocol defines one minting policy script and one
 validator script:
 - $muHead$ governs minting of state and participation tokens in
-  $mtxInit$ and burning of these tokens in $mtxFanout$.
+  $mtxInit$ and burning of these tokens in $mtxFanout$ or $mtxFinalPartialFanout$.
 - $nuHead$ represents the main protocol state machine logic and ensures
   contract continuity throughout $mtxIncrement$, $mtxDecrement$,
   $mtxClose$, $mtxContest$, $mtxFanout$, $mtxPartialFanout$ and $mtxFinalPartialFanout$.
@@ -409,7 +409,7 @@ algebra), while signature and accumulator soundness are assumed. None of this
 on-chain layer is rendered in @agda-appendix: the datum/redeemer types, the
 transition relation, the postulated trust base, the helper predicates and the
 bundles themselves are all typechecked as part of this document's build but not
-shown - the appendix is reserved for the machine-checked theorem statements
+shown — the appendix is reserved for the machine-checked theorem statements
 (@sec:onchain-theorems, @sec:offchain-theorems, @sec:security-theorems), and the
 trust base is inventoried in prose in @sec:assumption-inventory.
 
@@ -851,7 +851,7 @@ validator checks:
   where $(eta')^(\#) = hash(eta')$ is the hash of the new accumulator commitment $eta'$
   stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs;
   $kappa^(\#)$ is taken from the redeemer; and $delta^(\#)$ is _recomputed on-chain_ as the
-  hash of the $m$ decommit outputs $o_2 dots.h o_(m+1)$ following the head output -- the
+  hash of the $m$ decommit outputs $o_2 dots.h o_(m+1)$ following the head output — the
   same output list the value check below sums. Binding $delta^(\#)$ to the exact decommit
   output set (address, datum, order and count, not just aggregate value) means a signer
   cannot redirect decommitted outputs while reusing a valid signature.
@@ -906,8 +906,8 @@ $redeemerHead = (sans("close"), sans("CloseType"))$, where
 $sans("CloseType")$ is a hint against which open state to close. (The closing
 party posts $sans("postTx")(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
 off-chain; on-chain the redeemer carries only $(xi, (eta')^(\#), delta^(\#), kappa^(\#))$ in
-$sans("CloseType")$ -- the signature, the accumulator hash and the decommit-
-and commit-output-set hashes -- while the version $v$ and snapshot number $s$ are
+$sans("CloseType")$ — the signature, the accumulator hash and the decommit-
+and commit-output-set hashes — while the version $v$ and snapshot number $s$ are
 authenticated by the multisignature $xi$ over
 $cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)$ and
 recorded in the datum, rather than being separate redeemer fields.) The
@@ -1209,7 +1209,7 @@ The validator checks:
   (`InvalidCRSDatum` otherwise; an unresolvable or undecodable reference input
   rejects with `MissingCRSRefInput`/`MissingCRSDatum`). Without this binding an
   attacker could supply a substituted powers-of-tau setup with known trapdoor
-  $tau$ and forge membership witnesses for arbitrary outputs -- and since fan-out
+  $tau$ and forge membership witnesses for arbitrary outputs — and since fan-out
   is permissionless after the deadline, that would be direct fund theft. The
   membership check below runs against this canonical CRS.
 + All $m$ outputs are verified as members of the unified accumulator $eta$ using the membership witness $pi$:
@@ -1292,7 +1292,7 @@ The validator checks:
   For a $stFanoutProgress$ input:
   #transition-arrow("partialFanoutStep")
   (the `partialFanoutStep` rule of `_⟶⟨_⟩_`; $stFanoutProgress$ steps to itself).
-+ The new accumulator $eta'$ (from the output datum) is not the G1 generator -- all elements have _not_ yet been removed (use $stFinalPartialFanout$ for the last batch):
++ The new accumulator $eta'$ (from the output datum) is not the G1 generator — all elements have _not_ yet been removed (use $stFinalPartialFanout$ for the last batch):
   $ eta' != G_1 $
 + No minting or burning $txMint = emptyset$.
 + Transaction is posted after contestation deadline $txValidityMin > tfinal$.

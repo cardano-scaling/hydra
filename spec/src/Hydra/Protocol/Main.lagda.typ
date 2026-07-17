@@ -60,9 +60,9 @@ readable, the rendered Agda is collected here rather than shown inline; each blo
 section it supports, in document order, and the body links here in place. The appendix is
 deliberately restricted to the _machine-checked theorem statements_ (the coverage, safety,
 value-conservation and security results of @sec:onchain-theorems, @sec:offchain-theorems and
-@sec:security-theorems) together with the property types they inhabit. Everything else - the
+@sec:security-theorems) together with the property types they inhabit. Everything else — the
 datum/redeemer types, the transition relations, the validity bundles, the helper definitions, every
-`postulate`, and all proof bodies - is typechecked as part of the build but not rendered, as are the
+`postulate`, and all proof bodies — is typechecked as part of the build but not rendered, as are the
 typecheck-only modules `Prelude`, `Reference`, `ReferenceBridge`, `RefReflection` and
 `OffChainReference`. @sec:assumption-inventory lists what the formalisation takes on trust.
 
