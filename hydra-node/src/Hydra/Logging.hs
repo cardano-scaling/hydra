@@ -128,8 +128,11 @@ withTracerOutputTo bufferingMode hdl namespace action = do
   -- 'withAsync' cancels the writer in that case.
   drainLogs closed writer = liftIO $ do
     atomically $ writeTVar closed True
-    void $ timeout 5 (wait writer)
+    void $ timeout drainGraceSeconds (wait writer)
     hFlush hdl
+
+  drainGraceSeconds :: DiffTime
+  drainGraceSeconds = 5
 
   write bs = LBS.hPut hdl (bs <> "\n")
 

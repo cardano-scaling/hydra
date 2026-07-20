@@ -153,8 +153,8 @@ def main():
     )
     out.append("")
 
-    # Match by scenario title; fall back to positional pairing when titles are
-    # absent on either side.
+    # Match scenarios by title (reports always carry one; untitled datasets
+    # get a default title from the bench).
     common = [t for t in branch_order if t in base]
     matched_any = False
     warn_keys = set()

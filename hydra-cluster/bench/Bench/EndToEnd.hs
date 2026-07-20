@@ -908,8 +908,10 @@ readPeakNodeRssMb workDir = do
     [] -> Nothing
     kbs -> Just (List.maximum kbs / 1024)
  where
+  -- Synchronous exceptions only: swallowing an async cancellation here would
+  -- defer the scenario's 'failAfter' timeout (see 'tryNonAsync').
   ignoringErrors :: forall a. a -> IO a -> IO a
-  ignoringErrors def act = act `catch` \(_ :: SomeException) -> pure def
+  ignoringErrors def act = fromRight def <$> tryNonAsync act
 
   isScenarioNode cmdline = case BS.split 0 cmdline of
     (exe : args) ->
