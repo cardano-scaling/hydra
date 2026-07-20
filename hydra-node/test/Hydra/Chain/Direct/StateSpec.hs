@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (PostChainTx (..), maximumNumberOfParties)
+import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -347,21 +347,23 @@ spec = parallel $ do
                           , headId = stClosed.headId
                           , headSeed = txInToHeadSeed stClosed.seedTxIn
                           , version = 0
-                          , remainingFanoutOutputs = Nothing
-                          , distributedFanoutOutputs = mempty
                           }
                       outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
                       expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups
-                      fanoutUTxOs =
-                        [ utxo
-                        | HL.OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute = utxo}} <-
+                      -- A node observing a partial fanout it didn't initiate is a
+                      -- passive observer: it records the remaining set (by content)
+                      -- but does not post the next fanout.
+                      remainingUTxOs =
+                        [ remainingOutputs
+                        | HL.HeadPartialFannedOut{remainingOutputs} <-
                             case outcome of
-                              HL.Continue{effects} -> effects
+                              HL.Continue{stateChanges} -> stateChanges
+                              HL.Wait{stateChanges} -> stateChanges
                               _ -> []
                         ]
                    in counterexample
-                        ("Expected FinalPartialFanoutTx{utxoToDistribute = " <> show expectedRemaining <> "}")
-                        (fanoutUTxOs === [expectedRemaining])
+                        ("Expected HeadPartialFannedOut{remainingOutputs = " <> show expectedRemaining <> "}")
+                        (remainingUTxOs === [expectedRemaining])
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =

@@ -116,7 +116,6 @@ mockChainAndNetwork tr seedKeys = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateDeposit = simulateDeposit nodes
-      , simulatePartialFanout = \_ _ -> error "simulatePartialFanout not implemented for MockChain"
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       , getChainHistory = pure []
       }
@@ -234,6 +233,7 @@ mockChainAndNetwork tr seedKeys = do
                   , closingSnapshot = InitialSnapshot{headId = openHeadId}
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
+            FanoutProgress{} -> error "Cannot post Close tx when in FanoutProgress state"
 
   matchingParty :: Party -> MockHydraNode m -> Bool
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =

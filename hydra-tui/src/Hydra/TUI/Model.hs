@@ -15,6 +15,7 @@ import Brick.Forms (Form)
 import Brick.Widgets.List qualified as BrickList
 import Data.Map qualified as Map
 import Data.Vector qualified as Vec
+import Hydra.API.ServerOutput (FanoutProgressMode (..), fanoutProgressMode)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
@@ -57,6 +58,10 @@ data RootState = RootState
   , previousTab :: ActiveTab
   , theme :: Theme
   , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+  , fanoutSelectionForm :: Maybe (UTxOCheckboxForm (HydraEvent Tx) Name)
+  -- ^ When set, the operator is multi-selecting which UTxOs to fan out for a
+  -- selective 'PartialFanout' (a top-level modal flow, like 'recoveryForm').
+  -- Available regardless of head state once fanout is possible.
   , eventHistoryFilter :: EventHistoryFilter
   }
 
@@ -155,6 +160,12 @@ data ActiveHeadState
   = Open {openState :: OpenScreen}
   | Closed {closedState :: ClosedState}
   | FanoutPossible
+  | -- | A selective partial fanout is in progress (on-chain @FanoutProgress@):
+    -- some UTxO has been distributed and 'fanoutRemaining' is still in the head.
+    -- Only further partial fanouts are accepted (no full 'Fanout'). 'fanoutMode'
+    -- (reported by the node) says whether it keeps draining on its own or awaits
+    -- the next selection, driving what the UI offers.
+    FanningOut {fanoutRemaining :: UTxO, fanoutMode :: FanoutProgressMode}
   | Final
 
 type Name = Text
@@ -196,6 +207,7 @@ makeLensesFor
   , ("previousTab", "previousTabL")
   , ("theme", "themeL")
   , ("recoveryForm", "recoveryFormL")
+  , ("fanoutSelectionForm", "fanoutSelectionFormL")
   , ("eventHistoryFilter", "eventHistoryFilterL")
   ]
   ''RootState
@@ -242,6 +254,9 @@ fundsL1ViewportName = "funds-l1"
 
 fundsFuelViewportName :: Name
 fundsFuelViewportName = "funds-fuel"
+
+fanoutSelectionViewportName :: Name
+fanoutSelectionViewportName = "fanout-selection"
 
 emptyEventHistoryList :: BrickList.List Name LogMessage
 emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1
@@ -322,6 +337,24 @@ recoverHeadState now current nodeState =
                     if readyToFanoutSent
                       then FanoutPossible
                       else Closed{closedState = ClosedState{contestationDeadline}}
+                }
+    State.FanoutProgress
+      State.PartialFanoutState
+        { parameters
+        , headId
+        , confirmedSnapshot
+        , remainingOutputs
+        , mode
+        } ->
+        let Snapshot{utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
+         in Active
+              ActiveLink
+                { utxo = remainingOutputs
+                , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
+                , pendingIncrements
+                , parties = HeadParameters.parties parameters
+                , headId
+                , activeHeadState = FanningOut{fanoutRemaining = remainingOutputs, fanoutMode = fanoutProgressMode mode}
                 }
  where
   pendingIncrements =

@@ -679,6 +679,28 @@ You can do this through the WebSocket API one last time:
 
 This will submit a transaction to layer 1. Once successful, it will be indicated by a `HeadIsFinalized` message that includes the distributed `utxo`.
 
+:::tip Selective fanout
+
+Instead of fanning out the whole head at once, you can choose exactly which UTxOs to
+distribute and in which order, paying the on-chain cost only for what you care about:
+
+```json title="Websocket API"
+{ "tag": "PartialFanout", "utxoToFanout": { /* a subset of the head's UTxO */ } }
+```
+
+Each `PartialFanout` distributes the selected subset (chunked across transactions
+automatically if it is too large for one) and replies with a `HeadPartiallyFannedOut`
+message reporting the `distributedUTxO` and the `remainingUTxO`. Keep issuing
+`PartialFanout` — selecting the entire remaining set when you want to finish — until the
+head is drained, at which point the node automatically submits the final transaction that
+burns the head tokens and emits `HeadIsFinalized`.
+
+Note that selective fanout is sticky: once you send the first `PartialFanout`, the plain
+`Fanout` command is no longer accepted for that head — you continue with `PartialFanout`
+commands until the head is empty.
+
+:::
+
 To confirm, you can query the funds of both `alice` and `bob` on layer 1:
 
 ```shell

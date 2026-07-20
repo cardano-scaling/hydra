@@ -197,9 +197,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot)
+              (rightToMaybe (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot))
               utxoForProof
               fullUTxO
+              (UTxO.size fullUTxO - 1)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, presettledUTxO, headSeed, contestationDeadline} -> do
@@ -210,9 +211,31 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot)
+              (rightToMaybe (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot))
               (utxoToDistribute <> presettledUTxO)
               utxoToDistribute
+              (UTxO.size utxoToDistribute - 1)
+              deadlineSlot
+              >>= finalizeTx wallet ctx spendableUTxO mempty
+          PartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} -> do
+            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+            -- Non-final partial fanout: no preferred tx, always chunk from the
+            -- user-selected set. The whole selection may be distributed in one
+            -- tx (size, not size-1): the selection is always a strict subset of
+            -- the head's remaining UTxO (HeadLogic routes a full selection to
+            -- the final/auto path instead), so the unselected remainder stays in
+            -- the accumulator and 'mustNotBeLastBatch' is satisfied regardless of
+            -- chunk size.
+            findFittingFanoutTx
+              tracer
+              wallet
+              ctx
+              spendableUTxO
+              seedTxIn
+              Nothing
+              utxoForProof
+              utxoToDistribute
+              (UTxO.size utxoToDistribute)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           InitTx{participants, headParameters} -> do
@@ -504,6 +527,7 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
     -- These are handled in mkChain.postTx before reaching this function.
     FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)
     FinalPartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
+    PartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a
@@ -582,7 +606,7 @@ fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
 --   * No chunk fits within budget → 'FailedToConstructPartialFanoutTx'
 --     (budget exhaustion; also not a race condition).
 findFittingFanoutTx ::
-  forall m e.
+  forall m.
   MonadThrow m =>
   Tracer m CardanoChainLog ->
   TinyWallet m ->
@@ -591,25 +615,33 @@ findFittingFanoutTx ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Left skips straight to the loop
-  Either e Tx ->
+  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); 'Nothing' skips straight to the fallback loop
+  Maybe Tx ->
   -- | UTxO for the accumulator check in the partial-fanout fallback (matches the on-chain datum)
   UTxO ->
   -- | UTxOs to distribute in the partial-fanout fallback
   UTxO ->
+  -- | Upper bound (inclusive) of chunk sizes to search in the fallback. For the
+  --   final/full fanout fallback this is @size - 1@ (the preferred tx handles
+  --   the full set; a partial fanout must leave at least one output). For an
+  --   explicit non-final partial fanout this is the full @size@: the selection
+  --   is always a strict subset of the head's remaining UTxO, so even
+  --   distributing all of it leaves the unselected remainder in the accumulator
+  --   and 'mustNotBeLastBatch' holds.
+  Int ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred proofUTxO fullUTxO deadlineSlot =
+findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred proofUTxO fullUTxO maxChunkSize deadlineSlot =
   findBest >>= either (const $ throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
-  findBest = either (const findFallback) tryPreferred ePreferred
+  findBest = maybe findFallback tryPreferred ePreferred
    where
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
-  findFallback = findLargestFitting tryChunk (UTxO.size fullUTxO - 1)
+  findFallback = findLargestFitting tryChunk maxChunkSize
    where
     tryChunk n = buildTx n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 

@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (Down)
 
 import Brick
 import Brick.BChan (BChan, writeBChan)
-import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
+import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm, updateFormState)
 import Brick.Widgets.List qualified as BrickList
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent (forkIO)
@@ -24,7 +24,7 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
+import Hydra.API.ServerOutput (FanoutProgressMode (..), NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Cardano.Api.Prelude ()
@@ -67,6 +67,7 @@ handleEvent cardanoClient client chan = \case
       pendingActionL .= Nothing
     syncEventHistoryList
     refreshRecoveryForm
+    refreshFanoutForm
     case e of
       ClientConnected ->
         triggerL1Query cardanoClient client chan
@@ -84,6 +85,7 @@ handleEvent cardanoClient client chan = \case
         triggerL1Query cardanoClient client chan
       ClientDisconnected -> do
         recoveryFormL .= Nothing
+        fanoutSelectionFormL .= Nothing
         pendingActionL .= Nothing
         l1UTxOL .= Nothing
         fuelUTxOL .= Nothing
@@ -114,7 +116,8 @@ handleEvent cardanoClient client chan = \case
         -- would be stranded showing a stale loading panel.
         tab <- use activeTabL
         hasRecoveryForm <- isJust <$> use recoveryFormL
-        when (tab == ModalTab && not hasRecoveryForm) leaveModal
+        hasFanoutForm <- isJust <$> use fanoutSelectionFormL
+        when (tab == ModalTab && not hasRecoveryForm && not hasFanoutForm) leaveModal
       _ -> pure () -- User navigated away (Esc, started a different flow) — drop silently.
   MouseDown name Vty.BScrollUp _ _ ->
     vScrollBy (viewportScroll name) (-3)
@@ -189,6 +192,27 @@ handleEvent cardanoClient client chan = \case
         setPendingAction e
         zoom (connectedStateL . connectionL . headStateL) $
           handleVtyEventsHeadState cardanoClient client chan e
+      EvKey (KChar 'p') [] | not modalOpen -> do
+        -- Selective partial fanout: pick one or more UTxOs to fan out, then send
+        -- 'PartialFanout'. Only available once fanout is possible. This is a
+        -- top-level modal flow (uses 'fanoutSelectionFormL'), like recovery.
+        mLink <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL)
+        -- Offer partial fanout only when the node is actually waiting for a
+        -- selection: from 'FanoutPossible', or mid-fanout when the node reports
+        -- it is awaiting the next selection (not while it auto-drains).
+        let canPartialFanout = \case
+              FanoutPossible -> True
+              FanningOut{fanoutMode} -> fanoutMode == AwaitingFanoutSelection
+              _ -> False
+        case mLink of
+          Just ActiveLink{utxo = UTxO m, activeHeadState}
+            | canPartialFanout activeHeadState ->
+                case utxoCheckboxField m of
+                  Just form -> do
+                    fanoutSelectionFormL .= Just form
+                    enterModal
+                  Nothing -> liftIO $ writeBChan chan (TxBuildError "No UTxO available to fan out.")
+          _ -> pure ()
       EvKey (KChar 'i') [] | not modalOpen -> do
         -- Increment reads the cached L1 UTxO ('l1UTxOL') for a snappy modal
         -- rather than querying the cardano-node. With an empty/unloaded cache
@@ -242,18 +266,51 @@ handleEvent cardanoClient client chan = \case
             let closeModal = do
                   leaveModal
                   recoveryFormL .= Nothing
+                  fanoutSelectionFormL .= Nothing
                   zoomOpenScreen $ put OpenHome
             currentRecoveryForm <- use recoveryFormL
-            case (currentRecoveryForm, e) of
-              (_, EvKey KEsc []) -> closeModal
-              (_, EvKey (KChar 'c') []) -> closeModal
-              (Just form, EvKey KEnter []) -> do
+            currentFanoutForm <- use fanoutSelectionFormL
+            case (currentRecoveryForm, currentFanoutForm, e) of
+              (_, _, EvKey KEsc []) -> closeModal
+              (_, _, EvKey (KChar 'c') []) -> closeModal
+              (Just form, _, EvKey KEnter []) -> do
                 let selectedTxId = formState form
                 pendingActionL .= Just "Sending recovery…"
                 liftIO $ recoverCommitAsync client chan selectedTxId
                 closeModal
-              (Just _, _) -> zoom (recoveryFormL . _Just) $ handleFormEvent (VtyEvent e)
-              (Nothing, _) -> do
+              (Just _, _, _) -> zoom (recoveryFormL . _Just) $ handleFormEvent (VtyEvent e)
+              (_, Just form, EvKey KEnter []) -> do
+                -- Fan out all the UTxOs the operator ticked. The node distributes
+                -- them (chunking as needed) and reports 'HeadPartiallyFannedOut'
+                -- with the remaining set; repeat to fan out more, or tick the rest
+                -- to finish (the final step burns the head tokens).
+                let selected = UTxO.fromList [(txin, txout) | (txin, (txout, True)) <- Map.toList (formState form)]
+                if UTxO.null selected
+                  then pendingActionL .= Just "Select at least one UTxO to fan out (Space to toggle)."
+                  else do
+                    pendingActionL .= Just "Sending partial fanout…"
+                    liftIO $ sendInput client (PartialFanout selected)
+                    closeModal
+              (_, Just form, EvKey (KChar 'a') []) ->
+                -- Select-all toggle: if every UTxO is already ticked, clear them
+                -- all; otherwise tick them all.
+                let allTicked = all (snd . snd) (Map.toList (formState form))
+                    setAll b = Map.map (\(o, _) -> (o, b)) (formState form)
+                 in fanoutSelectionFormL . _Just %= updateFormState (setAll (not allTicked))
+              -- Scroll the (possibly long) UTxO list with PageUp/PageDown, matching
+              -- the main/funds UTxO viewports.
+              (_, Just _, EvKey KPageUp []) -> vScrollBy (viewportScroll fanoutSelectionViewportName) (-10)
+              (_, Just _, EvKey KPageDown []) -> vScrollBy (viewportScroll fanoutSelectionViewportName) 10
+              (_, Just _, _) ->
+                -- The multi-select is several separate checkbox fields, so brick
+                -- moves focus with Tab/BackTab. Map ↑/↓ to those so the arrow
+                -- keys navigate the list as users expect (Space still toggles).
+                let e' = case e of
+                      EvKey KDown [] -> EvKey (KChar '\t') []
+                      EvKey KUp [] -> EvKey KBackTab []
+                      _ -> e
+                 in zoom (fanoutSelectionFormL . _Just) $ handleFormEvent (VtyEvent e')
+              (Nothing, Nothing, _) -> do
                 -- Show "Sending …" status for in-modal Enter actions
                 -- (decommit / increment / recover / close confirm). Done
                 -- before handleVtyEventsHeadState so the read of openState
@@ -374,7 +431,17 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.ReadyToFanout{}}) ->
       activeHeadStateL .= FanoutPossible
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{}}) -> do
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadPartiallyFannedOut{remainingUTxO, fanoutMode}}) -> do
+      -- A fanout step landed: move into the in-progress 'FanningOut' state and
+      -- reflect what is left. 'fanoutMode' (from the node) decides whether we
+      -- prompt for the next selection or just report auto-draining progress.
+      -- Full 'Fanout' is no longer offered either way.
+      utxoL .= remainingUTxO
+      activeHeadStateL .= FanningOut{fanoutRemaining = remainingUTxO, fanoutMode}
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{finalizedUTxO}}) -> do
+      -- Show the full cumulative set that was fanned out across all (partial)
+      -- fanout steps, not just the last batch that happened to be left in 'utxoL'.
+      utxoL .= finalizedUTxO
       activeHeadStateL .= Final
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitRequested{utxoToDecommit}}) -> do
       ActiveLink{utxo} <- get
@@ -439,6 +506,9 @@ handleVtyEventsActiveHeadState cardanoClient hydraClient chan utxo pendingIncrem
   s <- use id
   case s of
     FanoutPossible -> handleVtyEventsFanoutPossible hydraClient e
+    -- Mid partial fanout: full 'Fanout' is no longer valid; only the 'P' partial
+    -- fanout flow (handled in the outer event loop) applies here.
+    FanningOut{} -> pure ()
     Final -> handleVtyEventsFinal hydraClient e
     _ -> pure ()
 
@@ -772,6 +842,46 @@ refreshRecoveryForm = do
           when (tab == ModalTab) $ do
             leaveModal
             pendingActionL .= Just "No pending deposits left to recover."
+
+-- | Keep an open partial-fanout selection modal in sync with the head's
+-- remaining UTxO. When a 'HeadPartiallyFannedOut' step lands, the displayed
+-- 'utxoL' shrinks; rebuild the form against it so the user cannot tick (and
+-- submit) UTxOs that were already fanned out. Still-valid ticks are preserved.
+-- If the head is no longer fanning out (finalized, or otherwise left a
+-- fanout-capable state), close the modal.
+refreshFanoutForm :: EventM Name RootState ()
+refreshFanoutForm = do
+  mForm <- use fanoutSelectionFormL
+  case mForm of
+    Nothing -> pure ()
+    Just form -> do
+      mActiveHeadState <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL)
+      let stillFanningOut = case mActiveHeadState of
+            Just FanoutPossible -> True
+            Just FanningOut{} -> True
+            _ -> False
+      mUTxO <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . utxoL)
+      let u = maybe mempty UTxO.toMap mUTxO
+          prevSelection = formState form
+      if not stillFanningOut || Map.null u
+        then do
+          -- Head finalized or left a fanout-capable state, or nothing remains:
+          -- close the modal so the user cannot submit against a stale UTxO set.
+          fanoutSelectionFormL .= Nothing
+          tab <- use activeTabL
+          when (tab == ModalTab) leaveModal
+        else
+          -- Only rebuild the form when the underlying UTxO set actually changed
+          -- (e.g. a 'HeadPartiallyFannedOut' step shrank it). 'newForm' resets the
+          -- focus to the first field, so rebuilding on every tick would make the
+          -- selection jump back to the top and the list unusable.
+          when (Map.keysSet u /= Map.keysSet prevSelection) $
+            case utxoCheckboxFieldWith (Just prevSelection) u of
+              Just refreshed -> fanoutSelectionFormL .= Just refreshed
+              Nothing -> do
+                fanoutSelectionFormL .= Nothing
+                tab <- use activeTabL
+                when (tab == ModalTab) leaveModal
 
 -- | Run an IO action in a background thread, reporting any exception through
 -- the TUI's event channel as a 'TxBuildError' (visible in the pending-action

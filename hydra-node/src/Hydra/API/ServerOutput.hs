@@ -13,7 +13,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), HeadState (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -157,6 +157,13 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
+  | -- | A selective partial fanout step has been observed on chain. Reports the
+    -- UTxO distributed in this step and what remains to be fanned out, so the
+    -- client can choose the next 'PartialFanout' selection (or fan out the rest).
+    -- 'fanoutMode' tells the client whether the node will keep draining on its
+    -- own or is waiting for the next selection, so it can render the right
+    -- affordance instead of inferring it.
+    HeadPartiallyFannedOut {headId :: HeadId, distributedUTxO :: UTxOType tx, remainingUTxO :: UTxOType tx, fanoutMode :: FanoutProgressMode}
   | HeadIsFinalized {headId :: HeadId, finalizedUTxO :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
@@ -246,6 +253,7 @@ prepareServerOutput config response =
     HeadIsClosed{} -> encodedResponse
     HeadIsContested{} -> encodedResponse
     ReadyToFanout{} -> encodedResponse
+    HeadPartiallyFannedOut{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
@@ -290,8 +298,34 @@ data HeadStatus
   | Open
   | Closed
   | FanoutPossible
+  | -- | A closed head whose UTxO is being distributed across multiple selective
+    -- partial fanout transactions.
+    FanningOut
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+-- | Client-facing projection of the node's fanout 'FanoutMode': whether a
+-- fanning-out head will continue draining on its own or is waiting for the
+-- client to choose the next 'PartialFanout'. Surfacing this lets clients render
+-- the correct affordance without inferring it from local actions.
+data FanoutProgressMode
+  = -- | The node keeps draining automatically (a full 'Fanout', or working
+    -- through a user selection). The client should wait, not prompt for input.
+    AutoFanningOut
+  | -- | The node has drained the current selection and is waiting for the next
+    -- 'PartialFanout' from the client.
+    AwaitingFanoutSelection
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+-- | Project the internal 'FanoutMode' to its client-facing 'FanoutProgressMode'.
+-- Both auto-drain and mid-selection draining present as 'AutoFanningOut' (the
+-- node advances by itself); only an exhausted selection awaits client input.
+fanoutProgressMode :: FanoutMode tx -> FanoutProgressMode
+fanoutProgressMode = \case
+  AutoDrain -> AutoFanningOut
+  DistributingSelection{} -> AutoFanningOut
+  AwaitingSelection -> AwaitingFanoutSelection
 
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
@@ -317,6 +351,9 @@ getSnapshotUtxo = \case
   HeadState.Closed ClosedState{confirmedSnapshot} ->
     let snapshot = getSnapshot confirmedSnapshot
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
+    let snapshot = getSnapshot confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
 getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
@@ -328,6 +365,9 @@ getSeenSnapshot = \case
   HeadState.Closed ClosedState{confirmedSnapshot} ->
     let Snapshot{number} = getSnapshot confirmedSnapshot
      in LastSeenSnapshot number
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
+    let Snapshot{number} = getSnapshot confirmedSnapshot
+     in LastSeenSnapshot number
 
 -- | Get latest confirmed snapshot from 'HeadState'.
 getConfirmedSnapshot :: HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
@@ -337,4 +377,6 @@ getConfirmedSnapshot = \case
   HeadState.Open OpenState{coordinatedHeadState} ->
     Just coordinatedHeadState.confirmedSnapshot
   HeadState.Closed ClosedState{confirmedSnapshot} ->
+    Just confirmedSnapshot
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
     Just confirmedSnapshot
