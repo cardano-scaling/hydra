@@ -18,12 +18,14 @@ import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
 import Control.Monad (foldM)
+import Data.Aeson (Result (Success), Value (..), fromJSON)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.List qualified as List
 import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, Recover, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -36,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -1922,9 +1924,25 @@ spec =
       prop "fanout utxo includes accumulated UTxO from prior partial fanouts" $
         \fanoutUTxO priorDistributed ->
           forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
+            -- Prior partial fanouts mean the head is on-chain in FanoutProgress.
             let stWithPrior = case closedState.headState of
-                  Closed cst ->
-                    closedState{headState = Closed cst{distributedFanoutOutputs = priorDistributed}}
+                  Closed ClosedState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version} ->
+                    closedState
+                      { headState =
+                          FanoutProgress
+                            PartialFanoutState
+                              { parameters
+                              , confirmedSnapshot
+                              , contestationDeadline
+                              , chainState
+                              , headId
+                              , headSeed
+                              , version
+                              , remainingOutputs = mempty
+                              , distributedOutputs = priorDistributed
+                              , mode = AutoDrain
+                              }
+                      }
                   _ -> closedState
                 fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
             now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
@@ -1942,29 +1960,44 @@ spec =
         update bobEnv ledger now st partialFanoutOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
-      prop "partial fanout emits HeadPartialFannedOut and triggers next fanout" $ \distributedUTxO ->
+      prop "observing another party's partial fanout records it but does NOT auto-drive" $ \distributedUTxO ->
         forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
+          -- A node still in 'Closed' observing a partial fanout it did not initiate
+          -- is a passive observer: it records the step (HeadPartialFannedOut, mode
+          -- AwaitingSelection) but must NOT post the next fanout — otherwise it
+          -- would steamroll a selective fanout another party deliberately paused.
           let partialFanoutHead = observeTx $ OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributedUTxO}
           now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
           let outcome = update bobEnv ledger now closedState partialFanoutHead
           monitor $ counterexample ("Outcome: " <> show outcome)
-          -- Should emit HeadPartialFannedOut state change
           run $
             outcome `hasStateChangedSatisfying` \case
-              HeadPartialFannedOut{} -> True
+              HeadPartialFannedOut{mode = AwaitingSelection} -> True
               _ -> False
-          -- Should also trigger the next fanout automatically. After observing a
-          -- PartialFanout the phase is always FanoutInProgress, so HeadLogic
-          -- always emits FinalPartialFanoutTx (Handlers decides whether to
-          -- actually do a partial chunk or finalize based on tx evaluation).
+          run $
+            outcome `hasNoEffectSatisfying` \case
+              OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+              OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+              _ -> False
+
+      prop "client Fanout makes this node the driver (FanoutProgress AutoDrain) and posts FanoutTx" $
+        forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
+          now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now closedState (ClientInput Fanout)
+          monitor $ counterexample ("Outcome: " <> show outcome)
           run $
             outcome `hasEffectSatisfying` \case
-              OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+              OnChainEffect{postChainTx = FanoutTx{}} -> True
               _ -> False
+          -- And it enters FanoutProgress in AutoDrain mode so subsequent chunk
+          -- observations auto-continue on this (driving) node.
+          case headState (aggregateState closedState outcome) of
+            FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
+            other -> run $ failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
 
       it "partial fanout with large remaining triggers FinalPartialFanoutTx" $ do
         let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
-            st = inClosedStateWithRemaining threeParties (Just bigRemaining)
+            st = inAutoDrainProgress threeParties bigRemaining
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
@@ -1976,7 +2009,7 @@ spec =
         let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + fromIntegral fanoutChunkSize + 1]]
             (distributedList, _) = splitAt fanoutChunkSize (Set.toList allItems)
             distributed = Set.fromList distributedList
-            st = inClosedStateWithRemaining threeParties (Just allItems)
+            st = inAutoDrainProgress threeParties allItems
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
@@ -1994,7 +2027,7 @@ spec =
             attackedDistributed =
               Set.fromList
                 [SimpleTxOut i | i <- [fromIntegral (total - fanoutChunkSize + 1) .. fromIntegral total]]
-            st = inClosedStateWithRemaining threeParties (Just allItems)
+            st = inAutoDrainProgress threeParties allItems
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome =
               update
@@ -2010,20 +2043,257 @@ spec =
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
         let smallRemaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            st = inClosedStateWithRemaining threeParties (Just smallRemaining)
+            st = inAutoDrainProgress threeParties smallRemaining
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == smallRemaining
           _ -> False
 
-      it "client fanout uses remaining UTxO after partial fanout (FinalPartialFanoutTx)" $ do
+      it "client partial fanout selecting all remaining UTxO drains via FinalPartialFanoutTx" $ do
         let remaining = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
-            st = inClosedStateWithRemaining threeParties (Just remaining)
+            st = inAutoDrainProgress threeParties remaining
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
+          _ -> False
+
+      it "an awaiting (observer) node can drive the next step with its own PartialFanout" $ do
+        -- A node that only observed someone else's partial fanout sits in
+        -- 'AwaitingSelection'; issuing its own 'PartialFanout' makes it the driver
+        -- for that step (posts a non-final PartialFanoutTx for the subset). This is
+        -- the "continue the fanout from a different party" path.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            selection = Set.fromList [SimpleTxOut 1]
+            st = inFanoutProgressWith threeParties remaining AwaitingSelection
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
+          _ -> False
+        case headState (aggregateState st outcome) of
+          FanoutProgress PartialFanoutState{mode = DistributingSelection sel} -> sel `shouldBe` selection
+          other -> failure $ "Expected FanoutProgress DistributingSelection, got: " <> show other
+
+      it "selective fanout that drains the whole remaining set finalizes instead of wedging" $ do
+        -- Regression: a 'DistributingSelection' step whose observed distribution
+        -- empties 'remaining' (e.g. a chunk drained everything because a pre-settled
+        -- UTxO kept the on-chain accumulator non-empty) must still emit the burning
+        -- FinalPartialFanoutTx — not stop at AwaitingSelection and wedge the head.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inFanoutProgressWith threeParties remaining (DistributingSelection remaining)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = remaining})
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+
+      it "client PartialFanout from Closed selects a subset and enters FanoutProgress" $ do
+        let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            selection = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+        -- Emits a non-final PartialFanoutTx drawing from the user selection.
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
+          _ -> False
+        -- And transitions the head into FanoutProgress with the full remaining set.
+        case headState (aggregateState st outcome) of
+          FanoutProgress PartialFanoutState{remainingOutputs} -> remainingOutputs `shouldBe` fullUTxO
+          other -> failure $ "Expected FanoutProgress state, got: " <> show other
+
+      it "client PartialFanout selecting ALL of a fresh head delegates to the full Fanout" $ do
+        -- Selecting everything is a full fanout: it must post a FanoutTx (auto
+        -- drain), not an impossible non-final PartialFanoutTx of the whole set.
+        let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout fullUTxO))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+
+      it "Fanout is rejected once a partial fanout is in progress (sticky)" $ do
+        let st = inAutoDrainProgress threeParties (Set.fromList [SimpleTxOut 1, SimpleTxOut 2])
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput Fanout)
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
+          ClientEffect{clientMessage = CommandFailed{}} -> True
+          _ -> False
+
+      it "PartialFanout with an empty selection fails" $ do
+        let st = inAutoDrainProgress threeParties (Set.fromList [SimpleTxOut 1])
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout mempty))
+        outcome `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = CommandFailed{}} -> True
+          _ -> False
+
+      it "PartialFanout with a non-subset selection fails" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            notInRemaining = Set.fromList [SimpleTxOut 9]
+            st = inAutoDrainProgress threeParties remaining
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout notInRemaining))
+        outcome `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = CommandFailed{}} -> True
+          _ -> False
+
+      it "reverts to Closed when the initiating Fanout tx fails to post before anything landed" $ do
+        -- The optimistic Closed -> FanoutProgress transition (which makes this
+        -- node the fanout driver) must be rolled back if posting the initiating
+        -- tx fails terminally before any partial fanout has landed on chain;
+        -- otherwise the head wedges in FanoutProgress with Fanout rejected.
+        let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let initiated = update bobEnv ledger now st (ClientInput Fanout)
+            st1 = aggregateState st initiated
+        -- Sanity: optimistically in FanoutProgress with nothing distributed yet.
+        case headState st1 of
+          FanoutProgress PartialFanoutState{distributedOutputs} -> distributedOutputs `shouldBe` mempty
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+        postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf initiated] of
+          tx : _ -> pure tx
+          [] -> failure "Expected a posted fanout tx from the initiating Fanout"
+        let failed =
+              update bobEnv ledger now st1 . ChainInput $
+                PostTxError
+                  { postChainTx = postedTx
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        -- Reverts the head back to Closed and still reports the failure.
+        failed `hasStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        failed `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
+          _ -> False
+        case headState (aggregateState st1 failed) of
+          Closed ClosedState{readyToFanoutSent} -> readyToFanoutSent `shouldBe` True
+          other -> failure $ "Expected Closed after revert, got: " <> show other
+
+      it "reverts to Closed when a selective PartialFanout tx fails to post before anything landed" $ do
+        let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            selection = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let initiated = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+            st1 = aggregateState st initiated
+        postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf initiated] of
+          tx : _ -> pure tx
+          [] -> failure "Expected a posted partial fanout tx from the initiating PartialFanout"
+        let failed =
+              update bobEnv ledger now st1 . ChainInput $
+                PostTxError
+                  { postChainTx = postedTx
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st1 failed) of
+          Closed{} -> pure ()
+          other -> failure $ "Expected Closed after revert, got: " <> show other
+
+      it "does NOT revert once a partial fanout has landed on chain" $ do
+        -- With outputs already distributed the on-chain datum is genuinely
+        -- FanoutProgress, so a later post failure must NOT roll back to Closed.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inAutoDrainProgress threeParties remaining
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let failed =
+              update bobEnv ledger now st . ChainInput $
+                PostTxError
+                  { postChainTx =
+                      PartialFanoutTx
+                        { utxoToDistribute = remaining
+                        , utxoForProof = remaining
+                        , headSeed = testHeadSeed
+                        , contestationDeadline = arbitrary `generateWith` 42
+                        }
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st failed) of
+          FanoutProgress{} -> pure ()
+          other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
+
+      it "resumes the fanout after a chain rollback instead of stalling" $ do
+        -- A rollback mid-fanout may erase the in-flight fanout tx observation. The
+        -- node must re-post the next fanout step so the fanout continues; otherwise
+        -- it wedges in FanoutProgress with nothing driving it forward. Mirrors the
+        -- Increment/Decrement re-post on rollback.
+        let fullUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. 5]]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st0 = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st0.chainPointTime.currentSlot
+        -- Become the driver and observe one partial fanout distributing {1,2}.
+        let st1 = aggregateState st0 (update bobEnv ledger now st0 (ClientInput Fanout))
+            distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            observed = update bobEnv ledger now st1 (observeTxAtSlot 1 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
+            st2 = aggregateState st1 observed
+        -- Sanity: mid-fanout with a narrowed remaining set.
+        case headState st2 of
+          FanoutProgress PartialFanoutState{remainingOutputs} ->
+            remainingOutputs `shouldBe` Set.fromList [SimpleTxOut 3, SimpleTxOut 4, SimpleTxOut 5]
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+        -- Roll back the partial fanout observation; the node must re-post a fanout
+        -- step to resume rather than stall.
+        let rolledBack = update bobEnv ledger now st2 (ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now})
+        rolledBack `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          _ -> False
+
+      it "decodes a legacy HeadPartialFannedOut without 'mode' as AwaitingSelection" $ do
+        -- Backwards compatibility: events persisted before the 'mode' field
+        -- existed must still decode, so a node mid-fanout can restart after
+        -- upgrading rather than failing to replay its event log.
+        let event =
+              HeadPartialFannedOut
+                { headId = testHeadId
+                , distributedOutputs = utxoRefs [1]
+                , remainingOutputs = utxoRefs [2]
+                , chainState = SimpleChainState 0
+                , mode = AutoDrain
+                } ::
+                StateChanged SimpleTx
+            legacy = case toJSON event of
+              Object o -> Object (KeyMap.delete "mode" o)
+              v -> v
+        case fromJSON legacy :: Result (StateChanged SimpleTx) of
+          Success HeadPartialFannedOut{mode} -> mode `shouldBe` AwaitingSelection
+          other -> failure $ "Expected HeadPartialFannedOut, got: " <> show other
+
+      it "records a deposit observed while fanning out (stays recoverable)" $ do
+        -- Regression: a deposit observed mid-fanout must be recorded (as when the
+        -- head was still Closed), otherwise it is dropped and cannot be recovered.
+        let st = inAutoDrainProgress threeParties (utxoRefs [1, 2])
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let deposit =
+              OnDepositTx
+                { headId = testHeadId
+                , depositTxId = 7
+                , deposited = utxoRef 9
+                , created = now
+                , deadline = now
+                }
+            outcome = update bobEnv ledger now st (observeTx deposit)
+        outcome `hasStateChangedSatisfying` \case
+          DepositRecorded{depositTxId} -> depositTxId == 7
           _ -> False
 
       it "client fanout without prior partial fanout uses full snapshot utxo" $ do
@@ -2055,24 +2325,25 @@ spec =
         let (distributed1List, remaining1List) = splitAt fanoutChunkSize (Set.toList allUTxO)
             distributed1 = Set.fromList distributed1List
             remaining1 = Set.fromList remaining1List
-        -- Step 1 was confirmed on-chain (HeadPartialFannedOut observed).
-        -- The auto-emitted step 2 effect was never posted because the operator
-        -- ran out of funds. State stays Closed with remainingFanoutUTxO = Just remaining1.
+        -- Step 1 was confirmed on-chain (HeadPartialFannedOut observed). The
+        -- auto-emitted step 2 effect was never posted because the operator ran
+        -- out of funds. The head is now in FanoutProgress with remaining1 left.
         let step1 =
               HeadPartialFannedOut
                 { headId = testHeadId
                 , distributedOutputs = distributed1
                 , remainingOutputs = remaining1
                 , chainState = SimpleChainState{slot = 0}
+                , mode = AutoDrain
                 }
             stAfterStep1 = aggregateState initialSt (newState step1)
         case headState stAfterStep1 of
-          Closed ClosedState{remainingFanoutOutputs} ->
-            remainingFanoutOutputs `shouldBe` Just remaining1
-          other -> failure $ "Expected Closed state, got: " <> show other
-        -- Operator tops up funds and calls Fanout again.
+          FanoutProgress PartialFanoutState{remainingOutputs} ->
+            remainingOutputs `shouldBe` remaining1
+          other -> failure $ "Expected FanoutProgress state, got: " <> show other
+        -- Operator tops up funds and resumes by selecting the remaining UTxO.
         now <- nowFromSlot stAfterStep1.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now stAfterStep1 (ClientInput Fanout)
+        let outcome = update bobEnv ledger now stAfterStep1 (ClientInput (PartialFanout remaining1))
         -- Must continue from remaining1: the next chunk is disjoint from distributed1.
         -- If fanout restarted from scratch it would re-distribute distributed1,
         -- making Set.disjoint fail.
@@ -2095,7 +2366,7 @@ spec =
           ClientEffect{} -> True
           _ -> False
 
-      it "aggregate HeadPartialFannedOut keeps state Closed with remaining UTxO" $ do
+      it "aggregate HeadPartialFannedOut transitions to FanoutProgress with remaining UTxO" $ do
         let remaining = Set.fromList [SimpleTxOut 5, SimpleTxOut 6]
             distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             closedSt = inClosedState threeParties
@@ -2107,16 +2378,17 @@ spec =
                     , distributedOutputs = distributed
                     , remainingOutputs = remaining
                     , chainState = SimpleChainState{slot = 0}
+                    , mode = AutoDrain
                     }
                 result = aggregateState closedSt (newState stateChange)
              in case headState result of
-                  Closed ClosedState{remainingFanoutOutputs, distributedFanoutOutputs} -> do
-                    remainingFanoutOutputs `shouldBe` Just remaining
-                    distributedFanoutOutputs `shouldBe` distributed
-                  other -> failure $ "Expected Closed state, got: " <> show other
+                  FanoutProgress PartialFanoutState{remainingOutputs, distributedOutputs} -> do
+                    remainingOutputs `shouldBe` remaining
+                    distributedOutputs `shouldBe` distributed
+                  other -> failure $ "Expected FanoutProgress state, got: " <> show other
           other -> failure $ "Expected Closed state, got: " <> show other
 
-      it "aggregate HeadPartialFannedOut accumulates distributedFanoutUTxO across steps" $ do
+      it "aggregate HeadPartialFannedOut accumulates distributedOutputs across steps" $ do
         let firstDistributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             secondDistributed = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
             remaining = Set.fromList [SimpleTxOut 5, SimpleTxOut 6]
@@ -2129,6 +2401,7 @@ spec =
                     , distributedOutputs = firstDistributed
                     , remainingOutputs = secondDistributed <> remaining
                     , chainState = SimpleChainState{slot = 0}
+                    , mode = AutoDrain
                     }
                 afterStep1 = aggregateState closedSt (newState step1)
                 step2 =
@@ -2137,12 +2410,13 @@ spec =
                     , distributedOutputs = secondDistributed
                     , remainingOutputs = remaining
                     , chainState = SimpleChainState{slot = 0}
+                    , mode = AutoDrain
                     }
                 afterStep2 = aggregateState afterStep1 (newState step2)
              in case headState afterStep2 of
-                  Closed ClosedState{distributedFanoutOutputs} ->
-                    distributedFanoutOutputs `shouldBe` firstDistributed <> secondDistributed
-                  other -> failure $ "Expected Closed state, got: " <> show other
+                  FanoutProgress PartialFanoutState{distributedOutputs} ->
+                    distributedOutputs `shouldBe` firstDistributed <> secondDistributed
+                  other -> failure $ "Expected FanoutProgress state, got: " <> show other
           other -> failure $ "Expected Closed state, got: " <> show other
 
       describe "SideLoad InitialSnapshot" $ do
@@ -2658,7 +2932,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutOutputs = Nothing, distributedFanoutOutputs = mempty})
+  pure $ inSync (Closed $ closedState{headId = testHeadId})
 
 -- * Utilities
 
@@ -2763,39 +3037,46 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
-        , remainingFanoutOutputs = Nothing
-        , distributedFanoutOutputs = mempty
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
 
-inClosedStateWithRemaining :: [Party] -> Maybe (Set SimpleTxOut) -> NodeState SimpleTx
-inClosedStateWithRemaining parties remaining =
+-- | A head mid partial-fanout (on-chain 'FanoutProgress') with the given
+-- still-to-distribute set and 'FanoutMode'. 'distributedOutputs' is a non-empty
+-- placeholder so the head datum is treated as @FanoutProgress@ (some outputs
+-- already distributed).
+inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+inFanoutProgressWith parties remaining mode =
   inSync $
-    Closed
-      ClosedState
+    FanoutProgress
+      PartialFanoutState
         { parameters
-        , -- Use a snapshot whose utxo matches the remaining set so that
-          -- filterUTxOByOutputs can find entries when emitNextFanoutStep
-          -- converts Set (TxOutType tx) back to UTxOType tx.
+        , -- Use a snapshot whose utxo matches the remaining set so the
+          -- accumulator/proof computations line up.
           confirmedSnapshot =
             ConfirmedSnapshot
-              (testSnapshot 0 0 [] (fromMaybe mempty remaining))
+              (testSnapshot 0 0 [] remaining)
               (Crypto.aggregate [])
         , contestationDeadline
-        , readyToFanoutSent = False
         , chainState = 0
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
-        , remainingFanoutOutputs = remaining
-        , distributedFanoutOutputs = mempty
+        , remainingOutputs = remaining
+        , distributedOutputs = Set.singleton (SimpleTxOut 0)
+        , mode
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
   contestationDeadline = arbitrary `generateWith` 42
+
+-- | Like 'inFanoutProgressWith' but in 'AutoDrain' mode, as if a plain 'Fanout'
+-- kicked off the (chunked) fanout.
+inAutoDrainProgress :: [Party] -> Set SimpleTxOut -> NodeState SimpleTx
+inAutoDrainProgress parties remaining =
+  inFanoutProgressWith parties remaining AutoDrain
 
 getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
@@ -2844,6 +3125,12 @@ assertWait outcome waitReason =
   case outcome of
     Wait{reason} -> reason `shouldBe` waitReason
     _ -> failure $ "Expected a wait, but got: " <> show outcome
+
+-- | The effects produced by an outcome (empty for 'Wait'/'Error').
+effectsOf :: Outcome tx -> [Effect tx]
+effectsOf = \case
+  Continue{effects} -> effects
+  _ -> []
 
 hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasEffectSatisfying outcome predicate =

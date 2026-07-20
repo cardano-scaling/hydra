@@ -535,7 +535,7 @@ spec = do
                     , update = \_ _ -> pure ()
                     }
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) mismatchedUTxO mismatchedUTxO deadlineSlot
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
@@ -557,7 +557,7 @@ spec = do
                 , update = \_ _ -> pure ()
                 }
         run $
-          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn (Left ()) fullUTxO fullUTxO 1
+          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn Nothing fullUTxO fullUTxO (UTxO.size fullUTxO - 1) 1
             `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
@@ -579,7 +579,7 @@ spec = do
                     , update = \_ _ -> pure ()
                     }
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) u0 u0 deadlineSlot
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing u0 u0 (UTxO.size u0 - 1) deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "falls back to partial fanout when preferred tx doesn't fit" $
@@ -606,7 +606,7 @@ spec = do
                     , update = \_ _ -> pure ()
                     }
             -- Any exception thrown here will fail the test automatically.
-            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Right dummyTx) u0 u0 deadlineSlot
+            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
             assert True
 
 -- | Generate a byte-count limit that straddles the real serialised size of

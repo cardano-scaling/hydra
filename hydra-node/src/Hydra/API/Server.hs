@@ -22,6 +22,7 @@ import Hydra.API.ServerOutput (
   NetworkInfo (..),
   ServerOutput (..),
   TimedServerOutput (..),
+  fanoutProgressMode,
  )
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
@@ -248,7 +249,11 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.HeadContested{..} -> Just HeadIsContested{..}
     StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
     StateChanged.HeadFannedOut{headId, finalizedOutputs} -> Just HeadIsFinalized{headId, finalizedUTxO = finalizedOutputs}
-    StateChanged.HeadPartialFannedOut{} -> Nothing
+    StateChanged.HeadPartialFannedOut{headId, distributedOutputs, remainingOutputs, mode} ->
+      Just HeadPartiallyFannedOut{headId, distributedUTxO = distributedOutputs, remainingUTxO = remainingOutputs, fanoutMode = fanoutProgressMode mode}
+    StateChanged.HeadFanoutInitiated{} -> Nothing
+    StateChanged.HeadPartialFanoutSelected{} -> Nothing
+    StateChanged.HeadFanoutReverted{} -> Nothing
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
     StateChanged.SnapshotConfirmed{headId, snapshot = mSnapshot, signatures} ->

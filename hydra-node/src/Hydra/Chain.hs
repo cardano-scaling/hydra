@@ -89,6 +89,17 @@ data PostChainTx tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
+  | -- | Non-final partial fanout of a user-selected subset. Distributes
+    -- 'utxoToDistribute' (dynamically chunked to fit) and leaves the head in the
+    -- 'FanoutProgress' state without burning tokens. 'utxoForProof' is the full
+    -- accumulator UTxO matching the current on-chain datum (everything still in
+    -- the head plus any pre-settled elements).
+    PartialFanoutTx
+      { utxoToDistribute :: UTxOType tx
+      , utxoForProof :: UTxOType tx
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   | FinalPartialFanoutTx
       { utxoToDistribute :: UTxOType tx
       , presettledUTxO :: UTxOType tx

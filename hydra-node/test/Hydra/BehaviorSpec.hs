@@ -937,7 +937,7 @@ spec = parallel $ do
               send n2 Fanout
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = mempty}
 
-    it "handles partial fanout observation and triggers next fanout" $
+    it "selective partial fanout keeps the head open; other parties do not steamroll the remainder" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
@@ -953,11 +953,39 @@ spec = parallel $ do
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
-              -- Simulate a partial fanout observed on chain (e.g. from the real
-              -- Handlers layer splitting a large UTxO set)
-              simulatePartialFanout chain testHeadId (utxoRef 1)
-              -- The node should auto-trigger the next fanout with the remaining UTxO
-              -- and report all UTxOs (not just the last batch) in HeadIsFinalized
+              -- n1 selectively fans out only UTxO 1. The head must stay open with
+              -- UTxO 2 remaining; crucially n2 (which did not initiate) must NOT
+              -- auto-drain the remainder.
+              send n1 (PartialFanout (utxoRef 1))
+              waitUntilMatch [n1, n2] $ \case
+                HeadPartiallyFannedOut{remainingUTxO} -> guard $ remainingUTxO == utxoRefs [2]
+                _ -> Nothing
+              -- n1 then fans out the rest, which finalizes the head with all UTxO.
+              send n1 (PartialFanout (utxoRef 2))
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [1, 2]}
+
+    it "selective partial fanout can be continued by a different party" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              send n1 (NewTx (aValidTx 1))
+              send n1 (NewTx (aValidTx 2))
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxo}} -> guard $ utxo == utxoRefs [1, 2]
+                _ -> Nothing
+              send n1 Close
+              forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
+              -- n1 starts the selective fanout (distributing UTxO 1)...
+              send n1 (PartialFanout (utxoRef 1))
+              waitUntilMatch [n1, n2] $ \case
+                HeadPartiallyFannedOut{remainingUTxO} -> guard $ remainingUTxO == utxoRefs [2]
+                _ -> Nothing
+              -- ...but n2 (a different party) drives the next step. Any party in
+              -- FanoutProgress may continue the fanout; observers only wait.
+              send n2 (PartialFanout (utxoRef 2))
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
@@ -1215,7 +1243,6 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
-  , simulatePartialFanout :: HeadId -> UTxOType tx -> m ()
   , closeWithInitialSnapshot :: Party -> m ()
   , getChainHistory :: m [ChainEvent tx]
   }
@@ -1227,7 +1254,6 @@ dummySimulatedChainNetwork =
     , tickThread = error "tickThread"
     , rollbackAndForward = error "rollbackAndForward"
     , simulateDeposit = error "simulateDeposit"
-    , simulatePartialFanout = error "simulatePartialFanout"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     , getChainHistory = error "getChainHistory"
     }
@@ -1306,8 +1332,6 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
           createAndYieldEvent nodes history localChainState $
             OnDepositTx{headId, deposited = toDeposit, created, deadline, depositTxId}
           pure depositTxId
-      , simulatePartialFanout = \headId distributedOutputs ->
-          createAndYieldEvent nodes history localChainState $ OnPartialFanoutTx{headId, distributedOutputs}
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       , getChainHistory = reverse <$> readTVarIO history
       }
@@ -1448,6 +1472,8 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
+  PartialFanoutTx{utxoToDistribute} ->
+    OnPartialFanoutTx{headId = testHeadId, distributedOutputs = utxoToDistribute}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 

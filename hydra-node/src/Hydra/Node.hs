@@ -295,7 +295,18 @@ runHydraNode ::
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node =
+runHydraNode node@HydraNode{tracer, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
+  -- On startup, resume an interrupted fanout: if the node is mid-fanout
+  -- ('FanoutProgress'), re-emit the next fanout step so an auto-drain whose
+  -- driver crashed after its last observed chunk continues instead of stalling
+  -- (mirrors the rollback re-post). A step already on chain fails harmlessly
+  -- ('StalePartialFanoutTx' is silently ignored) and catch-up observations
+  -- re-drive; a passive observer ('AwaitingSelection') posts nothing.
+  atomically queryNodeState >>= \ns -> case headState ns of
+    FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
+      Continue{effects} -> processEffects node tracer 0 effects
+      _ -> pure ()
+    _ -> pure ()
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do

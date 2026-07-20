@@ -10,6 +10,14 @@ changes.
 
 ## [2.3.0] - 2026.07.15
 
+- Add **selective partial fanout**: distribute a chosen subset of a closed
+  head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
+  client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`
+  telling clients whether the node keeps draining or awaits the next selection),
+  a `FanningOut` head status and a matching TUI selection flow. Keep issuing
+  `PartialFanout` until the head is drained; the final step burns the head
+  tokens. [#2333](https://github.com/cardano-scaling/hydra/issues/2333)
+
 - Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
   restart. `aggregateNodeState` now restores the full checkpoint snapshot,
   so deposits recorded before a rotation survive a node
