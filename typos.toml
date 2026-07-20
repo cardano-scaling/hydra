@@ -16,3 +16,6 @@
 # `sigDed` = the signature-dedup invariant in Security.lagda.typ (camelCase tokenizes
 # to "Ded", which typos would otherwise "correct" to "Dead").
 "sigDed" = "sigDed"
+# `ANDed` = logically AND-ed / conjoined, in a ReferenceBridge.agda comment (splits to
+# "AN" + "Ded", same "Ded" -> "Dead" false positive as sigDed).
+"ANDed" = "ANDed"
