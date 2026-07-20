@@ -6,12 +6,14 @@ module Test.Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Chain.ChainState (ChainPointType (..), ChainStateType (..), IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain ()
 import Test.Hydra.HeadLogic.State ()
+import Test.Hydra.Network ()
+import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)

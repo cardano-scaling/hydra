@@ -4,9 +4,12 @@ module Test.Hydra.CBOR where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Data.Typeable (typeRep)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
+import System.FilePath (takeDirectory)
 import Test.QuickCheck (Property, (===))
 
 -- | Test that a value can be roundtripped through its CBOR encoding.
@@ -27,3 +30,34 @@ roundtripCBOR ::
 roundtripCBOR p =
   prop ("roundtrips CBOR encoding: " <> show (typeRep p)) $
     prop_canRoundtripCBOREncoding @a
+
+-- | Golden test locking a persisted CBOR format. The golden file holds the
+-- raw CBOR of a list of samples. When the file is missing it is created from
+-- the given generator with a fixed seed — commit the result. On every other
+-- run the stored bytes must decode successfully and re-encode to the exact
+-- same bytes.
+--
+-- This catches codec changes that would break decoding of already persisted
+-- data (e.g. hydra.db events) — including symmetric encoder+decoder drift
+-- (say, reordering the fields on both sides) that roundtrip properties
+-- cannot see. If this fails, the change breaks existing databases and needs
+-- a schema migration; only delete and regenerate the golden file alongside
+-- one.
+goldenCBOR ::
+  forall a.
+  (ToCBOR a, FromCBOR a) =>
+  String ->
+  FilePath ->
+  Gen [a] ->
+  Spec
+goldenCBOR name path gen =
+  it ("golden CBOR: " <> name) $ do
+    unlessM (doesFileExist path) $ do
+      createDirectoryIfMissing True (takeDirectory path)
+      writeFileBS path . serialize' $ generateWith gen 42
+    bytes <- readFileBS path
+    case decodeFull' @[a] bytes of
+      Left err ->
+        expectationFailure $
+          "failed to decode golden file " <> path <> ": " <> show err
+      Right samples -> serialize' samples `shouldBe` bytes

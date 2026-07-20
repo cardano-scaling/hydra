@@ -21,7 +21,7 @@ The database contains a single `events` table:
 | Column       | Type    | Description                              |
 |-------------|---------|------------------------------------------|
 | `event_id`  | INTEGER | Primary key, matches the in-memory event id |
-| `event_data` | BLOB   | JSON-encoded event payload               |
+| `event_data` | BLOB   | CBOR-encoded event payload (`ToCBOR`/`FromCBOR`) |
 
 The following connection pragmas are set on every open:
 
@@ -39,15 +39,17 @@ The last-seen event id is updated atomically at enqueue time (not write time), s
 
 #### Schema versioning
 
-The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step is defined as a case in `migrateStep`:
+The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step runs together with its version bump in a single transaction, so a crash or failure mid-migration rolls back to a well-defined version. The steps are defined as cases in `migrateStep`:
 
 ```haskell
-migrateStep conn = \case
+migrateStep conn reencodeRow = \case
   0 -> -- create the events table
-  1 -> -- (future) e.g. add an index or new column
+  1 -> -- re-encode all JSON event payloads to CBOR
 ```
 
 A fresh database starts at version 0 (SQLite default). After all migrations run, `user_version` is set to `nextVersion`. If the database has a version higher than `nextVersion` (e.g. from a newer release), the node refuses to start to prevent silent data corruption on downgrade.
+
+Version 1 databases (written by earlier hydra-node releases) store event payloads as JSON. Opening one automatically re-encodes every row to CBOR and runs `VACUUM` afterwards to reclaim the freed space. A row that fails to decode aborts the migration — and thereby node startup — leaving the database untouched at version 1, still usable by the previous hydra-node version. Note that after a successful migration there is no downgrade path: older releases refuse to open a version 2 database. The legacy `state` file migration also inserts CBOR (the file itself remains JSON lines).
 
 To add a new migration:
 
