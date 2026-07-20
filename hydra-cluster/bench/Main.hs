@@ -11,15 +11,19 @@ import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, m
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Data.List qualified as List
 import Data.Text qualified as T
+import Hydra.Cardano.Api (PaymentKey, SigningKey)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset, generateMixedUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset, generateLargeUTxODataset, generateMixedUTxODataset)
+import Hydra.Tx.Secret (Secret)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Test.QuickCheck (generate)
+import Test.QuickCheck.Gen (unGen)
+import Test.QuickCheck.Random (mkQCGen)
 
 main :: IO ()
 main = do
@@ -47,10 +51,7 @@ main = do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
       let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
-      dataset <- generate $ case datasetUTxO of
-        Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-        Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-        Mixed -> generateMixedUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      dataset <- generate $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
       results <- do
@@ -77,10 +78,7 @@ main = do
       results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im, wt)) -> do
         let cellDir = workDir </> ("cell-" <> show i)
         createDirectoryIfMissing True cellDir
-        dataset <- generate $ case sh of
-          Constant -> generateConstantUTxODataset faucetSk (fromIntegral cs) numberOfTxs
-          Growing -> generateGrowingUTxODataset faucetSk (fromIntegral cs) numberOfTxs
-          Mixed -> generateMixedUTxODataset faucetSk (fromIntegral cs) numberOfTxs
+        dataset <- generate $ datasetGen faucetSk sh cs numberOfTxs
         let labelled = dataset{title = Just (matrixCellTitle cs sh im wt)}
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
@@ -92,7 +90,24 @@ main = do
         withTempDir ("bench-matrix-cell-" <> show i) $ \runDir ->
           runSingle labelled runDir action
       summarizeMatrixResults outputDirectory results
+    GenerateOptions{datasetUTxO, numberOfTxs, clusterSize, datasetTitle, generationSeed, outputFile} -> do
+      (_, faucetSk) <- keysFor Faucet
+      let gen = datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
+      dataset <- case generationSeed of
+        Nothing -> generate gen
+        -- Same generation size as QuickCheck's 'generate' so seeded and
+        -- unseeded datasets have the same shape.
+        Just seed -> pure $ unGen gen (mkQCGen seed) 30
+      saveDataset outputFile $ maybe dataset (\t -> dataset{title = Just t}) datasetTitle
  where
+  datasetGen :: Secret (SigningKey PaymentKey) -> UTxOSize -> Word64 -> Int -> Gen Dataset
+  datasetGen faucetSk shape clusterSize numberOfTxs =
+    case shape of
+      Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      Mixed -> generateMixedUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      Plateau plateauSize -> generateLargeUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs plateauSize
+
   matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Bool -> Text
   matrixCellTitle cs sh im wt =
     "Nodes="
