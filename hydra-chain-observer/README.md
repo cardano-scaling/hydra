@@ -6,6 +6,8 @@ It supports two modes of operation: **Direct** connection to a node via socket, 
 
 In both modes, reporting observations to a [`hydra-explorer`](https://github.com/cardano-scaling/hydra-explorer) can be enabled.
 
+The observer is **version-aware**: it detects which Hydra protocol version a transaction belongs to by matching head and deposit validator script hashes from an embedded registry covering all historical releases. A single observer instance can therefore serve all protocol versions on a given network.
+
 ## Direct Mode
 
 To run the observer directly connected to a `cardano-node`, use the `--node-socket` option and specify the network id via `--mainnet` or `--testnet-magic`. Optionally, you can specify a starting point to observe using `--start-chain-from`:
