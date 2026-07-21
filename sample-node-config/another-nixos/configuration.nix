@@ -209,7 +209,7 @@ in
               mithrilMaybeDownload = pkgs.writeShellScriptBin "mithrilMaybeDownload" ''
                 set -e
 
-                export GENESIS_VERIFICATION_KEY=''$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${mithrilDir}/genesis.vkey 2> /dev/null)
+                export GENESIS_VERIFICATION_KEY=''$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/${mithrilDir}/genesis.vkey 2> /dev/null)
 
                 if [ ! -d db ]; then
                   ${mithril.packages.${system}.mithril-client-cli}/bin/mithril-client \
