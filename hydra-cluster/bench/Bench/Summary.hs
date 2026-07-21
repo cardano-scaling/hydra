@@ -34,9 +34,19 @@ data Summary = Summary
   , numberOfFanoutOutputs :: Int
   , endToEndTps :: Double
   , runWallClockSeconds :: Double
-  , peakSustainedTps :: Double
-  -- ^ Highest transaction-confirmation rate sustained over any
-  -- 'peakWindowSeconds'-wide window (see 'Bench.EndToEnd.computeThroughput').
+  , sustainedTps :: Maybe Double
+  -- ^ Confirmation rate over the middle ~80% of the run, trimmed on snapshot
+  -- boundaries (see 'Bench.EndToEnd.sustainedSnapshotTps'). Nothing when too
+  -- few snapshots were observed for the rate to be meaningful.
+  , drainSeconds :: Double
+  -- ^ Time from the last submission to the last confirmation: how long the
+  -- head needed to work through the submitted backlog.
+  , avgTxsPerSnapshot :: Double
+  , validationP50Ms :: Maybe Double
+  -- ^ Median time from submission to the TxValid server output.
+  , peakNodeRssMb :: Maybe Double
+  -- ^ Peak resident set size (VmHWM) across the scenario's hydra-node
+  -- processes.
   , numberOfSnapshots :: Int
   , incrementalCommitTimes :: [NominalDiffTime]
   , incrementalDecommitTimes :: [NominalDiffTime]
@@ -58,7 +68,11 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , numberOfFanoutOutputs = 0
     , endToEndTps = 0
     , runWallClockSeconds = 0
-    , peakSustainedTps = 0
+    , sustainedTps = Nothing
+    , drainSeconds = 0
+    , avgTxsPerSnapshot = 0
+    , validationP50Ms = Nothing
+    , peakNodeRssMb = Nothing
     , numberOfSnapshots = 0
     , incrementalCommitTimes = []
     , incrementalDecommitTimes = []
@@ -85,8 +99,16 @@ makeQuantiles times =
 oneDec :: Real a => a -> Text
 oneDec x = pack $ printf "%.1f" (realToFrac x :: Double)
 
+-- | Confirmed snapshots per second over the run's wall clock. This is the
+-- headline rate for snapshot-throughput comparisons: unlike TPS it does not
+-- conflate the number of transactions batched into each snapshot.
+snapshotsPerSecond :: Summary -> Double
+snapshotsPerSecond Summary{numberOfSnapshots, runWallClockSeconds}
+  | runWallClockSeconds > 0 = fromIntegral numberOfSnapshots / runWallClockSeconds
+  | otherwise = 0
+
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, peakSustainedTps, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
+textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -100,9 +122,14 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
                 ]
               else []
            )
+        ++ maybe [] (\v -> [pack $ printf "Tx validation time p50 (ms): %.1f" v]) validationP50Ms
         ++ [pack $ printf "End-to-end TPS: %.2f tx/s" endToEndTps]
+        ++ maybe [] (\tps -> [pack $ printf "Sustained TPS: %.2f tx/s" tps]) sustainedTps
+        ++ [pack $ printf "Backlog drain time (s): %.1f" drainSeconds]
         ++ [pack $ printf "Snapshots observed: %d" numberOfSnapshots]
-        ++ [pack $ printf "Peak sustained TPS: %.2f tx/s" peakSustainedTps]
+        ++ [pack $ printf "Snapshots per second: %.2f /s" (snapshotsPerSecond summary)]
+        ++ [pack $ printf "Avg txs per snapshot: %.1f" avgTxsPerSnapshot]
+        ++ maybe [] (\mb -> [pack $ printf "Peak node RSS (MB): %.1f" mb]) peakNodeRssMb
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
         ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
         ++ incrementalLines "Incremental commit" incrementalCommitTimes
@@ -152,7 +179,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, peakSustainedTps, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
+formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -186,10 +213,15 @@ formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, qua
                 ]
               else []
            )
-        ++ [ pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps
+        ++ maybe [] (\v -> [pack $ printf "| _Tx validation time p50 (ms)_ | %.1f |" v]) validationP50Ms
+        ++ [pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps]
+        ++ maybe [] (\tps -> [pack $ printf "| _Sustained TPS_ | %.2f tx/s |" tps]) sustainedTps
+        ++ [ pack $ printf "| _Backlog drain time (s)_ | %.1f |" drainSeconds
            , "| _Snapshots observed_ | " <> show numberOfSnapshots <> " |"
-           , pack $ printf "| _Peak sustained TPS_ | %.2f tx/s |" peakSustainedTps
+           , pack $ printf "| _Snapshots per second_ | %.2f /s |" (snapshotsPerSecond summary)
+           , pack $ printf "| _Avg txs per snapshot_ | %.1f |" avgTxsPerSnapshot
            ]
+        ++ maybe [] (\mb -> [pack $ printf "| _Peak node RSS (MB)_ | %.1f |" mb]) peakNodeRssMb
         ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
            ]
         ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
@@ -251,21 +283,21 @@ comparisonTable summaries =
     \measured elapsed time from the first tx submission to the last \
     \confirmation. Times are rounded to one decimal."
   , ""
-  , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Peak sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
+  , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
   , "| -- | -- | -- | -- | -- | -- | -- |"
   ]
     <> map row summaries
     <> [""]
  where
   row :: (Summary, SystemStats) -> Text
-  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, runWallClockSeconds, peakSustainedTps}, _)
+  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, runWallClockSeconds, sustainedTps}, _)
     | numberOfTxs == 0 =
         "| "
           <> summaryTitle
           <> " | 0 | n/a | n/a | n/a | n/a | n/a |"
     | otherwise =
         let p95Conf = if length quantiles == 100 then oneDec (quantiles ! 95) else "n/a"
-            peakTps = pack $ printf "%.2f" peakSustainedTps
+            sustained = maybe "n/a" (pack . printf "%.2f") sustainedTps
             wallClock =
               if runWallClockSeconds > 0
                 then oneDec runWallClockSeconds
@@ -279,7 +311,7 @@ comparisonTable summaries =
               <> " | "
               <> pack (printf "%.2f" endToEndTps)
               <> " | "
-              <> peakTps
+              <> sustained
               <> " | "
               <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime)
               <> " | "

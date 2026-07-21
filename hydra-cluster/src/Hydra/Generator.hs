@@ -272,11 +272,149 @@ generateMixedUTxODataset faucetSk nClients nTxs = do
              in (remaining <> utxoFromTx tx, tx : txs)
       _ -> error "mixed/contract: need at least 2 utxos to merge"
 
-  largestVkUTxO :: VerificationKey PaymentKey -> UTxO.UTxO Era -> Maybe (TxIn, TxOut CtxUTxO)
-  largestVkUTxO vk =
-    let byLovelace :: (TxIn, TxOut CtxUTxO) -> Coin
-        byLovelace (_, o) = selectLovelace (txOutValue o)
-     in fmap (List.maximumBy (comparing byLovelace)) . nonEmpty . UTxO.toList . UTxO.filter (isVkTxOut vk)
+largestVkUTxO :: VerificationKey PaymentKey -> UTxO.UTxO Era -> Maybe (TxIn, TxOut CtxUTxO)
+largestVkUTxO vk =
+  let byLovelace :: (TxIn, TxOut CtxUTxO) -> Coin
+      byLovelace (_, o) = selectLovelace (txOutValue o)
+   in fmap (List.maximumBy (comparing byLovelace)) . nonEmpty . UTxO.toList . UTxO.filter (isVkTxOut vk)
+
+-- | Generate a 'Dataset' that grows each client's UTxO set to a target size
+-- ("plateau") with 1-in 10-out split transactions, then holds that size with
+-- full-value self-transfers (1-in 1-out, no change output). While the plateau
+-- holds, every snapshot carries the accumulator cost of the full UTxO set,
+-- making this the reference workload for large-UTxO head performance.
+--
+-- The head-level UTxO size is roughly clients * target and must stay below
+-- the 4095 accumulator element limit.
+generateLargeUTxODataset ::
+  -- | Faucet signing key
+  Secret (SigningKey PaymentKey) ->
+  -- | Number of clients
+  Int ->
+  -- | Number of transactions
+  Int ->
+  -- | Target UTxO entries per client (plateau)
+  Int ->
+  Gen Dataset
+generateLargeUTxODataset faucetSk nClients nTxs plateauTarget = do
+  hydraNodeKeys <- replicateM nClients genSigningKey
+  allPaymentKeys <- replicateM nClients genSigningKey
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  let fundingTransaction =
+        mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
+  clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
+  pure
+    Dataset
+      { fundingTransaction
+      , hydraNodeKeys = mkSecret <$> hydraNodeKeys
+      , clientDatasets
+      , title = Just $ "Plateau " <> show plateauTarget <> " UTxO"
+      , description =
+          Just $
+            "Each client splits its funds into "
+              <> show plateauTarget
+              <> " outputs (1-in 10-out), then holds that plateau with \
+                 \full-value self-transfers so every snapshot carries the \
+                 \large UTxO set."
+      }
+ where
+  splitFanout = 10
+
+  chunk = Coin 2_000_000
+
+  -- Each split adds (splitFanout - 1) net outputs on top of the initial one.
+  splitSteps = max 0 ((plateauTarget - 1 + splitFanout - 2) `div` (splitFanout - 1))
+
+  genClientDataset :: Tx -> SigningKey PaymentKey -> Gen ClientDataset
+  genClientDataset fundingTransaction paymentKey = do
+    let initialUTxO = withInitialUTxO paymentKey fundingTransaction
+        vk = getVerificationKey paymentKey
+        nSplits = min nTxs splitSteps
+        (afterGrow, splitTxs) = foldl' (genSplitTx paymentKey vk) (initialUTxO, []) [1 .. nSplits]
+        (_, holdTxs) = foldl' (genHoldTx paymentKey vk) (afterGrow, []) [1 .. nTxs - nSplits]
+    pure
+      ClientDataset
+        { paymentKey = mkSecret paymentKey
+        , initialUTxO
+        , txSequence = reverse splitTxs <> reverse holdTxs
+        }
+
+  genSplitTx ::
+    SigningKey PaymentKey ->
+    VerificationKey PaymentKey ->
+    (UTxO.UTxO Era, [Tx]) ->
+    Int ->
+    (UTxO.UTxO Era, [Tx])
+  genSplitTx sk vk (utxo, txs) _ =
+    case largestVkUTxO vk utxo of
+      Nothing -> error "plateau/split: no utxo left to spend"
+      Just (txIn, txOut)
+        | selectLovelace (txOutValue txOut) <= minSplitValue ->
+            error $ "plateau/split: largest VK utxo (" <> show (txOutValue txOut) <> ") is too small to split"
+        | otherwise ->
+            case mkSplitTx networkId sk (splitFanout - 1) chunk (txIn, txOut) of
+              Left err -> error $ "plateau/split mkSplitTx failed: " <> show err
+              Right tx ->
+                let remaining = UTxO.difference utxo (UTxO.singleton txIn txOut)
+                 in (remaining <> utxoFromTx tx, tx : txs)
+   where
+    -- Chunks plus a change output that stays comfortably spendable
+    Coin chunkLovelace = chunk
+    minSplitValue = Coin (fromIntegral splitFanout * chunkLovelace)
+
+  genHoldTx ::
+    SigningKey PaymentKey ->
+    VerificationKey PaymentKey ->
+    (UTxO.UTxO Era, [Tx]) ->
+    Int ->
+    (UTxO.UTxO Era, [Tx])
+  genHoldTx sk vk (utxo, txs) _ =
+    case UTxO.find (isVkTxOut vk) utxo of
+      Nothing -> error "plateau/hold: no utxo left to spend"
+      Just (txIn, txOut) ->
+        -- Full-value self-transfer: 'mkSimpleTx' omits the change output when
+        -- the transferred value equals the input value, keeping the UTxO set
+        -- size constant.
+        case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, txOutValue txOut) (mkSecret sk) of
+          Left err -> error $ "plateau/hold mkSimpleTx failed: " <> show err
+          Right tx ->
+            let remaining = UTxO.difference utxo (UTxO.singleton txIn txOut)
+             in (remaining <> utxoFromTx tx, tx : txs)
+
+-- | Build a zero-fee 1-in N-out transaction that splits off @nChunks@ outputs
+-- of @chunkValue@ each and returns the remainder as change. Used by the
+-- Plateau generator to grow a client's UTxO set inside the head.
+mkSplitTx ::
+  NetworkId ->
+  SigningKey PaymentKey ->
+  -- | Number of chunk outputs
+  Int ->
+  -- | Value of each chunk output
+  Coin ->
+  (TxIn, TxOut CtxUTxO) ->
+  Either TxBodyError Tx
+mkSplitTx network sk nChunks chunkValue (txIn, txOut) = do
+  body <- createAndValidateTransactionBody bodyContent
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  pure $ makeSignedTransaction witnesses body
+ where
+  vk = getVerificationKey sk
+  addr = mkVkAddress network vk
+  chunkOut = TxOut @CtxTx addr (lovelaceToValue chunkValue) TxOutDatumNone ReferenceScriptNone
+  Coin perChunk = chunkValue
+  chunksTotal = lovelaceToValue $ Coin (fromIntegral nChunks * perChunk)
+  changeOut =
+    TxOut @CtxTx
+      addr
+      (txOutValue txOut <> negateValue chunksTotal)
+      TxOutDatumNone
+      ReferenceScriptNone
+  bodyContent =
+    defaultTxBodyContent
+      { txIns = [(txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
+      , txOuts = replicate nChunks chunkOut <> [changeOut]
+      , txFee = TxFeeExplicit (Coin 0)
+      }
 
 -- | Build a zero-fee 2-in 1-out transaction that merges two of a sender's own
 -- outputs into one. Used by the Mixed generator to contract the UTxO set.

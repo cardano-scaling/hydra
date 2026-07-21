@@ -31,7 +31,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
-data UTxOSize = Constant | Growing | Mixed deriving stock (Eq, Show, Read)
+data UTxOSize = Constant | Growing | Mixed | Plateau Int deriving stock (Eq, Show, Read)
 
 data Options
   = StandaloneOptions
@@ -71,6 +71,14 @@ data Options
       , incrementalModes :: [Bool]
       , waitForTxValidModes :: [Bool]
       }
+  | GenerateOptions
+      { datasetUTxO :: UTxOSize
+      , numberOfTxs :: Int
+      , clusterSize :: Word64
+      , datasetTitle :: Maybe Text
+      , generationSeed :: Maybe Int
+      , outputFile :: FilePath
+      }
 
 benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
@@ -78,6 +86,7 @@ benchOptionsParser =
     ( hsubparser
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
+            <> command "generate" generateOptionsInfo
             <> command "demo" demoOptionsInfo
             <> command "matrix" matrixOptionsInfo
         )
@@ -179,7 +188,10 @@ utxoSizeParser =
           "Generated UTxO shape. 'Constant' keeps the head UTxO at a fixed size by \
           \ submitting self-transfers. 'Growing' adds one extra output per tx so the \
           \ head UTxO grows over the run. 'Mixed' grows for the first half of the run \
-          \ then contracts via 2-in 1-out merges for the second half."
+          \ then contracts via 2-in 1-out merges for the second half. 'Plateau N' \
+          \ (quoted, e.g. --utxo-size 'Plateau 1000') splits each client's funds \
+          \ into N outputs and then holds that size with full-value self-transfers, \
+          \ so every snapshot carries a large UTxO set."
     )
 
 demoOptionsInfo :: ParserInfo Options
@@ -248,6 +260,54 @@ datasetOptionsParser =
     <*> startingNodeIdParser
     <*> incrementalOpsParser
     <*> waitForTxValidParser
+
+generateOptionsInfo :: ParserInfo Options
+generateOptionsInfo =
+  info
+    generateOptionsParser
+    ( progDesc
+        "Generate a dataset file without running it. The bench-e2e-diff CI \
+        \ workflow uses this to produce one workload that both sides of an \
+        \ A/B comparison then run via 'single'."
+    )
+
+generateOptionsParser :: Parser Options
+generateOptionsParser =
+  GenerateOptions
+    <$> utxoSizeParser
+    <*> numberOfTxsParser
+    <*> clusterSizeParser
+    <*> optional datasetTitleParser
+    <*> optional generationSeedParser
+    <*> outputFileParser
+
+datasetTitleParser :: Parser Text
+datasetTitleParser =
+  strOption
+    ( long "title"
+        <> metavar "TEXT"
+        <> help
+          "Title embedded in the dataset. Reports and the CI diff comment \
+          \ identify scenarios by it, so keep it unique per scenario and put \
+          \ the workload parameters in it. Defaults to the generator's title."
+    )
+
+generationSeedParser :: Parser Int
+generationSeedParser =
+  option
+    auto
+    ( long "seed"
+        <> metavar "INT"
+        <> help "Fix the generation seed for reproducible datasets. Random when unset."
+    )
+
+outputFileParser :: Parser FilePath
+outputFileParser =
+  strOption
+    ( long "out"
+        <> metavar "FILE"
+        <> help "Where to write the generated dataset JSON."
+    )
 
 incrementalOpsParser :: Parser Bool
 incrementalOpsParser =

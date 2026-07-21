@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import Bench.Summary (Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -21,16 +21,18 @@ import Control.Exception (SomeAsyncException)
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (concurrently, mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
+import Data.Aeson.Lens (key, members, values, _JSON, _Number, _String)
 import Data.Aeson.Types (parseMaybe)
+import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
+import Data.Char (isDigit)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Data.Vector qualified as V
 import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, lovelaceToValue, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -40,11 +42,12 @@ import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (
   Tracer,
+  Verbosity (Quiet),
   traceWith,
   withTracerOutputTo,
  )
 import Hydra.Network (Host)
-import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions (verbosity))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
 import Hydra.Tx.Secret (Secret)
@@ -62,9 +65,10 @@ import HydraNode (
   waitForNodesConnected,
   waitMatch,
   withConnectionToNodeHost,
-  withHydraCluster,
+  withHydraClusterWith,
  )
-import System.FilePath ((</>))
+import System.Directory (listDirectory)
+import System.FilePath (takeFileName, (</>))
 import System.Process.Typed (shell, withProcessTerm)
 import System.Timeout qualified
 import Test.HUnit.Lang (formatFailureReason)
@@ -107,9 +111,27 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
           let hydraTracer = contramap FromHydraNode tracer
           let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 50 * blockTime}
           putStrLn $ "Timing: " <> show timing
-          withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
-            waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs runOptions
+          -- Trim the full snapshot UTxO map from SnapshotConfirmed payloads:
+          -- the bench only reads txIds and the snapshot number, and parsing
+          -- multi-MB UTxO maps on the measurement path distorts client-side
+          -- timestamps at large head sizes. Nodes run with logging disabled
+          -- (--quiet): tracing serialises large event envelopes on the node
+          -- loop (#2685) and its cost differs across compared versions, which
+          -- would distort the A/B.
+          withHydraClusterWith
+            (Just "/?history=yes&snapshot-utxo=no")
+            (\o -> o{verbosity = Quiet})
+            hydraTracer
+            timing
+            workDir
+            nodeSocket'
+            startingNodeId
+            cardanoKeys
+            hydraKeys
+            hydraScriptsTxId
+            $ \clients -> do
+              waitForNodesConnected hydraTracer 20 clients
+              scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs runOptions
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -258,27 +280,39 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
 
   putTextLn "Finalizing the Head"
   send leader $ input "Fanout" []
-  fanoutResult :: Either SomeException Int <- try $ waitMatch 100 leader $ \v -> do
+  -- Partial fanout distributes a large UTxO over a chain of transactions, so
+  -- scale the wait with the head's size on top of a fixed floor.
+  headSize <- UTxO.size <$> getSnapshotUTxO leader
+  let fanoutBudget = fromIntegral $ 100 + headSize `div` 2
+  fanoutResult :: Either SomeException Int <- try $ waitMatch fanoutBudget leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
-    finalizedArr <- v ^? key "finalizedUTxO"
-    pure $ length (finalizedArr ^.. values)
+    -- 'finalizedUTxO' is a JSON object keyed by tx input, so count its
+    -- members ('values' would traverse an array and always yield 0).
+    finalizedObj <- v ^? key "finalizedUTxO"
+    pure $ length (finalizedObj ^.. members)
 
   numberOfFanoutOutputs <-
     case fanoutResult of
-      Left _ -> do
-        putStrLn "Fanout failed."
-        UTxO.size <$> getSnapshotUTxO leader
+      Left err -> do
+        putStrLn $ "Fanout did not finalize within " <> show fanoutBudget <> "s: " <> show err
+        pure 0
       Right n -> pure n
 
+  -- VmHWM is monotone, so sampling once at the end of the scenario (nodes
+  -- still running) captures the peak across the whole run.
+  peakNodeRssMb <- readPeakNodeRssMb workDir
+
   let confTimes = map (\(_, _, a) -> a) res
+      validationTimes = map (\(_, v, _) -> v) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
       averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
       quantiles = makeQuantiles confTimes
+      validationP50Ms = medianMilliseconds validationTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
-      (endToEndTps, runWallClockSeconds, peakSustainedTps, numberOfSnapshots) =
+      Throughput{endToEndTps, runWallClockSeconds, sustainedTps, drainSeconds, avgTxsPerSnapshot, numberOfSnapshots} =
         computeThroughput processedTransactions snapshotsSeen
 
   pure $
@@ -288,13 +322,17 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       , numberOfTxs
       , averageConfirmationTime
       , quantiles
+      , validationP50Ms
       , summaryTitle
       , summaryDescription
       , numberOfInvalidTxs
       , numberOfFanoutOutputs
       , endToEndTps
       , runWallClockSeconds
-      , peakSustainedTps
+      , sustainedTps
+      , drainSeconds
+      , avgTxsPerSnapshot
+      , peakNodeRssMb
       , numberOfSnapshots
       , incrementalCommitTimes
       , incrementalDecommitTimes
@@ -780,71 +818,122 @@ analyze = \case
     Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
--- | Width of the sliding window used for 'peak sustained TPS'. One second is
--- long enough to average out per-message scheduling jitter yet short enough to
--- capture a genuine throughput peak.
-peakWindowSeconds :: Double
-peakWindowSeconds = 1.0
+-- | Throughput measures derived from the recorded per-transaction events and
+-- the observed snapshot series.
+data Throughput = Throughput
+  { endToEndTps :: Double
+  , runWallClockSeconds :: Double
+  , sustainedTps :: Maybe Double
+  , drainSeconds :: Double
+  , avgTxsPerSnapshot :: Double
+  , numberOfSnapshots :: Int
+  }
 
--- | Measured wall-clock span, end-to-end TPS over the run, peak sustained TPS,
--- and the number of snapshots observed.
---
--- The wall-clock span is the elapsed time from the earliest tx submission to
--- the latest confirmation; end-to-end TPS is the confirmed tx count divided by
--- that span. Peak sustained TPS is the highest confirmation rate held over any
--- 'peakWindowSeconds' window (see 'peakWindowedTps'); it replaces the earlier
--- per-snapshot instantaneous rate, which divided a snapshot's tx count by the
--- gap between two client-side observations and so blew up for closely-spaced
--- notifications and was estimated over only a handful of snapshots per run.
-computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Double, Double, Int)
+-- | Wall clock spans the earliest submission to the latest confirmation;
+-- end-to-end TPS is the confirmed count over that span. The backlog drain time
+-- (latest confirmation minus latest submission) isolates how long the head
+-- needed to work through the submitted backlog; unlike snapshot-derived rates
+-- it is not affected by how many transactions each snapshot batches.
+computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> Throughput
 computeThroughput txs snapshots =
-  let submitted = map submittedAtFor (Map.elems txs)
-      confirmed = mapMaybe confirmedAt (Map.elems txs)
-      numberOfTxs = length confirmed
-      wallClockSeconds = case (submitted, confirmed) of
-        (_ : _, _ : _) -> realToFrac (List.maximum confirmed `diffUTCTime` List.minimum submitted) :: Double
-        _ -> 0
-      e2eTps = if wallClockSeconds > 0 then fromIntegral numberOfTxs / wallClockSeconds else 0
-      peakTps = peakWindowedTps peakWindowSeconds confirmed
-   in (e2eTps, wallClockSeconds, peakTps, Map.size snapshots)
+  Throughput
+    { endToEndTps = if wallClockSeconds > 0 then fromIntegral numberOfTxs / wallClockSeconds else 0
+    , runWallClockSeconds = wallClockSeconds
+    , sustainedTps = sustainedSnapshotTps (Map.elems snapshots)
+    , drainSeconds
+    , avgTxsPerSnapshot =
+        if numberOfSnapshots > 0
+          then fromIntegral numberOfTxs / fromIntegral numberOfSnapshots
+          else 0
+    , numberOfSnapshots
+    }
  where
+  submitted = map submittedAtFor (Map.elems txs)
+  confirmed = mapMaybe confirmedAt (Map.elems txs)
+  numberOfTxs = length confirmed
+  numberOfSnapshots = Map.size snapshots
+  wallClockSeconds = case (submitted, confirmed) of
+    (_ : _, _ : _) -> realToFrac (List.maximum confirmed `diffUTCTime` List.minimum submitted) :: Double
+    _ -> 0
+  drainSeconds = case (submitted, confirmed) of
+    (_ : _, _ : _) -> realToFrac (List.maximum confirmed `diffUTCTime` List.maximum submitted) :: Double
+    _ -> 0
   submittedAtFor Event{submittedAt} = submittedAt
 
--- | Peak transaction-confirmation throughput: the largest number of
--- confirmations falling within any window of the given width, divided by that
--- width. Every confirmation feeds it (hundreds of samples per run), so it is
--- stable across runs and is not distorted by how many transactions a single
--- snapshot happened to batch or by how closely two snapshot notifications were
--- observed on the client.
-peakWindowedTps :: Double -> [UTCTime] -> Double
-peakWindowedTps windowSeconds times
-  | windowSeconds <= 0 = 0
-  | n == 0 = 0
-  | otherwise = fromIntegral (loop 0 0 0) / windowSeconds
+-- | Sustained confirmation throughput over the middle of the run, computed on
+-- snapshot boundaries. Confirmations arrive in per-snapshot bursts sharing one
+-- client-side observation timestamp, so trimming per-transaction quantiles
+-- would be quantized by batch size (and thus by the node's maxTxsPerSnapshot).
+-- Instead, trim roughly 10% of confirmed transactions at each end aligned to
+-- whole snapshots: with snapshots ordered by observation time, pick the first
+-- snapshots i and j whose cumulative transaction count reaches 10% and 90% of
+-- the total, and divide the transactions confirmed in the interval (t_i, t_j]
+-- by that time span. Nothing when fewer than 10 snapshots were observed or the
+-- span is degenerate; the report omits the row rather than quietly reporting a
+-- differently-defined rate.
+sustainedSnapshotTps :: [(UTCTime, Int)] -> Maybe Double
+sustainedSnapshotTps snapshots = do
+  guard (length snapshots >= 10)
+  (tLow, cumLow) <- firstReaching (share 0.1)
+  (tHigh, cumHigh) <- firstReaching (share 0.9)
+  let spanSeconds = realToFrac (tHigh `diffUTCTime` tLow) :: Double
+  guard (spanSeconds > 0)
+  pure $ fromIntegral (cumHigh - cumLow) / spanSeconds
  where
-  sorted = V.fromList (sort times)
-  n = V.length sorted
-  window = realToFrac windowSeconds :: NominalDiffTime
-  -- Two pointers over the sorted confirmation times. An optimal window can
-  -- always be slid left until its start coincides with a confirmation, so it
-  -- suffices to anchor the left edge 'i' at each point and extend the
-  -- exclusive right edge 'j' over everything within 'window'. 'j' never moves
-  -- backwards as 'i' advances, so this is O(n).
-  loop i j best
-    | i >= n = best
-    | otherwise =
-        let j' = advance i (max j (i + 1))
-         in loop (i + 1) j' (max best (j' - i))
-  advance i j
-    | j < n && (sorted V.! j) `diffUTCTime` (sorted V.! i) < window = advance i (j + 1)
-    | otherwise = j
+  ordered = sortOn fst snapshots
+  total = sum (map snd ordered)
+  cumulative = zip (map fst ordered) (drop 1 $ scanl (+) 0 (map snd ordered))
+  firstReaching target = find (\(_, cum) -> cum >= target) cumulative
+  share p = ceiling (p * fromIntegral total :: Double) :: Int
+
+medianMilliseconds :: [NominalDiffTime] -> Maybe Double
+medianMilliseconds = \case
+  [] -> Nothing
+  xs -> Just . realToFrac . nominalDiffTimeToMilliseconds $ sort xs List.!! (length xs `div` 2)
+
+-- | Peak resident set size (VmHWM) in MB across this scenario's hydra-node
+-- processes, identified by executable name plus the scenario work directory in
+-- their command line (other hydra-nodes on the host are ignored). Linux-only;
+-- Nothing when nothing matches or /proc is unavailable.
+readPeakNodeRssMb :: FilePath -> IO (Maybe Double)
+readPeakNodeRssMb workDir = do
+  pids <- ignoringErrors [] $ filter (all isDigit) <$> listDirectory "/proc"
+  peaks <- forM pids $ \pid ->
+    ignoringErrors Nothing $ do
+      cmdline <- readFileBS ("/proc" </> pid </> "cmdline")
+      if isScenarioNode cmdline
+        then vmHwmKb <$> readFileBS ("/proc" </> pid </> "status")
+        else pure Nothing
+  pure $ case catMaybes peaks of
+    [] -> Nothing
+    kbs -> Just (List.maximum kbs / 1024)
+ where
+  -- Synchronous exceptions only: swallowing an async cancellation here would
+  -- defer the scenario's 'failAfter' timeout (see 'tryNonAsync').
+  ignoringErrors :: forall a. a -> IO a -> IO a
+  ignoringErrors def act = fromRight def <$> tryNonAsync act
+
+  isScenarioNode cmdline = case BS.split 0 cmdline of
+    (exe : args) ->
+      takeFileName (decodeUtf8 exe :: String) == "hydra-node"
+        && any (encodeUtf8 workDir `BS.isInfixOf`) args
+    [] -> False
+
+  vmHwmKb :: ByteString -> Maybe Double
+  vmHwmKb status =
+    listToMaybe
+      [ kb
+      | line <- T.lines (decodeUtf8 status)
+      , Just rest <- [T.stripPrefix "VmHWM:" line]
+      , Just (kb :: Double) <- [readMaybe . toString . T.strip $ T.replace "kB" "" rest]
+      ]
 
 writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do
   putStrLn $ "Writing results to: " <> fp
   writeFileLBS fp $ headers <> "\n" <> foldMap toCsv res
  where
-  headers = "txId,confirmationTime"
+  headers = "time,averageValidationTime,averageConfirmationTime,count"
 
   toCsv :: (UTCTime, NominalDiffTime, NominalDiffTime, Int) -> LBS.ByteString
   toCsv (a, b, c, d) = show a <> "," <> encode b <> "," <> encode c <> "," <> encode d <> "\n"

@@ -132,18 +132,24 @@ produces a `results.csv` file in a work directory. To plot the transaction
 confirmation times you can use the `bench/plot.sh` script, passing it the
 directory containing the benchmark's results.
 
-For the benchmarks, you can choose between generating either a constant-size
-UTxO set or a growing UTxO set.
+For the benchmarks, you can choose between several generated UTxO shapes via
+`--utxo-size`:
 
-Constant UTxO set:
-Each transaction spends one input and creates exactly one new output (1-in-1-out), so the total number of
-UTxOs in the set remains roughly the same over time.
+* `Constant`: each transaction spends one input and creates exactly one new
+  output (1-in-1-out), so the size of the UTxO set stays flat over the run.
+* `Growing`: each transaction spends one input and creates two outputs,
+  gradually increasing the UTxO set as more transactions are processed.
+* `Mixed`: grows for the first half of the run, then contracts via 2-in-1-out
+  merges for the second half.
+* `Plateau N` (quoted, e.g. `--utxo-size 'Plateau 1000'`): splits each
+  client's funds into N outputs, then holds that size with full-value
+  self-transfers so every snapshot carries a large UTxO set. This is the
+  reference workload for large-UTxO head performance, where snapshot signing
+  cost dominates.
 
-Growing UTxO set:
-Each transaction spends one input but creates two outputs gradually increasing the total number of UTxOs as more
-transactions are processed. For this we use the `--number-of-txs` argument.
-
-This distinction allows you to measure performance under different realistic UTxO-set growth scenarios on Cardano.
+The number of transactions per client is set with `--number-of-txs`. This
+distinction allows you to measure performance under different realistic
+UTxO-set scenarios on Cardano.
 
 
 To generate, run and then plot results of the benchmark:
@@ -193,11 +199,64 @@ Writing report to: out/end-to-end-benchmarks.md
 Created plot: out/results.png
 ```
 
-Note that if it's present in the environment, benchmark executable will gather basic system-level statistics about the RAM, CPU, and network bandwidth used. The `plot.sh` script then displays those alongside tx confirmation time in a single graph.
+Note that the summary reports the peak resident memory of the scenario's
+hydra-node processes (Linux only). The `system.csv` file referenced by
+`plot.sh` is not currently produced.
 
-The benchmark can be run in three modes:
+The benchmark can be run in several modes:
 
-* `single`: Generate a single _dataset_ and runs the benchmark with it.
-* `datasets`: Runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
+* `single`: Runs one or more pre-existing _dataset_ files in sequence and collects their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over well-known datasets and is what CI uses to compare a PR against master.
+* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it.
+* `generate`: Generates and saves a dataset file without running it. `--seed` makes generation reproducible and `--title` names the scenario in reports (scenarios are paired by title when diffing two reports). Feed the resulting file to `single`.
+* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page.
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
+
+## Load modes and reported metrics
+
+Transactions are submitted either open-loop (the default: each client fires
+its whole transaction sequence as fast as the queue drains, building a deep
+backlog that exercises the head's saturation throughput) or closed-loop
+(`--wait-for-tx-valid`: one in-flight transaction per client, so
+per-transaction times measure the true round-trip latency of a snapshot
+cycle).
+
+The benchmark starts its hydra-nodes with logging disabled (`--quiet`):
+tracing serialises large event envelopes on the node's critical path and its
+cost differs across compared versions, so leaving it on would distort the
+comparison.
+
+Interpret the metrics accordingly:
+
+* In open-loop runs, per-transaction confirmation times are dominated by time
+  spent queued behind the backlog; they scale with the dataset size and mostly
+  restate throughput. The rate metrics are the signal there.
+* In closed-loop runs, the confirmation percentiles are honest latency
+  figures.
+
+Reported metrics:
+
+* _End-to-end TPS_: confirmed transactions over the whole run, from first
+  submission to last confirmation.
+* _Sustained TPS_: confirmation rate over the middle ~80% of the run, trimmed
+  on snapshot boundaries so ramp-up and tail effects are excluded. Only
+  reported when at least 10 snapshots were observed.
+* _Backlog drain time (s)_: last confirmation minus last submission; how long
+  the head needed to work through the submitted backlog.
+* _Snapshots per second_ and _Avg txs per snapshot_: the decomposition of
+  throughput (TPS = snapshots/s x txs/snapshot). Both are neutral measures:
+  raising the node's `maxTxsPerSnapshot` moves them in opposite directions
+  while improving throughput.
+* _Tx validation time p50 (ms)_: median submission-to-TxValid time; a
+  responsiveness signal for the node's ingest path under load.
+* _Peak node RSS (MB)_: peak resident memory across the scenario's hydra-node
+  processes (Linux only); guards against memory regressions under load.
+* Confirmation time average and percentiles: see load modes above.
+
+The CI workflow `.github/workflows/bench-e2e-diff.yaml` generates three
+scenarios per PR (3-node sustained load, 1-node `Plateau 1000` large-UTxO
+load, 3-node closed-loop latency) and runs them on this branch and on master
+on the same runner, posting the per-metric differences as a PR comment via
+`scripts/bench-e2e-diff.py`. A new summary metric only shows a difference once
+it exists on master too, and must be registered in that script's `METRICS`
+table.
 
