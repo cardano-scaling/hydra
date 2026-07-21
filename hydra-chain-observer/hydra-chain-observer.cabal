@@ -9,7 +9,7 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: ../hydra-node/networks.json
+extra-source-files: script-hashes.json
 
 source-repository head
   type:     git

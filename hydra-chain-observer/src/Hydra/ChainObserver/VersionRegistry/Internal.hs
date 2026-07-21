@@ -14,13 +14,13 @@ import Hydra.ChainObserver.VersionRegistry.Types (KnownVersion (..))
 import Language.Haskell.TH qualified as TH
 import Text.ParserCombinators.ReadP (readP_to_S)
 
-parseNetworksJson :: ByteString -> Either String [KnownVersion]
-parseNetworksJson bytes = do
+parseScriptHashesJson :: ByteString -> Either String [KnownVersion]
+parseScriptHashesJson bytes = do
   val <- Aeson.eitherDecodeStrict' bytes
   parseEither parseVersions val
 
 parseVersions :: Aeson.Value -> Parser [KnownVersion]
-parseVersions = Aeson.withObject "networks.json" $ \o -> do
+parseVersions = Aeson.withObject "script-hashes.json" $ \o -> do
   headHashes :: Map Text Text <- o .: "scriptHashes"
   depositHashes :: Map Text Text <- fromMaybe mempty <$> o .:? "depositScriptHashes"
   mapM (parseEntry depositHashes) (Map.toList headHashes)
@@ -50,7 +50,7 @@ parseScriptHash versionStr hashStr =
 scriptHashExp :: ScriptHash -> TH.Q TH.Exp
 scriptHashExp sh = do
   let hexStr = toString (decodeUtf8 (serialiseToRawBytesHex sh) :: Text) :: String
-      errMsg = "VersionRegistry: script hash " <> hexStr <> " from networks.json could not be deserialized: "
+      errMsg = "VersionRegistry: script hash " <> hexStr <> " from script-hashes.json could not be deserialized: "
   [|
     case deserialiseFromRawBytesHex $(TH.litE (TH.stringL hexStr)) of
       Right sh' -> sh'

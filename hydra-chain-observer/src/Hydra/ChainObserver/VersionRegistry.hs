@@ -9,18 +9,18 @@ import Hydra.Prelude
 
 import Data.ByteString qualified as BS
 import Data.FileEmbed (makeRelativeToProject)
-import Hydra.ChainObserver.VersionRegistry.Internal (knownVersionListExp, parseNetworksJson)
+import Hydra.ChainObserver.VersionRegistry.Internal (knownVersionListExp, parseScriptHashesJson)
 import Hydra.ChainObserver.VersionRegistry.Types (KnownVersion (..))
 import Language.Haskell.TH (runIO)
 
 -- | All known head (and deposit) validator script hashes, parsed from
--- networks.json at compile time. A malformed networks.json is a build error.
+-- script-hashes.json at compile time. A malformed script-hashes.json is a build error.
 loadKnownVersions :: [KnownVersion]
 loadKnownVersions =
   $( do
-      path <- makeRelativeToProject "../hydra-node/networks.json"
+      path <- makeRelativeToProject "script-hashes.json"
       bytes <- runIO $ BS.readFile path
-      case parseNetworksJson bytes of
+      case parseScriptHashesJson bytes of
         Left err -> fail ("VersionRegistry: " <> err)
         Right vs -> knownVersionListExp vs
    )
