@@ -294,7 +294,27 @@ withHydraCluster ::
   [TxId] ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
+withHydraCluster = withHydraClusterWith Nothing id
+
+-- | Like 'withHydraCluster' but connecting each node's API client with the
+-- given query string (e.g. "/?history=yes&snapshot-utxo=no") instead of the
+-- default "/?history=yes", and adjusting each node's 'RunOptions' (e.g. to
+-- disable logging) before it is started.
+withHydraClusterWith ::
+  HasCallStack =>
+  Maybe String ->
+  (RunOptions -> RunOptions) ->
+  Tracer IO HydraNodeLog ->
+  Timing ->
+  FilePath ->
+  SocketPath ->
+  Int ->
+  [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] ->
+  [Secret (SigningKey HydraKey)] ->
+  [TxId] ->
+  (NonEmpty HydraClient -> IO a) ->
+  IO a
+withHydraClusterWith mQueryParams mapOptions tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -334,7 +354,9 @@ withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys 
                         { nodeSocket = nodeSocket
                         }
                 }
-      withHydraNode
+      withHydraNodeWith
+        mQueryParams
+        mapOptions
         tracer
         blockTime
         chainConfig
@@ -552,7 +574,20 @@ withPreparedHydraNode ::
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
+withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing
+
+-- | Like 'withPreparedHydraNode' but connecting the API client with the given
+-- query string instead of the default "/?history=yes".
+withPreparedHydraNodeWithQuery ::
+  HasCallStack =>
+  Maybe String ->
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId runOptions action =
   Prelude.withLogFile logFilePath $ \logFileHandle -> do
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
@@ -566,7 +601,7 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       raceLabelled
         ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNode tracer hydraNodeId apiAddress monPort action)
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") action)
         <&> either absurd id
  where
   apiAddress =
@@ -659,9 +694,28 @@ withHydraNode ::
   Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
+withHydraNode = withHydraNodeWith Nothing id
+
+-- | Like 'withHydraNode' but connecting the API client with the given query
+-- string instead of the default "/?history=yes", and adjusting the node's
+-- 'RunOptions' before it is started.
+withHydraNodeWith ::
+  HasCallStack =>
+  Maybe String ->
+  (RunOptions -> RunOptions) ->
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  Map Int HydraNodePorts ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeWith mQueryParams mapOptions tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts id
-  withPreparedHydraNode tracer workDir hydraNodeId opts action'
+  withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId (mapOptions opts) action'
  where
   waitTime = blockTime * 5
   action' client = do

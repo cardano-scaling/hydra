@@ -10,9 +10,10 @@ permissions:
 
 
 jobs:
-  # Run the single e2e benchmark on this branch and on master, then post the
+  # Run the e2e benchmark scenarios on this branch and on master, then post the
   # per-metric difference (TPS, confirmation time, ...) as a PR comment. Both
-  # runs happen on the same runner so the timing comparison is fair.
+  # runs happen on the same runner and consume the same generated datasets so
+  # the timing comparison is fair.
   bench-e2e-diff:
     name: Compute e2e benchmark differences
     runs-on: ubuntu-latest
@@ -27,36 +28,83 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
-    - name: 📈 Benchmark (this branch)
+    - name: 📦 Generate benchmark datasets
       working-directory: hydra-cluster
+      # One workload consumed by both sides. Scenario sizes are chosen so rate
+      # metrics are measured under sustained load rather than being capped by
+      # the dataset (see hydra-cluster/README.md), while the slower side still
+      # fits the per-scenario timeout: per-round costs scale with the pending
+      # backlog, so drain time grows super-linearly with dataset size. Seeds
+      # are fixed so datasets are also comparable across workflow runs.
       run: |
         nix build .#hydra-cluster-bench
+        mkdir -p "$PWD/../bench-datasets"
+        nix develop .#hydra-cluster-bench --command bench-e2e generate \
+          --utxo-size Constant --cluster-size 3 --number-of-txs 5000 --seed 2752 \
+          --title "Sustained load (3 nodes, 3x5000 txs)" \
+          --out "$PWD/../bench-datasets/sustained-3nodes.json"
+        nix develop .#hydra-cluster-bench --command bench-e2e generate \
+          --utxo-size 'Plateau 1000' --cluster-size 1 --number-of-txs 4000 --seed 2753 \
+          --title "Plateau 1000 UTxO (1 node, 4000 txs)" \
+          --out "$PWD/../bench-datasets/plateau-1k.json"
+        nix develop .#hydra-cluster-bench --command bench-e2e generate \
+          --utxo-size Constant --cluster-size 3 --number-of-txs 250 --seed 2754 \
+          --title "Round-trip latency (3 nodes, closed-loop, 3x250 txs)" \
+          --out "$PWD/../bench-datasets/closed-loop-3nodes.json"
+
+    - name: 📈 Benchmark (this branch)
+      working-directory: hydra-cluster
+      # The closed-loop scenario needs its own invocation ('--wait-for-tx-valid'
+      # applies to the whole invocation); reports are concatenated afterwards,
+      # which the diff script handles since it keys on scenario titles.
+      run: |
         nix develop .#hydra-cluster-bench --command bench-e2e single \
-          datasets/1-node.json datasets/3-nodes.json \
-          --output-directory "$PWD/../bench-new" --timeout 1000s
+          "$PWD/../bench-datasets/sustained-3nodes.json" \
+          "$PWD/../bench-datasets/plateau-1k.json" \
+          --output-directory "$PWD/../bench-new-open" --timeout 1800s
+        nix develop .#hydra-cluster-bench --command bench-e2e single \
+          "$PWD/../bench-datasets/closed-loop-3nodes.json" \
+          --wait-for-tx-valid \
+          --output-directory "$PWD/../bench-new-closed" --timeout 1800s
+        cat "$PWD/../bench-new-open/end-to-end-benchmarks.md" \
+          "$PWD/../bench-new-closed/end-to-end-benchmarks.md" > "$PWD/../bench-new.md"
 
     - name: 📈 Benchmark (master)
       working-directory: hydra-cluster
-      # Same committed datasets, so the workload is identical; only master's
-      # bench code differs from this branch.
+      # Same generated datasets, so the workload is identical; only master's
+      # code (hydra-node and bench) differs from this branch.
       run: |
         nix develop "git+https://github.com/cardano-scaling/hydra?ref=master#hydra-cluster-bench" \
           --command bench-e2e single \
-          datasets/1-node.json datasets/3-nodes.json \
-          --output-directory "$PWD/../bench-old" --timeout 1000s
+          "$PWD/../bench-datasets/sustained-3nodes.json" \
+          "$PWD/../bench-datasets/plateau-1k.json" \
+          --output-directory "$PWD/../bench-old-open" --timeout 1800s
+        nix develop "git+https://github.com/cardano-scaling/hydra?ref=master#hydra-cluster-bench" \
+          --command bench-e2e single \
+          "$PWD/../bench-datasets/closed-loop-3nodes.json" \
+          --wait-for-tx-valid \
+          --output-directory "$PWD/../bench-old-closed" --timeout 1800s
+        cat "$PWD/../bench-old-open/end-to-end-benchmarks.md" \
+          "$PWD/../bench-old-closed/end-to-end-benchmarks.md" > "$PWD/../bench-old.md"
 
     - name: 🧮 Compute the difference markdown
       run: |
         python3 scripts/bench-e2e-diff.py \
-          bench-old/end-to-end-benchmarks.md \
-          bench-new/end-to-end-benchmarks.md > bench-e2e-diff.md
+          bench-old.md \
+          bench-new.md > bench-e2e-diff.md
 
-    - name: 💾 Upload e2e bench diff artifact
+    - name: 💾 Upload e2e bench artifacts
+      # Raw reports included so a failed or one-sided comparison (e.g. a PR
+      # that changes the report format itself) can still be judged.
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: bench-e2e-diff
-        path: bench-e2e-diff.md
-        if-no-files-found: error
+        path: |
+          bench-e2e-diff.md
+          bench-new.md
+          bench-old.md
+        if-no-files-found: warn
 
     - name: 🔎 Find Comment
       if: github.event.pull_request.head.repo.full_name == github.repository
