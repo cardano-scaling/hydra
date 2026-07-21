@@ -1,0 +1,161 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0001010001000001000100010100010100000101010100000100000101000001",
+                    "slot": 1,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0100000000000001010100000101000000000000000100010100010100010000#76": {
+                        "address": "addr_test1wpnvqs8yt3872y0qxv70a5q3xded5ldk5sy7qp9264sce4gr0ajrm",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
+            },
+            "distributedOutputs": {
+                "0101000000010000010001010101000100010101000100010100010101000100#5": {
+                    "address": "addr_test1xqnk08gfjmka9tarmcyljdmf29aqgzqztrf9pe9dpu5mve4m0vcsw5t8xp9md0amxl9l6624y88uh7eveyuxwxsywsmqum74vt",
+                    "datum": null,
+                    "inlineDatum": {
+                        "int": -3
+                    },
+                    "inlineDatumRaw": "22",
+                    "inlineDatumhash": "95c3003a78585e0db8c9496f6deef4de0ff000994b8534cd66d4fe96bb21ddd3",
+                    "referenceScript": null,
+                    "value": {
+                        "97d6616093492308f223c10f019e0bca1a17228a76a9538a585e9d45": {
+                            "8d17f450bc9dde4b669039b0edac8b60ad30dfeb99854c5e05f763a741": 1
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "headId": "01000101000101010101010001000000",
+            "mode": {
+                "tag": "AwaitingSelection"
+            },
+            "remainingOutputs": {
+                "0100000100010101000001010100010100010000000101000100000101000100#21": {
+                    "address": "addr_test1vqdn57wfue8zu0485d26vcfqh3d4sj93w80yexcdt8y75qgpt9zdl",
+                    "datum": null,
+                    "inlineDatum": {
+                        "constructor": 4,
+                        "fields": [
+                            {
+                                "constructor": 5,
+                                "fields": []
+                            },
+                            {
+                                "bytes": ""
+                            },
+                            {
+                                "map": [
+                                    {
+                                        "k": {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "bytes": ""
+                                                },
+                                                {
+                                                    "bytes": "dc57"
+                                                },
+                                                {
+                                                    "int": 3
+                                                },
+                                                {
+                                                    "int": -2
+                                                },
+                                                {
+                                                    "bytes": "ac"
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "int": -2
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "int": 2
+                                        },
+                                        "v": {
+                                            "list": [
+                                                {
+                                                    "int": -2
+                                                },
+                                                {
+                                                    "bytes": "c93b719e"
+                                                },
+                                                {
+                                                    "bytes": "b53e1e6e"
+                                                },
+                                                {
+                                                    "bytes": "f6acdc6d"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "int": -3
+                                        },
+                                        "v": {
+                                            "bytes": "f3"
+                                        }
+                                    },
+                                    {
+                                        "k": {
+                                            "list": [
+                                                {
+                                                    "int": 0
+                                                },
+                                                {
+                                                    "bytes": "a650bb0f"
+                                                },
+                                                {
+                                                    "bytes": "f8"
+                                                },
+                                                {
+                                                    "bytes": "ba46ca01"
+                                                }
+                                            ]
+                                        },
+                                        "v": {
+                                            "constructor": 5,
+                                            "fields": [
+                                                {
+                                                    "bytes": "26"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "inlineDatumRaw": "d87d9fd87e8040a4d87d9f4042dc57032141acff21029f2144c93b719e44b53e1e6e44f6acdc6dff2241f39f0044a650bb0f41f844ba46ca01ffd87e9f4126ffff",
+                    "inlineDatumhash": "f01e400b6ce810d54ff1950e53d32fc1239a634d7278e86a800e98e1255e8e79",
+                    "referenceScript": null,
+                    "value": {
+                        "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                            "67c8e2cc8eede2fc3f56e108aa7b5342": 1
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "tag": "HeadPartialFannedOut"
+        }
+    ],
+    "seed": -2068964120
+}

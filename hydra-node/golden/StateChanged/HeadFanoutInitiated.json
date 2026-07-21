@@ -1,0 +1,27 @@
+{
+    "samples": [
+        {
+            "headId": "01010100010101010001010000010100",
+            "remainingOutputs": {
+                "0101000100010100010100010000010001000100010100000100000001000101#20": {
+                    "address": "addr_test1zrp3ny83x5mjcdplz43m788cljehqgmnfk4ghcpr5gmy7kq9qfcwll4zm2d9sx5wemafyw58hh4n20hltxn8066vpuqqepjzat",
+                    "datum": null,
+                    "inlineDatum": {
+                        "bytes": "e01285"
+                    },
+                    "inlineDatumRaw": "43e01285",
+                    "inlineDatumhash": "9da14f5138240627abfe1033c0c4c6430afcf375eb254d0860dbb90189137e4f",
+                    "referenceScript": null,
+                    "value": {
+                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                            "121060df8a14e6f12ae8db599fe3153e94d6f8d00d0f0e5768": 3544357910621258286
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "tag": "HeadFanoutInitiated"
+        }
+    ],
+    "seed": 118074593
+}
