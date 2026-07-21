@@ -1,0 +1,31 @@
+name: Claude PR Review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude:
+    name: Claude PR review
+    runs-on: ubuntu-latest
+    # Only react to @claude mentions on PRs (issue_comment also fires on plain issues)
+    if: |
+      contains(github.event.comment.body, '@claude') &&
+      (github.event.issue.pull_request || github.event_name == 'pull_request_review_comment')
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        claude_args: |
+          --max-turns 15
+          --append-system-prompt "You are reviewing a PR for the Hydra Head protocol. Read CLAUDE.md for project standards. Focus on HeadLogic correctness, on-chain/off-chain consistency, and specific exception types (never userError). Only flag issues with high confidence."
