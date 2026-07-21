@@ -729,7 +729,10 @@ components:
     SyncedStatusReport:
       title: SyncedStatusReport
       description: |
-        Emitted by the server while the node is catching-up with the chain or while in sync but near to become unsynced.
+        Emitted once whenever the node's chain-sync status changes: when it
+        starts catching-up with the chain, or when it becomes synced again. It
+        is not emitted on every block. The continuous drift value is available
+        as the `hydra_chain_drift_seconds` Prometheus metric.
       payload:
         $ref: "api.yaml#/components/schemas/SyncedStatusReport"
 

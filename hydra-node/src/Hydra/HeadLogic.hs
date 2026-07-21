@@ -1827,7 +1827,15 @@ handleOutOfSync ::
   SyncedStatus ->
   Outcome tx
 handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus =
-  stateTransition <> outputIfNeeded
+  -- Emit only on an actual sync-status transition (edge-triggered), rather than
+  -- on every tick, so clients are not flooded (see issue #2749). The continuous
+  -- drift value is exposed as a metric ('hydra_chain_drift_seconds') instead.
+  case (syncStatus, newSyncStatus) of
+    (InSync, CatchingUp) ->
+      newState NodeUnsynced{chainSlot, chainTime, drift} <> report CatchingUp
+    (CatchingUp, InSync) ->
+      newState NodeSynced{chainSlot, chainTime, drift} <> report InSync
+    _ -> noop
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
@@ -1841,22 +1849,8 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
   -- NOTE: this is the same as drift > threshold
   nodeOutOfSync = chainTime `plus` threshold < now
   newSyncStatus = if nodeOutOfSync then CatchingUp else InSync
-  stateTransition =
-    case (syncStatus, newSyncStatus) of
-      (InSync, CatchingUp) -> newState NodeUnsynced{chainSlot, chainTime, drift}
-      (CatchingUp, InSync) -> newState NodeSynced{chainSlot, chainTime, drift}
-      _ -> noop
 
-  -- We have consumed 80% of the allowed drift
-  nearThreshold = drift >= threshold * 0.8
-  shouldOutput =
-    case newSyncStatus of
-      CatchingUp -> True
-      InSync -> nearThreshold
-  outputIfNeeded
-    | shouldOutput = output newSyncStatus
-    | otherwise = noop
-  output synced =
+  report synced =
     cause . ClientEffect $ ServerOutput.SyncedStatusReport{chainSlot, chainTime, drift, synced}
 
 -- | Validate whether a current deposit in the local state actually exists
@@ -2013,7 +2007,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainPoint}
+    newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
@@ -2036,7 +2030,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainPoint})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainPoint}
+        newState TickObserved{chainPoint, chainTime}
           <> handleOutOfSync env now chainPoint chainTime syncStatus
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
@@ -2121,7 +2115,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     newState ChainRolledBack{chainState = rolledBackChainState}
       <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
   (_, ChainInput Tick{chainTime, chainPoint}) ->
-    newState TickObserved{chainPoint}
+    newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postTxError = StalePartialFanoutTx}) ->
@@ -2331,8 +2325,8 @@ aggregateNodeState nodeState sc =
                     { headState = st
                     , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                     }
-            TickObserved{chainPoint} ->
-              nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint}}
+            TickObserved{chainPoint, chainTime} ->
+              nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
             ChainRolledBack{chainState} ->
               nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}}
             NodeUnsynced{chainSlot, chainTime, drift} ->

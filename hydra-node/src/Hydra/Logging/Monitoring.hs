@@ -38,7 +38,7 @@ import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, regis
 -- This is a no-op if given `Nothing`. This function is not polymorphic over the type of
 -- messages because it needs to understand them in order to provide meaningful metrics.
 withMonitoring ::
-  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m, MonadTime m, MonadLabelledSTM m) =>
   Maybe PortNumber ->
   Tracer m (HydraLog tx) ->
   (Tracer m (HydraLog tx) -> m ()) ->
@@ -57,7 +57,7 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
-prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
+prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, MonadTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newLabelledTVarIO "monitoring-txs-map-registry" mempty
   snapshotsMap <- newLabelledTVarIO "monitoring-snapshots-map-registry" mempty
@@ -83,11 +83,12 @@ allMetrics =
   , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
   , MetricDefinition (Name "hydra_head_snapshot_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 500, 1000, 5000, 10000, 30000]
   , MetricDefinition (Name "hydra_head_peers_connected") GaugeMetric $ flip registerGauge mempty
+  , MetricDefinition (Name "hydra_chain_drift_seconds") GaugeMetric $ flip registerGauge mempty
   ]
 
 -- | Main monitoring function that updates metrics store given some log entries.
 monitor ::
-  (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) =>
+  (MonadIO m, MonadSTM m, MonadMonotonicTime m, MonadTime m, IsTx tx) =>
   TVar m (Map (TxIdType tx) Time) ->
   TVar m (Map SnapshotNumber (Time, [TxIdType tx])) ->
   Map Name Metric ->
@@ -107,6 +108,11 @@ monitor transactionsMap snapshotsMap metricsMap = \case
       PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
       PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
       NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
+      -- Report how far behind the chain the node currently is, updated on every
+      -- observed tick. This replaces the per-tick 'SyncedStatusReport' push (#2749).
+      TickObserved{chainTime} -> do
+        now <- getCurrentTime
+        gaugeN "hydra_chain_drift_seconds" (realToFrac (now `diffUTCTime` chainTime))
       SnapshotRequested{requestedSnapshot = Snapshot{number, confirmed}} -> do
         t <- getMonotonicTime
         atomically $ modifyTVar' snapshotsMap (Map.insert number (t, txId <$> confirmed))

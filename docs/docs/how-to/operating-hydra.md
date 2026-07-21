@@ -39,6 +39,8 @@ For instance, if a `hydra-node` is initiated with `--monitoring-port 6001`, the 
 will output:
 
 ```
+# TYPE hydra_chain_drift_seconds gauge
+hydra_chain_drift_seconds  0.0
 # TYPE hydra_head_confirmed_tx counter
 hydra_head_confirmed_tx  0
 # TYPE hydra_head_inputs counter

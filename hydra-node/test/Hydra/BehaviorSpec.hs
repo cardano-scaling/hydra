@@ -1037,10 +1037,17 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Close
-                msg <- waitForNextMessage n1
-                msg `shouldSatisfy` \case
-                  CommandFailed{} -> True
-                  _ -> False
+                -- The node emits a startup SyncedStatusReport{InSync} on its
+                -- initial CatchingUp -> InSync transition; skip it and wait for
+                -- the CommandFailed from closing an idle head (see #2749).
+                let waitForCommandFailed =
+                      waitForNextMessage n1 >>= \case
+                        SyncedStatusReport{} -> waitForCommandFailed
+                        msg ->
+                          msg `shouldSatisfy` \case
+                            CommandFailed{} -> True
+                            _ -> False
+                waitForCommandFailed
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 

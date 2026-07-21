@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -1871,6 +1871,37 @@ spec =
             assert $ case nodeAfter of
               NodeInSync{} -> True
               _ -> False
+
+      -- #2749: SyncedStatusReport is edge-triggered — emitted only on an actual
+      -- sync-status transition, not on every tick, so clients are not flooded.
+      it "emits SyncedStatusReport only on a sync-status transition (#2749)" $ do
+        now <- getCurrentTime
+        let demoEnv = bobEnv{unsyncedPeriod = UnsyncedPeriod 1.5} -- threshold 1.5s
+            hs = generateWith arbitrary 42 :: HeadState SimpleTx
+            -- A tick whose observed chain time is 'driftSecs' behind 'now'.
+            tickWith :: NominalDiffTime -> Int -> Input SimpleTx
+            tickWith driftSecs slot =
+              ChainInput Tick{chainTime = addUTCTime (negate driftSecs) now, chainPoint = fromIntegral slot}
+            reportedSynced :: Effect SimpleTx -> Maybe SyncedStatus
+            reportedSynced = \case
+              ClientEffect SyncedStatusReport{synced} -> Just synced
+              _ -> Nothing
+            -- Fold ticks through 'update', threading the node state, and collect
+            -- the sync statuses actually reported to clients.
+            runTicks :: [NominalDiffTime] -> [SyncedStatus]
+            runTicks drifts =
+              let go :: (NodeState SimpleTx, [SyncedStatus]) -> (Int, NominalDiffTime) -> (NodeState SimpleTx, [SyncedStatus])
+                  go (st, reports) (i, d) =
+                    let outcome = update demoEnv ledger now st (tickWith d i)
+                        outcomeEffects = case outcome of Continue{effects} -> effects; _ -> []
+                     in (aggregateState st outcome, reports <> mapMaybe reportedSynced outcomeEffects)
+               in snd (foldl' go (inSync hs, []) (zip [1 :: Int ..] drifts))
+        -- Staying in sync (even at 1.3s, past the old 80% warning point) => silent.
+        runTicks (replicate 10 1.3) `shouldBe` []
+        -- Staying unsynced => a single report on entering, then silent.
+        runTicks (replicate 10 2.0) `shouldBe` [CatchingUp]
+        -- One report per crossing: in-sync -> catching-up -> in-sync.
+        runTicks [0.5, 2.0, 2.0, 0.5, 0.5] `shouldBe` [CatchingUp, InSync]
 
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do
