@@ -112,7 +112,6 @@ import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network qualified as Network
-import Hydra.Node.State (SyncedStatus (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, txId)
@@ -1904,21 +1903,18 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
       -- Carol restarts
       withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
         -- The node reports that it is in the Open state when restarting.
-        -- NOTE: chainSyncedStatus in Greetings reflects the persisted sync status
-        -- (InSync from last session), not the current one. The node may not have
-        -- processed any Ticks yet to detect it is out of sync.
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
-        -- The node detects it is out of sync with the chain
-        waitMatch 5 n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "SyncedStatusReport"
-          guard $ v ^? key "synced" == Just (toJSON CatchingUp)
 
-        -- Then, Carol attempts submits a new transaction,
-        -- without waiting for head to be closed
+        -- Carol is still catching up (she was offline while the chain advanced),
+        -- so submitting a new transaction right away must be rejected as
+        -- unsynced. We assert on that rejection rather than waiting for a
+        -- 'SyncedStatusReport': the report is a one-shot, non-persisted
+        -- notification that can be raced away as the node quickly catches up,
+        -- whereas the rejection is the actual security property (see #2749).
         utxo <- getSnapshotUTxO n3
         tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
         send n3 $ input "NewTx" ["transaction" .= tx]
