@@ -12,11 +12,12 @@ import Hydra.Cardano.Api
 import Brick.BChan (BChan, newBChan, writeBChan)
 import Data.Time.LocalTime (getCurrentTimeZone)
 import Graphics.Vty (
-  Mode (Mouse),
+  Mode (BracketedPaste, Mouse),
   Vty,
   defaultConfig,
   outputIface,
   setMode,
+  supportsMode,
  )
 import Graphics.Vty.Platform.Unix (mkVty)
 import Hydra.Chain.Blockfrost.Client as BF
@@ -79,7 +80,13 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , appHandleEvent = handleEvent cardanoClient hydraClient chan
       , appStartEvent = do
           vty <- getVtyHandle
-          liftIO $ setMode (outputIface vty) Mouse True
+          let output = outputIface vty
+          liftIO $ do
+            setMode output Mouse True
+            -- Deliver pastes as a single 'EvPaste' event instead of raw
+            -- keystrokes, which would trigger keybindings mid-paste.
+            when (supportsMode output BracketedPaste) $
+              setMode output BracketedPaste True
           triggerL1Query cardanoClient hydraClient chan
       , appAttrMap = \s -> case s ^. themeL of
           DarkTheme -> darkStyle s

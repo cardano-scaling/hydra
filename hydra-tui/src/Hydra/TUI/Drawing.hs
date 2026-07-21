@@ -149,9 +149,10 @@ drawActionBar s =
                 NoUTxOToIncrement -> [("U", " refresh"), ("Esc/C", " cancel")]
                 SelectingUTxOToDecommit _ -> [("↑↓/Space", " choose"), ("Enter", " decommit"), ("Esc/C", " cancel")]
                 SelectingUTxO _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
-                EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
+                -- No "/C" on the text-entry screens: 'c' types into the field.
+                EnteringAmount{} -> [("Enter", " confirm"), ("Esc", " cancel")]
                 SelectingRecipient{} -> [("↑↓/Space", " choose"), ("Enter", " send"), ("Esc/C", " cancel")]
-                EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc/C", " cancel")]
+                EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc", " cancel")]
                 ConfirmingClose _ -> [("↑↓/Space", " choose"), ("Enter", " confirm"), ("Esc/C", " cancel")]
                 _ -> [("Esc/C", " cancel")]
               _ -> [("Esc/C", " close")]

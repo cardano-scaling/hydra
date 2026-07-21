@@ -14,6 +14,18 @@ changes.
 version of each observed transaction via script hash matching, removing the
 compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
 
+- Fix pasting into hydra-tui text fields. The TUI now enables bracketed paste
+  mode so a paste arrives as one event instead of raw keystrokes, and typing
+  `c` into the amount or address entry no longer cancels the dialog (bech32
+  addresses regularly contain `c`, so pasting one aborted the entry and a
+  subsequent `q` could even quit the TUI).
+
+- Fix hydra-tui submitting transactions with stale form values. Pressing Enter
+  on an invalid recipient address or amount now shows an error instead of
+  silently using the last valid value (previously an unparsable address sent
+  the funds to the prefilled own address, and an invalid amount sent the full
+  UTxO value).
+
 ## [2.3.0] - 2026.07.15
 
 - Add **selective partial fanout**: distribute a chosen subset of a closed
