@@ -22,7 +22,7 @@ export HYDRA_SCRIPTS_TX_ID=bde2ca1f404200e78202ec37979174df9941e96fd35c05b3680d7
 ln -s cardano-configurations/network/preview devnet
 
 # Mithril stuff
-docker pull ghcr.io/input-output-hk/mithril-client:latest
+docker pull ghcr.io/intersectmbo/mithril-client:latest
 SNAPSHOT=$(curl -s https://aggregator.api.mithril.network/aggregator/snapshots | jq -r .[0].digest)
 
 GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
@@ -32,7 +32,7 @@ mithril_client () {
          -e AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator \
          -e NETWORK=preview \
          -e GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY} \
-         -w /data -u $(id -u) ghcr.io/input-output-hk/mithril-client:latest $@
+         -w /data -u $(id -u) ghcr.io/intersectmbo/mithril-client:latest $@
 }
 
 echo "Restoring snapshot $SNAPSHOT"

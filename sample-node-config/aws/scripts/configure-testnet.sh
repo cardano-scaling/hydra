@@ -31,7 +31,7 @@ echo "Pulling mithril"
 export MITHRIL_IMAGE_ID=latest
 echo "export MITHRIL_IMAGE_ID=$MITHRIL_IMAGE_ID" >> ~/.bash_env
 
-docker pull ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID
+docker pull ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID
 
 export AGGREGATOR_ENDPOINT=$(jq -r '."'$NETWORK'".mithril.aggregatorEndpoint' ~/scripts/configure.json)
 echo "export AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT" >> ~/.bash_env
@@ -52,7 +52,7 @@ export SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r
 echo "export SNAPSHOT_DIGEST=$SNAPSHOT_DIGEST" >> ~/.bash_env
 
 mithril_client () {
-  docker run --rm --workdir /app/data -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  docker run --rm --workdir /app/data -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/intersectmbo/mithril-client:$MITHRIL_IMAGE_ID $@
 }
 
 echo "Restoring snapshot $SNAPSHOT_DIGEST"
