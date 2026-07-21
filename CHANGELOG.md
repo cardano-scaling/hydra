@@ -31,6 +31,11 @@ changes.
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
 
+- Emit `SyncedStatusReport` only when the node's chain-sync status changes
+  (in sync ↔ catching up) rather than on every block, so clients are no longer
+  flooded while the node is near or behind the chain tip. The continuous drift
+  value is now available as the `hydra_chain_drift_seconds` Prometheus
+  metric. [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
 ## [2.3.0] - 2026.07.15
 
