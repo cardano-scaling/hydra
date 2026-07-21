@@ -733,6 +733,19 @@ spec =
           update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = decommitTx})
             `assertWait` WaitOnUnresolvedCommit{commitUTxO = mempty}
 
+        -- Once ttl is exhausted the pending-deposit wait turns into a rejection
+        -- (DepositInFlight) so the client learns it must recover the deposit,
+        -- rather than the ReqDec being silently dropped.
+        it "rejects a ReqDec with DepositInFlight once ttl is exhausted while a commit (deposit) is pending" $ do
+          let decommitTx = SimpleTx 1 mempty (utxoRef 1)
+              reqDecEvent = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec{transaction = decommitTx}}
+              s0 = inOpenState' threeParties coordinatedHeadState{currentDepositTxId = Just 7}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 reqDecEvent `hasStateChangedSatisfying` \case
+            DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason = DepositInFlight{depositTxId}} ->
+              invalidTx == decommitTx && depositTxId == 7
+            _ -> False
+
         it "wait for second decommit when another one is in flight" $
           do
             let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)

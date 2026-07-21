@@ -823,11 +823,23 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
   -- Spec: wait 𝑈𝛼 = ∅ — a pending commit (deposit) must settle before a
   -- decommit can be recorded, otherwise a later snapshot would carry both (see
   -- the symmetric guard on 'DepositActivated', which blocks a deposit while a
-  -- decommit is pending). We wait (not error) so the decommit proceeds once the
-  -- increment finalises and clears 'currentDepositTxId'.
+  -- decommit is pending). While ttl remains we wait, so the decommit proceeds
+  -- once the increment finalises and clears 'currentDepositTxId'; once ttl is
+  -- exhausted we reject with 'DepositInFlight' (mirroring the branches below) so
+  -- the client can act (e.g. recover the deposit) instead of the request being
+  -- silently dropped.
   waitOnApplicableDecommit cont
     | Just depositTxId <- currentDepositTxId =
-        wait $ WaitOnUnresolvedCommit{commitUTxO = maybe mempty (.deposited) (Map.lookup depositTxId pendingDeposits)}
+        let commitUTxO = maybe mempty (.deposited) (Map.lookup depositTxId pendingDeposits)
+         in if ttl > 0
+              then wait $ WaitOnUnresolvedCommit{commitUTxO}
+              else
+                newState
+                  DecommitInvalid
+                    { headId
+                    , decommitTx
+                    , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
+                    }
     | otherwise =
         case mExistingDecommitTx of
           Nothing ->

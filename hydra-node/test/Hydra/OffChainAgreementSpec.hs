@@ -14,7 +14,7 @@
 --
 --   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
 --     ('DecommitRecorded'). A pending deposit (commit in flight, @currentDepositTxId@ set) makes the
---     node WAIT ('WaitOnUnresolvedCommit'); an in-flight decommit makes it WAIT at ttl > 0
+--     node WAIT ('WaitOnUnresolvedCommit') at ttl > 0; an in-flight decommit makes it WAIT at ttl > 0
 --     ('WaitOnNotApplicableDecommitTx' with 'DecommitAlreadyInFlight'); both are non-accept, matching
 --     the reference's single Bool.
 --

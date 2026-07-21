@@ -44,8 +44,10 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   flight at once" discipline on the message level: a `ReqSn` carrying both a
   deposit and a decommit is rejected (`ReqSnDepositAndDecommit`), and a
   `ReqDec` received while a deposit is pending waits for the deposit to
-  resolve instead of starting a decommit. Both rules mirror the
-  machine-checked `NoBothInFlight` invariant of the formal specification.
+  resolve instead of starting a decommit; once its TTL is exhausted it is
+  rejected with the new `DepositInFlight` `DecommitInvalidReason` so clients
+  know to recover the deposit first. Both rules mirror the machine-checked
+  `NoBothInFlight` invariant of the formal specification.
 
 ## [2.3.0] - 2026.07.15
 

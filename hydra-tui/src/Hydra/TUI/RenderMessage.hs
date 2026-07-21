@@ -462,6 +462,7 @@ renderDecommitInvalidReason :: DecommitInvalidReason Tx -> Text
 renderDecommitInvalidReason = \case
   DecommitTxInvalid{validationError} -> "Transaction invalid: " <> show validationError
   DecommitAlreadyInFlight{otherDecommitTxId} -> "Another decommit already in flight: " <> show otherDecommitTxId
+  DepositInFlight{depositTxId} -> "A deposit is in flight, recover or await it first: " <> show depositTxId
 
 renderPostTxError :: PostTxError Tx -> [Text]
 renderPostTxError = \case
