@@ -14,6 +14,7 @@ import Test.Hydra.Chain ()
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
+import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 instance
   ( ArbitraryIsTx tx
@@ -24,6 +25,17 @@ instance
   Arbitrary (StateChanged tx)
   where
   arbitrary = arbitrary >>= genStateChanged
+
+-- | Needed for the per-constructor golden test of the persisted 'StateChanged'
+-- event format (see 'Hydra.Events.SQLiteBasedSpec'). Covers every constructor
+-- generically from its field 'Arbitrary's, independent of 'genStateChanged'.
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
