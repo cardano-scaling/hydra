@@ -46,6 +46,10 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
   natively supported, removing the need to manually convert them before use.
 
+- `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
+  coordinated upgrade required).
+  [#2777](https://github.com/cardano-scaling/hydra/pull/2777)
+
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it

@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -142,6 +142,27 @@ spec =
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 reqTx
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+
+      it "accepts a ReqSn with more transactions than maxTxsPerSnapshot" $ do
+        -- The cap only limits what a leader puts into a ReqSn; followers must
+        -- accept larger requests, so the constant can be changed without a
+        -- coordinated upgrade.
+        let n = fromIntegral $ 2 * maxTxsPerSnapshot
+            txs = [SimpleTx i (utxoRef i) (utxoRef (i + 10000)) | i <- [1 .. n]]
+            u0 = utxoRefs [1 .. n]
+            s0 =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { localUTxO = u0
+                  , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
+                  , localTxs = Seq.fromList txs
+                  , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                  }
+            reqSn = receiveMessage $ ReqSn 0 1 (txId <$> txs) Nothing Nothing
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        update bobEnv ledger now s0 reqSn `hasEffectSatisfying` \case
+          NetworkEffect AckSn{} -> True
+          _ -> False
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
