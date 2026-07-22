@@ -15,8 +15,9 @@ import Control.Monad.Class.MonadAsync (cancel, link, waitCatch)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
-  Event (EvKey),
-  Key (KChar, KEnter, KEsc, KFun, KLeft, KRight),
+  Event (EvKey, EvPaste),
+  Key (KBS, KChar, KEnd, KEnter, KEsc, KFun, KLeft, KRight),
+  Modifier (MCtrl),
   Output (..),
   Vty (..),
   displayContext,
@@ -162,6 +163,75 @@ spec = do
           shouldRender "Recover"
           shouldRender "Selected deposit"
           -- Cancel out.
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "text entry survives 'c'/'q' keystrokes, accepts pastes and rejects invalid input" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Commit funds via the increment flow so there is a L2 UTxO to
+          -- spend from (same dance as the recovery tests).
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Increment"
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 8
+          shouldRender "Deposit recorded"
+          -- The deposit settles after the deposit period; only then does the
+          -- UTxO land in the head and become spendable.
+          shouldRender "Commit finalized"
+          -- New Tx: select the only UTxO, confirm the default (full) amount,
+          -- then pick manual address entry.
+          sendInputEvent $ EvKey (KChar 'n') []
+          threadDelay 1
+          shouldRender "New Tx"
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          -- Append 'x' to the default amount: Enter must reject it instead of
+          -- proceeding with the last valid (full) amount.
+          sendInputEvent $ EvKey (KChar 'x') []
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Invalid amount."
+          sendInputEvent $ EvKey KBS []
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Manual entry"
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          -- Clear the prefilled own address.
+          sendInputEvent $ EvKey KEnd []
+          sendInputEvent $ EvKey (KChar 'u') [MCtrl]
+          -- 'c' must type into the field, not cancel the modal (bech32
+          -- addresses contain 'c', so raw-keystroke pastes died here).
+          -- Asserted before sending 'q' below: an unexpected TUI exit ends
+          -- the test harness race vacuously, so 'q' must only be sent once
+          -- we know the modal survived the 'c'.
+          forM_ ("cyes" :: String) $ \ch ->
+            sendInputEvent $ EvKey (KChar ch) []
+          threadDelay 1
+          shouldRender "cyes"
+          -- 'q' must type too, not quit the TUI. A bracketed paste arrives
+          -- as one EvPaste event and is inserted wholesale.
+          sendInputEvent $ EvKey (KChar 'q') []
+          sendInputEvent $ EvPaste "pastedok"
+          threadDelay 1
+          shouldRender "cyesqpastedok"
+          -- The field now holds an unparsable address: Enter must reject it
+          -- instead of sending the funds to the last valid value (the
+          -- prefilled own address).
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Invalid address."
+          shouldRender "cyesqpastedok"
+          -- Esc still cancels out of the text entry.
           sendInputEvent $ EvKey KEsc []
           threadDelay 1
           sendInputEvent $ EvKey (KChar 'q') []
