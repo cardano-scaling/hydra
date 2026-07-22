@@ -127,6 +127,10 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     -- Reconstruct accumulator from all UTxOs (including commit/decommit).
     -- The "accumulator" JSON field stores only the hash (consistent with signing
     -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
+    -- SECURITY: never trust a hash from the JSON instead of rebuilding. This
+    -- instance is reachable from untrusted client input (SideLoadSnapshot),
+    -- and the accumulator hash is what multisignatures verify against, so it
+    -- must always be derived from the UTxO content.
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 

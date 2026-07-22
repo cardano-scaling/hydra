@@ -55,6 +55,11 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   surfaced as a `NetworkVersionMismatch` server output but does not stop the
   node. [#2778](https://github.com/cardano-scaling/hydra/pull/2778)
 
+- Snapshot creation is much faster on large UTxO sets: the accumulator
+  commitment is computed through the rust-accumulator FFI (bit-identical
+  output) and updated incrementally from the previous confirmed snapshot.
+  [#2780](https://github.com/cardano-scaling/hydra/pull/2780)
+
 - `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
   coordinated upgrade required).
   [#2777](https://github.com/cardano-scaling/hydra/pull/2777)

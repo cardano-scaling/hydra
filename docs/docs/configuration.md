@@ -529,3 +529,18 @@ values written by a newer one. A mismatch is reported to API clients as a
 `NetworkVersionMismatch` server output, but the node keeps running, so watch
 for it after upgrades. Upgrade all members of a head together before resuming
 operation; there is no support for mixed-version heads.
+
+### Snapshot signing thread pool
+
+Computing the snapshot accumulator commitment runs through a Rust library
+(`rust-accumulator`) which parallelizes with a [rayon](https://github.com/rayon-rs/rayon)
+thread pool sized to all visible cores by default. On hosts where hydra-node
+shares cores with other latency-sensitive processes (such as cardano-node), the
+pool size can be bounded via the environment:
+
+```
+RAYON_NUM_THREADS=2
+```
+
+This trades some per-snapshot signing latency on large UTxO sets for less
+scheduler interference; with small UTxO sets the effect is negligible.

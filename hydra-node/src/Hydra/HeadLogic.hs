@@ -347,7 +347,14 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
                 let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    accumulator = Accumulator.buildFromSnapshotUTxOs nextUTxO mUtxoToCommit mUtxoToDecommit
+                    nextCombined = nextUTxO <> fromMaybe mempty mUtxoToCommit <> fromMaybe mempty mUtxoToDecommit
+                    -- The predecessor is confirmed at this point (see
+                    -- requireReqSn and waitNoSnapshotInFlight), so its
+                    -- accumulator covers exactly 'snapshotUTxO prevSnapshot'
+                    -- and can be updated by the UTxO delta instead of
+                    -- re-serializing and re-hashing every output.
+                    prevSnapshot = getSnapshot confirmedSnapshot
+                    accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
                  in requireValidAccumulatorSize accumulator $ do
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here

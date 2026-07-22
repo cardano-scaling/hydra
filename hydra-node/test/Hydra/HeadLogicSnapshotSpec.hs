@@ -75,6 +75,18 @@ spec = do
     describe "Generic Snapshot property" $ do
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
 
+    describe "SeenSnapshot" $ do
+      it "forcing to WHNF does not compute the signable bytes" $ do
+        -- State hydration folds every historical NodeState to WHNF; a strict
+        -- signableBytes field would recompute one accumulator commitment per
+        -- replayed SnapshotRequested event. This throws if the field ever
+        -- loses its laziness annotation.
+        let poisoned =
+              (testSnapshot 1 0 [] mempty :: Snapshot SimpleTx)
+                { accumulator = error "signableBytes forced during WHNF"
+                }
+        mkSeenSnapshot poisoned mempty `seq` pure @IO ()
+
     describe "On ReqTx" $ do
       prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
 
