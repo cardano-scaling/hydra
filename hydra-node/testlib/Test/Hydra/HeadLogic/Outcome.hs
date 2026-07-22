@@ -66,7 +66,9 @@ genStateChanged env =
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
+    , -- 'Just' on purpose. 'Nothing' would error unless the snapshot is
+      -- already in 'seenSnapshot', which this generator cannot guarantee
+      SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
