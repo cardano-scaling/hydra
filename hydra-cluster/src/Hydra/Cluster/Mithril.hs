@@ -61,17 +61,17 @@ downloadLatestSnapshotTo tracer network directory = do
     handleJust (guard . isEOFError) (const $ pure ())
 
   genesisKeyURL = case network of
-    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
     BlockfrostPreview -> Nothing
     BlockfrostPreprod -> Nothing
     BlockfrostMainnet -> Nothing
 
   ancillaryKeyURL = case network of
-    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
-    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
-    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
     BlockfrostPreview -> Nothing
     BlockfrostPreprod -> Nothing
     BlockfrostMainnet -> Nothing
