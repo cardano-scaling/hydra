@@ -53,10 +53,6 @@ The following restrictions apply when **depositing** funds into a Hydra head (vi
 
 - **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
 
-### Deposit periods
-
-All `hydra-node` operators in a head must configure the same `--deposit-period`. The value is embedded on-chain in the head's `Init` transaction and validated by each node — a node with a mismatching value will ignore the head. See the [configuration documentation](./configuration#deposit-period) for details.
-
 ### Known bugs
 
 Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue%20is%3Aopen%20(label%3A%22bug%20%3Abug%3A%22%20OR%20type%3ABug)). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).
