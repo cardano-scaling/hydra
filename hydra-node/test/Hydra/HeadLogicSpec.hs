@@ -255,7 +255,7 @@ spec =
               activateTick =
                 ChainInput $
                   Tick
-                    { chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+                    { chainTime = depositTime 2 `plusTime` toNominalDiffTime aliceEnv'.depositPeriod
                     , chainPoint = 2
                     }
               -- Spends the deposited UTxO; applicable iff that UTxO is spendable.

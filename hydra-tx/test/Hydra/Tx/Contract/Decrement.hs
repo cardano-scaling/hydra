@@ -10,6 +10,7 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceDepositPeriod,
   replaceParties,
   replaceSnapshotVersion,
  )
@@ -205,6 +206,9 @@ data DecrementMutation
     DecrementAddExtraDepositInput
   | -- | Minting or burning of tokens should not be possible in decrement.
     MutateTokenMintingOrBurning
+   -- | Ensures parties do not change between head input datum and head output
+   --  datum.
+  | ChangeDepositPeriodInOutput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -214,6 +218,9 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (pure $ toErrorCode ChangedParameters) ChangeDepositPeriodInOutput <$> do
+        mutatedDepositPeriod <- arbitrary `suchThat` (/= dperiod)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceDepositPeriod mutatedDepositPeriod) headTxOut
     , -- New version v′ is incremented correctly
       SomeMutation (pure $ toErrorCode VersionNotIncremented) UseDifferentSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)
