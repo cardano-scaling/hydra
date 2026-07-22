@@ -13,7 +13,7 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
+import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Hydra.HeadLogic (
@@ -24,7 +24,7 @@ import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
-import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
+import Hydra.Tx (IsTx (TxIdType), Snapshot (..), SnapshotNumber, txId)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
 import System.Metrics.Prometheus.Metric.Counter (add, inc)
@@ -60,7 +60,8 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
 prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newLabelledTVarIO "monitoring-txs-map-registry" mempty
-  first (monitor transactionsMap) <$> registerMetrics
+  snapshotsMap <- newLabelledTVarIO "monitoring-snapshots-map-registry" mempty
+  first (monitor transactionsMap snapshotsMap) <$> registerMetrics
  where
   registerMetrics = foldlM registerMetric (mempty, new) allMetrics
 
@@ -80,6 +81,7 @@ allMetrics =
   , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
   , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
+  , MetricDefinition (Name "hydra_head_snapshot_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 500, 1000, 5000, 10000, 30000]
   , MetricDefinition (Name "hydra_head_peers_connected") GaugeMetric $ flip registerGauge mempty
   ]
 
@@ -87,10 +89,11 @@ allMetrics =
 monitor ::
   (MonadIO m, MonadSTM m, MonadMonotonicTime m, IsTx tx) =>
   TVar m (Map (TxIdType tx) Time) ->
+  TVar m (Map SnapshotNumber (Time, [TxIdType tx])) ->
   Map Name Metric ->
   HydraLog tx ->
   m ()
-monitor transactionsMap metricsMap = \case
+monitor transactionsMap snapshotsMap metricsMap = \case
   (Node BeginInput{input = NetworkInput _ (ReceivedMessage{msg = ReqTx tx})}) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
@@ -104,14 +107,33 @@ monitor transactionsMap metricsMap = \case
       PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
       PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
       NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
-      SnapshotConfirmed{snapshot = Just Snapshot{confirmed}} -> do
-        tickN "hydra_head_confirmed_tx" (length confirmed)
-        forM_ confirmed $ \tx -> do
-          t <- getMonotonicTime
+      SnapshotRequested{requestedSnapshot = Snapshot{number, confirmed}} -> do
+        t <- getMonotonicTime
+        atomically $ modifyTVar' snapshotsMap (Map.insert number (t, txId <$> confirmed))
+      SnapshotConfirmed{snapshot = mSnapshot} -> do
+        t <- getMonotonicTime
+        -- On the normal signing path the event carries no snapshot; the
+        -- protocol confirms snapshots strictly in order, so the oldest
+        -- in-flight request is the confirmed one.
+        mEntry <- atomically $ do
+          inFlight <- readTVar snapshotsMap
+          forM (Map.lookupMin inFlight) $ \(number, entry) -> do
+            writeTVar snapshotsMap (Map.delete number inFlight)
+            pure entry
+        confirmedIds <- case (mSnapshot, mEntry) of
+          -- Side-load path: no preceding SnapshotRequested, but the event
+          -- carries the snapshot.
+          (Just Snapshot{confirmed}, _) -> pure (txId <$> confirmed)
+          (Nothing, Just (_, txIds)) -> pure txIds
+          (Nothing, Nothing) -> pure []
+        forM_ mEntry $ \(start, _) ->
+          histo "hydra_head_snapshot_confirmation_time_ms" (diffTime t start)
+        tickN "hydra_head_confirmed_tx" (length confirmedIds)
+        forM_ confirmedIds $ \i -> do
           txsStartTime <- readTVarIO transactionsMap
-          case Map.lookup (txId tx) txsStartTime of
+          case Map.lookup i txsStartTime of
             Just start -> do
-              atomically $ modifyTVar' transactionsMap $ Map.delete (txId tx)
+              atomically $ modifyTVar' transactionsMap $ Map.delete i
               histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
             Nothing -> pure ()
       _ -> pure ()
