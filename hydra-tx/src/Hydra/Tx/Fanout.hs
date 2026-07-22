@@ -8,9 +8,13 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
+import Hydra.Tx.Accumulator (HydraAccumulator)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV2TxName)
+import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G1_uncompress)
 
 -- * Creation
 
@@ -26,36 +30,56 @@ fanoutTx ::
   Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
+  -- | Full snapshot UTxO (utxo <> commit <> decommit) used to rebuild the accumulator
+  -- matching the closed datum. May differ from the fanned-out outputs when an
+  -- incremental action was already applied on-chain before close.
+  UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
-  Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
-  unsafeBuildTransaction $
-    defaultTxBodyContent
-      & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
-      & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
-      & burnTokens headTokenScript Burn headTokens
-      & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
+  Either Text Tx
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput, headOutput) deadlineSlotNo headTokenScript = do
+  fanoutProof <- computeFanoutProof
+  pure $
+    unsafeBuildTransaction $
+      defaultTxBodyContent
+        & addTxIns [(headInput, headWitness fanoutProof)]
+        & addTxInsReference [headScriptRef, crsScriptRef] mempty
+        & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
+        & burnTokens headTokenScript Burn headTokens
+        & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
+        & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "FanoutTx")
  where
-  headWitness =
+  headWitness proof =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum (headRedeemer proof)
+
   headScriptRef =
     fst (headReference scriptRegistry)
-  headRedeemer =
+
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
+
+  accumulator =
+    Accumulator.buildFromUTxO @Tx utxoForProof
+
+  headRedeemer proof =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral $ UTxO.size utxo
-        , numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
-        , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
+        { numberOfFanoutOutputs = fromIntegral (UTxO.size utxo + maybe 0 UTxO.size utxoToCommit + maybe 0 UTxO.size utxoToDecommit)
+        , proof = proof
+        , crsRef = toPlutusTxOutRef crsScriptRef
         }
+
+  computeFanoutProof = do
+    let subsetUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
+        crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
+    proofBytes <- Accumulator.createMembershipProofFromUTxO @Tx subsetUTxO accumulator crs
+    pure $ bls12_381_G1_uncompress $ toBuiltin proofBytes
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
@@ -72,6 +96,150 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     case utxoToDecommit of
       Nothing -> []
       Just decommitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs decommitUTxO
+
+-- | Create a partial fanout transaction that distributes a subset of UTxOs
+-- and produces a 'FanoutProgress' head output with an updated accumulator.
+-- Handles both Closed → FanoutProgress (first step) and FanoutProgress →
+-- FanoutProgress (subsequent steps).
+--
+-- The continuing head output is the first output, followed by the distributed
+-- UTxOs. No tokens are burned (that happens on the final full fanout).
+partialFanoutTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
+  -- | Subset of UTxOs to distribute in this partial fanout
+  UTxO ->
+  -- | Head state-machine output to spend
+  (TxIn, TxOut CtxUTxO) ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
+  -- | FanoutProgressDatum from the current head output (the caller converts ClosedDatum if needed)
+  Head.FanoutProgressDatum ->
+  -- | Remaining accumulator after removing the distributed subset
+  HydraAccumulator ->
+  Tx
+partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo progressDatum remainingAccumulator =
+  unsafeBuildTransaction $
+    defaultTxBodyContent
+      & addTxIns [(headInput, headWitness)]
+      & addTxInsReference [headScriptRef, crsScriptRef] mempty
+      & addTxOuts (headOutputAfter : orderedDistributedOutputs)
+      & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "PartialFanoutTx")
+ where
+  headWitness =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+
+  headScriptRef =
+    fst (headReference scriptRegistry)
+
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
+
+  headRedeemer =
+    toScriptData $
+      Head.PartialFanout
+        { numberOfPartialOutputs = fromIntegral (UTxO.size utxoToDistribute)
+        , crsRef = toPlutusTxOutRef crsScriptRef
+        }
+
+  -- Continuing head output with FanoutProgressDatum and reduced value.
+  -- The head output value is reduced by the sum of distributed output values,
+  -- satisfying the on-chain mustConserveValue check:
+  --   headInValue == headOutValue <> foldMap txOutValue distributedOutputs
+  headOutputAfter =
+    modifyTxOutDatum (const headDatumAfter) $
+      modifyTxOutValue (<> negateValue distributedValue) headOutput
+
+  distributedValue = UTxO.totalValue utxoToDistribute
+
+  Head.FanoutProgressDatum
+    { Head.headId
+    , Head.parties
+    , Head.contestationDeadline
+    , Head.headAdaOverhead
+    } = progressDatum
+
+  headDatumAfter =
+    mkTxOutDatumInline $
+      Head.FanoutProgress
+        Head.FanoutProgressDatum
+          { Head.headId
+          , Head.parties
+          , Head.contestationDeadline
+          , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment remainingAccumulator
+          , Head.headAdaOverhead
+          }
+
+  orderedDistributedOutputs =
+    fromCtxUTxOTxOut <$> UTxO.txOutputs utxoToDistribute
+
+-- | Create the final partial fanout transaction that distributes all remaining
+-- UTxOs and burns all head tokens. Transitions FanoutProgress → Final.
+finalPartialFanoutTx ::
+  -- | Published Hydra scripts to reference.
+  ScriptRegistry ->
+  -- | All remaining UTxOs to distribute in this final fanout
+  UTxO ->
+  -- | Pre-settled UTxOs: elements committed to by the accumulator but already
+  -- paid out on-chain (e.g. via a DecrementTx before close). They are NOT
+  -- distributed here but must be included in the accumulator to satisfy the
+  -- on-chain KZG identity: A_current = P_distribute * commitment(presettled).
+  UTxO ->
+  -- | Head state-machine output to spend
+  (TxIn, TxOut CtxUTxO) ->
+  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
+  SlotNo ->
+  -- | Minting Policy script, made from initial seed
+  PlutusScript ->
+  Either Text Tx
+finalPartialFanoutTx scriptRegistry utxoToDistribute presettledUTxO (headInput, headOutput) deadlineSlotNo headTokenScript = do
+  fanoutProof <- computeFanoutProof
+  pure $
+    unsafeBuildTransaction $
+      defaultTxBodyContent
+        & addTxIns [(headInput, headWitness fanoutProof)]
+        & addTxInsReference [headScriptRef, crsScriptRef] mempty
+        & addTxOuts orderedDistributedOutputs
+        & burnTokens headTokenScript Burn headTokens
+        & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
+        & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "FinalPartialFanoutTx")
+ where
+  headWitness proof =
+    BuildTxWith $
+      ScriptWitness scriptWitnessInCtx $
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum (headRedeemer proof)
+
+  headScriptRef =
+    fst (headReference scriptRegistry)
+
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
+
+  headRedeemer proof =
+    toScriptData $
+      Head.FinalPartialFanout
+        { numberOfPartialOutputs = fromIntegral (UTxO.size utxoToDistribute)
+        , proof = proof
+        , crsRef = toPlutusTxOutRef crsScriptRef
+        }
+
+  -- Accumulator for all elements the current FanoutProgressDatum commits to:
+  -- the UTxOs being distributed now PLUS any pre-settled ones already paid out.
+  remainingAccumulator = Accumulator.buildFromUTxO @Tx (utxoToDistribute <> presettledUTxO)
+
+  computeFanoutProof = do
+    let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount remainingAccumulator
+    proofBytes <- Accumulator.createMembershipProofFromUTxO @Tx utxoToDistribute remainingAccumulator crs
+    pure $ bls12_381_G1_uncompress $ toBuiltin proofBytes
+
+  headTokens =
+    headTokensFromValue headTokenScript (txOutValue headOutput)
+
+  orderedDistributedOutputs =
+    fromCtxUTxOTxOut <$> UTxO.txOutputs utxoToDistribute
 
 -- * Observation
 
@@ -95,8 +263,57 @@ observeFanoutTx utxo tx = do
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs} -> do
-        let allOutputs = fromIntegral $ numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take allOutputs (txOuts' tx))
+      Head.Fanout{} -> do
+        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> txOuts' tx)
+        pure FanoutObservation{headId, fanoutUTxO}
+      _ -> Nothing
+
+data PartialFanoutObservation = PartialFanoutObservation
+  { headId :: HeadId
+  , distributedOutputs :: UTxO
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+-- | Identify a partial fanout tx by looking up the input spending the Head
+-- output and decoding its redeemer as PartialFanout.
+observePartialFanoutTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe PartialFanoutObservation
+observePartialFanoutTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  headId <- findStateToken headOutput
+  findRedeemerSpending tx headInput
+    >>= \case
+      Head.PartialFanout{numberOfPartialOutputs} -> do
+        let numDistributed = fromIntegral numberOfPartialOutputs
+        let distributedOutputs =
+              UTxO.fromList $
+                zip
+                  (mkTxIn tx <$> [1 ..])
+                  (toCtxUTxOTxOut <$> take numDistributed (drop 1 (txOuts' tx)))
+        pure PartialFanoutObservation{headId, distributedOutputs}
+      _ -> Nothing
+
+-- | Identify a final partial fanout tx by looking up the input spending the Head
+-- output and decoding its redeemer as FinalPartialFanout.
+-- Returns a FanoutObservation since this is the finalizing step.
+observeFinalPartialFanoutTx ::
+  -- | A UTxO set to lookup tx inputs
+  UTxO ->
+  Tx ->
+  Maybe FanoutObservation
+observeFinalPartialFanoutTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  headId <- findStateToken headOutput
+  findRedeemerSpending tx headInput
+    >>= \case
+      Head.FinalPartialFanout{numberOfPartialOutputs} -> do
+        let numDistributed = fromIntegral numberOfPartialOutputs
+        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take numDistributed (txOuts' tx))
         pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing

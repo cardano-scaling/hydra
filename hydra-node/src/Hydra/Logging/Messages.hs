@@ -12,10 +12,10 @@ import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
+import Hydra.Events.SQLiteBased (SQLiteLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
-import Hydra.PersistenceLog (PersistenceLog)
 
 data HydraLog tx
   = DirectChain {directChain :: CardanoChainLog}
@@ -23,7 +23,7 @@ data HydraLog tx
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
-  | Persistence {persistenceLog :: PersistenceLog}
+  | SQLite {sqlite :: SQLiteLog}
   | EnteringMainloop
   | NodeHydrated
   | ChainBackendStarted
@@ -33,4 +33,3 @@ data HydraLog tx
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
 deriving stock instance Show (HydraNodeLog tx) => Show (HydraLog tx)
 deriving anyclass instance ToJSON (HydraNodeLog tx) => ToJSON (HydraLog tx)
-deriving anyclass instance FromJSON (HydraNodeLog tx) => FromJSON (HydraLog tx)

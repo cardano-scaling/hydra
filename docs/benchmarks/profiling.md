@@ -19,30 +19,32 @@ Follow the instructions provided by the [`Plutus`](https://github.com/input-outp
 
 ## Isolating a transaction to profile
 
-First, isolate the specific Cardano transaction you want to profile. For example, let's investigate what the `collectCom` transaction
+First, isolate the specific Cardano transaction you want to profile. For example, let's investigate what the `increment` transaction
 for `5` parties in the `tx-cost` benchmark is spending most time and memory on.
 
-The benchmark computes many transactions with the growing number of participants in `computeCollectComCost`:
+The benchmark computes many transactions with the growing number of participants in `computeIncrementCost`:
 
 ```haskell
-computeCollectComCost =
-  catMaybes <$> mapM compute [1 .. 100]
+computeIncrementCost = do
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  -- [...]
  where
   compute numParties = do
-    (st, tx) <- generate $ genCollectComTx numParties
-    let utxo = getKnownUTxO st
+    (ctx, st, utxo', tx) <- genIncrementTx numParties
+    cctx <- pickChainContext ctx
+    let utxo = getKnownUTxO st <> getKnownUTxO cctx <> utxo'
     case checkSizeAndEvaluate tx utxo of
       -- [...]
 ```
 
-Here, isolate the transaction for `5` parties by altering the function to `maybe [] pure <$> compute 5`.
+Here, isolate the transaction for `5` parties by replacing the list passed to `mapM compute` with `[5]`.
 
 ## Compiling a script for profiling
 
-The `collectCom` transaction utilizes the `vCommit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Commit`](pathname:///haddock/hydra-plutus/Hydra-Contract-Commit.html) and [`Hydra.Contract.Head`](pathname:///haddock/hydra-plutus/Hydra-Contract-Head.html):
+The `increment` transaction utilizes the `vDeposit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Deposit`](pathname:///haddock/hydra-plutus/Hydra-Contract-Deposit.html) and [`Hydra.Contract.Head`](pathname:///haddock/hydra-plutus/Hydra-Contract-Head.html):
 
 ```
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:profile-all #-}
 ```
 
 ## Acquiring an executable script
@@ -53,17 +55,18 @@ To acquire and save the fully applied scripts from the transaction onto disk, ru
 
 ```haskell
 -- [...]
-(st, tx) <- generate $ genCollectComTx numParties
-let utxo = getKnownUTxO st
+(ctx, st, utxo', tx) <- genIncrementTx numParties
+cctx <- pickChainContext ctx
+let utxo = getKnownUTxO st <> getKnownUTxO cctx <> utxo'
 scripts <- either die pure $ prepareTxScripts tx utxo
 forM_ (zip [1 ..] scripts) $ \(i, s) -> writeFileBS ("scripts-" <> show i <> ".flat") s
 -- [...]
 ```
 
 After running the corresponding code (`tx-cost` in our example), you will have
-`scripts-{1,2,3,4,5}.flat` files in the current directory.
+`scripts-{1,2,...}.flat` files in the current directory.
 
-Unfortunately, it's quite hard to distinguish them, but script sizes should help in identifying the larger `vHead` script from the smaller `vCommit` script. In the profile, the names of original `plutus-tx` functions will be retained, which should make it clear at the latest.
+Script sizes should help in identifying the larger `vHead` script from the smaller `vDeposit` script. In the profile, the names of original `plutus-tx` functions will be retained, which should make it clear at the latest.
 
 ## Running the script and analyzing the results
 
@@ -88,7 +91,7 @@ cat logs | traceToStacks | flamegraph.pl > cpu.svg
 cat logs | traceToStacks --column 2 | flamegraph.pl > mem.svg
 ```
 
-Here's an example of a memory profile for a `5` party `collectCom`:
+Here's an example of a memory profile for a `5` party `collectCom` (kept as a historical illustration; the `collectCom` transaction itself has been removed since [ADR-33](../adr/2026-03-10_033-directly-open-head.md)):
 
 ![](profile-mem.svg)
 

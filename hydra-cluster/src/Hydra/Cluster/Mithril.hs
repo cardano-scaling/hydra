@@ -16,6 +16,8 @@ data MithrilLog
   = StartSnapshotDownload {network :: KnownNetwork, directory :: FilePath}
   | -- | Output captured directly from mithril-client stderr.
     StdErr {output :: Value}
+  | -- | Non-JSON line captured from mithril-client stderr.
+    StdErrLine {raw :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -35,6 +37,7 @@ downloadLatestSnapshotTo tracer network directory = do
                   [ ["--origin-tag", "HYDRA"]
                   , ["--aggregator-endpoint", aggregatorEndpoint']
                   , ["cardano-db", "download", "latest"]
+                  , ["--include-ancillary"]
                   , ["--genesis-verification-key", decodeUtf8 genesisKey]
                   , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]
                   , ["--download-dir", directory]
@@ -51,24 +54,24 @@ downloadLatestSnapshotTo tracer network directory = do
     ignoreEOFErrors . forever $ do
       bytes <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bytes of
-        Left err -> error $ "failed to decode: \n" <> show bytes <> "\nerror: " <> show err
+        Left _err -> traceWith tracer StdErrLine{raw = decodeUtf8 bytes}
         Right output -> traceWith tracer StdErr{output}
 
   ignoreEOFErrors =
     handleJust (guard . isEOFError) (const $ pure ())
 
   genesisKeyURL = case network of
-    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
-    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
-    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey"
     BlockfrostPreview -> Nothing
     BlockfrostPreprod -> Nothing
     BlockfrostMainnet -> Nothing
 
   ancillaryKeyURL = case network of
-    Mainnet -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
-    Preproduction -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
-    Preview -> Just "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
+    Mainnet -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+    Preproduction -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+    Preview -> Just "https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
     BlockfrostPreview -> Nothing
     BlockfrostPreprod -> Nothing
     BlockfrostMainnet -> Nothing

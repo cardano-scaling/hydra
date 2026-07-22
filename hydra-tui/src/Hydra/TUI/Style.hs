@@ -6,15 +6,29 @@ import Brick (
   attrMap,
   attrName,
   fg,
+  on,
  )
 import Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
+import Brick.Widgets.Border (borderAttr)
+import Brick.Widgets.List (listSelectedAttr)
 import Graphics.Vty (
-  brightBlack,
+  black,
+  blue,
+  bold,
   brightBlue,
+  brightMagenta,
+  brightRed,
+  brightWhite,
+  brightYellow,
+  cyan,
   defAttr,
   green,
+  italic,
+  magenta,
   red,
-  yellow,
+  white,
+  withForeColor,
+  withStyle,
  )
 import Hydra.TUI.Logging.Types (Severity (..))
 
@@ -39,16 +53,67 @@ neutral = attrName "neutral"
 own :: AttrName
 own = attrName "own"
 
-style :: s -> AttrMap
-style _ =
+activeTabA :: AttrName
+activeTabA = attrName "activeTab"
+
+keyA :: AttrName
+keyA = attrName "key"
+
+pendingA :: AttrName
+pendingA = attrName "pending"
+
+headStateA :: AttrName
+headStateA = attrName "headState"
+
+actionDescA :: AttrName
+actionDescA = attrName "actionDesc"
+
+sectionHeaderA :: AttrName
+sectionHeaderA = attrName "sectionHeader"
+
+-- | Dark theme — optimised for dark terminal backgrounds. We deliberately use
+-- the bright ANSI palette for foreground colours so that text stays legible
+-- on a true-black background, where the dim variants (e.g. plain @blue@ or
+-- @brightBlack@) blend into the background.
+darkStyle :: s -> AttrMap
+darkStyle _ =
   attrMap
     defAttr
     [ (infoA, fg brightBlue)
+    , (negative, fg brightRed)
+    , (positive, fg green)
+    , (neutral, fg brightWhite)
+    , (own, fg brightYellow)
+    , (activeTabA, brightWhite `on` blue)
+    , (keyA, withStyle (withStyle defAttr bold) italic)
+    , (pendingA, fg brightMagenta)
+    , (headStateA, withStyle (fg brightMagenta) bold)
+    , (actionDescA, withStyle defAttr italic)
+    , (sectionHeaderA, brightWhite `on` blue)
+    , (listSelectedAttr, brightWhite `on` blue)
+    , (borderAttr, fg white)
+    , (focusedFormInputAttr, fg brightBlue)
+    , (invalidFormInputAttr, fg brightRed)
+    ]
+
+-- | Light theme — optimised for light terminal backgrounds.
+lightStyle :: s -> AttrMap
+lightStyle _ =
+  attrMap
+    (withForeColor defAttr black)
+    [ (infoA, fg blue)
     , (negative, fg red)
     , (positive, fg green)
-    , (neutral, fg brightBlack)
-    , (own, fg yellow)
-    , -- Brick forms
-      (focusedFormInputAttr, fg brightBlue)
+    , (neutral, fg black)
+    , (own, fg cyan)
+    , (activeTabA, brightWhite `on` blue)
+    , (keyA, withStyle (withStyle defAttr bold) italic)
+    , (pendingA, fg magenta)
+    , (headStateA, withStyle (fg blue) bold)
+    , (actionDescA, withStyle defAttr italic)
+    , (sectionHeaderA, brightWhite `on` blue)
+    , (listSelectedAttr, brightWhite `on` blue)
+    , (borderAttr, fg black)
+    , (focusedFormInputAttr, fg blue)
     , (invalidFormInputAttr, fg red)
     ]

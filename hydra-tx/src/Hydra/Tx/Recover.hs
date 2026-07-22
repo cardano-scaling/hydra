@@ -11,7 +11,7 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (HeadId, mkHeadId)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (mkHydraHeadV2TxName)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::
@@ -28,7 +28,7 @@ recoverTx depositTxId deposited lowerBoundSlot =
       & addTxIns recoverInputs
       & addTxOuts depositOutputs
       & setTxValidityLowerBound (TxValidityLowerBound lowerBoundSlot)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "RecoverTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "RecoverTx")
  where
   recoverInputs = (,depositWitness) <$> [TxIn depositTxId (TxIx 0)]
 

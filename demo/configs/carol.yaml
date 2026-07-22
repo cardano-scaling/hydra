@@ -1,0 +1,30 @@
+# Demo config for carol (signing peer 3 of 3). See alice.yaml for how the
+# shared "peers:" block works.
+node-id: "3"
+listen: "127.0.0.1:5003"
+advertise: "127.0.0.1:5003"
+api-port: 4003
+monitoring-port: 6003
+hydra-signing-key: "../carol.sk"
+peers:
+  - address: "127.0.0.1:5001"
+    hydra-verification-key: "../alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "../bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
+  - address: "127.0.0.1:5003" # self — keys here are ignored (filtered out)
+    hydra-verification-key: "../carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
+  - address: "127.0.0.1:5004" # alice-mirror: observer peer (no keys)
+ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
+persistence-dir: "../../devnet/persistence/carol"
+chain:
+  mode: cardano
+  cardano-signing-key: "../../hydra-cluster/config/credentials/carol.sk"
+  contestation-period: 3
+  deposit-period: 10
+  backend:
+    mode: direct
+    testnet-magic: 42
+    node-socket: "../../devnet/node.socket"

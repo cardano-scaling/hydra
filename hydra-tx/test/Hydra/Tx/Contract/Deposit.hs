@@ -48,7 +48,7 @@ data DepositMutation
     -- simulates an attack where someone claims to have deposited more than they
     -- actually did.
     MutateDepositOutputValue
-  deriving (Show, Bounded, Enum)
+  deriving stock (Show, Bounded, Enum)
 
 genDepositMutation :: (Tx, UTxO) -> Gen SomeMutation
 genDepositMutation (tx, _utxo) =

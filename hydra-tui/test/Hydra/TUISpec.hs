@@ -9,28 +9,27 @@ import Test.Hydra.Prelude
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
-import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
-import Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
+import Control.Concurrent.STM (newTChanIO)
+import Control.Monad.Class.MonadAsync (cancel, link, waitCatch)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
-  Event (EvKey),
-  Key (KChar, KEnter),
+  Event (EvKey, EvPaste),
+  Key (KBS, KChar, KEnd, KEnter, KEsc, KFun, KLeft, KRight),
+  Modifier (MCtrl),
   Output (..),
   Vty (..),
-  defaultConfig,
   displayContext,
   initialAssumedState,
   outputPicture,
-  shutdownInput,
  )
 import Graphics.Vty.Config (userConfig)
 import Graphics.Vty.Image (DisplayRegion)
-import Graphics.Vty.Platform.Unix.Input (buildInput)
+import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
-import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
-import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
-import Hydra.Chain.Direct (DirectBackend (..))
+import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
+import Hydra.Cardano.Api (Coin)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -40,27 +39,34 @@ import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
+import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
-import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
+import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
-import Hydra.TUI.Drawing (renderTime)
+import Hydra.TUI.Drawing.Utils (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import Hydra.Tx.Crypto (getVerificationKey)
 import HydraNode (
-  HydraClient (HydraClient, hydraNodeId),
+  HydraClient (..),
   HydraNodeLog,
+  allocateHydraNodePortsFor,
   prepareHydraNode,
   withHydraNode,
   withPreparedHydraNode,
  )
+import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
-import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import System.Posix (OpenMode (WriteOnly), defaultFileFlags, openFd, stdInput)
 import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = 10
+
+tuiDepositPeriod :: DepositPeriod
+tuiDepositPeriod = 10
 
 spec :: Spec
 spec = do
@@ -84,25 +90,8 @@ spec = do
             shouldRender "Idle"
             sendInputEvent $ EvKey (KChar 'i') []
             threadDelay 1
-            shouldRender "Initializing"
-            restartNode
-            sendInputEvent $ EvKey (KChar 'h') []
-            threadDelay 1
-            shouldNotRender "HeadIsInitializing"
-            shouldRender "Checkpoint triggered"
-            sendInputEvent $ EvKey (KChar 's') []
-            threadDelay 1
-            shouldRender "Initializing"
-            shouldRender "Head id"
-            -- open the head
-            sendInputEvent $ EvKey (KChar 'c') []
-            threadDelay 1
-            shouldRender "42000000 lovelace"
-            sendInputEvent $ EvKey (KChar '>') []
-            sendInputEvent $ EvKey (KChar ' ') []
-            sendInputEvent $ EvKey KEnter []
-            threadDelay 1
             shouldRender "Open"
+            shouldRender "Head id"
             restartNode
             sendInputEvent $ EvKey (KChar 'h') []
             threadDelay 1
@@ -130,39 +119,214 @@ spec = do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
-          shouldRender "TUI"
+          shouldRender "Main"
           sendInputEvent $ EvKey (KChar 'q') []
-      it "supports the init & abort Head life cycle" $
-        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
-          threadDelay 1
-          shouldRender "Connected"
-          shouldRender "Idle"
-          shouldNotRender "Head id"
-          sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 1
-          shouldRender "Initializing"
-          shouldRender "Head id"
-          sendInputEvent $ EvKey (KChar 'a') []
-          threadDelay 1
-          sendInputEvent $ EvKey KEnter []
-          threadDelay 1
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'q') []
-
-      it "supports the full Head life cycle" $
+      it "shows feedback when pressing r with no pending deposits" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "Connected"
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
-          shouldRender "Initializing"
+          shouldRender "Open"
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "No pending deposits to recover"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "opens the recovery modal for a pending deposit" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          -- Init head.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Start an increment: opens the modal from the cached L1 UTxO.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Increment"
+          -- Force a refresh ('u') so the UTxO list is populated regardless of
+          -- whether the background cache warm-up has completed yet.
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
+          -- Commit the first available UTxO.
+          sendInputEvent $ EvKey KEnter []
+          -- Wait for the chain follower to observe the deposit and emit
+          -- CommitRecorded. On devnet this typically lands within a handful
+          -- of seconds.
+          threadDelay 8
+          shouldRender "Deposit recorded"
+          -- Open the recovery modal; the deposit should be visible.
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "Recover"
+          shouldRender "Selected deposit"
+          -- Cancel out.
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "text entry survives 'c'/'q' keystrokes, accepts pastes and rejects invalid input" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Commit funds via the increment flow so there is a L2 UTxO to
+          -- spend from (same dance as the recovery tests).
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Increment"
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 8
+          shouldRender "Deposit recorded"
+          -- The deposit settles after the deposit period; only then does the
+          -- UTxO land in the head and become spendable.
+          shouldRender "Commit finalized"
+          -- New Tx: select the only UTxO, confirm the default (full) amount,
+          -- then pick manual address entry.
+          sendInputEvent $ EvKey (KChar 'n') []
+          threadDelay 1
+          shouldRender "New Tx"
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          -- Append 'x' to the default amount: Enter must reject it instead of
+          -- proceeding with the last valid (full) amount.
+          sendInputEvent $ EvKey (KChar 'x') []
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Invalid amount."
+          sendInputEvent $ EvKey KBS []
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Manual entry"
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          -- Clear the prefilled own address.
+          sendInputEvent $ EvKey KEnd []
+          sendInputEvent $ EvKey (KChar 'u') [MCtrl]
+          -- 'c' must type into the field, not cancel the modal (bech32
+          -- addresses contain 'c', so raw-keystroke pastes died here).
+          -- Asserted before sending 'q' below: an unexpected TUI exit ends
+          -- the test harness race vacuously, so 'q' must only be sent once
+          -- we know the modal survived the 'c'.
+          forM_ ("cyes" :: String) $ \ch ->
+            sendInputEvent $ EvKey (KChar ch) []
+          threadDelay 1
+          shouldRender "cyes"
+          -- 'q' must type too, not quit the TUI. A bracketed paste arrives
+          -- as one EvPaste event and is inserted wholesale.
+          sendInputEvent $ EvKey (KChar 'q') []
+          sendInputEvent $ EvPaste "pastedok"
+          threadDelay 1
+          shouldRender "cyesqpastedok"
+          -- The field now holds an unparsable address: Enter must reject it
+          -- instead of sending the funds to the last valid value (the
+          -- prefilled own address).
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Invalid address."
+          shouldRender "cyesqpastedok"
+          -- Esc still cancels out of the text entry.
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "switches tabs with 1/2/3 and arrow keys" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          -- MainTab is the default and renders the recent-events strip.
+          shouldRender "Recent events"
+          -- Press 2: FundsTab shows the L2 State / L1 Wallet labels and the
+          -- side-by-side Funds/Fuel columns. No --fuel-key was configured here,
+          -- so the Fuel column shows its not-configured hint.
+          sendInputEvent $ EvKey (KChar '2') []
+          threadDelay 1
+          shouldRender "L2 State"
+          shouldRender "L1 Wallet"
+          shouldRender "Fuel"
+          shouldRender "No fuel key configured."
+          -- Press 3: EventHistoryTab shows the Event History panel and Detail
+          -- pane.
+          sendInputEvent $ EvKey (KChar '3') []
+          threadDelay 1
+          shouldRender "Event History"
+          shouldRender "Detail"
+          -- Press 1: back to MainTab.
+          sendInputEvent $ EvKey (KChar '1') []
+          threadDelay 1
+          shouldRender "Recent events"
+          -- Right arrow advances Main -> Funds.
+          sendInputEvent $ EvKey KRight []
+          threadDelay 1
+          shouldRender "L2 State"
+          -- Left arrow goes back to Main.
+          sendInputEvent $ EvKey KLeft []
+          threadDelay 1
+          shouldRender "Recent events"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "toggles event-history filter with e" $
+        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          sendInputEvent $ EvKey (KChar '3') []
+          threadDelay 1
+          shouldRender "Event History"
+          -- Default filter is ShowAll: the "errors only" qualifier in the
+          -- panel header should not be present.
+          shouldNotRender "errors only (e:show all)"
+          -- Press 'e' to switch to ErrorsOnly: the header label changes.
+          sendInputEvent $ EvKey (KChar 'e') []
+          threadDelay 1
+          shouldRender "errors only (e:show all)"
+          -- Press 'e' again to switch back.
+          sendInputEvent $ EvKey (KChar 'e') []
+          threadDelay 1
+          shouldNotRender "errors only (e:show all)"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "opens the recovery modal from a Closed head" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Make a pending deposit so there is something to recover.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Increment"
+          -- Force a refresh ('u') so the UTxO list is populated regardless of
+          -- whether the background cache warm-up has completed yet.
+          sendInputEvent $ EvKey (KChar 'u') []
+          threadDelay 3
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 8
+          shouldRender "Deposit recorded"
+          -- Close the head; recovery handler reads pendingIncrements off
+          -- activeLink, which is still populated in Closed.
           sendInputEvent $ EvKey (KChar 'c') []
           threadDelay 1
-          shouldRender "42000000 lovelace"
-          sendInputEvent $ EvKey (KChar '>') []
-          sendInputEvent $ EvKey (KChar ' ') []
           sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Closed"
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "Recover"
+          shouldRender "Selected deposit"
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "supports the full Head life cycle" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Open"
           sendInputEvent $ EvKey (KChar 'c') []
@@ -183,15 +347,11 @@ spec = do
           -- slots safety.
           let someTime = (100 + 1 + 3) * 0.1
           threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + someTime)
-          shouldRender "FanoutPossible"
+          shouldRender "Ready to Fanout"
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
-          shouldRender "Final"
-          shouldRender "42000000 lovelace"
+          shouldRender "Finalized"
           sendInputEvent $ EvKey (KChar 'q') []
-
-  it "doesn't allow multiple initializations" $
-    pendingWith "The logic of the TUI has changed and this test should be rewritten accordingly"
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
@@ -216,21 +376,41 @@ spec = do
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
 
+  context "theme persistence" $ do
+    around setupNodeAndTUIWithIsolatedXdg $ do
+      it "F3 toggles theme and writes the on-disk config" $
+        \IsolatedXdgTest{tuiTest = TUITest{sendInputEvent, shouldRender}, xdgConfigHome} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          -- Default theme on first launch is dark, so the action bar shows
+          -- the dark indicator (sourced from 'drawActionBar' in Drawing.hs).
+          shouldRender "dark (toggle)"
+          sendInputEvent $ EvKey (KFun 3) []
+          threadDelay 1
+          shouldRender "light (toggle)"
+          -- The toggle handler also persists to $XDG_CONFIG_HOME/hydra/tui-config.yaml.
+          let configPath = xdgConfigHome </> "hydra" </> "tui-config.yaml"
+          contents <- readFileBS configPath
+          contents `shouldSatisfy` ("light" `BS.isInfixOf`)
+          sendInputEvent $ EvKey (KChar 'q') []
+
 setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
-        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        let backendOpts = Direct backend
+        hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
         let externalVKey = getVerificationKey externalSKey
-        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
+        seedFromFaucet_ backendOpts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] nodePorts id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
         withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId blockTime backend externalKeyFilePath options' action
 
@@ -266,6 +446,9 @@ withHydraNodeHandle tracer tmpDir nodeId options action = do
           putMVar clientVar client
           -- keep async alive as long as node is running
           forever (threadDelay 1_000_000)
+      -- Surface node crashes in the test instead of hanging on a dead node;
+      -- 'link' ignores the 'AsyncCancelled' thrown by 'stopNode'.
+      link a
       putMVar runningAsyncVar a
 
     stopNode = do
@@ -289,7 +472,7 @@ withTUIRotatedTest ::
   FilePath ->
   Int ->
   NominalDiffTime ->
-  DirectBackend ->
+  DirectOptions ->
   FilePath ->
   RunOptions ->
   (TUIRotatedTest -> Expectation) ->
@@ -297,8 +480,8 @@ withTUIRotatedTest ::
 withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath options action =
   withHydraNodeHandle tracer tmpDir nodeId options $ \nodeHandle -> do
     startNode nodeHandle
-    HydraClient{hydraNodeId} <- getClient nodeHandle
-    withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+    HydraClient{apiHost = Host{port = apiPort}} <- getClient nodeHandle
+    withTUITest (200, 30) $ \brickTest@TUITest{buildVty} -> do
       raceLabelled_
         ( "run-vty"
         , do
@@ -308,13 +491,14 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                 { hydraNodeHost =
                     Host
                       { hostname = "127.0.0.1"
-                      , port = fromIntegral $ 4000 + hydraNodeId
+                      , port = apiPort
                       }
                 , cardanoConnection =
                     Right nodeSocket
                 , cardanoNetworkId =
                     networkId
                 , cardanoSigningKey = externalKeyFilePath
+                , fuelVerificationKey = Nothing
                 }
         )
         ( "action-brick-test"
@@ -326,7 +510,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
               }
         )
  where
-  DirectBackend DirectOptions{nodeSocket, networkId} = backend
+  DirectOptions{nodeSocket, networkId} = backend
 
 setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' hostname lovelace action =
@@ -334,8 +518,9 @@ setupNodeAndTUI' hostname lovelace action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
-        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        let backendOpts = Direct backend
+        hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 
@@ -345,12 +530,13 @@ setupNodeAndTUI' hostname lovelace action =
 
         let externalVKey = getVerificationKey externalSKey
         -- Some ADA to commit
-        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
-        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
+        seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
+        let DirectOptions{nodeSocket, networkId} = backend
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] nodePorts $ \HydraClient{apiHost = Host{port = apiPort}} -> do
+          seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
-          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+          withTUITest (200, 30) $ \brickTest@TUITest{buildVty} -> do
             raceLabelled_
               ( "run-vty"
               , runWithVty
@@ -359,13 +545,14 @@ setupNodeAndTUI' hostname lovelace action =
                     { hydraNodeHost =
                         Host
                           { hostname = hostname
-                          , port = fromIntegral $ 4000 + hydraNodeId
+                          , port = apiPort
                           }
                     , cardanoConnection =
                         Right nodeSocket
                     , cardanoNetworkId =
                         networkId
                     , cardanoSigningKey = externalKeyFilePath
+                    , fuelVerificationKey = Nothing
                     }
               )
               ("action-brick-test", action brickTest)
@@ -378,6 +565,29 @@ setupBadHostNodeAndTUI = setupNodeAndTUI' "example" 100_000_000
 
 setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' "127.0.0.1" 2_000_000
+
+data IsolatedXdgTest = IsolatedXdgTest
+  { tuiTest :: TUITest
+  , xdgConfigHome :: FilePath
+  }
+
+-- | Run 'setupNodeAndTUI' with @XDG_CONFIG_HOME@ pointed at a fresh tmp dir,
+-- restoring the original value afterwards. Used so 'F3' theme persistence
+-- writes into a test-scoped path instead of the developer's real config.
+setupNodeAndTUIWithIsolatedXdg :: (IsolatedXdgTest -> IO ()) -> IO ()
+setupNodeAndTUIWithIsolatedXdg action =
+  withTempDir "tui-xdg" $ \xdgDir ->
+    bracket
+      ( do
+          orig <- lookupEnv "XDG_CONFIG_HOME"
+          setEnv "XDG_CONFIG_HOME" xdgDir
+          pure orig
+      )
+      (maybe (unsetEnv "XDG_CONFIG_HOME") (setEnv "XDG_CONFIG_HOME"))
+      ( \_ ->
+          setupNodeAndTUI $ \tuiTest ->
+            action IsolatedXdgTest{tuiTest, xdgConfigHome = xdgDir}
+      )
 
 data TUITest = TUITest
   { buildVty :: IO Vty
@@ -401,14 +611,34 @@ withTUITest region action = do
       , sendInputEvent = atomically . writeTQueue q
       , getPicture
       , shouldRender = \expected -> do
-          bytes <- getPicture
-          let unescaped = findBytes bytes
-          unless (expected `BS.isInfixOf` unescaped) $
-            failure $
-              "Expected bytes not found in frame: "
-                <> decodeUtf8 expected
-                <> "\n"
-                <> decodeUtf8 unescaped
+          -- Poll the frame buffer until @expected@ appears or the budget runs
+          -- out. The TUI updates asynchronously (vty render + WebSocket event
+          -- stream), so a single point check after a fixed 'threadDelay' is
+          -- racy under CI load — especially after 'restartNode', where a full
+          -- node restart (etcd spawn, KZG warm-up, state hydration) plus the
+          -- TUI reconnect must fit in the budget. Generous on purpose: the
+          -- poll returns as soon as the bytes appear, so passing tests do not
+          -- pay for it, and 5s proved too eager on loaded CI runners.
+          let budget = 30 :: NominalDiffTime
+          deadline <- addUTCTime budget <$> getCurrentTime
+          let loop = do
+                bytes <- getPicture
+                let unescaped = findBytes bytes
+                if expected `BS.isInfixOf` unescaped
+                  then pure ()
+                  else do
+                    now <- getCurrentTime
+                    if now >= deadline
+                      then
+                        failure $
+                          "Expected bytes not found in frame within "
+                            <> show budget
+                            <> ": "
+                            <> decodeUtf8 expected
+                            <> "\n"
+                            <> decodeUtf8 unescaped
+                      else threadDelay 0.05 >> loop
+          loop
       , shouldNotRender = \expected -> do
           bytes <- getPicture
           let unescaped = findBytes bytes
@@ -424,22 +654,53 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input <- buildInput defaultConfig =<< defaultSettings
+    chan <- newTChanIO
+    let input =
+          Input
+            { eventChannel = chan
+            , shutdownInput = pure ()
+            , restoreInputState = pure ()
+            , inputLogMsg = \_ -> pure ()
+            }
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
-    -- NOTE(SN): The null device should allow using this in CI, while we do
-    -- capture the output via `outputByteBuffer` anyway.
+    -- NOTE: Direct escape sequences written by the Output (e.g. setMode for
+    -- mouse) to /dev/null so they don't pollute the terminal. We also avoid
+    -- 'Graphics.Vty.Platform.Unix.Settings.defaultSettings' because it calls
+    -- 'flushStdin' which throws an EOF exception when stdin is not a TTY
+    -- (e.g. running 'cabal test' without 'script' to allocate a pty).
     nullFd <- openFd "/dev/null" WriteOnly defaultFileFlags
+    termName <- fromMaybe "xterm" <$> lookupEnv "TERM"
+    let settings =
+          UnixSettings
+            { settingVmin = 1
+            , settingVtime = 100
+            , settingInputFd = stdInput
+            , settingOutputFd = nullFd
+            , settingTermName = termName
+            }
     userCfg <- userConfig
-    realOut <- buildOutput userCfg =<< defaultSettings
-    closeFd nullFd
+    realOut <- buildOutput userCfg settings
     let output = testOut realOut as frameBuffer
+    -- Poll the test event queue instead of STM-blocking on it. A blocking
+    -- 'readTQueue q' makes GHC raise 'BlockedIndefinitelyOnSTM' against the
+    -- brick thread the moment the test action returns: that's when its
+    -- 'sendInputEvent' closure (the only writer reference to @q@) is GC'd,
+    -- and the RTS notices the brick reader has no possible writers. The
+    -- 'raceLabelled_' below cancels the brick thread immediately after, so
+    -- the deadlock is purely transient — but the RTS still prints the
+    -- exception to stderr before the cancel arrives, which makes the test
+    -- output look broken even though it passes.
+    let pollNextEvent =
+          atomically (tryReadTQueue q) >>= \case
+            Just e -> pure e
+            Nothing -> threadDelay 0.01 >> pollNextEvent
     pure $
       Vty
         { inputIface = input -- TODO(SN): this is not used
-        , nextEvent = atomically $ readTQueue q
+        , nextEvent = pollNextEvent
         , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
         , update = \p -> do

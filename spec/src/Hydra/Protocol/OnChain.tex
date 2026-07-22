@@ -1,0 +1,714 @@
+\clearpage
+\section{On-chain Protocol}\label{sec:on-chain}
+\todo{Update figures}
+
+\noindent The following sections describe the \emph{on-chain} protocol
+controlling the life-cycle of a Hydra head, which can be intuitively described
+as a state machine (see Figure~\ref{fig:head-protocol-states}). Each transition
+in this state machine is represented and caused by a corresponding Hydra
+protocol transaction
+on-chain: \mtxInit{}~\ref{sec:init-tx}, \mtxIncrement{}~\ref{sec:increment-tx}, \mtxDecrement{}~\ref{sec:decrement-tx}, \mtxClose{}~\ref{sec:close-tx}, \mtxContest{}~\ref{sec:contest-tx}, \mtxFanout{}~\ref{sec:fanout-tx}, \mtxPartialFanout{}~\ref{sec:partial-fanout-tx}, and \mtxFinalPartialFanout{}~\ref{sec:final-partial-fanout-tx}. \\
+
+\noindent The protocol uses KZG accumulators (see Section~\ref{sec:accumulators}) to enable partial fanout when UTxO sets exceed transaction size limits. When all UTxOs fit in a single transaction, \mtxFanout{} distributes them all at once. When UTxO sets are too large, \mtxPartialFanout{} distributes subsets across multiple transactions using membership witnesses, transitioning through an intermediate $\stFanoutProgress$ state, until \mtxFinalPartialFanout{} completes the distribution. \\
+
+\noindent Besides the main state transitions of the head protocol, there is
+the related ``deposit protocol'' with two transactions in support of
+\mtxIncrement{}: \mtxDeposit{}~\ref{sec:deposit-tx} and \mtxRecover{}~\ref{sec:recover-tx}.
+There is also a \mtxDecrement{} transaction~\ref{sec:decrement-tx} that allows for taking funds from the Head back to L1. \\
+
+% TODO: Could include a combined overview, slightly more detailed than Figure 1
+% of the transaction trace for the full life cycle maybe?
+
+\noindent The head protocol defines one minting policy script and one
+validator script:
+\begin{itemize}
+	\item $\muHead$ governs minting of state and participation tokens in
+	      $\mtxInit{}$ and burning of these tokens in $\mtxFanout{}$.
+	\item $\nuHead$ represents the main protocol state machine logic and ensures
+	      contract continuity throughout $\mtxIncrement{}$, $\mtxDecrement{}$,
+	      $\mtxClose{}$, $\mtxContest{}$, $\mtxFanout{}$, $\mtxPartialFanout{}$ and $\mtxFinalPartialFanout{}$.
+\end{itemize}
+
+\noindent The deposit protocol defines one validator script:
+\begin{itemize}
+	\item $\nuDeposit$ controls that \mtxDeposit{} transaction output is
+	      claimed correctly into a head via \mtxIncrement{} or recovered after
+	      the deadline has passed in a \mtxRecover{} transaction.
+\end{itemize}
+
+\subsection{Init transaction}\label{sec:init-tx}
+
+The \mtxInit{} transaction creates a head instance and establishes the initial
+state of the protocol and is shown in Figure~\ref{fig:initTx}. The head
+instance is represented by the unique currency identifier $\cid$ created by
+minting tokens using the $\muHead$ minting policy script which is parameterized
+by a single output reference parameter $\seed \in \tyOutRef$:
+\[
+	\cid = \hash(\muHead(\seed))
+\]
+
+\todo{Update initTx.svg to show direct Open output with all tokens.}
+
+\noindent Two kinds of tokens are minted:
+\begin{itemize}
+	\item A single \emph{State Thread (ST)} token marking the head output. This
+	      output contains the state of the protocol on-chain and the token ensures
+	      contract continuity. The token name is the well known string
+	      \texttt{HydraHeadV2}, i.e.
+	      $\st = \{\cid \mapsto \texttt{HydraHeadV2} \mapsto 1\}$.
+	\item One \emph{Participation Token (PT)} per participant
+	      $i \in \{1 \dots |\hydraKeys|  \}$ to be used for authenticating further
+	      transactions. The token name is the participant's verification key hash
+	      $\keyHash_{i} = \hash(\msVK_{i})$ of the verification key as received
+	      during protocol setup, i.e.
+	      $\pt_{i} = \{\cid \mapsto \keyHash_{i} \mapsto 1\}$.
+\end{itemize}
+
+\noindent All minted tokens ($\st$ and all $\pt_{i}$) are placed directly into
+the head output, which is created in the $\stOpen$ state with an empty UTxO set.
+Consequently, the \mtxInit{} transaction
+\begin{itemize}
+	\item has at least input $\seed$,
+	\item mints the state thread token $\st$, and one $\pt$ for each of the $|\hydraKeys|$
+	      participants with policy $\cid$,
+	\item has one head output
+	      $o_{\mathsf{head}}$, which captures
+	      the open state of the protocol in the datum
+	      \[
+		      \datumHead = (\stOpen,\cid',\seed',\hydraKeys,\Tcontest,v,\eta,\adaO)
+	      \]
+	      where
+	      \begin{mitemize}
+		      \item $\stOpen$ is the state identifier,
+		      \item $\cid'$ is the unique currency id of this instance,
+		      \item $\seed'$ is the output reference parameter of $\muHead$,
+		      \item $\hydraKeys$ are the off-chain multi-signature keys from the setup
+		      phase,
+		      \item $\Tcontest$ is the contestation period,
+		      \item $v = 0$ is the initial snapshot version,
+		      \item $\eta = \hash(\emptyset)$ is the hash of the (empty) initial UTxO set.
+	      \end{mitemize}
+\end{itemize}
+
+\noindent The $\muHead(\seed)$ minting policy is the only script that verifies
+init transactions and can be redeemed with either a $\mathsf{Mint}$ or
+$\mathsf{Burn}$ redeemer:
+\begin{itemize}
+	\item When evaluated with the $\mathsf{Mint}$ redeemer,
+	      \begin{menumerate}
+		      \item The seed output is spent in this transaction. This guarantees uniqueness of the policy $\cid$ because the EUTxO ledger ensures that $\seed$ cannot be spent twice in the same chain.
+		      $(\seed, \cdot) \in \txInputs$
+		      \item All entries of $\txMint$ are of this policy and of single quantity $\forall \{c \mapsto \cdot \mapsto q\} \in \txMint : c = \cid \land q = 1$
+		      \item Right number of tokens are minted $|\txMint| = |\hydraKeys| + 1$
+		      \item State token is sent to the head validator $\st \in \valHead$
+		      \item All participation tokens are sent to the head output alongside the state token $\forall i \in [1 \dots |\hydraKeys|] : \pt_{i} \in \valHead$
+		      \item The $\datum_{\mathsf{head}}$ contains own currency id $\cid = \cid'$ and the right seed reference $\seed = \seed'$
+	      \end{menumerate}
+	\item When evaluated with the $\mathsf{Burn}$ redeemer,
+	      \begin{menumerate}
+		      \item All tokens for this policy in $\txMint$ need to be of negative quantity
+		      $\forall \{\cid \mapsto \cdot \mapsto q\} \in \txMint : q < 0$.
+	      \end{menumerate}
+\end{itemize}
+
+\noindent \textbf{Important:} The $\muHead$ minting policy only ensures
+uniqueness of $\cid$ and that the right amount of tokens have been minted and
+sent to $\nuHead$, while $\nuHead$ in turn ensures continuity of the contract.
+However, it is \textbf{crucial} that all head members check:
+\begin{itemize}
+	\item That the transaction mints exactly the correct tokens: one $\st$ token and one $\pt$ for each head member (total $|\hydraKeys| + 1$ tokens). This distinguishes $\mtxInit{}$ from $\mtxIncrement{}$ and $\mtxDecrement{}$ transactions, which only move tokens without minting.
+	\item That the head output contains an $\st$ token of policy $\cid$ which satisfies $\cid = \hash(\muHead(\seed))$. The $\seed$ from a head datum can be used to determine this.
+	\item That the correct verification key hashes are used in the $\pt$s and the open state is consistent with parameters agreed during setup.
+\end{itemize}
+See the initialTx behavior in Figure~\ref{fig:off-chain-prot} for details about these checks.\\
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/initTx.svg}
+	\caption{\mtxInit{} transaction spending a seed UTxO and producing the head
+		output directly in state $\stOpen$.}\label{fig:initTx}
+\end{figure}
+
+\subsection{Deposit Transaction}\label{sec:deposit-tx}
+
+\noindent The \mtxDeposit{} transaction locks funds in $\nuDeposit$ for later
+collection into the head via an \mtxIncrement{} transaction. Any transaction
+paying to $\nuDeposit$ is a \mtxDeposit{} transaction as there is no on-chain
+verification in \mtxDeposit{} transactions. Consequently, protocol actors
+\textbf{must ensure off-chain} that a valid datum is used when paying to the
+$\nuDeposit$ validator.\todo{explain why this is enough?} \\
+
+\noindent A valid deposit output is governed by $\nuDeposit$ with value $\valDeposit$ and datum
+\[
+	\datumDeposit = (\cid, t_{\mathsf{recover}}, C)
+\]
+where
+\begin{mitemize}
+	\item $\cid$ is the currency id of the target head protocol instance (see~\ref{sec:init-tx}),
+	\item $t_{\mathsf{recover}}$ is a deadline after which the deposit can be recovered, and
+	\item $C \in {(\txInputs \times \tyBytes)}^{*}$ is a list of transaction output
+	references with along with serialized outputs that should become available in
+	the head.
+\end{mitemize}
+
+\noindent Head protocol participants determine \textbf{off-chain} whether a
+deposit output $o_{\mathsf{deposit}}$ is eligible for their head by checking
+\begin{enumerate}
+	\item $\cid$ matches their head identifier,
+	\item $t_{\mathsf{recover}}$ is reasonably far in the future, and\todo{explain; relate to contestation period?}
+	\item $\valDeposit$ contains the value of all decoded outputs of $C$ from $\datumDeposit$.
+\end{enumerate}
+
+\noindent An example transaction which records all its spent inputs in a deposit output is
+shown in Figure~\ref{fig:depositTx}. The $j \in \{1 \dots m\}$ inputs of this example with reference $\txOutRef_{\mathsf{deposited}_{j}}$ each spend output $o_{\mathsf{deposited}_{j}}$ with $\val_{\mathsf{deposited}_{j}}$ would be recorded in the output datum as
+\[
+	C = \forall j \in \{1 \dots m\} : [(\txOutRef_{\mathsf{deposited}_{j}},\bytes(o_{\mathsf{deposited}_{j}}))]
+\]
+\noindent and the value check would need to satisfy
+\[
+	\valDeposit \supseteq \bigcup_{j=1}^{m} \val_{\mathsf{deposited}_{j}}
+\]
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/depositTx.svg}
+	\caption{\mtxDeposit{} transaction spending multiple UTxO into a deposit
+		output.}\label{fig:depositTx}
+\end{figure}
+
+\subsection{Recover Transaction}\label{sec:recover-tx}
+
+\noindent If a \mtxDeposit{} transaction output (see~\ref{sec:deposit-tx}) was
+not collected into a head by an \mtxIncrement{}
+transaction~\ref{sec:increment-tx}, the \mtxRecover{} transaction
+(Figure~\ref{fig:recoverTx}) allows for restoring the UTxO as recorded in the
+deposit after the deadline has passed. It consists of
+\begin{itemize}
+	\item one input spending from $\nuDeposit$ with datum $\datumDeposit = (\cid, t_{\mathsf{recover}}, C)$, and
+	\item outputs $o_{1} \dots o_{m}$ to recover UTxOs.
+\end{itemize}
+
+\noindent The script validator $\nuDeposit$ is spent with redeemer
+$\redeemerDeposit = (\mathsf{Recover}, m)$, where $m$ is the number of outputs
+to recover, and checks:
+\begin{menumerate}
+	\item All UTxOs are recovered exactly as they were deposited. This is done by
+	comparing hashes of serialised representations of the $m$ recovering outputs
+	$o_{1} \dots o_{m}$ with the canonically combined deposited UTxOs in $C$:
+	\[
+		\hash(\bigoplus_{j=1}^{m} \bytes(o_{j})) = \hash(\mathsf{concat}({\sortOn(1, C)}^{\downarrow2}))
+	\]
+	\item Transaction is posted after the deadline
+	\[
+		\txValidityMin > t_{\mathsf{recover}}
+	\]
+\end{menumerate}
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/recoverTx.svg}
+	\caption{\mtxRecover{} transaction restoring UTxO of a deposit
+		output.}\label{fig:recoverTx}
+\end{figure}
+
+\subsection{Increment Transaction}\label{sec:increment-tx}
+
+\noindent The \mtxIncrement{} transaction (Figure~\ref{fig:incrementTx}) allows
+a participant to add a \mtxDeposit{} output~\ref{sec:deposit-tx} to an already
+open head using a snapshot that approves inclusion. Consequently this
+transaction consists of:
+
+\begin{itemize}
+	\item one input spending from $\nuHead$ with value $\valHead$ holding the
+	      $\st$ and datum $\datumHead$,
+	\item one input $\txOutRef_{\mathsf{deposit}}$ spending from $\nuDeposit$ with value $\valDeposit$ and datum
+	      $\datumDeposit = (\cid_{\mathsf{deposit}}, t_{\mathsf{recover}}, C)$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and datum
+	      $\datumHead'$.
+\end{itemize}
+
+\noindent The deposit validator $\nuDeposit$ is spent with
+$\redeemerDeposit = \mathsf{Claim}$ and ensures:
+\begin{menumerate}
+	\item Claiming head id matches the deposit datum
+	\[
+		\cid = \cid_{\mathsf{deposit}}
+	\]
+	\item Transaction is posted before the deadline
+	\[
+		\txValidityMax <= t_{\mathsf{recover}}
+	\]
+\end{menumerate}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{increment}, \xi, s, \txOutRef_{\mathsf{increment}})$,
+where $\xi$ is a multi-signature of the increment snapshot which authorizes
+addition of deposited UTxO, $s$ is the snapshot number and
+$\txOutRef_{\mathsf{deposit}}$ points to the claimed deposit. The validator
+checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeysAgg,\nop,\Tcontest$
+	stay unchanged and the new state is governed again by $\nuHead$:
+	\[
+		(\stOpen,\cid,\hydraKeysAgg,\nop,\Tcontest,v,\eta,\adaO) \xrightarrow[\xi, s, \txOutRef_{\mathsf{increment}}]{\mathsf{increment}} (\stOpen,\cid,\hydraKeysAgg,\nop,\Tcontest,v',\eta',\adaO)
+	\]
+	\item New version $v'$ is incremented correctly
+	\[
+		v' = v + 1
+	\]
+	\item Claimed deposit is spent
+	\[
+		\txOutRef_{\mathsf{increment}} = \txOutRef_{\mathsf{deposit}}
+	\]
+	\item $\xi$ is a valid multi-signature of the new head state $\eta'$
+	\[
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+	\]
+	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
+	stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs.
+	\item The value in the head output is increased accordingly
+	\[
+		\valHead \cup \valDeposit = \valHead'
+	\]
+	\item Transaction is signed by a participant
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item The ADA overhead $\adaO$ is preserved across the state transition:
+	\[
+		\adaO' = \adaO
+	\]
+\end{menumerate}
+
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/incrementTx.svg}
+	\caption{\mtxIncrement{} transaction spending an open head output,
+		producing a new head output which includes the new UTxO.}\label{fig:incrementTx}
+\end{figure}
+
+\subsection{Decrement Transaction}\label{sec:decrement-tx}
+
+\noindent The \mtxDecrement{} transaction (Figure~\ref{fig:decrementTx}) allows
+a party to remove a UTxO from an already open head and consists of:
+
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$,
+	\item one or more decommit outputs $o_{2} \dots o_{m+1}$ with values $\val_{2} \dots \val_{m+1} $.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{decrement}, \xi, s, m)$, where $\xi$ is a multi-signature of
+the decrement snapshot which authorizes removal of some UTxO, $s$ is the
+used snapshot number and $m$ is the number of outputs to distribute. The
+validator checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stOpen$, parameters $\cid,\hydraKeys,\Tcontest$ stay
+	unchanged and the new state is governed again by $\nuHead$
+	\[
+		(\stOpen,\cid,\hydraKeys,\Tcontest,v,\eta,\adaO) \xrightarrow[\xi, s, m]{\mathsf{decrement}} (\stOpen,\cid,\hydraKeys,\Tcontest,v',\eta',\adaO)
+	\]
+	\item New version $v'$ is incremented correctly
+	\[
+		v' = v + 1
+	\]
+	\item $\xi$ is a valid multi-signature of the new snapshot state $\eta'$
+	\[
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+	\]
+	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
+	stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs.
+	\item The value in the head output is decreased accordingly
+	\[
+		\valHead' \cup (\bigcup_{j=2}^{m+1} \val_{j}) = \valHead
+	\]
+	\item Transaction is signed by a participant
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item The ADA overhead $\adaO$ is preserved across the state transition:
+	\[
+		\adaO' = \adaO
+	\]
+\end{menumerate}
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/decrementTx.svg}
+	\caption{\mtxDecrement{} transaction spending an open head output,
+		producing a new head output and multiple decommitted outputs.}\label{fig:decrementTx}
+\end{figure}
+
+\subsection{Close Transaction}\label{sec:close-tx}
+
+In order to close a head, a head member may post the \mtxClose{} transaction
+(see Figure~\ref{fig:closeTx}). This transaction has
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{close}, \mathsf{CloseType})$, where
+$\mathsf{CloseType}$ is a hint against which open state to close and checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeys,\Tcontest$
+	stay unchanged and the new state is governed again by $\nuHead$
+	\[
+		(\stOpen,\cid,\hydraKeys,\Tcontest,v,\eta,\adaO) \xrightarrow[\mathsf{CloseType}]{\stClose} (\stClosed,\cid,\hydraKeys,\Tcontest,v',s',\eta', \contesters,\tfinal,\adaO)
+	\]
+	The closed state carries a single unified accumulator $\eta'$ that combines the snapshotted UTxO set with any pending increment or decrement UTxOs using $\accCombine$.
+	\item Last known open state version is recorded in closed state
+	\[
+		v' = v
+	\]
+
+	\item Based on the redeemer $\mathsf{CloseType} = \mathsf{Initial} \cup (\mathsf{Any}, \xi, {\eta'}^{\#}) \cup (\mathsf{Unused}, \xi, {\eta'}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#})$, where $\xi$ is a multi-signature of the closing snapshot and ${\eta'}^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, four cases are distinguished. In each case the closed state carries a single unified accumulator $\eta'$:
+	\begin{menumerate}
+		\item $\mathsf{Initial}$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
+		\[
+			v = 0
+		\]
+		\[
+			s' = 0
+		\]
+		\[
+			\eta' = \accUTxO(\emptyset)
+		\]
+		\item $\mathsf{Any}$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. The unified accumulator is simply the snapshotted state:
+		\[
+			\eta' = \accUTxO(U')
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		\item $\mathsf{Unused}$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is \emph{not} applied in the snapshot. The unified accumulator is the snapshotted state only:
+		\[
+			\eta' = \accUTxO(U')
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		\item $\mathsf{Used}$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement \emph{is} applied in the snapshot. The unified accumulator combines the snapshotted UTxOs with the pending delta:
+		\[
+			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		where $\eta_\Delta$ is the accumulator commitment of the pending delta UTxOs.
+	\end{menumerate}
+	% TODO: detailed CDDL definition of msg
+
+	\item Initializes the set of contesters
+	\[
+		\contesters = \emptyset
+	\]
+	This allows the closing party to also contest and is required for use
+	cases where pre-signed, valid in the future, close transactions are
+	used to delegate head closing.
+
+	\item Correct contestation deadline is set
+	\[
+		\tfinal = \txValidityMax + T
+	\]
+	\item Transaction validity range is bounded by
+	\[
+		\txValidityMax - \txValidityMin \leq T
+	\]
+	to ensure the contestation deadline $\tfinal$ is at most $2*T$ in the future.
+	\item Value in the head is preserved
+	\[
+		\valHead' \supseteq \valHead
+	\]
+	\item Transaction is signed by a participant
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item No minting or burning
+	\[
+		\txMint = \varnothing
+	\]
+	\item The ADA overhead $\adaO$ is propagated unchanged from the open datum to the closed datum:
+	\[
+		\adaO' = \adaO
+	\]
+	where $\adaO$ is the ADA in the head UTxO not belonging to any L2 UTxO (minimum-UTxO overhead), set at initialisation time and unchanged for the head's lifetime. On fanout, the on-chain value conservation check treats $\adaO$ as released from the head UTxO without requiring it in any distributed output, so it flows to whoever submits the fanout transaction as change (offsetting their transaction fee).
+\end{menumerate}
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/closeTx.svg}
+	\caption{\mtxClose{} transaction spending the $\stOpen$ head output and producing a $\stClosed$ head output with unified accumulator $\eta'$.}\label{fig:closeTx}
+\end{figure}
+
+\subsection{Contest Transaction}\label{sec:contest-tx}
+
+The \mtxContest{} transaction (see Figure~\ref{fig:contestTx}) is posted by a
+party to prove the currently $\stClosed$ state is not the latest one. This
+transaction has
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$ with $\datumHead$,
+	\item one output paying to $\nuHead$ with value $\valHead'$ and
+	      datum $\datumHead'$.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{contest}, \mathsf{ContestType})$, where
+$\mathsf{ContestType}$ is a hint how to verify the snapshot and checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stOpen$ to
+	$\datumHead' \sim \stClosed$, parameters $\cid,\hydraKeys,\Tcontest$
+	stay unchanged and the new state is governed again by $\nuHead$
+	\[
+		(\stClosed,\cid,\hydraKeys,\Tcontest,v,s,\eta,\contesters,\tfinal,\adaO) \xrightarrow[\mathsf{ContestType}]{\stContest} (\stClosed,\cid,\hydraKeys,\Tcontest,v',s',\eta',\contesters',\tfinal',\adaO)
+	\]
+	The closed state carries a single unified accumulator $\eta'$ computed using $\accCombine$ based on the contest type.
+
+	\item Last known open state version stays recorded in closed state
+	\[
+		v' = v
+	\]
+
+	\item Contested snapshot number $s'$ is higher than the currently stored snapshot number $s$
+	\[
+		s' > s
+	\]
+	\item Based on the redeemer $\mathsf{ContestType} = (\mathsf{Unused}, \xi, {\eta'}^{\#}) \cup (\mathsf{Used}, \xi, {\eta'}^{\#})$, where $\xi$ is a multi-signature of the contesting snapshot and ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the unified accumulator commitment stored in the output datum, two cases are distinguished:
+
+	\begin{menumerate}
+		\item $\mathsf{Unused}$: Contesting snapshot refers to current state version $v$ (pending delta not applied in snapshot). The unified accumulator reflects only the snapshotted UTxOs:
+		\[
+			\eta' = \accUTxO(U')
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v || s' || {\eta'}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		\item $\mathsf{Used}$: Contesting snapshot refers to the previous state version $v - 1$ (pending delta applied in snapshot). The unified accumulator combines the snapshotted UTxOs with the pending delta:
+		\[
+			\eta' = \accCombine(\accUTxO(U'), \eta_\Delta)
+		\]
+		\[
+			\msVfy(\hydraKeys,(\cid || v - 1 || s' || {\eta'}^{\#}),\xi) = \true
+		\]
+		\[
+			{\eta'}^{\#} = (\eta')^{\#}
+		\]
+		where $\eta_\Delta$ is the accumulator commitment of the pending delta UTxOs.
+	\end{menumerate}
+	% TODO: detailed CDDL definition of msg
+
+	\item The single signer $\{\keyHash\} = \txKeys$ has not already contested and is added to the set of contesters
+	\[
+		\keyHash \notin \contesters
+	\]
+	\[
+		\contesters' = \contesters \cup \keyHash
+	\]
+	\item Transaction is posted before deadline
+	\[
+		\txValidityMax \leq \tfinal
+	\]
+	\item Contestation deadline is updated correctly to
+	\[
+		\tfinal' = \left\{\begin{array}{ll}
+			\tfinal     & \mathrm{if} ~ |\contesters'| = n, \\
+			\tfinal + T & \mathrm{otherwise.}
+		\end{array}\right.
+	\]
+	\item Value in the head is preserved
+	\[
+		\valHead' \supseteq \valHead
+	\]
+	\item Transaction is signed by a participant
+	\[
+		\exists \{\cid \mapsto \keyHash_{i} \mapsto 1\} \in \valHead' \Rightarrow \keyHash_{i} \in \txKeys
+	\]
+	\item No minting or burning
+	\[
+		\txMint = \varnothing
+	\]
+	\item The ADA overhead $\adaO$ is preserved in the output closed datum:
+	\[
+		\adaO' = \adaO
+	\]
+\end{menumerate}
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/contestTx.svg}
+	\caption{\mtxContest{} transaction spending the $\stClosed$ head output and
+		producing a different $\stClosed$ head output.}\label{fig:contestTx}
+\end{figure}
+
+\subsection{Fan-Out Transaction}\label{sec:fanout-tx}
+
+Once the contestation phase is over, a head may be finalized by posting a
+\mtxFanout{} transaction (see Figure~\ref{fig:fanoutTx}), which
+distributes all UTxOs from the head according to the unified accumulator in the closed state. A fanout transaction consists of
+\begin{itemize}
+	\item one input spending from $\nuHead$ holding the $\st$, and
+	\item outputs $o_{1} \dots o_{m}$ to distribute all UTxOs.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{fanout}, m, \pi, \mathsf{crsRef})$, where:
+\begin{itemize}
+  \item $m$ is the number of outputs to distribute from the $\stClosed$ state,
+  \item $\pi$ is the KZG membership witness,
+  \item $\mathsf{crsRef}$ is the output reference of the reference input holding the Common Reference String (CRS).
+\end{itemize}
+The validator checks:
+\begin{menumerate}
+	\item State is advanced from $\datumHead \sim \stClosed$ to terminal state $\stFinal$:
+	\[
+		(\stClosed,\cid,\hydraKeys,\Tcontest,v, s,\eta,\contesters,\tfinal) \xrightarrow[m,\pi]{\stFanout} \stFinal
+	\]
+	\item All $m$ outputs are verified as members of the unified accumulator $\eta$ using the membership witness $\pi$:
+	\[
+		\accVerify(\eta, \{o_1, \ldots, o_m\}, \pi) = \true
+	\]
+	\item Transaction is posted after contestation deadline $\txValidityMin > \tfinal$.
+	\item All tokens are burnt
+	$|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = n + 1$.
+	\item The head input value is fully conserved:
+	\[
+		\val_{\mathsf{head}}^{\mathsf{in}} = \bigoplus_{i=1}^{m} \val(o_i) \oplus \val_{\mathsf{burned}} \oplus \adaO
+	\]
+	where $\adaO$ is the ADA overhead carried from the closed datum, and $\val_{\mathsf{burned}}$ is the value of all burned head tokens.
+\end{menumerate}
+
+\begin{figure}[H]
+	\centering
+	\includesvg[width=\textwidth]{Hydra/Protocol/Figures/fanoutTx.svg}
+	\caption{\mtxFanout{} transaction spending the $\stClosed$ head output with unified accumulator $\eta$ and
+		distributing funds with outputs $o_{1} \dots o_{m}$.}\label{fig:fanoutTx}
+\end{figure}
+
+\subsubsection{Intermediate Partial Fan-Out Transaction}\label{sec:partial-fanout-tx}
+
+When UTxO sets exceed transaction size limits, the protocol distributes UTxOs across
+multiple transactions using partial fanout. Each intermediate step distributes a subset of UTxOs and
+transitions the head into the $\stFanoutProgress$ state, which carries only the fields needed for
+subsequent steps:
+\[
+  (\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta,\adaO)
+\]
+where $\tfinal$ is the contestation deadline (carried from $\stClosed$), $\eta$ is the
+current accumulator commitment, and $\adaO$ is the ADA overhead in the head UTxO not
+belonging to any L2 UTxO (propagated from the closed datum).
+
+An intermediate partial fanout transaction (see Figure~\ref{fig:partialFanoutTx}) consists of:
+\begin{itemize}
+  \item one input spending from $\nuHead$ in state $\stClosed$ or $\stFanoutProgress$, and
+  \item a continuing head output at index 0 in state $\stFanoutProgress$ with updated accumulator, and
+  \item outputs $o_{1} \dots o_{m}$ at indices $1 \dots m$ distributing a subset of UTxOs.
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{partialFanout}, m, \mathsf{crsRef})$, where $m$ is the number of UTxO outputs to distribute in this step and $\mathsf{crsRef}$ is the output reference of the reference input holding the CRS.
+The validator checks:
+\begin{menumerate}
+  \item $m > 0$ (no zero-output batches).
+  \item State transitions into $\stFanoutProgress$ with updated accumulator. For a $\stClosed$ input:
+  \[
+	(\stClosed,\cid,\hydraKeys,\Tcontest,v,s,\eta,\contesters,\tfinal) \xrightarrow[m]{\stPartialFanout} (\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta',\adaO)
+  \]
+  For a $\stFanoutProgress$ input:
+  \[
+	(\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta,\adaO) \xrightarrow[m]{\stPartialFanout} (\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta',\adaO)
+  \]
+  \item The new accumulator $\eta'$ (from the output datum) is not the G1 generator — all elements have \emph{not} yet been removed (use $\stFinalPartialFanout$ for the last batch):
+  \[
+    \eta' \neq G_1
+  \]
+  \item No minting or burning $\txMint = \varnothing$.
+  \item Transaction is posted after contestation deadline $\txValidityMin > \tfinal$.
+  \item Parameters $\cid$, $\hydraKeys$, $\tfinal$, and $\adaO$ are preserved in the output $\stFanoutProgress$ datum.
+  \item Value is conserved: head input value equals head output value plus all distributed outputs:
+  \[
+    \val_{\mathsf{head}}^{\mathsf{in}} = \val_{\mathsf{head}}^{\mathsf{out}} \oplus \bigoplus_{i=1}^{m} \val(o_i)
+  \]
+  \item The new accumulator $\eta'$ from the output datum correctly represents the remaining UTxOs after removing $S = \{o_1, \ldots, o_m\}$. The output datum value serves as the exclusion witness:
+  \[
+	\accVerifyExclude(\eta, S, \eta') = \true
+  \]
+\end{menumerate}
+
+\begin{figure}[H]
+  \centering
+  \includesvg[width=\textwidth]{Hydra/Protocol/Figures/partialFanoutTx.svg}
+  \caption{\mtxPartialFanout{} transaction spending the $\stFanoutProgress$ head output,
+    distributing outputs $o_{1} \dots o_{m}$, and producing a new $\stFanoutProgress$ head output with updated accumulator $\eta'$.}\label{fig:partialFanoutTx}
+\end{figure}
+
+\subsubsection{Final Partial Fan-Out Transaction}\label{sec:final-partial-fanout-tx}
+
+Once all UTxOs except the last batch have been distributed via $\stPartialFanout$ steps,
+the final step burns all head tokens and distributes the remaining UTxOs.
+A final partial fanout transaction (see Figure~\ref{fig:finalPartialFanoutTx}) consists of:
+\begin{itemize}
+  \item one input spending from $\nuHead$ in state $\stFanoutProgress$, and
+  \item outputs $o_{1} \dots o_{m}$ distributing the remaining UTxOs (no continuing head output).
+\end{itemize}
+
+\noindent The state-machine validator $\nuHead$ is spent with
+$\redeemerHead = (\mathsf{finalPartialFanout}, m, \pi, \mathsf{crsRef})$, where $m$ is the number of UTxO outputs, $\pi$ is the KZG membership witness, and $\mathsf{crsRef}$ is the CRS reference.
+The validator checks:
+\begin{menumerate}
+  \item $m > 0$ (prevents fund theft via a zero-output proof bypass).
+  \item State is advanced from $\stFanoutProgress$ to terminal state $\stFinal$:
+  \[
+	(\stFanoutProgress,\cid,\hydraKeys,\tfinal,\eta,\adaO) \xrightarrow[m,\pi]{\stFinalPartialFanout} \stFinal
+  \]
+  \item All head tokens are burnt
+  $|\{\cid \mapsto \cdot \mapsto -1\} \in \txMint| = n + 1$.
+  \item Transaction is posted after contestation deadline $\txValidityMin > \tfinal$.
+  \item The $m$ distributed outputs are verified as members of the accumulator $\eta$ using the membership witness $\pi$:
+  \[
+	\accVerify(\eta, \{o_1, \ldots, o_m\}, \pi) = \true
+  \]
+  \item Value is conserved:
+  \[
+    \val_{\mathsf{head}}^{\mathsf{in}} = \bigoplus_{i=1}^{m} \val(o_i) \oplus \val_{\mathsf{burned}} \oplus \adaO
+  \]
+\end{menumerate}
+
+\begin{figure}[H]
+  \centering
+  \includesvg[width=\textwidth]{Hydra/Protocol/Figures/finalPartialFanoutTx.svg}
+  \caption{\mtxFinalPartialFanout{} transaction spending the $\stFanoutProgress$ head output,
+    distributing the final batch of UTxOs $o_{1} \dots o_{m}$, and burning all head tokens to reach $\stFinal$.}\label{fig:finalPartialFanoutTx}
+\end{figure}
+
+\noindent The $\muHead(\seed)$ minting policy governs the burning of tokens via
+redeemer $\mathsf{burn}$ that:
+\begin{menumerate}
+	\item All tokens in $\txMint$ need to be of negative quantity
+	$\forall \{\cid \mapsto \cdot \mapsto q\} \in \txMint : q < 0$.
+\end{menumerate}
+
+\FloatBarrier{}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End:

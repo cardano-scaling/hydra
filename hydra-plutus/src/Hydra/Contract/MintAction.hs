@@ -9,4 +9,4 @@ import PlutusTx qualified
 
 data MintAction = Mint | Burn
 
-PlutusTx.unstableMakeIsData ''MintAction
+PlutusTx.makeIsDataIndexed ''MintAction [('Mint, 0), ('Burn, 1)]

@@ -5,7 +5,7 @@ import Data.MonoTraversable (omap)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 
 -- * Executing
 

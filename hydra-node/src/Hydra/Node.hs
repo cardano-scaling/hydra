@@ -10,7 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
+import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
@@ -20,7 +20,7 @@ import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
-  getVerificationKey,
+  getCardanoPaymentVerificationKey,
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
 import Hydra.Chain.ChainState (IsChainState (..))
@@ -37,7 +37,7 @@ import Hydra.HeadLogic (
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
@@ -50,9 +50,10 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
-import Hydra.Node.Util (readFileTextEnvelopeThrow)
+import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx.Secret (mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
@@ -60,7 +61,9 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 -- | Initialize the 'Environment' from command line options.
 initEnvironment :: RunOptions -> IO Environment
 initEnvironment options = do
-  sk <- readFileTextEnvelopeThrow hydraSigningKey
+  -- Wrap the raw key as soon as it leaves disk: every in-process holder
+  -- after this point sees only a 'Secret'.
+  sk <- mkSecret <$> readFileTextEnvelopeThrow hydraSigningKey
   otherParties <- mapM loadParty hydraVerificationKeys
   participants <- getParticipants
   pure $
@@ -85,9 +88,9 @@ initEnvironment options = do
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
-          ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
-          otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
-          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+          ownSigningKey <- readSigningKey cardanoSigningKey
+          otherVerificationKeys <- mapM readVerificationKey cardanoVerificationKeys
+          pure $ verificationKeyToOnChainId <$> (getCardanoPaymentVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
@@ -200,8 +203,8 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   checkHeadState tracer env (headState nodeState)
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
-  runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+  replayedEvents <- runConduitRes $ sourceEvents eventSource .| sinkList
+  putEventsToSinks eventSinks replayedEvents
 
   nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
   inputQueue <- createInputQueue
@@ -292,7 +295,18 @@ runHydraNode ::
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node =
+runHydraNode node@HydraNode{tracer, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
+  -- On startup, resume an interrupted fanout: if the node is mid-fanout
+  -- ('FanoutProgress'), re-emit the next fanout step so an auto-drain whose
+  -- driver crashed after its last observed chunk continues instead of stalling
+  -- (mirrors the rollback re-post). A step already on chain fails harmlessly
+  -- ('StalePartialFanoutTx' is silently ignored) and catch-up observations
+  -- re-drive; a passive observer ('AwaitingSelection') posts nothing.
+  atomically queryNodeState >>= \ns -> case headState ns of
+    FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
+      Continue{effects} -> processEffects node tracer 0 effects
+      _ -> pure ()
+    _ -> pure ()
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
   forever $ do
@@ -317,21 +331,40 @@ stepHydraNode now node = do
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{stateChanges} -> do
+      releaseParkedWhenSynced stateChanges
+    Wait{reason, stateChanges} -> do
       processStateChanges node stateChanges
-      maybeReenqueue i
+      maybeReenqueue reason i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
  where
-  maybeReenqueue q@Queued{queuedId, queuedItem} =
+  maybeReenqueue reason q@Queued{queuedId, queuedItem} =
     case queuedItem of
+      -- While the node is catching up it can't process any network message
+      -- yet, so re-enqueuing here would just spin (and never terminate if the
+      -- node stays out of sync). Park the message instead and replay it once
+      -- the node is in sync (see 'releaseParkedWhenSynced'). This also avoids
+      -- burning the message's retry budget during sync, which would otherwise
+      -- drop e.g. ReqTx before catch-up completes.
+      NetworkInput _ _
+        | WaitOnNodeInSync{} <- reason -> park q
       NetworkInput ttl msg
         | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
+  -- Replay parked network inputs once the node transitions into sync, so
+  -- messages received during catch-up are processed rather than lost.
+  releaseParkedWhenSynced stateChanges =
+    when (any isNodeSynced stateChanges) releaseParked
+
+  isNodeSynced :: StateChanged tx -> Bool
+  isNodeSynced = \case
+    NodeSynced{} -> True
+    _ -> False
+
   Environment{party} = env
 
-  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue}, env} = node
+  HydraNode{tracer, inputQueue = InputQueue{dequeue, reenqueue, park, releaseParked}, env} = node
 
 -- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
 -- outcome.
@@ -454,4 +487,3 @@ data HydraNodeLog tx
 deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
-deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)

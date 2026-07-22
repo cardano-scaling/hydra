@@ -56,8 +56,11 @@ transactions simultaneously without conflicts, especially with good
 networking, which optimizes resource usage. As the project progresses, we're
 constantly evaluating its real-world performance in terms of throughput and
 finality. For more details, read <a
-href="https://iohk.io/en/blog/posts/2021/09/17/hydra-cardano-s-solution-for-ultimate-scalability">this</a> blog post and see the latest
-benchmarking data <a href="../benchmarks">here</a>.
+href="https://iohk.io/en/blog/posts/2021/09/17/hydra-cardano-s-solution-for-ultimate-scalability">this</a> blog post, see the latest
+benchmarking data <a href="../benchmarks">here</a>, and look at the
+<a href="../benchmarks/scenarios">scenario benchmarks</a> for peak sustained and
+end-to-end TPS across head sizes, UTxO shapes, and incremental commit/decommit
+modes.
 
 </details>
 
@@ -161,8 +164,7 @@ If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1
 1. **Minimum UTXO value (`minUTxOValue = 0`)**:
    - Outputs with no 'ada' on layer 2 would be disallowed on layer 1,
    preventing their fanout. This restriction makes direct fanout impossible
-   for such outputs. Even using partial fanout, as considered in [this
-   feature](https://github.com/cardano-scaling/hydra/issues/190), would not
+   for such outputs. Even using [partial fanout](https://github.com/cardano-scaling/hydra/pull/2324) would not
    permit the fanout of affected UTXOs.
 
 2. **Maximum transaction execution units (`maxTxExecutionUnits(L2) > maxTxExecutionUnits(L1)`)**:

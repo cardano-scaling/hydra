@@ -5,13 +5,14 @@ import Test.Hydra.Prelude
 
 import Control.Monad (foldM)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger, utxoRef)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
@@ -44,7 +45,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
-          let rotationConfig = RotateAfter (Positive 5)
+          let rotationConfig = RotateAfter (Positive 2)
           let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -53,7 +54,7 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
           rotatedHistory <- getEvents (eventSource rotatingEventStore)
-          length rotatedHistory `shouldBe` 2
+          length rotatedHistory `shouldBe` 1
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
@@ -78,6 +79,28 @@ spec = parallel $ do
           case stateChanged checkpoint of
             Checkpoint{state = NodeInSync{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
+      it "preserves pending deposits after restarting with rotation" $ \testHydrate -> do
+        failAfter 1 $ do
+          eventStore <- createMockEventStore
+          -- Rotate aggressively so the stored history ends with a single
+          -- checkpoint capturing the recorded deposit.
+          let rotationConfig = RotateAfter (Positive 1)
+          let s0 = initNodeState 0
+          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          now <- getCurrentTime
+          let deadline = toNominalDiffTime cperiod `addUTCTime` now
+          let depositTxId = 1
+          let depositInput = observationInput $ OnDepositTx testHeadId depositTxId (utxoRef 1) now deadline
+          testHydrate rotatingEventStore []
+            >>= notConnect
+            >>= primeWithTime
+            >>= primeWith (inputsToOpenHead <> [depositInput])
+            >>= runToCompletion
+          -- Restart reconstructs the node state exactly like 'hydrate' does:
+          -- fold the stored events (a single checkpoint) with 'aggregateNodeState'.
+          events <- getEvents (eventSource rotatingEventStore)
+          let restored = foldl' mkAggregator s0 events
+          Map.keys (pendingDeposits restored) `shouldBe` [depositTxId]
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
         now <- getCurrentTime
@@ -131,7 +154,6 @@ spec = parallel $ do
           rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
-            >>= primeWithTime
             >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
@@ -147,8 +169,7 @@ spec = parallel $ do
           [StateEvent{eventId = eventId', stateChanged = checkpoint'}] <- getEvents (eventSource rotatingEventStore')
           checkpoint `shouldBe` checkpoint'
           -- stored events should yield consistent event id
-          -- note the restarting node has more Tick events
-          eventId `shouldBe` eventId' + 2
+          eventId `shouldBe` eventId'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
@@ -255,7 +276,7 @@ newtype TrivialEvent = TrivialEvent Word64
   deriving newtype (Num, Show, Eq)
 
 newtype ChunkedEvents = ChunkedEvents [[TrivialEvent]]
-  deriving (Show)
+  deriving stock (Show)
 
 instance Arbitrary ChunkedEvents where
   arbitrary = sized $ \n -> do

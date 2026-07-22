@@ -1,8 +1,13 @@
 module Main where
 
 import Hydra.Prelude
-import Spec qualified
-import Test.Hspec.Runner
+
+import Hydra.ChainObserverSpec qualified
+import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
 
 main :: IO ()
-main = hspec Spec.spec
+main =
+  defaultMainHydra
+    "hydra-chain-observer"
+    [ testSpec "ChainObserver" Hydra.ChainObserverSpec.spec
+    ]

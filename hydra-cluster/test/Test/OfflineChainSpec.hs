@@ -18,6 +18,8 @@ import Hydra.Cluster.Fixture (alice)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (OfflineChainConfig (..))
 import System.FilePath ((</>))
+import Test.Hydra.Tx.Gen (genUTxO)
+import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = do
@@ -42,6 +44,23 @@ spec = do
           _ -> Nothing
 
       headId1 `shouldNotBe` headId2
+
+  it "does deposit the initial utxo" $ do
+    withTempDir "hydra-cluster" $ \tmpDir -> do
+      utxo <- generate genUTxO
+      Aeson.encodeFile (tmpDir </> "utxo.json") utxo
+      let offlineConfig =
+            OfflineChainConfig
+              { offlineHeadSeed = "test"
+              , initialUTxOFile = tmpDir </> "utxo.json"
+              , ledgerGenesisFile = Nothing
+              }
+      (callback, waitNext) <- monitorCallbacks
+      withOfflineChain offlineConfig alice [] noHistory callback $ \_chain -> do
+        utxoObserved <- waitMatch waitNext 2 $ \case
+          Observation{observedTx = OnDepositTx{deposited}} -> pure deposited
+          _ -> Nothing
+        utxoObserved `shouldBe` utxo
 
   it "does start on slot 0 with no genesis" $ do
     withTempDir "hydra-cluster" $ \tmpDir -> do

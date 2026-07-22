@@ -2,6 +2,7 @@ module Bench.Options where
 
 import Hydra.Prelude
 
+import Data.Text (splitOn)
 import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host, readHost)
@@ -11,6 +12,7 @@ import Options.Applicative (
   ParserInfo,
   auto,
   command,
+  flag,
   fullDesc,
   header,
   help,
@@ -29,7 +31,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
-data UTxOSize = Constant | Growing deriving (Eq, Show, Read)
+data UTxOSize = Constant | Growing | Mixed | Plateau Int deriving stock (Eq, Show, Read)
 
 data Options
   = StandaloneOptions
@@ -37,6 +39,8 @@ data Options
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
+      , incrementalOps :: Bool
+      , waitForTxValid :: Bool
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
@@ -45,6 +49,8 @@ data Options
       , numberOfTxs :: Int
       , clusterSize :: Word64
       , startingNodeId :: Int
+      , incrementalOps :: Bool
+      , waitForTxValid :: Bool
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -53,6 +59,25 @@ data Options
       , networkId :: NetworkId
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
+      , pumbaCommand :: Maybe String
+      }
+  | MatrixOptions
+      { outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
+      , numberOfTxs :: Int
+      , startingNodeId :: Int
+      , clusterSizes :: [Word64]
+      , utxoShapes :: [UTxOSize]
+      , incrementalModes :: [Bool]
+      , waitForTxValidModes :: [Bool]
+      }
+  | GenerateOptions
+      { datasetUTxO :: UTxOSize
+      , numberOfTxs :: Int
+      , clusterSize :: Word64
+      , datasetTitle :: Maybe Text
+      , generationSeed :: Maybe Int
+      , outputFile :: FilePath
       }
 
 benchOptionsParser :: ParserInfo Options
@@ -61,7 +86,9 @@ benchOptionsParser =
     ( hsubparser
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
+            <> command "generate" generateOptionsInfo
             <> command "demo" demoOptionsInfo
+            <> command "matrix" matrixOptionsInfo
         )
         <**> helper
     )
@@ -90,6 +117,8 @@ standaloneOptionsParser =
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
+    <*> incrementalOpsParser
+    <*> waitForTxValidParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -156,9 +185,13 @@ utxoSizeParser =
         <> value Constant
         <> metavar "UTxOSize"
         <> help
-          "Generated UTxO size. This can be 'Constant' where UTxO set has constant size \
-          \ depending on the number of generated txs or 'Growing' where each new generated \
-          \ transaction produces one extra output which makes the UTxO in the Head grow."
+          "Generated UTxO shape. 'Constant' keeps the head UTxO at a fixed size by \
+          \ submitting self-transfers. 'Growing' adds one extra output per tx so the \
+          \ head UTxO grows over the run. 'Mixed' grows for the first half of the run \
+          \ then contracts via 2-in 1-out merges for the second half. 'Plateau N' \
+          \ (quoted, e.g. --utxo-size 'Plateau 1000') splits each client's funds \
+          \ into N outputs and then holds that size with full-value self-transfers, \
+          \ so every snapshot carries a large UTxO set."
     )
 
 demoOptionsInfo :: ParserInfo Options
@@ -181,6 +214,18 @@ demoOptionsParser =
     <*> networkIdParser
     <*> nodeSocketParser
     <*> many hydraClientsParser
+    <*> optional pumbaCommandParser
+
+pumbaCommandParser :: Parser String
+pumbaCommandParser =
+  strOption
+    ( long "pumba-command"
+        <> metavar "CMD"
+        <> help
+          "Shell command to run as a network fault injector (e.g. pumba) once the \
+          \Head is open and deposits are finalized. The process is started just before \
+          \transaction submission begins and is terminated before the Head is closed."
+    )
 
 hydraClientsParser :: Parser Host
 hydraClientsParser =
@@ -213,6 +258,82 @@ datasetOptionsParser =
     <*> numberOfTxsParser
     <*> clusterSizeParser
     <*> startingNodeIdParser
+    <*> incrementalOpsParser
+    <*> waitForTxValidParser
+
+generateOptionsInfo :: ParserInfo Options
+generateOptionsInfo =
+  info
+    generateOptionsParser
+    ( progDesc
+        "Generate a dataset file without running it. The bench-e2e-diff CI \
+        \ workflow uses this to produce one workload that both sides of an \
+        \ A/B comparison then run via 'single'."
+    )
+
+generateOptionsParser :: Parser Options
+generateOptionsParser =
+  GenerateOptions
+    <$> utxoSizeParser
+    <*> numberOfTxsParser
+    <*> clusterSizeParser
+    <*> optional datasetTitleParser
+    <*> optional generationSeedParser
+    <*> outputFileParser
+
+datasetTitleParser :: Parser Text
+datasetTitleParser =
+  strOption
+    ( long "title"
+        <> metavar "TEXT"
+        <> help
+          "Title embedded in the dataset. Reports and the CI diff comment \
+          \ identify scenarios by it, so keep it unique per scenario and put \
+          \ the workload parameters in it. Defaults to the generator's title."
+    )
+
+generationSeedParser :: Parser Int
+generationSeedParser =
+  option
+    auto
+    ( long "seed"
+        <> metavar "INT"
+        <> help "Fix the generation seed for reproducible datasets. Random when unset."
+    )
+
+outputFileParser :: Parser FilePath
+outputFileParser =
+  strOption
+    ( long "out"
+        <> metavar "FILE"
+        <> help "Where to write the generated dataset JSON."
+    )
+
+incrementalOpsParser :: Parser Bool
+incrementalOpsParser =
+  flag
+    False
+    True
+    ( long "incremental-ops"
+        <> help
+          "If set, the bench will also exercise one incremental commit and \
+          \ one incremental decommit per client during the main transaction \
+          \ submission window, and report their finalisation times. Off by \
+          \ default."
+    )
+
+waitForTxValidParser :: Parser Bool
+waitForTxValidParser =
+  flag
+    False
+    True
+    ( long "wait-for-tx-valid"
+        <> help
+          "If set, the submitter waits for each tx's confirmation before \
+          \ posting the next one (one in-flight tx per client). If unset, \
+          \ txs are fired as fast as the queue drains so the head's \
+          \ saturation throughput is exercised. Off by default."
+    )
 
 filepathParser :: Parser FilePath
 filepathParser =
@@ -221,3 +342,71 @@ filepathParser =
     ( metavar "FILE"
         <> help "Path to a JSON-formatted dataset descriptor file."
     )
+
+matrixOptionsInfo :: ParserInfo Options
+matrixOptionsInfo =
+  info
+    matrixOptionsParser
+    ( progDesc
+        "Run a scenario matrix over cluster sizes, UTxO shapes, and \
+        \ incremental-ops modes. Writes a single 'scenarios.md' to the output \
+        \ directory with a leading comparison table plus one section per cell."
+    )
+
+matrixOptionsParser :: Parser Options
+matrixOptionsParser =
+  MatrixOptions
+    <$> optional outputDirectoryParser
+    <*> timeoutParser
+    <*> numberOfTxsParser
+    <*> startingNodeIdParser
+    <*> clusterSizesParser
+    <*> utxoShapesParser
+    <*> incrementalModesParser
+    <*> waitForTxValidModesParser
+
+clusterSizesParser :: Parser [Word64]
+clusterSizesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "cluster-sizes"
+        <> value [1, 2, 3]
+        <> metavar "LIST"
+        <> help "Comma-separated cluster sizes to iterate (default: 1,2,3)"
+    )
+
+utxoShapesParser :: Parser [UTxOSize]
+utxoShapesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "shapes"
+        <> value [Constant, Growing, Mixed]
+        <> metavar "LIST"
+        <> help "Comma-separated UTxO shapes to iterate. 'Constant' uses self-transfers so the head UTxO stays flat; 'Growing' adds outputs over time; 'Mixed' grows then contracts. (default: Constant,Growing,Mixed)"
+    )
+
+incrementalModesParser :: Parser [Bool]
+incrementalModesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "incremental-modes"
+        <> value [False, True]
+        <> metavar "LIST"
+        <> help "Comma-separated incremental-ops modes, e.g. False,True (default: False,True)"
+    )
+
+waitForTxValidModesParser :: Parser [Bool]
+waitForTxValidModesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "wait-modes"
+        <> value [False, True]
+        <> metavar "LIST"
+        <> help
+          "Comma-separated wait-for-tx-valid modes. True keeps one in-flight \
+          \ tx per client (round-trip-bound throughput); False fires all txs \
+          \ as fast as possible (saturation throughput). Default: False,True"
+    )
+
+parseListOf :: Read a => String -> Maybe [a]
+parseListOf s = traverse (readMaybe . toString) (splitOn "," (toText s))

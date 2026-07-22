@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-plutus
-version:            1.2.0
+version:            2.3.0
 synopsis:           Hydra Plutus Contracts
 author:             IOG
 copyright:          2022 IOG
@@ -9,7 +9,9 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: plutus.json
+extra-source-files:
+  plutus.json
+  trusted_setup.json
 
 source-repository head
   type:     git
@@ -23,7 +25,6 @@ common project-config
     DeriveAnyClass
     DerivingStrategies
     FunctionalDependencies
-    GADTs
     LambdaCase
     MultiWayIf
     NoImplicitPrelude
@@ -45,7 +46,7 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
-    Hydra.Contract.CommitError
+    Hydra.Contract.CRS
     Hydra.Contract.Deposit
     Hydra.Contract.DepositError
     Hydra.Contract.Dummy
@@ -55,10 +56,10 @@ library
     Hydra.Contract.HeadState
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError
-    Hydra.Contract.Initial
-    Hydra.Contract.InitialError
+    Hydra.Contract.KZGTrustedSetup
     Hydra.Contract.MintAction
     Hydra.Contract.Util
+    Hydra.Contract.UtilError
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Plutus
@@ -69,18 +70,21 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , cardano-crypto-class
     , file-embed
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
     , lens
     , lens-aeson
-    , plutus-core          >=1.30
-    , plutus-ledger-api    >=1.30
-    , plutus-tx            >=1.30
-    , plutus-tx-plugin     >=1.30
+    , plutus-accumulator
+    , plutus-core           >=1.55
+    , plutus-ledger-api     >=1.55
+    , plutus-tx             >=1.53
+    , plutus-tx-plugin      >=1.53
     , serialise
     , template-haskell
+    , text
     , time
 
 library testlib
@@ -89,57 +93,43 @@ library testlib
   hs-source-dirs:  testlib
   exposed-modules: Hydra.Plutus.Gen
   build-depends:
-    , base
     , bytestring
     , hydra-plutus
     , hydra-prelude
     , QuickCheck
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
   other-modules:
     Hydra.Data.ContestationPeriodSpec
     Hydra.Plutus.GoldenSpec
-    Spec
 
   build-depends:
-    , aeson
-    , base
     , bytestring
-    , filepath
     , hspec
-    , hspec-golden
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus:testlib
     , hydra-prelude
     , hydra-test-utils
-    , lens
-    , lens-aeson
     , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
+    , tasty
+    , tasty-golden
+    , tasty-hunit
     , typed-process
-
-  build-tool-depends: hspec-discover:hspec-discover
 
 executable inspect-script
   import:         project-config
   hs-source-dirs: exe/inspect-script
   main-is:        Main.hs
   build-depends:
-    , aeson
-    , bytestring
-    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , plutus-ledger-api
-    , plutus-tx
-    , prettyprinter
-    , serialise
-    , text
 
   ghc-options:    -threaded -rtsopts

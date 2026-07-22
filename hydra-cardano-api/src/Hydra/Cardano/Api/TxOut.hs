@@ -9,6 +9,11 @@ import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Data.Aeson ((.:?))
+import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Types (Parser)
+import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
@@ -23,14 +28,6 @@ txOuts' :: Tx era -> [TxOut CtxTx era]
 txOuts' (getTxBodyContent . getTxBody -> txBody) =
   let TxBodyContent{txOuts} = txBody
    in txOuts
-
--- | Modify a 'TxOut' to set the minimum ada on the value.
-setMinUTxOValue ::
-  Ledger.PParams LedgerEra ->
-  TxOut CtxUTxO Era ->
-  TxOut ctx Era
-setMinUTxOValue pparams =
-  fromLedgerTxOut . Ledger.setMinCoinTxOut pparams . toLedgerTxOut
 
 -- | Automatically balance a given output with the minimum required amount.
 -- Number of assets, presence of datum and/or reference scripts may affect this
@@ -140,6 +137,47 @@ isScriptTxOut script txOut =
 
   (TxOut address _ _ _) = txOut
 
+-- * JSON parsing
+
+-- | Parse a 'TxOut' from JSON, correctly handling non-canonical inline datums.
+--
+-- cardano-api's 'FromJSON' for 'TxOut' ignores the @inlineDatumRaw@ field and
+-- reconstructs 'HashableScriptData' via 'scriptDataFromJson', which re-serialises
+-- canonically. For non-canonical CBOR datums, H(canonical) ≠ H(original) causing
+-- \"Inline datum not equivalent to inline datum hash\" on replay from the event DB.
+--
+-- This function reads @inlineDatumRaw@ first. When present it deserialises the
+-- original bytes directly (preserving them), patches @inlineDatumhash@ in the
+-- JSON to the canonical hash so the cardano-api parser succeeds, then replaces
+-- the datum with one carrying the original bytes.
+-- FIXME: Once this PR is merged
+-- https://github.com/IntersectMBO/cardano-api/pull/1238
+-- revisit and remove the diff added in
+-- https://github.com/cardano-scaling/hydra/pull/2746
+-- to fix this issue.
+parseTxOutFromJSON :: Aeson.Value -> Parser (TxOut CtxUTxO Era)
+parseTxOutFromJSON v@(Aeson.Object o) = do
+  mRawHex <- o .:? "inlineDatumRaw"
+  case mRawHex of
+    Nothing ->
+      parseJSON v
+    Just rawHex -> do
+      rawBytes <- either fail pure $ Base16.decode (encodeUtf8 rawHex)
+      hsd <- either (fail . show) pure $ deserialiseFromCBOR AsHashableScriptData rawBytes
+      let canonicalHsd = unsafeHashableScriptData (getScriptData hsd)
+          patchedVal =
+            Aeson.Object $
+              KeyMap.insert "inlineDatumhash" (toJSON $ hashScriptDataBytes canonicalHsd) o
+      txOut <- parseJSON patchedVal
+      pure $
+        modifyTxOutDatum
+          ( \case
+              TxOutDatumInline{} -> TxOutDatumInline babbageBasedEra hsd
+              d -> d
+          )
+          txOut
+parseTxOutFromJSON v = parseJSON v
+
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'TxOut' into a cardano-api 'TxOut'
@@ -148,7 +186,8 @@ fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
 
 -- | Convert a cardano-api 'TxOut' into a cardano-ledger 'TxOut'
-toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
+-- NOTE: This is partial for negative 'Value'.
+toLedgerTxOut :: (HasCallStack, IsShelleyBasedEra era) => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
 toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 

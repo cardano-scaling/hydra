@@ -45,16 +45,16 @@ that you have a good version of jq with this command:
 ```shell
 mkdir -p bin
 
-hydra_version=1.2.0
+hydra_version=2.3.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 
-cardano_node_version=10.6.2
-curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
-tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
-tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
+cardano_node_version=11.0.1
+curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux-amd64.tar.gz
+tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./bin/cardano-node ./bin/cardano-cli
+tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./share/preprod --strip-components=3
 
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
+curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
 etcd_version=v3.5.21
 curl -L https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz \
@@ -71,16 +71,16 @@ Finally, verify your node installation by running `./bin/hydra-node --help`
 ```shell
 mkdir -p bin
 
-hydra_version=1.2.0
+hydra_version=2.3.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 
-cardano_node_version=10.6.2
+cardano_node_version=11.0.1
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
 
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
+curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
 etcd_version=v3.5.21
 curl -L -O https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-darwin-arm64.zip
@@ -110,8 +110,8 @@ Next, set various environment variables to simplify command execution. Ensure ea
 
 ```shell
 export PATH=$(pwd)/bin:$PATH
-export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
-export ANCILLARY_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
+export GENESIS_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export ANCILLARY_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
 export CARDANO_NODE_NETWORK_ID=1
@@ -122,8 +122,8 @@ export CARDANO_NODE_NETWORK_ID=1
 
 ```shell
 export PATH=$(pwd)/bin:$PATH
-export GENESIS_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
-export ANCILLARY_VERIFICATION_KEY=$(curl https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
+export GENESIS_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
+export ANCILLARY_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
 export CARDANO_NODE_NETWORK_ID=1
@@ -392,7 +392,7 @@ The next step involves configuring the protocol parameters for the ledger within
 
 ```
 cardano-cli query protocol-parameters \
-  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0' \
+  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0' \
   > protocol-parameters.json
 ```
 
@@ -415,7 +415,7 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra_version=1.2.0
+hydra_version=2.3.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
@@ -437,7 +437,7 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra_version=1.2.0
+hydra_version=2.3.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
@@ -520,9 +520,11 @@ Send this command to initialize a head through the WebSocket connection:
 { "tag": "Init" }
 ```
 
-The initiation process might take some time as it includes submitting a transaction on-chain. Upon successful initiation, both Hydra nodes and their clients will display a `HeadIsInitializing` message, listing the parties required to commit.
+The `Init` transaction is submitted on-chain and the head opens immediately with an empty UTXO set. You will see a `HeadIsOpen` message on your WebSocket connection confirming the head is now active.
 
-To commit funds to the head, choose which UTXO you would like to make available on layer 2. Use the HTTP API of `hydra-node` to commit all funds given to `{alice,bob}-funds.vk` beforehand:
+## Step 5. Deposit funds into the head
+
+The head is open but empty. To bring funds in, deposit UTXOs from layer 1 using the `POST /commit` HTTP endpoint of the `hydra-node`. Each party can deposit their own funds independently — deposits do not need to be coordinated or simultaneous.
 
 <Tabs queryString="role">
 <TabItem value="alice" label="Alice">
@@ -530,18 +532,18 @@ To commit funds to the head, choose which UTXO you would like to make available 
 ```shell
 cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
-  --out-file alice-commit-utxo.json
+  --out-file alice-deposit-utxo.json
 
 curl -X POST 127.0.0.1:4001/commit \
-  --data @alice-commit-utxo.json \
-  > alice-commit-tx.json
+  --data @alice-deposit-utxo.json \
+  > alice-deposit-tx.json
 
 cardano-cli latest transaction sign \
-  --tx-file alice-commit-tx.json \
+  --tx-file alice-deposit-tx.json \
   --signing-key-file credentials/alice-funds.sk \
-  --out-file alice-commit-tx-signed.json
+  --out-file alice-deposit-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file alice-commit-tx-signed.json
+cardano-cli latest transaction submit --tx-file alice-deposit-tx-signed.json
 ```
 
 </TabItem>
@@ -550,50 +552,34 @@ cardano-cli latest transaction submit --tx-file alice-commit-tx-signed.json
 ```shell
 cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
-  --out-file bob-commit-utxo.json
+  --out-file bob-deposit-utxo.json
 
 curl -X POST 127.0.0.1:4002/commit \
-  --data @bob-commit-utxo.json \
-  > bob-commit-tx.json
+  --data @bob-deposit-utxo.json \
+  > bob-deposit-tx.json
 
 cardano-cli latest transaction sign \
-  --tx-file bob-commit-tx.json \
+  --tx-file bob-deposit-tx.json \
   --signing-key-file credentials/bob-funds.sk \
-  --out-file bob-commit-tx-signed.json
+  --out-file bob-deposit-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file bob-commit-tx-signed.json
+cardano-cli latest transaction submit --tx-file bob-deposit-tx-signed.json
 ```
 
 </TabItem>
 </Tabs>
 
-<details>
-<summary>Alternative: Don't commit anything</summary>
+The `hydra-node` drafts a balanced deposit transaction that you sign with your funds key and submit to layer 1. Once the deposit is observed on-chain, you will see a `CommitFinalized` message on the WebSocket connection and the deposited UTXOs will appear in the head's UTXO set.
 
-If you don't want to commit any funds and only want to receive on layer 2, you can request an empty commit transaction as shown below (example for `bob`):
+You can deposit at any time while the head is open — there is no need to wait for other parties or to coordinate deposits.
 
-```shell
-curl -X POST 127.0.0.1:4002/commit --data "{}" > bob-commit-tx.json
-cardano-cli latest transaction submit --tx-file bob-commit-tx.json
-```
-
-</details>
-
-After you've prepared your transactions, the `hydra-node` will find all UTXOs associated with the funds key and create a draft of the commit transaction. You'll then sign this transaction using the funds key and submit it to the Cardano layer 1 network.
-
-Once the `hydra-node` sees this transaction, you should see a `Committed` status displayed on your WebSocket connection.
-
-When both parties, `alice` and `bob`, have committed, the Hydra head will open automatically. You'll see a `HeadIsOpen` message appear in the WebSocket session, confirming the activation of the head. This message will include details such as the starting balance and UTXO entries. Notably, these entries will match exactly those committed to the head, including transaction hashes and indices, ensuring transparency and consistency.
-
-The head is now operational and ready for further activities.
-
-## Step 5. Use the Hydra head
+## Step 6. Use the Hydra head
 
 In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer 1 network are also available on the layer 2 network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
 
-In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the balances previously committed to the head.
+In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the funds deposited into the head.
 
-First, we need to select a UTXO to spend. We can find a UTXO by referring to the `utxo` field in the most recent `HeadIsOpen` or `SnapshotConfirmed` messages. Alternatively, we can query the current UTXO set directly from the API:
+First, we need to select a UTXO to spend. We can query the current UTXO set directly from the API:
 
 ```shell
 curl -s 127.0.0.1:4001/snapshot/utxo | jq
@@ -663,7 +649,7 @@ The transaction will be validated by both `hydra-node`s and either result in a
 🎉 Congratulations, you just processed your first Cardano transaction off-chain
 in a Hydra head!
 
-## Step 6. Closing the Hydra head
+## Step 7. Closing the Hydra head
 
 Any participant can initiate closing the Hydra head. Use the WebSocket API to submit the closing command:
 
@@ -692,6 +678,28 @@ You can do this through the WebSocket API one last time:
 ```
 
 This will submit a transaction to layer 1. Once successful, it will be indicated by a `HeadIsFinalized` message that includes the distributed `utxo`.
+
+:::tip Selective fanout
+
+Instead of fanning out the whole head at once, you can choose exactly which UTxOs to
+distribute and in which order, paying the on-chain cost only for what you care about:
+
+```json title="Websocket API"
+{ "tag": "PartialFanout", "utxoToFanout": { /* a subset of the head's UTxO */ } }
+```
+
+Each `PartialFanout` distributes the selected subset (chunked across transactions
+automatically if it is too large for one) and replies with a `HeadPartiallyFannedOut`
+message reporting the `distributedUTxO` and the `remainingUTxO`. Keep issuing
+`PartialFanout` — selecting the entire remaining set when you want to finish — until the
+head is drained, at which point the node automatically submits the final transaction that
+burns the head tokens and emits `HeadIsFinalized`.
+
+Note that selective fanout is sticky: once you send the first `PartialFanout`, the plain
+`Fanout` command is no longer accepted for that head — you continue with `PartialFanout`
+commands until the head is empty.
+
+:::
 
 To confirm, you can query the funds of both `alice` and `bob` on layer 1:
 

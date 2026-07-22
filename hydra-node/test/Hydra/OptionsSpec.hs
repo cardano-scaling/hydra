@@ -3,7 +3,7 @@
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Control.Lens ((.~))
 import Data.Generics.Labels ()
@@ -109,6 +109,17 @@ spec = parallel $
       pendingWith "we do not support it"
       ["--peer", ":::1:4567"]
         `shouldParse` Run defaultRunOptions{peers = [Host ":::1" 4567]}
+
+    it "shows --peer help in terms of parties, not maximum peers" $ do
+      case parseHydraCommandFromArgs ["--help"] of
+        Failure theFailure -> do
+          let (msg, _exitCode) = renderFailure theFailure "hydra-node"
+          msg `shouldContain` "--peer"
+          msg `shouldContain` ("at most " <> show maximumNumberOfParties <> " parties")
+          msg `shouldContain` "mirror nodes"
+          msg `shouldNotContain` (show maximumNumberOfParties <> " peers")
+        _ ->
+          failure "expected help output"
 
     it "parses --monitoring-port option given valid port number" $ do
       []

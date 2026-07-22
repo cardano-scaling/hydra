@@ -20,7 +20,6 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
   -- should be only one 'UTxOType tx'
   shrink = \case
     Init -> []
-    Abort -> []
     NewTx tx -> NewTx <$> shrink tx
     Recover tx -> Recover <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
@@ -28,6 +27,7 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     SafeClose -> []
     Contest -> []
     Fanout -> []
+    PartialFanout utxo -> PartialFanout <$> shrink utxo
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
 
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => ToADTArbitrary (ClientInput tx)

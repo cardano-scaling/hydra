@@ -4,8 +4,12 @@
 
 { self, ... }: {
 
-  perSystem = { pkgs, hsPkgs, compiler, self', ... }:
+  perSystem = { pkgs, hsPkgs, compiler, self', inputs', ... }:
     let
+      # Clean nixpkgs (no haskell.nix / nix-npm-buildpackage overlays). The
+      # overlaid `pkgs` routes node packages through nix-npm-buildpackage,
+      # which fails to build playwright-test, so take it from upstream instead.
+      cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
         # To compile hydra scripts
@@ -25,7 +29,6 @@
         # For plotting results of hydra-cluster benchmarks
         pkgs.gnuplot
         pkgs.haskell-language-server
-        pkgs.haskellPackages.hspec-discover
         # The interactive Glasgow Haskell Compiler as a Daemon
         pkgs.haskellPackages.ghcid
         # Generate a graph of the module dependencies in the "dot" format
@@ -43,6 +46,8 @@
         pkgs.weeder
         pkgs.yarn
         pkgs.yq
+        pkgs.nix-fast-build
+        pkgs.just
       ];
 
       libs = [
@@ -62,10 +67,13 @@
       ]
       ++
       pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.liburing
         pkgs.systemd
+        pkgs.selfci
       ];
 
       haskellNixShell = (hsPkgs.shellFor {
+        withHoogle = true;
         buildInputs = libs ++ buildInputs;
         # Always create missing golden files
         shellHook = ''
@@ -120,6 +128,7 @@
           self'.packages.hydra-cluster
           pkgs.cardano-node
           pkgs.cardano-cli
+          pkgs.etcd
           pkgs.mithril-client-cli
         ];
       };
@@ -133,6 +142,7 @@
           run-tmux
           pkgs.cardano-node
           pkgs.cardano-cli
+          pkgs.pumba
         ];
       };
 
@@ -147,13 +157,22 @@
         ];
       };
 
-      # Shell for computing tx-cost-differences
-      costDifferencesShell = pkgs.mkShell {
-        name = "tx-cost-differences-shell";
+      # Shell for driving the head-state-viewer web UI with
+      # Playwright: screenshots and click-through of the jsaddle-warp app,
+      # whose DOM is built over a websocket and so cannot be captured by a
+      # one-shot headless screenshot. Browsers come from the NixOS-patched
+      # playwright-driver so nothing is downloaded at runtime.
+      headStateUIShell = pkgs.mkShell {
+        name = "hydra-head-state-ui-shell";
         buildInputs = [
-          pkgs.pandoc
-          (pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]))
+          pkgs.nodejs
+          cleanPkgs.playwright-test
         ];
+        # Make `@playwright/test` and `playwright` importable from scripts.
+        NODE_PATH = "${cleanPkgs.playwright-test}/lib/node_modules";
+        PLAYWRIGHT_BROWSERS_PATH = "${cleanPkgs.playwright-driver.browsers}";
+        PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
       };
 
       # If you want to modify `Python` code add `libtmux` and pyyaml to the
@@ -171,7 +190,7 @@
         exes = exeShell;
         demo = demoShell;
         ci = ciShell;
-        costDifferences = costDifferencesShell;
+        headStateUI = headStateUIShell;
       };
     };
 }

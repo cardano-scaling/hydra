@@ -7,21 +7,21 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx qualified as Ledger
 import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
+import Cardano.Ledger.Core (TxLevel (..))
+import Cardano.Ledger.Core qualified as LedgerCore
 import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Dummy (dummyValidatorScript)
-import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Contract.Util (hydraHeadV2)
 import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))
-import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
-hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = UnsafeAssetName (fromBuiltin hydraHeadV1)
+hydraHeadV2AssetName :: AssetName
+hydraHeadV2AssetName = UnsafeAssetName (fromBuiltin hydraHeadV2)
 
 -- | The metadata label used for identifying Hydra protocol transactions. As
 -- suggested by a friendly large language model: The number most commonly
@@ -34,9 +34,9 @@ hydraMetadataLabel = 55555
 
 -- | Create a transaction metadata entry to identify Hydra transactions (for
 -- informational purposes).
-mkHydraHeadV1TxName :: Text -> TxMetadata
-mkHydraHeadV1TxName name =
-  TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV1/" <> name)]
+mkHydraHeadV2TxName :: Text -> TxMetadata
+mkHydraHeadV2TxName name =
+  TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV2/" <> name)]
 
 assetNameToOnChainId :: AssetName -> OnChainId
 assetNameToOnChainId (UnsafeAssetName bs) = UnsafeOnChainId bs
@@ -75,7 +75,7 @@ adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
-addMetadata :: TxMetadata -> Tx -> Ledger.AlonzoTx Ledger.ConwayEra -> Ledger.AlonzoTx Ledger.ConwayEra
+addMetadata :: TxMetadata -> Tx -> LedgerCore.Tx TopTx LedgerEra -> LedgerCore.Tx TopTx LedgerEra
 addMetadata (TxMetadata newMetadata) blueprintTx tx =
   let
     newMetadataMap = toShelleyMetadata newMetadata
@@ -94,15 +94,14 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
 -- not ideal but for now we want to keep track of both fields (de/commit) since
 -- we might want to support batch de/commits too in the future, but having both fields
 -- be Maybe UTxO introduces a lot of checks if the value is Nothing or mempty.
-data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
+data IncrementalAction = ToCommit | ToDecommit | NoThing deriving stock (Eq, Show)
 
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 setIncrementalActionMaybe utxoToCommit utxoToDecommit =
   case (utxoToCommit, utxoToDecommit) of
     (Just _, Just _) -> Nothing
-    (Just _, Nothing) ->
-      ToCommit <$> utxoToCommit
-    (Nothing, Just _) -> ToDecommit <$> utxoToDecommit
+    (Just _, Nothing) -> Just ToCommit
+    (Nothing, Just _) -> Just ToDecommit
     (Nothing, Nothing) -> Just NoThing
 
 -- | Find (if it exists) the head identifier contained in given `TxOut`.
@@ -114,7 +113,7 @@ findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
 findHeadAssetId txOut =
   flip findFirst (toList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
-      | aname == hydraHeadV1AssetName && q == 1 ->
+      | aname == hydraHeadV2AssetName && q == 1 ->
           Just (pid, aname)
     _ ->
       Nothing

@@ -1,0 +1,36 @@
+{
+    "samples": [
+        {
+            "distributedUTxO": {
+                "0001010000010101000100000001000100000000000000010101010000010101#36": {
+                    "address": "addr_test1vr9qn32m8fh7dglk9tk8kchnkqxe9eem7dmrjnjyyl3cw8gdqpnly",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "fanoutMode": "AutoFanningOut",
+            "headId": "01000000000101000100000001010101",
+            "remainingUTxO": {
+                "0000010100010100000001010100000000010001000000000000010001000000#78": {
+                    "address": "addr_test1vqk7a8suz4fc86nksmp2lthnmgetwz2vvx5xsc04lu24f4ckrw9gh",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "tag": "HeadPartiallyFannedOut"
+        }
+    ],
+    "seed": -2074689718
+}

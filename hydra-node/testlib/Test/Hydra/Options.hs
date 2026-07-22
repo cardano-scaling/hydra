@@ -97,7 +97,7 @@ instance Arbitrary ChainConfig where
       chainBackendOptions <-
         oneof
           [ pure $ Direct defaultDirectOptions
-          , pure $ Blockfrost defaultBlockfrostOptions
+          , pure $ Hydra.Options.Blockfrost defaultBlockfrostOptions
           ]
       pure
         CardanoChainConfig

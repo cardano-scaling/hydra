@@ -8,26 +8,31 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import Hydra.Tx (mkHeadId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
   healthyClosedHeadTxOut,
   healthyClosedState,
+  healthyContestSnapshot,
   healthyContestSnapshotNumber,
-  healthyContestUTxOHash,
-  healthyContestUTxOToDecommitHash,
   healthyContestationDeadline,
   healthyContesterVerificationKey,
   healthyOnChainContestationPeriod,
@@ -35,9 +40,13 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyParticipants,
   healthyParties,
   healthySignature,
+  healthySlotNo,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
@@ -46,6 +55,8 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
+  genMintedOrBurnedValue,
+  genUTxOSized,
   genValue,
   genVerificationKey,
  )
@@ -54,25 +65,37 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceAccumulatorCommitment,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
-  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUTxOHash,
  )
 import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances ()
 
+healthyContestAccumulatorHash :: Head.Hash
+healthyContestAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
+
+healthyContestDecommitOutputsHash :: Head.Hash
+healthyContestDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestSnapshot))
+
+healthyContestCommitOutputsHash :: Head.Hash
+healthyContestCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestSnapshot))
+
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
-  = -- | Ensures collectCom does not allow any output address but νHead.
+  = -- | Ensures the contest transaction's continuing output is paid to νHead.
     NotContinueContract
   | -- | Invalidates the tx by changing the redeemer signature but not the
     -- snapshot number in resulting head output.
@@ -102,10 +125,6 @@ data ContestMutation
     -- used on the tx to have multiple signers (including the signer to not fail for
     -- SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
-  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateContestUTxOHash
   | -- | Ensures the contest snapshot is multisigned by all Head participants by
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
@@ -147,6 +166,20 @@ data ContestMutation
   | -- | Ensures headId do not change between head input datum and head output
     -- datum.
     MutateHeadIdInOutput
+  | -- | Inject an unrelated v_deposit input into a healthy Contest.
+    ContestAbsorbForeignDeposit
+  | -- | Invalidates the tx by writing a wrong accumulator commitment in the
+    -- output datum while keeping a valid signed accumulatorHash in the redeemer.
+    --
+    -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
+    MutateAccumulatorCommitment
+  | -- | Changing headAdaOverhead in the output ClosedDatum must be rejected.
+    MutateHeadAdaOverhead
+  | -- | Adding extra ADA to the head output must be rejected.
+    --
+    -- Ensures a malicious contester cannot inflate the head value, which would
+    -- cause the strict-equality fanout check to fail (stuck head).
+    ContestIncreaseHeadValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -155,12 +188,15 @@ genContestMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode FailedContestCurrent) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedContestUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            Head.ContestCurrent
+            Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
+              , accumulatorHash = healthyContestAccumulatorHash
+              , decommitOutputsHash = healthyContestDecommitOutputsHash
+              , commitOutputsHash = healthyContestCommitOutputsHash
               }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
@@ -177,10 +213,13 @@ genContestMutation (tx, _utxo) =
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  Head.ContestCurrent
+                  Head.ContestUnused
                     { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
+                    , accumulatorHash = healthyContestAccumulatorHash
+                    , decommitOutputsHash = healthyContestDecommitOutputsHash
+                    , commitOutputsHash = healthyContestCommitOutputsHash
                     }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -188,7 +227,7 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (pure $ toErrorCode FailedContestCurrent) ContestFromDifferentHead <$> do
+      SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
         pure $
           Changes
@@ -199,10 +238,13 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          Head.ContestCurrent
+                          Head.ContestUnused
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
+                            , accumulatorHash = healthyContestAccumulatorHash
+                            , decommitOutputsHash = healthyContestDecommitOutputsHash
+                            , commitOutputsHash = healthyContestCommitOutputsHash
                             }
                       )
                 )
@@ -213,18 +255,6 @@ genContestMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
         let signerAndOthers = healthyContesterVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-        pure $
-          modifyInlineDatum
-            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
-            headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- arbitrary `suchThat` (/= healthyContestUTxOToDecommitHash)
-        pure $
-          modifyInlineDatum
-            (replaceOmegaUTxOHash mutatedUTxOHash)
-            headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
@@ -277,6 +307,42 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId otherHeadId) headTxOut
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) ContestAbsorbForeignDeposit <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        let
+          -- Past the tx upper bound, so the deadline check passes and
+          -- the later guard fires instead.
+          extraDeadline =
+            addUTCTime (60 * 60 * 24) $
+              slotNoToUTCTime systemStart slotLength healthySlotNo
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              testNetworkId
+              (mkHeadId testPolicyId)
+              extraDeposited
+              extraDeadline
+          -- Absorb the deposit's value to keep the tx balanced.
+          headTxOut' =
+            modifyTxOutValue (<> txOutValue extraDepositOut) headTxOut
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , ChangeOutput 0 headTxOut'
+            , AddScript depositValidatorScript
+            ]
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A commitment from a different accumulator: the signed accumulatorHash
+        -- was derived from the healthy one, so this G2 point won't match.
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ContestIncreaseHeadValue <$> do
+        extraLovelace <- lovelaceToValue . Coin <$> choose (1, 10_000_000)
+        pure $ ChangeOutput 0 (modifyTxOutValue (<> extraLovelace) headTxOut)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

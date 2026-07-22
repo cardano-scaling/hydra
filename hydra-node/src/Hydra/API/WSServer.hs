@@ -40,7 +40,7 @@ import Hydra.API.ServerOutputFilter (
  )
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -211,15 +211,15 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle
-    HeadState.Initial{} -> Initializing
     HeadState.Open{} -> Open
     HeadState.Closed ClosedState{readyToFanoutSent}
       | readyToFanoutSent -> FanoutPossible
       | otherwise -> Closed
+    HeadState.FanoutProgress{} -> FanningOut
 
   getHeadId :: HeadState tx -> Maybe HeadId
   getHeadId = \case
     HeadState.Idle{} -> Nothing
-    HeadState.Initial InitialState{headId} -> Just headId
     HeadState.Open OpenState{headId} -> Just headId
     HeadState.Closed ClosedState{headId} -> Just headId
+    HeadState.FanoutProgress PartialFanoutState{headId} -> Just headId

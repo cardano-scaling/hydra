@@ -55,7 +55,7 @@ function hnode() {
       docker run --rm -it \
         --pull always \
         -v ${SCRIPT_DIR}/devnet:/devnet \
-        ghcr.io/cardano-scaling/hydra-node:1.2.0 -- ${@}
+        ghcr.io/cardano-scaling/hydra-node:2.3.0 -- ${@}
   fi
 }
 
@@ -105,20 +105,20 @@ function queryPParams() {
   echo >&2 "Query Protocol parameters"
   if [[ -x ${CCLI_CMD} ]]; then
      ccli query protocol-parameters --socket-path ${DEVNET_DIR}/node.socket  --out-file /dev/stdout \
-      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0" > devnet/protocol-parameters.json
    else
      docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket --out-file /dev/stdout \
-      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0" > devnet/protocol-parameters.json
   fi
   echo >&2 "Saved in protocol-parameters.json"
 }
 
 echo >&2 "Fueling up hydra nodes of alice, bob and carol..."
-seedFaucet "alice" 30000000 # 30 Ada to the node
+seedFaucet "alice" 3000000000 # 3000 Ada to the node
 seedFaucet "bob" 30000000 # 30 Ada to the node
 seedFaucet "carol" 30000000 # 30 Ada to the node
 echo >&2 "Distributing funds to alice, bob and carol..."
-seedFaucet "alice-funds" 100000000 # 100 Ada to commit
+seedFaucet "alice-funds" 100000000000 # 100000 Ada to commit
 seedFaucet "bob-funds" 50000000 # 50 Ada to commit
 seedFaucet "carol-funds" 25000000 # 25 Ada to commit
 

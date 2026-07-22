@@ -18,15 +18,15 @@ data StateEvent tx = StateEvent
   , stateChanged :: StateChanged tx
   , time :: UTCTime
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
 instance HasEventId (StateEvent tx) where
   getEventId = eventId
 
-deriving instance IsChainState tx => Show (StateEvent tx)
-deriving instance IsChainState tx => Eq (StateEvent tx)
-deriving instance IsChainState tx => ToJSON (StateEvent tx)
-deriving instance IsChainState tx => FromJSON (StateEvent tx)
+deriving stock instance IsChainState tx => Show (StateEvent tx)
+deriving stock instance IsChainState tx => Eq (StateEvent tx)
+deriving anyclass instance IsChainState tx => ToJSON (StateEvent tx)
+deriving anyclass instance IsChainState tx => FromJSON (StateEvent tx)
 
 mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
 mkCheckpoint nodeState eventId time =

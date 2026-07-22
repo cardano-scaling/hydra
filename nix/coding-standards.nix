@@ -1,6 +1,6 @@
 _: {
 
-  perSystem = { pkgs, hsPkgs, lib, ... }:
+  perSystem = { pkgs, hsPkgs, lib, localHaskellPackageNames, ... }:
     let
       allComponents = x:
         [ x.components.library ]
@@ -14,20 +14,8 @@ _: {
 
       coding.standards.hydra = {
         enable = true;
-        haskellPackages = with hsPkgs; builtins.concatMap allComponents [
-          hydra-cardano-api
-          hydra-chain-observer
-          hydra-cluster
-          hydra-node
-          hydra-tx
-          hydra-prelude
-          hydra-plutus
-          hydra-plutus-extras
-          hydra-test-utils
-          hydra-tui
-          hydraw
-          visualize-logs
-        ];
+        haskellPackages = builtins.concatMap allComponents
+          (map (n: hsPkgs.${n}) localHaskellPackageNames);
         inherit (pkgs) weeder;
         haskellType = "haskell.nix";
       };

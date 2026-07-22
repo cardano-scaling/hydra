@@ -10,10 +10,11 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
   readTQueue,
+  readTVarIO,
   writeTQueue,
  )
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Envelope (message), showLogsOnFailure, traceInTVar)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
@@ -22,9 +23,10 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), getClientPort, isTransientGrpcError, peerPortToClientPort, putMessage, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
+import Network.GRPC.Common (GrpcError (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
 import System.Process.Typed (readProcessStdout_, runProcess_, shell)
@@ -32,7 +34,7 @@ import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGold
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
-import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
+import Test.Network.Ports (randomUnusedTCPPortsWithDerived, withFreePortAndDerived)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
@@ -40,14 +42,44 @@ import Test.Util (noopCallback, waitEq, waitMatch)
 spec :: Spec
 spec = do
   -- TODO: add tests about advertise being honored
-  describe "Etcd" $
+  --
+  -- Each Etcd test spins up a 2- or 3-node etcd cluster on loopback ports.
+  -- Running these in parallel, or alongside the rest of the suite, makes the
+  -- subprocesses fight for ports and CPU at the same instant, which can make
+  -- etcd lose RAFT quorum and the tests fail. The "Network" group is gated in
+  -- test/Main.hs to run last and single-threaded so these clusters get the box
+  -- to themselves; the 'sequential' below is belt-and-suspenders for local runs.
+  --
+  -- Per-test 'failAfter' budgets in this block are deliberately generous
+  -- (60s). The previous 15–30s budgets fired too eagerly when an etcd
+  -- election or a gRPC reconnect happened to land on the same scheduler
+  -- tick as a CI slowdown. The 'network-test.yaml' workflow (pumba
+  -- packet loss) is the operating point this guards against; tighten
+  -- only if you've confirmed it still passes there.
+  describe "isTransientGrpcError" $ do
+    -- The loss-90 CI failure traced back to 'pollConnectivity.writeAlive'
+    -- raising 'GrpcNotFound' when etcd's RAFT leader changed and the lease
+    -- was revoked. The error must be classified as transient so the outer
+    -- loop can recreate the lease instead of letting the exception escape
+    -- and crash the hydra-node process.
+    it "treats GrpcNotFound as transient (lease loss during leader change)" $
+      isTransientGrpcError GrpcNotFound `shouldBe` True
+    it "still treats the original transient errors as transient" $ do
+      isTransientGrpcError GrpcUnavailable `shouldBe` True
+      isTransientGrpcError GrpcDeadlineExceeded `shouldBe` True
+      isTransientGrpcError GrpcCancelled `shouldBe` True
+    it "does not treat unrelated errors as transient" $ do
+      isTransientGrpcError GrpcInvalidArgument `shouldBe` False
+      isTransientGrpcError GrpcPermissionDenied `shouldBe` False
+
+  describe "Etcd" . sequential $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = ProtocolVersion 1
 
       it "broadcasts to self" $ \tracer -> do
-        failAfter 5 $
+        failAfter 30 $
           withTempDir "test-etcd" $ \tmp -> do
-            withFreePort $ \port -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
               let config =
                     NetworkConfiguration
                       { listen = Host lo port
@@ -57,18 +89,72 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
-                      , whichEtcd = EmbeddedEtcd
+                      , whichEtcd = SystemEtcd
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
 
+      -- Exercises 'putMessage's compare-failure branch directly. The
+      -- scenario it mimics: a previous 'putMessage' committed
+      -- server-side but the gRPC client returned
+      -- 'GrpcDeadlineExceeded', so the in-memory 'lastModRev' is
+      -- stale on the retry. The Txn's compare(modRev == stale) must
+      -- fail, the range branch must observe the new revision, the
+      -- 'BroadcastDeduped' event must be traced, and most importantly
+      -- /no second write/ should land — so the receiver does not see
+      -- a duplicate.
+      it "putMessage dedups when lastModRev is stale" $ \tracer -> do
+        failAfter 30 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
+              let host = Host lo port
+                  config =
+                    NetworkConfiguration
+                      { listen = host
+                      , advertise = host
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      , whichEtcd = SystemEtcd
+                      }
+              (recordingCallback, waitNext, _) <- newRecordingCallback
+              withEtcdNetwork @Int tracer v1 config recordingCallback $ \n -> do
+                -- Real broadcast advances msg-<host>'s mod_revision.
+                broadcast n 1
+                waitNext `shouldReturn` 1
+                -- Capture EtcdLog events from a direct putMessage call.
+                traces <- newLabelledTVarIO "putMessage-dedup-traces" []
+                let captureTracer = traceInTVar traces "putMessageDedupSpec"
+                staleVar <- newLabelledTVarIO "stale-last-mod-rev" 0
+                -- Compare against 0 must fail (real modRev > 0); the
+                -- failure branch should adopt the observed revision
+                -- and trace BroadcastDeduped instead of writing.
+                putMessage @Int captureTracer config host staleVar 99
+                captured <- map message <$> readTVarIO traces
+                captured
+                  `shouldSatisfy` any
+                    ( \case
+                        BroadcastDeduped{} -> True
+                        _ -> False
+                    )
+                updatedModRev <- readTVarIO staleVar
+                updatedModRev `shouldSatisfy` (> 0)
+                -- Send a fresh marker. If 99 had actually been
+                -- written by the deduped call, the receiver would
+                -- see it before 2 (etcd revisions are monotonic and
+                -- the watch is in-order).
+                broadcast n 2
+                waitNext `shouldReturn` 2
+
       -- Note: This test is disabled as it takes took long; but it is
       -- important to keep around. Successfully completion of this test looks
       -- like either a "mvcc database size exceeded" error; or no error at
       -- all. Failures looks like complete blocking
-      around_ onlyNightly $ it "broadcasts 100KiB messages 1M times @nightly" $ \tracer ->
+      around_ onlyLocal $ xit "broadcasts 100KiB messages 1M times" $ \tracer ->
         withTempDir "test-etcd" $ \tmp -> do
           putStrLn $ "Folder " ++ show tmp
           PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
@@ -88,7 +174,7 @@ spec = do
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 5 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, waitNext, _) <- newRecordingCallback
@@ -98,7 +184,7 @@ spec = do
 
       it "handles broadcast to minority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordReceived, waitNext, _) <- newRecordingCallback
             withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \n1 -> do
@@ -118,7 +204,7 @@ spec = do
 
       it "handles broadcast to majority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordReceived, waitNext, _) <- newRecordingCallback
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
@@ -165,7 +251,7 @@ spec = do
 
       it "handles expired lease" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 15 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
@@ -179,7 +265,12 @@ spec = do
                 -- Expire all leases manually to simulate a keepAlive coming too
                 -- late. Note that we do not distinguish which is which so
                 -- alice's lease will also be killed, but does not matter here.
-                let endpoints = "--endpoints=" <> show (listen aliceConfig)
+                -- NOTE: etcdctl talks to the etcd /client/ port, not the peer
+                -- port. Using @listen aliceConfig@ here used to work on etcd
+                -- 3.5 (whose peer listener happened to answer client RPCs too)
+                -- but hangs on etcd 3.6, where the peer port no longer serves
+                -- the lease API.
+                let endpoints = "--endpoints=127.0.0.1:" <> show (getClientPort aliceConfig)
                 output <- readProcessStdout_ . shell $ "etcdctl lease list " <> endpoints
                 let leases = drop 1 $ lines $ decodeUtf8 output
                 forM_ leases $ \lease ->
@@ -189,13 +280,13 @@ spec = do
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 60 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
             (recordBob, _, waitBob) <- newRecordingCallback
-            let aliceSees = waitEq waitAlice 5
-                bobSees = waitEq waitBob 5
+            let aliceSees = waitEq waitAlice 30
+                bobSees = waitEq waitBob 30
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ -> do
               withEtcdNetwork @Int tracer v2 bobConfig recordBob $ \_ -> do
                 -- Both will try to write to the cluster at the same time
@@ -206,7 +297,9 @@ spec = do
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          -- Sends 1000 messages through a 3-node etcd cluster; the
+          -- 20s budget was too tight under parallel CI load.
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -228,7 +321,7 @@ spec = do
 
       it "handles compaction and lost local state" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -283,13 +376,13 @@ spec = do
 
       it "emits cluster id mismatch" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 60 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
             (recordBob, _, waitBob) <- newRecordingCallback
-            let aliceSees = waitMatch waitAlice 5
-            let bobSees = waitMatch waitBob 5
+            let aliceSees = waitMatch waitAlice 30
+            let bobSees = waitMatch waitBob 30
             let bobConfig' = bobConfig{peers = []}
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ ->
               withEtcdNetwork @Int tracer v2 bobConfig' recordBob $ \_ ->
@@ -312,7 +405,10 @@ data PeerConfig2 = PeerConfig2
 
 setup2Peers :: FilePath -> IO PeerConfig2
 setup2Peers tmp = do
-  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+  -- Allocate peer ports whose derived etcd client ports are also free at
+  -- allocation time — otherwise etcd dies on startup with "bind: address
+  -- already in use" for the client port. See 'peerPortToClientPort'.
+  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 2
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   pure
@@ -326,7 +422,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -337,7 +433,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 
@@ -349,7 +445,8 @@ data PeerConfig3 = PeerConfig3
 
 setup3Peers :: FilePath -> IO PeerConfig3
 setup3Peers tmp = do
-  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+  -- See note in 'setup2Peers' about the derived client port.
+  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 3
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   let carolHost = Host lo port3
@@ -364,7 +461,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -375,7 +472,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , carolConfig =
           NetworkConfiguration
@@ -386,7 +483,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 

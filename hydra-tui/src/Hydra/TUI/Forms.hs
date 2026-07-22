@@ -8,7 +8,6 @@ module Hydra.TUI.Forms where
 import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Pretty (renderUTxO)
 
 import Brick (BrickEvent (..), vBox, withDefAttr)
 import Brick.Forms (
@@ -16,36 +15,33 @@ import Brick.Forms (
   FormField (..),
   FormFieldState (..),
   FormFieldVisibilityMode (..),
+  checkboxField,
   focusedFormInputAttr,
   newForm,
   radioField,
  )
 import Brick.Types (Location (..), Widget)
-import Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
+import Brick.Widgets.Core (clickable, putCursor, txt)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Graphics.Vty (Event (..), Key (..))
 import Hydra.Chain.Direct.State ()
-import Lens.Micro (Lens', (^.))
-import Prelude qualified
+import Lens.Micro (Lens', lens, (^.))
 
-utxoCheckboxField ::
-  forall s e n.
-  ( s ~ Map TxIn (TxOut CtxUTxO, Bool)
-  , n ~ Text
-  ) =>
-  Map TxIn (TxOut CtxUTxO) ->
-  Form s e n
-utxoCheckboxField u =
-  let items = Map.map (,False) u
-   in newForm
-        [ checkboxGroupField '[' 'X' ']' id $
-            [ ((k, v, b), show k, renderUTxO (k, v))
-            | (k, (v, b)) <- Map.toList items
-            ]
-        ]
-        items
+-- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels.
+-- The TxIn is shortened to the last 10 characters of the hash plus its
+-- '#index' suffix.
+renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
+renderUTxOAsAda (txin, TxOut _ val _ _) =
+  let Coin l = selectLovelace val
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+      (hashHex, idxPart) = Text.breakOn "#" (renderTxIn txin)
+      shortened = Text.takeEnd 10 hashHex <> idxPart
+   in shortened <> " ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 utxoRadioField ::
   forall s e n.
@@ -53,38 +49,116 @@ utxoRadioField ::
   , n ~ Text
   ) =>
   Map TxIn (TxOut CtxUTxO) ->
-  Form s e n
-utxoRadioField u =
-  newForm
-    [ radioField
-        id
-        [ (i, show i, renderUTxO i)
-        | i <- Map.toList u
+  Maybe (Form s e n)
+utxoRadioField u = case Map.toList u of
+  [] -> Nothing
+  (x : _) ->
+    Just $
+      newForm
+        [ radioField
+            id
+            [ (i, show i, renderUTxOAsAda i)
+            | i <- Map.toList u
+            ]
         ]
-    ]
-    (Prelude.head $ Map.toList u)
+        x
 
+-- | Build a multi-select (checkbox) form over a UTxO set: each entry can be
+-- toggled with Space, and the form state records which are selected. Used for
+-- selective partial fanout, where the user picks one or more UTxOs to fan out
+-- in a single 'PartialFanout'. Returns 'Nothing' for an empty UTxO set.
+utxoCheckboxField ::
+  forall e n.
+  n ~ Text =>
+  Map TxIn (TxOut CtxUTxO) ->
+  Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
+utxoCheckboxField = utxoCheckboxFieldWith Nothing
+
+-- | Like 'utxoCheckboxField' but carries over a previous selection: any TxIn
+-- still present keeps its ticked state, new entries default to unticked, and
+-- entries no longer in the set are dropped. Used to rebuild the open fanout
+-- modal when a 'HeadPartiallyFannedOut' step shrinks the remaining UTxO.
+utxoCheckboxFieldWith ::
+  forall e n.
+  n ~ Text =>
+  Maybe (Map TxIn (TxOut CtxUTxO, Bool)) ->
+  Map TxIn (TxOut CtxUTxO) ->
+  Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
+utxoCheckboxFieldWith mPrev u
+  | Map.null u = Nothing
+  | otherwise =
+      Just $
+        newForm
+          [ checkboxField (selectedL txin) (renderTxIn txin) (renderUTxOAsAda (txin, txout))
+          | (txin, txout) <- Map.toList u
+          ]
+          initial
+ where
+  initial :: Map TxIn (TxOut CtxUTxO, Bool)
+  initial = Map.mapWithKey (\txin txout -> (txout, wasSelected txin)) u
+
+  wasSelected :: TxIn -> Bool
+  wasSelected txin = maybe False snd (mPrev >>= Map.lookup txin)
+
+  -- Lens focusing the selected flag of one entry within the whole map state.
+  selectedL :: TxIn -> Lens' (Map TxIn (TxOut CtxUTxO, Bool)) Bool
+  selectedL txin =
+    lens
+      (maybe False snd . Map.lookup txin)
+      (\m b -> Map.adjust (\(o, _) -> (o, b)) txin m)
+
+-- | Build a radio form for selecting one pending deposit (by 'TxId') to
+-- recover. The form yields just the 'TxId' — the full UTxO breakdown is
+-- rendered separately in the recover detail panel (see
+-- 'Hydra.TUI.Drawing.FundsTab.drawRecoverDetail').
 depositIdRadioField ::
   forall s e n.
-  ( s ~ (TxId, TxIn, TxOut CtxUTxO)
+  ( s ~ TxId
   , n ~ Text
   ) =>
   [(TxId, UTxO)] ->
-  Form s e n
-depositIdRadioField txIdUTxO =
-  newForm
-    [ radioField
-        id
-        [ ((txid, i, o), show txid, renderUTxO (i, o))
-        | (txid, i, o) <- flattened txIdUTxO
-        ]
-    ]
-    (Prelude.head $ flattened txIdUTxO)
- where
-  flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
-  flattened =
-    concatMap
-      (\(a, u) -> (\(i, o) -> (a, i, o)) <$> Map.toList (UTxO.toMap u))
+  Maybe (Form s e n)
+depositIdRadioField = depositIdRadioFieldWith Nothing
+
+-- | Like 'depositIdRadioField', but use 'desired' as the initial selection
+-- if it is still present in the list (otherwise fall back to the first
+-- entry). Used when rebuilding the recovery form after the underlying
+-- 'pendingIncrements' has changed.
+depositIdRadioFieldWith ::
+  forall s e n.
+  ( s ~ TxId
+  , n ~ Text
+  ) =>
+  Maybe TxId ->
+  [(TxId, UTxO)] ->
+  Maybe (Form s e n)
+depositIdRadioFieldWith desired txIdUTxO = case txIdUTxO of
+  [] -> Nothing
+  ((firstTxId, _) : _) ->
+    let initial = case desired of
+          Just d | any ((== d) . fst) txIdUTxO -> d
+          _ -> firstTxId
+     in Just $
+          newForm
+            [ radioField
+                id
+                [ (txid, show txid, renderDepositSummary txid u)
+                | (txid, u) <- txIdUTxO
+                ]
+            ]
+            initial
+
+-- | One-line summary of a pending deposit: shortened TxId plus the total
+-- lovelace across all its outputs.
+renderDepositSummary :: TxId -> UTxO -> Text
+renderDepositSummary txid u =
+  let Coin l = foldMap (\(TxOut _ v _ _) -> selectLovelace v) (UTxO.txOutputs u)
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+      shortId = Text.take 12 (serialiseToRawBytesHexText txid) <> "…"
+   in shortId <> "  ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 confirmRadioField ::
   forall s e n.
@@ -104,81 +178,9 @@ confirmRadioField =
  where
   options = [("yes", True), ("no", False)]
 
-  radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
-
 type LeftBracketChar = Char
 type CheckmarkChar = Char
 type RightBracketChar = Char
-
-checkboxGroupField ::
-  forall k a e n.
-  (Ord k, Ord n) =>
-  LeftBracketChar ->
-  CheckmarkChar ->
-  RightBracketChar ->
-  -- | The state lens for this value.
-  Lens' (Map k (a, Bool)) (Map k (a, Bool)) ->
-  -- | The available choices, in order.
-  -- Each choice is represented by a resource name `n`, a text label,
-  -- and a triplet of type @@(k, a, Bool)@@; where `k` is the unique
-  -- identifier for the choice, `a` the value carried by the key and
-  -- Bool being the default choice.
-  [((k, a, Bool), n, Text)] ->
-  -- | The initial form state.
-  Map k (a, Bool) ->
-  FormFieldState (Map k (a, Bool)) e n
-checkboxGroupField lb check rb stLens options initialState =
-  FormFieldState
-    { formFieldState = initialState
-    , formFields = mkFormField <$> options
-    , formFieldLens = stLens
-    , formFieldUpdate = \_ tuple -> tuple
-    , formFieldRenderHelper = id
-    , formFieldConcat = vBox
-    , formFieldVisibilityMode = ShowFocusedFieldOnly
-    }
- where
-  mkFormField ((k, a, b), name, lbl) =
-    FormField
-      name
-      Just
-      True
-      (renderCheckbox (k, b) lbl name)
-      (handleCheckboxEvent k)
-
-  renderCheckbox (k, boolOption) lbl name foc opts =
-    let addAttr = if foc then withDefAttr focusedFormInputAttr else id
-        csr = if foc then putCursor name (Location (1, 0)) else id
-        val = case Map.lookup k opts of
-          Nothing -> boolOption
-          Just (_, b) -> b
-     in clickable name $
-          addAttr $
-            csr $
-              txt
-                ( Text.singleton lb
-                    <> (if val then Text.singleton check else " ")
-                    <> Text.singleton rb
-                    <> " "
-                )
-                <+> txt lbl
-
-  handleCheckboxEvent ::
-    (Bifunctor p, MonadState (Map k (p a Bool)) m) =>
-    k ->
-    BrickEvent n e ->
-    m ()
-  handleCheckboxEvent k = \case
-    (MouseDown n _ _ _) -> updateCheckbox k
-    (VtyEvent (EvKey (KChar ' ') [])) -> updateCheckbox k
-    _ -> return ()
-
-  updateCheckbox :: (MonadState (Map k (p a Bool)) m, Bifunctor p) => k -> m ()
-  updateCheckbox k = do
-    cur <- get
-    case Map.lookup k cur of
-      Nothing -> return ()
-      Just _ -> put $ Map.adjust (second not) k cur
 
 type FormFieldRenderHelper a n = (a -> Text -> Bool -> Widget n -> Widget n)
 

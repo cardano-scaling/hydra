@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 12 720 188">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+  <rect width="720" height="200" fill="white"/>
+  <text x="83" y="22" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">φ<tspan baseline-shift="-25%" font-size="8">seed</tspan></text>
+  <line x1="83" y1="28" x2="83" y2="58" stroke="#1a1a1a" stroke-width="1.2" stroke-dasharray="3,3"/>
+  <rect x="28" y="58" width="110" height="40" rx="10" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="83" y="83" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">o<tspan baseline-shift="-25%" font-size="8">seed</tspan></text>
+  <rect x="215" y="42" width="215" height="90" rx="2" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="216" y="43" width="213" height="27" rx="0" fill="#FFEA94" stroke="none" stroke-width="0"/>
+  <text x="322" y="61" text-anchor="middle" font-family="serif" font-size="13" fill="#1a1a1a" font-weight="bold">initTx</text>
+  <line x1="215" y1="70" x2="430" y2="70" stroke="#1a1a1a" stroke-width="1.5"/>
+  <line x1="311" y1="70" x2="311" y2="106" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="263" y="91" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">ρ<tspan baseline-shift="-25%" font-size="8">seed</tspan></text>
+  <text x="425" y="92" text-anchor="end" font-family="serif" font-size="9" fill="#1a1a1a">1</text>
+  <text x="363" y="92" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">o<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <line x1="215" y1="106" x2="430" y2="106" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="322" y="121" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">mint = {ST, PT₁…PTₙ} :: cid</text>
+  <rect x="500" y="35" width="200" height="84" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="500" y="35" width="200" height="24" rx="14" fill="#ACE9BB"/>
+  <rect x="500" y="45" width="200" height="14" fill="#ACE9BB"/>
+  <line x1="500" y1="59" x2="700" y2="59" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="500" y1="81" x2="700" y2="81" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="600" y="52" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <text x="600" y="75" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">{ST, PT₁, …, PTₙ}</text>
+  <text x="600" y="93" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">open, cid′, φ<tspan baseline-shift="-25%" font-size="8">seed</tspan>′,</text>
+  <text x="600" y="107" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">k̄<tspan baseline-shift="-25%" font-size="8">H</tspan>, T, v, η</text>
+  <path d="M138,78 C168,78 200,90 215,96" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <path d="M430,96 C455,96 480,70 500,70" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <circle cx="500" cy="70" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+</svg>

@@ -40,6 +40,7 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
   selectLovelace,
   throwError,
+  toPlutusTxOutRef,
   txOutAddress,
   txOutValue,
   txSpendingUTxO,
@@ -48,21 +49,23 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (Tx, adjustUTxO)
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.ModelSpec (propIsDistributive)
 import Hydra.Tx (CommitBlueprintTx (..))
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
-import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
+import Hydra.Tx.IsTx (utxoFromTx)
 import Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
 import Hydra.Tx.Observe qualified as Tx
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
@@ -72,7 +75,6 @@ import Test.Hydra.Tx.Gen (
   genUTxO1,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
@@ -203,7 +205,7 @@ prop_runActions actions =
 -- * ============================== MODEL WORLD ==========================
 
 data SingleUTxO = A | B | C | D | E | F | G | H | I
-  deriving (Show, Eq, Ord, Enum, Generic)
+  deriving stock (Show, Eq, Ord, Enum, Generic)
 
 instance Arbitrary SingleUTxO where
   arbitrary = genericArbitrary
@@ -225,7 +227,7 @@ data Model = Model
     -- snapshots and to remember the pending (delta) utxo during close/fanout
     pendingDecommit :: ModelUTxO
   }
-  deriving (Show)
+  deriving stock (Show)
 
 latestSnapshotNumber :: [ModelSnapshot] -> SnapshotNumber
 latestSnapshotNumber = \case
@@ -241,7 +243,7 @@ data ModelSnapshot = ModelSnapshot
   , toCommit :: ModelUTxO
   , toDecommit :: ModelUTxO
   }
-  deriving (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic)
 
 instance Num ModelSnapshot where
   _ + _ = error "undefined"
@@ -262,10 +264,10 @@ data State
   = Open
   | Closed
   | Final
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 data Actor = Alice | Bob | Carol
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | Result of constructing and performing a transaction. Notably there are
 -- three stages to this which can fail: construction, validation, and
@@ -276,7 +278,7 @@ data TxResult = TxResult
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance StateModel Model where
   data Action Model a where
@@ -575,8 +577,8 @@ instance HasVariables Model where
 instance HasVariables (Action Model a) where
   getAllVariables = mempty
 
-deriving instance Eq (Action Model a)
-deriving instance Show (Action Model a)
+deriving stock instance Eq (Action Model a)
+deriving stock instance Show (Action Model a)
 
 -- * ============================== REAL WORLD ==========================
 
@@ -754,6 +756,7 @@ signedSnapshot ms =
       , utxo
       , utxoToCommit
       , utxoToDecommit
+      , accumulator
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -768,6 +771,8 @@ signedSnapshot ms =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
 
+  accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
 confirmedSnapshot :: ModelSnapshot -> ConfirmedSnapshot Tx
@@ -775,10 +780,9 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
   case number of
     0 ->
       InitialSnapshot
-        { -- -- NOTE: The close validator would not check headId on close with
+        { -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = realWorldModelUTxO $ inHead modelSnapshot
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
@@ -793,8 +797,11 @@ openHeadUTxO =
   headTxIn = arbitrary `generateWith` 42
 
   openHeadTxOut =
-    mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
-      & addParticipationTokens [alicePVk, bobPVk, carolPVk]
+    mkHeadOutput
+      Fixture.testNetworkId
+      Fixture.testPolicyId
+      (verificationKeyToOnChainId <$> [alicePVk, bobPVk, carolPVk])
+      openHeadDatum
       & modifyTxOutValue (<> UTxO.totalValue inHeadUTxO)
 
   openHeadDatum :: TxOutDatum CtxUTxO
@@ -803,10 +810,12 @@ openHeadUTxO =
       Head.Open
         Head.OpenDatum
           { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-          , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
           , contestationPeriod = CP.toChain Fixture.cperiod
+          , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
+          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs inHeadUTxO Nothing Nothing
+          , headAdaOverhead = 0
           }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
@@ -843,7 +852,7 @@ newIncrementTx actor snapshot = do
         increment
           (actorChainContext actor)
           spendableUTxO
-          (mkHeadId Fixture.testPolicyId)
+          (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
           Fixture.testHeadParameters
           snapshot
           txid
@@ -857,7 +866,7 @@ newDecrementTx actor snapshot = do
     decrement
       (actorChainContext actor)
       spendableUTxO
-      (mkHeadId Fixture.testPolicyId)
+      (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       snapshot
 
@@ -912,12 +921,17 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (realWorldModelUTxO utxo)
+      fanoutUTxO
       -- Model world has no 'Maybe ModelUTxO', but real world does.
-      (if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit)
-      (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
+      fanoutCommit
+      fanoutDecommit
+      -- Full snapshot UTxO for accumulator proof (no pre-settling in model world)
+      (fanoutUTxO <> fold fanoutCommit <> fold fanoutDecommit)
       deadline
  where
+  fanoutUTxO = realWorldModelUTxO utxo
+  fanoutCommit = if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit
+  fanoutDecommit = if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit
   deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.

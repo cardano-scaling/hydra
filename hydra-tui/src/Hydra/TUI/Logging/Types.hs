@@ -16,22 +16,22 @@ type LogMessage :: Type
 data LogMessage = LogMessage
   { severity :: Severity
   , message :: Text
+  , detail :: Text
   , time :: UTCTime
+  , rawJson :: Text
   }
   deriving stock (Eq, Show, Generic)
 
-type LogVerbosity :: Type
-data LogVerbosity = Short | Full
+type EventHistoryFilter :: Type
+data EventHistoryFilter = ShowAll | ErrorsOnly
   deriving stock (Eq, Show, Generic)
 
 type LogState :: Type
-data LogState = LogState
+newtype LogState = LogState
   { logMessages :: [LogMessage]
-  , logVerbosity :: LogVerbosity
   }
 
 makeLensesFor
   [ ("logMessages", "logMessagesL")
-  , ("logVerbosity", "logVerbosityL")
   ]
   ''LogState

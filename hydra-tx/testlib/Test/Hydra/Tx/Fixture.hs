@@ -15,8 +15,8 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
 import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), compactCoinOrError)
+import Cardano.Ledger.Core (PParams, ppTxFeeFixedL, ppTxFeePerByteL)
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -31,13 +31,14 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import Hydra.Tx.Secret (Secret)
+import Test.Hydra.Ledger.Cardano.Fixtures (epochInfo, pparams, slotLength, systemStart)
 import Test.Hydra.Prelude
 
 -- | Our beloved alice, bob, and carol.
@@ -46,8 +47,9 @@ alice = deriveParty aliceSk
 bob = deriveParty bobSk
 carol = deriveParty carolSk
 
--- | Hydra signing keys for 'alice', 'bob', and 'carol'.
-aliceSk, bobSk, carolSk :: SigningKey HydraKey
+-- | Hydra signing keys for 'alice', 'bob', and 'carol'. Wrapped in
+-- 'Secret' so the codebase never holds an unwrapped key.
+aliceSk, bobSk, carolSk :: Secret (SigningKey HydraKey)
 aliceSk = generateSigningKey "alice"
 bobSk = generateSigningKey "bob"
 -- NOTE: Using 'zcarol' as seed results in ordered 'deriveParty' values
@@ -82,6 +84,19 @@ testHeadParameters =
 cperiod :: ContestationPeriod
 cperiod = 4
 
+-- * Fanout test constants
+
+-- | Typical number of outputs per partial fanout chunk. Used in tests and
+-- benchmarks to generate realistic scenarios.
+fanoutChunkSize :: Int
+fanoutChunkSize = 7
+
+-- | UTxO count at or below which a single regular fanout transaction is used
+-- as the preferred first attempt. Used in tests to produce scenarios that
+-- exercise both the single-tx and the partial-fanout paths.
+fanoutOutputThreshold :: Int
+fanoutOutputThreshold = 10
+
 -- * Cardano tx utilities
 
 testNetworkId :: NetworkId
@@ -102,5 +117,5 @@ defaultPParams =
             , prSteps = fromJust $ boundRational 0
             }
          )
-    & ppMinFeeAL .~ Coin 0
-    & ppMinFeeBL .~ Coin 0
+    & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin 0))
+    & ppTxFeeFixedL .~ Coin 0

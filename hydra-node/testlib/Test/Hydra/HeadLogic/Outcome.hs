@@ -11,6 +11,7 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain ()
+import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
@@ -25,6 +26,9 @@ instance
   where
   arbitrary = arbitrary >>= genStateChanged
 
+-- | Needed for the per-constructor golden test of the persisted 'StateChanged'
+-- event format (see 'Hydra.Events.SQLiteBasedSpec'). Covers every constructor
+-- generically from its field 'Arbitrary's, independent of 'genStateChanged'.
 instance
   ( ArbitraryIsTx tx
   , Arbitrary (ChainPointType tx)
@@ -37,23 +41,20 @@ instance
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    [ HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
@@ -61,9 +62,11 @@ genStateChanged env =
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadPartialFannedOut <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadFanoutInitiated <$> arbitrary <*> arbitrary
+    , HeadPartialFanoutSelected <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadFanoutReverted <$> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
     , NodeUnsynced <$> arbitrary <*> arbitrary <*> arbitrary
     , NodeSynced <$> arbitrary <*> arbitrary <*> arbitrary
     ]
- where
-  Environment{party} = env

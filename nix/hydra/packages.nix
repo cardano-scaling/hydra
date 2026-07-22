@@ -1,7 +1,7 @@
 # A set of buildables we typically build for releases
 
 { self, ... }: {
-  perSystem = { pkgs, system, lib, asZip, hsPkgs, ... }: {
+  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, ... }: {
     packages =
       let
         # Creates a fixed length string by padding with given filler as suffix.
@@ -63,7 +63,8 @@
 
         nativePkgs = hsPkgs;
         # Allow reinstallation of terminfo as it's not installed with cross compilers.
-        patchedForCrossProject = hsPkgs.appendModule
+        # Derive from hsPkgsBase (no -Werror) so the static release stays lenient.
+        patchedForCrossProject = hsPkgsBase.appendModule
           ({ lib, ... }: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
         musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
 
@@ -82,11 +83,6 @@
           hydra-chain-observer-static = embedRevision
             musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
             "hydra-chain-observer"
-            paddedRevision;
-
-          visualize-logs-static = embedRevision
-            musl64Pkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
             paddedRevision;
 
           hydra-tui-static = embedRevision
@@ -115,12 +111,6 @@
             "hydra-chain-observer"
             paddedRevision;
 
-        visualize-logs =
-          embedRevision
-            nativePkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
-            paddedRevision;
-
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
           export PATH=$PATH:${hydra-node}/bin
           ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
@@ -133,6 +123,9 @@
             nativePkgs.hydra-tui.components.exes.hydra-tui
             "hydra-tui"
             paddedRevision;
+
+        # The HeadLogic state viewer; exposed so it can be `nix run`.
+        inherit (nativePkgs.head-state-viewer.components.exes) head-state-viewer;
 
         inherit (nativePkgs.hydraw.components.exes) hydraw;
 
@@ -174,6 +167,7 @@
               pkgs.cardano-cli
               pkgs.mithril-client-cli
               pkgs.check-jsonschema
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
         hydra-tui-tests = pkgs.mkShellNoCC {
@@ -184,6 +178,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
 
@@ -202,6 +197,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
       } // staticPackages;

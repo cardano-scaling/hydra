@@ -6,14 +6,10 @@ module Hydra.Chain.CardanoClient where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block, UTxO, queryCurrentEra)
+import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
-import Cardano.Api.Query qualified as Query
-import Cardano.Api.UTxO (UTxO)
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Text.Printf (printf)
 
 -- XXX: This should be re-exported by cardano-api
@@ -28,6 +24,7 @@ data QueryException
   | QueryProtocolParamsEncodingFailureOnEra AnyCardanoEra Text
   | QueryEraNotInCardanoModeFailure AnyCardanoEra
   | QueryNotShelleyBasedEraException AnyCardanoEra
+  | QueryNotConwayEraOnwardsException AnyCardanoEra
   deriving stock (Show, Eq)
 
 instance Exception QueryException where
@@ -46,12 +43,14 @@ instance Exception QueryException where
       printf "Error while querying using era %s not in cardano mode." (show eraName :: Text)
     QueryNotShelleyBasedEraException eraName ->
       printf "Error while querying using era %s not in shelley based era." (show eraName :: Text)
+    QueryNotConwayEraOnwardsException eraName ->
+      printf "Error while querying using era %s not in conway based era." (show eraName :: Text)
 
 -- * CardanoClient handle
 
 -- | Handle interface for abstract querying of a cardano node.
 data CardanoClient = CardanoClient
-  { queryUTxOByAddress :: [Address ShelleyAddr] -> IO (UTxO ConwayEra)
+  { queryUTxOByAddress :: [Address ShelleyAddr] -> IO UTxO
   , networkId :: NetworkId
   }
 
@@ -67,12 +66,14 @@ submitTransaction ::
   IO ()
 submitTransaction connectInfo tx =
   submitTxToNodeLocal connectInfo txInMode >>= \case
-    SubmitSuccess ->
+    TxSubmitSuccess ->
       pure ()
-    SubmitFail (TxValidationEraMismatch e) ->
+    TxSubmitFail (TxValidationEraMismatch e) ->
       throwIO (SubmitEraMismatch e)
-    SubmitFail e@TxValidationErrorInCardanoMode{} ->
+    TxSubmitFail e@TxValidationErrorInCardanoMode{} ->
       throwIO (SubmitTxValidationError e)
+    TxSubmitError e ->
+      throwIO e
  where
   txInMode =
     TxInMode shelleyBasedEra tx
@@ -97,19 +98,19 @@ instance Exception SubmitTransactionException
 -- Note that this function loops forever; hence, one probably wants to couple it
 -- with a surrounding timeout.
 awaitTransaction ::
-  IsShelleyBasedEra era =>
   LocalNodeConnectInfo ->
   -- | The transaction to watch / await
   Tx ->
-  IO (UTxO era)
-awaitTransaction connectInfo tx =
-  go
+  IO UTxO
+awaitTransaction connectInfo tx = do
+  pollInterval <- realToFrac <$> queryBlockTime connectInfo QueryTip
+  go pollInterval
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
-  go = do
+  go pollInterval = do
     utxo <- queryUTxOByTxIn connectInfo QueryTip ins
     if UTxO.null utxo
-      then go
+      then threadDelay pollInterval >> go pollInterval
       else pure utxo
 
 -- * Local state query
@@ -128,16 +129,14 @@ queryTip connectInfo =
 -- Throws at least 'QueryException' if query fails.
 querySystemStart :: LocalNodeConnectInfo -> QueryPoint -> IO SystemStart
 querySystemStart connectInfo queryPoint =
-  runQueryExpr connectInfo queryPoint $
-    Query.querySystemStart >>= liftIO . throwOnUnsupportedNtcVersion
+  runQuery connectInfo queryPoint QuerySystemStart
 
 -- | Query the era history at given point.
 --
 -- Throws at least 'QueryException' if query fails.
 queryEraHistory :: LocalNodeConnectInfo -> QueryPoint -> IO EraHistory
 queryEraHistory connectInfo queryPoint =
-  runQueryExpr connectInfo queryPoint $
-    Query.queryEraHistory >>= liftIO . throwOnUnsupportedNtcVersion
+  runQuery connectInfo queryPoint QueryEraHistory
 
 -- | Query the current epoch number.
 --
@@ -146,17 +145,11 @@ queryEpochNo ::
   LocalNodeConnectInfo ->
   QueryPoint ->
   IO EpochNo
-queryEpochNo connectInfo queryPoint =
+queryEpochNo connectInfo queryPoint = do
   runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr $ \sbe ->
-      Query.queryEpoch sbe
-        >>= liftIO
-        . throwOnUnsupportedNtcVersion
-        >>= liftIO
-        . throwOnEraMismatch
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryEpoch)
 
--- | Query the protocol parameters at given point and convert them to Babbage
--- era protocol parameters.
+-- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
 queryProtocolParameters ::
@@ -164,32 +157,12 @@ queryProtocolParameters ::
   QueryPoint ->
   IO (PParams LedgerEra)
 queryProtocolParameters connectInfo queryPoint =
-  runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr $ \sbe -> do
-      eraPParams <-
-        Query.queryProtocolParameters sbe
-          >>= liftIO
-          . throwOnUnsupportedNtcVersion
-          >>= liftIO
-          . throwOnEraMismatch
-      liftIO $ coercePParamsToLedgerEra (convert sbe) eraPParams
- where
-  encodeToEra :: ToJSON a => CardanoEra era -> a -> IO (PParams LedgerEra)
-  encodeToEra eraToEncode pparams =
-    case eitherDecode' (encode pparams) of
-      Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (anyCardanoEra eraToEncode) (Text.pack e)
-      Right (ok :: PParams LedgerEra) -> pure ok
-
-  coercePParamsToLedgerEra :: CardanoEra era -> PParams (ShelleyLedgerEra era) -> IO (PParams LedgerEra)
-  coercePParamsToLedgerEra era pparams =
-    case era of
-      ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (anyCardanoEra ByronEra)
-      ShelleyEra -> encodeToEra ShelleyEra pparams
-      AllegraEra -> encodeToEra AllegraEra pparams
-      MaryEra -> encodeToEra MaryEra pparams
-      AlonzoEra -> encodeToEra AlonzoEra pparams
-      BabbageEra -> encodeToEra BabbageEra pparams
-      ConwayEra -> pure pparams
+  runQueryExpr connectInfo queryPoint $
+    queryForCurrentEraInConwayEraOnwardsExpr $ \(ceo :: ConwayEraOnwards era) -> case ceo of
+      ConwayEraOnwardsConway ->
+        queryInShelleyBasedEraExpr (convert ceo) QueryProtocolParameters
+      ConwayEraOnwardsDijkstra ->
+        error "Dijkstra era not supported"
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -200,41 +173,52 @@ queryGenesisParameters ::
   IO (GenesisParameters ShelleyEra)
 queryGenesisParameters connectInfo queryPoint =
   runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr $ \sbe ->
-      Query.queryGenesisParameters sbe
-        >>= liftIO
-        . throwOnUnsupportedNtcVersion
-        >>= liftIO
-        . throwOnEraMismatch
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryGenesisParameters)
+
+-- | Query the chain's average block time, derived from genesis parameters as
+-- 'protocolParamSlotLength' / 'protocolParamActiveSlotsCoefficient'.
+--
+-- Throws at least 'QueryException' if query fails.
+queryBlockTime :: LocalNodeConnectInfo -> QueryPoint -> IO NominalDiffTime
+queryBlockTime connectInfo queryPoint = do
+  GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
+    Hydra.Chain.CardanoClient.queryGenesisParameters connectInfo queryPoint
+  pure $ computeBlockTime protocolParamSlotLength protocolParamActiveSlotsCoefficient
+
+-- | Compute the block time (expected time between blocks) given a slot length
+-- and active slot coefficient.
+computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
+computeBlockTime slotLength activeSlotsCoeff =
+  slotLength / realToFrac activeSlotsCoeff
 
 -- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxO :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> [Address ShelleyAddr] -> IO (UTxO era)
+queryUTxO :: LocalNodeConnectInfo -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
 queryUTxO connectInfo queryPoint addresses =
   runQueryExpr connectInfo queryPoint $
-    Query.queryUtxo shelleyBasedEra (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    queryForCurrentEraInConwayEraOnwardsExpr $ \(ceo :: ConwayEraOnwards era) -> case ceo of
+      ConwayEraOnwardsConway ->
+        queryInShelleyBasedEraExpr (convert ceo) $
+          QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
+      ConwayEraOnwardsDijkstra ->
+        error "Dijkstra era not supported"
 
 -- | Query UTxO for given tx inputs at given point.
 --
 -- Throws at least 'QueryException' if query fails.
 queryUTxOByTxIn ::
-  IsShelleyBasedEra era =>
   LocalNodeConnectInfo ->
   QueryPoint ->
   [TxIn] ->
-  IO (UTxO era)
+  IO UTxO
 queryUTxOByTxIn connectInfo queryPoint inputs =
   runQueryExpr connectInfo queryPoint $
-    Query.queryUtxo shelleyBasedEra (QueryUTxOByTxIn (Set.fromList inputs))
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    queryForCurrentEraInConwayEraOnwardsExpr
+      ( \(ceo :: ConwayEraOnwards era) -> case ceo of
+          ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
+          ConwayEraOnwardsDijkstra -> error "Dijkstra era not supported"
+      )
 
 queryForCurrentEraInEonExpr ::
   Eon eon =>
@@ -250,33 +234,22 @@ queryForCurrentEraInShelleyBasedEraExpr ::
   LocalStateQueryExpr b p QueryInMode r IO a
 queryForCurrentEraInShelleyBasedEraExpr = queryForCurrentEraInEonExpr (throwIO . QueryNotShelleyBasedEraException)
 
--- | Query the whole UTxO from node at given point. Useful for debugging, but
--- should obviously not be used in production code.
---
--- Throws at least 'QueryException' if query fails.
-queryUTxOWhole ::
-  IsShelleyBasedEra era =>
-  LocalNodeConnectInfo ->
-  QueryPoint ->
-  IO (UTxO era)
-queryUTxOWhole connectInfo queryPoint =
-  runQueryExpr connectInfo queryPoint $
-    Query.queryUtxo shelleyBasedEra QueryUTxOWhole
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+queryForCurrentEraInConwayEraOnwardsExpr ::
+  Eon eon =>
+  (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) ->
+  LocalStateQueryExpr b p QueryInMode r IO a
+queryForCurrentEraInConwayEraOnwardsExpr = queryForCurrentEraInEonExpr (throwIO . QueryNotConwayEraOnwardsException)
 
 -- | Query UTxO for the address of given verification key at point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOFor :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> VerificationKey PaymentKey -> IO (UTxO era)
+queryUTxOFor :: LocalNodeConnectInfo -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
 queryUTxOFor connectInfo queryPoint vk =
   case mkVkAddress (localNodeNetworkId connectInfo) vk of
     ShelleyAddressInEra addr ->
       queryUTxO connectInfo queryPoint [addr]
     ByronAddressInEra{} ->
-      fail "impossible: mkVkAddress returned Byron address."
+      error "impossible: mkVkAddress returned Byron address."
 
 -- | Query the current set of registered stake pools.
 --
@@ -287,19 +260,39 @@ queryStakePools ::
   IO (Set PoolId)
 queryStakePools connectInfo queryPoint =
   runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr $ \sbe ->
-      Query.queryStakePools sbe
-        >>= liftIO
-        . throwOnUnsupportedNtcVersion
-        >>= liftIO
-        . throwOnEraMismatch
+    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryStakePools)
 
 -- * Helpers
 
 -- | Monadic query expression to get current era.
 queryCurrentEraExpr :: LocalStateQueryExpr b p QueryInMode r IO AnyCardanoEra
 queryCurrentEraExpr =
-  Query.queryCurrentEra >>= liftIO . throwOnUnsupportedNtcVersion
+  queryExpr QueryCurrentEra >>= liftIO . throwOnUnsupportedNtcVersion
+
+-- | Monadic query expression for a 'QueryInShelleyBasedEra'.
+queryInShelleyBasedEraExpr ::
+  -- | The current running era we can use to query the node
+  ShelleyBasedEra era ->
+  QueryInShelleyBasedEra era a ->
+  LocalStateQueryExpr b p QueryInMode r IO a
+queryInShelleyBasedEraExpr sbe query =
+  queryExpr (QueryInEra $ QueryInShelleyBasedEra sbe query)
+    >>= liftIO
+    . throwOnUnsupportedNtcVersion
+    >>= liftIO
+    . throwOnEraMismatch
+
+-- | Throws at least 'QueryException' if query fails.
+runQuery :: LocalNodeConnectInfo -> QueryPoint -> QueryInMode a -> IO a
+runQuery connectInfo point query =
+  runExceptT (queryNodeLocalState connectInfo queryTarget query) >>= \case
+    Left err -> throwIO $ QueryAcquireException err
+    Right result -> pure result
+ where
+  queryTarget =
+    case point of
+      QueryTip -> VolatileTip
+      QueryAt cp -> SpecificPoint cp
 
 -- | Throws at least 'QueryException' if query fails.
 runQueryExpr ::

@@ -4,10 +4,9 @@
 module Hydra.Contract.Util where
 
 import Hydra.Contract.Commit
-import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Contract.UtilError (UtilError (..))
 import Hydra.Data.Party (Party)
-import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V3 (
   Address (..),
@@ -15,6 +14,7 @@ import PlutusLedgerApi.V3 (
   CurrencySymbol,
   MintValue,
   OutputDatum (..),
+  ScriptContext (..),
   ScriptHash (..),
   TokenName (..),
   TxInfo (..),
@@ -24,7 +24,9 @@ import PlutusLedgerApi.V3 (
   mintValueBurned,
   mintValueMinted,
   mintValueToMap,
+  txInInfoResolved,
  )
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
@@ -32,17 +34,17 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 import PlutusTx.Prelude
 
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"
-{-# INLINEABLE hydraHeadV1 #-}
+hydraHeadV2 :: BuiltinByteString
+hydraHeadV2 = stringToBuiltinByteString "HydraHeadV2"
+{-# INLINEABLE hydraHeadV2 #-}
 
 -- | Checks that the output contains the state token (ST) with the head
--- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
+-- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV2'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
   fromMaybe False $ do
     tokenMap <- AssocMap.lookup headPolicyId $ getValue v
-    quantity <- AssocMap.lookup (TokenName hydraHeadV1) tokenMap
+    quantity <- AssocMap.lookup (TokenName hydraHeadV2) tokenMap
     pure $ quantity == 1
 {-# INLINEABLE hasST #-}
 
@@ -62,9 +64,22 @@ mustBurnAllHeadTokens mintValue headCurrencySymbol parties =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "U01" $
+  traceIfFalse $(errorCode MintingOrBurningIsForbidden) $
     isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
+
+-- | Check whether own input and first output preserve value exactly.
+mustPreserveHeadValue :: ScriptContext -> Bool
+mustPreserveHeadValue ctx =
+  traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+    val' == val
+ where
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  val' = txOutValue . L.head $ txInfoOutputs txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE mustPreserveHeadValue #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.
@@ -97,16 +112,6 @@ TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutR
     EQ -> compare txOutRefIdx idx'
     ord -> ord
 {-# INLINEABLE compareRef #-}
-
--- * Errors
-
-data UtilError
-  = MintingOrBurningIsForbidden
-  deriving stock (Show)
-
-instance ToErrorCode UtilError where
-  toErrorCode = \case
-    MintingOrBurningIsForbidden -> "U01"
 
 -- | Get the list of 'TxOut' outputs of the pending transaction at
 -- a given script address.

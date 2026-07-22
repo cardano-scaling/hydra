@@ -2,9 +2,10 @@
 
 module Hydra.Tx.Close where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (utxo)
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -21,19 +22,20 @@ import Hydra.Tx (
   SnapshotVersion,
   fromChainSnapshotNumber,
   getSnapshot,
-  hashUTxO,
   headIdToCurrencySymbol,
   headReference,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.IsTx (hashUTxO)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
 
 type PointInTime = (SlotNo, UTCTime)
 
--- | Representation of the Head output after a CollectCom transaction.
+-- | Representation of the head thread UTxO while the head is in the Open state.
 data OpenThreadOutput = OpenThreadOutput
   { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , openContestationPeriod :: OnChain.ContestationPeriod
@@ -71,7 +73,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
       & setTxValidityUpperBound (TxValidityUpperBound endSlotNo)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "CloseTx")
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore)
@@ -91,58 +93,54 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
 
   closeRedeemer =
     case confirmedSnapshot of
-      InitialSnapshot{} -> Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
-        case incrementalAction of
-          ToCommit utxo' ->
-            if version == openVersion
-              then
-                Head.CloseUnusedInc
-                  { signature = toPlutusSignatures signatures
-                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                  }
-              else
-                Head.CloseUsedInc
-                  { signature = toPlutusSignatures signatures
-                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                  }
-          ToDecommit utxo' ->
-            if version == openVersion
-              then Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
-              else
-                Head.CloseUsedDec
-                  { signature = toPlutusSignatures signatures
-                  , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                  }
-          NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
+      InitialSnapshot{} ->
+        Head.CloseInitial
+      ConfirmedSnapshot{signatures} ->
+        let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+            decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+            commitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
+            sig = toPlutusSignatures signatures
+         in case incrementalAction of
+              NoThing ->
+                Head.CloseAny{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+              _ ->
+                if version == openVersion
+                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
+
+  Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, version} = getSnapshot confirmedSnapshot
+
+  -- Lovelace in the head UTxO not attributable to any L2 UTxO value (the
+  -- min-UTxO overhead). Computed once at Close and propagated unchanged through
+  -- Contest and partial fanout steps so the on-chain conservation check can use
+  -- strict equality rather than >=.
+  headAdaOverhead =
+    let Coin headLovelace = selectLovelace (txOutValue headOutputBefore)
+        utxoInHead = case (incrementalAction, version == openVersion) of
+          (NoThing, _) -> utxo
+          (ToCommit, True) -> utxo -- commit pending: deposit not yet merged into head
+          (ToCommit, False) -> utxo <> fold utxoToCommit -- increment applied: commit is in head
+          (ToDecommit, True) -> utxo <> fold utxoToDecommit -- decommit pending: value still in head
+          (ToDecommit, False) -> utxo -- decrement applied: value left head
+        Coin utxoLovelace = selectLovelace (UTxO.totalValue utxoInHead)
+     in headLovelace - utxoLovelace
 
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Closed
         Head.ClosedDatum
-          { snapshotNumber =
-              fromIntegral . number $ getSnapshot confirmedSnapshot
-          , utxoHash =
-              toBuiltin . hashUTxO $ Hydra.Tx.utxo (getSnapshot confirmedSnapshot)
-          , alphaUTxOHash =
-              case closeRedeemer of
-                Head.CloseUsedInc{} ->
-                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
-                _ -> toBuiltin $ hashUTxO @Tx mempty
-          , omegaUTxOHash =
-              case closeRedeemer of
-                Head.CloseUnusedDec{} ->
-                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
-                _ -> toBuiltin $ hashUTxO @Tx mempty
+          { snapshotNumber = fromIntegral number
           , parties = openParties
           , contestationDeadline
           , contestationPeriod = openContestationPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , headAdaOverhead
           }
 
   contestationDeadline =

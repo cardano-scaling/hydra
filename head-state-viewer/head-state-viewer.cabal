@@ -1,0 +1,86 @@
+cabal-version: 3.0
+name:          head-state-viewer
+version:       0.22.4
+synopsis:      Interactive HeadLogic step-through visualizer
+author:        IOG
+copyright:     2026 IOG
+license:       Apache-2.0
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DerivingStrategies
+    DuplicateRecordFields
+    FunctionalDependencies
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PartialTypeSignatures
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+    -fprint-potential-instances -Wmissing-local-signatures
+
+library
+  import:          project-config
+  hs-source-dirs:  src
+  exposed-modules:
+    HydraVis.Compare
+    HydraVis.History
+    HydraVis.Multi
+    HydraVis.Sample
+    HydraVis.SampleDb
+    HydraVis.Server
+    HydraVis.Smoke
+    HydraVis.Trace
+    HydraVis.UI
+
+  other-modules:
+    HydraVis.UI.Flow
+    HydraVis.UI.Model
+    HydraVis.UI.Panels
+    HydraVis.UI.Timeline
+    HydraVis.UI.Update
+    HydraVis.UI.Widgets
+
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , containers
+    , hydra-node
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , jsaddle-warp
+    , miso              ^>=1.8
+    , sqlite-simple
+    , text
+    , vector
+
+  ghc-options:     -haddock
+
+executable head-state-viewer
+  import:         project-config
+  main-is:        Main.hs
+  hs-source-dirs: app
+  build-depends:
+    , filepath
+    , head-state-viewer
+    , hydra-node
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , optparse-applicative
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4

@@ -8,18 +8,19 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -54,10 +55,10 @@ spec = do
 
     let coordinatedHeadState =
           CoordinatedHeadState
-            { localUTxO = u0
+            { localUTxO = mempty
             , allTxs = mempty
             , localTxs = mempty
-            , confirmedSnapshot = InitialSnapshot testHeadId u0
+            , confirmedSnapshot = InitialSnapshot testHeadId
             , seenSnapshot = NoSeenSnapshot
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
@@ -67,7 +68,7 @@ spec = do
         sendReqSn = \case
           NetworkEffect ReqSn{} -> True
           _ -> False
-    let snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
+    let snapshot1 = testSnapshot 1 0 [] mempty
 
     let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -88,7 +89,7 @@ spec = do
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
-            st = coordinatedHeadState{localTxs = [tx]}
+            st = coordinatedHeadState{localTxs = pure tx}
             s0 = inOpenState' [alice, bob] st
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor bobSk) simpleLedger now s0 $ receiveMessageFrom bob $ ReqTx tx
@@ -97,8 +98,8 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
-            sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
-            st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
+            sn1 = testSnapshot 1 1 [] u0 :: Snapshot SimpleTx
+            st = coordinatedHeadState{seenSnapshot = mkSeenSnapshot sn1 mempty}
             s0 = inOpenState' [alice, bob] st
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
@@ -111,7 +112,7 @@ spec = do
             st' =
               inOpenState' threeParties $
                 coordinatedHeadState
-                  { localTxs = [tx]
+                  { localTxs = pure tx
                   , allTxs = Map.singleton (txId tx) tx
                   , localUTxO = u0 <> utxoRef (txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
@@ -212,7 +213,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
       CoordinatedHeadState
         { localUTxO = mempty
         , allTxs = mempty
-        , localTxs = []
+        , localTxs = mempty
         , confirmedSnapshot = sn
         , seenSnapshot
         , currentDepositTxId = Nothing
@@ -234,3 +235,24 @@ prop_thereIsAlwaysALeader =
     forAll arbitrary $ \params@HeadParameters{parties} ->
       not (null parties) ==>
         any (\p -> isLeader params p sn) parties
+
+testSnapshot ::
+  forall tx.
+  IsTx tx =>
+  SnapshotNumber ->
+  SnapshotVersion ->
+  [tx] ->
+  UTxOType tx ->
+  Snapshot tx
+testSnapshot number version confirmed utxo =
+  let accumulator = Accumulator.buildFromUTxO utxo
+   in Snapshot
+        { headId = testHeadId
+        , version
+        , number
+        , confirmed
+        , utxo
+        , utxoToCommit = mempty
+        , utxoToDecommit = mempty
+        , accumulator
+        }

@@ -11,6 +11,13 @@ roots = [
   "spy$",
   "spy'$",
   "redeemer$",
+  "evaluateTx'$",
+  "alwaysFailingScript$",
+  "dummyValidatorScriptAlwaysFails$",
+  "exampleValidator$",
+  "exampleSecureValidatorScript$",
+  "shouldNotBe$",
+  "propTransactionFailsEvaluation$",
 ]
 
 root-instances = [
@@ -35,10 +42,12 @@ root-instances = [
   { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" },
   { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" },
   { module = "Hydra.Contract.Dummy", instance = "FromData R" },
+  { module = "Hydra.Contract.Dummy", instance = "ToData R" },
   # This one is odd.
   { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
   # TODO: Remove this
   { module = "Hydra.Model.Payment", instance = "IsTx" },
+  { module = "Hydra.Model", instance = "HasVariables" },
   # These are used for debugging.
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" },
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" },
@@ -48,4 +57,11 @@ root-instances = [
   { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" },
   # test instances
   { module = "Hydra.ModelSpec", instance = "HasVariables" },
+  { module = "Test.Hydra.Tx.Gen", instance = "Arbitrary HydraAccumulator" },
+  # Forbid-constrained instances are intentionally unreachable: their purpose
+  # is to emit a GHC TypeError if anyone tries to derive or call them.
+  { module = "Hydra.Tx.Crypto", instance = 'FromJSON \(SigningKey HydraKey\)' },
+  { module = "Hydra.Tx.Crypto", instance = 'FromCBOR \(SigningKey HydraKey\)' },
+  { module = "Hydra.Tx.Secret", instance = 'FromJSON \(Secret a\)' },
+  { module = "Hydra.Tx.Secret", instance = 'FromCBOR \(Secret a\)' },
 ]

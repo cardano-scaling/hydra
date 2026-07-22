@@ -2,7 +2,13 @@
 { self, ... }:
 {
 
-  perSystem = { config, pkgs, pkgs-2411, self', ... }:
+  perSystem =
+    { config
+    , pkgs
+    , pkgs-2411
+    , self'
+    , ...
+    }:
     {
       process-compose."demo" = {
         package = pkgs.process-compose;
@@ -52,32 +58,14 @@
                 name = "hydra-node-alice";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                    --node-id 1 \
-                    --listen 127.0.0.1:5001 \
-                    --api-port 4001 \
-                    --monitoring-port 6001 \
-                    --hydra-signing-key "${config.hydra.demo.fixtures.parties.alice.hydra.sk}" \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.sk}" \
-                    --peer 127.0.0.1:5002 \
-                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
-                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                    --peer 127.0.0.1:5003 \
-                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
-                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                    --ledger-protocol-parameters devnet/protocol-parameters.json \
-                    --testnet-magic 42 \
-                    --node-socket devnet/node.socket \
-                    --persistence-dir devnet/persistence/alice \
-                    --contestation-period 3s \
-                    --deposit-period 300s
+                    --config demo/configs/alice.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-bob = {
@@ -86,32 +74,14 @@
                 name = "hydra-node-bob";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                  --node-id 2 \
-                  --listen 127.0.0.1:5002 \
-                  --api-port 4002 \
-                  --monitoring-port 6002 \
-                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.bob.hydra.sk}" \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.sk}" \
-                  --peer 127.0.0.1:5001 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5003 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
-                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --ledger-protocol-parameters devnet/protocol-parameters.json \
-                  --testnet-magic 42 \
-                  --node-socket devnet/node.socket \
-                  --persistence-dir devnet/persistence/bob \
-                  --contestation-period 3s \
-                  --deposit-period 300s
+                    --config demo/configs/bob.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-carol = {
@@ -120,32 +90,30 @@
                 name = "hydra-node-carol";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                  --node-id 3 \
-                  --listen 127.0.0.1:5003 \
-                  --api-port 4003 \
-                  --monitoring-port 6003 \
-                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.carol.hydra.sk}" \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.sk}" \
-                  --peer 127.0.0.1:5001 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5002 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --ledger-protocol-parameters devnet/protocol-parameters.json \
-                  --testnet-magic 42 \
-                  --node-socket devnet/node.socket \
-                  --persistence-dir devnet/persistence/carol \
-                  --contestation-period 3s \
-                  --deposit-period 300s
+                    --config demo/configs/carol.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
+              depends_on."seed-devnet".condition = "process_completed";
+            };
+            hydra-node-alice-mirror = {
+              log_location = "./devnet/alice-mirror-logs.txt";
+              command = pkgs.writeShellApplication {
+                name = "hydra-node-alice-mirror";
+                checkPhase = ""; # not shellcheck and choke on sourcing .env
+                text = ''
+                  set -a; [ -f .env ] && source .env; set +a
+                  ${self'.packages.hydra-node}/bin/hydra-node \
+                    --config demo/configs/alice-mirror.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
+                '';
+              };
+              working_dir = ".";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-tui-alice = {
@@ -157,11 +125,12 @@
                     --connect 0.0.0.0:4001 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.funds.sk}"
+                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.funds.sk}" \
+                    --fuel-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}"
                 '';
               };
               is_foreground = true;
-              depends_on."hydra-node-alice".condition = "process_started";
+              depends_on."hydra-node-alice".condition = "process_log_ready";
             };
             hydra-tui-bob = {
               working_dir = "./demo";
@@ -172,7 +141,8 @@
                   --connect 0.0.0.0:4002 \
                   --node-socket devnet/node.socket \
                   --testnet-magic 42 \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.funds.sk}"
+                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.funds.sk}" \
+                  --fuel-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}"
                 '';
               };
               is_foreground = true;
@@ -187,7 +157,8 @@
                     --connect 0.0.0.0:4003 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.funds.sk}"
+                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.funds.sk}" \
+                    --fuel-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}"
                 '';
               };
               is_foreground = true;
@@ -206,6 +177,7 @@
               };
               depends_on = {
                 "hydra-node-alice".condition = "process_started";
+                "hydra-node-alice-mirror".condition = "process_started";
                 "hydra-node-bob".condition = "process_started";
                 "hydra-node-carol".condition = "process_started";
               };

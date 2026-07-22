@@ -4,31 +4,25 @@ import Hydra.Prelude hiding (fromList)
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Control.Monad.Trans.Except (runExcept)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
-import Hydra.Cardano.Api (
-  GenesisParameters (..),
-  LedgerEra,
-  PParams,
-  ProtocolParametersConversionError,
-  ShelleyEra,
-  SystemStart (..),
-  Tx,
-  toShelleyNetwork,
- )
+import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
 import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
-import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameters))
+import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Cardano (withCardanoChain)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
 import Hydra.Events (EventSink)
-import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.Events.SQLiteBased (withSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
@@ -60,8 +54,8 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
 
 data ConfigurationException
@@ -81,6 +75,13 @@ instance Exception ConfigurationException where
 
 run :: RunOptions -> IO ()
 run opts = do
+  -- Force all KZG G1 points into memory before opening any sockets.
+  -- initTx (and snapshot signing) call getAccumulatorHash, which on first
+  -- access parses ~300KB of JSON and BLS-decompresses 4096 curve points.
+  -- Doing it here means the API server only starts after the warm-up, so
+  -- clients cannot connect and time out waiting for HeadIsOpen while the
+  -- node is still initialising the cryptographic setup.
+  void $ evaluate $ either (error . show) length KZG.g1BuiltinPoints
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
@@ -92,45 +93,44 @@ run opts = do
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
-        eventStore@EventStore{eventSource} <-
-          prepareEventStore
-            =<< mkFileBasedEventStore stateFile
-            =<< createPersistenceIncremental (contramap Persistence tracer) stateFile
-        -- NOTE: Add any custom sinks here
-        let eventSinks :: [EventSink (StateEvent Tx) IO] = []
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
-        traceWith tracer' NodeHydrated
-        -- Chain
-        withChain <- prepareChainComponent tracer env chainConfig
-        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
-          traceWith tracer' ChainBackendStarted
-          -- API
-          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
-          withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
-            -- Network
-            let networkConfiguration =
-                  NetworkConfiguration
-                    { persistenceDir
-                    , signingKey
-                    , otherParties
-                    , listen
-                    , advertise = fromMaybe listen advertise
-                    , peers
-                    , nodeId
-                    , whichEtcd
-                    }
-            withNetwork
-              (contramap Network tracer)
-              networkConfiguration
-              (wireNetworkInput wetHydraNode)
-              $ \network -> do
-                traceWith tracer' NetworkStarted
-                -- Main loop
-                node <-
-                  connect chain network server wetHydraNode
-                    <&> addEventSink apiSink
-                traceWith tracer' EnteringMainloop
-                runHydraNode node
+            dbFile = persistenceDir </> "hydra.db"
+        withSQLiteEventStore (contramap SQLite tracer') dbFile stateFile $ \store -> do
+          eventStore@EventStore{eventSource} <- prepareEventStore store
+          -- NOTE: Add any custom sinks here
+          let eventSinks :: [EventSink (StateEvent Tx) IO] = []
+          wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
+          traceWith tracer' NodeHydrated
+          -- Chain
+          withChain <- prepareChainComponent tracer env chainConfig
+          withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+            traceWith tracer' ChainBackendStarted
+            -- API
+            let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
+            withAPIServer apiServerConfig opts env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+              -- Network
+              let networkConfiguration =
+                    NetworkConfiguration
+                      { persistenceDir
+                      , signingKey
+                      , otherParties
+                      , listen
+                      , advertise = fromMaybe listen advertise
+                      , peers
+                      , nodeId
+                      , whichEtcd
+                      }
+              withNetwork
+                (contramap Network tracer)
+                networkConfiguration
+                (wireNetworkInput wetHydraNode)
+                $ \network -> do
+                  traceWith tracer' NetworkStarted
+                  -- Main loop
+                  node <-
+                    connect chain network server wetHydraNode
+                      <&> addEventSink apiSink
+                  traceWith tracer' EnteringMainloop
+                  runHydraNode node
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
@@ -182,13 +182,21 @@ run opts = do
 getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
+    -- Offline/devnet: single era, fixedEpochInfo is correct
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
   Cardano CardanoChainConfig{chainBackendOptions} ->
+    -- Online mode: query era history from the chain for correct
+    -- slot-to-time conversions in Plutus script evaluation.
     case chainBackendOptions of
-      Direct directOptions -> queryGenesisParameters (DirectBackend directOptions)
-      Blockfrost blockfrostOptions -> queryGenesisParameters (BlockfrostBackend blockfrostOptions)
-      >>= newGlobals
+      Direct directOptions -> runDirectBackend directOptions globalsFromBackend
+      Blockfrost blockfrostOptions -> runBlockfrostBackend blockfrostOptions globalsFromBackend
+ where
+  globalsFromBackend :: (ChainBackend m, MonadThrow m) => m Globals
+  globalsFromBackend = do
+    genesis <- queryGenesisParameters
+    eraHistory <- queryEraHistory QueryTip
+    newGlobalsWithEraHistory genesis eraHistory
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)
@@ -231,6 +239,46 @@ newGlobals genesisParameters = do
     , protocolParamEpochLength
     , protocolParamSlotLength
     } = genesisParameters
-  -- NOTE: uses fixed epoch info for our L2 ledger
+  -- NOTE: uses fixed epoch info for our L2 ledger (only correct for devnet/offline)
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
+
+-- | Create new L2 ledger 'Globals' using a proper 'EraHistory' for era-aware
+-- slot-to-time conversions. This ensures Plutus scripts receive correct
+-- POSIXTime values in their ScriptContext on multi-era chains (mainnet/testnet).
+--
+-- Throws at least 'GlobalsTranslationException'
+newGlobalsWithEraHistory :: MonadThrow m => GenesisParameters ShelleyEra -> EraHistory -> m Globals
+newGlobalsWithEraHistory genesisParameters (EraHistory interpreter) = do
+  case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
+    Nothing -> throwIO GlobalsTranslationException
+    Just slotCoeff -> do
+      let k = unNonZero protocolParamSecurity
+      pure $
+        Globals
+          { activeSlotCoeff = slotCoeff
+          , epochInfo = eraAwareEpochInfo
+          , maxKESEvo = fromIntegral protocolParamMaxKESEvolutions
+          , maxLovelaceSupply = fromIntegral protocolParamMaxLovelaceSupply
+          , networkId = toShelleyNetwork protocolParamNetworkId
+          , quorum = fromIntegral protocolParamUpdateQuorum
+          , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
+          , securityParameter = protocolParamSecurity
+          , slotsPerKESPeriod = fromIntegral protocolParamSlotsPerKESPeriod
+          , stabilityWindow = computeStabilityWindow k slotCoeff
+          , systemStart = SystemStart protocolParamSystemStart
+          }
+ where
+  GenesisParameters
+    { protocolParamSlotsPerKESPeriod
+    , protocolParamUpdateQuorum
+    , protocolParamMaxLovelaceSupply
+    , protocolParamSecurity
+    , protocolParamActiveSlotsCoefficient
+    , protocolParamSystemStart
+    , protocolParamNetworkId
+    , protocolParamMaxKESEvolutions
+    } = genesisParameters
+  eraAwareEpochInfo =
+    hoistEpochInfo (first show . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter

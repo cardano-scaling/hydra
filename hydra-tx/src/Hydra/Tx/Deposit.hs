@@ -8,18 +8,20 @@ import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..)
 import Control.Lens ((.~))
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
+import GHC.IsList qualified as IsList
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
-import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
 -- * Construction
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
 depositTx ::
+  HasCallStack =>
   NetworkId ->
   PParams LedgerEra ->
   HeadId ->
@@ -61,7 +63,10 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
 
                     completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
 
-                    leftoverValue = txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
+                    leftoverValue = capNegative . txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
+
+                    capNegative =
+                      fromList . map (second (max 0)) . IsList.toList
 
                     changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
                  in toLedgerTx partialTx
@@ -70,7 +75,7 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
    in fromLedgerTx $
         blueprint
           & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
-          & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
+          & addMetadata (mkHydraHeadV2TxName "DepositTx") blueprintTx
  where
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 
@@ -155,6 +160,12 @@ observeDepositTxOut network depositOut = do
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
     depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
+    -- TODO: This silently ignores deposits that deposit less ADA than what the
+    -- min ADA for the deposit output would be. For example: a 1 ADA utxo can be
+    -- deposited, but the deposit tx's output will require ~1.5 ADA because of
+    -- the inline datum on it. Dropping this or changing to a >= here will not
+    -- work because the increment redeemer of the head validator requires an
+    -- exact balance (right now).
     guard $ depositValue == UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)

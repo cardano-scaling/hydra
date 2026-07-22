@@ -31,6 +31,8 @@ spec = parallel $ do
     shouldParseWith parseOptions ["--cardano-signing-key", "foo.sk"] defaultOptions{cardanoSigningKey = "foo.sk"}
   it "parses --node-socket option" $ do
     shouldParseWith parseOptions ["--node-socket", "something.socket"] defaultOptions{cardanoConnection = Right "something.socket"}
+  it "parses --fuel-key option" $ do
+    shouldParseWith parseOptions ["--fuel-key", "fuel.vk"] defaultOptions{fuelVerificationKey = Just "fuel.vk"}
   it "parses --version option" $ do
     case execParserPure defaultPrefs (info parseOptions mempty) ["--version"] of
       Failure theFailure ->
@@ -46,6 +48,7 @@ defaultOptions =
     , cardanoNetworkId = Testnet $ NetworkMagic 42
     , cardanoConnection = Right "node.socket"
     , cardanoSigningKey = "me.sk"
+    , fuelVerificationKey = Nothing
     }
 
 shouldParseWith :: (Show a, Eq a) => Parser a -> [String] -> a -> Expectation

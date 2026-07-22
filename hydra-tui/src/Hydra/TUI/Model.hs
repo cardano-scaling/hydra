@@ -7,30 +7,62 @@ module Hydra.TUI.Model where
 
 import Hydra.Prelude hiding (Down, State)
 
+import Data.Time.LocalTime (TimeZone)
+
 import Hydra.Cardano.Api hiding (Active)
 
 import Brick.Forms (Form)
+import Brick.Widgets.List qualified as BrickList
 import Data.Map qualified as Map
-import Data.Set qualified as Set
+import Data.Vector qualified as Vec
+import Hydra.API.ServerOutput (FanoutProgressMode (..), fanoutProgressMode)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
 import Hydra.HeadLogic.State qualified as State
 import Hydra.Network (Host (..))
 import Hydra.Node.State (Deposit (..), NodeState (..))
-import Hydra.TUI.Logging.Types (LogState)
+import Hydra.TUI.Config (Theme (..))
+import Hydra.TUI.Logging.Types (EventHistoryFilter, LogMessage, LogState)
 import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.HeadParameters as HeadParameters
 import Hydra.Tx.Snapshot qualified as Snapshot
-import Lens.Micro ((^?))
+import Lens.Micro ((^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
+
+-- | TUI-local event wrapper so we can inject async results alongside Hydra node events.
+data TUIEvent tx
+  = NodeEvent (HydraEvent tx)
+  | UTxOQueryResult (Map TxIn (TxOut CtxUTxO))
+  | L1UTxORefresh (Map TxIn (TxOut CtxUTxO))
+  | FuelUTxORefresh (Map TxIn (TxOut CtxUTxO))
+  | TxBuildError Text
 
 data RootState = RootState
   { nodeHost :: Host
   , now :: UTCTime
+  , timeZone :: TimeZone
   , connectedState :: ConnectedState
   , logState :: LogState
+  , activeTab :: ActiveTab
+  , eventDetailRaw :: Bool
+  , eventHistoryList :: BrickList.List Name LogMessage
+  , pendingAction :: Maybe Text
+  , l1UTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
+  , fuelVk :: Maybe (VerificationKey PaymentKey)
+  -- ^ Verification key of the node's internal wallet, if a fuel key was
+  -- configured. Used to derive the fuel address and highlight its outputs.
+  , fuelUTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
+  -- ^ Last queried UTxO at the fuel address. Display-only; never committed.
+  , previousTab :: ActiveTab
+  , theme :: Theme
+  , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+  , fanoutSelectionForm :: Maybe (UTxOCheckboxForm (HydraEvent Tx) Name)
+  -- ^ When set, the operator is multi-selecting which UTxOs to fan out for a
+  -- selective 'PartialFanout' (a top-level modal flow, like 'recoveryForm').
+  -- Available regardless of head state once fanout is possible.
+  , eventHistoryFilter :: EventHistoryFilter
   }
 
 -- | Connection to the hydra node.
@@ -62,35 +94,26 @@ type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 
-type TxIdRadioFieldForm e n = Form (TxId, TxIn, TxOut CtxUTxO) e n
+type TxIdRadioFieldForm e n = Form TxId e n
 
 type ConfirmingRadioFieldForm e n = Form Bool e n
 
-data InitializingState = InitializingState
-  { remainingParties :: [Party]
-  , initializingScreen :: InitializingScreen
-  }
-
-data InitializingScreen
-  = InitializingHome
-  | CommitMenu {commitMenu :: UTxOCheckboxForm (HydraEvent Tx) Name}
-  | ConfirmingAbort {confirmingAbortForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
-
 data OpenScreen
   = OpenHome
+  | LoadingUTxOForIncrement
+  | NoUTxOToIncrement
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
-  | SelectingDepositIdToRecover {selectingDepositIdToRecoverForm :: TxIdRadioFieldForm (HydraEvent Tx) Name}
-  | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
+  | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Double (HydraEvent Tx) Name}
   | SelectingRecipient
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
-      , amountEntered :: Integer
+      , amountEntered :: Double
       , selectingRecipientForm :: Form SelectAddressItem (HydraEvent Tx) Name
       }
   | EnteringRecipientAddress
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
-      , amountEntered :: Integer
+      , amountEntered :: Double
       , enteringRecipientAddressForm :: Form AddressInEra (HydraEvent Tx) Name
       }
   | ConfirmingClose {confirmingCloseForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
@@ -98,7 +121,7 @@ data OpenScreen
 data SelectAddressItem
   = ManualEntry
   | SelectAddress AddressInEra
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Pretty SelectAddressItem where
   pretty = \case
@@ -114,7 +137,7 @@ data HeadState
 data PendingIncrementStatus
   = PendingDeposit
   | FinalizingDeposit
-  deriving (Show)
+  deriving stock (Show)
 
 data PendingIncrement
   = PendingIncrement
@@ -134,19 +157,26 @@ data ActiveLink = ActiveLink
   }
 
 data ActiveHeadState
-  = Initializing {initializingState :: InitializingState}
-  | Open {openState :: OpenScreen}
+  = Open {openState :: OpenScreen}
   | Closed {closedState :: ClosedState}
   | FanoutPossible
+  | -- | A selective partial fanout is in progress (on-chain @FanoutProgress@):
+    -- some UTxO has been distributed and 'fanoutRemaining' is still in the head.
+    -- Only further partial fanouts are accepted (no full 'Fanout'). 'fanoutMode'
+    -- (reported by the node) says whether it keeps draining on its own or awaits
+    -- the next selection, driving what the UI offers.
+    FanningOut {fanoutRemaining :: UTxO, fanoutMode :: FanoutProgressMode}
   | Final
 
 type Name = Text
+
+data ActiveTab = MainTab | FundsTab | EventHistoryTab | ModalTab
+  deriving stock (Eq)
 
 makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
   , ("selectingUTxOToIncrementForm", "selectingUTxOToIncrementFormL")
-  , ("selectingDepositIdToRecoverForm", "selectingDepositIdToRecoverFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
   , ("enteringRecipientAddressForm", "enteringRecipientAddressFormL")
@@ -165,7 +195,20 @@ makeLensesFor
   [ ("connectedState", "connectedStateL")
   , ("nodeHost", "nodeHostL")
   , ("now", "nowL")
+  , ("timeZone", "timeZoneL")
   , ("logState", "logStateL")
+  , ("activeTab", "activeTabL")
+  , ("eventDetailRaw", "eventDetailRawL")
+  , ("eventHistoryList", "eventHistoryListL")
+  , ("pendingAction", "pendingActionL")
+  , ("l1UTxO", "l1UTxOL")
+  , ("fuelVk", "fuelVkL")
+  , ("fuelUTxO", "fuelUTxOL")
+  , ("previousTab", "previousTabL")
+  , ("theme", "themeL")
+  , ("recoveryForm", "recoveryFormL")
+  , ("fanoutSelectionForm", "fanoutSelectionFormL")
+  , ("eventHistoryFilter", "eventHistoryFilterL")
   ]
   ''RootState
 
@@ -174,26 +217,13 @@ makeLensesFor
   ''ConnectedState
 
 makeLensesFor
-  [ ("commitMenu", "commitMenuL")
-  , ("confirmingAbortForm", "confirmingAbortFormL")
-  ]
-  ''InitializingScreen
-
-makeLensesFor
-  [ ("transitionNote", "transitionNoteL")
-  , ("me", "meL")
+  [ ("me", "meL")
   , ("peers", "peersL")
   , ("networkState", "networkStateL")
   , ("chainSyncedStatus", "chainSyncedStatusL")
   , ("headState", "headStateL")
   ]
   ''Connection
-
-makeLensesFor
-  [ ("remainingParties", "remainingPartiesL")
-  , ("initializingScreen", "initializingScreenL")
-  ]
-  ''InitializingState
 
 makeLensesFor
   [ ("activeLink", "activeLinkL")
@@ -210,11 +240,26 @@ makeLensesFor
   ]
   ''ActiveLink
 
-fullFeedbackViewportName :: Name
-fullFeedbackViewportName = "full-feedback-view-port"
+eventHistoryListName :: Name
+eventHistoryListName = "event-history-list"
 
-shortFeedbackViewportName :: Name
-shortFeedbackViewportName = "short-feedback-view-port"
+mainUTxOViewportName :: Name
+mainUTxOViewportName = "main-utxo"
+
+fundsL2ViewportName :: Name
+fundsL2ViewportName = "funds-l2"
+
+fundsL1ViewportName :: Name
+fundsL1ViewportName = "funds-l1"
+
+fundsFuelViewportName :: Name
+fundsFuelViewportName = "funds-fuel"
+
+fanoutSelectionViewportName :: Name
+fanoutSelectionViewportName = "fanout-selection"
+
+emptyEventHistoryList :: BrickList.List Name LogMessage
+emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1
 
 emptyConnection :: Connection
 emptyConnection =
@@ -230,14 +275,7 @@ newActiveLink :: [Party] -> HeadId -> ActiveLink
 newActiveLink parties headId =
   ActiveLink
     { parties
-    , activeHeadState =
-        Initializing
-          { initializingState =
-              InitializingState
-                { remainingParties = parties
-                , initializingScreen = InitializingHome
-                }
-          }
+    , activeHeadState = Open{openState = OpenHome}
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
     , pendingIncrements = mempty
@@ -246,45 +284,23 @@ newActiveLink parties headId =
 
 isModalOpen :: RootState -> Bool
 isModalOpen s =
-  case s
-    ^? connectedStateL
-      . connectionL
-      . headStateL
-      . activeLinkL
-      . activeHeadStateL
-      . openStateL of
-    Nothing -> False
-    Just OpenHome -> False
-    Just _ -> True
+  s ^. activeTabL == ModalTab
+    || case s
+      ^? connectedStateL
+        . connectionL
+        . headStateL
+        . activeLinkL
+        . activeHeadStateL
+        . openStateL of
+      Nothing -> False
+      Just OpenHome -> False
+      Just LoadingUTxOForIncrement -> False -- handled by ModalTab check above
+      Just _ -> True
 
 recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
 recoverHeadState now current nodeState =
   case nodeState.headState of
     State.Idle State.IdleState{} -> current
-    State.Initial
-      State.InitialState
-        { parameters
-        , committed
-        , headId
-        , pendingCommits
-        } ->
-        Active
-          ActiveLink
-            { utxo = fold committed
-            , pendingUTxOToDecommit = mempty
-            , pendingIncrements
-            , parties = HeadParameters.parties parameters
-            , headId
-            , activeHeadState =
-                Initializing
-                  InitializingState
-                    { remainingParties =
-                        filter
-                          (`Set.member` pendingCommits)
-                          (HeadParameters.parties parameters)
-                    , initializingScreen = InitializingHome
-                    }
-            }
     State.Open
       State.OpenState
         { parameters
@@ -321,6 +337,24 @@ recoverHeadState now current nodeState =
                     if readyToFanoutSent
                       then FanoutPossible
                       else Closed{closedState = ClosedState{contestationDeadline}}
+                }
+    State.FanoutProgress
+      State.PartialFanoutState
+        { parameters
+        , headId
+        , confirmedSnapshot
+        , remainingOutputs
+        , mode
+        } ->
+        let Snapshot{utxoToDecommit} = Snapshot.getSnapshot confirmedSnapshot
+         in Active
+              ActiveLink
+                { utxo = remainingOutputs
+                , pendingUTxOToDecommit = fromMaybe mempty utxoToDecommit
+                , pendingIncrements
+                , parties = HeadParameters.parties parameters
+                , headId
+                , activeHeadState = FanningOut{fanoutRemaining = remainingOutputs, fanoutMode = fanoutProgressMode mode}
                 }
  where
   pendingIncrements =

@@ -15,8 +15,9 @@ module Test.Hydra.Prelude (
   checkProcessHasNotDied,
   exceptionContaining,
   withClearedPATH,
+  onlyLocal,
   onlyNightly,
-  requiresBlockfrost,
+  nightlyRuns,
   Gen,
   Arbitrary (..),
   genericArbitrary,
@@ -24,8 +25,8 @@ module Test.Hydra.Prelude (
   generateWith,
   shrinkListAggressively,
   MinimumSized (..),
-  HydraBackend (..),
-  getHydraBackend,
+  HydraTestnet (..),
+  getHydraNetwork,
 ) where
 
 import Hydra.Prelude
@@ -66,12 +67,16 @@ createTempDir template = liftIO $ do
   createTempDirectory tmpDir template
 
 -- | Create a temporary directory for the given 'action' to use. The directory
--- is removed if and only if the action completes successfully.
+-- is removed if and only if the action completes successfully, unless the
+-- @NO_CLEANUP@ environment variable is set, in which case it is always kept
+-- and its path printed (handy for inspecting a node's @hydra.db@ afterwards).
 withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
 withTempDir baseName action = do
   tmpDir <- createTempDir baseName
   res <- action tmpDir
-  liftIO $ cleanup 0 tmpDir
+  lookupEnv "NO_CLEANUP" >>= \case
+    Just _ -> putStrLn ("NO_CLEANUP set, leaving temp dir: " <> tmpDir)
+    Nothing -> liftIO (cleanup 0 tmpDir)
   pure res
  where
   -- NOTE: Somehow, since 1.35.0, cleaning-up cardano-node database directory
@@ -239,31 +244,36 @@ onlyNightly action = do
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
 
--- | Only run this task when the HYDRA_BACKEND environment variable is set (to
--- anything).
---
--- If you're using this, you want to tag the test with `@requiresBlockfrost` as well;
--- like:
---
---  spec = around_ requiresBlockfrost $ describe "... @requiresBlockfrost" $ do
---    ...
-requiresBlockfrost :: IO () -> IO ()
-requiresBlockfrost action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> pendingWith "Only runs requiresBlockfrost"
-    BlockfrostBackendType -> action
+-- | QuickCheck example count for 'onlyNightly' properties, larger than the
+-- default 100 so nightly fuzzes deeper.
+nightlyRuns :: Int
+nightlyRuns = 1_000
 
-data HydraBackend
-  = DirectBackendType
-  | BlockfrostBackendType
+-- | Only run this test locally, i.e. when no CI environment variable is set.
+-- Useful for long-running stress tests that would kill CI runners.
+onlyLocal :: IO () -> IO ()
+onlyLocal action = do
+  lookupEnv "CI" >>= \case
+    Nothing -> action
+    Just _ -> pendingWith "Only runs locally (skipped on CI)"
 
-getHydraBackend :: IO HydraBackend
-getHydraBackend = do
+data HydraTestnet
+  = LocalDevnet
+  | Preview
+  | Preproduction
+  | Mainnet
+  | Blockfrost
+
+getHydraNetwork :: IO HydraTestnet
+getHydraNetwork = do
   backend <- lookupEnv "HYDRA_BACKEND"
   pure $ case backend of
-    Nothing -> DirectBackendType
-    Just "direct" -> DirectBackendType
-    Just "blockfrost" -> BlockfrostBackendType
+    Nothing -> LocalDevnet
+    Just "devnet" -> LocalDevnet
+    Just "preview" -> Preview
+    Just "preproduction" -> Preproduction
+    Just "mainnet" -> Mainnet
+    Just "blockfrost" -> Blockfrost
     Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'

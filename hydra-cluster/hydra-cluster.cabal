@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            1.2.0
+version:            2.3.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -78,6 +78,7 @@ library
     Hydra.Cluster.Mithril
     Hydra.Cluster.Options
     Hydra.Cluster.Scenarios
+    Hydra.Cluster.SecurityScenarios
     Hydra.Cluster.Util
     Hydra.Generator
     HydraNode
@@ -101,6 +102,7 @@ library
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx
@@ -109,6 +111,7 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
+    , plutus-ledger-api
     , process
     , QuickCheck
     , req
@@ -146,7 +149,6 @@ test-suite tests
   type:               exitcode-stdio-1.0
   other-modules:
     Paths_hydra_cluster
-    Spec
     Test.BlockfrostChainSpec
     Test.CardanoClientSpec
     Test.CardanoNodeSpec
@@ -167,11 +169,9 @@ test-suite tests
     , base                >=4.7 && <5
     , bytestring
     , cardano-api
-    , cardano-ledger-api
     , containers
     , directory
     , filepath
-    , hspec
     , hspec-golden-aeson
     , http-conduit
     , hydra-cardano-api
@@ -189,11 +189,11 @@ test-suite tests
     , QuickCheck
     , split
     , stm
+    , tasty
     , text
     , time
 
   build-tool-depends:
-    , hspec-discover:hspec-discover
     , hydra-chain-observer:hydra-chain-observer
     , hydra-node:hydra-node
 
@@ -233,6 +233,7 @@ benchmark bench-e2e
     , statistics
     , text
     , time
+    , typed-process
     , vector
 
   build-tool-depends: hydra-node:hydra-node

@@ -30,7 +30,6 @@ import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
-  draftCommitTx,
   draftDepositTx,
   postTx,
   submitTx,
@@ -42,6 +41,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
+import Hydra.Options (defaultRunOptions)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
@@ -112,7 +112,7 @@ spec =
                 let expectedMessage =
                       toJSON $
                         fromMaybe (error "failed to convert stateEvent") $
-                          mkTimedServerOutputFromStateEvent arbitraryEvent
+                          mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
                 putEvent arbitraryEvent
                 failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
@@ -123,7 +123,7 @@ spec =
         let expectedMessage =
               toJSON $
                 fromMaybe (error "failed to convert stateEvent") $
-                  mkTimedServerOutputFromStateEvent stateEvent
+                  mkTimedServerOutputFromStateEvent Nothing stateEvent
         let eventSource = mockSource [stateEvent]
 
         queue1 <- newLabelledTQueueIO "queue1"
@@ -148,7 +148,7 @@ spec =
 
     it "echoes history (past outputs) to client upon reconnection" $
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
-        let expectedMessages = map toJSON $ mapMaybe mkTimedServerOutputFromStateEvent events
+        let expectedMessages = map toJSON $ mapMaybe (mkTimedServerOutputFromStateEvent Nothing) events
         checkCoverage . monadicIO $ do
           monitor $ cover 0.1 (null events) "no message when reconnecting"
           monitor $ cover 0.1 (length events == 1) "only one message when reconnecting"
@@ -179,8 +179,13 @@ spec =
                 mapM_ putEvent history
                 -- start client that doesn't want to see the history
                 withClient port "/?history=yes" $ \conn -> do
-                  -- wait on the greeting message
-                  waitMatch 5 conn $ guard . matchGreetings
+                  -- Wait on the greeting message. The longer-than-typical
+                  -- budget here is because this is a property test running
+                  -- ~100 iterations; each iteration spins up a full WS
+                  -- server, and the per-iteration 5s default was racing
+                  -- with CPU contention when the full hydra-node test
+                  -- suite runs in parallel.
+                  waitMatch 20 conn $ guard . matchGreetings
 
                   notHistoryMessage :: StateEvent SimpleTx <- generate genStateEventForApi
                   putEvent notHistoryMessage
@@ -193,7 +198,7 @@ spec =
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
-                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent notHistoryMessage]
+                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent Nothing notHistoryMessage]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
@@ -205,7 +210,7 @@ spec =
                 genStateEvent $
                   Outcome.SnapshotConfirmed
                     { headId = testHeadId
-                    , snapshot
+                    , snapshot = Just snapshot
                     , signatures = mempty
                     }
 
@@ -219,7 +224,11 @@ spec =
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
         monadicIO $ do
           run $
-            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+            -- NOTE: 20s, matching the similar property test above, so the
+            -- timeout doesn't fire just because the full tasty suite is
+            -- running many of these in parallel and starving each server's
+            -- WS read of CPU.
+            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $
               withFreePort $ \port ->
                 withTestAPIServer port alice (mockSource events) tracer $ \_ -> do
                   withClient port "/?history=yes" $ \conn -> do
@@ -231,56 +240,46 @@ spec =
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
+          -- Use a single headId throughout so the headId validation in
+          -- 'aggregateNodeState' does not drop events from a mismatched head.
+          headId <- generate arbitrary
+
           -- Prime some relevant server outputs already into event source to
           -- check whether the latest headStatus is loaded correctly.
           existingStateChanges <-
             generate $
               mapM
                 (>>= genStateEvent)
-                [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                , Outcome.HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
-                , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+                [ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
                 ]
           let eventSource = mockSource existingStateChanges
 
           withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
             let generateSnapshot =
-                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+                  (Outcome.SnapshotConfirmed headId . Just <$> arbitrary) <*> arbitrary
 
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Idle")
-              -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
-              guard $ isNothing (v ^? key "snapshotUtxo")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
+              guard $ v ^? key "snapshotUtxo" == Just (Aeson.Array mempty)
 
-            (headId, headInitializedMsg) <- generate $ do
-              headId <- arbitrary
-              output <-
-                genStateEvent
-                  =<< ( Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
-                      )
-              pure (headId, output)
-
-            headIsOpenMsg <- generate $ do
-              genStateEvent
-                =<< ( Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
-                    )
-            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
+            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
-            mapM_ putEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
+            putEvent snapShotConfirmedMsg
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
 
             snapShotConfirmedMsg'@StateEvent
               { stateChanged =
-                Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
+                Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
               } <-
               generate $ genStateEvent =<< generateSnapshot
-            headClosedMsg <- generate $ do
-              genStateEvent
-                =<< ( Outcome.HeadClosed headId <$> arbitrary <*> arbitrary <*> arbitrary
-                    )
+            headClosedMsg <-
+              generate $
+                genStateEvent
+                  =<< ( Outcome.HeadClosed headId <$> arbitrary <*> arbitrary <*> arbitrary
+                      )
             readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
             mapM_ putEvent [snapShotConfirmedMsg', headClosedMsg, readyToFanoutMsg]
@@ -291,16 +290,12 @@ spec =
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
-          (headId, headInitializedMsg) <- generate $ do
-            headId <- arbitrary
-            output <- Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
-            pure (headId, output)
-          headIsOpenMsg <- generate $ Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
+          headIsOpenMsg@Outcome.HeadOpened{headId = openedHeadId} <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-          let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <- generateSnapshot
+          let generateSnapshot = generate $ (Outcome.SnapshotConfirmed openedHeadId . Just <$> arbitrary) <*> arbitrary
+          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}} <- generateSnapshot
 
-          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
+          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headIsOpenMsg, snapShotConfirmedMsg]
           let eventSource = mockSource stateEvents
 
           let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
@@ -332,7 +327,7 @@ spec =
                     , apiTransactionTimeout = 1000000
                     }
                 initialChainState = 0
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config defaultRunOptions testEnvironment alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -380,7 +375,6 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
-    , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
     , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
@@ -403,7 +397,7 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer =
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
+  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
@@ -477,4 +471,4 @@ shouldSatisfyAll = go
 
 genStateEventForApi :: Gen (StateEvent SimpleTx)
 genStateEventForApi =
-  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent)
+  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent Nothing)

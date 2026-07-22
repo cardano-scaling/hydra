@@ -1,11 +1,14 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module HydraNode where
+module HydraNode (
+  module HydraNode,
+  HydraNodeLog (..),
+) where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (getVerificationKey)
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
+import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -14,22 +17,23 @@ import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key)
+import Data.Aeson.Lens (atKey, key, _String)
 import Data.Aeson.Types (Pair)
 import Data.ByteString (hGetContents)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (readConfigFile)
-import Hydra.HeadLogic.State (SeenSnapshot)
+import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
-import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
+import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
+import Hydra.Network.Etcd (peerPortToClientPort)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.Secret (Secret, withSecret)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
@@ -37,19 +41,23 @@ import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJS
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
+import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
 import System.Process.Typed (
   ExitCode (..),
   createPipe,
   getStderr,
   proc,
+  setCloseFds,
   setStderr,
   setStdout,
   useHandleOpen,
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude qualified as Prelude
+import Test.Network.Ports (randomUnusedTCPPorts, randomUnusedTCPPortsWithDerived)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -57,6 +65,8 @@ import Prelude qualified
 data HydraClient = HydraClient
   { hydraNodeId :: Int
   , apiHost :: Host
+  , monitoringPort :: Maybe Network.PortNumber
+  -- ^ Port the hydra-node exposes Prometheus metrics on, if enabled.
   , connection :: Connection
   , tracer :: Tracer IO HydraNodeLog
   }
@@ -90,8 +100,8 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  getHydraBackend >>= \case
-    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+  Prelude.getHydraNetwork >>= \case
+    Prelude.Blockfrost -> pure $ d * fromIntegral defaultBFQueryTimeout
     _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
@@ -246,33 +256,23 @@ getSnapshotConfirmed HydraClient{apiHost = Host{hostname, port}} =
       (Proxy :: Proxy (JsonResponse (ConfirmedSnapshot Tx)))
       (Req.port (fromInteger . toInteger $ port))
 
--- | Get the latest seen snapshot from the hydra-node.
-getSnapshotLastSeen :: HydraClient -> IO (SeenSnapshot Tx)
-getSnapshotLastSeen HydraClient{apiHost = Host{hostname, port}} =
-  runReq defaultHttpConfig request <&> responseBody
- where
-  request =
-    Req.req
-      GET
-      (Req.http hostname /: "snapshot" /: "last-seen")
-      NoReqBody
-      (Proxy :: Proxy (JsonResponse (SeenSnapshot Tx)))
-      (Req.port (fromInteger . toInteger $ port))
-
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
-getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
-  failAfter 3 $
-    try (runReq defaultHttpConfig request) >>= \case
+getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}, monitoringPort} = do
+  metricsPort <- case monitoringPort of
+    Just p -> pure p
+    Nothing -> failure $ "Cannot fetch metrics: hydra-node " <> show hydraNodeId <> " has no monitoringPort configured."
+  Prelude.failAfter 3 $
+    try (runReq defaultHttpConfig (request metricsPort)) >>= \case
       Left (e :: HttpException) -> failure $ "Request for hydra-node metrics failed: " <> show e
       Right body -> pure $ Req.responseBody body
  where
-  request =
+  request metricsPort =
     Req.req
       GET
       (Req.http hostname /: "metrics")
       NoReqBody
       Req.bsResponse
-      (Req.port $ 6_000 + hydraNodeId)
+      (Req.port (fromIntegral metricsPort))
 
 -- * Start / connect to a cluster of nodes
 
@@ -281,21 +281,40 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
 withHydraCluster ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
+  Timing ->
   FilePath ->
   SocketPath ->
   -- | First node id
   -- This sets the starting point for assigning ports
   Int ->
   -- | NOTE: This decides on the size of the cluster!
-  [(VerificationKey PaymentKey, SigningKey PaymentKey)] ->
-  [SigningKey HydraKey] ->
+  [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] ->
+  [Secret (SigningKey HydraKey)] ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
-  ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster = withHydraClusterWith Nothing id
+
+-- | Like 'withHydraCluster' but connecting each node's API client with the
+-- given query string (e.g. "/?history=yes&snapshot-utxo=no") instead of the
+-- default "/?history=yes", and adjusting each node's 'RunOptions' (e.g. to
+-- disable logging) before it is started.
+withHydraClusterWith ::
+  HasCallStack =>
+  Maybe String ->
+  (RunOptions -> RunOptions) ->
+  Tracer IO HydraNodeLog ->
+  Timing ->
+  FilePath ->
+  SocketPath ->
+  Int ->
+  [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] ->
+  [Secret (SigningKey HydraKey)] ->
+  [TxId] ->
+  (NonEmpty HydraClient -> IO a) ->
+  IO a
+withHydraClusterWith mQueryParams mapOptions tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -305,17 +324,20 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
     let vkFile = File $ workDir </> show ix <.> "vk"
     let skFile = File $ workDir </> show ix <.> "sk"
     void $ writeFileTextEnvelope vkFile Nothing vk
-    void $ writeFileTextEnvelope skFile Nothing sk
-  startNodes [] allNodeIds
+    void $ withSecret sk (writeFileTextEnvelope skFile Nothing)
+  nodePorts <- allocateHydraNodePortsFor allNodeIds
+  startNodes nodePorts [] allNodeIds
  where
   clusterSize = length allKeys
+
   allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
 
-  startNodes clients = \case
+  startNodes nodePorts clients = \case
     [] -> action (fromList $ reverse clients)
     (nodeId : rest) -> do
       let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
-          hydraVerificationKeys = map getVerificationKey $ filter (/= hydraSigningKey) hydraKeys
+          hydraVerificationKeys =
+            [getVerificationKey sk | sk <- hydraKeys, sk /= hydraSigningKey]
           cardanoSigningKey = workDir </> show nodeId <.> "sk"
           cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
@@ -325,13 +347,16 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
+                , depositPeriod
                 , chainBackendOptions =
                     Direct
                       defaultDirectOptions
                         { nodeSocket = nodeSocket
                         }
                 }
-      withHydraNode
+      withHydraNodeWith
+        mQueryParams
+        mapOptions
         tracer
         blockTime
         chainConfig
@@ -339,10 +364,104 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
         nodeId
         hydraSigningKey
         hydraVerificationKeys
-        allNodeIds
-        (\c -> startNodes (c : clients) rest)
+        nodePorts
+        (\c -> startNodes nodePorts (c : clients) rest)
+
+  Timing{blockTime, contestationPeriod, depositPeriod} = timing
 
 -- * Start / connect to a hydra-node
+
+-- | The three ports a hydra-node binds: API, peer-to-peer listen, and the
+-- optional Prometheus monitoring endpoint. Callers allocate these via
+-- 'allocateHydraNodePorts' (or pre-allocate a full cluster) and thread them
+-- through 'prepareHydraNode' / 'withHydraNode'.
+data HydraNodePorts = HydraNodePorts
+  { apiPort :: Network.PortNumber
+  , listenPort :: Network.PortNumber
+  , monitoringPort :: Network.PortNumber
+  }
+  deriving stock (Show, Eq)
+
+-- | Allocate three unused TCP ports from the OS for a single hydra-node.
+allocateHydraNodePorts :: IO HydraNodePorts
+allocateHydraNodePorts = do
+  m <- allocateHydraNodePortsFor [0]
+  case Map.lookup 0 m of
+    Just ports -> pure ports
+    Nothing -> Prelude.error "allocateHydraNodePorts: empty allocation"
+
+-- | Allocate ports for every node in a cluster up front. The returned map
+-- must be passed to every 'prepareHydraNode' / 'withHydraNode' call for
+-- nodes in this cluster so peers can be addressed correctly.
+--
+-- Listen ports are taken via 'randomUnusedTCPPortsWithDerived' so each
+-- listen port's derived etcd /client/ port — 'peerPortToClientPort' — is
+-- actually held bound at allocation time. That defends against two
+-- failure modes: an unrelated process on the host occupying the derived
+-- port (which a plain 'randomUnusedTCPPorts' would not catch and which
+-- explodes as @EADDRINUSE@ the moment etcd starts), and an unlucky draw
+-- where the derived port lands on top of another node's api/monitoring
+-- port (which used to make the GRPC client talk to Warp instead of
+-- etcd).
+--
+-- Api and monitoring ports are then acquired in a second batch and
+-- checked to be disjoint from both the listen ports and the derived
+-- client ports; on collision we retry that second batch.
+allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
+allocateHydraNodePortsFor nodeIds = do
+  listenPorts <- randomUnusedTCPPortsWithDerived peerPortToClientPort n
+  let derivedClientPorts =
+        [ fromIntegral (peerPortToClientPort (fromIntegral p))
+        | p <- listenPorts
+        ]
+      reserved = listenPorts <> derivedClientPorts
+  apiAndMonPorts <- acquireDisjoint reserved (20 :: Int)
+  let apiPorts = take n apiAndMonPorts
+      monPorts = drop n apiAndMonPorts
+      assigned = Prelude.zipWith3 mkPorts apiPorts listenPorts monPorts
+  pure $ Map.fromList $ zip nodeIds assigned
+ where
+  n = length nodeIds
+
+  acquireDisjoint :: [Int] -> Int -> IO [Int]
+  acquireDisjoint _ 0 =
+    fail
+      "allocateHydraNodePortsFor: ran out of retries trying to keep the api/monitoring ports disjoint from the derived etcd client ports"
+  acquireDisjoint reserved remaining = do
+    ps <- randomUnusedTCPPorts (2 * n)
+    if null (ps `List.intersect` reserved)
+      then pure ps
+      else acquireDisjoint reserved (remaining - 1)
+
+  mkPorts :: Int -> Int -> Int -> HydraNodePorts
+  mkPorts a l m =
+    HydraNodePorts
+      { apiPort = fromIntegral a
+      , listenPort = fromIntegral l
+      , monitoringPort = fromIntegral m
+      }
+
+-- | Process-global cache mapping each @(workDir, nodeId)@ to its allocated
+-- ports. The cache exists because restart-style tests (re-running
+-- 'withSoloHydraNode' or similar against the same @workDir@) depend on
+-- etcd's persistent cluster state, which is keyed by the listen URL. If a
+-- restart picked fresh ports, etcd would refuse to start.
+{-# NOINLINE soloHydraNodePortsCache #-}
+soloHydraNodePortsCache :: IORef (Map (FilePath, Int) HydraNodePorts)
+soloHydraNodePortsCache = unsafePerformIO (newIORef mempty)
+
+-- | Allocate ports for a single hydra-node, memoizing the result for the
+-- given @(workDir, nodeId)@ so that subsequent calls reuse the same ports.
+soloHydraNodePortsFor :: FilePath -> Int -> IO HydraNodePorts
+soloHydraNodePortsFor workDir nodeId = do
+  cache <- readIORef soloHydraNodePortsCache
+  case Map.lookup (workDir, nodeId) cache of
+    Just ports -> pure ports
+    Nothing -> do
+      ports <- allocateHydraNodePorts
+      atomicModifyIORef' soloHydraNodePortsCache $ \m ->
+        (Map.insert (workDir, nodeId) ports m, ())
+      pure ports
 
 -- | Prepare protocol-parameters to run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
@@ -379,24 +498,34 @@ preparePParams chainConfig stateDir paramsDecorator = do
 
 -- | Prepare 'RunOptions' to run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
+--
+-- The @nodePorts@ map must contain an entry for this @hydraNodeId@ and for
+-- every peer this node should connect to. Use 'allocateHydraNodePortsFor' to
+-- build it for a cluster, or 'allocateHydraNodePorts' + a singleton map for a
+-- standalone node.
 prepareHydraNode ::
   HasCallStack =>
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
-  [Int] ->
+  Map Int HydraNodePorts ->
   (Aeson.Value -> Aeson.Value) ->
   IO RunOptions
-prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds paramsDecorator = do
+prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts paramsDecorator = do
+  HydraNodePorts{apiPort, listenPort, monitoringPort} <-
+    maybe
+      (failure $ "prepareHydraNode: no port allocation for node " <> show hydraNodeId)
+      pure
+      (Map.lookup hydraNodeId nodePorts)
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
-  when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
+  when (os == "darwin") $ listenPort `Prelude.shouldNotBe` (5_000 :: Network.PortNumber)
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
   let hydraSigningKey = stateDir </> "me.sk"
-  void $ writeFileTextEnvelope (File hydraSigningKey) Nothing hydraSKey
+  void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
     let filepath = stateDir </> ("other-" <> show i <> ".vk")
     filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey
@@ -404,20 +533,24 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
     RunOptions
       { verbosity = Verbose "HydraNode"
       , nodeId = NodeId $ show hydraNodeId
-      , listen = Host "0.0.0.0" (fromIntegral $ 5_000 + hydraNodeId)
+      , listen = Host "0.0.0.0" listenPort
       , advertise = Nothing
-      , peers
+      , peers = peersFromMap
       , apiHost = "0.0.0.0"
-      , apiPort = fromIntegral $ 4_000 + hydraNodeId
+      , apiPort
       , tlsCertPath = Nothing
       , tlsKeyPath = Nothing
-      , monitoringPort = Just $ fromIntegral $ 6_000 + hydraNodeId
+      , monitoringPort = Just monitoringPort
       , hydraSigningKey
       , hydraVerificationKeys
       , persistenceDir = stateDir
       , persistenceRotateAfter = Nothing
       , chainConfig
-      , whichEtcd = EmbeddedEtcd
+      , -- NOTE: Use the system etcd to avoid ETXTBSY races where multiple
+        -- parallel tests extract the embedded etcd binary into their own
+        -- tempdirs and execve while another thread still holds the
+        -- write-fd. The dev-shell and CI both provide etcd in $PATH.
+        whichEtcd = SystemEtcd
       , ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile
@@ -425,35 +558,12 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
       , apiTransactionTimeout = 100000
       }
  where
-  port = fromIntegral $ 5_000 + hydraNodeId
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1
-  peers =
-    [ Host
-      { Network.hostname = "0.0.0.0"
-      , Network.port = fromIntegral $ 5_000 + i
-      }
-    | i <- allNodeIds
+  peersFromMap =
+    [ Host{Network.hostname = "0.0.0.0", Network.port = listenPort p}
+    | (i, p) <- Map.toList nodePorts
     , i /= hydraNodeId
     ]
-
--- | Run a hydra-node with given 'RunOptions' and in sync with chain backend.
-withPreparedHydraNodeInSync ::
-  HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
-  FilePath ->
-  Int ->
-  RunOptions ->
-  (HydraClient -> IO a) ->
-  IO a
-withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
-  let waitTime = blockTime * waitFactor
-  withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
- where
-  waitFactor = 5
-  action' waitTime client = do
-    waitForNodesSynced waitTime $ client :| []
-    action client
 
 -- | Run a hydra-node with given 'RunOptions'.
 withPreparedHydraNode ::
@@ -464,12 +574,26 @@ withPreparedHydraNode ::
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
-  withLogFile logFilePath $ \logFileHandle -> do
+withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing
+
+-- | Like 'withPreparedHydraNode' but connecting the API client with the given
+-- query string instead of the default "/?history=yes".
+withPreparedHydraNodeWithQuery ::
+  HasCallStack =>
+  Maybe String ->
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId runOptions action =
+  Prelude.withLogFile logFilePath $ \logFileHandle -> do
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
+            & setCloseFds True
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
@@ -477,9 +601,17 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       raceLabelled
         ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNode tracer hydraNodeId action)
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") action)
         <&> either absurd id
  where
+  apiAddress =
+    case runOptions of
+      RunOptions{apiPort = p} ->
+        Host{Network.hostname = "127.0.0.1", Network.port = p}
+
+  monPort = case runOptions of
+    RunOptions{monitoringPort = mp} -> mp
+
   collectAndCheckExitCode p = do
     let h = getStderr p
     waitExitCode p >>= \case
@@ -494,8 +626,62 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
--- | Run a hydra-node with given 'ChainConfig' and using the config from
--- config/.
+-- | Convenience: run a single hydra-node with no peers and freshly
+-- allocated dynamic ports. Equivalent to 'withHydraNode' with a singleton
+-- port map.
+withSoloHydraNode ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  (HydraClient -> IO a) ->
+  IO a
+withSoloHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys action = do
+  ports <- soloHydraNodePortsFor workDir hydraNodeId
+  withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys (Map.singleton hydraNodeId ports) action
+
+-- | Convenience: 'withUnsyncedHydraNode' for a single node with freshly
+-- allocated dynamic ports.
+withUnsyncedSoloHydraNode ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  (HydraClient -> IO a) ->
+  IO a
+withUnsyncedSoloHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys action = do
+  ports <- soloHydraNodePortsFor workDir hydraNodeId
+  withUnsyncedHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys (Map.singleton hydraNodeId ports) action
+
+-- | Convenience: 'withHydraNodeCatchingUp' for a single node with freshly
+-- allocated dynamic ports.
+withSoloHydraNodeCatchingUp ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  (HydraClient -> IO a) ->
+  IO a
+withSoloHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys action = do
+  ports <- soloHydraNodePortsFor workDir hydraNodeId
+  withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys (Map.singleton hydraNodeId ports) action
+
+-- | Run a hydra-node just like `withHydraNode`; but before running any
+-- action, observe a `Greetings` message with the node in sync first. NOTE
+-- that importantly, any messages seen BEFORE we observe this will be lost;
+-- i.e. unobservable by subsequent `waitFor`s.
+--
+-- See 'prepareHydraNode' for how to build the port map.
 withHydraNode ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
@@ -503,14 +689,55 @@ withHydraNode ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
-  [Int] ->
+  Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
-  withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId opts action
+withHydraNode = withHydraNodeWith Nothing id
+
+-- | Like 'withHydraNode' but connecting the API client with the given query
+-- string instead of the default "/?history=yes", and adjusting the node's
+-- 'RunOptions' before it is started.
+withHydraNodeWith ::
+  HasCallStack =>
+  Maybe String ->
+  (RunOptions -> RunOptions) ->
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  Map Int HydraNodePorts ->
+  (HydraClient -> IO a) ->
+  IO a
+withHydraNodeWith mQueryParams mapOptions tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts id
+  withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId (mapOptions opts) action'
+ where
+  waitTime = blockTime * 5
+  action' client = do
+    waitForNodesSynced waitTime [client]
+    action client
+
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config/, but, importantly, do NOT wait for the sync status to be reported.
+withUnsyncedHydraNode ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  Secret (SigningKey HydraKey) ->
+  [VerificationKey HydraKey] ->
+  Map Int HydraNodePorts ->
+  (HydraClient -> IO a) ->
+  IO a
+withUnsyncedHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts id
+  withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config and catching up with chain backend/.
@@ -520,29 +747,27 @@ withHydraNodeCatchingUp ::
   ChainConfig ->
   FilePath ->
   Int ->
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   [VerificationKey HydraKey] ->
-  [Int] ->
+  Map Int HydraNodePorts ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
-withConnectionToNode tracer hydraNodeId =
-  withConnectionToNodeHost tracer hydraNodeId Host{hostname, port} (Just "/?history=yes")
- where
-  hostname = "127.0.0.1"
-  port = fromInteger $ 4_000 + toInteger hydraNodeId
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe Network.PortNumber -> (HydraClient -> IO a) -> IO a
+withConnectionToNode tracer hydraNodeId apiHost monitoringPort =
+  withConnectionToNodeHost tracer hydraNodeId apiHost monitoringPort (Just "/?history=yes")
 
-withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe Network.PortNumber -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} monitoringPort mQueryParams action = do
   connectedOnce <- newIORef False
   (retries, delay) <-
-    getHydraBackend >>= \case
-      DirectBackendType -> pure (200, 0.1)
-      BlockfrostBackendType -> pure (300, 1)
+    Prelude.getHydraNetwork >>= \case
+      Prelude.LocalDevnet -> pure (200, 0.1)
+      Prelude.Mainnet -> pure (7200, 1)
+      _ -> pure (300, 1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
@@ -565,7 +790,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
-      res <- action $ HydraClient{hydraNodeId, apiHost, connection, tracer}
+      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer}
       sendClose connection ("Bye" :: Text)
       pure res
 
@@ -579,17 +804,18 @@ waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
 
-waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 waitForNodesSynced delay clients = do
-  waitForAllMatch delay (toList clients) $ \v -> do
-    guard $ v ^? key "tag" == Just "NodeSynced"
-
-data HydraNodeLog
-  = HydraNodeCommandSpec {cmd :: Text}
-  | NodeStarted {nodeId :: Int}
-  | SentMessage {nodeId :: Int, message :: Aeson.Value}
-  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
-  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
-  | EndWaiting {nodeId :: Int}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+  -- Wait for Greetings from each client. Greetings is always sent AFTER
+  -- historical replay, so receiving it means we've consumed all historical
+  -- messages. This prevents tests from matching on historical HeadIsOpen or
+  -- NodeSynced messages from previous runs when using a persistent state dir.
+  syncedStatuses <- forConcurrently (toList clients) $ \client ->
+    waitMatch delay client $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      v ^? key "chainSyncedStatus" . _String
+  -- If any node is still catching up, additionally wait for a fresh NodeSynced
+  when ("CatchingUp" `elem` syncedStatuses) $
+    forConcurrently_ (toList clients) $ \client ->
+      waitMatch delay client $ \v ->
+        guard $ v ^? key "tag" == Just "NodeSynced"

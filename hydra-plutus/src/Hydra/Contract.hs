@@ -10,9 +10,10 @@ import Hydra.Cardano.Api (
   serialiseToRawBytes,
   pattern PlutusScript,
  )
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
+import Hydra.Plutus (depositValidatorScript)
 import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
@@ -21,14 +22,12 @@ data HydraScriptCatalogue = HydraScriptCatalogue
   -- ^ Hash of the μHead minting script given some default parameters.
   , mintingScriptSize :: Int
   -- ^ Size of the μHead minting script given some default parameters.
-  , initialScriptHash :: ScriptHash
-  , initialScriptSize :: Int
-  , commitScriptHash :: ScriptHash
-  , commitScriptSize :: Int
   , headScriptHash :: ScriptHash
   , headScriptSize :: Int
   , depositScriptHash :: ScriptHash
   , depositScriptSize :: Int
+  , crsScriptHash :: ScriptHash
+  , crsScriptSize :: Int
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -40,14 +39,12 @@ hydraScriptCatalogue =
   HydraScriptCatalogue
     { mintingScriptHash = scriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
-    , initialScriptHash = scriptHash initialValidatorScript
-    , initialScriptSize = scriptSize initialValidatorScript
-    , commitScriptHash = scriptHash commitValidatorScript
-    , commitScriptSize = scriptSize commitValidatorScript
     , headScriptHash = scriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript
     , depositScriptHash = scriptHash depositValidatorScript
     , depositScriptSize = scriptSize depositValidatorScript
+    , crsScriptHash = scriptHash CRS.validatorScript
+    , crsScriptSize = scriptSize CRS.validatorScript
     }
  where
   scriptHash = hashScript . PlutusScript

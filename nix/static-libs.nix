@@ -21,5 +21,8 @@
       static-snappy = final.snappy.overrideDerivation (_old: {
         cmakeFlags = [ "-DSNAPPY_BUILD_TESTS=OFF" "-DSNAPPY_BUILD_BENCHMARKS=OFF" ];
       });
+      static-sqlite = final.sqlite.overrideDerivation (old: {
+        configureFlags = (old.configureFlags or [ ]) ++ [ "--enable-static" "--disable-shared" ];
+      });
     };
 }

@@ -2,17 +2,26 @@ name: "Publish Docs"
 
 on:
   workflow_dispatch:
+  # NOTE: The `workflow_run` event only fires for runs on the repository's
+  # default branch (master). The `branches` filter can only narrow that set, it
+  # cannot make the event fire for `release`, so it can publish the unstable
+  # docs but never the stable ones. We therefore publish the stable docs on
+  # push to the `release` branch instead.
+  push:
+    branches: ["release"]
   workflow_run:
     workflows: ["CI"]
-    branches: ["master", "release"]
+    branches: ["master"]
     types:
       - completed
 
 jobs:
   publishing:
     name: Publish Documentation
-    if: github.ref_name == 'master' || github.ref_name == 'release'
+    if: github.event_name == 'workflow_run' || github.ref_name == 'master' || github.ref_name == 'release'
     runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
     permissions:
       contents: write
     steps:
@@ -20,10 +29,11 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
+        ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
     - name: Get latest stable version tag
-      if: github.ref_name == 'release'
+      if: env.BRANCH == 'release'
       id: get_version
       run: |
         latest_tag=$(git describe --tags --abbrev=0)
@@ -36,14 +46,14 @@ jobs:
 
     - name: Build documentation and compute benchmarks
       env:
-        DOCS_VERSION: ${{ github.ref_name == 'master' && 'unstable' || steps.get_version.outputs.version }}
+        DOCS_VERSION: ${{ env.BRANCH == 'master' && 'unstable' || steps.get_version.outputs.version }}
       run: |
 
         # Release
         DERIVATION=docs
         OUT_PATH=
 
-        [[ ${{ github.ref_name }} = "master" ]] && \
+        [[ ${{ env.BRANCH }} = "master" ]] && \
           DERIVATION=docs-unstable && \
           OUT_PATH=/unstable
 
@@ -68,6 +78,13 @@ jobs:
           hydra-cluster/datasets/1-node.json \
           hydra-cluster/datasets/3-nodes.json \
           --output-directory $out/benchmarks
+        nix develop .#hydra-cluster-bench --command -- \
+          bench-e2e \
+          matrix \
+          --output-directory $out/benchmarks \
+          --number-of-txs 30 \
+          --timeout 3600s \
+          --incremental-modes False
 
     - name: 👉 Create redirects
       run: |
@@ -91,6 +108,14 @@ jobs:
 
         redirect /tmp/public/head-protocol/monthly/index.html https://cardano-scaling.github.io/website/monthly
         redirect /tmp/public/head-protocol/unstable/monthly/index.html https://cardano-scaling.github.io/website/monthly
+
+    - name: 🧹 Strip benchmark working state
+      run: |
+
+        # Safety net: node working state must never be published. The deploy uses
+        # clean:false, so anything uploaded here lingers on gh-pages forever and
+        # once grew it past the 10GB Pages limit, breaking every deployment.
+        find /tmp/public -type d \( -name etcd -o -name db -o -name logs \) -prune -exec rm -rf {} +
 
     - name: 🚢 Publish Documentation
       uses: JamesIves/github-pages-deploy-action@v4

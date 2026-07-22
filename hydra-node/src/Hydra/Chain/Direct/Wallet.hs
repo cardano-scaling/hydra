@@ -6,18 +6,23 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.Ledger (Data, ExUnits)
+import Cardano.Api.Ledger (ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.Alonzo.PParams (LangDepView)
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
   plutusScriptLanguage,
  )
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), ScriptIntegrityHash, hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
+  TxDats,
   datsTxWitsL,
+  unRedeemersL,
+  unTxDatsL,
  )
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
@@ -26,7 +31,6 @@ import Cardano.Ledger.Api (
   ConwayEra,
   PParams,
   TransactionScriptFailure (..),
-  Tx,
   bodyTxL,
   calcMinFeeTx,
   coinTxOutL,
@@ -44,14 +48,12 @@ import Cardano.Ledger.Api (
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Tx (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (
-  TxUpgradeError,
- )
+import Cardano.Ledger.Core (TxLevel (..), ppMaxTxSizeL)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
@@ -61,20 +63,23 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
+import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api (
   BlockHeader,
+  CardanoSigningKey,
   ChainPoint,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  SerialiseAsCBOR (serialiseToCBOR),
   ShelleyAddr,
-  SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromLedgerTx,
@@ -82,6 +87,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   makeShelleyAddress,
   shelleyAddressInEra,
+  signTxWith,
   toLedgerAddr,
   toLedgerTx,
   verificationKeyHash,
@@ -89,7 +95,9 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport, evaluateTxWith)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Tx.Secret (Secret, withSecret)
 
 type Address = Ledger.Addr
 type TxIn = Ledger.TxIn
@@ -114,6 +122,20 @@ data TinyWallet m = TinyWallet
       Api.UTxO ->
       Api.Tx ->
       m (Either ErrCoverFee Api.Tx)
+  , evaluateScriptCosts ::
+      Api.Tx ->
+      Api.UTxO ->
+      m (Either EvaluationError EvaluationReport)
+  -- ^ Evaluate script execution costs for a transaction using current protocol
+  -- parameters from the node. Returns Right if all scripts succeed within
+  -- budget, Left otherwise.
+  , isTxWithinSizeLimits ::
+      Api.Tx ->
+      m Bool
+  -- ^ Check whether the serialised transaction fits within the maximum
+  -- transaction size permitted by the current protocol parameters.
+  , getPParams :: m (PParams LedgerEra)
+  -- ^ Query current protocol parameters.
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -137,8 +159,9 @@ newTinyWallet ::
   Tracer IO TinyWalletLog ->
   -- | Network identifier to generate our address.
   NetworkId ->
-  -- | Credentials of the wallet.
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  -- | Credentials of the wallet. The signing-key half is wrapped in
+  -- 'Secret' to prevent accidental serialisation or logging.
+  (VerificationKey PaymentKey, Secret CardanoSigningKey) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
@@ -153,7 +176,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
     TinyWallet
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
-      , sign = Api.signTx sk
+      , sign = \tx -> withSecret sk (`signTxWith` tx)
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
           WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
@@ -164,6 +187,16 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
+      , evaluateScriptCosts = \tx lookupUTxO -> do
+          WalletInfoOnChain{systemStart} <- readTVarIO walletInfoVar
+          epochInfo <- queryEpochInfo
+          pparams <- querySomePParams
+          pure $ evaluateTxWith systemStart epochInfo pparams tx lookupUTxO
+      , isTxWithinSizeLimits = \tx -> do
+          pparams <- querySomePParams
+          let txBytes = fromIntegral $ BS.length $ serialiseToCBOR tx
+          pure $ txBytes <= pparams ^. ppMaxTxSizeL
+      , getPParams = querySomePParams
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header
@@ -205,9 +238,7 @@ applyTxs txs isOurs utxo =
       let txId = Ledger.txIdTx tx
       modify (`Map.withoutKeys` view (bodyTxL . inputsTxBodyL) tx)
       let indexedOutputs =
-            let outs = toList $ view (bodyTxL . outputsTxBodyL) tx
-                maxIx = fromIntegral $ length outs
-             in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
+            zip [Ledger.TxIx 0 ..] (toList $ view (bodyTxL . outputsTxBodyL) tx)
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
         when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
 
@@ -218,7 +249,6 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
   | ErrMissingScript {scriptHash :: Text, purpose :: Text}
   deriving stock (Show)
 
@@ -244,8 +274,8 @@ coverFee_ ::
   EpochInfo (Either Text) ->
   Map TxIn (Ledger.TxOut era) ->
   Map TxIn (Ledger.TxOut era) ->
-  Tx era ->
-  Either ErrCoverFee (Tx era)
+  Ledger.Tx TopTx era ->
+  Either ErrCoverFee (Ledger.Tx TopTx era)
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let body = partialTx ^. bodyTxL
   let wits = partialTx ^. witsTxL
@@ -285,11 +315,9 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
         , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
         ]
-      scriptIntegrityHash =
-        hashScriptIntegrity
-          (Set.fromList langs)
-          adjustedRedeemers
-          (wits ^. datsTxWitsL)
+      langViews = Set.fromList langs
+      txDats = wits ^. datsTxWitsL
+      scriptIntegrityHash = computeScriptIntegrityHash adjustedRedeemers txDats langViews
   let
     unbalancedBody =
       body
@@ -374,7 +402,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     Redeemers era ->
     Redeemers era
   adjustRedeemerIndices initialInputs finalInputs (Redeemers redeemers) =
-    Redeemers $ Map.fromList $ map adjustOne $ Map.toList redeemers
+    Redeemers $ Map.mapKeys adjustPurpose redeemers
    where
     sortedInitialInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
@@ -387,9 +415,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     initialIndexToTxIn :: Map Word32 TxIn
     initialIndexToTxIn = Map.fromList $ zip [0 ..] sortedInitialInputs
 
-    adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
-    adjustOne (ptr, v) = (adjustPurpose ptr, v)
-
     adjustPurpose :: PlutusPurpose AsIx era -> PlutusPurpose AsIx era
     adjustPurpose purpose@(SpendingPurpose (AsIx idx)) =
       -- Get the TxIn that was at this index in the original sorted inputs,
@@ -399,6 +424,17 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         newIdx <- Map.lookup txIn finalInputIndex
         pure $ SpendingPurpose (AsIx newIdx)
     adjustPurpose other = other
+
+computeScriptIntegrityHash ::
+  AlonzoEraScript era =>
+  Redeemers era ->
+  TxDats era ->
+  Set.Set LangDepView ->
+  StrictMaybe ScriptIntegrityHash
+computeScriptIntegrityHash redeemers txDats langViews =
+  if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
+    then SNothing
+    else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =
@@ -422,7 +458,7 @@ estimateScriptsCost ::
   -- | A UTXO needed to resolve inputs
   Map TxIn (Ledger.TxOut era) ->
   -- | The pre-constructed transaction
-  Tx era ->
+  Ledger.Tx TopTx era ->
   Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   Map.traverseWithKey convertResult result
@@ -472,4 +508,3 @@ data TinyWalletLog
   deriving stock (Eq, Generic, Show)
 
 deriving anyclass instance ToJSON TinyWalletLog
-deriving anyclass instance FromJSON TinyWalletLog

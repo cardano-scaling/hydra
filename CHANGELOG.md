@@ -8,7 +8,201 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [1.3.0] - UNRELEASED
+## [UNRELEASED]
+
+- Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
+version of each observed transaction via script hash matching, removing the
+compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
+
+- Fix pasting into hydra-tui text fields. The TUI now enables bracketed paste
+  mode so a paste arrives as one event instead of raw keystrokes, and typing
+  `c` into the amount or address entry no longer cancels the dialog (bech32
+  addresses regularly contain `c`, so pasting one aborted the entry and a
+  subsequent `q` could even quit the TUI).
+
+- Fix hydra-tui submitting transactions with stale form values. Pressing Enter
+  on an invalid recipient address or amount now shows an error instead of
+  silently using the last valid value (previously an unparsable address sent
+  the funds to the prefilled own address, and an invalid amount sent the full
+  UTxO value).
+
+## [2.3.0] - 2026.07.15
+
+- Add **selective partial fanout**: distribute a chosen subset of a closed
+  head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
+  client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`
+  telling clients whether the node keeps draining or awaits the next selection),
+  a `FanningOut` head status and a matching TUI selection flow. Keep issuing
+  `PartialFanout` until the head is drained; the final step burns the head
+  tokens. [#2333](https://github.com/cardano-scaling/hydra/issues/2333)
+
+- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
+  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
+  so deposits recorded before a rotation survive a node
+  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
+
+- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
+  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+  natively supported, removing the need to manually convert them before use.
+
+- Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
+
+- Snapshot processing no longer re-evaluates Plutus scripts for transactions it
+  already validated on receipt.  This removes redundant script execution from the hot
+  path and noticeably increases sustained in-head throughput for script-heavy
+  workloads. [2717](https://github.com/cardano-scaling/hydra/pull/2717)
+
+- Hydra node can now be configured through a yaml file; easier to spot
+  differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
+
+- Event log rotation now archives the current database to a numbered
+  `old-state/hydra-<logId>.db` snapshot before deleting the rotated events,
+  restoring the pre-rotation backup behaviour of the old file-based persistence.
+
+- Deposit and recover chain observations are now scoped to the current head:
+  events for unrelated heads are silently ignored in Open and Closed states,
+  preventing foreign deposits from contaminating pending state or chain state
+  history. Deposits from a previous head are never discarded on fanout, so
+  recovery via the `/commits` endpoint remains available after a head closes,
+  in Idle state, and even while a new head is running. [#2743](https://github.com/cardano-scaling/hydra/pull/2743)
+
+- Fix Blockfrost chain backend error handling and resilience [#2729](https://github.com/cardano-scaling/hydra/pull/2729)
+
+- Hydra node can now be configured through a yaml file; easier to spot
+  differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
+
+- Fixed a deadlock in the network layer's `PersistentQueue` where a silent
+  no-op in `popPersistentQueue` could leave the broadcast queue permanently stuck
+  at capacity, blocking all outbound messages. Node operators will now see
+  explicit `PersistentQueueFull` and `PersistentQueueLoadFailed` log entries when
+  the queue is under pressure or fails to recover from disk on startup. Failing
+  to delete a sent message's backing file no longer crashes the network
+  component; it is logged as `PersistentQueueDeleteFailed` and the message may
+  be re-broadcast after a restart. [#2742](https://github.com/cardano-scaling/hydra/pull/2742)
+
+## [2.2.0] - 2026.06.12
+
+- Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
+  per-snapshot quantiles), a new `Mixed` UTxO generator that grows then contracts
+  the head state, an opt-in interleaved incremental commit/decommit cycle
+  (`--incremental-ops`), and a new `matrix` sub-command that iterates over
+  cluster sizes, UTxO shapes, and incremental modes. CI publishes the matrix
+  output as a new
+  [scenario benchmarks](https://hydra.family/head-protocol/benchmarks/scenarios)
+  page.
+
+- Heads with large UTxO sets can now be fanned out in multiple steps using
+  `PartialFanoutTx` and `FinalPartialFanoutTx` transactions [#2324](https://github.com/cardano-scaling/hydra/pull/2324).
+  Each step distributes as many outputs as fit in a single transaction (determined
+  dynamically via binary search [#2617](https://github.com/cardano-scaling/hydra/pull/2617)) and uses a BLS accumulator
+  membership proof to verify correctness on-chain. The final step burns the head
+  tokens and completes the fanout. This removes the previous limit of UTxOs per head.
+
+- **BREAKING** Several fields renamed or retype-changed across the API and
+  persisted state [#2324](https://github.com/cardano-scaling/hydra/pull/2324):
+  - `HeadIsFinalized` server output: `utxo` renamed to `finalizedUTxO`; type
+    changed from a UTxO map (object keyed by `TxIn`) to an array of `TxOut`
+    values, since intermediate partial fanout outputs do not carry spending
+    references.
+  - `ClosedState` (persisted `StateChanged` event): `remainingFanoutUTxO`
+    renamed to `remainingFanoutOutputs`; `distributedFanoutUTxO` renamed to
+    `distributedFanoutOutputs`. Both changed from a UTxO map to an array of
+    `TxOut` values in JSON.
+  - `StateChanged` events (`Hydra.HeadLogic.Outcome`):
+    - `TransactionAppliedToLocalUTxO`: `newLocalUTxO` field removed.
+    - `SnapshotRequested`: `newLocalUTxO` field removed.
+    - `DecommitRecorded`: `newLocalUTxO` field removed.
+
+- Reduce on-disk event-store growth by removing redundant `newLocalUTxO` fields
+  from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
+  post-tx UTxO via pure arithmetic, no ledger needed.
+
+- Significantly revised hydra-tui [#2590](https://github.com/cardano-scaling/hydra/pull/2590):
+  - Pending-deposit recovery from both `Open` and `Closed`/`Final` head states (`r`).
+  - Dark/light theme toggle (`F3`) persisted to `$XDG_CONFIG_HOME/hydra/tui-config.yaml`.
+  - Event-history filter — show all messages or errors only (`e`).
+  - Tab navigation (`1`/`2`/`3` and ←/→) and event-detail toggle (`d`).
+  - Refactored rendering into per-tab modules and a dedicated message renderer.
+
+- Fix a bug where replaying persisted events from a previous head could corrupt
+the state of a newly opened head.
+
+- Fix a bug where a recovered incremental-commit deposit could reappear in the
+  L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
+  L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
+
+- Add `mustNotMintOrBurn` guard to `Increment` and `Decrement` validator
+  transitions, consistent with all other head transitions
+  [#2697](https://github.com/cardano-scaling/hydra/issues/2697).
+
+- The node now dynamically determines the largest chunk of UTxOs it can
+distribute in a single partial fanout step, replacing a hardcoded limit.
+`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
+preferred transaction first, falling back to progressively smaller chunks until
+one fits within the script [#2619](https://github.com/cardano-scaling/hydra/pull/2619)
+
+## [2.1.0] - 2026.05.13
+
+- Improved security for deposits
+
+- Compatible with mithril `2617.0` [#2596](https://github.com/cardano-scaling/hydra/pull/2596) [#2598](https://github.com/cardano-scaling/hydra/pull/2598).
+
+- Retry transient chain-following errors in the Blockfrost backend
+(DecodeError, MissingNextBlockHash, etc.) with exponential backoff instead of
+crashing the node. HTTP-level Blockfrost API errors are left to the upstream
+client library to handle [#2579](https://github.com/cardano-scaling/hydra/pull/2579).
+
+- Replace file-based persistence with a SQLite-backed event store. Events are
+now persisted in a database file (`hydra.db`) in the `--persistence-dir`
+directory instead of a plain append-only JSON file (`state`). On first startup
+after upgrading, existing `state` files are automatically migrated into
+`hydra.db` and renamed to `state.migrated` [#2578](https://github.com/cardano-scaling/hydra/pull/2578).
+
+- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`) [#2577](https://github.com/cardano-scaling/hydra/pull/2577):
+  - `SnapshotRequested`: `snapshot` renamed to `requestedSnapshot`; `requestedTxIds` field removed (tx ids are now carried inside `requestedSnapshot`).
+  - `PartySignedSnapshot`: `snapshot :: Snapshot tx` replaced by `snapshotNumber :: SnapshotNumber` (only the number is stored, not the full snapshot).
+  - `SnapshotConfirmed`: `snapshot :: Snapshot tx` changed to `snapshot :: Maybe (Snapshot tx)` (is `Nothing` when a preceding `SnapshotRequested` already carries the snapshot).
+  - `DecommitRecorded`: `utxoToDecommit :: UTxOType tx` field removed.
+
+- Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round [#2571](https://github.com/cardano-scaling/hydra/pull/2571).
+
+- Replace 'list' with `Seq` type to speed up transaction processing in some
+  instances [#2597](https://github.com/cardano-scaling/hydra/pull/2597).
+
+- Compatible with cardano-node protocol version 12+ (upgrades `cardano-api` to `^>=11.1`) [#2607](https://github.com/cardano-scaling/hydra/pull/2607).
+
+## [2.0.0] - 2026.04.05
+
+- **BREAKING** Directly open heads [#2536](https://github.com/cardano-scaling/hydra/pull/2536)
+  - There is no `commit` phase anymore and hence any initialized head will be directly open.
+  - This means that funds need to be added "incrementally" via `deposit` transactions.
+  - Greatly simplifies the head protocol and life-cycle (no `collectCom` and `abort` transactions).
+  - Resolves known issues about "not abortable heads" because of a participant committing too big UTxO.
+  - Reduced overall life-cycle cost for most use cases. See [transaction cost benchmarks](https://hydra.family/head-protocol/unstable/benchmarks/transaction-cost) for details.
+  - All on-chain scripts are affected by this change, as well as several API changes.
+  - This decision is documented in [ADR-33](https://hydra.family/head-protocol/adr/33)
+* Upgrade token name to HydraHeadV2 (from HydraHeadV1) [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
+* Continue encouraging conversative ADA deposits until partial fanout is completed [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
+
+- Remove head-initialization endpoint [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Fix active deposit being silently dropped when it becomes active while a snapshot is in-flight - the next chained snapshot after confirmation now picks it up via `selectNextDeposit`. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Guard deposit aggregate cases by headId to prevent one head's deposits from corrupting another head's state when multiple heads share the same network. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+- Remove the hard-coded 100 ADA commit limit on mainnet. The `rejectMoreThanMainnetLimit` safety cap and the `CommittedTooMuchADAForMainnet` error are no longer needed and have been removed. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
+
+## [1.3.0] - 2026.03.05
+
+- Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
+  See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
 
 - Tested with `cardano-node 10.6.2` and `cardano-cli 10.15.0.0`.
 
@@ -53,7 +247,7 @@ changes.
   - Client inputs rejected in `HeadLogic` (via `RejectedInputBecauseUnsynced`) during catch-up now report how far the node is out of sync (drift).
   - See [Issue #2393](https://github.com/cardano-scaling/hydra/issues/2393).
 
-## [1.2.0] - 2025.11.28
+## [1.2.0] - 2025-11-28
 
 - There is a new `SafeClose` client command which prevents closing the Head in case there are non-ADA assets in the confirmed snapshot UTxO [#2330](https://github.com/cardano-scaling/hydra/issues/2330).
 

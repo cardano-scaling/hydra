@@ -13,7 +13,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), HeadState (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -26,7 +26,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
@@ -70,7 +70,7 @@ data ClientMessage tx
   | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: NominalDiffTime}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   | SyncedStatusReport {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime, synced :: SyncedStatus}
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
   toJSON =
@@ -101,10 +101,10 @@ data Greetings tx = Greetings
   , chainSyncedStatus :: SyncedStatus
   , currentSlot :: ChainSlot
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsChainState tx => Eq (Greetings tx)
-deriving instance IsChainState tx => Show (Greetings tx)
+deriving stock instance IsChainState tx => Eq (Greetings tx)
+deriving stock instance IsChainState tx => Show (Greetings tx)
 
 instance IsChainState tx => ToJSON (Greetings tx) where
   toJSON =
@@ -126,10 +126,10 @@ data InvalidInput = InvalidInput
   { reason :: String
   , input :: Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
-deriving instance ToJSON InvalidInput
-deriving instance FromJSON InvalidInput
+deriving anyclass instance ToJSON InvalidInput
+deriving anyclass instance FromJSON InvalidInput
 
 data ServerOutput tx
   = NetworkConnected
@@ -144,9 +144,7 @@ data ServerOutput tx
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
-  | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, parties :: [Party]}
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -159,8 +157,14 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
-  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
-  | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
+  | -- | A selective partial fanout step has been observed on chain. Reports the
+    -- UTxO distributed in this step and what remains to be fanned out, so the
+    -- client can choose the next 'PartialFanout' selection (or fan out the rest).
+    -- 'fanoutMode' tells the client whether the node will keep draining on its
+    -- own or is waiting for the next selection, so it can render the right
+    -- affordance instead of inferring it.
+    HeadPartiallyFannedOut {headId :: HeadId, distributedUTxO :: UTxOType tx, remainingUTxO :: UTxOType tx, fanoutMode :: FanoutProgressMode}
+  | HeadIsFinalized {headId :: HeadId, finalizedUTxO :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx}
@@ -184,8 +188,8 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
-  | -- XXX: Rename to DepositRecorded following the state events naming. But only
-    -- do this when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositRecorded following the state events naming. But only
+    -- do this when changing the endpoint also to /deposits
     CommitRecorded
       { headId :: HeadId
       , utxoToCommit :: UTxOType tx
@@ -195,10 +199,12 @@ data ServerOutput tx
       }
   | DepositActivated {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
-  | -- XXX: Rename to DepositRecovered to be more consistent. But only do this
-    -- when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositApproved
+    CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | -- TODO: Rename to DepositFinalized
+    CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
+  | -- TODO: Rename to DepositRecovered to be more consistent. But only do this
+    -- when changing the endpoint also to /deposits
     CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
@@ -243,13 +249,11 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput config response =
   case output response of
-    Committed{} -> encodedResponse
-    HeadIsInitializing{} -> encodedResponse
     HeadIsOpen{} -> encodedResponse
     HeadIsClosed{} -> encodedResponse
     HeadIsContested{} -> encodedResponse
     ReadyToFanout{} -> encodedResponse
-    HeadIsAborted{} -> encodedResponse
+    HeadPartiallyFannedOut{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
@@ -291,17 +295,41 @@ handleUtxoInclusion config f bs =
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing
   | Open
   | Closed
   | FanoutPossible
+  | -- | A closed head whose UTxO is being distributed across multiple selective
+    -- partial fanout transactions.
+    FanningOut
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+-- | Client-facing projection of the node's fanout 'FanoutMode': whether a
+-- fanning-out head will continue draining on its own or is waiting for the
+-- client to choose the next 'PartialFanout'. Surfacing this lets clients render
+-- the correct affordance without inferring it from local actions.
+data FanoutProgressMode
+  = -- | The node keeps draining automatically (a full 'Fanout', or working
+    -- through a user selection). The client should wait, not prompt for input.
+    AutoFanningOut
+  | -- | The node has drained the current selection and is waiting for the next
+    -- 'PartialFanout' from the client.
+    AwaitingFanoutSelection
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+-- | Project the internal 'FanoutMode' to its client-facing 'FanoutProgressMode'.
+-- Both auto-drain and mid-selection draining present as 'AutoFanningOut' (the
+-- node advances by itself); only an exhausted selection awaits client input.
+fanoutProgressMode :: FanoutMode tx -> FanoutProgressMode
+fanoutProgressMode = \case
+  AutoDrain -> AutoFanningOut
+  DistributingSelection{} -> AutoFanningOut
+  AwaitingSelection -> AwaitingFanoutSelection
 
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
-  | NormalCommit HeadId
   | IncrementalCommit HeadId
 
 -- | L2 Hydra network status information.
@@ -313,42 +341,42 @@ data NetworkInfo = NetworkInfo
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
-getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
-  HeadState.Initial InitialState{committed} ->
-    let u0 = fold committed
-     in Just u0
   HeadState.Open OpenState{coordinatedHeadState} ->
     let snapshot = getSnapshot coordinatedHeadState.confirmedSnapshot
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
   HeadState.Closed ClosedState{confirmedSnapshot} ->
     let snapshot = getSnapshot confirmedSnapshot
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
+    let snapshot = getSnapshot confirmedSnapshot
+     in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
-    NoSeenSnapshot
-  HeadState.Initial{} ->
     NoSeenSnapshot
   HeadState.Open OpenState{coordinatedHeadState} ->
     coordinatedHeadState.seenSnapshot
   HeadState.Closed ClosedState{confirmedSnapshot} ->
     let Snapshot{number} = getSnapshot confirmedSnapshot
      in LastSeenSnapshot number
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
+    let Snapshot{number} = getSnapshot confirmedSnapshot
+     in LastSeenSnapshot number
 
 -- | Get latest confirmed snapshot from 'HeadState'.
-getConfirmedSnapshot :: IsChainState tx => HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
+getConfirmedSnapshot :: HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
 getConfirmedSnapshot = \case
   HeadState.Idle{} ->
     Nothing
-  HeadState.Initial InitialState{headId, committed} ->
-    let u0 = fold committed
-     in Just $ InitialSnapshot headId u0
   HeadState.Open OpenState{coordinatedHeadState} ->
     Just coordinatedHeadState.confirmedSnapshot
   HeadState.Closed ClosedState{confirmedSnapshot} ->
+    Just confirmedSnapshot
+  HeadState.FanoutProgress PartialFanoutState{confirmedSnapshot} ->
     Just confirmedSnapshot

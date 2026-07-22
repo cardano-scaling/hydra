@@ -1,21 +1,66 @@
 {
     "samples": [
         {
-            "headId": "01000001000001010001010101000001",
+            "headId": "00000101000000010000010000010000",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "015732a6af04d8862266d10e8f608c665aac20ec0318dab489c25907d52a29aee4e64420edb362b4b19c76a4a80e892cf14073a1aac281569a7ef6530d8a8507"
+                ]
             },
             "snapshot": {
+                "accumulator": "7cfe8a019906606bebfda370bb0a2828d4904e011ccb284e2e691b6e1551df51",
                 "confirmed": [],
-                "headId": "00010000000001010001000101010101",
-                "number": 0,
-                "utxo": {},
-                "utxoToCommit": null,
-                "utxoToDecommit": null,
-                "version": 1
+                "headId": "00010101000101010101000001010100",
+                "number": 1,
+                "utxo": {
+                    "0100010100010100010000000100000100010101010001000000000001000000#65": {
+                        "address": "addr_test1qznxv3tdcw7r4c6zkmyjd6efj9csklj4c32df04xte7yayslq42dl59pk7d7hz4nfpan2saslp4u9lhsrt2fkwvfj62q5ggr29",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "2f0955b87fac8261e49df4baf82bd5fba3c896c17a27f93818a49eee": {
+                                "36": 7635666979548340289
+                            },
+                            "lovelace": 1159390
+                        }
+                    }
+                },
+                "utxoToCommit": {
+                    "0100010100010100010101000000000100000101000001010001000000000000#50": {
+                        "address": "addr_test1yzg85e8a9ahj0gmrh594j606mfy33h4f8dzx400p2aepng8y0sgujz6wzuwk46rlr2au25x5rt3mc2cw2avkxljehrnshv5cgm",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "09b67d3e9e7050a1f4700db7649774f2c185c190490774248df613ba": {
+                                "36": 1
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "utxoToDecommit": {
+                    "0100000000010001010000000101000001000100000101010001010000010100#78": {
+                        "address": "addr_test1zrltcat5hprgq53m9z6k2dtengqypnydljlugty0fm4sp2h2jq49h0scvkz0ekg77xk0hl25qxkkpv9qcr5tngxzcwsshf454q",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "version": 0
             },
             "tag": "SnapshotConfirmed"
         }
     ],
-    "seed": -963847763
+    "seed": -1884954262
 }

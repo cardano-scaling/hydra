@@ -1,13 +1,17 @@
-cabal-version: 3.0
-name:          hydra-tx
-version:       1.2.0
-synopsis:      Hydra transaction library
-author:        IOG
-copyright:     2024 IOG
-license:       Apache-2.0
+cabal-version:      3.0
+name:               hydra-tx
+version:            2.3.0
+synopsis:           Hydra transaction library
+author:             IOG
+copyright:          2024 IOG
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
+
+extra-source-files:
+  genesis/mainnet-conway-genesis.json
+  genesis/protocol-parameters-dijkstra.json
 
 source-repository head
   type:     git
@@ -47,11 +51,9 @@ library
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
     Hydra.Tx
-    Hydra.Tx.Abort
+    Hydra.Tx.Accumulator
     Hydra.Tx.BlueprintTx
     Hydra.Tx.Close
-    Hydra.Tx.CollectCom
-    Hydra.Tx.Commit
     Hydra.Tx.Contest
     Hydra.Tx.ContestationPeriod
     Hydra.Tx.Crypto
@@ -68,6 +70,7 @@ library
     Hydra.Tx.Party
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
+    Hydra.Tx.Secret
     Hydra.Tx.Snapshot
     Hydra.Tx.Utils
 
@@ -78,19 +81,19 @@ library
     , base16-bytestring
     , bytestring
     , cardano-api
+    , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-binary
-    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
-    , data-default
     , formatting
+    , haskell-accumulator        >=1.2.0.0
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
@@ -98,28 +101,31 @@ library
     , lens
     , lens-aeson
     , mono-traversable
-    , ouroboros-consensus
-    , ouroboros-consensus-cardano
+    , plutus-accumulator
     , plutus-ledger-api
+    , plutus-tx
     , prettyprinter
     , serialise
-    , sop-extras
     , text
     , time
 
   ghc-options:     -haddock
 
 library testlib
-  import:          project-config
-  hs-source-dirs:  testlib
-  visibility:      public
+  import:             project-config
+  hs-source-dirs:     testlib
+  visibility:         public
+  default-extensions: TemplateHaskell
   exposed-modules:
+    Test.Hydra.Ledger.Cardano.Fixtures
+    Test.Hydra.Ledger.Cardano.Fixtures.TH
     Test.Hydra.Tx.Fixture
     Test.Hydra.Tx.Gen
     Test.Hydra.Tx.Mutation
 
-  other-modules:   Paths_hydra_tx
+  other-modules:      Paths_hydra_tx
   build-depends:
+    , aeson
     , base
     , bytestring
     , cardano-api
@@ -130,10 +136,13 @@ library testlib
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
     , cardano-ledger-mary
+    , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
+    , data-default
     , directory
+    , filepath
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus
@@ -142,46 +151,59 @@ library testlib
     , hydra-test-utils
     , hydra-tx
     , lens
+    , ouroboros-consensus
+    , ouroboros-consensus:cardano
     , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , sop-extras
+    , template-haskell
+    , time
 
-  ghc-options:     -haddock
+  ghc-options:        -haddock
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
-  main-is:            Main.hs
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
+  main-is:        Main.hs
   other-modules:
+    Hydra.Tx.AccumulatorSpec
     Hydra.Tx.ContestationPeriodSpec
-    Hydra.Tx.Contract.Abort
+    Hydra.Tx.Contract.Close.CloseAny
+    Hydra.Tx.Contract.Close.CloseCommitUnused
+    Hydra.Tx.Contract.Close.CloseCommitUsed
     Hydra.Tx.Contract.Close.CloseInitial
     Hydra.Tx.Contract.Close.CloseUnused
     Hydra.Tx.Contract.Close.CloseUsed
     Hydra.Tx.Contract.Close.Healthy
-    Hydra.Tx.Contract.CollectCom
-    Hydra.Tx.Contract.Commit
     Hydra.Tx.Contract.Contest.ContestCurrent
     Hydra.Tx.Contract.Contest.ContestDec
+    Hydra.Tx.Contract.Contest.ContestInc
     Hydra.Tx.Contract.Contest.Healthy
     Hydra.Tx.Contract.ContractSpec
     Hydra.Tx.Contract.Decrement
     Hydra.Tx.Contract.Deposit
     Hydra.Tx.Contract.FanOut
+    Hydra.Tx.Contract.FinalPartialFanout
     Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
+    Hydra.Tx.Contract.PartialFanout
     Hydra.Tx.Contract.Recover
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
-    Spec
+    Hydra.Tx.KZGTrustedSetupSpec
+    Hydra.Tx.SecretNegativeSpec
+    Hydra.Tx.SecretSpec
 
-  type:               exitcode-stdio-1.0
+  type:           exitcode-stdio-1.0
   build-depends:
     , aeson
     , base
     , base16-bytestring
+    , bytestring
     , cardano-api
     , cardano-api:gen
     , cardano-binary
@@ -190,7 +212,7 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-core
-    , containers
+    , deepseq
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -205,14 +227,30 @@ test-suite tests
     , hydra-tx:testlib
     , lens
     , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
+    , serialise
     , time
 
-  build-tool-depends: hspec-discover:hspec-discover
-  ghc-options:        -threaded -rtsopts
+  ghc-options:    -threaded -rtsopts
+
+benchmark accumulator-bench
+  import:         project-config
+  hs-source-dirs: bench/accumulator
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , cardano-api
+    , criterion
+    , hydra-cardano-api
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , QuickCheck
+    , serialise
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
 
 executable hydra-tx
   import:         project-config

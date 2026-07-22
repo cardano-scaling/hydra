@@ -30,10 +30,12 @@ import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
   modifyTVar,
-  readTBQueue,
   readTVarIO,
+  retry,
   writeTBQueue,
+  writeTVar,
  )
+import Control.Monad.Class.MonadAsync (wait)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -69,14 +71,6 @@ instance ToJSON a => ToJSON (Envelope a) where
         , "message" .= message
         ]
 
-instance FromJSON a => FromJSON (Envelope a) where
-  parseJSON = Aeson.withObject "Envelope" $ \o -> do
-    timestamp <- o Aeson..: "timestamp"
-    threadId <- o Aeson..: "threadId"
-    namespace <- o Aeson..: "namespace"
-    message <- o Aeson..: "message"
-    pure Envelope{timestamp, threadId, namespace, message}
-
 defaultQueueSize :: Natural
 defaultQueueSize = 500
 
@@ -106,25 +100,39 @@ withTracerOutputTo ::
 withTracerOutputTo bufferingMode hdl namespace action = do
   hSetBuffering hdl bufferingMode
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
-  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
-    action (tracer msgQueue) `finally` flushLogs msgQueue
+  closed <- newLabelledTVarIO "logging-closed" False
+  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue closed) $ \writer ->
+    action (tracer msgQueue) `finally` drainLogs closed writer
  where
   tracer queue =
     Tracer $
       mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
-  writeLogs queue =
-    forever $ do
-      entries <- atomically $ do
-        firstEntry <- readTBQueue queue
-        rest <- flushTBQueue queue
-        pure (firstEntry : rest)
+  writeLogs queue closed = do
+    entries <- atomically $ do
+      es <- flushTBQueue queue
+      -- Block until there is something to write, or exit the loop below by
+      -- returning the empty batch once the tracer scope has closed.
+      when (null es) $ do
+        isClosed <- readTVar closed
+        unless isClosed retry
+      pure es
+    unless (null entries) $ do
       forM_ entries (write . Aeson.encode)
+      writeLogs queue closed
 
-  flushLogs queue = liftIO $ do
-    entries <- atomically $ flushTBQueue queue
-    forM_ entries (write . Aeson.encode)
+  -- The writer thread claims queued entries before writing them, so shutdown
+  -- must hand over to the writer rather than inspect the queue itself:
+  -- signal it to stop, wait for it to finish draining, then flush. The wait
+  -- is bounded so a stuck handle cannot block shutdown; the surrounding
+  -- 'withAsync' cancels the writer in that case.
+  drainLogs closed writer = liftIO $ do
+    atomically $ writeTVar closed True
+    void $ timeout drainGraceSeconds (wait writer)
     hFlush hdl
+
+  drainGraceSeconds :: DiffTime
+  drainGraceSeconds = 5
 
   write bs = LBS.hPut hdl (bs <> "\n")
 

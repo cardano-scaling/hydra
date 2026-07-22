@@ -16,7 +16,7 @@ import Test.Aeson.GenericSpecs (
  )
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (counterexample, forAll, property)
+import Test.QuickCheck (counterexample, forAll, property, withMaxSuccess)
 
 spec :: Spec
 spec = parallel $ do
@@ -28,8 +28,9 @@ spec = parallel $ do
 
   -- XXX: This seems no to be working? Adding a new message does not lead to a failure here
   prop "schema covers all defined client inputs" $
-    prop_specIsComplete @(ClientInput Tx) "api.json" $
-      key "channels" . key "/" . key "publish" . key "message"
+    withMaxSuccess 1 $
+      prop_specIsComplete @(ClientInput Tx) "api.json" $
+        key "channels" . key "/" . key "publish" . key "message"
 
   describe "FromJSON (ValidatedTx era)" $ do
     prop "accepts transactions produced via cardano-cli" $

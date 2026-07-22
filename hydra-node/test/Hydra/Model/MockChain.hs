@@ -3,7 +3,7 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api hiding (Network)
+import Hydra.Cardano.Api hiding (CardanoSigningKey (..), Network, getVerificationKey)
 import Hydra.Prelude hiding (Any, label)
 import Test.Hydra.Prelude
 
@@ -56,13 +56,12 @@ import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
   IdleState (..),
-  InitialState (..),
   Input (..),
   OpenState (..),
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
+import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -74,13 +73,15 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
+import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon, evaluateTx)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
@@ -101,10 +102,9 @@ mockChainAndNetwork ::
   , MonadTime m
   ) =>
   Tracer m CardanoChainLog ->
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
-  UTxO ->
+  [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys commits = do
+mockChainAndNetwork tr seedKeys = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -115,12 +115,12 @@ mockChainAndNetwork tr seedKeys commits = do
       { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = simulateCommit nodes
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
+      , getChainHistory = pure []
       }
  where
-  initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
+  initialUTxO = seedUTxO <> registryUTxO scriptRegistry
 
   seedUTxO :: UTxO
   seedUTxO = UTxO.fromList [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
@@ -139,7 +139,7 @@ mockChainAndNetwork tr seedKeys commits = do
   -- Consequently the identifiers of participants need to be derived from
   -- the real keys.
   updateEnvironment env = do
-    let vks = getVerificationKey . signingKey . snd <$> seedKeys
+    let vks = (\(_, CardanoSigningKey sk) -> getVerificationKey sk) <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
   connectNode nodes chain queue draftNode = do
@@ -200,16 +200,6 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit :: TVar m [MockHydraNode m] -> HeadId -> Party -> UTxO -> m ()
-  simulateCommit nodes headId party utxoToCommit = do
-    hydraNodes <- readTVarIO nodes
-    case find (matchingParty party) hydraNodes of
-      Nothing -> error "simulateCommit: Could not find matching HydraNode"
-      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
-        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
-          Left e -> throwIO e
-          Right tx -> submitTx tx
-
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the
@@ -222,8 +212,8 @@ mockChainAndNetwork tr seedKeys commits = do
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
-  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()
-  closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
+  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> Party -> m ()
+  closeWithInitialSnapshot nodes party = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
@@ -234,16 +224,16 @@ mockChainAndNetwork tr seedKeys commits = do
           nodeState <- atomically queryNodeState
           case headState nodeState of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
-            Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do
               postTx
                 CloseTx
                   { headId = openHeadId
                   , headParameters
                   , openVersion = 0
-                  , closingSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+                  , closingSnapshot = InitialSnapshot{headId = openHeadId}
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
+            FanoutProgress{} -> error "Cannot post Close tx when in FanoutProgress state"
 
   matchingParty :: Party -> MockHydraNode m -> Bool
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =
@@ -342,7 +332,9 @@ fixedTimeHandleIndefiniteHorizon = do
 scriptLedger ::
   Ledger Tx
 scriptLedger =
-  Ledger{applyTransactions}
+  -- NOTE: This mock only validates scripts, so re-application reuses the same
+  -- logic.
+  Ledger{applyTransactions, reapplyTransactions = applyTransactions}
  where
   -- XXX: We could easily add 'slot' validation here and this would already
   -- emulate the dropping of outdated transactions from the cardano-node
@@ -363,10 +355,12 @@ scriptLedger =
 -- | Find Cardano vkey corresponding to our Hydra vkey using signing keys lookup.
 -- This is a bit cumbersome and a tribute to the fact the `HydraNode` itself has no
 -- direct knowledge of the cardano keys which are stored only at the `ChainComponent` level.
-findOwnCardanoKey :: Party -> [(SigningKey HydraKey, CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
-findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in " <> show seedKeys) $ do
-  csk <- getVerificationKey . signingKey . snd <$> find ((== me) . deriveParty . fst) seedKeys
-  pure (csk, filter (/= csk) $ map (getVerificationKey . signingKey . snd) seedKeys)
+findOwnCardanoKey :: Party -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> (VerificationKey PaymentKey, [VerificationKey PaymentKey])
+findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for " <> show me <> " in seed-keys of size " <> show (length seedKeys)) $ do
+  csk <- vkOf . snd <$> find ((== me) . deriveParty . fst) seedKeys
+  pure (csk, filter (/= csk) $ map (vkOf . snd) seedKeys)
+ where
+  vkOf (CardanoSigningKey sk) = getVerificationKey sk
 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
@@ -404,6 +398,9 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , getSeedInput = pure (Just seedInput)
           , sign = id
           , coverFee = \_ tx -> pure (Right tx)
+          , evaluateScriptCosts = \tx utxo -> pure $ evaluateTx tx utxo
+          , isTxWithinSizeLimits = \_ -> pure True
+          , getPParams = pure defaultPParams
           , reset = pure ()
           , update = \_ _ -> pure ()
           }

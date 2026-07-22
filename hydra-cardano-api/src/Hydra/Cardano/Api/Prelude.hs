@@ -8,7 +8,6 @@ module Hydra.Cardano.Api.Prelude (
   Era,
   LedgerEra,
   ledgerEraVersion,
-  Text,
   decodeUtf8,
   encodeUtf8,
   toStrict,
@@ -33,7 +32,6 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Data.Map (Map)
 import Data.Set (Set)
-import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)

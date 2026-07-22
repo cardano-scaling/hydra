@@ -49,14 +49,6 @@ deriving anyclass instance
   ) =>
   ToJSON (LogicError tx)
 
-deriving anyclass instance
-  ( FromJSON (HeadState tx)
-  , FromJSON (Input tx)
-  , FromJSON (RequirementFailure tx)
-  , FromJSON (SideLoadRequirementFailure tx)
-  ) =>
-  FromJSON (LogicError tx)
-
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
@@ -70,12 +62,12 @@ data RequirementFailure tx
   | NoMatchingDeposit
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
+  | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
 deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
 deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
-deriving anyclass instance FromJSON (TxIdType tx) => FromJSON (RequirementFailure tx)
 
 data SideLoadRequirementFailure tx
   = SideLoadInitialSnapshotMismatch

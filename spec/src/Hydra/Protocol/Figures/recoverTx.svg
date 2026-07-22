@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 5 680 235">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+  <rect width="680" height="240" fill="white"/>
+  <rect x="18" y="40" width="200" height="98" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="18" y="40" width="200" height="24" rx="14" fill="#9DD6FE"/>
+  <rect x="18" y="50" width="200" height="14" fill="#9DD6FE"/>
+  <line x1="18" y1="64" x2="218" y2="64" stroke="#1a1a1a" stroke-width="0.8"/>
+  <!-- vertical divider for datum/redeemer -->
+  <line x1="118" y1="64" x2="118" y2="118" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="18" y1="118" x2="218" y2="118" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="118" y="57" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">deposit</tspan></text>
+  <!-- left column: datum -->
+  <text x="68" y="79" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">cid</text>
+  <text x="68" y="92" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">DL</text>
+  <text x="68" y="105" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">[Commit]</text>
+  <!-- right column: redeemer -->
+  <text x="168" y="92" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Recover m</text>
+  <!-- bottom value row -->
+  <text x="118" y="131" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">22 ada</text>
+  <path d="M218,105 C218,-10 568,-10 568,35" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <rect x="290" y="55" width="120" height="130" rx="2" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="291" y="56" width="118" height="27" rx="0" fill="#FFEA94" stroke="none" stroke-width="0"/>
+  <text x="350" y="74" text-anchor="middle" font-family="serif" font-size="13" fill="#1a1a1a" font-weight="bold">recoverTx</text>
+  <line x1="290" y1="83" x2="410" y2="83" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="350" y="120" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">T<tspan baseline-shift="-25%" font-size="8">min</tspan></text>
+  <rect x="478" y="35" width="180" height="175" rx="4" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="7,4"/>
+  <circle cx="498" cy="93" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+  <text x="510" y="97" text-anchor="start" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">out₁: 15 ada</text>
+  <circle cx="498" cy="151" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+  <text x="510" y="155" text-anchor="start" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">out₂: 7 ada</text>
+  <path d="M218,89 C250,89 275,120 290,120" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <circle cx="410" cy="134" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+  <path d="M410,134 C440,134 460,93 494,93" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <path d="M410,134 C440,134 460,151 494,151" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+</svg>

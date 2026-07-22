@@ -7,9 +7,7 @@ sidebar_position: 5
 Assuming we already have an open Head and some funds on the L1 we would like to deposit.
 
 
-The `/commit` endpoint supports two ways of specifying what to deposit, one is just by showing the UTxO (which is assumed to be owned by public keys), while the more advanced way would be using _blueprint_ transaction as a recipe on what to deposit.
-
-Blueprint transactions work differently in deposits (incremental commits) compared to commits (committing before the Head is in the open state).
+The `POST /commit` endpoint supports two ways of specifying what to deposit: the simple way is to provide the UTxO directly (assumed to be owned by public keys), while the more advanced way is to use a _blueprint_ transaction as a recipe for what to deposit.
 
 When it comes to **depositing** our users have four ways of using the blueprint transaction so it should work for even more involved scenarios:
 
@@ -22,6 +20,13 @@ needed for dApps.
 
 :::info
 Hydra node assumes that the blueprint transaction does not contain any stake pool or DRep registration or delegation certificates since these don't make too much sense on L2 network.
+:::
+
+:::warning Deposit restrictions
+The `/commit` endpoint enforces the following restrictions:
+- **Byron addresses are rejected.** UTxOs held at Byron-era addresses cannot be deposited.
+- **Minimum ADA.** Each deposited output must meet the minimum ADA requirement for its size.
+- **Output value is capped at input value.** When using a blueprint transaction, the value deposited into the head is taken directly from what you provide in the `utxo` field. If the blueprint outputs request more value than the inputs supply, any excess is silently capped to zero on the change output — you will never receive more on L2 than what you deposited on L1.
 :::
 
 The last option is most flexible one for dApp builders since they can just specify which UTxO assets they want to deposit (providing the appropriate outputs in the blueprint tx) while the hydra-node will make sure to return any change to the specified address. Using script UTxO as a reference inputs is also possible for optimising the dApp workflow.
@@ -281,6 +286,10 @@ The last option is most flexible one for dApp builders since they can just speci
 
 This will result in a deposit being detected by the `hydra-node` and consequently the funds to be deposited to the Head.
 
+:::warning Reference scripts are not preserved
+If a deposited UTxO has an inline reference script attached, **that reference script will not be available in L2**. The deposit datum encodes UTxOs using the Plutus `TxOut` representation, which has no reference script field. The address, value and datum of the deposited UTxO are preserved faithfully, but the reference script is silently dropped. If your use case depends on reference scripts being available inside the Head, they must be published separately on L2.
+:::
+
 ### Recover a deposit
 
 Once we deposited funds we should not see the corresponding UTxO on L1.
@@ -300,6 +309,15 @@ To recover, we can use the `/commits` endpoint again using the transaction id of
 curl -X DELETE localhost:4001/commits/ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4)
 ```
 
-If we inspect the address funds again we will see that the locked deposit is now recovered. It is important to mention that recovering works even if the Head is closed already.
+If we inspect the address funds again we will see that the locked deposit is now recovered.
+
+Recovery works in all head states:
+
+- **Open** — recover a deposit that the head hasn't ingested yet (e.g. it expired before being picked up).
+- **Closed** — the head is in the closing/contestation period; recovery is still available.
+- **Idle (after fanout)** — deposits that were pending when the head closed are never discarded. The node keeps them in its internal state across the fanout, so you can still recover them after the head is fully settled.
+- **While a new head is running** — if you open a new head, old unrecovered deposits from a previous head remain recoverable. The new head will never accidentally ingest them: it only considers deposits that explicitly target its own head ID.
+
+The on-chain deposit validator enforces two conditions for recovery: the transaction validity lower bound must be after the deposit deadline, and the recovered outputs must match the originals. It does not require the head to be active, so recovery is always possible once the deadline passes regardless of the head lifecycle.
 
 

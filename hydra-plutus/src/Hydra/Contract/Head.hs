@@ -1,30 +1,30 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoPolyKinds #-}
 {-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
--- Plutus core version to compile to. In babbage era, that is Cardano protocol
--- version 7 and 8, only plutus-core version 1.0.0 is available.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:conservative-optimisation #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:optimize #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:target-version=1.1.0 #-}
 
 module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
+import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import Hydra.Contract.Commit (Commit (..))
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.CRS (CRSDatum, checkMembershipPairing)
+import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (
   CloseRedeemer (..),
   ClosedDatum (..),
   ContestRedeemer (..),
   DecrementRedeemer (..),
+  FanoutProgressDatum (..),
   Hash,
   IncrementRedeemer (..),
   Input (..),
@@ -33,16 +33,20 @@ import Hydra.Contract.HeadState (
   SnapshotNumber,
   SnapshotVersion,
   State (..),
+  progressFromClosed,
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
+import Hydra.Contract.KZGTrustedSetup qualified as KZG
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (lovelaceValue)
+import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, singleton)
 import PlutusLedgerApi.V3 (
-  Address,
+  Address (..),
+  Credential (..),
   CurrencySymbol,
   Datum (..),
   Extended (Finite),
@@ -56,10 +60,12 @@ import PlutusLedgerApi.V3 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  TxOutRef,
   UpperBound (..),
   Value (Value),
+  mintValueBurned,
  )
-import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -76,16 +82,13 @@ type RedeemerType = Input
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
+  BuiltinByteString ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator oldState input ctx =
+headValidator crsDatumHash oldState input ctx =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties, headId}, CollectCom) ->
-      checkCollectCom ctx (contestationPeriod, parties, headId)
-    (Initial{parties, headId}, Abort) ->
-      checkAbort ctx headId parties
     (Open openDatum, Increment redeemer) ->
       checkIncrement ctx openDatum redeemer
     (Open openDatum, Decrement redeemer) ->
@@ -94,159 +97,16 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, proof, crsRef}) ->
+      headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crsRef
+    (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
+      checkPartialFanout crsDatumHash ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
+    (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
+      checkPartialFanout crsDatumHash ctx progressDatum numberOfPartialOutputs crsRef
+    (FanoutProgress progressDatum, FinalPartialFanout{numberOfPartialOutputs, proof, crsRef}) ->
+      checkFinalPartialFanout crsDatumHash ctx progressDatum numberOfPartialOutputs proof crsRef
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
-
--- | On-Chain verification for 'Abort' transition. It verifies that:
---
---   * All PTs have been burnt: The right number of Head tokens with the correct
---     head id are burnt, one PT for each party and a state token ST.
---
---   * All committed funds have been redistributed. This is done via v_commit
---     and it only needs to ensure that we have spent all committed outputs,
---     which follows from burning all the PTs.
-checkAbort ::
-  ScriptContext ->
-  CurrencySymbol ->
-  [Party] ->
-  Bool
-checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
-  mustBurnAllHeadTokens minted headCurrencySymbol parties
-    && mustBeSignedByParticipant ctx headCurrencySymbol
-    && mustReimburseCommittedUTxO
- where
-  minted = txInfoMint txInfo
-
-  mustReimburseCommittedUTxO =
-    traceIfFalse $(errorCode ReimbursedOutputsDontMatch) $
-      hashOfCommittedUTxO == hashOfOutputs
-
-  hashOfOutputs =
-    -- NOTE: It is enough to just _take_ the same number of outputs that
-    -- correspond to the number of commit inputs to make sure everything is
-    -- reimbursed because we assume the outputs are correctly sorted with
-    -- reimbursed commits coming first
-    hashTxOuts $ L.take (L.length committed) (txInfoOutputs txInfo)
-
-  hashOfCommittedUTxO =
-    hashPreSerializedCommits committed
-
-  committed = committedUTxO [] (txInfoInputs txInfo)
-
-  committedUTxO commits = \case
-    [] -> commits
-    TxInInfo{txInInfoResolved = txOut} : rest
-      | hasPT headCurrencySymbol txOut ->
-          committedUTxO (commitDatum txOut <> commits) rest
-      | otherwise ->
-          committedUTxO commits rest
-
--- | On-Chain verification for 'CollectCom' transition. It verifies that:
---
---   * All participants have committed (even empty commits)
---
---   * All commits are properly collected and locked into η as a hash
---     of serialized tx outputs in the same sequence as commit inputs!
---
---   * The transaction is performed (i.e. signed) by one of the head participants
---
---   * State token (ST) is present in the output
-checkCollectCom ::
-  -- | Script execution context
-  ScriptContext ->
-  (ContestationPeriod, [Party], CurrencySymbol) ->
-  Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustCollectUtxoHash
-    && mustInitVersion
-    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustCollectAllValue
-    -- XXX: Is this really needed? If yes, why not check on the output?
-    && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
-    && everyoneHasCommitted
-    && mustBeSignedByParticipant ctx headId
-    && mustNotMintOrBurn txInfo
- where
-  mustCollectUtxoHash =
-    traceIfFalse $(errorCode IncorrectUtxoHash) $
-      utxoHash == hashPreSerializedCommits collectedCommits
-
-  mustInitVersion =
-    traceIfFalse $(errorCode IncorrectVersion) $
-      version' == 0
-
-  mustCollectAllValue =
-    traceIfFalse $(errorCode NotAllValueCollected) $
-      -- NOTE: Instead of checking the head output val' against all collected
-      -- value, we do ensure the output value is all non collected value - fees.
-      -- This makes the script not scale badly with number of participants as it
-      -- would commonly only be a small number of inputs/outputs to pay fees.
-      otherValueOut == notCollectedValueIn - lovelaceValue (txInfoFee txInfo)
-
-  OpenDatum
-    { utxoHash
-    , parties = parties'
-    , contestationPeriod = contestationPeriod'
-    , headId = headId'
-    , version = version'
-    } = decodeHeadOutputOpenDatum ctx
-
-  headAddress = getHeadAddress ctx
-
-  everyoneHasCommitted =
-    traceIfFalse $(errorCode MissingCommits) $
-      nTotalCommits == L.length parties
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
-  otherValueOut =
-    case txInfoOutputs txInfo of
-      -- NOTE: First output must be head output
-      (_ : rest) -> F.foldMap txOutValue rest
-      _ -> mempty
-
-  -- NOTE: We do keep track of the value we do not want to collect as this is
-  -- typically less, ideally only a single other input with only ADA in it.
-  (collectedCommits, nTotalCommits, notCollectedValueIn) =
-    F.foldr
-      extractAndCountCommits
-      ([], 0, mempty)
-      (txInfoInputs txInfo)
-
-  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits, notCollected)
-    | isHeadOutput txInInfoResolved =
-        (commits, nCommits, notCollected)
-    | hasPT headId txInInfoResolved =
-        (commitDatum txInInfoResolved <> commits, succ nCommits, notCollected)
-    | otherwise =
-        (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
-
-  isHeadOutput txOut = txOutAddress txOut == headAddress
-{-# INLINEABLE checkCollectCom #-}
-
--- | Try to find the commit datum in the input and
--- if it is there return the committed utxo
-commitDatum :: TxOut -> [Commit]
-commitDatum input = do
-  let datum = getTxOutDatum input
-  case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, commits, _headId) ->
-      commits
-    Nothing -> []
-{-# INLINEABLE commitDatum #-}
-
--- | Try to find the deposit datum in the input and
--- if it is there return the committed utxo
-depositDatum :: TxOut -> [Commit]
-depositDatum input = do
-  let datum = getTxOutDatum input
-  case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
-    Just (_headId, _deadline, commits) ->
-      commits
-    Nothing -> []
-{-# INLINEABLE depositDatum #-}
 
 -- | Verify a increment transaction.
 checkIncrement ::
@@ -256,63 +116,91 @@ checkIncrement ::
   IncrementRedeemer ->
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
-  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+  mustNotMintOrBurn txInfo
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
-    && mustIncreaseValue
+    && mustPreserveValue
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
     && claimedDepositIsSpent
+    && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   inputs = txInfoInputs txInfo
 
-  depositInput =
-    case findTxInByTxOutRef increment txInfo of
-      Nothing -> traceError $(errorCode DepositInputNotFound)
-      Just i -> i
-
-  commits = depositDatum $ txInInfoResolved depositInput
-
-  depositHash = hashPreSerializedCommits commits
-
-  depositValue = txOutValue $ txInInfoResolved depositInput
-
-  headInValue =
-    case L.find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
+  headTxIn =
+    case L.find (hasST prevHeadId . txOutValue . txInInfoResolved) inputs of
       Nothing -> traceError $(errorCode HeadInputNotFound)
       Just i -> i
 
+  headInValue = txOutValue (txInInfoResolved headTxIn)
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
-  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
+  -- Sum of every script input that is not the head input itself.
+  -- Pub-key inputs (e.g. fee payers) are excluded so they don't inflate the
+  -- expected head output value.
+  totalNonHeadInputValue =
+    F.foldMap (txOutValue . txInInfoResolved) $
+      L.filter (\i -> txInInfoOutRef i /= txInInfoOutRef headTxIn && isScriptInput (txInInfoResolved i)) inputs
+
+  isScriptInput txOut =
+    case addressCredential (txOutAddress txOut) of
+      ScriptCredential _ -> True
+      PubKeyCredential _ -> False
+
+  IncrementRedeemer{signature, snapshotNumber, increment, decommitOutputsHash} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
+
+  -- Bind the exact committed deposit into the multi-signature: recompute the
+  -- commit-outputs hash from the CLAIMED deposit input's own datum, so claiming a
+  -- different deposit than the one parties approved changes the signed message and
+  -- fails signature verification. Without this only aggregate value is checked, and
+  -- a participant could reuse a valid all-party signature while committing a
+  -- different (equal-value) deposit.
+  commitOutputsHash = hashPreSerializedCommits claimedDepositCommits
+
+  claimedDepositCommits =
+    case L.find (\i -> txInInfoOutRef i == increment) inputs of
+      Nothing -> traceError $(errorCode DepositInputNotFound)
+      Just TxInInfo{txInInfoResolved} ->
+        case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum txInInfoResolved) of
+          Just (_, _, commits) -> commits
+          Nothing -> traceError $(errorCode DepositDatumInvalid)
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
-  mustIncreaseValue =
+  -- TODO: This is not as flexible as it could be and rejects deposits
+  -- that are smaller than what the deposit output's min utxo value is.
+  -- For example: a 1 ADA utxo can be deposited, but the deposit tx's
+  -- output will require ~1.5 ADA because of the inline datum on it. An
+  -- increment of that deposit will fail because the sum here is not
+  -- exact.
+  mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> depositValue == headOutValue
+      headInValue <> totalNonHeadInputValue == headOutValue
 
   OpenDatum
     { parties = prevParties
     , contestationPeriod = prevCperiod
     , headId = prevHeadId
     , version = prevVersion
+    , headAdaOverhead = prevHeadAdaOverhead
     } = openBefore
 
   OpenDatum
-    { utxoHash = nextUtxoHash
-    , parties = nextParties
+    { parties = nextParties
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion
+    , accumulatorHash = nextAccumulatorHash
+    , headAdaOverhead = nextHeadAdaOverhead
     } = decodeHeadOutputOpenDatum ctx
 {-# INLINEABLE checkIncrement #-}
 
@@ -324,14 +212,24 @@ checkDecrement ::
   DecrementRedeemer ->
   Bool
 checkDecrement ctx openBefore redeemer =
-  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+  mustNotMintOrBurn txInfo
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
+    && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
+
+  -- Bind the exact decommit output set into the multi-signature: the hash is
+  -- recomputed from the transaction's own decommit outputs, so changing any
+  -- output's address, datum, reference script, ordering or count changes the
+  -- signed message and fails signature verification. Without this, only the
+  -- aggregate value is checked and a single participant could reuse a valid
+  -- all-party signature while redirecting the decommitted value elsewhere.
+  decommitOutputsHash = hashTxOuts decommitOutputs
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -341,23 +239,23 @@ checkDecrement ctx openBefore redeemer =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
-  decommitUtxoHash = hashTxOuts decommitOutputs
-
-  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
+  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs, commitOutputsHash} = redeemer
 
   OpenDatum
     { parties = prevParties
     , contestationPeriod = prevCperiod
     , headId = prevHeadId
     , version = prevVersion
+    , headAdaOverhead = prevHeadAdaOverhead
     } = openBefore
 
   OpenDatum
-    { utxoHash = nextUtxoHash
-    , parties = nextParties
+    { parties = nextParties
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion
+    , accumulatorHash = nextAccumulatorHash
+    , headAdaOverhead = nextHeadAdaOverhead
     } = decodeHeadOutputOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
@@ -372,6 +270,15 @@ checkDecrement ctx openBefore redeemer =
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkDecrement #-}
+
+-- | Check that the G1 commitment stored in the output datum is consistent with
+-- the hash that parties signed. Prevents a malicious closer from storing a wrong
+-- commitment while providing a valid signature over a correct hash.
+mustMatchAccumulatorCommitmentHash :: BuiltinBLS12_381_G1_Element -> Hash -> Bool
+mustMatchAccumulatorCommitmentHash commitment hash =
+  traceIfFalse $(errorCode AccumulatorCommitmentHashMismatch) $
+    Builtins.blake2b_256 (Builtins.bls12_381_G1_compress commitment) == hash
+{-# INLINEABLE mustMatchAccumulatorCommitmentHash #-}
 
 -- | Verify a close transaction.
 checkClose ::
@@ -389,24 +296,18 @@ checkClose ctx openBefore redeemer =
     && mustNotChangeVersion
     && mustBeValidSnapshot
     && mustInitializeContesters
-    && mustPreserveValue
+    && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustBindAccumulatorCommitment
+    && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
  where
   OpenDatum
     { parties
-    , utxoHash = initialUtxoHash
     , contestationPeriod = cperiod
     , headId
     , version
+    , headAdaOverhead
     } = openBefore
-
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   hasBoundedValidity =
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
@@ -414,15 +315,14 @@ checkClose ctx openBefore redeemer =
 
   ClosedDatum
     { snapshotNumber = snapshotNumber'
-    , utxoHash = utxoHash'
-    , alphaUTxOHash = alphaUTxOHash'
-    , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = deadline
     , contestationPeriod = cperiod'
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorCommitment = accumulatorCommitment'
+    , headAdaOverhead = headAdaOverhead'
     } = decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
@@ -432,51 +332,35 @@ checkClose ctx openBefore redeemer =
   mustBeValidSnapshot =
     case redeemer of
       CloseInitial ->
+        -- For the initial snapshot the accumulator must commit to the empty UTxO set,
+        -- whose KZG commitment is the G1 generator (constant polynomial 1).
         traceIfFalse $(errorCode FailedCloseInitial) $
           version == 0
             && snapshotNumber' == 0
-            && utxoHash' == initialUtxoHash
-      CloseAny{signature} ->
+            -- The empty-accumulator commitment is the G1 generator
+            -- (getFinalPoly [] = [1], so getG1Commitment [G1] [1] = G1). Pin it
+            -- so a closer cannot seed a degenerate commitment that would later
+            -- be trusted by progressFromClosed and checkMembershipPairing.
+            && isG1Generator accumulatorCommitment'
+      CloseAny{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
-            && alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
+              (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
               signature
-      CloseUnusedDec{signature} ->
-        traceIfFalse $(errorCode FailedCloseUnusedDec) $
-          alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' /= emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
-              signature
-      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedCloseUsedDec) $
-          alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
-              signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedCloseUnusedInc) $
-          alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
-              signature
-      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedCloseUsedInc) $
-          alphaUTxOHash' == alreadyCommittedUTxOHash
-            && omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
-              signature
+      CloseUnused{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
+        traceIfFalse $(errorCode FailedCloseUnused) $
+          verifySnapshotSignature
+            parties
+            (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
+            signature
+      CloseUsed{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
+        traceIfFalse $(errorCode FailedCloseUsed) $
+          verifySnapshotSignature
+            parties
+            (headId, version - 1, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
+            signature
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
@@ -495,6 +379,15 @@ checkClose ctx openBefore redeemer =
   mustInitializeContesters =
     traceIfFalse $(errorCode ContestersNonEmpty) $
       L.null contesters'
+
+  mustBindAccumulatorCommitment =
+    case redeemer of
+      CloseInitial -> True
+      CloseAny{accumulatorHash} -> check' accumulatorHash
+      CloseUnused{accumulatorHash} -> check' accumulatorHash
+      CloseUsed{accumulatorHash} -> check' accumulatorHash
+   where
+    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
@@ -518,16 +411,10 @@ checkContest ctx closedDatum redeemer =
     && mustUpdateContesters
     && mustPushDeadline
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustPreserveValue
+    && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
+    && mustPreserveHeadValue ctx
+    && mustBindAccumulatorCommitment
  where
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
   mustBeNewer =
     traceIfFalse $(errorCode TooOldSnapshot) $
       snapshotNumber' > snapshotNumber
@@ -538,43 +425,18 @@ checkContest ctx closedDatum redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      ContestCurrent{signature} ->
-        traceIfFalse $(errorCode FailedContestCurrent) $
-          alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
-              signature
-      ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedContestUsedDec) $
-          alphaUTxOHash' == emptyHash
-            && omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
-              signature
-      ContestUnusedDec{signature} ->
-        traceIfFalse $(errorCode FailedContestUnusedDec) $
-          alphaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
-              signature
-      ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
-        traceIfFalse $(errorCode FailedContestUnusedInc) $
-          omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
-              signature
-      ContestUsedInc{signature} ->
-        traceIfFalse $(errorCode FailedContestUsedInc) $
-          omegaUTxOHash' == emptyHash
-            && verifySnapshotSignature
-              parties
-              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash)
-              signature
+      ContestUnused{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
+        traceIfFalse $(errorCode FailedContestUnused) $
+          verifySnapshotSignature
+            parties
+            (headId, version, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
+            signature
+      ContestUsed{signature, accumulatorHash, decommitOutputsHash, commitOutputsHash} ->
+        traceIfFalse $(errorCode FailedContestUsed) $
+          verifySnapshotSignature
+            parties
+            (headId, version - 1, snapshotNumber', accumulatorHash, decommitOutputsHash, commitOutputsHash)
+            signature
 
   mustBeWithinContestationPeriod =
     case ivTo (txInfoValidRange txInfo) of
@@ -604,19 +466,19 @@ checkContest ctx closedDatum redeemer =
     , contesters
     , headId
     , version
+    , headAdaOverhead
     } = closedDatum
 
   ClosedDatum
     { snapshotNumber = snapshotNumber'
-    , utxoHash = utxoHash'
-    , alphaUTxOHash = alphaUTxOHash'
-    , omegaUTxOHash = omegaUTxOHash'
     , parties = parties'
     , contestationDeadline = contestationDeadline'
     , contestationPeriod = contestationPeriod'
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorCommitment = accumulatorCommitment'
+    , headAdaOverhead = headAdaOverhead'
     } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -629,62 +491,240 @@ checkContest ctx closedDatum redeemer =
   checkSignedParticipantContestOnlyOnce =
     traceIfFalse $(errorCode SignerAlreadyContested) $
       contester `L.notElem` contesters
+
+  mustBindAccumulatorCommitment =
+    case redeemer of
+      ContestUnused{accumulatorHash} -> check' accumulatorHash
+      ContestUsed{accumulatorHash} -> check' accumulatorHash
+   where
+    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 {-# INLINEABLE checkContest #-}
 
--- | Verify a fanout transaction.
-checkFanout ::
+-- | Verify a fanout transaction using a KZG membership proof.
+-- All distributed outputs are verified as members of the accumulator in a single proof.
+headIsFinalizedWith ::
+  BuiltinByteString ->
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
-  -- | Number of normal outputs to fanout
+  -- | Number of distributed UTxO outputs (excludes change output)
   Integer ->
-  -- | Number of alpha outputs to fanout
-  Integer ->
-  -- | Number of delta outputs to fanout
-  Integer ->
+  -- | Membership proof (quotient commitment G1 element)
+  BuiltinBLS12_381_G1_Element ->
+  -- | Reference input containing CRS
+  TxOutRef ->
   Bool
-checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
-    && hasSameUTxOHash
-    && hasSameCommitUTxOHash
-    && hasSameDecommitUTxOHash
-    && afterContestationDeadline
+    && afterContestationDeadline txInfo contestationDeadline
+    && checkCRSAndMembership
+    && mustConserveValue
  where
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+
   minted = txInfoMint txInfo
-
-  hasSameUTxOHash =
-    traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
-      fannedOutUtxoHash == utxoHash
-
-  hasSameCommitUTxOHash =
-    traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
-      alphaUTxOHash == commitUtxoHash
-
-  hasSameDecommitUTxOHash =
-    traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
-      omegaUTxOHash == decommitUtxoHash
-
-  fannedOutUtxoHash = hashTxOuts $ L.take numberOfFanoutOutputs txInfoOutputs
-
-  commitUtxoHash = hashTxOuts $ L.take numberOfCommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
-
-  decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
-
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum
 
   TxInfo{txInfoOutputs} = txInfo
 
-  afterContestationDeadline =
-    case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ ->
-        traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
-          time > contestationDeadline
-      _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
-{-# INLINEABLE checkFanout #-}
+  ClosedDatum{accumulatorCommitment, parties, headId, contestationDeadline, headAdaOverhead} = closedDatum
+
+  fanoutOutputs = L.take numberOfFanoutOutputs txInfoOutputs
+
+  subsetScalars :: [Integer]
+  subsetScalars = txOutsToSubsetScalars fanoutOutputs
+
+  -- Subset membership proof: all fanout outputs are members of the accumulator.
+  -- isG1Generator is intentionally omitted — pre-settled UTxOs (decommitted/deposited
+  -- before Close) remain in the accumulator but are not fanned out. Completeness is
+  -- enforced by mustConserveValue instead.
+  checkCRSAndMembership =
+    traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
+        checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
+
+  -- Strict equality: fanout outputs + burned tokens + fixed overhead must equal the
+  -- full head input value. headAdaOverhead is the lovelace locked in the head UTxO
+  -- that is not part of any L2 UTxO (min-UTxO overhead set at Init).
+  mustConserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue
+        == F.foldMap txOutValue fanoutOutputs
+        <> mintValueBurned minted
+        <> singleton adaSymbol adaToken headAdaOverhead
+   where
+    headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+{-# INLINEABLE headIsFinalizedWith #-}
+
+-- | Verify a partial fanout transaction. Transitions either Closed → FanoutProgress
+-- or FanoutProgress → FanoutProgress: distributes a subset of UTxOs and continues
+-- with a smaller FanoutProgressDatum.
+--
+-- The continuing head output must be the first transaction output. Distributed
+-- UTxOs follow at indices [1 .. numberOfPartialOutputs].
+checkPartialFanout ::
+  BuiltinByteString ->
+  ScriptContext ->
+  -- | Progress state (extracted from either Closed or FanoutProgress input)
+  FanoutProgressDatum ->
+  -- | Number of outputs to distribute in this partial fanout
+  Integer ->
+  -- | Reference input containing CRS
+  TxOutRef ->
+  Bool
+checkPartialFanout crsDatumHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
+  mustHaveOutputs
+    && mustNotBeLastBatch
+    && mustNotMintOrBurn txInfo
+    && afterContestationDeadline txInfo contestationDeadline
+    && mustPreserveFanoutProgressState
+    && mustConserveValue
+    && checkCRSAndMembership
+ where
+  FanoutProgressDatum
+    { parties
+    , headId
+    , contestationDeadline
+    , accumulatorCommitment
+    , headAdaOverhead
+    } = progressDatum
+
+  -- Decode continuing output datum as FanoutProgressDatum (first output, at head address)
+  FanoutProgressDatum
+    { parties = parties'
+    , headId = headId'
+    , contestationDeadline = contestationDeadline'
+    , accumulatorCommitment = newAccumulatorCommitment
+    , headAdaOverhead = headAdaOverhead'
+    } = decodeHeadOutputFanoutProgressDatum ctx
+
+  -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG
+  -- check degenerates to e(A,G2) = e(newAcc,G2), passing trivially when
+  -- newAcc = A. The exact-equality value check (==) prevents fund theft, but
+  -- the zero-output path is semantically meaningless and wastes budget.
+  mustHaveOutputs =
+    traceIfFalse $(errorCode PartialFanoutZeroOutputs) $
+      numberOfPartialOutputs > 0
+
+  -- Prevent distributing ALL remaining elements via PartialFanout instead of
+  -- FinalPartialFanout. When newAccumulatorCommitment = G1_generator all
+  -- elements have been removed, so the next step MUST be FinalPartialFanout
+  -- (which burns tokens). Using PartialFanout for the last batch produces a
+  -- stuck FanoutProgress UTxO whose tokens can never be burned.
+  mustNotBeLastBatch =
+    traceIfFalse $(errorCode PartialFanoutCannotBeLastBatch) $
+      not (isG1Generator newAccumulatorCommitment)
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  -- The distributed UTxO outputs are at indices [1..numberOfPartialOutputs].
+  -- Index 0 is the continuing head output.
+  distributedOutputs = L.take numberOfPartialOutputs (L.drop 1 txInfoOutputs)
+
+  -- Ensure the continuing FanoutProgressDatum carries the correct parameters.
+  -- accumulatorCommitment is NOT checked here — it is verified by checkCRSAndMembership.
+  mustPreserveFanoutProgressState =
+    traceIfFalse $(errorCode PartialFanoutChangedParameters) $
+      parties' == parties
+        && headId' == headId
+        && contestationDeadline' == contestationDeadline
+        && headAdaOverhead' == headAdaOverhead
+
+  -- The head input value must equal the continuing head output value plus the
+  -- sum of all distributed outputs. This prevents stealing Ada by adding extra
+  -- outputs that are not counted by the membership proof.
+  mustConserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue == headOutValue <> F.foldMap txOutValue distributedOutputs
+   where
+    headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+    headOutValue = txOutValue $ L.head txInfoOutputs
+
+  subsetScalars :: [Integer]
+  subsetScalars = txOutsToSubsetScalars distributedOutputs
+
+  -- CRS reference lookup and membership check.
+  -- The newAccumulatorCommitment from the continuing output datum serves as
+  -- the proof: checkMembership verifies that the subset elements were correctly
+  -- removed from the accumulator.
+  checkCRSAndMembership =
+    traceIfFalse $(errorCode PartialFanoutMembershipFailed) $
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
+        checkMembershipPairing accumulatorCommitment newAccumulatorCommitment crsData subsetScalars
+{-# INLINEABLE checkPartialFanout #-}
+
+-- | Verify the final partial fanout transaction. Transitions FanoutProgress → Final:
+-- distributes all remaining UTxOs and burns all head tokens.
+--
+-- Unlike intermediate steps, there is no continuing head output. All distributed
+-- UTxOs start at index 0. Tokens must be burned.
+--
+-- Note: headId, parties, and contestationDeadline are not re-verified explicitly.
+-- headId and parties are validated implicitly by mustBurnAllHeadTokens (wrong values
+-- would target the wrong token set). contestationDeadline was locked in by earlier
+-- checkPartialFanout steps and is trustworthy from the on-chain datum.
+checkFinalPartialFanout ::
+  BuiltinByteString ->
+  ScriptContext ->
+  -- | FanoutProgress state before the final fanout
+  FanoutProgressDatum ->
+  -- | Number of outputs to distribute
+  Integer ->
+  -- | Membership proof (quotient commitment G1 element)
+  BuiltinBLS12_381_G1_Element ->
+  -- | Reference input containing CRS
+  TxOutRef ->
+  Bool
+checkFinalPartialFanout crsDatumHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
+  mustHaveOutputs
+    && mustBurnAllHeadTokens minted headId parties
+    && afterContestationDeadline txInfo contestationDeadline
+    && checkCRSAndMembership
+    && mustConserveValue
+ where
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead} = progressDatum
+
+  minted = txInfoMint txInfo
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG check
+  -- degenerates to e(A,G2) = e(proof,G2), which passes whenever proof = A. Since A
+  -- is public (from the datum), any third party could satisfy the check with zero
+  -- distributed outputs and route all head ADA to themselves under the strict equality value check.
+  mustHaveOutputs =
+    traceIfFalse $(errorCode FinalPartialFanoutZeroOutputs) $
+      numberOfPartialOutputs > 0
+
+  distributedOutputs = L.take numberOfPartialOutputs txInfoOutputs
+
+  -- Strict equality: distributed outputs + burned tokens + fixed overhead must equal
+  -- the full head input value. isG1Generator is omitted for the same reason as in
+  -- headIsFinalizedWith — pre-settled UTxOs may remain in the accumulator.
+  mustConserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue
+        == F.foldMap txOutValue distributedOutputs
+        <> mintValueBurned minted
+        <> singleton adaSymbol adaToken headAdaOverhead
+   where
+    headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  subsetScalars :: [Integer]
+  subsetScalars = txOutsToSubsetScalars distributedOutputs
+
+  checkCRSAndMembership =
+    traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
+      withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
+        checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
+{-# INLINEABLE checkFinalPartialFanout #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+isG1Generator :: BuiltinBLS12_381_G1_Element -> Bool
+isG1Generator g = Builtins.bls12_381_G1_compress g == Builtins.bls12_381_G1_compressed_generator
+{-# INLINEABLE isG1Generator #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
@@ -715,6 +755,12 @@ mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPe
       && contestationPeriod' == contestationPeriod
       && headId' == headId
 {-# INLINEABLE mustNotChangeParameters #-}
+
+mustPreserveHeadAdaOverhead :: Integer -> Integer -> Bool
+mustPreserveHeadAdaOverhead overhead overhead' =
+  traceIfFalse $(errorCode ChangedHeadAdaOverhead) $
+    overhead' == overhead
+{-# INLINEABLE mustPreserveHeadAdaOverhead #-}
 
 -- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::
@@ -767,16 +813,9 @@ getTxOutDatum o =
     OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
 
--- | Check if 'TxOut' contains the PT token.
-hasPT :: CurrencySymbol -> TxOut -> Bool
-hasPT headCurrencySymbol txOut =
-  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
-   in L.length pts == 1
-{-# INLINEABLE hasPT #-}
-
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
--- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
--- 'SignableRepresentation Snapshot' for more details.
+-- 'version', 'number', and 'accumulatorHash'. See 'SignableRepresentation Snapshot'
+-- for more details.
 verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
 verifySnapshotSignature parties msg sigs =
   traceIfFalse $(errorCode SignatureVerificationFailed) $
@@ -787,23 +826,35 @@ verifySnapshotSignature parties msg sigs =
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
 verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
-verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash) party =
+verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash, decommitOutputsHash, commitOutputsHash) party =
   verifyEd25519Signature (vkey party) message
  where
   message =
     Builtins.serialiseData (toBuiltinData headId)
       <> Builtins.serialiseData (toBuiltinData snapshotVersion)
       <> Builtins.serialiseData (toBuiltinData snapshotNumber)
-      <> Builtins.serialiseData (toBuiltinData utxoHash)
-      <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
-      <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
+      <> Builtins.serialiseData (toBuiltinData accumulatorHash)
+      <> Builtins.serialiseData (toBuiltinData decommitOutputsHash)
+      <> Builtins.serialiseData (toBuiltinData commitOutputsHash)
 {-# INLINEABLE verifyPartySignature #-}
+
+unappliedValidator :: CompiledCode (BuiltinByteString -> ValidatorType)
+unappliedValidator =
+  $$(PlutusTx.compile [||wrap . headValidator||])
+ where
+  wrap = wrapValidator @DatumType @RedeemerType
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||wrap headValidator||])
- where
-  wrap = wrapValidator @DatumType @RedeemerType
+  unappliedValidator
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 canonicalCRSDatumHash
+
+-- | BLAKE2b-256 of the canonical CRS datum: the published EIP-4844 trusted setup
+-- (first 'KZG.defaultItems' G2 points) hashed by 'hashCRSDatum'. Baked into the
+-- validator so every fanout rejects a reference input carrying any other
+-- powers-of-tau setup. Computed directly from the embedded setup — no hardcoded value.
+canonicalCRSDatumHash :: BuiltinByteString
+canonicalCRSDatumHash = hashCRSDatum KZG.canonicalG2Points
 
 validatorScript :: PlutusScript
 validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
@@ -816,6 +867,13 @@ decodeHeadOutputClosedDatum ctx =
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputClosedDatum #-}
 
+decodeHeadOutputFanoutProgressDatum :: ScriptContext -> FanoutProgressDatum
+decodeHeadOutputFanoutProgressDatum ctx =
+  case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+    Just (FanoutProgress progressDatum) -> progressDatum
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
+{-# INLINEABLE decodeHeadOutputFanoutProgressDatum #-}
+
 decodeHeadOutputOpenDatum :: ScriptContext -> OpenDatum
 decodeHeadOutputOpenDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -824,6 +882,60 @@ decodeHeadOutputOpenDatum ctx =
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
 
-emptyHash :: Hash
-emptyHash = hashTxOuts []
-{-# INLINEABLE emptyHash #-}
+-- | Check that the lower validity bound of the transaction is strictly after
+-- the contestation deadline. Used by all three fanout paths.
+afterContestationDeadline :: TxInfo -> POSIXTime -> Bool
+afterContestationDeadline txInfo deadline =
+  case ivFrom (txInfoValidRange txInfo) of
+    LowerBound (Finite time) _ ->
+      traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
+        time > deadline
+    _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
+{-# INLINEABLE afterContestationDeadline #-}
+
+-- | Find a CRS reference input by 'TxOutRef' and decode its non-empty datum.
+-- Errors on missing input, undecoded datum, or empty CRS list.
+resolveCRS :: TxInfo -> TxOutRef -> CRSDatum
+resolveCRS txInfo crsRef =
+  case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
+    Nothing -> traceError $(errorCode MissingCRSRefInput)
+    Just txInInfo ->
+      case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
+        Just d@(_ : _) -> d
+        _ -> traceError $(errorCode MissingCRSDatum)
+{-# INLINEABLE resolveCRS #-}
+
+-- | Hash a CRS datum by its content: BLAKE2b-256 over the concatenation of the
+-- compressed G2 points. Binding the datum content is what keeps the membership
+-- proof sound — the trusted-setup τ is fixed and public, so any other setup would
+-- let a crafted fanout forge proofs.
+hashCRSDatum :: CRSDatum -> BuiltinByteString
+hashCRSDatum = Builtins.blake2b_256 . F.foldMap Builtins.bls12_381_G2_compress
+{-# INLINEABLE hashCRSDatum #-}
+
+-- | Look up the CRS datum from a reference input and pass it to a continuation,
+-- rejecting any reference input whose datum is not the canonical trusted setup.
+withCRSLookup ::
+  BuiltinByteString ->
+  TxInfo ->
+  TxOutRef ->
+  (CRSDatum -> Bool) ->
+  Bool
+withCRSLookup expectedDatumHash txInfo crsRef cont =
+  let crsData = resolveCRS txInfo crsRef
+   in if hashCRSDatum crsData /= expectedDatumHash
+        then traceError $(errorCode InvalidCRSDatum)
+        else cont crsData
+{-# INLINEABLE withCRSLookup #-}
+
+-- | Compute the accumulator scalar for each output in the list.
+-- Used by all three fanout validators ('headIsFinalizedWith', 'checkPartialFanout',
+-- 'checkFinalPartialFanout') to produce subset scalars for 'checkMembershipPairing'.
+-- Each scalar is blake2b_224(hashTxOuts [txOut]), which equals
+-- blake2b_224(sha2_256(serialised)) because 'hashTxOuts' uses sha2_256 internally
+-- (matching what 'Accumulator.addElement' computes off-chain).
+txOutsToSubsetScalars :: [TxOut] -> [Integer]
+txOutsToSubsetScalars outputs =
+  let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
+   in fmap (Builtins.byteStringToInteger BigEndian . elementHash) outputs
+{-# INLINEABLE txOutsToSubsetScalars #-}

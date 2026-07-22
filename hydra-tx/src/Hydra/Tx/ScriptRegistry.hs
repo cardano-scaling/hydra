@@ -5,7 +5,7 @@ module Hydra.Tx.ScriptRegistry where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   ScriptHash,
@@ -21,9 +21,9 @@ import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry
-  { initialReference :: (TxIn, TxOut CtxUTxO)
-  , commitReference :: (TxIn, TxOut CtxUTxO)
-  , headReference :: (TxIn, TxOut CtxUTxO)
+  { headReference :: (TxIn, TxOut CtxUTxO)
+  , crsReference :: (TxIn, TxOut CtxUTxO)
+  -- TODO: why is here no deposit script reference?
   }
   deriving stock (Eq, Show, Generic)
 
@@ -56,10 +56,9 @@ newScriptRegistry =
     Map ScriptHash (TxIn, TxOut CtxUTxO) ->
     Either NewScriptRegistryException ScriptRegistry
   resolve m = do
-    initialReference <- lookupScriptHash "νInitial" initialScriptHash m
-    commitReference <- lookupScriptHash "νCommit" commitScriptHash m
     headReference <- lookupScriptHash "νHead" headScriptHash m
-    pure $ ScriptRegistry{initialReference, commitReference, headReference}
+    crsReference <- lookupScriptHash "νCRS" crsScriptHash m
+    pure $ ScriptRegistry{headReference, crsReference}
 
   lookupScriptHash :: Text -> ScriptHash -> Map ScriptHash (TxIn, TxOut CtxUTxO) -> Either NewScriptRegistryException (TxIn, TxOut CtxUTxO)
   lookupScriptHash name sh m =
@@ -67,11 +66,7 @@ newScriptRegistry =
       Nothing -> Left $ MissingScript name sh (Map.keysSet m)
       Just s -> Right s
 
-  HydraScriptCatalogue
-    { initialScriptHash
-    , commitScriptHash
-    , headScriptHash
-    } = hydraScriptCatalogue
+  HydraScriptCatalogue{headScriptHash, crsScriptHash} = hydraScriptCatalogue
 
 -- | Get the UTxO that corresponds to a script registry.
 --
@@ -80,10 +75,6 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromList [initialReference, commitReference, headReference]
+  UTxO.fromList [headReference, crsReference]
  where
-  ScriptRegistry
-    { initialReference
-    , commitReference
-    , headReference
-    } = scriptRegistry
+  ScriptRegistry{headReference, crsReference} = scriptRegistry

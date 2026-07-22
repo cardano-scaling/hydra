@@ -1,14 +1,13 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoPolyKinds #-}
 {-# OPTIONS_GHC -fno-specialize #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:conservative-optimisation #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:defer-errors #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:conservative-optimisation #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:defer-errors #-}
 -- Avoid trace calls to be optimized away when inlining functions.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:no-simplifier-inline #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:optimize #-}
--- Plutus core version to compile to. In babbage era, that is Cardano protocol
--- version 7 and 8, only plutus-core version 1.0.0 is available.
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.1.0 #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:no-simplifier-inline #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:optimize #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:target-version=1.1.0 #-}
 
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
@@ -28,13 +27,10 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState (seed)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hasST, scriptOutputsAt)
-import Hydra.Plutus (initialValidatorScript)
+import Hydra.Contract.Util (hasST, hydraHeadV2, scriptOutputsAt)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
@@ -42,6 +38,7 @@ import PlutusLedgerApi.V3 (
   OutputDatum (..),
   ScriptContext (..),
   ScriptHash,
+  TokenName (..),
   TxInInfo (..),
   TxInfo (..),
   TxOutRef,
@@ -53,17 +50,17 @@ import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Foldable (length)
 
 validate ::
-  ScriptHash ->
   ScriptHash ->
   TxOutRef ->
   MintAction ->
   ScriptContext ->
   Bool
-validate initialValidator headValidator seedInput action context =
+validate headValidator seedInput action context =
   case action of
-    Mint -> validateTokensMinting initialValidator headValidator seedInput context
+    Mint -> validateTokensMinting headValidator seedInput context
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
@@ -75,19 +72,14 @@ validate initialValidator headValidator seedInput action context =
 -- * There is single state token that is paid into v_head, which ensures
 --   continuity.
 --
--- * PTs are distributed to v_initial
---
--- * Each v_initial has the policy id as its datum
---
 -- * Ensure out-ref and the headId are in the datum of the first output of the
 --   transaction which mints tokens.
-validateTokensMinting :: ScriptHash -> ScriptHash -> TxOutRef -> ScriptContext -> Bool
-validateTokensMinting initialValidator headValidator seedInput context =
+validateTokensMinting :: ScriptHash -> TxOutRef -> ScriptContext -> Bool
+validateTokensMinting headValidator seedInput context =
   seedInputIsConsumed
     && checkNumberOfTokens
     && singleSTIsPaidToTheHead
-    && allInitialOutsHavePTs
-    && allInitialOutsHaveCorrectDatum
+    && enoughUniquePTsPaidToHead
     && checkDatum
  where
   seedInputIsConsumed =
@@ -102,37 +94,24 @@ validateTokensMinting initialValidator headValidator seedInput context =
     traceIfFalse $(errorCode MissingST) $
       hasST currency headValue
 
-  allInitialOutsHavePTs =
-    traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == L.length initialTxOutValues)
-      && L.all hasASinglePT initialTxOutValues
+  enoughUniquePTsPaidToHead =
+    traceIfFalse $(errorCode MissingPTs) $
+      length (uniquePTs headValue) == nParties
 
-  allInitialOutsHaveCorrectDatum =
-    L.all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
+  uniquePTs val =
+    case AssocMap.lookup currency (getValue val) of
+      Nothing -> traceError $(errorCode NoPTs)
+      (Just tokenMap) ->
+        -- NOTE: Ideally this would be a filterWithKey
+        AssocMap.elems . flip AssocMap.mapMaybeWithKey tokenMap $ \an qty ->
+          if
+            | an == TokenName hydraHeadV2 -> Nothing
+            | qty == 1 -> Just an
+            | otherwise -> traceError $(errorCode WrongQuantity)
 
   checkDatum =
     traceIfFalse $(errorCode WrongDatum) $
       headId == currency && seed == seedInput
-
-  hasASinglePT val =
-    case AssocMap.lookup currency (getValue val) of
-      Nothing -> traceError $(errorCode NoPT)
-      (Just tokenMap) -> case AssocMap.toList tokenMap of
-        [(_, qty)]
-          | qty == 1 -> True
-        _ -> traceError $(errorCode WrongQuantity)
-
-  hasHeadIdDatum = \case
-    NoOutputDatum ->
-      traceError $(errorCode WrongInitialDatum)
-    OutputDatum dat ->
-      checkInitialDatum dat
-    OutputDatumHash _dh ->
-      traceError $(errorCode WrongInitialDatum)
-
-  checkInitialDatum dat =
-    case fromBuiltinData @Initial.DatumType $ getDatum dat of
-      Nothing -> traceError $(errorCode WrongInitialDatum)
-      Just hid -> traceIfFalse $(errorCode WrongInitialDatum) $ hid == currency
 
   mintedTokenCount =
     maybe 0 F.sum
@@ -144,7 +123,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
     case headDatum of
       OutputDatum datum ->
         case fromBuiltinData @Head.DatumType $ getDatum datum of
-          Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
+          Just (Head.Open Head.OpenDatum{Head.parties = parties, headId = h, headSeed = s}) ->
             (h, s, L.length parties)
           _ -> traceError $(errorCode ExpectedHeadDatumType)
       _ -> traceError $(errorCode ExpectedInlineDatum)
@@ -153,8 +132,6 @@ validateTokensMinting initialValidator headValidator seedInput context =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
       _ -> traceError $(errorCode MultipleHeadOutput)
-
-  initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
   currency = ownCurrencySymbol context
 
@@ -185,8 +162,7 @@ validateTokensBurning context =
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
-  $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash initialValidatorScript)
+  $$(PlutusTx.compile [||\vHead ref -> wrapMintingPolicy (validate vHead ref)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Head.validatorScript)
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.

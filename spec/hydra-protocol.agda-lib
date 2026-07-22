@@ -1,0 +1,8 @@
+name: hydra-protocol
+depend:
+  abstract-set-theory
+  formal-ledger
+  standard-library
+  standard-library-classes
+  standard-library-meta
+include: src

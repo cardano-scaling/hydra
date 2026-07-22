@@ -14,10 +14,11 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
+import Hydra.Tx (Snapshot (..), mkHeadId, registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -32,10 +33,11 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySignature,
   healthySplitUTxOInHead,
   healthySplitUTxOToDecommit,
+  healthyUTxO,
   somePartyCardanoVerificationKey,
  )
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
@@ -45,6 +47,7 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
+  genMintedOrBurnedValue,
   genScriptRegistry,
   genValue,
   genVerificationKey,
@@ -54,16 +57,16 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceAccumulatorCommitment,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
-  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUTxOHash,
  )
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
@@ -124,21 +127,43 @@ healthyCurrentSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
+
+healthyCurrentAccumulatorHash :: Head.Hash
+healthyCurrentAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCurrentSnapshot
+
+healthyCurrentDecommitOutputsHash :: Head.Hash
+healthyCurrentDecommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyCurrentSnapshot))
+
+healthyCurrentCommitOutputsHash :: Head.Hash
+healthyCurrentCommitOutputsHash =
+  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCurrentSnapshot))
+
+-- | Decommit is pending: decommitted UTxO is still in the head, so overhead
+-- is computed over both halves of healthyUTxO.
+healthyCloseUnusedHeadAdaOverhead :: Integer
+healthyCloseUnusedHeadAdaOverhead =
+  let Coin n = selectLovelace (UTxO.totalValue healthyUTxO)
+   in negate n
 
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =
   Head.Open
     Head.OpenDatum
       { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
       , contestationPeriod = healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCurrentSnapshotVersion
+      , accumulatorHash = healthyCurrentAccumulatorHash
+      , headAdaOverhead = healthyCloseUnusedHeadAdaOverhead
       }
 
 data CloseMutation
-  = -- | Ensures collectCom does not allow any output address but νHead.
+  = -- | Ensures the close transaction's continuing output is paid to νHead.
     NotContinueContract
   | -- | Ensures the snapshot signature is multisigned by all valid Head
     -- participants.
@@ -167,14 +192,6 @@ data CloseMutation
     -- the signer used on the tx to have multiple signers (including the signer
     -- to not fail for SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
-  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateCloseUTxOHash
-  | -- | Invalidates the tx by changing the utxo to decommit hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateCloseUTxOToDecommitHash
   | -- | Ensures parties do not change between head input datum and head output datum.
     MutatePartiesInOutput
   | -- | Ensures headId do not change between head input datum and head output
@@ -214,6 +231,12 @@ data CloseMutation
     MutateValueInOutput
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
+  | -- | Invalidates the tx by writing a wrong accumulator commitment in the
+    -- output datum. The validator derives the accumulator hash from this
+    -- commitment and verifies the multi-signature against it, so a wrong
+    -- commitment makes the signature check fail.
+    MutateAccumulatorCommitment
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -224,7 +247,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCurrentAccumulatorHash, decommitOutputsHash = healthyCurrentDecommitOutputsHash, commitOutputsHash = healthyCurrentCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -253,9 +276,6 @@ genCloseCurrentMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey))
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx healthySplitUTxOInHead)) . toBuiltin)
-        pure $ modifyInlineDatum (replaceUTxOHash $ toBuiltin mutatedUTxOHash) headTxOut
     , -- Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
@@ -289,8 +309,11 @@ genCloseCurrentMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          Head.CloseUnusedDec
+                          Head.CloseUnused
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
+                            , accumulatorHash = healthyCurrentAccumulatorHash
+                            , decommitOutputsHash = healthyCurrentDecommitOutputsHash
+                            , commitOutputsHash = healthyCurrentCommitOutputsHash
                             }
                       )
                 )
@@ -306,9 +329,14 @@ genCloseCurrentMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
-        mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
-        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A wrong commitment changes the hash derived by the validator, so the
+        -- signature check fails.
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyCloseUnusedHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

@@ -1,6 +1,6 @@
-cabal-version: 2.2
+cabal-version: 3.0
 name:          hydra-tui
-version:       1.2.0
+version:       2.3.0
 synopsis:      TUI for managing a Hydra node
 description:   TUI for managing a Hydra node
 author:        IOG
@@ -42,14 +42,18 @@ library
   exposed-modules:
     Hydra.Client
     Hydra.TUI
+    Hydra.TUI.Config
     Hydra.TUI.Drawing
+    Hydra.TUI.Drawing.EventHistoryTab
+    Hydra.TUI.Drawing.FundsTab
+    Hydra.TUI.Drawing.MainTab
     Hydra.TUI.Drawing.Utils
     Hydra.TUI.Forms
     Hydra.TUI.Handlers
-    Hydra.TUI.Logging.Handlers
     Hydra.TUI.Logging.Types
     Hydra.TUI.Model
     Hydra.TUI.Options
+    Hydra.TUI.RenderMessage
     Hydra.TUI.Style
 
   other-modules:   Paths_hydra_tui
@@ -60,6 +64,8 @@ library
     , brick                 >=1.10
     , cardano-api
     , containers
+    , directory
+    , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -72,6 +78,7 @@ library
     , req
     , text
     , time
+    , vector
     , vty
     , vty-unix
     , websockets
@@ -91,17 +98,17 @@ test-suite tests
   import:             project-config
   hs-source-dirs:     test
   other-modules:
+    Hydra.TUI.ConfigSpec
     Hydra.TUI.OptionsSpec
     Hydra.TUISpec
-    Spec
 
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
+    , base
     , blaze-builder
     , bytestring
     , filepath
-    , hspec
     , hydra-cardano-api
     , hydra-cluster
     , hydra-node
@@ -113,12 +120,10 @@ test-suite tests
     , optparse-applicative
     , QuickCheck
     , regex-tdfa
+    , stm
     , unix
     , vty
     , vty-unix
 
-  build-tool-depends:
-    , hspec-discover:hspec-discover
-    , hydra-node:hydra-node
-
+  build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- | Utilities used across hydra-cluster
 module Hydra.Cluster.Util where
 
@@ -15,10 +17,9 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -26,9 +27,9 @@ import Hydra.Options (
   ChainConfig (..),
   DirectOptions (..),
   defaultCardanoChainConfig,
-  defaultDepositPeriod,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -46,8 +47,9 @@ readConfigFile source = do
       >>= maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
   BS.readFile filename
 
--- | Get the "well-known" keys for given actor.
-keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Get the "well-known" keys for given actor. The signing key is
+-- 'Secret'-wrapped so callers cannot accidentally log or serialise it.
+keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
@@ -56,42 +58,76 @@ keysFor actor = do
   case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
-    Right sk -> pure (getVerificationKey sk, sk)
+    Right sk -> pure (getVerificationKey sk, mkSecret sk)
 
--- | Create and save new signing key at the provided path.
+-- | Create and save new signing key at the provided path, returning the
+-- key 'Secret'-wrapped.
 -- NOTE: Uses 'TextEnvelope' format.
-createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+createAndSaveSigningKey :: FilePath -> IO (Secret (SigningKey PaymentKey))
 createAndSaveSigningKey path = do
   sk <- generate genSigningKey
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
-  pure sk
+  pure (mkSecret sk)
 
+-- | Expected time between blocks (on average)
+type BlockTime = NominalDiffTime
+
+-- | Timing parameters that determine the behavior of a (cluster of) hydra-node.
+data Timing = Timing
+  { blockTime :: BlockTime
+  , contestationPeriod :: ContestationPeriod
+  , depositPeriod :: DepositPeriod
+  }
+  deriving stock (Show)
+
+-- | Set up reasonable timing parameters for testing given a 'BlockTime'.
+mkTestTiming :: BlockTime -> Timing
+mkTestTiming = mkTestTiming' 1
+
+-- | Like 'mkTestTiming' but scales 'depositPeriod' by the number of concurrent
+-- deposits expected. Each increment tx must be processed sequentially on-chain,
+-- so N concurrent deposits require N times the base deposit period.
+mkTestTiming' :: Int -> BlockTime -> Timing
+mkTestTiming' numDeposits blockTime =
+  Timing
+    { blockTime
+    , contestationPeriod = truncate $ 20 * blockTime
+    , depositPeriod = truncate $ fromIntegral numDeposits * 20 * blockTime
+    }
+
+-- | Get a timeout until a deposit should have happened given a 'Timing'.
+depositTimeout :: Timing -> NominalDiffTime
+depositTimeout Timing{blockTime, depositPeriod} =
+  2 * DP.toNominalDiffTime depositPeriod + 5 * blockTime
+
+-- | Create a (test) chain config for a given actor.
 chainConfigFor ::
-  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
-  ContestationPeriod ->
+  Timing ->
   IO ChainConfig
-chainConfigFor me targetDir backend txids actors cp = chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
+chainConfigFor me targetDir opts txids actors timing =
+  chainConfigFor' me targetDir opts txids actors contestationPeriod depositPeriod
+ where
+  Timing{contestationPeriod, depositPeriod} = timing
 
 chainConfigFor' ::
-  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
   DepositPeriod ->
   IO ChainConfig
-chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod depositPeriod = do
+chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depositPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -112,7 +148,7 @@ chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod de
         , contestationPeriod
         , depositPeriod
         , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
-        , chainBackendOptions = Backend.getOptions backend
+        , chainBackendOptions = opts
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType

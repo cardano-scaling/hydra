@@ -2,9 +2,9 @@
 sidebar_position: 1
 ---
 
-# Commit using a blueprint
+# Deposit using a blueprint
 
-This guide provides a walkthrough on using `cardano-cli` to assemble the necessary components for committing funds to a `head` using a blueprint transaction.
+This guide provides a walkthrough on using `cardano-cli` to assemble the necessary components for depositing funds into an open Hydra head using a blueprint transaction.
 
 **Prerequisites**
 
@@ -23,7 +23,7 @@ You can use `cardano-cli` to create a _blueprint_ transaction from some `UTXO` y
  ```
 
 ## Step 2
-Determine which `UTXO` you intend to commit to the `head`. This example uses Alice's external wallet key to identify her address:
+Determine which `UTXO` you intend to deposit into the `head`. This example uses Alice's external wallet key to identify her address:
 
  ```shell
  cardano-cli address build \
@@ -82,7 +82,7 @@ You should now have the _blueprint_ transaction in the `tx.json` file. For `hydr
 
 - Obtain the protocol parameters needed to run the `hydra-node`
 - Ensure the `hydra-node` is up and running
-- Have the `head` in the initializing state
+- Have an open `head`
 - Submit the HTTP request to the `hydra-node` API server using the _blueprint_ transaction you just created and the `UTXO` used for its input.
 
 
@@ -122,7 +122,7 @@ hydra-tui \
   --node-socket testnets/preprod/node.socket
 ```
 
-Press `i` to initialize the `head`. Once the head is in the `Initializing` state, you can send the HTTP request to the `/commit` API path. Assemble the request body using the `cborHex` field from the tx-body file `tx.json` and the JSON representation of the `UTXO` you used as input.
+Press `i` to initialize the head. The head opens immediately. You can then send the HTTP request to the `POST /commit` API endpoint to deposit funds. Assemble the request body using the `cborHex` field from the tx-body file `tx.json` and the JSON representation of the `UTXO` you used as input.
 
 This is the valid JSON request:
 
@@ -150,7 +150,7 @@ This is the valid JSON request:
 
 Save this JSON to a `commit-request.json` file.
 
-You can now prompt the running `hydra-node` to draft a commit transaction:
+You can now prompt the running `hydra-node` to draft a deposit transaction:
 
 
 ```
@@ -161,7 +161,7 @@ curl -X POST 127.0.0.1:4001/commit \
 
 This yields a large CBOR blob, which you can save to the `commit-tx.json` file.
 
-Next, sign and submit the draft of the commit transaction:
+Next, sign and submit the draft deposit transaction:
 
 ```shell
 

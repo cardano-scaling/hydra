@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 15 760 265">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto">
+      <polygon points="0 0,9 3.5,0 7" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+  <rect width="760" height="280" fill="white"/>
+  <!-- ν_deposit input box: two-column datum/redeemer layout -->
+  <rect x="18" y="25" width="195" height="95" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="18" y="25" width="195" height="24" rx="14" fill="#9DD6FE"/>
+  <rect x="18" y="35" width="195" height="14" fill="#9DD6FE"/>
+  <line x1="18" y1="49" x2="213" y2="49" stroke="#1a1a1a" stroke-width="0.8"/>
+  <!-- vertical divider for datum/redeemer -->
+  <line x1="115" y1="49" x2="115" y2="103" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="18" y1="103" x2="213" y2="103" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="115" y="42" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">deposit</tspan></text>
+  <!-- left column: datum -->
+  <text x="67" y="63" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">cid,</text>
+  <text x="67" y="76" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">T<tspan baseline-shift="-25%" font-size="8">recover</tspan>,</text>
+  <text x="67" y="89" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">[Commit]</text>
+  <!-- right column: redeemer -->
+  <text x="164" y="76" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Claim</text>
+  <!-- bottom value row -->
+  <text x="115" y="118" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">22 ada</text>
+  <!-- ν_head input box -->
+  <rect x="18" y="165" width="195" height="105" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="18" y="165" width="195" height="24" rx="14" fill="#9DD6FE"/>
+  <rect x="18" y="175" width="195" height="14" fill="#9DD6FE"/>
+  <line x1="18" y1="189" x2="213" y2="189" stroke="#1a1a1a" stroke-width="0.8"/>
+  <!-- vertical divider for datum/redeemer -->
+  <line x1="115" y1="189" x2="115" y2="240" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="18" y1="240" x2="213" y2="240" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="115" y="182" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <!-- left column: datum -->
+  <text x="67" y="218" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Open HP v<tspan baseline-shift="-25%" font-size="8">0</tspan> η<tspan baseline-shift="-25%" font-size="8">0</tspan> ₳<tspan baseline-shift="-25%" font-size="8">o</tspan></text>
+  <!-- right column: redeemer -->
+  <text x="164" y="210" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Increment ξ<tspan baseline-shift="-25%" font-size="8">3</tspan> 3</text>
+  <text x="164" y="223" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">TxOutRef</text>
+  <!-- bottom value row -->
+  <text x="115" y="257" text-anchor="middle" font-family="serif" font-size="9" fill="#1a1a1a" font-style="italic">ST, PT<tspan baseline-shift="-25%" font-size="7">alice</tspan>..PT<tspan baseline-shift="-25%" font-size="7">carol</tspan>, 9 ada</text>
+  <!-- incrementTx box -->
+  <rect x="288" y="80" width="130" height="148" rx="2" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="289" y="81" width="128" height="27" rx="0" fill="#FFEA94" stroke="none" stroke-width="0"/>
+  <text x="353" y="99" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-weight="bold">incrementTx</text>
+  <line x1="288" y1="108" x2="418" y2="108" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="353" y="130" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">t<tspan baseline-shift="-25%" font-size="8">max</tspan></text>
+  <line x1="288" y1="143" x2="418" y2="143" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="353" y="163" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">K = {k<tspan dy="4" font-size="7">i</tspan><tspan dy="-9" font-size="7">#</tspan><tspan dy="5">}</tspan></text>
+  <line x1="288" y1="176" x2="418" y2="176" stroke="#1a1a1a" stroke-width="0.6"/>
+  <text x="353" y="199" text-anchor="middle" font-family="serif" font-size="11" fill="#1a1a1a" font-style="italic">mint = ∅</text>
+  <!-- ν_head output box -->
+  <rect x="492" y="80" width="240" height="90" rx="14" fill="#f9fafb" stroke="#1a1a1a" stroke-width="1.8"/>
+  <rect x="492" y="80" width="240" height="24" rx="14" fill="#ACE9BB"/>
+  <rect x="492" y="90" width="240" height="14" fill="#ACE9BB"/>
+  <line x1="492" y1="104" x2="732" y2="104" stroke="#1a1a1a" stroke-width="0.8"/>
+  <!-- vertical divider for datum/redeemer -->
+  <line x1="612" y1="104" x2="612" y2="152" stroke="#1a1a1a" stroke-width="0.8"/>
+  <line x1="492" y1="152" x2="732" y2="152" stroke="#1a1a1a" stroke-width="0.8"/>
+  <text x="612" y="97" text-anchor="middle" font-family="serif" font-size="12" fill="#1a1a1a" font-style="italic" font-weight="bold">ν<tspan baseline-shift="-25%" font-size="8">head</tspan></text>
+  <!-- left column: datum -->
+  <text x="552" y="132" text-anchor="middle" font-family="serif" font-size="10" fill="#1a1a1a" font-style="italic">Open HP v<tspan baseline-shift="-25%" font-size="8">1</tspan> η<tspan baseline-shift="-25%" font-size="8">3</tspan> ₳<tspan baseline-shift="-25%" font-size="8">o</tspan></text>
+  <!-- bottom value row -->
+  <text x="612" y="165" text-anchor="middle" font-family="serif" font-size="9" fill="#1a1a1a" font-style="italic">ST, PT<tspan baseline-shift="-25%" font-size="7">alice</tspan>..PT<tspan baseline-shift="-25%" font-size="7">carol</tspan>, 31 ada</text>
+  <!-- arrows -->
+  <path d="M213,66 C240,66 268,120 288,120" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <path d="M213,215 C240,215 268,190 288,190" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <circle cx="418" cy="140" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+  <path d="M418,140 C448,140 472,127 492,127" fill="none" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <circle cx="492" cy="127" r="4" fill="white" stroke="#1a1a1a" stroke-width="1.4"/>
+</svg>

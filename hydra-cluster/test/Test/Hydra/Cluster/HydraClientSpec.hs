@@ -7,18 +7,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoNode (
-  withCardanoNodeDevnet,
- )
+import CardanoNode (EndToEndLog (..), HydraNodeLog, runBackend, withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -35,16 +31,16 @@ import Hydra.Cluster.Fixture (
   carolSk,
  )
 import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
-  headIsInitializingWith,
+  headIsOpenWith,
  )
+import Hydra.Cluster.Util (Timing (..), depositTimeout, mkTestTiming')
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), nodeSocket)
 import Hydra.Tx (HeadId, IsTx (..))
+import Hydra.Tx.Secret (Secret, mkSecret)
 import HydraNode (
   HydraClient (..),
-  HydraNodeLog,
   getSnapshotUTxO,
   input,
   output,
@@ -126,7 +122,7 @@ filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
       runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
         -- XXX: perform a new tx while the connection query by address is open.
         utxo <- getSnapshotUTxO n1
-        newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+        newTx <- sendTransferTx nodes utxo (mkSecret bobExternalSk) bobExternalVk
         waitFor hydraTracer 10 (toList nodes) $
           output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
@@ -167,7 +163,7 @@ filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       -- XXX: perform a new tx while the connection query by address is open.
       utxo <- getSnapshotUTxO n1
-      newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+      newTx <- sendTransferTx nodes utxo (mkSecret bobExternalSk) bobExternalVk
       waitFor hydraTracer 10 (toList nodes) $
         output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
@@ -239,78 +235,84 @@ runScenario hydraTracer hnode addr action = do
     hydraTracer
     (HydraNode.hydraNodeId hnode)
     (HydraNode.apiHost hnode)
+    (HydraNode.monitoringPort hnode)
     (Just $ Text.unpack (queryAddress addr))
     action
 
 scenarioSetup ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  (NominalDiffTime -> DirectBackend -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
+  (NominalDiffTime -> ChainBackendOptions -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
   IO a
 scenarioSetup tracer tmpDir action = do
-  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-    let nodeSocket' = case Backend.getOptions backend of
-          Direct DirectOptions{nodeSocket} -> nodeSocket
-          _ -> error "Unexpected Blockfrost backend"
-    aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-    bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-    carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime directOpts -> do
+    let nodeSocket' = nodeSocket directOpts
+    (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+    (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+    (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-    let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+    let cardanoKeys =
+          [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+          , (bobCardanoVk, mkSecret bobCardanoSk)
+          , (carolCardanoVk, mkSecret carolCardanoSk)
+          ]
         hydraKeys = [aliceSk, bobSk, carolSk]
 
+    let opts = Direct directOpts
     let firstNodeId = 1
-    hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+    hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+    let Timing{depositPeriod} = mkTestTiming' 2 blockTime
+        timing = Timing{blockTime, contestationPeriod, depositPeriod}
+    withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      action blockTime backend nodes hydraTracer
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      action blockTime opts nodes hydraTracer
 
 prepareScenario ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   NonEmpty HydraClient ->
   Tracer IO EndToEndLog ->
   IO (Int, TxId, HeadId, (VerificationKey PaymentKey, SigningKey PaymentKey), (VerificationKey PaymentKey, SigningKey PaymentKey))
-prepareScenario backend nodes tracer = do
+prepareScenario opts nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
+  blockTime <- runBackend opts getBlockTime
+  let timing = (mkTestTiming' 2 blockTime){contestationPeriod = 2}
 
   send n1 $ input "Init" []
   headId <-
     waitForAllMatch 10 [n1, n2, n3] $
-      headIsInitializingWith (Set.fromList [alice, bob, carol])
+      headIsOpenWith (Set.fromList [alice, bob, carol])
 
-  -- Get some UTXOs to commit to a head
+  -- Deposit UTxOs into the open head for Alice and Bob.
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-  committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+  committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= \tx -> runBackend opts $ submitTransaction tx
 
   bobKeys@(bobExternalVk, bobExternalSk) <- generate genKeyPair
-  committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
-  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+  committedUTxOByBob <- seedFromFaucet opts bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
+  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= \tx -> runBackend opts $ submitTransaction tx
 
-  requestCommitTx n3 mempty >>= Backend.submitTransaction backend
-
-  let u0 = committedUTxOByAlice <> committedUTxOByBob
-
-  waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
+  -- Wait for both deposits to be finalized on-chain.
+  replicateM_ 2 $
+    waitForAllMatch (depositTimeout timing) [n1, n2, n3] $ \v -> do
+      guard $ v ^? key "tag" == Just "CommitFinalized"
+      guard $ v ^? key "headId" == Just (toJSON headId)
 
   -- Create an arbitrary transaction using some input to have history.
-  tx <- sendTx nodes committedUTxOByAlice aliceExternalSk bobExternalVk paymentFromAliceToBob
+  tx <- sendTx nodes committedUTxOByAlice (mkSecret aliceExternalSk) bobExternalVk paymentFromAliceToBob
   waitFor hydraTracer 10 (toList nodes) $
     output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
-  let expectedSnapshotNumber :: Int = 1
-
+  let expectedSnapshotNumber :: Int = 3 -- sn=1 deposit Alice, sn=2 deposit Bob, sn=3 tx
   waitMatch 10 n1 $ \v -> do
     guard $ v ^? key "tag" == Just "SnapshotConfirmed"
     guard $ v ^? key "headId" == Just (toJSON headId)
@@ -320,7 +322,7 @@ prepareScenario backend nodes tracer = do
   pure (expectedSnapshotNumber, txId tx, headId, aliceKeys, bobKeys)
 
 -- NOTE: this is partial and will fail if we are not able to generate a payment
-sendTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
+sendTx :: NonEmpty HydraClient -> UTxO -> Secret (SigningKey PaymentKey) -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
   let utxo = Prelude.head $ UTxO.toList senderUTxO
   let Right tx =
@@ -331,7 +333,7 @@ sendTx nodes senderUTxO sender receiver amount = do
   send (head nodes) $ input "NewTx" ["transaction" .= tx]
   pure tx
 
-sendTransferTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> IO Tx
+sendTransferTx :: NonEmpty HydraClient -> UTxO -> Secret (SigningKey PaymentKey) -> VerificationKey PaymentKey -> IO Tx
 sendTransferTx nodes utxo sender receiver = do
   tx <- mkTransferTx testNetworkId utxo sender receiver
   send (head nodes) $ input "NewTx" ["transaction" .= tx]

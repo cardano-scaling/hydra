@@ -1,0 +1,46 @@
+# Demo config for an observer node that "mirrors" alice — it shares alice's
+# Hydra signing key but runs as a separate process so you can inspect head
+# state from a second API endpoint.
+#
+# Observer peers are represented by peer entries with **no** verification
+# keys. A peer entry with exactly one of hydra-verification-key /
+# cardano-verification-key is rejected at startup (it was almost certainly
+# a mistake) — observers omit both, signers provide both.
+#
+# Note: the mirror and the primary alice share the same hydra-signing-key,
+# so two processes sign as the same party. When they are in sync this is
+# harmless — they produce identical signatures and Hydra dedups them (see
+# the "redundant AckSn ... same keys" handling in Hydra.HeadLogic). The
+# risks are at the edges: if the two drift (e.g. one was offline and is
+# catching up), the process whose AckSn loses the race can end up with a
+# local state one step behind the confirmed chain snapshot; and any
+# on-chain action (close, contest) posted by both will race on the UTxO.
+# Treat the mirror as a warm standby, not a second independent signer.
+node-id: "1-mirror"
+listen: "127.0.0.1:5004"
+advertise: "127.0.0.1:5004"
+api-port: 4004
+monitoring-port: 6004
+hydra-signing-key: "../alice.sk"
+peers:
+  - address: "127.0.0.1:5001" # alice primary — same keys as this node, no VKs needed
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "../bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "../carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
+  - address: "127.0.0.1:5004" # self — keys here are ignored (filtered out)
+    hydra-verification-key: "../alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
+ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
+persistence-dir: "../../devnet/persistence/alice-mirror"
+chain:
+  mode: cardano
+  cardano-signing-key: "../../hydra-cluster/config/credentials/alice.sk"
+  contestation-period: 3
+  deposit-period: 10
+  backend:
+    mode: direct
+    testnet-magic: 42
+    node-socket: "../../devnet/node.socket"

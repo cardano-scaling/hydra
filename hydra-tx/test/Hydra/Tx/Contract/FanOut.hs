@@ -9,26 +9,36 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.CRS qualified as CRS
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (registryUTxO)
+import Hydra.Tx (ScriptRegistry (..), mkHeadId, registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
-import Hydra.Tx.Party (Party, partyToChain, vkey)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusTx.Builtins (toBuiltin)
+import Hydra.Tx.Party (Party, partyToChain)
+import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
+import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+
+scriptRegistry :: ScriptRegistry
+scriptRegistry = genScriptRegistry `generateWith` 42
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
@@ -39,33 +49,44 @@ healthyFanoutTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    fanoutTx
-      scriptRegistry
-      (fst healthyFanoutSnapshotUTxO)
-      Nothing
-      (Just $ snd healthyFanoutSnapshotUTxO)
-      (headInput, headOutput)
-      healthySlotNo
-      headTokenScript
-
-  scriptRegistry = genScriptRegistry `generateWith` 42
+    fromRight (error "FanOut healthy fixture: proof creation failed") $
+      fanoutTx
+        scriptRegistry
+        (fst healthyFanoutSnapshotUTxO)
+        Nothing
+        (Just $ snd healthyFanoutSnapshotUTxO)
+        healthyFanoutUTxO
+        (headInput, headOutput)
+        healthySlotNo
+        headTokenScript
 
   headInput = generateWith arbitrary 42
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput' :: TxOut CtxUTxO
-  headOutput' = mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyFanoutDatum)
+  headOutput =
+    modifyTxOutValue (<> UTxO.totalValue healthyFanoutUTxO) $
+      mkHeadOutput @CtxUTxO
+        testNetworkId
+        testPolicyId
+        (verificationKeyToOnChainId <$> healthyParticipants)
+        (mkTxOutDatumInline healthyFanoutDatum)
 
-  headOutput = modifyTxOutValue (<> participationTokens) headOutput'
-
-  participationTokens =
-    fromList $
-      map
-        ( \party ->
-            (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
-        )
-        healthyParties
+-- | Variant of 'healthyFanoutTx' with a trailing wallet change output appended,
+-- simulating a wallet-balanced transaction. The validator must still accept this
+-- because 'numberOfFanoutOutputs' excludes the trailing output from the KZG check.
+healthyFanoutTxWithWalletChange :: (Tx, UTxO)
+healthyFanoutTxWithWalletChange =
+  applyMutation (AppendOutput walletChangeOutput) healthyFanoutTx
+ where
+  walletChangeOutput :: TxOut CtxTx
+  walletChangeOutput =
+    TxOut
+      (mkVkAddress testNetworkId walletVk)
+      (lovelaceToValue 2_000_000)
+      TxOutDatumNone
+      ReferenceScriptNone
+  walletVk = generateWith genVerificationKey 99
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
@@ -81,14 +102,18 @@ healthyContestationDeadline =
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
+healthyFanoutSnapshotAccumulator :: Accumulator.HydraAccumulator
+healthyFanoutSnapshotAccumulator =
+  Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) Nothing (Just $ snd healthyFanoutSnapshotUTxO)
+
+crsSize :: Int
+crsSize = Accumulator.requiredCRSPointCount healthyFanoutSnapshotAccumulator
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
     Head.ClosedDatum
       { snapshotNumber = 1
-      , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-      , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
-      , omegaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
@@ -96,6 +121,9 @@ healthyFanoutDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0
+      , accumulatorCommitment =
+          Accumulator.getAccumulatorCommitment healthyFanoutSnapshotAccumulator
+      , headAdaOverhead = 0
       }
  where
   healthyContestationPeriodSeconds = 10
@@ -107,6 +135,10 @@ healthyParties =
   [ generateWith arbitrary i | i <- [1 .. 3]
   ]
 
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
+
 data FanoutMutation
   = MutateValidityBeforeDeadline
   | -- | Meant to test that the minting policy is burning all PTs and ST present in tx
@@ -114,6 +146,14 @@ data FanoutMutation
   | MutateAddUnexpectedOutput
   | MutateFanoutOutputValue
   | MutateDecommitOutputValue
+  | -- | Inject an unrelated v_deposit input into a healthy Fanout.
+    FanoutAbsorbForeignDeposit
+  | -- | Change headAdaOverhead in the input ClosedDatum, breaking value conservation.
+    MutateHeadAdaOverhead
+  | -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
+    -- A substituted powers-of-tau setup lets a crafted fanout forge membership
+    -- proofs and redirect funds, so the CRS datum content must be validated.
+    MutateFanoutNonCanonicalCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -141,12 +181,79 @@ genFanoutMutation (tx, _utxo) =
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- Spec: The following n outputs are distributing funds according to η∆.
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateDecommitOutputValue <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateDecommitOutputValue <$> do
         let outs = txOuts' tx
         let noOfUtxoToOutputs = size $ UTxO.toMap (fst healthyFanoutSnapshotUTxO)
-        (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
+        (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] (drop noOfUtxoToOutputs outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateHeadAdaOverhead <$> do
+        -- Changing headAdaOverhead in the input datum shifts the expected conservation
+        -- baseline, so the on-chain headInValue == outputs + overhead check fails.
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead healthyFanoutDatum)
+    , -- A CRS reference input at the correct address and reference script but carrying a
+      -- non-canonical SRS datum must be rejected. Validating only the CRS location and
+      -- not its datum lets an attacker publish a powers-of-tau setup whose tau they know;
+      -- then proof = (1/P_S(tau))*commitment satisfies the membership pairing for ANY
+      -- subset, defeating the check that pins which outputs a fanout distributes.
+      --
+      -- We witness the gap with a same-tau CRS carrying one extra G2 point: the pairing
+      -- still succeeds (the MSM ignores points beyond the polynomial degree, as the
+      -- published 30-point CRS is for small fanouts) while its datum bytes differ from
+      -- the canonical CRS.
+      SomeMutation (pure $ toErrorCode InvalidCRSDatum) MutateFanoutNonCanonicalCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        substitutedCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        let substitutedCRSOut :: TxOut CtxUTxO
+            substitutedCRSOut =
+              TxOut
+                (txOutAddress legitCRSOut)
+                (txOutValue legitCRSOut)
+                (Accumulator.createCRSG2Datum (Accumulator.defaultItems + 1))
+                (mkScriptRef CRS.validatorScript)
+            substitutedRedeemer =
+              Head.Fanout
+                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
+                , Head.proof = fanoutProof
+                , Head.crsRef = toPlutusTxOutRef substitutedCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput substitutedCRSIn substitutedCRSOut
+            , ChangeHeadRedeemer substitutedRedeemer
+            ]
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        attackerVk <- genVerificationKey
+        let
+          -- Fanout has no upper bound by default; without a finite one
+          -- the deposit validator short-circuits before the later guards.
+          upperSlot = healthySlotNo + 1000
+          upperUTC = slotNoToUTCTime systemStart slotLength upperSlot
+          extraDeadline = addUTCTime (60 * 60 * 24) upperUTC
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              testNetworkId
+              (mkHeadId testPolicyId)
+              extraDeposited
+              extraDeadline
+          attackerOut :: TxOut CtxTx
+          attackerOut =
+            TxOut
+              (mkVkAddress testNetworkId attackerVk)
+              (txOutValue extraDepositOut)
+              TxOutDatumNone
+              ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AppendOutput attackerOut
+            , AddScript depositValidatorScript
+            , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
+            ]
     ]
  where
   burntTokens =
@@ -155,3 +262,12 @@ genFanoutMutation (tx, _utxo) =
       v -> v
 
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
+
+  fanoutProof =
+    bls12_381_G1_uncompress $
+      toBuiltin $
+        either error id $
+          Accumulator.createMembershipProofFromUTxO @Tx
+            healthyFanoutUTxO
+            healthyFanoutSnapshotAccumulator
+            (Accumulator.crsG1Points crsSize)

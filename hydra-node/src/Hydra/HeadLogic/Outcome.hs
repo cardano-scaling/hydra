@@ -5,10 +5,13 @@ module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
 
+import Data.Aeson (Value (..), defaultOptions, genericParseJSON)
+import Data.Aeson.KeyMap qualified as KeyMap
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
+import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
@@ -44,7 +47,6 @@ data Effect tx
 deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
-deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
@@ -61,40 +63,32 @@ data StateChanged tx
       { clusterPeers :: Text
       , misconfiguredPeers :: Text
       }
-  | HeadInitialized
+  | HeadOpened
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
       , parties :: [Party]
       }
-  | CommittedUTxO
-      { headId :: HeadId
-      , party :: Party
-      , committedUTxO :: UTxOType tx
-      , chainState :: ChainStateType tx
-      }
-  | HeadAborted {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
-  | HeadOpened {headId :: HeadId, chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionReceived {tx :: tx}
   | TransactionAppliedToLocalUTxO
       { headId :: HeadId
       , tx :: tx
-      , newLocalUTxO :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | -- | A snapshot was requested by some party.
-    -- NOTE: We deliberately already include an updated local ledger state to
-    -- not need a ledger to interpret this event.
-    SnapshotRequested
-      { snapshot :: Snapshot tx
-      , requestedTxIds :: [TxIdType tx]
-      , newLocalUTxO :: UTxOType tx
-      , newLocalTxs :: [tx]
+  | SnapshotRequested
+      { requestedSnapshot :: Snapshot tx
+      , newLocalTxs :: Seq tx
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
-  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
-  | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | PartySignedSnapshot {snapshotNumber :: SnapshotNumber, party :: Party, signature :: Signature (Snapshot tx)}
+  | SnapshotConfirmed
+      { headId :: HeadId
+      , snapshot :: Maybe (Snapshot tx)
+      -- ^ 'Nothing' on the normal signing path (snapshot already in 'seenSnapshot');
+      -- 'Just' only for the side-load path where no preceding 'SnapshotRequested' exists.
+      , signatures :: MultiSignature (Snapshot tx)
+      }
   | DepositRecorded
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -111,14 +105,16 @@ data StateChanged tx
       , depositTxId :: TxIdType tx
       , recovered :: UTxOType tx
       }
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized
+  | -- TODO: Rename to DepositApproved
+    CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | -- TODO: Rename to DepositFinalized
+    CommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
       }
-  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitFinalized
@@ -130,7 +126,41 @@ data StateChanged tx
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
-  | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
+  | -- | This node initiated a full automatic fanout ('Fanout' command). It
+    -- transitions 'Closed' → 'PartialFanout' in 'AutoDrain' mode so that this
+    -- node (the driver) auto-continues draining as chunks are observed. Other
+    -- parties that merely observe the resulting partial fanout do NOT auto-drive
+    -- (they go to 'AwaitingSelection'). No chain state change (client command).
+    HeadFanoutInitiated
+      { headId :: HeadId
+      , remainingOutputs :: UTxOType tx
+      }
+  | -- | A user initiated or updated a selective partial fanout. From 'Closed'
+    -- this transitions into the 'PartialFanout' state (using 'remainingOutputs'
+    -- as the initial remaining set); from 'PartialFanout' it just updates the
+    -- active selection. No chain state change (driven by a client command).
+    HeadPartialFanoutSelected
+      { headId :: HeadId
+      , remainingOutputs :: UTxOType tx
+      , selection :: UTxOType tx
+      }
+  | -- | Revert an optimistic 'Closed' → 'PartialFanout' transition back to
+    -- 'Closed'. Emitted when posting the initiating fanout transaction fails
+    -- terminally /before/ any partial fanout has landed on chain (i.e. while the
+    -- off-chain state is 'PartialFanout' but the on-chain datum is still
+    -- 'Closed'). Without this the head would wedge in 'PartialFanout' with
+    -- 'Fanout' rejected. No chain state change.
+    HeadFanoutReverted {headId :: HeadId}
+  | HeadFannedOut {headId :: HeadId, finalizedOutputs :: UTxOType tx, chainState :: ChainStateType tx}
+  | HeadPartialFannedOut
+      { headId :: HeadId
+      , distributedOutputs :: UTxOType tx
+      , remainingOutputs :: UTxOType tx
+      , chainState :: ChainStateType tx
+      , mode :: FanoutMode tx
+      -- ^ The fanout mode to continue with after this step (drives whether the
+      --   node auto-resumes draining or waits for the next 'PartialFanout').
+      }
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainPoint :: ChainPointType tx}
   | IgnoredHeadInitializing
@@ -149,7 +179,21 @@ data StateChanged tx
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
-deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+
+-- | Decoded generically, except that a 'HeadPartialFannedOut' persisted before
+-- the 'mode' field existed (event logs from an earlier node) is decoded with
+-- 'mode' defaulting to 'AwaitingSelection'. That is the safe default: the node
+-- waits for the next 'PartialFanout' rather than assuming an auto-drain, so a
+-- node mid-fanout can still restart. All other constructors decode as before.
+instance forall tx. (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx) where
+  parseJSON = genericParseJSON defaultOptions . withDefaultFanoutMode
+   where
+    withDefaultFanoutMode = \case
+      Object o
+        | Just (String "HeadPartialFannedOut") <- KeyMap.lookup "tag" o
+        , not (KeyMap.member "mode" o) ->
+            Object (KeyMap.insert "mode" (toJSON (AwaitingSelection :: FanoutMode tx)) o)
+      v -> v
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
@@ -170,7 +214,6 @@ instance Semigroup (Outcome tx) where
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
-deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 noop :: Outcome tx
 noop = Continue [] []
@@ -208,4 +251,3 @@ data WaitReason tx
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
-deriving anyclass instance IsTx tx => FromJSON (WaitReason tx)

@@ -6,14 +6,16 @@ import Hydra.Prelude hiding (label)
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
-  PaymentKey,
+  ExecutionUnits (..),
+  ScriptExecutionError (..),
+  ScriptWitnessIndex (..),
+  SerialiseAsCBOR (serialiseToCBOR),
   SlotNo (..),
   Tx,
-  VerificationKey,
+  UTxO,
   fromLedgerTx,
   getChainPoint,
   toLedgerTx,
@@ -22,15 +24,21 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
-import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
+import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as Map
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostTxError (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
+  findFittingFanoutTx,
+  findLargestFitting,
+  fitsTx,
   getLatest,
   history,
   newLocalChainState,
@@ -38,37 +46,51 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
-  HydraContext,
-  InitialState (..),
+  ClosedState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
+  ctxNetworkId,
   ctxParticipants,
-  ctxVerificationKeys,
   getKnownUTxO,
   initialChainState,
   initialize,
-  observeCommit,
-  unsafeCommit,
-  unsafeObserveInit,
  )
-import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
-import Hydra.Tx.HeadParameters (HeadParameters)
-import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx (mkSimpleBlueprintTx)
+import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
+import System.IO.Error (ioeGetErrorString, userError)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
-  genCommit,
+  genClosedStateForFanout,
   genHydraContext,
  )
+import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
+import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Fixture (defaultPParams)
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
+  NonNegative (..),
+  Positive (..),
+  choose,
+  chooseEnum,
   counterexample,
+  cover,
   elements,
+  forAll,
+  generate,
   label,
+  listOf,
   oneof,
+  suchThat,
   (===),
  )
 import Test.QuickCheck.Monadic (
@@ -138,6 +160,44 @@ spec = do
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
+    prop "emits observations before Tick within the same block" . monadicIO $ do
+      -- Ordering matters: 'onOpenChainTick' in HeadLogic uses the post-observation
+      -- state to decide whether to broadcast the next 'ReqSn'. If Tick fired
+      -- before the in-block observation (e.g. 'OnIncrementTx' that bumps the
+      -- snapshot version), followers would receive a 'ReqSn' carrying the new
+      -- version while their local version is still stale, causing
+      -- 'ReqSvNumberInvalid'.
+      (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
+      let utxo = getKnownUTxO st <> utxo'
+      TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      timeHandle <- pickBlind arbitrary
+      monitor (label $ show transition)
+
+      (handler, getEvents) <-
+        run $
+          recordEventsHandler
+            ctx
+            ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing}
+            (pure timeHandle)
+
+      run $ onRollForward handler header txs
+
+      events <- run getEvents
+      monitor $ counterexample ("events (insertion-order reversed): " <> show events)
+
+      let tag :: ChainEvent Tx -> String
+          tag = \case
+            Observation{} -> "obs"
+            Tick{} -> "tick"
+            Rollback{} -> "roll"
+            PostTxError{} -> "err"
+          callOrder = reverse events
+          pattern' = intercalate "," (map tag callOrder)
+      -- 'genChainStateWithTx' does not always produce an observable tx; in those
+      -- cases we just see a single "tick". When an observation does occur, it
+      -- must precede the Tick: pattern shape is "obs*,tick".
+      void . stop $ pattern' `shouldSatisfy` (`elem` ["tick", "obs,tick"])
+
     prop "observes valid transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
@@ -152,20 +212,17 @@ spec = do
             PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> do
-              let observedTransition =
-                    case observedTx of
-                      OnInitTx{} -> Transition.Init
-                      OnCommitTx{} -> Transition.Commit
-                      OnAbortTx{} -> Transition.Abort
-                      OnCollectComTx{} -> Transition.Collect
-                      OnDecrementTx{} -> Transition.Decrement
-                      OnIncrementTx{} -> Transition.Increment
-                      OnCloseTx{} -> Transition.Close
-                      OnContestTx{} -> Transition.Contest
-                      OnFanoutTx{} -> Transition.Fanout
-                      OnDepositTx{} -> error "OnDepositTx not expected"
-                      OnRecoverTx{} -> error "OnRecoverTx not expected"
-              observedTransition `shouldBe` transition
+              case observedTx of
+                OnInitTx{} -> transition `shouldBe` Transition.Init
+                OnDepositTx{} -> transition `shouldBe` Transition.Deposit
+                OnRecoverTx{} -> transition `shouldBe` Transition.Recover
+                OnDecrementTx{} -> transition `shouldBe` Transition.Decrement
+                OnIncrementTx{} -> transition `shouldBe` Transition.Increment
+                OnCloseTx{} -> transition `shouldBe` Transition.Close
+                OnContestTx{} -> transition `shouldBe` Transition.Contest
+                OnPartialFanoutTx{} -> transition `shouldBe` Transition.PartialFanout
+                -- FinalPartialFanout is observed as OnFanoutTx (same terminal effect)
+                OnFanoutTx{} -> transition `shouldSatisfy` (`elem` [Transition.Fanout, Transition.FinalPartialFanout])
 
       let handler =
             chainSyncHandler
@@ -282,6 +339,290 @@ spec = do
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
 
+  describe "UTxO splitting" $ do
+    it "splits UTxO into n and remaining" $ do
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
+          n = 2
+          pairs = UTxO.toList utxo
+          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
+      UTxO.size (first' :: UTxO) `shouldBe` n
+      UTxO.size rest `shouldBe` (UTxO.size utxo - n)
+
+  describe "fitsTx" $ do
+    -- Each test measures the real serialised byte size of a generated tx and
+    -- compares it against a randomly chosen limit so that both outcomes (fits /
+    -- does not fit) occur naturally rather than being hardcoded.  'cover'
+    -- assertions verify that QuickCheck actually exercises both branches.
+
+    prop "skips script evaluation and returns False when tx exceeds size limit" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              -- When size fails the short-circuit must prevent evalCosts from
+              -- being called at all; the throw proves it.
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts =
+                if sizeOk
+                  then \_ _ -> pure $ Right Map.empty
+                  else \_ _ -> throwIO $ userError "evalCosts must not be called when size check fails"
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          assert $ result == sizeOk
+
+    prop "returns False when script evaluation returns a budget error" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts _ _ =
+                pure $ Left $ TransactionBudgetOverspent (ExecutionUnits 100 100) (ExecutionUnits 50 50)
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          -- Budget overrun is transient; always False regardless of size.
+          assert $ not result
+
+    prop "returns False when report contains a script execution failure" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit ->
+          forAll genFailingReport $ \report -> monadicIO $ do
+            let txBytes :: Int
+                txBytes = BS.length (serialiseToCBOR tx)
+                sizeOk = txBytes <= limit
+            let sizeCheck :: Tx -> IO Bool
+                sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+                evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+                evalCosts _ _ = pure $ Right report
+            result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
+            monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", report=" <> show report <> ", result=" <> show result
+            monitor $ cover 40 sizeOk "size passes"
+            monitor $ cover 40 (not sizeOk) "size fails"
+            assert $ not result
+
+    prop "returns True when size passes and all scripts succeed" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts _ _ = pure $ Right Map.empty
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          -- Empty report means all scripts pass; result tracks whether size passed.
+          assert $ result == sizeOk
+
+    prop "result matches real Cardano protocol size limit and evaluateTx" $
+      forAll arbitrary $ \tx -> monadicIO $ do
+        let txBytes = BS.length (serialiseToCBOR tx)
+            sizeOk = fromIntegral txBytes <= maxTxSize
+            sizeCheck :: Tx -> IO Bool
+            sizeCheck t = pure $ fromIntegral (BS.length (serialiseToCBOR t)) <= maxTxSize
+            evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+            evalCosts t u = pure $ evaluateTx t u
+            evalResult = evaluateTx tx mempty
+            evalOk = case evalResult of
+              Right report -> all isRight (Map.elems report)
+              Left _ -> False
+        result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
+        monitor $
+          counterexample $
+            "txBytes="
+              <> show txBytes
+              <> ", maxTxSize="
+              <> show maxTxSize
+              <> ", sizeOk="
+              <> show sizeOk
+              <> ", evalOk="
+              <> show evalOk
+              <> ", result="
+              <> show result
+        monitor $ cover 50 sizeOk "within real protocol size limit"
+        assert $ result == (sizeOk && evalOk)
+
+  describe "findLargestFitting" $ do
+    it "returns Left () when upper bound is 0" $ do
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 0
+      result `shouldBe` Left ()
+
+    it "returns Left () when tryTx never fits" $ do
+      result <- findLargestFitting (const $ pure Nothing :: Int -> IO (Maybe Int)) 10
+      result `shouldBe` Left ()
+
+    it "returns Right upper bound when tryTx always fits" $ do
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 10
+      result `shouldBe` Right 10
+
+    prop "returns the largest n where tryTx fits" $
+      \(Positive maxChunk) (NonNegative threshold) ->
+        -- k is the threshold in [0..maxChunk]: fits for [1..k], fails for [k+1..maxChunk]
+        let k = threshold `mod` (maxChunk + 1)
+         in monadicIO $ do
+              monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
+              result <- run $ findLargestFitting (\n -> pure $ if n <= k then Just n else Nothing) maxChunk
+              let expected = if k == 0 then Left () else Right k
+              monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
+              assert $ result == expected
+
+    prop "uses at most ceil(log2 n) + 1 evaluations" $
+      \(Positive maxChunk) ->
+        -- (,) (Sum Int) is a Monad via the base Monoid-writer instance; each
+        -- tryTx call contributes Sum 1 so the fst accumulates the total.
+        let (Sum count, _) =
+              findLargestFitting
+                (\n -> (Sum 1, Just n))
+                maxChunk
+            bound = (ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) :: Int) + 1
+         in counterexample ("maxChunk=" <> show maxChunk <> ", evaluations=" <> show count <> ", bound=" <> show bound) $
+              count <= bound
+
+    prop "propagates exceptions thrown by tryTx" $
+      \(Positive maxChunk) -> monadicIO $ do
+        let tryTx :: Int -> IO (Maybe Int)
+            tryTx _ = throwIO $ userError "structural failure"
+        monitor $ counterexample $ "maxChunk=" <> show maxChunk
+        run $
+          findLargestFitting tryTx maxChunk
+            `shouldThrow` \e -> ioeGetErrorString e == "structural failure"
+
+    prop "take and drop split preserves all entries and sizes" $
+      \(utxo :: UTxO) (NonNegative n) ->
+        let pairs = UTxO.toList utxo
+            (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
+            expectedFirst = min n (UTxO.size utxo)
+            utxoSize = UTxO.size utxo
+         in counterexample ("n=" <> show n <> ", utxoSize=" <> show utxoSize) $
+              cover 20 (n < utxoSize && utxoSize > 0) "normal split" $
+                cover 20 (n >= utxoSize && utxoSize > 0) "n exceeds UTxO size" $
+                  cover 5 (utxoSize == 0) "empty UTxO" $
+                    UTxO.size first' == expectedFirst
+                      && UTxO.size rest == utxoSize - expectedFirst
+                      && UTxO.toList (first' <> rest) == UTxO.toList (utxo :: UTxO)
+
+  describe "findFittingFanoutTx" $ do
+    prop "throws StalePartialFanoutTx when on-chain accumulator doesn't match remaining UTxO" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, _u0) ->
+          monadicIO $ do
+            -- A freshly generated UTxO won't match the commitment in the closed-head
+            -- datum → partialFanout returns Left StaleChainState → StalePartialFanoutTx
+            mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 5
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> pure True
+                    , getPParams = pure defaultPParams
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            run $
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
+                `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
+
+    prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
+      forAll (genUTxOAdaOnlyOfSize 3) $ \fullUTxO -> monadicIO $ do
+        ctx <- run $ generate arbitrary
+        seedTxIn <- run $ generate genTxIn
+        -- Empty spendableUTxO → CannotFindHeadOutput on every chunk size, which is
+        -- a structural error (not a race condition) → FailedToConstructPartialFanoutTx
+        let wallet =
+              TinyWallet
+                { getUTxO = pure mempty
+                , getSeedInput = pure Nothing
+                , sign = id
+                , coverFee = \_ tx -> pure (Right tx)
+                , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                , isTxWithinSizeLimits = \_ -> pure True
+                , getPParams = pure defaultPParams
+                , reset = pure ()
+                , update = \_ _ -> pure ()
+                }
+        run $
+          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn Nothing fullUTxO fullUTxO (UTxO.size fullUTxO - 1) 1
+            `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
+
+    prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) ->
+          monadicIO $ do
+            -- Wallet always rejects on size → fits always returns False for every chunk
+            -- → findLargestFitting returns Nothing → FailedToConstructPartialFanoutTx
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> pure False
+                    , getPParams = pure defaultPParams
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            run $
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing u0 u0 (UTxO.size u0 - 1) deadlineSlot
+                `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
+
+    prop "falls back to partial fanout when preferred tx doesn't fit" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) ->
+          monadicIO $ do
+            dummyTx <- run $ generate arbitrary
+            -- First isTxWithinSizeLimits call (for the preferred tx) returns False;
+            -- all subsequent calls (for binary-search partial-fanout candidates) return True.
+            isFirst <- run $ newIORef True
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> do
+                        first' <- readIORef isFirst
+                        writeIORef isFirst False
+                        pure (not first')
+                    , getPParams = pure defaultPParams
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            -- Any exception thrown here will fail the test automatically.
+            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
+            assert True
+
+-- | Generate a byte-count limit that straddles the real serialised size of
+-- @tx@, giving roughly equal probability of the size check passing or failing.
+sizeLimit :: Tx -> Gen Int
+sizeLimit tx = choose (0, BS.length (serialiseToCBOR tx) * 2)
+
+-- | Generate an 'EvaluationReport' that contains at least one script failure
+-- at an arbitrary witness index, optionally mixed with passing entries.
+genFailingReport :: Gen EvaluationReport
+genFailingReport = do
+  failIdx <- ScriptWitnessIndexTxIn <$> arbitrary
+  passingIdxs <- listOf (ScriptWitnessIndexTxIn <$> arbitrary)
+  let passing = Map.fromList [(i, Right (ExecutionUnits 100 100)) | i <- passingIdxs]
+  pure $ Map.insert failIdx (Left ScriptErrorExecutionUnitsOverflow) passing
+
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
@@ -345,23 +686,25 @@ genRollbackBlocks blocks =
 -- transaction, starting from the returned on-chain head state.
 --
 -- Note that this does not generate the entire spectrum of observable
--- transactions in Hydra, but only init and commits, which is already sufficient
+-- transactions in Hydra, but only init and deposits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext maximumNumberOfParties
-  -- NOTE: commits must be generated from each participant POV, and thus, we
+  let networkId = ctxNetworkId ctx
+  -- NOTE: deposits must be generated from each participant POV, and thus, we
   -- need all their respective ChainContext to move on.
+  -- XXX: This is not as important anymore with deposits
   allContexts <- deriveChainContexts ctx
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
-    -- Commit using all contexts
-    void $ stepCommits ctx initTx allContexts
+    txInit <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
+    let InitObservation{headId} = either (error . show) id $ observeInitTx txInit
+    replicateM_ (length allContexts) $
+      stepDeposit networkId headId
   pure (cctx, initialChainState, reverse blks)
  where
-  nextSlot :: Monad m => StateT [TestBlock] m SlotNo
   nextSlot = do
     get <&> \case
       [] -> 1
@@ -369,42 +712,32 @@ genSequenceOfObservableBlocks = do
 
   blockSlotNo (TestBlock (BlockHeader slotNo _ _) _) = slotNo
 
-  putNextBlock :: Tx -> StateT [TestBlock] Gen ()
   putNextBlock tx = do
     sl <- nextSlot
     blk <- lift $ genBlockAt sl [tx]
     modify' (blk :)
 
-  stepInit ::
-    ChainContext ->
-    [OnChainId] ->
-    HeadParameters ->
-    StateT [TestBlock] Gen Tx
   stepInit ctx participants params = do
     seedTxIn <- lift genTxIn
-    let initTx = initialize ctx seedTxIn participants params
-    initTx <$ putNextBlock initTx
+    let tx = initialize ctx defaultPParams seedTxIn participants params
+    tx <$ putNextBlock tx
 
-  stepCommits ::
-    HydraContext ->
-    Tx ->
-    [ChainContext] ->
-    StateT [TestBlock] Gen [InitialState]
-  stepCommits hydraCtx initTx = \case
-    [] ->
-      pure []
-    ctx : rest -> do
-      stInitialized <- stepCommit ctx (ctxVerificationKeys hydraCtx) initTx
-      (stInitialized :) <$> stepCommits hydraCtx initTx rest
-
-  stepCommit ::
-    ChainContext ->
-    [VerificationKey PaymentKey] ->
-    Tx ->
-    StateT [TestBlock] Gen InitialState
-  stepCommit ctx allVerificationKeys initTx = do
-    let stInitial@InitialState{headId} = unsafeObserveInit ctx allVerificationKeys initTx
-    utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
-    putNextBlock commitTx
-    pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx
+  stepDeposit networkId headId = do
+    utxoToDeposit <- lift $ genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
+    slot <- nextSlot
+    slotsUntilDeadline <- lift $ chooseEnum (0, 86400)
+    let deadline =
+          slotNoToUTCTime
+            Fixture.systemStart
+            Fixture.slotLength
+            (slot + slotsUntilDeadline)
+    let tx =
+          depositTx
+            networkId
+            Fixture.pparams
+            headId
+            (mkSimpleBlueprintTx utxoToDeposit)
+            slot
+            deadline
+            Nothing
+    putNextBlock tx

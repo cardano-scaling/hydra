@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-plutus-extras
-version:       1.2.0
+version:       2.3.0
 synopsis:
   Several extras and extensions of plutus-tx and plutus-ledger-api
 
@@ -23,7 +23,6 @@ common project-config
     DeriveAnyClass
     DerivingStrategies
     FunctionalDependencies
-    GADTs
     LambdaCase
     MultiWayIf
     NoImplicitPrelude
@@ -59,21 +58,17 @@ library
     , time
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
-  other-modules:
-    Hydra.Plutus.Extras.TimeSpec
-    Spec
-
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  other-modules:  Hydra.Plutus.Extras.TimeSpec
   build-depends:
     , base
     , hspec
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-test-utils
     , QuickCheck
     , time
-
-  build-tool-depends: hspec-discover:hspec-discover

@@ -88,12 +88,20 @@ instance IsTx SimpleTx where
   outputsOfUTxO = toList
   withoutUTxO = Set.difference
 
+  applyTxTo (SimpleTx _ ins outs) utxo = (utxo `Set.difference` ins) <> outs
+
   txSpendingUTxO utxo =
     SimpleTx
       { txSimpleId = 0
       , txInputs = utxo
       , txOutputs = mempty
       }
+
+  filterUTxOByOutputs = Set.intersection
+
+  removeOneOutputFromUTxO = Set.delete
+
+  utxoToElement = toStrict . serialise . unSimpleTxOut
 
 -- * Simple chain state
 
@@ -112,7 +120,9 @@ instance IsChainState SimpleTx where
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
-  Ledger{applyTransactions}
+  -- NOTE: SimpleTx has no scripts or signatures, so re-application is identical
+  -- to application; there is no static check to skip.
+  Ledger{applyTransactions, reapplyTransactions = applyTransactions}
  where
   -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
   applyTransactions :: Foldable t => p -> Set SimpleTxOut -> t SimpleTx -> Either (SimpleTx, ValidationError) (Set SimpleTxOut)

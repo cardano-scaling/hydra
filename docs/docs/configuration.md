@@ -1,5 +1,9 @@
 # Configuration
 
+```mdx-code-block
+import TerminalWindow from '@site/src/components/TerminalWindow';
+```
+
 Running a Hydra head involves operating a Hydra node connected to other Hydra nodes and a Cardano node. The entire configuration of the `hydra-node` is managed through command-line options. Use the `--help` option to see a full list of available commands:
 
 ```shell
@@ -7,6 +11,135 @@ hydra-node --help
 ```
 
 Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _how to_ articles.
+
+### YAML configuration file
+
+Instead of passing every option as a CLI flag, you can write a YAML file and point `hydra-node` at it with `--config`:
+
+```shell
+hydra-node --config alice.yaml
+```
+
+Key names are the same as their CLI counterparts (kebab-case). Any CLI flag you also provide on the command line **overrides** the value from the file, so you can keep a shared base config and tweak individual options per-run.
+
+A few things to keep in mind:
+
+- **Relative paths are resolved relative to the config file's directory**, not the current working directory. For example, if `alice.yaml` lives in `/etc/hydra/` and sets `hydra-signing-key: alice.sk`, the node will look for `/etc/hydra/alice.sk` regardless of where you run `hydra-node` from.
+- **Scalar fields**: CLI flags override YAML values. There is one known limitation: if you pass a CLI flag whose value happens to equal the compiled-in default (e.g. `--api-port 4001` when 4001 is the default), the YAML value wins silently. The node logs a warning when this happens, so watch for it on startup.
+- **List fields** (`peers`, `hydra-verification-keys`, `cardano-verification-keys`): CLI and YAML values are **unioned**, not overridden. There is no way to "clear" the YAML list from the CLI — if you need full CLI control over a list, omit it from the config file.
+
+#### Peer list with co-located keys
+
+The YAML format lets you list each peer's addresses and verification keys together in one block. You can include your own node in the list — the node drops any entry whose address matches its own `listen`/`advertise` address, so a single peer block can be shared across all participants.
+
+**Address matching for self-filtering:**
+
+- If `advertise` is set, the self entry must match it exactly (same host string, same port).
+- If only `listen` is set, a peer on the same port is considered self when:
+  - `listen` is a wildcard (`0.0.0.0`, `::`, `*`) — any peer host on that port is self; or
+  - both sides are loopback (`127.0.0.1`, `localhost`, `::1`) in some combination; or
+  - the host strings match exactly.
+
+If your `listen` uses a DNS name and your peers are written as IP addresses (or vice versa), self-filtering will *not* match — pin the form in both places, or set `advertise` explicitly.
+
+**`alice.yaml`**
+```yaml
+node-id: "1"
+listen: "127.0.0.1:5001"
+advertise: "127.0.0.1:5001"
+api-port: 4001
+monitoring-port: 6001
+hydra-signing-key: "alice.sk"
+peers:
+  - address: "127.0.0.1:5001"          # self — filtered out automatically
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+ledger-protocol-parameters: "protocol-parameters.json"
+persistence-dir: "persistence/alice"
+chain:
+  mode: cardano
+  network: preview
+  cardano-signing-key: "alice.cardano.sk"
+  contestation-period: 43200
+  deposit-period: 3600
+  backend:
+    mode: direct
+    node-socket: "node.socket"
+```
+
+The self entry (`127.0.0.1:5001` here) carries keys like every other peer — those keys are simply ignored for the self entry, which lets you copy the same `peers:` block into `bob.yaml` and `carol.yaml` and only change the top-level fields.
+
+`bob.yaml` and `carol.yaml` follow the same structure — change `node-id`, `listen`/`advertise`, `api-port`, `monitoring-port`, `hydra-signing-key`, `persistence-dir`, and `cardano-signing-key`.
+
+#### Mirror nodes
+
+A **mirror node** observes the head without holding signing keys. To set one up, add the mirror's address to every participant's peer list **without** any verification keys:
+
+```yaml
+# in alice.yaml, bob.yaml, carol.yaml
+peers:
+  - address: "127.0.0.1:5001"
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+  - address: "127.0.0.1:5004"   # mirror — address only, no keys
+```
+
+The mirror node itself lists all signing peers and includes its own address with full keys (so it knows which entries to filter out):
+
+**`alice-mirror.yaml`**
+```yaml
+node-id: "1-mirror"
+listen: "127.0.0.1:5004"
+advertise: "127.0.0.1:5004"
+api-port: 4004
+monitoring-port: 6004
+hydra-signing-key: "alice.sk"          # same Hydra key as the primary alice node
+peers:
+  - address: "127.0.0.1:5001"          # alice primary — address only, no keys needed
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+  - address: "127.0.0.1:5004"          # self — filtered out automatically
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+persistence-dir: "persistence/alice-mirror"
+chain:
+  mode: cardano
+  cardano-signing-key: "alice.cardano.sk"
+  contestation-period: 43200
+  deposit-period: 3600
+  backend:
+    mode: direct
+    node-socket: "node.socket"
+```
+
+Run both nodes side by side:
+
+```shell
+hydra-node --config alice.yaml
+hydra-node --config alice-mirror.yaml
+```
+
+Gotchas when running mirror nodes:
+
+- A **peer entry with exactly one verification key** (just `hydra-verification-key` or just `cardano-verification-key`) is rejected at startup. Signing peers need both; observer/mirror peers need neither.
+- The mirror in this example reuses the primary Alice node's `hydra-signing-key`, so both processes sign as the same party. Hydra dedups identical `AckSn` messages (there is explicit handling for "same keys, multiple instances"), so this is safe while the two are in sync. The risks are at the edges: if one drifts out of sync and then resyncs, the process whose `AckSn` lost the race can end up one step behind the confirmed chain snapshot, and any on-chain action (close, contest) posted by both races on the UTxO. Treat the mirror as a warm standby rather than a second independent signer.
+- Self-filtering compares host strings, so the `listen`/`advertise` value and the self peer entry must use the same form (both IP, or both DNS name). See the address-matching rules above.
 
 ### Cardano keys
 
@@ -20,7 +153,11 @@ cardano-cli address key-gen \
   --signing-key-file cardano.sk
 ```
 
-These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
+:::tip HD wallet keys supported
+The `hydra-node` also accepts **extended keys** (`PaymentExtendedSigningKeyShelley_ed25519_bip32` / `PaymentExtendedVerificationKeyShelley_ed25519_bip32`) as produced by HD wallets (e.g., Daedalus, hardware wallets). Extended keys are natively supported, so no manual conversion is needed.
+:::
+
+These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, posting a spurious `Close`). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
 
 ### Hydra keys
 
@@ -208,7 +345,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel vs funds
 
-Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
@@ -217,20 +354,17 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
 ```
 
-<!-- TODO: this part below feels a bit odd here, rather move to API or how-to? -->
+The `hydra-tui` can display this fuel alongside the commit funds on the `Funds`
+tab: pass the internal wallet's verification key via `--fuel-key cardano.vk`.
+The fuel listing is display-only and is never used when committing.
 
-While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to commit **funds** into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, allowing you to specify either:
- - A set of `UTXO` outputs to commit (belonging to public keys), or
+While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to deposit **funds** into an open Hydra head. The `hydra-node` provides an HTTP endpoint at `POST /commit`, allowing you to specify either:
+ - A set of `UTXO` outputs to deposit (belonging to public keys), or
  - A _blueprint_ transaction along with the `UTXO` that resolves it.
 
-This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+This endpoint returns a deposit transaction, which is balanced, and all fees are paid by the `hydra-node`. The wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
-If using your own UTXO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint.
-Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (eg, reference inputs, redeemers, validity ranges).
-
-> Note: Outputs of a blueprint transaction are not considered — only inputs are used to commit funds to the head. The `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
-
-For more details, refer to this [how to](./how-to/commit-blueprint) guide on committing to a head using a blueprint transaction.
+For more details, refer to the [how to deposit funds](./how-to/incremental-commit) guide.
 
 ### Connect to Cardano
 
@@ -277,7 +411,7 @@ hydra-node \
 To synchronize from the genesis block, use `--start-chain-from 0`.
 
 :::info
-If the `hydra-node` already tracks a head in its `state` and `--start-chain-from` is given, the **newer** point is used.
+If the `hydra-node` already tracks a head in its `hydra.db` and `--start-chain-from` is given, the **newer** point is used.
 :::
 
 ### Offline mode
@@ -323,6 +457,55 @@ The API is not authenticated, and if exposed, an open head can be easily closed 
 
 The API server also supports `TLS` connections (`https://` and `wss://`) when a certificate and key are configured with `--tls-cert` and `--tls-key` respectively.
 
+#### Inspecting the effective configuration
+
+The node exposes a `GET /config` endpoint that returns the effective configuration as a JSON document — the result of merging the YAML config file with any CLI overrides, after resolving all relative paths to absolute ones.
+
+```mdx-code-block
+<TerminalWindow>
+{`curl http://localhost:4001/config`}
+</TerminalWindow>
+```
+
+The response mirrors the YAML config file format (kebab-case keys, same hierarchy):
+
+```json
+{
+  "node-id": "1",
+  "listen": "127.0.0.1:5001",
+  "api-host": "127.0.0.1",
+  "api-port": 4001,
+  "quiet": false,
+  "hydra-signing-key": "/abs/path/to/alice.sk",
+  "hydra-verification-keys": ["/abs/path/to/bob.vk"],
+  "peers": ["127.0.0.1:5002"],
+  "persistence-dir": "/abs/path/to/persistence/alice",
+  "ledger-protocol-parameters": "/abs/path/to/protocol-parameters.json",
+  "use-system-etcd": false,
+  "api-transaction-timeout": 300.0,
+  "chain": {
+    "mode": "cardano",
+    "cardano-signing-key": "/abs/path/to/alice.cardano.sk",
+    "cardano-verification-keys": [],
+    "contestation-period": 43200,
+    "deposit-period": 3600.0,
+    "unsynced-period": 21600.0,
+    "backend": {
+      "mode": "direct",
+      "node-socket": "/abs/path/to/node.socket",
+      "testnet-magic": 2
+    }
+  }
+}
+```
+
+This is useful for verifying that all paths were resolved correctly, that CLI flags took effect, and for debugging configuration issues. The full schema is described in the [API reference](pathname:///api-reference/#operation-subscribe-/config).
+
+:::caution
+
+The response exposes **absolute filesystem paths** to signing keys, sockets, and the persistence directory. The API is unauthenticated (see the warning above) — do not expose the API port to networks you do not trust.
+
+:::
 
 ### Auto compaction of networking buffers
 

@@ -71,7 +71,7 @@ docker compose logs -f --no-log-prefix cardano-node | jq -Rr 'fromjson? | .data.
 :::
 
 
-Next, we need to give Alice, Bob, and Carol some UTXOs for committing and ada for paying fees. To do this, use the `seed-devnet.sh` script, which uses the `cardano-cli` within the already running `cardano-node` container:
+Next, we need to give Alice, Bob, and Carol some UTXOs to deposit into the head and ada for paying fees. To do this, use the `seed-devnet.sh` script, which uses the `cardano-cli` within the already running `cardano-node` container:
 
 ```shell
 ./seed-devnet.sh
@@ -95,7 +95,7 @@ This will start a full-blown terminal interface loaded with signing keys corresp
 
 ## Use the head
 
-Using the terminal interface of any node, you can now `[i]nit` the Hydra head and `[c]ommit` pre-distributed funds to it. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. After committing from all nodes, the head will automatically open, and you can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
+Using the terminal interface of any node, you can now `[i]nit` the Hydra head. The head opens immediately — there is no commit phase. To add funds, use `[c]ommit` to deposit pre-distributed UTXOs into the open head. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. You can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
 
 ![](./open-head.png)
 

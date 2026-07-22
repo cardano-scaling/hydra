@@ -24,8 +24,6 @@ import Hydra.Cardano.Api (
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
-  GenesisParameters (..),
-  IsShelleyBasedEra (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
@@ -40,6 +38,7 @@ import Hydra.Cardano.Api (
   getBlockTxs,
   getTxBody,
   getTxId,
+  shelleyBasedEra,
  )
 import Hydra.Chain (
   ChainComponent,
@@ -64,7 +63,7 @@ import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (CardanoChainConfig (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -79,54 +78,70 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Text.Printf (printf)
 
-newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, Show)
+newtype DirectBackend a = DirectBackend (ReaderT DirectOptions IO a)
+  deriving newtype
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadThrow
+    , MonadCatch
+    )
+
+runDirectBackend :: DirectOptions -> DirectBackend a -> IO a
+runDirectBackend opts (DirectBackend m) = runReaderT m opts
 
 instance ChainBackend DirectBackend where
-  queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
+  queryGenesisParameters = withNodeConn $ \ci ->
+    CardanoClient.queryGenesisParameters ci CardanoClient.QueryTip
 
   queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
-  queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
+  queryNetworkId = DirectBackend $ do
+    DirectOptions{networkId} <- ask
+    pure networkId
 
-  queryTip (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryTip (CardanoClient.localNodeConnectInfo networkId nodeSocket)
+  queryTip = withNodeConn CardanoClient.queryTip
 
-  queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
-    liftIO $ CardanoClient.queryUTxO (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip addresses
+  queryUTxO addresses = withNodeConn $ \ci ->
+    CardanoClient.queryUTxO ci CardanoClient.QueryTip addresses
 
-  queryUTxOByTxIn (DirectBackend DirectOptions{networkId, nodeSocket}) txins =
-    liftIO $ CardanoClient.queryUTxOByTxIn (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip txins
+  queryUTxOByTxIn txins = withNodeConn $ \ci ->
+    CardanoClient.queryUTxOByTxIn ci CardanoClient.QueryTip txins
 
-  queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryEraHistory (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  queryEraHistory queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryEraHistory ci queryPoint
 
-  querySystemStart (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.querySystemStart (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  querySystemStart queryPoint = withNodeConn $ \ci ->
+    CardanoClient.querySystemStart ci queryPoint
 
-  queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryProtocolParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
-  queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryStakePools (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  queryProtocolParameters queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryProtocolParameters ci queryPoint
 
-  queryUTxOFor (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint vk =
-    liftIO $ CardanoClient.queryUTxOFor (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint vk
+  queryStakePools queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryStakePools ci queryPoint
 
-  submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
-    liftIO $ CardanoClient.submitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
+  queryUTxOFor queryPoint vk = withNodeConn $ \ci ->
+    CardanoClient.queryUTxOFor ci queryPoint vk
 
-  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx _ =
-    liftIO $ CardanoClient.awaitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
+  submitTransaction tx = withNodeConn $ \ci ->
+    CardanoClient.submitTransaction ci tx
 
-  getOptions (DirectBackend directOptions) = Direct directOptions
+  awaitTransaction tx _ = withNodeConn $ \ci ->
+    CardanoClient.awaitTransaction ci tx
 
-  getBlockTime (DirectBackend DirectOptions{networkId, nodeSocket}) = do
-    GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
-      liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
-    pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
+  getBlockTime = withNodeConn $ \ci ->
+    CardanoClient.queryBlockTime ci CardanoClient.QueryTip
+
+  getQueryDelay = pure 0
+
+withNodeConn :: (LocalNodeConnectInfo -> IO a) -> DirectBackend a
+withNodeConn f = DirectBackend $ do
+  DirectOptions{networkId, nodeSocket} <- ask
+  liftIO $ f (CardanoClient.localNodeConnectInfo networkId nodeSocket)
 
 withDirectChain ::
-  DirectBackend ->
+  DirectOptions ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -134,7 +149,7 @@ withDirectChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
+withDirectChain opts tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -151,12 +166,12 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   (prefix, startingDecision') <-
     case head startFromPrefix of
       ChainPointAtGenesis -> do
-        tip <- queryTip backend
+        tip <- runDirectBackend opts queryTip
         pure (tip :| [], FromTip tip)
       _ -> pure (startFromPrefix, startingDecision)
 
   traceWith tracer $ StartingChainDecision startingDecision'
-  let getTimeHandle = queryTimeHandle backend
+  let getTimeHandle = runDirectBackend opts queryTimeHandle
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
@@ -182,7 +197,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
+  DirectOptions{networkId, nodeSocket} = opts
   CardanoChainConfig{startChainFrom} = config
 
   connectInfo networkId' nodeSocket' =
@@ -198,7 +213,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   clientProtocols prefix queue handler =
     LocalNodeClientProtocols
       { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet prefix
-      , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
+      , localTxSubmissionClient = Just $ txSubmissionClient tracer (runDirectBackend opts getBlockTime) queue
       , localStateQueryClient = Nothing
       , localTxMonitoringClient = Nothing
       }
@@ -318,6 +333,7 @@ chainSyncClient handler wallet prefix =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
+            BlockInMode era@DijkstraEra _ -> throwIO $ EraNotSupportedYet{otherEraName = show era}
             BlockInMode era@BabbageEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AlonzoEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AllegraEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
@@ -336,9 +352,13 @@ txSubmissionClient ::
   forall m.
   (MonadSTM m, MonadDelay m) =>
   Tracer m CardanoChainLog ->
+  -- | Action returning the chain's average block time (seconds), used to size
+  -- the delay before reporting 'PostTxError' so the observing side has a chance
+  -- to process a competing transaction.
+  m NominalDiffTime ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
-txSubmissionClient tracer queue =
+txSubmissionClient tracer queryBlockTime queue =
   LocalTxSubmissionClient clientStIdle
  where
   clientStIdle :: m (LocalTxClientStIdle TxInMode TxValidationErrorInCardanoMode m ())
@@ -359,11 +379,11 @@ txSubmissionClient tracer queue =
               -- possible because of missing data constructors from cardano-api
               let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
               traceWith tracer PostingFailed{tx, postTxError}
-              -- NOTE: Delay callback in case our transaction got invalidated
-              -- because of a transaction seen in a block. This gives the
-              -- observing side of the chain layer time to process the
-              -- transaction and business logic might even ignore this error.
-              threadDelay 1
+              -- NOTE: Delay callback for one block time so the observing side
+              -- has a chance to process a competing transaction; business
+              -- logic might then ignore this error.
+              blockTime <- queryBlockTime
+              threadDelay (realToFrac blockTime)
               atomically (putTMVar response (Just postTxError))
               clientStIdle
         )

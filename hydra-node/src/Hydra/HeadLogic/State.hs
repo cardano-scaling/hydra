@@ -6,7 +6,8 @@ module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
 
-import Data.Map qualified as Map
+import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Tx (
   HeadId,
@@ -15,7 +16,7 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
-import Hydra.Tx.Crypto (Signature)
+import Hydra.Tx.Crypto (Signature, getSignableRepresentation)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
@@ -26,7 +27,7 @@ import Hydra.Tx.Snapshot (
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
--- Each of the sub-types (InitialState, OpenState, etc.) contain a black-box
+-- Each of the sub-types (OpenState, etc.) contain a black-box
 -- 'chainState' corresponding to the 'ChainEvent' that has been observed leading
 -- to the state.
 --
@@ -38,9 +39,12 @@ import Hydra.Tx.Snapshot (
 -- do not persist the 'HeadState' and not access it in the HeadLogic either.
 data HeadState tx
   = Idle (IdleState tx)
-  | Initial (InitialState tx)
   | Open (OpenState tx)
   | Closed (ClosedState tx)
+  | -- | A closed head whose UTxO is being fanned out across multiple
+    -- transactions (on-chain in the @FanoutProgress@ state). Reached from
+    -- 'Closed' once the first partial fanout is observed.
+    FanoutProgress (PartialFanoutState tx)
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -52,33 +56,33 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
-  Initial st -> Initial st{chainState}
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
+  FanoutProgress st -> FanoutProgress st{chainState}
 
 -- | Get the chain state in any 'HeadState'.
 getChainState :: HeadState tx -> ChainStateType tx
 getChainState = \case
   Idle IdleState{chainState} -> chainState
-  Initial InitialState{chainState} -> chainState
   Open OpenState{chainState} -> chainState
   Closed ClosedState{chainState} -> chainState
+  FanoutProgress PartialFanoutState{chainState} -> chainState
 
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
 getHeadParameters = \case
   Idle _ -> Nothing
-  Initial InitialState{parameters} -> Just parameters
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
+  FanoutProgress PartialFanoutState{parameters} -> Just parameters
 
 -- | Get the head parameters in any 'HeadState'.
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 getOpenStateConfirmedSnapshot = \case
   Idle _ -> Nothing
-  Initial InitialState{} -> Nothing
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
+  FanoutProgress PartialFanoutState{} -> Nothing
 
 -- ** Idle
 
@@ -90,28 +94,6 @@ deriving stock instance Eq (ChainStateType tx) => Eq (IdleState tx)
 deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
-
--- ** Initial
-
--- | An 'Initial' head which already has an identity and is collecting commits.
-data InitialState tx = InitialState
-  { parameters :: HeadParameters
-  , pendingCommits :: PendingCommits
-  , committed :: Committed tx
-  , chainState :: ChainStateType tx
-  , headId :: HeadId
-  , headSeed :: HeadSeed
-  }
-  deriving stock (Generic)
-
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
-
-type PendingCommits = Set Party
-
-type Committed tx = Map Party (UTxOType tx)
 
 -- ** Open
 
@@ -136,9 +118,9 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   { localUTxO :: UTxOType tx
   -- ^ The latest UTxO resulting from applying 'localTxs' to
   -- 'confirmedSnapshot'. Spec: L̂
-  , localTxs :: [tx]
-  -- ^ List of transactions applied locally and pending inclusion in a snapshot.
-  -- Ordering in this list is important as transactions are added in order of
+  , localTxs :: Seq tx
+  -- ^ Sequence of transactions applied locally and pending inclusion in a
+  -- snapshot. Ordering is important as transactions are added in order of
   -- application. Spec: T̂
   , allTxs :: !(Map.Map (TxIdType tx) tx)
   -- ^ Map containing all the transactions ever seen by this node and not yet
@@ -178,14 +160,62 @@ data SeenSnapshot tx
     SeenSnapshot
       { snapshot :: Snapshot tx
       , signatories :: Map Party (Signature (Snapshot tx))
-      -- ^ Collected signatures and so far.
+      -- ^ Collected signatures so far.
+      , signableBytes :: ByteString
+      -- ^ Pre-computed result of 'getSignableRepresentation snapshot', cached
+      -- to avoid recomputing the expensive UTxO hash on every AckSn verification.
       }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
 deriving stock instance IsTx tx => Show (SeenSnapshot tx)
-deriving anyclass instance IsTx tx => ToJSON (SeenSnapshot tx)
-deriving anyclass instance IsTx tx => FromJSON (SeenSnapshot tx)
+
+-- Manual instances that exclude 'signableBytes' from JSON (it is derived from
+-- 'snapshot' and recomputed on deserialisation).
+instance IsTx tx => ToJSON (SeenSnapshot tx) where
+  toJSON = \case
+    NoSeenSnapshot ->
+      object ["tag" .= ("NoSeenSnapshot" :: Text)]
+    LastSeenSnapshot{lastSeen} ->
+      object ["tag" .= ("LastSeenSnapshot" :: Text), "lastSeen" .= lastSeen]
+    RequestedSnapshot{lastSeen, requested} ->
+      object
+        [ "tag" .= ("RequestedSnapshot" :: Text)
+        , "lastSeen" .= lastSeen
+        , "requested" .= requested
+        ]
+    SeenSnapshot{snapshot, signatories} ->
+      object
+        [ "tag" .= ("SeenSnapshot" :: Text)
+        , "snapshot" .= snapshot
+        , "signatories" .= signatories
+        ]
+
+instance IsTx tx => FromJSON (SeenSnapshot tx) where
+  parseJSON = withObject "SeenSnapshot" $ \obj -> do
+    tag :: Text <- obj .: "tag"
+    case tag of
+      "NoSeenSnapshot" -> pure NoSeenSnapshot
+      "LastSeenSnapshot" -> LastSeenSnapshot <$> obj .: "lastSeen"
+      "RequestedSnapshot" ->
+        RequestedSnapshot
+          <$> obj .: "lastSeen"
+          <*> obj .: "requested"
+      "SeenSnapshot" -> do
+        snapshot <- obj .: "snapshot"
+        signatories <- obj .: "signatories"
+        pure $ mkSeenSnapshot snapshot signatories
+      other -> fail $ "unknown SeenSnapshot tag: " <> toString other
+
+-- | Smart constructor for 'SeenSnapshot' that computes and caches
+-- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
+mkSeenSnapshot ::
+  IsTx tx =>
+  Snapshot tx ->
+  Map Party (Signature (Snapshot tx)) ->
+  SeenSnapshot tx
+mkSeenSnapshot snapshot signatories =
+  SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -194,6 +224,23 @@ seenSnapshotNumber = \case
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
+
+-- | Whether a snapshot is currently in-flight (requested or being signed).
+snapshotInFlight :: SeenSnapshot tx -> Bool
+snapshotInFlight = \case
+  NoSeenSnapshot -> False
+  LastSeenSnapshot{} -> False
+  RequestedSnapshot{} -> True
+  SeenSnapshot{} -> True
+
+-- | Whether AckSns are currently being collected for a snapshot.
+-- Unlike 'snapshotInFlight', returns False for 'RequestedSnapshot' — a
+-- snapshot sent but not yet echoed is stale once the version bumps and should
+-- not block a fresh request with the new version.
+isCollectingAcks :: SeenSnapshot tx -> Bool
+isCollectingAcks = \case
+  SeenSnapshot{} -> True
+  _ -> False
 
 -- ** Closed
 
@@ -217,3 +264,60 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
+
+-- ** PartialFanout
+
+-- Terminology note: the selective-fanout feature spans several near-synonymous
+-- names; they map as follows:
+--
+--   * PartialFanout          — the client input (a user-selected subset to fan out)
+--   * HeadPartiallyFannedOut — the server output reporting one observed step
+--   * FanningOut             — the client-visible HeadStatus
+--   * FanoutProgress         — this off-chain HeadState constructor (and the
+--                              matching on-chain head datum), holding a PartialFanoutState
+--   * FanoutMode             — how the next step is chosen while in FanoutProgress
+
+-- | How the node decides which UTxOs to distribute in the next fanout step
+-- while the head is in 'FanoutProgress'.
+data FanoutMode tx
+  = -- | Entered only via the 'Fanout' client command: drain the whole remaining
+    -- set automatically, dynamically chunked, ending in the final fanout.
+    AutoDrain
+  | -- | Manual mode: keep distributing this (content-tracked) user selection,
+    -- dynamically chunked, until it is exhausted.
+    DistributingSelection (UTxOType tx)
+  | -- | Manual mode: the previous selection has been fully distributed. Wait for
+    -- the next 'PartialFanout' command; do not auto-drain.
+    AwaitingSelection
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FanoutMode tx)
+deriving stock instance IsTx tx => Show (FanoutMode tx)
+deriving anyclass instance IsTx tx => ToJSON (FanoutMode tx)
+deriving anyclass instance IsTx tx => FromJSON (FanoutMode tx)
+
+-- | A closed head whose UTxO is being distributed across multiple fanout
+-- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
+-- that used to live in 'ClosedState'.
+data PartialFanoutState tx = PartialFanoutState
+  { parameters :: HeadParameters
+  , confirmedSnapshot :: ConfirmedSnapshot tx
+  , contestationDeadline :: UTCTime
+  , chainState :: ChainStateType tx
+  , headId :: HeadId
+  , headSeed :: HeadSeed
+  , version :: SnapshotVersion
+  , remainingOutputs :: UTxOType tx
+  -- ^ UTxO still to be fanned out (tracked by content, via set difference).
+  , distributedOutputs :: UTxOType tx
+  -- ^ Accumulates UTxO distributed so far; used to reconstruct the full set in
+  --   'HeadFannedOut' once the head is finalized.
+  , mode :: FanoutMode tx
+  -- ^ Drives the chunk source for the next step (see 'FanoutMode').
+  }
+  deriving stock (Generic)
+
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)

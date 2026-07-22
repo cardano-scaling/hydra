@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            1.2.0
+version:            2.3.0
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -45,8 +45,8 @@ common project-config
     -fprint-potential-instances -Wmissing-local-signatures
 
 library
-  import:          project-config
-  hs-source-dirs:  src
+  import:             project-config
+  hs-source-dirs:     src
   exposed-modules:
     Hydra.API.APIServerLog
     Hydra.API.ClientInput
@@ -69,9 +69,10 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
+    Hydra.Config
     Hydra.Events
-    Hydra.Events.FileBased
     Hydra.Events.Rotation
+    Hydra.Events.SQLiteBased
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
@@ -103,16 +104,14 @@ library
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
-    Hydra.Persistence
-    Hydra.PersistenceLog
     Hydra.Utils
 
-  other-modules:   Paths_hydra_node
+  other-modules:      Paths_hydra_node
   build-depends:
     , aeson
     , base
     , base16-bytestring
-    , blockfrost-client            >=0.11.0.0
+    , blockfrost-client            >=0.13.0.0
     , bytestring
     , cardano-api
     , cardano-binary
@@ -134,6 +133,7 @@ library
     , crypton
     , data-default
     , directory
+    , exceptions
     , file-embed
     , filepath
     , grapesy
@@ -152,16 +152,16 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-network-api        >=0.7.1
-    , ouroboros-network-protocols  >=0.8
+    , ouroboros-network:api
+    , ouroboros-network:protocols
     , process
     , prometheus
     , QuickCheck
-    , resourcet
     , retry
     , safe-money
     , serialise
     , sop-extras
+    , sqlite-simple
     , stm
     , template-haskell
     , text
@@ -169,15 +169,16 @@ library
     , transformers
     , typed-process
     , unix
-    , unliftio
     , wai
     , wai-cors
     , wai-websockets
     , warp
     , warp-tls
     , websockets
+    , yaml
 
-  ghc-options:     -haddock
+  default-extensions: StrictData
+  ghc-options:        -haddock
 
 library testlib
   import:          project-config
@@ -346,16 +347,20 @@ benchmark logging
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
+  import:         project-config
+
+  -- -A64m enlarges the GC nursery: the suite now runs in parallel (see
+  -- test/Main.hs), and the default nursery causes heavy parallel-GC
+  -- stop-the-world contention that balloons allocation-heavy io-sim tests.
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -A64m"
+  hs-source-dirs: test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
+    Hydra.Chain.BlockfrostSpec
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
@@ -364,11 +369,13 @@ test-suite tests
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.ScriptRegistrySpec
+    Hydra.ConfigSpec
     Hydra.CryptoSpec
-    Hydra.Events.FileBasedSpec
     Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
+    Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.OutcomeSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -387,18 +394,17 @@ test-suite tests
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
     Hydra.Node.RunSpec
+    Hydra.Node.UtilSpec
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
-    Hydra.PersistenceSpec
     Hydra.PersistentQueueSpec
     Hydra.UtilsSpec
     Paths_hydra_node
-    Spec
     Test.Util
 
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
   build-depends:
     , aeson
     , amazonka
@@ -413,7 +419,6 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-babbage:testlib
-    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley:testlib
@@ -426,7 +431,7 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
-    , haskell-accumulator
+    , grapesy
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -448,6 +453,8 @@ test-suite tests
     , lens-aeson
     , network-simple-wss
     , network-udp
+    , ouroboros-consensus
+    , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck
@@ -457,7 +464,10 @@ test-suite tests
     , req
     , resourcet
     , silently
+    , sop-extras
+    , sqlite-simple
     , stm
+    , tasty
     , temporary
     , text
     , time
@@ -465,5 +475,4 @@ test-suite tests
     , typed-process
     , websockets
 
-  build-tool-depends: hspec-discover:hspec-discover
-  ghc-options:        -threaded -rtsopts
+  ghc-options:    -threaded -rtsopts

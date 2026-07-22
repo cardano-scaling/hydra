@@ -1,7 +1,7 @@
 { self, ... }: {
-  perSystem = { compiler, inputMap, pkgs, ... }:
+  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, ... }:
     let
-      hsPkgs = pkgs.haskell-nix.project {
+      mkProject = extraModules: pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
           name = "hydra";
           src = self;
@@ -35,7 +35,6 @@
               hydra-chain-observer.writeHieFiles = true;
               hydra-cluster.writeHieFiles = true;
               hydra-node.writeHieFiles = true;
-              visualize-logs.writeHieFiles = true;
               hydra-plutus.writeHieFiles = true;
               hydra-plutus-extras.writeHieFiles = true;
               hydra-prelude.writeHieFiles = true;
@@ -43,8 +42,8 @@
               hydra-tx.writeHieFiles = true;
               hydra-tui.writeHieFiles = true;
               hydraw.writeHieFiles = true;
+              head-state-viewer.writeHieFiles = true;
               hydra-node.dontStrip = false;
-              visualize-logs.dontStrip = false;
               hydra-tui.dontStrip = false;
               hydraw.dontStrip = false;
             };
@@ -71,8 +70,9 @@
               hydra-node.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydra-tui.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydra-chain-observer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
-              visualize-logs.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
               hydraw.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
+              # Links hydra-node, so it needs the same static-snappy flag.
+              head-state-viewer.ghcOptions = [ "-L${pkgs.lib.getLib pkgs.static-snappy}/lib" ];
             };
           }
           {
@@ -90,11 +90,52 @@
           {
             packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
-        ];
+          # Add static sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple).
+          # Using the static variant ensures libsqlite3 is linked into the binary so that
+          # Docker images do not need to ship the shared library at runtime.
+          {
+            packages.hydra-node.components.library.pkgconfig = [ [ pkgs.static-sqlite ] ];
+          }
+          # GHC 9.6.7 has a haddock bug (tyConStupidTheta) that panics on data
+          # types declared with the deprecated DatatypeContexts extension.
+          # Skip haddocks for the affected upstream packages so `withHoogle`
+          # can still index everything else. hydra-cardano-api re-exports
+          # Cardano.Api broadly (module X / module Cardano.Api), which surfaces
+          # the same DatatypeContexts types and panics haddock on our wrapper
+          # package too.
+          {
+            packages.cardano-diffusion.doHaddock = false;
+            packages.cardano-ledger-shelley.doHaddock = false;
+            packages.ouroboros-network.doHaddock = false;
+            packages.hydra-cardano-api.doHaddock = false;
+          }
+        ] ++ extraModules;
       };
+
+      # Native project, built with -Werror for our own packages. This is the
+      # single warning gate for nix builds: `.#packages`, `.#devShells.*-tests`
+      # and `.#checks` all share these derivations, so there is no separate
+      # -Werror rebuild (cf. the old werrorwolf checks). Scoped per-package so
+      # upstream dependencies keep coming from the binary cache. `cabal
+      # build`/repl in the dev shell ignore these ghcOptions, so day-to-day
+      # iteration stays lenient; `just lint` is the cabal-side -Werror gate.
+      hsPkgs = mkProject [
+        {
+          packages = pkgs.lib.genAttrs localHaskellPackageNames (_: {
+            ghcOptions = [ "-Werror" ];
+          });
+        }
+      ];
+
+      # Base project, no -Werror. Consumed only by packages.nix for the
+      # musl/static cross build, so the static release stays lenient, matching
+      # the previous werrorwolf scope. Dependency derivations are identical to
+      # hsPkgs (the -Werror module only touches our own packages), so this does
+      # not cause duplicate dependency builds.
+      hsPkgsBase = mkProject [ ];
 
     in
     {
-      _module.args = { inherit hsPkgs; };
+      _module.args = { inherit hsPkgs hsPkgsBase; };
     };
 }

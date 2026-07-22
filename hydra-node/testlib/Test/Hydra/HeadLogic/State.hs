@@ -7,24 +7,25 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (
+  ClosedState (..),
+  CoordinatedHeadState (..),
+  FanoutMode (..),
+  HeadState (..),
+  IdleState (..),
+  OpenState (..),
+  PartialFanoutState (..),
+  SeenSnapshot (..),
+  mkSeenSnapshot,
+ )
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Test.QuickCheck (oneof)
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary (ChainStateType tx) => Arbitrary (IdleState tx) where
   arbitrary = genericArbitrary
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
-  arbitrary = do
-    InitialState
-      <$> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
   arbitrary =
@@ -39,7 +40,13 @@ instance ArbitraryIsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
-  arbitrary = genericArbitrary
+  arbitrary =
+    oneof
+      [ pure NoSeenSnapshot
+      , LastSeenSnapshot <$> arbitrary
+      , RequestedSnapshot <$> arbitrary <*> arbitrary
+      , mkSeenSnapshot <$> arbitrary <*> arbitrary
+      ]
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =
@@ -52,3 +59,9 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedS
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+
+instance ArbitraryIsTx tx => Arbitrary (FanoutMode tx) where
+  arbitrary = genericArbitrary
+
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PartialFanoutState tx) where
+  arbitrary = genericArbitrary

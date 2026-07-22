@@ -1,8 +1,17 @@
 module Main where
 
 import Hydra.Prelude
-import Spec qualified
-import Test.Hspec.Runner
+
+import Hydra.TUI.ConfigSpec qualified
+import Hydra.TUI.OptionsSpec qualified
+import Hydra.TUISpec qualified
+import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
 
 main :: IO ()
-main = hspec Spec.spec
+main =
+  defaultMainHydra
+    "hydra-tui"
+    [ testSpec "TUI" Hydra.TUISpec.spec
+    , testSpec "TUI.Options" Hydra.TUI.OptionsSpec.spec
+    , testSpec "TUI.Config" Hydra.TUI.ConfigSpec.spec
+    ]

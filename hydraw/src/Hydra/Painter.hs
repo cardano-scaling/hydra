@@ -1,6 +1,6 @@
 module Hydra.Painter where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (getVerificationKey)
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -11,6 +11,8 @@ import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Chain.Direct.State ()
 import Hydra.Network (Host (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
+import Hydra.Tx.Crypto (getVerificationKey)
+import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import Network.WebSockets (Connection, runClient, sendTextData)
@@ -22,7 +24,7 @@ data Pixel = Pixel
 
 paintPixel :: NetworkId -> FilePath -> Host -> Connection -> Pixel -> IO ()
 paintPixel networkId signingKeyPath host cnx pixel = do
-  sk <- readFileTextEnvelopeThrow signingKeyPath
+  sk <- mkSecret <$> readFileTextEnvelopeThrow signingKeyPath
   let myAddress = mkVkAddress networkId $ getVerificationKey sk
   flushQueue
   mHeadUTxO <- requestHeadUTxO host
@@ -69,12 +71,12 @@ mkPaintTx ::
   -- | UTxO to spend
   (TxIn, TxOut CtxUTxO) ->
   -- | Signing key which owns the UTxO.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   Pixel ->
   Either TxBodyError Tx
 mkPaintTx (txin, txOut) sk Pixel{x, y, red, green, blue} = do
   body <- createAndValidateTransactionBody bodyContent
-  pure $ signShelleyTransaction body [WitnessPaymentKey sk]
+  pure $ withSecret sk $ \rawSk -> signShelleyTransaction body [WitnessPaymentKey rawSk]
  where
   bodyContent =
     defaultTxBodyContent

@@ -2,17 +2,40 @@
     "samples": [
         {
             "chainState": {
-                "recordedAt": {
-                    "blockHash": "0000000100000100010000000000010101010001010000000101000100010000",
-                    "slot": 1,
-                    "tag": "ChainPoint"
-                },
-                "spendableUTxO": {}
+                "recordedAt": null,
+                "spendableUTxO": {
+                    "0000010100010000000100010001010001010101010101010100010100010100#31": {
+                        "address": "addr_test1xrau9kgrg73tzlfvpuvz3h5r8ks9k3e383gm8y738jh0ldcukncpuym5m2cpr5urm5a3dpq364evqaeey9zlw69xjt6qjvr40n",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "24f41bf70355cbb7cf697846d69969c074545fab592465d550646ff6": {
+                                "bd6b994764a899bec86e16ec0b2537b5": 110671011722492879
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
             },
-            "headId": "00010101010100010000010101010001",
-            "tag": "HeadFannedOut",
-            "utxo": {}
+            "finalizedOutputs": {
+                "0101000001000001010100010000000001000000000000000001000101010101#90": {
+                    "address": "addr_test1vzj997nf2waj92dtjx9dast2ukkppc26t8h9ssh3y7agfxqj35ge5",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 849070
+                    }
+                }
+            },
+            "headId": "00000101010101000101000001000100",
+            "tag": "HeadFannedOut"
         }
     ],
-    "seed": 249844913
+    "seed": -2139739758
 }

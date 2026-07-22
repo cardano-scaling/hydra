@@ -256,25 +256,25 @@ newLabelledTBQueueIO = (atomically .) . newLabelledTBQueue
 
 -- * Helpers for labeling Threads
 
-raceLabelled :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m (Either a b)
+raceLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (Either a b)
 raceLabelled (lblA, mA) (lblB, mB) =
   race
     (labelThisThread lblA >> mA)
     (labelThisThread lblB >> mB)
 
-raceLabelled_ :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m ()
+raceLabelled_ :: MonadAsync m => (String, m a) -> (String, m b) -> m ()
 raceLabelled_ = (void .) . raceLabelled
 
 withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
 withAsyncLabelled (lbl, ma) = withAsync (labelThisThread lbl >> ma)
 
-concurrentlyLabelled :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m (a, b)
+concurrentlyLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (a, b)
 concurrentlyLabelled (lblA, mA) (lblB, mB) =
   concurrently
     (labelThisThread lblA >> mA)
     (labelThisThread lblB >> mB)
 
-concurrentlyLabelled_ :: (MonadThread m, MonadAsync m) => (String, m a) -> (String, m b) -> m ()
+concurrentlyLabelled_ :: MonadAsync m => (String, m a) -> (String, m b) -> m ()
 concurrentlyLabelled_ = (void .) . concurrentlyLabelled
 
 asyncLabelled :: MonadAsync m => String -> m a -> m (Async m a)
