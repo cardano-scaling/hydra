@@ -10,9 +10,10 @@ changes.
 
 ## [UNRELEASED]
 
-- --deposit-period is now a protocol parameter embedded on-chain at Init time.
-  All nodes in a head must configure the same value; a mismatch causes the node
-  to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
+- **BREAKING**:
+    - --deposit-period is now a protocol parameter embedded on-chain at Init time.
+      All nodes in a head must configure the same value; a mismatch causes the node
+      to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
 
 - Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
   version of each observed transaction via script hash matching, removing the
@@ -30,9 +31,6 @@ changes.
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
 
-- --deposit-period is now a protocol parameter embedded on-chain at Init time.
-  All nodes in a head must configure the same value; a mismatch causes the node
-  to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
 
 ## [2.3.0] - 2026.07.15
 
