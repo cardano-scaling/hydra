@@ -93,7 +93,6 @@ library
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
-    Hydra.Node.DepositPeriod
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
     Hydra.Node.InputQueue
@@ -205,7 +204,6 @@ library testlib
     Test.Hydra.Network.Authenticate
     Test.Hydra.Network.Message
     Test.Hydra.Node.ApiTransactionTimeout
-    Test.Hydra.Node.DepositPeriod
     Test.Hydra.Node.Environment
     Test.Hydra.Node.Fixture
     Test.Hydra.Node.State

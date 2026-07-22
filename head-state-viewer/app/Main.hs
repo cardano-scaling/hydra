@@ -21,10 +21,10 @@ import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.HeadLogic.StateEvent qualified
 import Hydra.Ledger.Simple (SimpleChainState (..))
 import Hydra.Ledger.Simple qualified
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (initNodeState)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import HydraVis.History (loadEventsAfter, loadHistoryFor)
 import HydraVis.Multi (PartySpec (..), mkMultiModel)
 import HydraVis.Sample (sampleEnvironment, sampleLedger, sampleOnInitTx, sampleTick)

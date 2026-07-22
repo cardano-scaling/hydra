@@ -56,8 +56,6 @@ import Hydra.Node (
   runHydraNode,
   waitDelay,
  )
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.State (NodeState (..), initNodeState)
@@ -68,6 +66,8 @@ import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, getVerificationKey, sign)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)

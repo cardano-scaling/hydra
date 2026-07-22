@@ -18,8 +18,6 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Node.DepositPeriod (DepositPeriod)
-import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -29,6 +27,8 @@ import Hydra.Options (
   defaultCardanoChainConfig,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Secret (Secret, mkSecret)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))

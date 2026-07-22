@@ -79,7 +79,6 @@ import Hydra.HeadLogic.State (
 import Hydra.Ledger (Ledger (..), applyTransactions, reapplyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
@@ -102,6 +101,7 @@ import Hydra.Tx.Crypto (
   verifyMultiSignature,
   verifyMultiSignatureBytes,
  )
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))

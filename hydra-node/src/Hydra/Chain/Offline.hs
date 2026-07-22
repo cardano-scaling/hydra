@@ -33,10 +33,10 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot, snapshotUTxO)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Utils (readJsonFileThrow)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.

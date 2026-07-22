@@ -20,7 +20,6 @@ import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainCo
 import Test.Hydra.Logging ()
 import Test.Hydra.Network ()
 import Test.Hydra.Node.ApiTransactionTimeout ()
-import Test.Hydra.Node.DepositPeriod ()
 import Test.Hydra.Node.UnsyncedPeriod ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)

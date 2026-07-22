@@ -38,7 +38,6 @@ import Hydra.Cluster.Util (chainConfigFor', keysFor)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
@@ -48,6 +47,7 @@ import Hydra.Options (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
