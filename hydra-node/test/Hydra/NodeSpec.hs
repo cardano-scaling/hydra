@@ -342,6 +342,13 @@ spec = parallel $ do
         checkHeadState tracer invalidPeriodEnv (headState nodeState)
           `shouldThrow` \(_ :: ParameterMismatch) -> True
 
+    it "throws exception given deposit period differs" $
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
+        let invalidPeriodEnv =
+              defaultEnv{Environment.depositPeriod = 42}
+        checkHeadState tracer invalidPeriodEnv (headState nodeState)
+          `shouldThrow` \(_ :: ParameterMismatch) -> True
+
     it "throws exception given parties differ" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let invalidPeriodEnv = defaultEnv{otherParties = []}

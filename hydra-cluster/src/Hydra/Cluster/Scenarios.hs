@@ -1180,6 +1180,34 @@ initWithWrongKeys workDir tracer opts hydraScriptsTxId = do
 
       participants `shouldMatchList` expectedParticipants
 
+-- | Scenario for a deposit-period mismatch between peers: alice initializes a
+-- head while bob is configured with a different --deposit-period, so bob's
+-- node must ignore the head entirely (issue #2664).
+initWithDifferentDepositPeriod :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+initWithDifferentDepositPeriod workDir tracer opts hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+
+  blockTime <- runBackend opts getBlockTime
+  let Timing{contestationPeriod, depositPeriod} = mkTestTiming blockTime
+  aliceChainConfig <- chainConfigFor' Alice workDir opts hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+  -- NOTE: here we deliberately configure a different deposit period for Bob
+  bobChainConfig <- chainConfigFor' Bob workDir opts hydraScriptsTxId [Alice] contestationPeriod (2 * depositPeriod)
+
+  let hydraTracer = contramap FromHydraNode tracer
+  nodePorts <- allocateHydraNodePortsFor [3, 4]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] nodePorts $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] nodePorts $ \n2 -> do
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      send n1 $ input "Init" []
+      headId <-
+        waitForAllMatch 10 [n1] $
+          headIsOpenWith (Set.fromList [alice, bob])
+
+      -- Bob's node must ignore the head due to the deposit-period mismatch
+      waitMatch (10 * blockTime) n2 $ \v -> do
+        guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
+        guard $ v ^? key "headId" == Just (toJSON headId)
+
 startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
 startWithWrongPeers workDir tracer opts hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
