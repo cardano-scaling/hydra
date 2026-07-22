@@ -254,9 +254,12 @@ Reported metrics:
 
 The CI workflow `.github/workflows/bench-e2e-diff.yaml` generates three
 scenarios per PR (3-node sustained load, 1-node `Plateau 1000` large-UTxO
-load, 3-node closed-loop latency) and runs them on this branch and on master
-on the same runner, posting the per-metric differences as a PR comment via
-`scripts/bench-e2e-diff.py`. A new summary metric only shows a difference once
-it exists on master too, and must be registered in that script's `METRICS`
-table.
+load, 3-node closed-loop latency) once, then benchmarks this branch and master
+on separate, isolated runners in parallel, posting the per-metric differences
+as a PR comment via `scripts/bench-e2e-diff.py`. Both sides consume the same
+generated dataset artifact so the workload is identical; the isolation stops
+one side's ~30-minute run from degrading the runner the other is measured on
+(which otherwise biased every comparison toward the side measured first). A new
+summary metric only shows a difference once it exists on master too, and must
+be registered in that script's `METRICS` table.
 
