@@ -206,7 +206,7 @@ data DecrementMutation
     DecrementAddExtraDepositInput
   | -- | Minting or burning of tokens should not be possible in decrement.
     MutateTokenMintingOrBurning
-   -- | Ensures parties do not change between head input datum and head output
+   -- | Ensures deposit-period does not change between head input datum and head output
    --  datum.
   | ChangeDepositPeriodInOutput
   deriving stock (Generic, Show, Enum, Bounded)

@@ -80,6 +80,10 @@ data Timing = Timing
   }
   deriving stock (Show)
 
+-- | Truncate a duration to a whole-second 'DepositPeriod'.
+truncatedDepositPeriod :: NominalDiffTime -> DepositPeriod
+truncatedDepositPeriod = DP.DepositPeriod . fromInteger . truncate
+
 -- | Set up reasonable timing parameters for testing given a 'BlockTime'.
 mkTestTiming :: BlockTime -> Timing
 mkTestTiming = mkTestTiming' 1
@@ -92,7 +96,7 @@ mkTestTiming' numDeposits blockTime =
   Timing
     { blockTime
     , contestationPeriod = truncate $ 20 * blockTime
-    , depositPeriod = truncate $ fromIntegral numDeposits * 20 * blockTime
+    , depositPeriod = truncatedDepositPeriod $ fromIntegral numDeposits * 20 * blockTime
     }
 
 -- | Get a timeout until a deposit should have happened given a 'Timing'.

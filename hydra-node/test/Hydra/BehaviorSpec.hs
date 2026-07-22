@@ -527,7 +527,7 @@ spec = parallel $ do
                   let waitForApproval = waitUntilMatch [n1, n2] $ \case
                         CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
                         _ -> Nothing
-                  timeout (fromIntegral dp) waitForApproval >>= \case
+                  timeout (realToFrac $ DP.toNominalDiffTime dp) waitForApproval >>= \case
                     Nothing -> pure ()
                     Just _ -> failure "Deposit was approved before the deposit period passed"
                   -- Now it should get approved
