@@ -11,17 +11,10 @@ import Text.Show (Show (..))
 -- Nodes within the same Head must configure identical values.
 newtype DepositPeriod = DepositPeriod {toNominalDiffTime :: NominalDiffTime}
   deriving stock (Eq, Ord)
-  deriving newtype (Read, Num, Enum, Real, ToJSON, FromJSON)
+  deriving newtype (Read, Num, Real, ToJSON, FromJSON)
 
 instance Show DepositPeriod where
   show (DepositPeriod dt) = show (round dt :: Integer) <> "s"
-
-instance Integral DepositPeriod where
-  quotRem (DepositPeriod a) (DepositPeriod b) = (DepositPeriod $ fromInteger q, DepositPeriod r)
-   where
-    (q, r) = properFraction (a / b)
-
-  toInteger (DepositPeriod a) = round a
 
 -- | Convert an off-chain deposit period to its on-chain representation.
 toChain :: DepositPeriod -> OnChain.DepositPeriod

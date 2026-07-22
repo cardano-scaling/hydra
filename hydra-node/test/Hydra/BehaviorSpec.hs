@@ -504,7 +504,7 @@ spec = parallel $ do
                 let waitForApproval = waitUntilMatch [n1] $ \case
                       CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
                       _ -> Nothing
-                timeout (fromIntegral defaultDepositPeriod) waitForApproval >>= \case
+                timeout (realToFrac $ DP.toNominalDiffTime defaultDepositPeriod) waitForApproval >>= \case
                   Nothing -> pure ()
                   Just _ -> failure "Deposit was approved before deadline expired"
                 -- Now it should get approved
