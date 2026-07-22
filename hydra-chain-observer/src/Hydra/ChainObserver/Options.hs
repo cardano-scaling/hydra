@@ -37,6 +37,8 @@ data Options = Options
   -- ^ Point at which to start following the chain.
   , explorerBaseURI :: Maybe URI
   -- ^ Whether to report observations to a hydra-explorer.
+  , scriptHashesFile :: Maybe FilePath
+  -- ^ Load known script hashes from this file instead of the built-in registry.
   }
   deriving stock (Show, Eq)
 
@@ -46,6 +48,7 @@ optionsParser =
     <$> backendParser
     <*> optional startChainFromParser
     <*> optional explorerParser
+    <*> optional scriptHashesFileParser
 
 data Backend
   = Direct
@@ -84,6 +87,16 @@ explorerParser =
     long "explorer"
       <> metavar "URI"
       <> help "Observer API endpoint of a hydra-explorer instance to report observations to, e.g. http://localhost:8080/api/"
+
+scriptHashesFileParser :: Parser FilePath
+scriptHashesFileParser =
+  option str $
+    long "script-hashes"
+      <> metavar "FILE"
+      <> help
+        "Load the known Hydra script hashes from this file instead of the \
+        \built-in registry, which only contains released versions. The file \
+        \uses the same format as script-hashes.json."
 
 hydraChainObserverOptions :: ParserInfo Options
 hydraChainObserverOptions =

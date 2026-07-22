@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.Cardano.Api (utxoFromTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
 import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
+import Hydra.ChainObserver.VersionRegistry (loadKnownVersions)
 import Hydra.Tx.Observe (HeadObservation (..))
 import Test.Aeson.GenericSpecs (
   Settings (..),
@@ -47,7 +48,7 @@ spec =
 
     prop "Does not updates UTxO state given transactions outside of Head lifecycle" $
       forAll genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-        fst (observeAll testNetworkId utxo txs) === utxo
+        fst (observeAll loadKnownVersions testNetworkId utxo txs) === utxo
 
 -- | For every head-lifecycle state, 'observeTx' observes the matching transition.
 prop_allValidTransitionsObserved :: Property

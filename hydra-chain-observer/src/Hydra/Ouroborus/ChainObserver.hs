@@ -35,6 +35,7 @@ import Hydra.ChainObserver.NodeClient (
   logObservation,
   observeAll,
  )
+import Hydra.ChainObserver.VersionRegistry (KnownVersion)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx.Observe (HeadObservation (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
@@ -46,10 +47,11 @@ import Ouroboros.Network.Protocol.ChainSync.Client (
 
 ouroborusClient ::
   Tracer IO ChainObserverLog ->
+  [KnownVersion] ->
   SocketPath ->
   NetworkId ->
   NodeClient IO
-ouroborusClient tracer nodeSocket networkId =
+ouroborusClient tracer knownVersions nodeSocket networkId =
   NodeClient
     { follow = \startChainFrom observerHandler -> do
         traceWith tracer ConnectingToNode{nodeSocket, networkId}
@@ -59,7 +61,7 @@ ouroborusClient tracer nodeSocket networkId =
         traceWith tracer StartObservingFrom{chainPoint}
         connectToLocalNode
           (connectInfo nodeSocket networkId)
-          (clientProtocols tracer networkId (chainPoint :| []) observerHandler)
+          (clientProtocols tracer knownVersions networkId (chainPoint :| []) observerHandler)
     , networkId
     }
 
@@ -79,13 +81,14 @@ connectInfo nodeSocket networkId =
 
 clientProtocols ::
   Tracer IO ChainObserverLog ->
+  [KnownVersion] ->
   NetworkId ->
   NonEmpty ChainPoint ->
   ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId prefix observerHandler =
+clientProtocols tracer knownVersions networkId prefix observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId prefix observerHandler
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer knownVersions networkId prefix observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
@@ -107,11 +110,12 @@ chainSyncClient ::
   forall m.
   MonadThrow m =>
   Tracer m ChainObserverLog ->
+  [KnownVersion] ->
   NetworkId ->
   NonEmpty ChainPoint ->
   ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId prefix observerHandler =
+chainSyncClient tracer knownVersions networkId prefix observerHandler =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect (toList prefix) clientStIntersect
@@ -138,7 +142,7 @@ chainSyncClient tracer networkId prefix observerHandler =
               receivedTxIds = getTxId . getTxBody <$> txs
               (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
               point = getChainPoint bh
-              (utxo', observations) = observeAll networkId utxo txs
+              (utxo', observations) = observeAll knownVersions networkId utxo txs
           traceWith tracer RollForward{point, receivedTxIds}
           mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
           let observationsAt = [(Just v, ChainObservation point blockNo obs) | (v, obs) <- observations]

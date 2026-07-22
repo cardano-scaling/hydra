@@ -15,14 +15,19 @@ import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
+import Data.Version (showVersion)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), serialiseToRawBytesHexText, unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
+import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 import Hydra.Logging (showLogsOnFailure)
+import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import HydraNode (allocateHydraNodePortsFor, input, output, send, waitFor, waitMatch, withHydraNode)
+import System.FilePath ((</>))
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk)
@@ -43,7 +48,8 @@ spec = do
             aliceChainConfig <- chainConfigFor Alice tmpDir (Direct directOpts) hydraScriptsTxId [] timing
             nodePorts <- allocateHydraNodePortsFor [1]
             withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] nodePorts $ \hydraNode -> do
-              withChainObserver directOpts $ \observer -> do
+              scriptHashesFile <- writeCurrentScriptHashes tmpDir
+              withChainObserver directOpts scriptHashesFile $ \observer -> do
                 seedFromFaucet_ (Direct directOpts) aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
@@ -99,9 +105,28 @@ data ChainObserverLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- | Starts a 'hydra-chain-observer' on some Cardano network.
-withChainObserver :: DirectOptions -> (ChainObserverHandle -> IO ()) -> IO ()
-withChainObserver directOpts action =
+-- | Write a script-hashes.json style file containing the script hashes this
+-- test suite was compiled with, so the observer also recognizes heads using
+-- not-yet-released scripts (the built-in registry only covers releases).
+writeCurrentScriptHashes :: FilePath -> IO FilePath
+writeCurrentScriptHashes dir = do
+  Aeson.encodeFile path $
+    Aeson.object
+      [ "scriptHashes" .= Map.singleton version (serialiseToRawBytesHexText headScriptHash)
+      , "depositScriptHashes" .= Map.singleton version (serialiseToRawBytesHexText depositScriptHash)
+      ]
+  pure path
+ where
+  path = dir </> "script-hashes.json"
+
+  version = toText (showVersion hydraNodeVersion)
+
+  HydraScriptCatalogue{headScriptHash, depositScriptHash} = hydraScriptCatalogue
+
+-- | Starts a 'hydra-chain-observer' on some Cardano network, recognizing
+-- script hashes from the given file on top of the released versions.
+withChainObserver :: DirectOptions -> FilePath -> (ChainObserverHandle -> IO ()) -> IO ()
+withChainObserver directOpts scriptHashesFile action =
   withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
     action
       ChainObserverHandle
@@ -128,6 +153,7 @@ withChainObserver directOpts action =
     proc
       "hydra-chain-observer"
       $ ["--node-socket", unFile nodeSocket]
+        <> ["--script-hashes", scriptHashesFile]
         <> case networkId of
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]

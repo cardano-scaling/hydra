@@ -10,7 +10,7 @@ import Cardano.Ledger.Hashes qualified as LedgerHashes
 import Data.Map.Strict qualified as Map
 import Data.Version (Version)
 import Hydra.Cardano.Api hiding (Block)
-import Hydra.ChainObserver.VersionRegistry (KnownVersion (..), loadKnownVersions)
+import Hydra.ChainObserver.VersionRegistry (KnownVersion (..))
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.Observe (
@@ -82,8 +82,8 @@ logObservation = \case
 -- touches, by checking outputs against known script hashes and inputs against
 -- the tracked Hydra UTxO. Returns Nothing for non-Hydra transactions, acting
 -- as a cheap pre-filter before the full observeHeadTx pipeline.
-detectVersion :: UTxO -> Tx -> Maybe KnownVersion
-detectVersion utxo tx = find (txTouchesHydraScript utxo tx) loadKnownVersions
+detectVersion :: [KnownVersion] -> UTxO -> Tx -> Maybe KnownVersion
+detectVersion knownVersions utxo tx = find (txTouchesHydraScript utxo tx) knownVersions
 
 txTouchesHydraScript :: UTxO -> Tx -> KnownVersion -> Bool
 txTouchesHydraScript utxo tx KnownVersion{kvHeadScriptHash, kvDepositScriptHash} =
@@ -125,20 +125,20 @@ observeTx networkId utxo tx =
 -- | Like observeTx, but pre-filters via detectVersion. When detectVersion
 -- returns Nothing, observeHeadTx is never called and the UTxO is unchanged.
 observeTxVersioned ::
-  NetworkId -> UTxO -> Tx -> (UTxO, Maybe (Version, HeadObservation))
-observeTxVersioned networkId utxo tx =
-  case detectVersion utxo tx of
+  [KnownVersion] -> NetworkId -> UTxO -> Tx -> (UTxO, Maybe (Version, HeadObservation))
+observeTxVersioned knownVersions networkId utxo tx =
+  case detectVersion knownVersions utxo tx of
     Nothing -> (utxo, Nothing)
     Just kv ->
       let (utxo', mObs) = observeTx networkId utxo tx
        in (utxo', fmap (kvVersion kv,) mObs)
 
-observeAll :: NetworkId -> UTxO -> [Tx] -> (UTxO, [(Version, HeadObservation)])
-observeAll networkId utxo txs =
+observeAll :: [KnownVersion] -> NetworkId -> UTxO -> [Tx] -> (UTxO, [(Version, HeadObservation)])
+observeAll knownVersions networkId utxo txs =
   second reverse $ foldl' go (utxo, []) txs
  where
   go :: (UTxO, [(Version, HeadObservation)]) -> Tx -> (UTxO, [(Version, HeadObservation)])
   go (utxo'', observations) tx =
-    case observeTxVersioned networkId utxo'' tx of
+    case observeTxVersioned knownVersions networkId utxo'' tx of
       (utxo', Nothing) -> (utxo', observations)
       (utxo', Just obs) -> (utxo', obs : observations)
