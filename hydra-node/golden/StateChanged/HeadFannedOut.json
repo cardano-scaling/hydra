@@ -1,0 +1,41 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": null,
+                "spendableUTxO": {
+                    "0000010100010000000100010001010001010101010101010100010100010100#31": {
+                        "address": "addr_test1xrau9kgrg73tzlfvpuvz3h5r8ks9k3e383gm8y738jh0ldcukncpuym5m2cpr5urm5a3dpq364evqaeey9zlw69xjt6qjvr40n",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "24f41bf70355cbb7cf697846d69969c074545fab592465d550646ff6": {
+                                "bd6b994764a899bec86e16ec0b2537b5": 110671011722492879
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
+            },
+            "finalizedOutputs": {
+                "0101000001000001010100010000000001000000000000000001000101010101#90": {
+                    "address": "addr_test1vzj997nf2waj92dtjx9dast2ukkppc26t8h9ssh3y7agfxqj35ge5",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 849070
+                    }
+                }
+            },
+            "headId": "00000101010101000101000001000100",
+            "tag": "HeadFannedOut"
+        }
+    ],
+    "seed": -2139739758
+}

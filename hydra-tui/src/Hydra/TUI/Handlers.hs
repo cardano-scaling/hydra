@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (Down)
 
 import Brick
 import Brick.BChan (BChan, writeBChan)
-import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm, updateFormState)
+import Brick.Forms (Form (formState), allFieldsValid, editField, editShowableFieldWithValidate, handleFormEvent, newForm, updateFormState)
 import Brick.Widgets.List qualified as BrickList
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent (forkIO)
@@ -270,9 +270,17 @@ handleEvent cardanoClient client chan = \case
                   zoomOpenScreen $ put OpenHome
             currentRecoveryForm <- use recoveryFormL
             currentFanoutForm <- use fanoutSelectionFormL
+            -- 'c' cancels modals, except while a text field is focused:
+            -- addresses regularly contain 'c' (bech32), so typing or raw-pasting
+            -- one must not abort the entry. Esc still cancels there.
+            textEntryFocused <-
+              useOpenScreen <&> \case
+                Just EnteringAmount{} -> True
+                Just EnteringRecipientAddress{} -> True
+                _ -> False
             case (currentRecoveryForm, currentFanoutForm, e) of
               (_, _, EvKey KEsc []) -> closeModal
-              (_, _, EvKey (KChar 'c') []) -> closeModal
+              (_, _, EvKey (KChar 'c') []) | not textEntryFocused -> closeModal
               (Just form, _, EvKey KEnter []) -> do
                 let selectedTxId = formState form
                 pendingActionL .= Just "Sending recovery…"
@@ -592,6 +600,11 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
     EnteringAmount utxoSelected i ->
       case e of
         EvKey KEsc [] -> put OpenHome
+        -- 'formState' keeps the last valid value when the field content fails
+        -- validation, so a submit here would silently use a stale amount.
+        EvKey KEnter []
+          | not (allFieldsValid i) ->
+              liftIO $ writeBChan chan (TxBuildError "Invalid amount.")
         EvKey KEnter [] -> do
           let
             field =
@@ -648,6 +661,12 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
     EnteringRecipientAddress utxoSelected amountEntered i ->
       case e of
         EvKey KEsc [] -> put OpenHome
+        -- Same as the amount screen: an unparsable address leaves 'formState'
+        -- at the last valid value (initially the own address), so submitting
+        -- would silently send the funds there instead of erroring.
+        EvKey KEnter []
+          | not (allFieldsValid i) ->
+              liftIO $ writeBChan chan (TxBuildError "Invalid address.")
         EvKey KEnter [] -> do
           let recipient = formState i
           let Coin lovelaceLimit = selectLovelace (txOutValue (snd utxoSelected))
@@ -784,8 +803,9 @@ setPendingAction e = do
             pendingActionL .= Just "Sending decommit…"
           SelectingUTxOToIncrement _ ->
             pendingActionL .= Just "Sending increment…"
-          EnteringRecipientAddress{} ->
-            pendingActionL .= Just "Sending transaction…"
+          EnteringRecipientAddress{enteringRecipientAddressForm = form} ->
+            when (allFieldsValid form) $
+              pendingActionL .= Just "Sending transaction…"
           SelectingRecipient{selectingRecipientForm = form} ->
             case formState form of
               SelectAddress _ -> pendingActionL .= Just "Sending transaction…"
