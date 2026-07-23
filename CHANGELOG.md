@@ -66,6 +66,17 @@ changes.
   observed a block (so a stalled chain backend can be detected even while drift is
   frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
+- The head logic now enforces the specification's "no commit and decommit in
+  flight at once" discipline on the message level: a `ReqSn` carrying both a
+  deposit and a decommit is rejected (`ReqSnDepositAndDecommit`), and a
+  `ReqDec` received while a deposit is pending waits for the deposit to
+  resolve instead of starting a decommit; once its TTL is exhausted it is
+  rejected with the new `DepositInFlight` `DecommitInvalidReason` so clients
+  know to recover the deposit first. Both rules mirror the machine-checked
+  `NoBothInFlight` invariant of the formal specification.
+
+## [2.3.0] - 2026.07.15
+
 - Add **selective partial fanout**: distribute a chosen subset of a closed
   head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
   client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`

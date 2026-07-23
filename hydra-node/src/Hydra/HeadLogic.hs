@@ -338,65 +338,73 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       -- message permanently (Error outcomes are not re-enqueued), leaving the
       -- head stuck until the deposit expires.
       waitOnSnapshotVersion $
-        -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
-        -- Require any pending utxo to decommit to be consistent
-        requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
-          -- Wait for the deposit and require any pending commit to be consistent
-          waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
-            -- Resolve transactions by-id
-            waitResolvableTxs $ \requestedTxs -> do
-              -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
-              --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO requestedTxs $ \u ->
-                let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    nextCombined = nextUTxO <> fromMaybe mempty mUtxoToCommit <> fromMaybe mempty mUtxoToDecommit
-                    -- The predecessor is confirmed at this point (see
-                    -- requireReqSn and waitNoSnapshotInFlight), so its
-                    -- accumulator covers exactly 'snapshotUTxO prevSnapshot'
-                    -- and can be updated by the UTxO delta instead of
-                    -- re-serializing and re-hashing every output.
-                    prevSnapshot = getSnapshot confirmedSnapshot
-                    accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
-                 in requireValidAccumulatorSize accumulator $ do
-                      -- Spec: ŝ ← ̅S.s + 1
-                      -- NOTE: confSn == seenSn == sn here
-                      let nextSnapshot =
-                            Snapshot
-                              { headId
-                              , version = version
-                              , number = sn
-                              , confirmed = requestedTxs
-                              , utxo = nextUTxO
-                              , utxoToCommit = mUtxoToCommit
-                              , utxoToDecommit = mUtxoToDecommit
-                              , accumulator
-                              }
+        -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥ — a snapshot must not carry both a
+        -- pending commit (deposit) and a pending decommit.
+        requireDepositOrDecommit $
+          -- Require any pending utxo to decommit to be consistent
+          requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
+            -- Wait for the deposit and require any pending commit to be consistent
+            waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
+              -- Resolve transactions by-id
+              waitResolvableTxs $ \requestedTxs -> do
+                -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+                --       𝑈 ← 𝑈_active ◦ Treq
+                requireApplyTxs activeUTxO requestedTxs $ \u ->
+                  let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+                      nextCombined = nextUTxO <> fromMaybe mempty mUtxoToCommit <> fromMaybe mempty mUtxoToDecommit
+                      -- The predecessor is confirmed at this point (see
+                      -- requireReqSn and waitNoSnapshotInFlight), so its
+                      -- accumulator covers exactly 'snapshotUTxO prevSnapshot'
+                      -- and can be updated by the UTxO delta instead of
+                      -- re-serializing and re-hashing every output.
+                      prevSnapshot = getSnapshot confirmedSnapshot
+                      accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
+                   in requireValidAccumulatorSize accumulator $ do
+                        -- Spec: ŝ ← ̅S.s + 1
+                        -- NOTE: confSn == seenSn == sn here
+                        let nextSnapshot =
+                              Snapshot
+                                { headId
+                                , version = version
+                                , number = sn
+                                , confirmed = requestedTxs
+                                , utxo = nextUTxO
+                                , utxoToCommit = mUtxoToCommit
+                                , utxoToDecommit = mUtxoToDecommit
+                                , accumulator
+                                }
 
-                      -- Spec: 𝜂 ← combine(𝑈)
-                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η))
-                      let snapshotSignature = sign signingKey nextSnapshot
-                      -- Spec: multicast (ackSn, ŝ, σᵢ)
-                      (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-                        -- Spec: ̂Σ ← ∅
-                        --       L̂ ← 𝑈
-                        --       𝑋 ← T
-                        --       T̂ ← ∅
-                        --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                        --         T̂ ← T̂ ⋃ {tx}
-                        --         L̂ ← L̂ ◦ tx
-                        let newLocalTxs = pruneTransactions u
-                        newState
-                          SnapshotRequested
-                            { requestedSnapshot = nextSnapshot
-                            , newLocalTxs
-                            , newCurrentDepositTxId = mDepositTxId
-                            }
+                        -- Spec: 𝜂 ← combine(𝑈)
+                        --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η))
+                        let snapshotSignature = sign signingKey nextSnapshot
+                        -- Spec: multicast (ackSn, ŝ, σᵢ)
+                        (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+                          -- Spec: ̂Σ ← ∅
+                          --       L̂ ← 𝑈
+                          --       𝑋 ← T
+                          --       T̂ ← ∅
+                          --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                          --         T̂ ← T̂ ⋃ {tx}
+                          --         L̂ ← L̂ ◦ tx
+                          let newLocalTxs = pruneTransactions u
+                          newState
+                            SnapshotRequested
+                              { requestedSnapshot = nextSnapshot
+                              , newLocalTxs
+                              , newCurrentDepositTxId = mDepositTxId
+                              }
  where
   requireReqSn continue
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
         Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+    | otherwise =
+        continue
+
+  requireDepositOrDecommit continue
+    | isJust mDecommitTx && isJust mDepositTxId =
+        Error $ RequireFailed ReqSnDepositAndDecommit
     | otherwise =
         continue
 
@@ -812,10 +820,11 @@ onOpenNetworkReqDec ::
   Ledger tx ->
   TTL ->
   ChainSlot ->
+  PendingDeposits tx ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
+onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
@@ -825,37 +834,57 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
       --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
  where
-  waitOnApplicableDecommit cont =
-    case mExistingDecommitTx of
-      Nothing ->
-        case applyTransactions currentSlot localUTxO [decommitTx] of
-          Right _ -> cont
-          Left (_, validationError)
+  -- Spec: wait 𝑈𝛼 = ∅ — a pending commit (deposit) must settle before a
+  -- decommit can be recorded, otherwise a later snapshot would carry both (see
+  -- the symmetric guard on 'DepositActivated', which blocks a deposit while a
+  -- decommit is pending). While ttl remains we wait, so the decommit proceeds
+  -- once the increment finalises and clears 'currentDepositTxId'; once ttl is
+  -- exhausted we reject with 'DepositInFlight' (mirroring the branches below) so
+  -- the client can act (e.g. recover the deposit) instead of the request being
+  -- silently dropped.
+  waitOnApplicableDecommit cont
+    | Just depositTxId <- currentDepositTxId =
+        let commitUTxO = maybe mempty (.deposited) (Map.lookup depositTxId pendingDeposits)
+         in if ttl > 0
+              then wait $ WaitOnUnresolvedCommit{commitUTxO}
+              else
+                newState
+                  DecommitInvalid
+                    { headId
+                    , decommitTx
+                    , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
+                    }
+    | otherwise =
+        case mExistingDecommitTx of
+          Nothing ->
+            case applyTransactions currentSlot localUTxO [decommitTx] of
+              Right _ -> cont
+              Left (_, validationError)
+                | ttl > 0 ->
+                    wait $
+                      WaitOnNotApplicableDecommitTx
+                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                | otherwise ->
+                    newState
+                      DecommitInvalid
+                        { headId
+                        , decommitTx
+                        , decommitInvalidReason =
+                            ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                        }
+          Just existingDecommitTx
             | ttl > 0 ->
                 wait $
                   WaitOnNotApplicableDecommitTx
-                    ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
             | otherwise ->
                 newState
                   DecommitInvalid
                     { headId
                     , decommitTx
                     , decommitInvalidReason =
-                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                        DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
                     }
-      Just existingDecommitTx
-        | ttl > 0 ->
-            wait $
-              WaitOnNotApplicableDecommitTx
-                DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-        | otherwise ->
-            newState
-              DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason =
-                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-                }
 
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
@@ -877,6 +906,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     , localUTxO
     , version
     , seenSnapshot
+    , currentDepositTxId
     } = coordinatedHeadState
 
   OpenState
@@ -1179,7 +1209,7 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: η ← combine(̅S.𝑈)
+  -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
   --       ξ ← ̅S.σ
   --       postTx (close, ̅S.v, ̅S.s, η, ξ)
   cause
@@ -1221,10 +1251,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
       then
         outcome
-          -- XXX: As we use 'version' in the contest here, this is implies
-          -- that our last 'confirmedSnapshot' must match version or
-          -- version-1. Assert this fact?
-          -- Spec: η ← combine(̅S.𝑈)
+          -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
           <> cause
@@ -1342,10 +1369,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
   if
     | -- Spec: if ̅S.s > sc
       number (getSnapshot confirmedSnapshot) > snapshotNumber ->
-        -- XXX: As we use 'version' in the contest here, this is implies
-        -- that our last 'confirmedSnapshot' must match version or
-        -- version-1. Assert this fact?
-        -- Spec: η ← combine(̅S.𝑈)
+        -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
         --       ξ ← ̅S.σ
         --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
@@ -2156,8 +2180,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
-  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
+    onOpenNetworkReqDec env ledger ttl currentSlot (depositsForHead ourHeadId pendingDeposits) openState transaction
   _ ->
     Error $ UnhandledInput ev st
 
