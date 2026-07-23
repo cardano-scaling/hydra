@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Build the Hydra specification PDF via Typst.
+# Build the Hydra specification PDF via Agda (typecheck) + Typst (render).
 #
-# `typst compile` renders the .lagda.typ tree in place (Typst reads the literate
-# files directly; code fences render as raw blocks, see template.typ for the
-# hidden/visible idiom) to _build/hydra-spec.pdf.
-#
-# NB the Agda typecheck of these same sources (and the Agda↔Typst/trust-ledger
-# lints) is added alongside the formalisation itself; until then the code fences
-# are prose-free placeholders and only the Typst render runs here.
+# Stage 1: `agda` typechecks the literate-Typst source tree (fails on type error,
+#          preserving the machine-checked property).
+# Stage 2: `typst compile` renders the same .lagda.typ tree in place (Typst reads
+#          the literate files directly; code fences render as raw blocks, see
+#          template.typ for the hidden/visible idiom) to _build/hydra-spec.pdf.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,18 +13,6 @@ SRC=src
 PDF=_build/hydra-spec.pdf
 ENTRY="$SRC/Hydra/Protocol/Main.lagda.typ"
 
-# Render in place. --root=src so the root-relative imports (/template.typ,
-# /macros.typ, /short.bib, /agda.sublime-syntax) resolve; the .lagda.typ files
-# include each other by name, so no staging/extension-stripping is needed.
-#
-# JuliaMono (the code font, see template.typ) is not vendored: nix provides it
-# (nixpkgs `julia-mono`) via JULIAMONO_FONT_DIR, exported by both `nix build .#spec`
-# and the dev shell. Hard-error when unset: typst only warns on a missing font
-# family and would silently render code blocks with a fallback font.
-#
-# The @preview diagram packages (cetz, fletcher, oxifmt) are supplied at pinned
-# versions by the wrapped typst's TYPST_PACKAGE_CACHE_PATH (see nix/hydra/spec.nix),
-# so no --package-cache-path / in-repo vendoring is needed.
 mkdir -p "$(dirname "$PDF")"
 
 # Skip the work when the PDF is already newer than every input: `typst compile`
@@ -36,15 +22,30 @@ mkdir -p "$(dirname "$PDF")"
 # well as the timestamps: a PDF left behind by an ANNOTATE_NOTATION=skip run is
 # NOT up to date for a run that wants tooltips, and vice versa.
 #
-# Never fires in the nix build, which starts from an empty _build.
+# Placed before the typecheck so an unchanged tree is a true no-op. Never
+# fires in the nix build, which starts from an empty _build.
 MODE_STAMP="$(dirname "$PDF")/.build-mode"
 MODE="annotate=${ANNOTATE_NOTATION:-full}"
 if [ -f "$PDF" ] &&
   [ "$(cat "$MODE_STAMP" 2>/dev/null || true)" = "$MODE" ] &&
-  [ -z "$(find "$SRC" build.sh annotate-notation.py -newer "$PDF" -print -quit 2>/dev/null)" ]; then
+  [ -z "$(find "$SRC" build.sh annotate-notation.py check-refs.sh check-trust-ledger.sh -newer "$PDF" -print -quit 2>/dev/null)" ]; then
   echo "Up to date: $PDF ($MODE); touch a source or rm the PDF to force a rebuild"
   exit 0
 fi
+# Stage 1: typecheck, then the Agda↔Typst reference consistency lint (W6) and the C3 trust-ledger drift check.
+agda "$ENTRY"
+bash check-refs.sh
+bash check-trust-ledger.sh
+
+# Stage 2: render in place. --root=src so the root-relative imports (/template.typ,
+# /macros.typ, /short.bib, /agda.sublime-syntax) resolve; the .lagda.typ files include
+# each other by name, so no staging/extension-stripping is needed.
+#
+# JuliaMono (the code font, see template.typ) is not vendored: nix provides it
+# (nixpkgs `julia-mono`) via JULIAMONO_FONT_DIR, exported by both `nix build .#spec`
+# and the dev shell. Hard-error when unset: typst only warns on a missing font
+# family and would silently render code blocks with a fallback font.
+
 # Build via a temp file and rename into place ATOMICALLY: typst
 # truncate-and-writes its output, and a PDF viewer auto-reloading on change
 # (okular etc.) can catch a torn mid-write file and sit on a broken parse.
@@ -60,14 +61,14 @@ typst compile --ignore-system-fonts --root "$SRC" \
   "$ENTRY" "$TMP"
 
 
-# Stage: stamp invisible hover-tooltips (definitions of the notation symbols)
+# Stage 3: stamp invisible hover-tooltips (definitions of the notation symbols)
 # over the prose math; see annotate-notation.py. The rendered pages are
 # pixel-identical; viewers with annotation popups (okular, pdf.js, Acrobat)
 # show the definition on hover.
 #
 # ANNOTATE_NOTATION=skip skips the stage: `nix build .#spec` runs it as a
 # SEPARATE seconds-long derivation (nix/hydra/spec.nix), so the minutes-long
-# Typst build does not share a build window with the python closure - a
+# Agda+Typst build does not share a build window with the python closure - a
 # busy builder's mid-build auto-GC (observed on the darwin CI builders) could
 # otherwise collect the late-used python environment out from under this step.
 if [ "${ANNOTATE_NOTATION:-}" = "skip" ]; then
