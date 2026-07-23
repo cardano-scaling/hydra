@@ -42,6 +42,8 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
+import Codec.CBOR.Encoding qualified as CBOR
+import Codec.CBOR.Write qualified as CBOR
 import Control.Concurrent.Class.MonadSTM (
   isFullTBQueue,
   modifyTVar',
@@ -49,6 +51,9 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   readTVarIO,
   swapTVar,
+  tryPeekTBQueue,
+  tryReadTBQueue,
+  unGetTBQueue,
   writeTBQueue,
   writeTVar,
  )
@@ -360,7 +365,6 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 -- revisions and the watcher on each peer sees exactly one event per logical
 -- broadcast. Same key namespace as master ('msg-\<host\>'), no disk growth.
 broadcastMessages ::
-  ToCBOR msg =>
   Tracer IO EtcdLog ->
   NetworkConfiguration ->
   -- | Used to identify sender.
@@ -385,9 +389,20 @@ broadcastMessages tracer config ourHost queue = do
   -- failure branch just adopts the new baseline and pops.
   initialModRev <- retryInitQuery
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
+  inFlightVar <- newLabelledTVarIO "etcd-broadcast-in-flight" Nothing
   withGrpcContext "broadcastMessages" . forever $ do
-    msg <- peekPersistentQueue queue
-    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue tracer queue)
+    -- Block for work before opening a connection, then reuse that connection
+    -- for up to 'maxPutsPerConnection' queued messages. Per-message
+    -- connections pay a TCP + HTTP/2 handshake on the broadcast hot path and
+    -- exhaust ephemeral ports at high message rates, while an unbounded
+    -- connection lifetime runs into
+    -- https://github.com/cardano-scaling/hydra/issues/2167 (long-lived
+    -- connections observed to block after several thousand unary calls).
+    -- Bounded reuse amortizes the handshake while staying well below that
+    -- onset. Messages are only popped after a successful put, so a recycled
+    -- or failed connection never loses a message.
+    void $ peekPersistentQueue queue
+    sendPending lastModRevVar inFlightVar
       `catch` \case
         e@GrpcException{grpcError, grpcErrorMessage}
           | isTransientGrpcError grpcError -> do
@@ -395,6 +410,28 @@ broadcastMessages tracer config ourHost queue = do
               threadDelay 1
           | otherwise -> throwIO e
  where
+  sendPending lastModRevVar inFlightVar =
+    withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn ->
+      let go n
+            | n <= 0 = pure ()
+            | otherwise =
+                nextPendingBatch inFlightVar queue maxBatchCount maxBatchBytes >>= \case
+                  Nothing -> pure ()
+                  Just batch -> do
+                    putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
+                    popBatchPersistentQueue tracer queue batch
+                    atomically $ writeTVar inFlightVar Nothing
+                    go (n - 1)
+       in go maxPutsPerConnection
+
+  -- Each batch is one unary call; bounded well below the several-thousand
+  -- calls where #2167 was observed.
+  maxPutsPerConnection = 1000 :: Int
+
+  maxBatchCount = 50
+
+  -- Keeps the value comfortably below etcd's default 1.5MiB request limit.
+  maxBatchBytes = 256 * 1024
   -- Same retry shape as the broadcast loop: keep trying through
   -- transient connection errors so we can survive an etcd cluster that
   -- is still electing or that we briefly cannot reach.
@@ -453,48 +490,46 @@ queryInitialModRev tracer config ourHost =
 -- down the node, and on restart 'queryInitialModRev' re-seeds
 -- 'lastModRev' from whatever state etcd actually has.
 putMessage ::
-  ToCBOR msg =>
   Tracer IO EtcdLog ->
-  NetworkConfiguration ->
+  -- | Connection provided (and recycled) by 'broadcastMessages'.
+  Connection ->
   -- | Used to identify sender.
   Host ->
   -- | The peer's last observed 'mod_revision' on its own broadcast key.
   TVar IO Int64 ->
-  msg ->
+  -- | Value to write, a batch of serialized messages (see 'batchValue').
+  ByteString ->
   IO ()
-putMessage tracer config ourHost lastModRevVar msg = do
+putMessage tracer conn ourHost lastModRevVar value = do
   lastModRev <- readTVarIO lastModRevVar
-  -- XXX: Here we open a new connection _for every message_! This is
-  -- effectively a work-around for https://github.com/cardano-scaling/hydra/issues/2167.
-  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
-    res <- nonStreaming conn (rpc @(Protobuf KV "txn")) (txnReq lastModRev)
-    if res ^. #succeeded
-      then
-        -- Our compare matched and the put ran. The new mod_revision on
-        -- our key equals the cluster revision returned in the response
-        -- header.
-        atomically $ writeTVar lastModRevVar (res ^. #header . #revision)
-      else case res ^? #responses . traverse . #responseRange . #kvs . traverse . #modRevision of
-        Just observedModRev -> do
-          -- Compare failed. Since 'broadcastMessages' seeded 'lastModRev'
-          -- from etcd at startup and we are the only writer to our key,
-          -- the only way 'mod_revision' moved past 'lastModRev' is an
-          -- earlier attempt of ours committing server-side despite a
-          -- 'GrpcDeadlineExceeded' to the client. The message has been
-          -- delivered; adopt the new baseline and let the outer loop pop.
-          traceWith tracer BroadcastDeduped{previousModRev = lastModRev, observedModRev}
-          atomically $ writeTVar lastModRevVar observedModRev
-        Nothing ->
-          -- Compare failed AND range came back empty: etcd has no record
-          -- of our key. Unreachable in normal operation (only we write to
-          -- our key; nothing deletes it). If we ever do hit this, the
-          -- safe move is to crash loudly — the surrounding race kills the
-          -- node and a fresh start re-runs 'queryInitialModRev' against
-          -- whatever state etcd actually has.
-          fail $
-            "putMessage: compare against mod_revision "
-              <> show lastModRev
-              <> " failed but our broadcast key has no current value in etcd"
+  res <- nonStreaming conn (rpc @(Protobuf KV "txn")) (txnReq lastModRev)
+  if res ^. #succeeded
+    then
+      -- Our compare matched and the put ran. The new mod_revision on
+      -- our key equals the cluster revision returned in the response
+      -- header.
+      atomically $ writeTVar lastModRevVar (res ^. #header . #revision)
+    else case res ^? #responses . traverse . #responseRange . #kvs . traverse . #modRevision of
+      Just observedModRev -> do
+        -- Compare failed. Since 'broadcastMessages' seeded 'lastModRev'
+        -- from etcd at startup and we are the only writer to our key,
+        -- the only way 'mod_revision' moved past 'lastModRev' is an
+        -- earlier attempt of ours committing server-side despite a
+        -- 'GrpcDeadlineExceeded' to the client. The message has been
+        -- delivered; adopt the new baseline and let the outer loop pop.
+        traceWith tracer BroadcastDeduped{previousModRev = lastModRev, observedModRev}
+        atomically $ writeTVar lastModRevVar observedModRev
+      Nothing ->
+        -- Compare failed AND range came back empty: etcd has no record
+        -- of our key. Unreachable in normal operation (only we write to
+        -- our key; nothing deletes it). If we ever do hit this, the
+        -- safe move is to crash loudly — the surrounding race kills the
+        -- node and a fresh start re-runs 'queryInitialModRev' against
+        -- whatever state etcd actually has.
+        fail $
+          "putMessage: compare against mod_revision "
+            <> show lastModRev
+            <> " failed but our broadcast key has no current value in etcd"
  where
   key = encodeUtf8 @Text $ "msg-" <> show ourHost
 
@@ -511,7 +546,7 @@ putMessage tracer config ourHost lastModRevVar msg = do
       & #requestPut
         .~ ( defMessage
               & #key .~ key
-              & #value .~ serialize' msg
+              & #value .~ value
            )
 
   rangeReqOp =
@@ -523,8 +558,20 @@ putMessage tracer config ourHost lastModRevVar msg = do
       & #success .~ [putReqOp]
       & #failure .~ [rangeReqOp]
 
+-- | Assemble the etcd value for a batch of already-serialized messages: a
+-- CBOR list reusing each message's encoding verbatim. Uses the same
+-- indefinite-length list format as cardano-binary's list instances, so the
+-- value decodes as @[msg]@ on the receiving side.
+batchValue :: [ByteString] -> ByteString
+batchValue encodedItems =
+  CBOR.toStrictByteString $
+    CBOR.encodeListLenIndef
+      <> foldMap CBOR.encodePreEncoded encodedItems
+      <> CBOR.encodeBreak
+
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
+  forall msg.
   FromCBOR msg =>
   Tracer IO EtcdLog ->
   Connection ->
@@ -570,16 +617,22 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
 
   process event = do
     let value = event ^. #kv . #value
-    case decodeFull' value of
+    -- Broadcast values carry a batch of messages per revision (see
+    -- 'batchValue'). Watch catch-up can still replay single-message values
+    -- written before an upgrade, so fall back to decoding one message.
+    case decodeFull' @[msg] value of
+      Right msgs -> forM_ msgs deliver
       Left err ->
-        traceWith
-          tracer
-          FailedToDecodeValue
-            { key = decodeUtf8 $ event ^. #kv . #key
-            , value = encodeBase16 value
-            , reason = show err
-            }
-      Right msg -> deliver msg
+        case decodeFull' value of
+          Right msg -> deliver msg
+          Left _ ->
+            traceWith
+              tracer
+              FailedToDecodeValue
+                { key = decodeUtf8 $ event ^. #kv . #key
+                , value = encodeBase16 value
+                , reason = show err
+                }
 
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
@@ -730,8 +783,11 @@ withProcessInterrupt config =
 
 -- * Persistent queue
 
+-- | Queue elements carry the item's CBOR serialization, produced once on
+-- write and reused for both the on-disk file and the etcd value, so
+-- broadcasting does not serialize twice.
 data PersistentQueue m a = PersistentQueue
-  { queue :: TBQueue m (Natural, a)
+  { queue :: TBQueue m (Natural, a, ByteString)
   , nextIx :: TVar m Natural
   , directory :: FilePath
   }
@@ -768,7 +824,7 @@ newPersistentQueue tracer path capacity = do
           Left err ->
             fail $ "Failed to decode item: " <> show err
           Right item ->
-            atomically $ writeTBQueue queue (idx, item)
+            atomically $ writeTBQueue queue (idx, item, bs)
       pure $ List.last idxs
 
 -- | Write a value to the queue, blocking if the queue is full.
@@ -778,25 +834,106 @@ writePersistentQueue tracer PersistentQueue{queue, nextIx, directory} item = do
     next <- readTVar nextIx
     modifyTVar' nextIx (+ 1)
     pure next
-  writeFileBS (directory </> show next) (serialize' item)
+  let !bytes = serialize' item
+  writeFileBS (directory </> show next) bytes
   full <- atomically $ isFullTBQueue queue
   when full $ liftIO $ traceWith tracer PersistentQueueFull
-  atomically $ writeTBQueue queue (next, item)
+  atomically $ writeTBQueue queue (next, item, bytes)
 
 -- | Get the next value from the queue without removing it, blocking if the
 -- queue is empty.
 peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
 peekPersistentQueue PersistentQueue{queue} = do
-  snd <$> atomically (peekTBQueue queue)
+  (\(_, item, _) -> item) <$> atomically (peekTBQueue queue)
+
+-- | Like 'peekPersistentQueue', but returns 'Nothing' instead of blocking
+-- when the queue is empty.
+tryPeekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Maybe a)
+tryPeekPersistentQueue PersistentQueue{queue} = do
+  fmap (\(_, item, _) -> item) <$> atomically (tryPeekTBQueue queue)
+
+-- | Get all pending values and their serializations, up to the given count
+-- and total byte limits, blocking until at least one is available. Values
+-- are not removed; use 'popBatchPersistentQueue' after they were sent.
+peekBatchPersistentQueue :: MonadSTM m => PersistentQueue m a -> Int -> Int -> m [(a, ByteString)]
+peekBatchPersistentQueue PersistentQueue{queue} maxCount maxBytes = atomically $ do
+  first' <- readTBQueue queue
+  -- Collected in reverse consumption order
+  rest <- go (remainingAfter first') []
+  -- Restore everything we consumed: 'unGetTBQueue' pushes to the front, so
+  -- restoring newest-first re-establishes the original queue order.
+  forM_ (rest <> [first']) $ unGetTBQueue queue
+  pure $ (\(_, item, bytes) -> (item, bytes)) <$> (first' : reverse rest)
+ where
+  go budget acc
+    | length acc >= maxCount - 1 = pure acc
+    | otherwise =
+        tryReadTBQueue queue >>= \case
+          Nothing -> pure acc
+          Just next@(_, _, bytes)
+            | BS.length bytes > budget -> do
+                unGetTBQueue queue next
+                pure acc
+            | otherwise -> go (budget - BS.length bytes) (next : acc)
+
+  remainingAfter (_, _, bytes) = maxBytes - BS.length bytes
+
+-- | Get the batch to broadcast next: the batch already in flight if there is
+-- one, otherwise a fresh one peeked from the queue (and recorded as in
+-- flight). Returns 'Nothing' when nothing is pending. The caller must clear
+-- the in-flight var after popping a successfully sent batch.
+--
+-- Pinning the in-flight batch across transient retries matters for the
+-- compare-fail dedup in 'putMessage': a put can commit server-side while the
+-- client sees e.g. 'GrpcDeadlineExceeded'. The retry must send (and
+-- afterwards pop) exactly the content of the committed attempt. Re-peeking
+-- on retry could pick up messages enqueued in the meantime; the dedup branch
+-- would then declare the grown batch delivered and the never-sent tail would
+-- be popped and lost.
+nextPendingBatch ::
+  MonadSTM m =>
+  TVar m (Maybe [(a, ByteString)]) ->
+  PersistentQueue m a ->
+  Int ->
+  Int ->
+  m (Maybe [(a, ByteString)])
+nextPendingBatch inFlightVar queue maxCount maxBytes =
+  readTVarIO inFlightVar >>= \case
+    Just batch -> pure (Just batch)
+    Nothing ->
+      tryPeekPersistentQueue queue >>= \case
+        Nothing -> pure Nothing
+        Just _ -> do
+          -- All pending messages (bounded by the given limits) are sent as a
+          -- single etcd value, so a whole batch costs one Raft commit
+          -- instead of one per message.
+          batch <- peekBatchPersistentQueue queue maxCount maxBytes
+          atomically $ writeTVar inFlightVar (Just batch)
+          pure (Just batch)
+
+-- | Remove a batch previously returned by 'peekBatchPersistentQueue'. Pops
+-- unconditionally, one item per batch entry: this thread is the sole
+-- consumer, so the queue head still holds exactly the peeked items (an
+-- item-matching guard could only silently no-op and wedge the queue, see
+-- #2742).
+popBatchPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> [(a, ByteString)] -> m ()
+popBatchPersistentQueue tracer PersistentQueue{queue, directory} batch = do
+  indices <- atomically $ forM batch $ \_ -> (\(ix, _, _) -> ix) <$> readTBQueue queue
+  forM_ indices $ removeQueueFile tracer directory
 
 -- | Remove the head element from the queue. Must only be called after a
 -- successful 'peekPersistentQueue' by the same (single) consumer thread.
--- Failing to delete the backing file is traced but not fatal: the message was
--- already broadcast, so a leftover file only means it may be re-broadcast
--- after a restart (at-least-once delivery, same as the crash-recovery path).
 popPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> m ()
 popPersistentQueue tracer PersistentQueue{queue, directory} = do
-  (ix, _) <- atomically $ readTBQueue queue
+  (ix, _, _) <- atomically $ readTBQueue queue
+  removeQueueFile tracer directory ix
+
+-- | Delete the backing file of a popped queue item. Failing to delete is
+-- traced but not fatal: the message was already broadcast, so a leftover
+-- file only means it may be re-broadcast after a restart (at-least-once
+-- delivery, same as the crash-recovery path).
+removeQueueFile :: MonadIO m => Tracer IO EtcdLog -> FilePath -> Natural -> m ()
+removeQueueFile tracer directory ix =
   liftIO $
     removeFile (directory </> show ix) `catch` \e ->
       unless (isDoesNotExistError e) $

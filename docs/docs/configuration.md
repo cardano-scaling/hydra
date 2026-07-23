@@ -519,3 +519,13 @@ You can override this by setting the relevant `etcd` [environment variables](htt
 ETCD_AUTO_COMPACTION_MODE=periodic
 ETCD_AUTO_COMPACTION_RETENTION=168h
 ```
+
+### Network protocol version and upgrades
+
+Nodes of the same head must run the same network protocol version to exchange
+messages. The wire format changed in protocol version 2 (messages are batched
+into single etcd values), so a node running an older version silently drops
+values written by a newer one. A mismatch is reported to API clients as a
+`NetworkVersionMismatch` server output, but the node keeps running, so watch
+for it after upgrades. Upgrade all members of a head together before resuming
+operation; there is no support for mixed-version heads.
