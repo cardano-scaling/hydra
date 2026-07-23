@@ -1720,6 +1720,20 @@ components:
                 otherDecommitTxId:
                   $ref: "api.yaml#/components/schemas/TxId"
 
+            - type: object
+              required:
+                - tag
+                - depositTxId
+                - commitUTxO
+              properties:
+                tag:
+                  type: string
+                  enum: ["DepositInFlight"]
+                depositTxId:
+                  $ref: "api.yaml#/components/schemas/TxId"
+                commitUTxO:
+                  $ref: "api.yaml#/components/schemas/UTxO"
+
     DecommitRequested:
       title: DecommitRequested
       description: |
