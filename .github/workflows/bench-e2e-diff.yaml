@@ -91,7 +91,7 @@ jobs:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: ⬇ Download benchmark datasets
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: bench-datasets
         path: bench-datasets
@@ -140,14 +140,14 @@ jobs:
       uses: actions/checkout@v4
 
     - name: ⬇ Download branch report
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       # A failed bench leg leaves no artifact; don't fail the diff over it.
       continue-on-error: true
       with:
         name: bench-report-branch
 
     - name: ⬇ Download master report
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       continue-on-error: true
       with:
         name: bench-report-master
