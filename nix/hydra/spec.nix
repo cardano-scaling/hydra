@@ -1,36 +1,86 @@
-{ self, inputs, ... }: {
+{ self, ... }: {
 
-  perSystem = { pkgs, pkgs-2411, ... }:
+  perSystem = { config, pkgs, pkgs-2511, ... }:
     let
-      agdaPackages = pkgs-2411.callPackage "${self}/spec/pkgs/initial-packages.nix" {
-        inherit (pkgs-2411.haskellPackages) Agda;
-        nixpkgs = inputs.nixpkgs-2411;
-      };
-      agdaLibraries = with agdaPackages; [
-        abstract-set-theory
-        formal-ledger
-        standard-library
-        standard-library-classes
-        standard-library-meta
-      ];
-    in
-    {
-      packages.spec = agdaPackages.mkDerivation {
-        pname = "hydra-spec.pdf";
+      # Typst with the spec's diagram packages (@preview/cetz, fletcher, oxifmt)
+      # pinned from nixpkgs and supplied via the wrapper's
+      # TYPST_PACKAGE_CACHE_PATH, so the build stays hermetic without vendoring
+      # them into the repo. typst >= 0.14.1 (0.14.0 emits the PDF
+      # named-destination name tree unsorted, typst#7248, killing internal
+      # section links in viewers that binary-search it per spec: pdf.js, PDFium,
+      # macOS Preview).
+      spec-typst = pkgs-2511.typst.withPackages (p: [
+        p.cetz_0_3_4
+        p.fletcher_0_5_8
+        p.oxifmt_0_2_1
+      ]);
+
+      # The Typst render, WITHOUT the notation-tooltip postprocess
+      # (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal: consume
+      # packages.spec, which adds the tooltips.
+      #
+      # The postprocess runs as the separate seconds-long derivation below so
+      # this minutes-long, disk-heavy build shares no build window with the
+      # python closure: a busy builder's mid-build auto-GC (observed on the
+      # aarch64-darwin CI builders, where no sandbox bind-mount keeps a
+      # collected path alive for a running build) once collected a late-used
+      # python package out from under the final build step. Inputs are
+      # re-validated when each derivation starts, so splitting shrinks the
+      # exposure of the python environment from the whole render to seconds.
+      spec-rendered = pkgs.stdenv.mkDerivation {
+        pname = "hydra-spec-unannotated.pdf";
         version = "0.0.1";
-        nativeBuildInputs = with pkgs; [
-          (agdaPackages.withPackages agdaLibraries)
-          (haskellPackages.ghcWithPackages (p: [ p.shake ]))
-          inkscape
-          texlive.combined.scheme-full
+        nativeBuildInputs = [
+          config.packages.spec-typst
         ];
         meta = { };
         src = "${self}/spec";
-        buildPhase = "shake";
+        # build.sh renders the literate-Typst sources with Typst (no
+        # LaTeX/Inkscape toolchain needed). --ignore-system-fonts keeps Typst
+        # reproducible: only the fonts bundled with Typst plus JuliaMono from
+        # nixpkgs (code blocks, wired through JULIAMONO_FONT_DIR, see build.sh)
+        # are used.
+        JULIAMONO_FONT_DIR = "${pkgs.julia-mono}/share/fonts/truetype";
+        ANNOTATE_NOTATION = "skip";
+        buildPhase = ''
+          export HOME=$TMPDIR
+          bash build.sh
+        '';
         installPhase = ''
           mkdir $out
           cp _build/hydra-spec.pdf $out/hydra-spec.pdf
         '';
       };
+    in
+    {
+      # Typst with the spec's diagram packages, reused by the spec build and
+      # exposed so the dev shell can offer the same `typst` for working on the spec.
+      packages.spec-typst = spec-typst;
+
+      # The publishable spec PDF: the render above plus the notation hover
+      # tooltips (build.sh stage 3, split out - see the spec-rendered comment).
+      packages.spec = pkgs.stdenv.mkDerivation {
+        pname = "hydra-spec.pdf";
+        version = "0.0.1";
+        nativeBuildInputs = [
+          # for annotate-notation.py (stamps the tooltips, needs PyMuPDF)
+          (pkgs-2511.python3.withPackages (ps: [ ps.pymupdf ]))
+        ];
+        meta = { };
+        dontUnpack = true;
+        buildPhase = ''
+          python3 ${self}/spec/annotate-notation.py \
+            ${spec-rendered}/hydra-spec.pdf hydra-spec.pdf
+        '';
+        installPhase = ''
+          mkdir $out
+          cp hydra-spec.pdf $out/hydra-spec.pdf
+        '';
+      };
+
+      # Gate the spec on PRs: `nix flake check`, `just check` (nix-fast-build over
+      # .#checks) and selfci all build the flake checks. Reuses the derivation
+      # above, so this adds no duplicate compilation.
+      checks.spec = config.packages.spec;
     };
 }
