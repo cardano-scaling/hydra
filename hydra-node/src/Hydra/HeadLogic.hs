@@ -111,11 +111,16 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
 -- "block size" and ensures it does not grow arbitrarily with the backlog of
--- pending transactions (localTxs).
--- TODO: Investigate what a good value is for this, in relation to memory
--- usage
+-- pending transactions (localTxs). Only applied when requesting snapshots as
+-- a leader; followers accept larger requests, so this can change without a
+-- coordinated upgrade.
+--
+-- 1000 was chosen from a sweep against 100/250 on sustained-load benchmarks
+-- (see hydra-cluster/bench/BASELINES.md): per-round costs that scale with the
+-- backlog dominate at small caps (4.6-5.7x lower throughput at 100 with a
+-- deep backlog), while peak node memory was flat across the sweep.
 maxTxsPerSnapshot :: Int
-maxTxsPerSnapshot = 100
+maxTxsPerSnapshot = 1000
 
 -- ** On-Chain Protocol
 
