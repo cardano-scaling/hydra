@@ -88,9 +88,15 @@ data SQLiteLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
--- | Items in the write-behind queue: either an event row to insert or a flush
+-- | Items in the write-behind queue: either an event to insert or a flush
 -- marker that the writer thread signals after processing all preceding items.
-type WriteItem = Either (TMVar IO ()) (Word64, ByteString)
+--
+-- Events are queued unencoded and JSON-encoded on the writer thread: the
+-- encoding of e.g. a SnapshotRequested event carrying a large UTxO otherwise
+-- sits on the node loop between processing a ReqSn and broadcasting the
+-- AckSn. The bounded queue briefly pins event values instead of compact
+-- bytes, but the writer drains whole-queue batches so the window is short.
+type WriteItem e = Either (TMVar IO ()) (Word64, e)
 
 -- | Bracket-style wrapper around 'mkSQLiteEventStore'. Creates the database,
 -- schema, and writer thread, runs the callback, then flushes queued writes and
@@ -180,10 +186,9 @@ mkSQLiteEventStore dbFile = do
             yield evt
             yieldRows stmt
 
-    enqueueEvent evt = do
-      let !encoded = toStrict $ Aeson.encode evt
+    enqueueEvent evt =
       atomically $ do
-        writeTBQueue writeQueue (Right (getEventId evt, encoded))
+        writeTBQueue writeQueue (Right (getEventId evt, evt))
         setLastSeenEventId evt
 
     putEvent evt =
@@ -199,9 +204,8 @@ mkSQLiteEventStore dbFile = do
             Nothing -> evts
             Just lastId -> filter (\e -> getEventId e > lastId) evts
       unless (null newEvts) $ do
-        let !encodedEvts = map (\evt -> Right (getEventId evt, toStrict $ Aeson.encode evt)) newEvts
         atomically $ do
-          forM_ encodedEvts $ writeTBQueue writeQueue
+          forM_ newEvts $ \evt -> writeTBQueue writeQueue (Right (getEventId evt, evt))
           case nonEmpty newEvts of
             Just ne -> setLastSeenEventId (last ne)
             Nothing -> pure ()
@@ -237,14 +241,17 @@ mkSQLiteEventStore dbFile = do
 
 -- | Background writer that drains the queue and batch-inserts into SQLite.
 -- Each iteration blocks for at least one item, then flushes everything
--- available. Event rows are batch-inserted in a single transaction, then any
--- flush markers in the batch are signalled.
-writerLoop :: Connection -> TBQueue IO WriteItem -> IO ()
+-- available. Events are JSON-encoded here, off the caller's thread, then
+-- batch-inserted in a single transaction, and any flush markers in the batch
+-- are signalled. Encode errors surface as writer thread crashes, which are
+-- 'link'ed to the node.
+writerLoop :: ToJSON e => Connection -> TBQueue IO (WriteItem e) -> IO ()
 writerLoop conn queue = forever $ do
   first' <- atomically $ readTBQueue queue
   rest <- atomically $ flushTBQueue queue
   let allItems = first' : rest
-      (flushSignals, eventRows) = partitionEithers allItems
+      (flushSignals, events) = partitionEithers allItems
+      eventRows = map (second (toStrict . Aeson.encode)) events
   unless (null eventRows) $
     withTransaction conn $
       insertEvents conn eventRows
@@ -253,7 +260,7 @@ writerLoop conn queue = forever $ do
 -- | Block until all items currently in the write queue have been flushed to
 -- SQLite. Sends a flush marker through the queue and waits for the writer thread
 -- to signal completion.
-flushWriteQueue :: TBQueue IO WriteItem -> IO ()
+flushWriteQueue :: TBQueue IO (WriteItem e) -> IO ()
 flushWriteQueue queue = do
   mv <- newEmptyTMVarIO
   atomically $ writeTBQueue queue (Left mv)
