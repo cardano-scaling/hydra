@@ -4,7 +4,7 @@
 
 { self, ... }: {
 
-  perSystem = { pkgs, hsPkgs, compiler, self', inputs', ... }:
+  perSystem = { pkgs, hsPkgs, compiler, self', inputs', pkgs-2511, ... }:
     let
       # Clean nixpkgs (no haskell.nix / nix-npm-buildpackage overlays). The
       # overlaid `pkgs` routes node packages through nix-npm-buildpackage,
@@ -12,6 +12,12 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
+        # For working on the formal specification (typst render + the
+        # annotate-notation.py tooltip postprocess, see spec/build.sh). The
+        # wrapped typst carries the pinned @preview diagram packages via
+        # TYPST_PACKAGE_CACHE_PATH, same as the nix build (see nix/hydra/spec.nix).
+        self'.packages.spec-typst
+        (pkgs-2511.python3.withPackages (ps: [ ps.pymupdf ]))
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt
@@ -87,6 +93,10 @@
       }).overrideAttrs {
 
         CREATE_MISSING_GOLDEN = 1;
+
+        # Code font for the spec PDF; spec/build.sh passes it to typst
+        # (`just spec`), mirroring the hermetic `nix build .#spec`.
+        JULIAMONO_FONT_DIR = "${pkgs.julia-mono}/share/fonts/truetype";
 
         # Force a UTF-8 locale because many Haskell programs and tests
         # assume this.
