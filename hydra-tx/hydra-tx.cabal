@@ -101,7 +101,6 @@ library
     , lens
     , lens-aeson
     , mono-traversable
-    , plutus-accumulator
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter
@@ -212,7 +211,9 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-core
+    , containers
     , deepseq
+    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -226,6 +227,7 @@ test-suite tests
     , hydra-tx
     , hydra-tx:testlib
     , lens
+    , plutus-accumulator
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck

@@ -80,8 +80,9 @@ run opts = do
   -- access parses ~300KB of JSON and BLS-decompresses 4096 curve points.
   -- Doing it here means the API server only starts after the warm-up, so
   -- clients cannot connect and time out waiting for HeadIsOpen while the
-  -- node is still initialising the cryptographic setup.
-  void $ evaluate $ either (error . show) length KZG.g1BuiltinPoints
+  -- node is still initialising the cryptographic setup. The native Point1
+  -- CRS is what the rust FFI commitment path consumes.
+  void $ evaluate $ either (error . show) length KZG.g1Points
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
