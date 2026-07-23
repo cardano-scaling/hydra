@@ -114,7 +114,7 @@ main = do
       <> T.pack (show cs)
       <> ", "
       <> T.pack (show sh)
-      <> (if im then ", incremental ops on" else ", incremental ops off")
+      <> (if im then ", incremental ops on" else "")
       <> (if wt then ", wait for tx valid" else ", fire and forget")
   checkEmpty fp = do
     createDirectoryIfMissing True fp
