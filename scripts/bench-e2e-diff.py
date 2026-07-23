@@ -9,28 +9,37 @@ import argparse
 import re
 import sys
 
-# Metrics we diff, in display order. Each entry maps the markdown row key (the
-# text between underscores in `| _key_ | value |`) to a display label and the
-# direction that counts as an improvement: +1 = higher is better, -1 = lower is
-# better, 0 = neutral. Neutral rows are shown without a good/bad color: e.g.
-# snapshot counts move with the node's snapshot batching cap without being
-# better or worse by themselves (throughput = snapshots/s x txs/snapshot).
+# Metrics we diff, in display order. Each entry is (row key, display label,
+# improvement direction, display scale):
+#   - row key: the text between underscores in `| _key_ | value |`, matched
+#     against Summary.hs's output exactly (same key in both the master and PR
+#     reports).
+#   - improvement direction: +1 = higher is better, -1 = lower is better,
+#     0 = neutral. Neutral rows are shown without a good/bad color: e.g.
+#     snapshot counts move with the node's snapshot batching cap without being
+#     better or worse by themselves (throughput = snapshots/s x txs/snapshot).
+#   - display scale: multiplies the raw value before rendering. Summary.hs emits
+#     the confirmation/validation rows in milliseconds, but under load they run
+#     to tens of thousands of ms; they read more naturally in seconds, so they
+#     are scaled by MS_TO_S and relabelled "(s)". Both reports are scaled the
+#     same way, so the delta and percentage are unchanged.
 # Keys must match Summary.hs exactly.
+MS_TO_S = 1e-3
 METRICS = [
-    ("End-to-end TPS", "End-to-end TPS (tx/s)", +1),
-    ("Sustained TPS", "Sustained TPS (tx/s)", +1),
-    ("Backlog drain time (s)", "Backlog drain time (s)", -1),
-    ("Snapshots per second", "Snapshots per second (/s)", 0),
-    ("Avg txs per snapshot", "Avg txs per snapshot", 0),
-    ("Avg. Confirmation Time (ms)", "Avg. Confirmation Time (ms)", -1),
-    ("P50", "P50 confirmation (ms)", -1),
-    ("P95", "P95 confirmation (ms)", -1),
-    ("P99", "P99 confirmation (ms)", -1),
-    ("Tx validation time p50 (ms)", "Tx validation time p50 (ms)", -1),
-    ("Peak node RSS (MB)", "Peak node RSS (MB)", 0),
-    ("Incremental commit avg (ms)", "Incremental commit avg (ms)", -1),
-    ("Incremental decommit avg (ms)", "Incremental decommit avg (ms)", -1),
-    ("Number of Invalid txs", "Invalid txs", -1),
+    ("End-to-end TPS", "End-to-end TPS (tx/s)", +1, 1.0),
+    ("Sustained TPS", "Sustained TPS (tx/s)", +1, 1.0),
+    ("Backlog drain time (s)", "Backlog drain time (s)", -1, 1.0),
+    ("Snapshots per second", "Snapshots per second (/s)", 0, 1.0),
+    ("Avg txs per snapshot", "Avg txs per snapshot", 0, 1.0),
+    ("Avg. Confirmation Time (ms)", "Avg. Confirmation Time (s)", -1, MS_TO_S),
+    ("P50", "P50 confirmation (s)", -1, MS_TO_S),
+    ("P95", "P95 confirmation (s)", -1, MS_TO_S),
+    ("P99", "P99 confirmation (s)", -1, MS_TO_S),
+    ("Tx validation time p50 (ms)", "Tx validation time p50 (s)", -1, MS_TO_S),
+    ("Peak node RSS (MB)", "Peak node RSS (MB)", 0, 1.0),
+    ("Incremental commit avg (ms)", "Incremental commit avg (s)", -1, MS_TO_S),
+    ("Incremental decommit avg (ms)", "Incremental decommit avg (s)", -1, MS_TO_S),
+    ("Number of Invalid txs", "Invalid txs", -1, 1.0),
 ]
 
 # `| _key_ | value |`, tolerant of surrounding whitespace.
@@ -68,8 +77,8 @@ def parse_report(path):
     return scenarios, order
 
 
-def fmt_num(x):
-    return f"{x:.2f}"
+def fmt_num(x, decimals=2):
+    return f"{x:,.{decimals}f}"
 
 
 def colored(body, delta, good_dir):
@@ -81,10 +90,10 @@ def colored(body, delta, good_dir):
     return f"{'🟢' if improved else '🔴'} {body}"
 
 
-def fmt_delta(delta, pct, good_dir, threshold):
+def fmt_delta(delta, pct, good_dir, threshold, decimals=2):
     sign = "+" if delta >= 0 else ""
     pct_sign = "+" if pct >= 0 else ""
-    body = f"{sign}{delta:.2f} ({pct_sign}{pct:.1f}%)"
+    body = f"{sign}{delta:,.{decimals}f} ({pct_sign}{pct:.1f}%)"
     if abs(pct) < threshold:
         return f"≈ {body}"
     if good_dir == 0:
@@ -103,12 +112,16 @@ WARN_PCT = 15.0
 
 def scenario_rows(old, new, threshold, warn_keys, regressions, title):
     rows = []
-    for key, label, good_dir in METRICS:
+    for key, label, good_dir, scale in METRICS:
         if key not in old or key not in new:
             if key in old or key in new:
                 warn_keys.add(key)  # present one side only: possible format drift
             continue
-        o, n = old[key], new[key]
+        o, n = old[key] * scale, new[key] * scale
+        # The ms->s scaled rows keep millisecond resolution (3 decimals) so the
+        # sub-second closed-loop latencies stay meaningful; the throughput and
+        # RSS rows read fine at 2.
+        decimals = 3 if scale != 1.0 else 2
         delta = n - o
         if key in WARN_METRICS and o != 0:
             pct = 100.0 * delta * good_dir / o
@@ -118,7 +131,7 @@ def scenario_rows(old, new, threshold, warn_keys, regressions, title):
             # No baseline to compute a percentage from. Any nonzero change is a
             # real one (the metric went from "none" to "some"), so color it.
             sign = "+" if delta >= 0 else ""
-            body = f"{sign}{delta:.2f} (n/a%)"
+            body = f"{sign}{delta:,.{decimals}f} (n/a%)"
             if delta == 0:
                 cell = f"≈ {body}"
             elif good_dir == 0:
@@ -127,8 +140,8 @@ def scenario_rows(old, new, threshold, warn_keys, regressions, title):
                 cell = colored(body, delta, good_dir)
         else:
             pct = 100.0 * delta / o
-            cell = fmt_delta(delta, pct, good_dir, threshold)
-        rows.append(f"| {label} | {fmt_num(o)} | {fmt_num(n)} | {cell} |")
+            cell = fmt_delta(delta, pct, good_dir, threshold, decimals)
+        rows.append(f"| {label} | {fmt_num(o, decimals)} | {fmt_num(n, decimals)} | {cell} |")
     return rows
 
 

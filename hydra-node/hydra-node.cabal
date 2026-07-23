@@ -328,6 +328,26 @@ benchmark micro
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
+benchmark snapshot
+  import:         project-config
+  hs-source-dirs: bench/snapshot
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , cardano-api
+    , containers
+    , criterion
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-node:testlib
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , QuickCheck
+    , time
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
+
 benchmark logging
   import:         project-config
   hs-source-dirs: bench/logging

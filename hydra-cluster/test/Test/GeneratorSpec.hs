@@ -15,6 +15,7 @@ import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
   generateConstantUTxODataset,
+  generateLargeUTxODataset,
  )
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, Tx, cardanoLedger, newLedgerEnv)
@@ -23,6 +24,7 @@ import Test.Hydra.Node.Fixture (defaultGlobals, defaultPParams)
 import Test.QuickCheck (
   Positive (Positive),
   Property,
+  choose,
   counterexample,
   forAll,
   idempotentIOProperty,
@@ -32,6 +34,7 @@ spec :: Spec
 spec = parallel $ do
   roundtripSpecs (Proxy @Dataset)
   prop "generates a Dataset that keeps UTXO constant" prop_keepsUTxOConstant
+  prop "generates a Plateau Dataset that reaches and holds the target UTxO size" prop_plateauHoldsTarget
 
 prop_keepsUTxOConstant :: Property
 prop_keepsUTxOConstant =
@@ -50,6 +53,28 @@ prop_keepsUTxOConstant =
                   & counterexample ("transactions: " <> prettyJSONString txSequence)
                   & counterexample ("utxo: " <> prettyJSONString initialUTxO)
                   & counterexample ("funding tx: " <> prettyJSONString fundingTransaction)
+
+prop_plateauHoldsTarget :: Property
+prop_plateauHoldsTarget =
+  forAll (choose (10, 50)) $ \target ->
+    forAll (choose (1, 20)) $ \holdTxs -> do
+      -- Same split arithmetic as the generator: 1-in 10-out, 9 net new
+      -- outputs per split.
+      let splitSteps = (target - 1 + 8) `div` 9
+          nTxs = splitSteps + holdTxs
+      idempotentIOProperty $ do
+        faucetSk <- snd <$> keysFor Faucet
+        let ledgerEnv = newLedgerEnv defaultPParams
+        -- XXX: non-exhaustive pattern match
+        pure $
+          forAll (generateLargeUTxODataset faucetSk 1 nTxs target) $
+            \Dataset{fundingTransaction, clientDatasets = [ClientDataset{txSequence}]} ->
+              let initialUTxO = utxoFromTx fundingTransaction
+                  sizes = length . UTxO.txOutputs <$> scanl (apply defaultGlobals ledgerEnv) initialUTxO txSequence
+                  plateau = drop splitSteps sizes
+               in (all (>= target) plateau && and (zipWith (==) plateau (drop 1 plateau)))
+                    & counterexample ("utxo sizes after each tx: " <> show sizes)
+                    & counterexample ("expected plateau of at least: " <> show target)
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =

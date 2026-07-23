@@ -21,7 +21,30 @@ import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
-spec =
+spec = do
+  it "records snapshot round and tx confirmation times on the normal signing path" $ do
+    failAfter 3 $ do
+      [p] <- randomUnusedTCPPorts 1
+      withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
+        let tx = aValidTx 42
+            snapshot = testSnapshot 1 1 [tx] (utxoRefs [1])
+        traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx tx)))
+        threadDelay 0.1
+        traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotRequested snapshot mempty Nothing] mempty))
+        threadDelay 0.1
+        -- The normal signing path confirms without a snapshot in the event
+        traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId Nothing mempty] mempty))
+
+        metrics <-
+          Text.lines
+            . decodeUtf8
+            . responseBody
+            <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
+
+        metrics `shouldContain` ["hydra_head_confirmed_tx  1"]
+        metrics `shouldContain` ["hydra_head_snapshot_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
+        metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
+
   it "provides prometheus metrics from traces" $ do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1

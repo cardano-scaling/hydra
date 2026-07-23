@@ -134,8 +134,20 @@
       # not cause duplicate dependency builds.
       hsPkgsBase = mkProject [ ];
 
+      # Profiled project for performance investigation. Only consumed by the
+      # profiling shells in packages.nix, so nothing here is built unless
+      # explicitly requested. -fprof-late adds cost centres after optimization
+      # so profiles stay representative of the release build.
+      hsPkgsProfiled = mkProject [
+        {
+          enableLibraryProfiling = true;
+          packages.hydra-node.enableProfiling = true;
+          packages.hydra-node.ghcOptions = [ "-fprof-late" ];
+        }
+      ];
+
     in
     {
-      _module.args = { inherit hsPkgs hsPkgsBase; };
+      _module.args = { inherit hsPkgs hsPkgsBase hsPkgsProfiled; };
     };
 }

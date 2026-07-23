@@ -52,3 +52,6 @@ blockfrost-project.txt
 
 # Claude
 CLAUDE.local.md
+
+# Benchmarking
+bench-baselines/
