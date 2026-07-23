@@ -6,6 +6,7 @@ import Hydra.Ledger.Cardano.EvaluateSpec qualified
 import Hydra.Tx.AccumulatorSpec qualified
 import Hydra.Tx.ContestationPeriodSpec qualified
 import Hydra.Tx.Contract.ContractSpec qualified
+import Hydra.Tx.Contract.HeadValidatorAgreement qualified
 import Hydra.Tx.HeadIdSpec qualified
 import Hydra.Tx.IsTxSpec qualified
 import Hydra.Tx.KZGTrustedSetupSpec qualified
@@ -21,6 +22,7 @@ main =
     , testSpec "ContestationPeriod" Hydra.Tx.ContestationPeriodSpec.spec
     , testSpec "Contract" Hydra.Tx.Contract.ContractSpec.spec
     , testSpec "Evaluate" Hydra.Ledger.Cardano.EvaluateSpec.spec
+    , testSpec "HeadValidatorAgreement" Hydra.Tx.Contract.HeadValidatorAgreement.spec
     , testSpec "HeadId" Hydra.Tx.HeadIdSpec.spec
     , testSpec "IsTx" Hydra.Tx.IsTxSpec.spec
     , testSpec "KZGTrustedSetup" Hydra.Tx.KZGTrustedSetupSpec.spec
