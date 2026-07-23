@@ -1,3 +1,8 @@
+```
+module Hydra.Protocol.Setup where
+
+open import Hydra.Protocol.Prelude
+```
 
 #import "/template.typ": *
 #import "/macros.typ": *
@@ -42,3 +47,13 @@ The parameters each party stores after a successful setup are captured by an
 Agda record (verification keys and the contestation period are kept
 abstract, the latter as a duration in time units).
 
+```
+record HeadParameters : Set where
+  field
+    n                  : ℕ          -- number of participants (n)
+    cardanoVKeys       : List VKey  -- per-party Cardano verification keys k_C
+    hydraVKeys         : List VKey  -- per-party Hydra verification keys k_H
+    aggregateKey       : VKey       -- aggregate Hydra key k̃_H
+    contestationPeriod : ℕ          -- T_contest
+    depositPeriod      : ℕ          -- T_deposit (the §6 deposit settling / expiry period)
+```

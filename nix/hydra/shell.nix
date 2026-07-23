@@ -12,10 +12,12 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
-        # For working on the formal specification (typst render + the
-        # annotate-notation.py tooltip postprocess, see spec/build.sh). The
-        # wrapped typst carries the pinned @preview diagram packages via
-        # TYPST_PACKAGE_CACHE_PATH, same as the nix build (see nix/hydra/spec.nix).
+        # For working on the formal specification (agda typecheck + typst
+        # render + the annotate-notation.py tooltip postprocess, see
+        # spec/build.sh). The wrapped typst carries the pinned @preview diagram
+        # packages via TYPST_PACKAGE_CACHE_PATH, same as the nix build (see
+        # nix/hydra/spec.nix).
+        self'.packages.spec-agda
         self'.packages.spec-typst
         (pkgs-2511.python3.withPackages (ps: [ ps.pymupdf ]))
         # To compile hydra scripts
