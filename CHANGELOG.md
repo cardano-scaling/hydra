@@ -31,11 +31,15 @@ changes.
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
 
-- Emit `SyncedStatusReport` only when the node's chain-sync status changes
-  (in sync ↔ catching up) rather than on every block, so clients are no longer
-  flooded while the node is near or behind the chain tip. The continuous drift
-  value is now available as the `hydra_chain_drift_seconds` Prometheus
-  metric. [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
+- **BREAKING** (WebSocket API) Removed the `SyncedStatusReport` server output.
+  The node used to push it on every block, flooding clients; it is now gone from
+  the message stream. Chain-sync status remains available on the WebSocket via
+  the `NodeUnsynced`/`NodeSynced` transition events and `Greetings.chainSyncedStatus`.
+  The continuous drift value is no longer pushed over the WebSocket; it is now the
+  `hydra_chain_drift_seconds` Prometheus metric, alongside a new
+  `hydra_chain_last_block_timestamp_seconds` metric recording when the node last
+  observed a block (so a stalled chain backend can be detected even while drift is
+  frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
 ## [2.3.0] - 2026.07.15
 

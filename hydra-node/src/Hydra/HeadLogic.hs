@@ -1827,14 +1827,12 @@ handleOutOfSync ::
   SyncedStatus ->
   Outcome tx
 handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus =
-  -- Emit only on an actual sync-status transition (edge-triggered), rather than
-  -- on every tick, so clients are not flooded (see issue #2749). The continuous
-  -- drift value is exposed as a metric ('hydra_chain_drift_seconds') instead.
+  -- Emit only on an actual sync-status transition, rather than on every tick, so
+  -- clients are not flooded (see issue #2749). The continuous drift value is
+  -- exposed as a metric ('hydra_chain_drift_seconds') instead.
   case (syncStatus, newSyncStatus) of
-    (InSync, CatchingUp) ->
-      newState NodeUnsynced{chainSlot, chainTime, drift} <> report CatchingUp
-    (CatchingUp, InSync) ->
-      newState NodeSynced{chainSlot, chainTime, drift} <> report InSync
+    (InSync, CatchingUp) -> newState NodeUnsynced{chainSlot, chainTime, drift}
+    (CatchingUp, InSync) -> newState NodeSynced{chainSlot, chainTime, drift}
     _ -> noop
  where
   plus = flip addUTCTime
@@ -1849,9 +1847,6 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
   -- NOTE: this is the same as drift > threshold
   nodeOutOfSync = chainTime `plus` threshold < now
   newSyncStatus = if nodeOutOfSync then CatchingUp else InSync
-
-  report synced =
-    cause . ClientEffect $ ServerOutput.SyncedStatusReport{chainSlot, chainTime, drift, synced}
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.

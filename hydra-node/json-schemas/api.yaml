@@ -76,7 +76,6 @@ channels:
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/RejectedInputBecauseUnsynced"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshotRejected"
-          - $ref: "api.yaml#/components/messages/SyncedStatusReport"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -726,16 +725,6 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
 
-    SyncedStatusReport:
-      title: SyncedStatusReport
-      description: |
-        Emitted once whenever the node's chain-sync status changes: when it
-        starts catching-up with the chain, or when it becomes synced again. It
-        is not emitted on every block. The continuous drift value is available
-        as the `hydra_chain_drift_seconds` Prometheus metric.
-      payload:
-        $ref: "api.yaml#/components/schemas/SyncedStatusReport"
-
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
       description: |
@@ -929,7 +918,6 @@ components:
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
-        - $ref: "api.yaml#/components/schemas/SyncedStatusReport"
 
     Greetings:
       type: object
@@ -1518,27 +1506,6 @@ components:
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         requirementFailure:
           $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
-
-    SyncedStatusReport:
-      type: object
-      required:
-        - tag
-        - chainSlot
-        - chainTime
-        - drift
-        - synced
-      properties:
-        tag:
-          type: string
-          enum: ["SyncedStatusReport"]
-        chainSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
-        chainTime:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-        drift:
-          $ref: "api.yaml#/components/schemas/NominalDiffTime"
-        synced:
-          $ref: "api.yaml#/components/schemas/SyncedStatus"
 
     SideLoadRequirementFailure:
       oneOf:

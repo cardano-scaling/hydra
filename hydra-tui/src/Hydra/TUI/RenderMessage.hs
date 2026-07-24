@@ -347,7 +347,7 @@ renderServerOutput time output raw = case output of
       raw
 
 -- ---------------------------------------------------------------------------
--- ClientMessage (5 constructors)
+-- ClientMessage (4 constructors)
 -- ---------------------------------------------------------------------------
 
 renderClientMessage :: UTCTime -> ClientMessage Tx -> Text -> RenderedMessage
@@ -389,17 +389,6 @@ renderClientMessage now msg raw = case msg of
       "Side-load snapshot rejected"
       [ fld "Command" (show clientInput)
       , fld "Failure" (show requirementFailure)
-      ]
-      raw
-  SyncedStatusReport{chainSlot, chainTime, drift, synced} ->
-    mk
-      Info
-      now
-      ("Sync status: " <> show synced)
-      [ fld "Chain slot" (show chainSlot)
-      , fld "Chain time" (show chainTime)
-      , fld "Drift" (show drift)
-      , fld "Synced" (show synced)
       ]
       raw
 

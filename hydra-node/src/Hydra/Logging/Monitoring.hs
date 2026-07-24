@@ -16,6 +16,7 @@ import Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
+import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
@@ -84,6 +85,7 @@ allMetrics =
   , MetricDefinition (Name "hydra_head_snapshot_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 500, 1000, 5000, 10000, 30000]
   , MetricDefinition (Name "hydra_head_peers_connected") GaugeMetric $ flip registerGauge mempty
   , MetricDefinition (Name "hydra_chain_drift_seconds") GaugeMetric $ flip registerGauge mempty
+  , MetricDefinition (Name "hydra_chain_last_block_timestamp_seconds") GaugeMetric $ flip registerGauge mempty
   ]
 
 -- | Main monitoring function that updates metrics store given some log entries.
@@ -108,11 +110,14 @@ monitor transactionsMap snapshotsMap metricsMap = \case
       PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
       PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
       NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
-      -- Report how far behind the chain the node currently is, updated on every
-      -- observed tick. This replaces the per-tick 'SyncedStatusReport' push (#2749).
+      -- On every observed tick, report how far behind the chain we are and when
+      -- we last heard from the backend. The latter is a wall-clock timestamp, so
+      -- monitoring can alert on `time() - hydra_chain_last_block_timestamp_seconds`
+      -- and detect a stalled backend even while the drift gauge is frozen (#2749).
       TickObserved{chainTime} -> do
         now <- getCurrentTime
         gaugeN "hydra_chain_drift_seconds" (realToFrac (now `diffUTCTime` chainTime))
+        gaugeN "hydra_chain_last_block_timestamp_seconds" (realToFrac (utcTimeToPOSIXSeconds now))
       SnapshotRequested{requestedSnapshot = Snapshot{number, confirmed}} -> do
         t <- getMonotonicTime
         atomically $ modifyTVar' snapshotsMap (Map.insert number (t, txId <$> confirmed))

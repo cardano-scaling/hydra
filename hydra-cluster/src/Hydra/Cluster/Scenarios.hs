@@ -1911,10 +1911,8 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
 
         -- Carol is still catching up (she was offline while the chain advanced),
         -- so submitting a new transaction right away must be rejected as
-        -- unsynced. We assert on that rejection rather than waiting for a
-        -- 'SyncedStatusReport': the report is a one-shot, non-persisted
-        -- notification that can be raced away as the node quickly catches up,
-        -- whereas the rejection is the actual security property (see #2749).
+        -- unsynced. We assert on that rejection, which is the actual security
+        -- property we care about here (see #2749).
         utxo <- getSnapshotUTxO n3
         tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
         send n3 $ input "NewTx" ["transaction" .= tx]

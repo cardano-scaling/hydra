@@ -1037,17 +1037,10 @@ spec = parallel $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Close
-                -- The node emits a startup SyncedStatusReport{InSync} on its
-                -- initial CatchingUp -> InSync transition; skip it and wait for
-                -- the CommandFailed from closing an idle head (see #2749).
-                let waitForCommandFailed =
-                      waitForNextMessage n1 >>= \case
-                        SyncedStatusReport{} -> waitForCommandFailed
-                        msg ->
-                          msg `shouldSatisfy` \case
-                            CommandFailed{} -> True
-                            _ -> False
-                waitForCommandFailed
+                msg <- waitForNextMessage n1
+                msg `shouldSatisfy` \case
+                  CommandFailed{} -> True
+                  _ -> False
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
@@ -1211,7 +1204,6 @@ waitUntilMatch nodes predicate = do
  where
   go seenOutputs (nid, n) =
     raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
-      Left SyncedStatusReport{} -> go seenOutputs (nid, n)
       Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
       Right out -> do
         atomically (modifyTVar' seenOutputs ((nid, out) :))
