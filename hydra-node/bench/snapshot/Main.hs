@@ -41,7 +41,7 @@ import Hydra.Tx.Crypto (Signature, sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment)
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, cperiod, testHeadId, testHeadSeed)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, cperiod, dperiod, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
@@ -130,7 +130,7 @@ benchCell n m = do
             ]
       )
  where
-  parameters = HeadParameters cperiod [alice, bob, carol]
+  parameters = HeadParameters cperiod dperiod [alice, bob, carol]
 
   leader =
     fromMaybe (error "no leader found for snapshot 2") $

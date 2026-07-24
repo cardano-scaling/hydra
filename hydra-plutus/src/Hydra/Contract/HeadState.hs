@@ -8,6 +8,7 @@ import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
+import Hydra.Data.DepositPeriod (DepositPeriod)
 import Hydra.Data.Party (Party)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
 import PlutusTx qualified
@@ -31,6 +32,8 @@ data OpenDatum = OpenDatum
   -- ^ Spec: kH
   , contestationPeriod :: ContestationPeriod
   -- ^ Spec: T
+  , depositPeriod :: DepositPeriod
+  -- ^ Must match the --deposit-period of all participating nodes.
   , version :: SnapshotVersion
   -- ^ Spec: v
   , accumulatorHash :: Hash
@@ -51,6 +54,8 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: kH
   , contestationPeriod :: ContestationPeriod
   -- ^ Spec: T
+  , depositPeriod :: DepositPeriod
+  -- ^ Must match the --deposit-period of all participating nodes.
   , version :: SnapshotVersion
   -- ^ Spec: v
   , snapshotNumber :: SnapshotNumber

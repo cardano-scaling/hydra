@@ -23,10 +23,10 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState, initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -35,6 +35,7 @@ import Test.Hydra.Tx.Fixture (
   carol,
   cperiod,
   deriveOnChainId,
+  dperiod,
   testHeadId,
   testHeadSeed,
  )
@@ -97,6 +98,7 @@ sampleOnInitTx =
             , headParameters =
                 HeadParameters
                   { contestationPeriod = cperiod
+                  , depositPeriod = dperiod
                   , parties = [alice, bob, carol]
                   }
             , participants = deriveOnChainId <$> [alice, bob, carol]

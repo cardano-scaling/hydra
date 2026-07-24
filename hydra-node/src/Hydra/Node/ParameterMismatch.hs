@@ -8,6 +8,7 @@ import Hydra.Prelude
 
 import Hydra.Tx (Party)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 
 -- | Exception used to indicate command line options not matching the persisted
 -- state.
@@ -17,6 +18,7 @@ newtype ParameterMismatch = ParameterMismatch [ParamMismatch]
 
 data ParamMismatch
   = ContestationPeriodMismatch {loadedCp :: ContestationPeriod, configuredCp :: ContestationPeriod}
+  | DepositPeriodMismatch {loadedDp :: DepositPeriod, configuredDp :: DepositPeriod}
   | PartiesMismatch {loadedParties :: [Party], configuredParties :: [Party]}
   | SavedNetworkPartiesInconsistent {numberOfParties :: Int}
   deriving stock (Generic, Eq, Show)

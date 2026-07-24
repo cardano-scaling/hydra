@@ -18,6 +18,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Secret (Secret)
@@ -29,7 +30,7 @@ import Hydra.Tx.Utils (
   verificationKeyToOnChainId,
  )
 
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
   genOneUTxOFor,
@@ -74,6 +75,7 @@ healthyContestTx =
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       , closedContesters = []
       , closedHeadAdaOverhead = 0
+      , closedDepositPeriod = DP.toChain dperiod
       }
 
 healthyContestSnapshotNumber :: SnapshotNumber
@@ -121,6 +123,7 @@ healthyClosedState =
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
       , contestationPeriod = healthyOnChainContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion

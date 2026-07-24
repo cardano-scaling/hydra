@@ -37,6 +37,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
@@ -115,6 +116,7 @@ healthyCloseCurrentTx =
       { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
       , openParties = healthyOnChainParties
       , openContestationPeriod = healthyContestationPeriod
+      , openDepositPeriod = DP.toChain Fixture.dperiod
       }
 
 healthyCurrentSnapshot :: Snapshot Tx
@@ -155,6 +157,7 @@ healthyCurrentOpenDatum =
     Head.OpenDatum
       { parties = healthyOnChainParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = DP.toChain Fixture.dperiod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCurrentSnapshotVersion

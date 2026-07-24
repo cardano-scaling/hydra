@@ -3,10 +3,10 @@ module Hydra.Node.Environment where
 import Hydra.Prelude hiding (show)
 
 import Data.Aeson (object, withObject, (.:), (.=))
-import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
@@ -98,5 +98,5 @@ instance HasParty Environment where
 
 -- | Make 'HeadParameters' that are consistent with the given 'Environment'.
 mkHeadParameters :: Environment -> HeadParameters
-mkHeadParameters Environment{party, otherParties, contestationPeriod} =
-  HeadParameters{contestationPeriod, parties = party : otherParties}
+mkHeadParameters Environment{party, otherParties, contestationPeriod, depositPeriod} =
+  HeadParameters{contestationPeriod, depositPeriod, parties = party : otherParties}

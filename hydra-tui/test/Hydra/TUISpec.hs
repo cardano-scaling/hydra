@@ -42,13 +42,13 @@ import Hydra.Cluster.Fixture (
 import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
-import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing.Utils (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Crypto (getVerificationKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,

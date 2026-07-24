@@ -10,9 +10,14 @@ changes.
 
 ## [UNRELEASED]
 
+- **BREAKING**:
+    - --deposit-period is now a protocol parameter embedded on-chain at Init time.
+      All nodes in a head must configure the same value; a mismatch causes the node
+      to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
+
 - Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
-version of each observed transaction via script hash matching, removing the
-compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
+  version of each observed transaction via script hash matching, removing the
+  compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
 
 - Fix pasting into hydra-tui text fields. The TUI now enables bracketed paste
   mode so a paste arrives as one event instead of raw keystrokes, and typing
@@ -25,6 +30,7 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
   silently using the last valid value (previously an unparsable address sent
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
+
 
 ## [2.3.0] - 2026.07.15
 
@@ -69,7 +75,7 @@ compile-time coupling to a single version's scripts [#2740](https://github.com/c
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
   already validated on receipt.  This removes redundant script execution from the hot
   path and noticeably increases sustained in-head throughput for script-heavy
-  workloads. [2717](https://github.com/cardano-scaling/hydra/pull/2717)
+  workloads. [#2717](https://github.com/cardano-scaling/hydra/pull/2717)
 
 - Hydra node can now be configured through a yaml file; easier to spot
   differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).

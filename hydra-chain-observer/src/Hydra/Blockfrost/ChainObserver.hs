@@ -38,6 +38,7 @@ import Hydra.ChainObserver.NodeClient (
   logObservation,
   observeAll,
  )
+import Hydra.ChainObserver.VersionRegistry (KnownVersion)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Observe (HeadObservation (..))
@@ -64,10 +65,11 @@ runBlockfrostM prj action = do
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
+  [KnownVersion] ->
   FilePath ->
   Integer ->
   IO (NodeClient IO)
-blockfrostClient tracer projectPath blockConfirmations = do
+blockfrostClient tracer knownVersions projectPath blockConfirmations = do
   prj <- Blockfrost.projectFromFile projectPath
   Blockfrost.Genesis
     { _genesisActiveSlotsCoefficient
@@ -99,7 +101,7 @@ blockfrostClient tracer projectPath blockConfirmations = do
           stateTVar <- newLabelledTVarIO "blockfrost-client-state" (blockHash, mempty)
           void $
             retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-              loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
+              loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
                 `catch` \(ex :: APIBlockfrostError) ->
                   pure $ Left ex
       }
@@ -120,17 +122,18 @@ loop ::
   (MonadIO m, MonadThrow m, MonadSTM m) =>
   Tracer m ChainObserverLog ->
   Blockfrost.Project ->
+  [KnownVersion] ->
   NetworkId ->
   DiffTime ->
   ObserverHandler m ->
   Integer ->
   TVar m (Blockfrost.BlockHash, UTxO) ->
   m a
-loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar = do
+loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar = do
   current <- readTVarIO stateTVar
-  next <- rollForward tracer prj networkId observerHandler blockConfirmations current
+  next <- rollForward tracer prj knownVersions networkId observerHandler blockConfirmations current
   atomically $ writeTVar stateTVar next
-  loop tracer prj networkId blockTime observerHandler blockConfirmations stateTVar
+  loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
 
 -- | From the current block and UTxO view, we collect Hydra observations
 -- and yield the next block and adjusted UTxO view.
@@ -138,12 +141,13 @@ rollForward ::
   (MonadIO m, MonadThrow m) =>
   Tracer m ChainObserverLog ->
   Blockfrost.Project ->
+  [KnownVersion] ->
   NetworkId ->
   ObserverHandler m ->
   Integer ->
   (Blockfrost.BlockHash, UTxO) ->
   m (Blockfrost.BlockHash, UTxO)
-rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, utxo) = do
+rollForward tracer prj knownVersions networkId observerHandler blockConfirmations (blockHash, utxo) = do
   block@Blockfrost.Block
     { _blockHash
     , _blockConfirmations
@@ -170,7 +174,7 @@ rollForward tracer prj networkId observerHandler blockConfirmations (blockHash, 
   traceWith tracer RollForward{point, receivedTxIds}
 
   -- Collect head observations
-  let (adjustedUTxO, observations) = observeAll networkId utxo receivedTxs
+  let (adjustedUTxO, observations) = observeAll knownVersions networkId utxo receivedTxs
   mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight

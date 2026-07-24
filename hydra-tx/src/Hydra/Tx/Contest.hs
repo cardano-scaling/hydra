@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
+import Hydra.Data.DepositPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras (posixToUTCTime)
@@ -32,6 +33,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedContestationDeadline :: Plutus.POSIXTime
   , closedContesters :: [Plutus.PubKeyHash]
   , closedHeadAdaOverhead :: Integer
+  , closedDepositPeriod :: OnChain.DepositPeriod
   }
   deriving stock (Eq, Show, Generic)
 
@@ -75,6 +77,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
     , closedContestationDeadline
     , closedContesters
     , closedHeadAdaOverhead
+    , closedDepositPeriod
     } = closedThreadOutput
 
   headWitness =
@@ -118,6 +121,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod
+          , depositPeriod = closedDepositPeriod
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion

@@ -37,7 +37,7 @@ import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxI
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (Timing (..), depositTimeout)
+import Hydra.Cluster.Util (Timing (..), depositTimeout, truncatedDepositPeriod)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (
@@ -109,7 +109,7 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
-          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 50 * blockTime}
+          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncatedDepositPeriod $ 50 * blockTime}
           putStrLn $ "Timing: " <> show timing
           -- Trim the full snapshot UTxO map from SnapshotConfirmed payloads:
           -- the bench only reads txIds and the snapshot number, and parsing
@@ -164,7 +164,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand runOptio
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
               -- XXX: Assumes contestation and deposit periods
-              let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 20 * blockTime}
+              let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 20 * blockTime}
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->

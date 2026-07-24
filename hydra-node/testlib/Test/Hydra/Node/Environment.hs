@@ -6,7 +6,6 @@ import Hydra.Prelude (pure)
 import Test.Hydra.Prelude
 
 import Hydra.Node.Environment (Environment (..), placeholderSigningKey)
-import Test.Hydra.Node.DepositPeriod ()
 import Test.Hydra.Node.UnsyncedPeriod ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck.Instances.Text ()

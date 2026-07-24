@@ -58,6 +58,7 @@ import Hydra.Cluster.Scenarios (
   headIsFinalizedWith,
   headIsOpenWith,
   hydraNodeBaseUrl,
+  initWithDifferentDepositPeriod,
   initWithWrongKeys,
   nodeCanSupportMultipleEtcdClusters,
   nodeReObservesOnChainTxs,
@@ -623,6 +624,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withClusterTempDir $ \tmpDir -> do
             withHydraScriptsAndBackendRunning tracer tmpDir $
               initWithWrongKeys tmpDir tracer
+
+      it "bob ignores head initialized with a different deposit-period" $ \tracer ->
+        failAfter 60 $
+          withClusterTempDir $ \tmpDir -> do
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              initWithDifferentDepositPeriod tmpDir tracer
 
       it "cluster id mismatch provides useful info in the logs" $ \tracer ->
         failAfter 60 $

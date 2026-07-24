@@ -107,7 +107,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, setNetworkId)
+import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, setNetworkId, truncatedDepositPeriod)
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
@@ -377,7 +377,7 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
   blockTime <- runBackend opts getBlockTime
 
   -- NOTE: Adapt periods to block times
-  let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 50 * blockTime}
+  let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 50 * blockTime}
   aliceChainConfig <-
     chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
@@ -1070,7 +1070,7 @@ threeNodesNoErrorsOnOpen tracer tmpDir opts hydraScriptsTxId = do
           Direct DirectOptions{nodeSocket} -> nodeSocket
           Blockfrost _ -> error "Unexpected Blockfrost options"
   blockTime <- runBackend opts getBlockTime
-  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncatedDepositPeriod $ 3 * blockTime}
   withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
@@ -1179,6 +1179,34 @@ initWithWrongKeys workDir tracer opts hydraScriptsTxId = do
         v ^? key "participants" . _JSON
 
       participants `shouldMatchList` expectedParticipants
+
+-- | Scenario for a deposit-period mismatch between peers: alice initializes a
+-- head while bob is configured with a different --deposit-period, so bob's
+-- node must ignore the head entirely (issue #2664).
+initWithDifferentDepositPeriod :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+initWithDifferentDepositPeriod workDir tracer opts hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+
+  blockTime <- runBackend opts getBlockTime
+  let Timing{contestationPeriod, depositPeriod} = mkTestTiming blockTime
+  aliceChainConfig <- chainConfigFor' Alice workDir opts hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+  -- NOTE: here we deliberately configure a different deposit period for Bob
+  bobChainConfig <- chainConfigFor' Bob workDir opts hydraScriptsTxId [Alice] contestationPeriod (2 * depositPeriod)
+
+  let hydraTracer = contramap FromHydraNode tracer
+  nodePorts <- allocateHydraNodePortsFor [3, 4]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] nodePorts $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] nodePorts $ \n2 -> do
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      send n1 $ input "Init" []
+      headId <-
+        waitForAllMatch 10 [n1] $
+          headIsOpenWith (Set.fromList [alice, bob])
+
+      -- Bob's node must ignore the head due to the deposit-period mismatch
+      waitMatch (10 * blockTime) n2 $ \v -> do
+        guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
+        guard $ v ^? key "headId" == Just (toJSON headId)
 
 startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
 startWithWrongPeers workDir tracer opts hydraScriptsTxId = do
@@ -1296,7 +1324,7 @@ rejectDeposit tracer workDir opts hydraScriptsTxId =
     refuelIfNeeded tracer opts Alice 30_000_000
     -- NOTE: Adapt periods to block times
     blockTime <- runBackend opts getBlockTime
-    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 100 * blockTime}
+    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 100 * blockTime}
     networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing

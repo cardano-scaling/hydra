@@ -178,6 +178,7 @@ test-suite tests
     , hydra-cluster
     , hydra-node
     , hydra-node:testlib
+    , hydra-plutus
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

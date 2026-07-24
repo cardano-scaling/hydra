@@ -39,9 +39,9 @@ import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadId (HeadSeed)
 import Options.Applicative (
   Parser,

@@ -216,6 +216,7 @@ genHydraContextFor n = do
   ctxHydraSigningKeys <- vector n
   ctxNetworkId <- Testnet . NetworkMagic <$> arbitrary
   ctxContestationPeriod <- arbitrary
+  ctxDepositPeriod <- arbitrary
   ctxScriptRegistry <- genScriptRegistry
   pure $
     HydraContext
@@ -223,6 +224,7 @@ genHydraContextFor n = do
       , ctxHydraSigningKeys
       , ctxNetworkId
       , ctxContestationPeriod
+      , ctxDepositPeriod
       , ctxScriptRegistry
       }
 

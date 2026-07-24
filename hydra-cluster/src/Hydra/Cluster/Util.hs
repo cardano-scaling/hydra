@@ -18,8 +18,6 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Node.DepositPeriod (DepositPeriod)
-import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -29,6 +27,8 @@ import Hydra.Options (
   defaultCardanoChainConfig,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Secret (Secret, mkSecret)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
@@ -80,6 +80,10 @@ data Timing = Timing
   }
   deriving stock (Show)
 
+-- | Truncate a duration to a whole-second 'DepositPeriod'.
+truncatedDepositPeriod :: NominalDiffTime -> DepositPeriod
+truncatedDepositPeriod = DP.DepositPeriod . fromInteger . truncate
+
 -- | Set up reasonable timing parameters for testing given a 'BlockTime'.
 mkTestTiming :: BlockTime -> Timing
 mkTestTiming = mkTestTiming' 1
@@ -92,7 +96,7 @@ mkTestTiming' numDeposits blockTime =
   Timing
     { blockTime
     , contestationPeriod = truncate $ 20 * blockTime
-    , depositPeriod = truncate $ fromIntegral numDeposits * 20 * blockTime
+    , depositPeriod = truncatedDepositPeriod $ fromIntegral numDeposits * 20 * blockTime
     }
 
 -- | Get a timeout until a deposit should have happened given a 'Timing'.

@@ -53,6 +53,7 @@ healthyHeadParameters =
   flip generateWith 42 $
     HeadParameters
       <$> arbitrary
+      <*> arbitrary
       <*> vectorOf (length healthyParties) arbitrary
 
 healthySeedInput :: TxIn

@@ -53,10 +53,6 @@ The following restrictions apply when **depositing** funds into a Hydra head (vi
 
 - **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
 
-### Deposit periods
-
-The `--deposit-period` allows an individual `hydra-node` operator to decide how long they want a deposit to have settled at least. However, differences bigger than [`defaultTTL * waitDelay`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay) (currently 10 minutes) result in non-approved snapshots. This is due to the way the `HeadLogic` is implemented and snapshot requests are not retried currently. See [hydra#1999](https://github.com/cardano-scaling/hydra/issues/1999) for more context.
-
 ### Known bugs
 
 Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue%20is%3Aopen%20(label%3A%22bug%20%3Abug%3A%22%20OR%20type%3ABug)). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).

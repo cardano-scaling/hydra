@@ -10,6 +10,7 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceDepositPeriod,
   replaceParties,
   replaceSnapshotVersion,
  )
@@ -36,6 +37,7 @@ import Hydra.Tx.Decrement (
   decrementTx,
  )
 import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
@@ -46,7 +48,7 @@ import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
@@ -82,6 +84,7 @@ healthyDecrementTx =
     HeadParameters
       { parties = healthyParties
       , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = dperiod
       }
 
   scriptRegistry = genScriptRegistry `generateWith` 42
@@ -159,6 +162,7 @@ healthyDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
+      , depositPeriod = DP.toChain dperiod
       , version = toInteger healthySnapshotVersion
       , accumulatorHash = toBuiltin healthyAccumulatorHash
       , headAdaOverhead = 0
@@ -202,6 +206,9 @@ data DecrementMutation
     DecrementAddExtraDepositInput
   | -- | Minting or burning of tokens should not be possible in decrement.
     MutateTokenMintingOrBurning
+  | -- | Ensures deposit-period does not change between head input datum and head output
+    --  datum.
+    ChangeDepositPeriodInOutput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -211,6 +218,9 @@ genDecrementMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode ChangedParameters) ChangePartiesInOutput <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
+    , SomeMutation (pure $ toErrorCode ChangedParameters) ChangeDepositPeriodInOutput <$> do
+        mutatedDepositPeriod <- arbitrary `suchThat` (/= dperiod)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceDepositPeriod mutatedDepositPeriod) headTxOut
     , -- New version v′ is incremented correctly
       SomeMutation (pure $ toErrorCode VersionNotIncremented) UseDifferentSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthySnapshotVersion + 1)

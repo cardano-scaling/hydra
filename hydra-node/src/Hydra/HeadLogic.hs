@@ -79,7 +79,6 @@ import Hydra.HeadLogic.State (
 import Hydra.Ledger (Ledger (..), applyTransactions, reapplyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
@@ -102,6 +101,7 @@ import Hydra.Tx.Crypto (
   verifyMultiSignature,
   verifyMultiSignatureBytes,
  )
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
@@ -154,6 +154,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
   | configuredParties == initializedParties
       && party `member` initializedParties
       && configuredContestationPeriod == contestationPeriod
+      && configuredDepositPeriod == depositPeriod
       && Set.fromList configuredParticipants == Set.fromList participants =
       newState
         HeadOpened
@@ -176,12 +177,13 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
 
   configuredParties = Set.fromList (party : otherParties)
 
-  HeadParameters{parties, contestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
 
   Environment
     { party
     , otherParties
     , contestationPeriod = configuredContestationPeriod
+    , depositPeriod = configuredDepositPeriod
     , participants = configuredParticipants
     } = env
 

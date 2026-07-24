@@ -56,11 +56,12 @@ import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (NodeState (..))
+import Hydra.Options (defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -272,6 +273,7 @@ instance StateModel WorldState where
                   HeadParameters
                     { parties = idleParties
                     , contestationPeriod = contestationPeriod
+                    , depositPeriod = defaultDepositPeriod
                     }
               , offChainState = OffChainState{confirmedUTxO = mempty}
               , committed = mempty
