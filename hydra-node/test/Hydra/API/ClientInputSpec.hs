@@ -26,7 +26,6 @@ spec = parallel $ do
     prop_validateJSONSchema @(ClientInput Tx) "api.json" $
       key "components" . key "schemas" . key "ClientInput"
 
-  -- XXX: This seems no to be working? Adding a new message does not lead to a failure here
   prop "schema covers all defined client inputs" $
     withMaxSuccess 1 $
       prop_specIsComplete @(ClientInput Tx) "api.json" $

@@ -103,6 +103,9 @@ channels:
           - $ref: "api.yaml#/components/messages/CommitRecovered"
           - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
           - $ref: "api.yaml#/components/messages/EventLogRotated"
+          - $ref: "api.yaml#/components/messages/DepositActivated"
+          - $ref: "api.yaml#/components/messages/DepositExpired"
+          - $ref: "api.yaml#/components/messages/HeadPartiallyFannedOut"
           - $ref: "api.yaml#/components/messages/NodeUnsynced"
           - $ref: "api.yaml#/components/messages/NodeSynced"
     publish:
@@ -115,6 +118,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Recover"
           - $ref: "api.yaml#/components/messages/Decommit"
           - $ref: "api.yaml#/components/messages/Close"
+          - $ref: "api.yaml#/components/messages/SafeClose"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/PartialFanout"
@@ -805,6 +809,27 @@ components:
         The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
       payload:
         $ref: "api.yaml#/components/schemas/EventLogRotated"
+
+    DepositActivated:
+      title: DepositActivated
+      description: |
+        A recorded deposit has reached its activation time and is now eligible to be included in an incremental commit.
+      payload:
+        $ref: "api.yaml#/components/schemas/DepositActivated"
+
+    DepositExpired:
+      title: DepositExpired
+      description: |
+        A recorded deposit has passed its deadline without being finalized and is no longer eligible for an incremental commit.
+      payload:
+        $ref: "api.yaml#/components/schemas/DepositExpired"
+
+    HeadPartiallyFannedOut:
+      title: HeadPartiallyFannedOut
+      description: |
+        A partial fanout was observed on-chain: a subset of the closed head's UTxO was distributed. Emitted for each step until the head is fully drained.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadPartiallyFannedOut"
 
     NodeUnsynced:
       title: NodeUnsynced

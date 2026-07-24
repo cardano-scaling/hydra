@@ -47,11 +47,10 @@ spec = parallel $ do
             key "components" . key "schemas" . key "ClientMessage"
         ]
 
-  -- XXX: This seems no to be working? Adding a new message does not lead to a failure here
   prop "schema covers all defined server outputs" $
     withMaxSuccess 1 $
       conjoin
-        [ prop_specIsComplete @(TimedServerOutput Tx) "api.json" $
+        [ prop_specIsComplete @(ServerOutput Tx) "api.json" $
             key "channels" . key "/" . key "subscribe" . key "message"
         , prop_specIsComplete @(Greetings Tx) "api.json" $
             key "channels" . key "/" . key "subscribe" . key "message"
