@@ -1204,7 +1204,6 @@ waitUntilMatch nodes predicate = do
  where
   go seenOutputs (nid, n) =
     raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
-      Left SyncedStatusReport{} -> go seenOutputs (nid, n)
       Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
       Right out -> do
         atomically (modifyTVar' seenOutputs ((nid, out) :))

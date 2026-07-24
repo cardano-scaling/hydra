@@ -162,7 +162,7 @@ data StateChanged tx
       --   node auto-resumes draining or waits for the next 'PartialFanout').
       }
   | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainPoint :: ChainPointType tx}
+  | TickObserved {chainPoint :: ChainPointType tx, chainTime :: UTCTime}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod

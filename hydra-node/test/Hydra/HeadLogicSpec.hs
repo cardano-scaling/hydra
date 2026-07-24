@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -1871,6 +1871,39 @@ spec =
             assert $ case nodeAfter of
               NodeInSync{} -> True
               _ -> False
+
+      -- #2749: the node signals its sync status only on an actual transition
+      -- (NodeUnsynced / NodeSynced), not on every tick, so clients are not
+      -- flooded. The continuous drift is exposed as a metric instead.
+      it "signals sync status only on a transition (#2749)" $ do
+        now <- getCurrentTime
+        let demoEnv = bobEnv{unsyncedPeriod = UnsyncedPeriod 1.5} -- threshold 1.5s
+            hs = generateWith arbitrary 42 :: HeadState SimpleTx
+            -- A tick whose observed chain time is 'driftSecs' behind 'now'.
+            tickWith :: NominalDiffTime -> Int -> Input SimpleTx
+            tickWith driftSecs slot =
+              ChainInput Tick{chainTime = addUTCTime (negate driftSecs) now, chainPoint = fromIntegral slot}
+            syncTransition :: StateChanged SimpleTx -> Maybe SyncedStatus
+            syncTransition = \case
+              NodeUnsynced{} -> Just CatchingUp
+              NodeSynced{} -> Just InSync
+              _ -> Nothing
+            -- Fold ticks through 'update', threading the node state, and collect
+            -- the sync-status transitions emitted along the way.
+            runTicks :: [NominalDiffTime] -> [SyncedStatus]
+            runTicks drifts =
+              let go :: (NodeState SimpleTx, [SyncedStatus]) -> (Int, NominalDiffTime) -> (NodeState SimpleTx, [SyncedStatus])
+                  go (st, transitions) (i, d) =
+                    let outcome = update demoEnv ledger now st (tickWith d i)
+                        changes = case outcome of Continue{stateChanges} -> stateChanges; _ -> []
+                     in (aggregateState st outcome, transitions <> mapMaybe syncTransition changes)
+               in snd (foldl' go (inSync hs, []) (zip [1 :: Int ..] drifts))
+        -- Staying in sync => no transitions.
+        runTicks (replicate 10 1.3) `shouldBe` []
+        -- Staying unsynced => a single transition on entering, then silent.
+        runTicks (replicate 10 2.0) `shouldBe` [CatchingUp]
+        -- One transition per crossing: in-sync -> catching-up -> in-sync.
+        runTicks [0.5, 2.0, 2.0, 0.5, 0.5] `shouldBe` [CatchingUp, InSync]
 
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do

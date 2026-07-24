@@ -88,7 +88,7 @@ genStateChanged env =
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , HeadPartialFannedOut <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , ChainRolledBack <$> arbitrary
-    , TickObserved <$> arbitrary
+    , TickObserved <$> arbitrary <*> arbitrary
     , IgnoredHeadInitializing <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , TxInvalid <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary

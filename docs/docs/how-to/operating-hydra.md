@@ -39,6 +39,10 @@ For instance, if a `hydra-node` is initiated with `--monitoring-port 6001`, the 
 will output:
 
 ```
+# TYPE hydra_chain_drift_seconds gauge
+hydra_chain_drift_seconds  0.0
+# TYPE hydra_chain_last_block_timestamp_seconds gauge
+hydra_chain_last_block_timestamp_seconds  0.0
 # TYPE hydra_head_confirmed_tx counter
 hydra_head_confirmed_tx  0
 # TYPE hydra_head_inputs counter
@@ -63,6 +67,12 @@ hydra_head_tx_confirmation_time_ms_count  0
 > online peers is greater than `total_peers/2`. After that, if another peer
 > goes offline, it will drop to `0`, to indicate that etcd consensus is
 > broken.
+
+> [!NOTE]
+> `hydra_chain_last_block_timestamp_seconds` is the wall-clock time when the node
+> last observed a block. Alert on `time() - hydra_chain_last_block_timestamp_seconds`
+> to detect a stalled chain backend: this keeps growing during a stall, whereas
+> `hydra_chain_drift_seconds` (only updated per observed block) freezes.
 
 ## Common issues
 
