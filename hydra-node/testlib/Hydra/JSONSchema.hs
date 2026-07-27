@@ -13,8 +13,7 @@ import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Array, _String)
 import Data.List qualified as List
-import Data.Map.Strict qualified as Map
-import Data.Text (pack)
+import Data.Text (pack, takeWhileEnd)
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import Data.Yaml qualified as Yaml
 import Paths_hydra_node qualified as Pkg
@@ -167,34 +166,40 @@ prop_specIsComplete specFileName selector =
       withJsonSpecifications $ \tmpDir -> do
         let specFile = tmpDir </> specFileName
         specs <- run $ Aeson.decodeFileStrict specFile
-        let knownKeys = classify specFile specs a
-        let unknownConstructors = Map.keys $ Map.filter (== 0) knownKeys
+        let documented = documentedConstructors specFile specs
+        let generated = List.nub (poormansGetConstr <$> a)
+        -- Constructors the type can produce that the specification does not
+        -- document. Catches a new message added in code but forgotten in the
+        -- schema.
+        let undocumented = filter (`notElem` documented) generated
 
-        when (null knownKeys) $ do
+        when (null documented) $ do
           monitor $ counterexample "No keys found in given specification fragment"
           assert False
 
-        unless (null unknownConstructors) $ do
-          let commaSeparated = intercalate ", " (toString <$> unknownConstructors)
-          monitor $ counterexample $ "Unimplemented constructors present in specification: " <> commaSeparated
-          monitor $ counterexample $ show a
+        unless (null undocumented) $ do
+          let commaSeparated = intercalate ", " (toString <$> undocumented)
+          monitor $ counterexample $ "Constructors produced by the type but missing from the specification: " <> commaSeparated
           assert False
  where
   -- Like Generics, if you squint hard-enough.
   poormansGetConstr :: a -> Text
   poormansGetConstr = toText . Prelude.head . List.words . show
 
-  classify :: FilePath -> Maybe Aeson.Value -> [a] -> Map Text Integer
-  classify _ (Just specs) =
-    let ks = specs ^.. selector . key "oneOf" . _Array . traverse . key "title" . _String
-
-        knownKeys = Map.fromList $ zip ks (repeat @Integer 0)
-
-        countMatch (poormansGetConstr -> tag) =
-          Map.alter (Just . maybe 1 (+ 1)) tag
-     in foldr countMatch knownKeys
-  classify specFile _ =
+  -- Names of the constructors documented in the selected 'oneOf' fragment.
+  -- Entries are usually '$ref's to the individual message/schema (e.g.
+  -- "…/messages/HeadIsOpen"), from which we take the last path segment; inline
+  -- 'title's are also supported.
+  documentedConstructors :: FilePath -> Maybe Aeson.Value -> [Text]
+  documentedConstructors _ (Just specs) =
+    (refName <$> specs ^.. selector . key "oneOf" . _Array . traverse . key "$ref" . _String)
+      <> specs
+      ^.. selector . key "oneOf" . _Array . traverse . key "title" . _String
+  documentedConstructors specFile _ =
     error $ "Invalid specification file. Does not decode to an object: " <> show specFile
+
+  refName :: Text -> Text
+  refName = takeWhileEnd (/= '/')
 
 -- | An alias for a traversal selecting some part of a 'Value'
 -- This alleviates the need for users of this module to import explicitly the types
