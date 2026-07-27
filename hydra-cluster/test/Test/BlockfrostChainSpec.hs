@@ -10,7 +10,7 @@ import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
 import Data.Time (secondsToNominalDiffTime)
-import Hydra.Cardano.Api (CardanoSigningKey (..), pattern TxOut, pattern TxOutDatumInline)
+import Hydra.Cardano.Api (CardanoSigningKey (..), TxIn (..), TxIx (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
   ChainEvent (..),
@@ -51,7 +51,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Secret (mkSecret, withSecret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
@@ -72,17 +71,23 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
   -- Blockfrost API returns inline datums as base16-encoded CBOR text. Dropping the
   -- datum when converting queried UTxO loses the CRS datum of the script registry,
   -- which makes every fanout fail validation with H9 (NoOutputDatumError).
-  it "queryScriptRegistry preserves the CRS inline datum @requiresBlockfrost" $ \_tracer -> do
+  -- We assert the published reference scripts keep their inline datum, skipping
+  -- newScriptRegistry (its script-hash validation is unrelated here and breaks
+  -- on any on-chain validator change).
+  it "preserves inline datums when querying reference scripts @requiresBlockfrost" $ \_tracer -> do
     prj <- Blockfrost.projectFromFile blockfrostProjectPath
     -- Officially published hydra scripts for this network as recorded in networks.json
     hydraScriptsTxIds <- parseNetworkTxIds hydraNodeVersion "preview"
-    registry <-
-      Blockfrost.runBlockfrostM prj $
-        Blockfrost.queryScriptRegistry defaultBlockfrostOptions hydraScriptsTxIds
-    let (crsIn, TxOut _ _ crsDatum _) = crsReference registry
-    case crsDatum of
-      TxOutDatumInline _ -> pure ()
-      other -> failure $ "CRS reference output " <> show crsIn <> " lost its inline datum: " <> show other
+    utxo <-
+      Blockfrost.runBlockfrostM prj $ do
+        Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.queryGenesisParameters
+        let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+            candidates = [TxIn txid (TxIx 0) | txid <- hydraScriptsTxIds]
+        Blockfrost.queryUTxOByTxIn defaultBlockfrostOptions networkId candidates
+    let inlineOutputs = [txin | (txin, TxOut _ _ (TxOutDatumInline _) _) <- UTxO.toList utxo]
+    when (null inlineOutputs) $
+      failure $
+        "Expected a published reference output to preserve its inline datum, but none did: " <> show utxo
 
   -- Parked until #2753 makes the Blockfrost lifecycle fast enough to run in CI.
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
