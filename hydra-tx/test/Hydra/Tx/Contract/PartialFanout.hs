@@ -216,6 +216,47 @@ healthyPartialFanoutTxWithDuplicates =
     duplicateRemainingAccumulator
     (Head.FanoutProgress duplicateProgressDatum)
 
+-- | A native token under a foreign policy that the head can never burn (only
+-- head-policy tokens are burned on fanout), as if it had been committed into the
+-- head. This is the kind of "unburned token" that can leave a head stuck (#2334).
+unburnedToken :: Value
+unburnedToken =
+  fromList [(AssetId (scriptPolicyId (PlutusScript CRS.validatorScript)) (UnsafeAssetName "unburned"), 1)]
+
+-- | A partial fanout whose head output additionally carries an 'unburnedToken'.
+-- #2334: even though this token can never be burned (so the final, token-burning
+-- fanout step is blocked), a partial fanout step still validates and distributes
+-- the selected UTxOs. So a participant can recover funds via selection regardless
+-- of the stuck token; only the residual head output (holding it) stays stuck.
+healthyPartialFanoutTxWithUnburnedToken :: (Tx, UTxO)
+healthyPartialFanoutTxWithUnburnedToken = (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton healthyHeadInput headOutput
+      <> registryUTxO scriptRegistry
+
+  tx =
+    partialFanoutTx
+      scriptRegistry
+      healthyDistributeUTxO
+      (healthyHeadInput, headOutput)
+      healthySlotNo
+      healthyProgressDatum
+      remainingAccumulator
+
+  headOutput' :: TxOut CtxUTxO
+  headOutput' =
+    mkHeadOutput
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline (Head.Closed healthyClosedDatum))
+
+  headOutput =
+    modifyTxOutValue
+      (<> healthyParticipationTokens <> UTxO.totalValue healthyFullUTxO <> unburnedToken)
+      headOutput'
+
 data PartialFanoutMutation
   = MutatePartialFanoutValidityBeforeDeadline
   | -- | Partial fanout must NOT burn tokens (unlike full fanout)
