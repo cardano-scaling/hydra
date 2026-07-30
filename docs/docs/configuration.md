@@ -53,19 +53,19 @@ hydra-signing-key: "alice.sk"
 peers:
   - address: "127.0.0.1:5001"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice.cardano.vk"
+    cardano-verification-key: "alice-fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob.cardano.vk"
+    cardano-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol.cardano.vk"
+    cardano-verification-key: "carol-fuel.vk"
 ledger-protocol-parameters: "protocol-parameters.json"
 persistence-dir: "persistence/alice"
 chain:
   mode: cardano
   network: preview
-  cardano-signing-key: "alice.cardano.sk"
+  cardano-signing-key: "alice-fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -87,13 +87,13 @@ A **mirror node** observes the head without holding signing keys. To set one up,
 peers:
   - address: "127.0.0.1:5001"
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice.cardano.vk"
+    cardano-verification-key: "alice-fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob.cardano.vk"
+    cardano-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol.cardano.vk"
+    cardano-verification-key: "carol-fuel.vk"
   - address: "127.0.0.1:5004"   # mirror — address only, no keys
 ```
 
@@ -111,17 +111,17 @@ peers:
   - address: "127.0.0.1:5001"          # alice primary — address only, no keys needed
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob.cardano.vk"
+    cardano-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol.cardano.vk"
+    cardano-verification-key: "carol-fuel.vk"
   - address: "127.0.0.1:5004"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice.cardano.vk"
+    cardano-verification-key: "alice-fuel.vk"
 persistence-dir: "persistence/alice-mirror"
 chain:
   mode: cardano
-  cardano-signing-key: "alice.cardano.sk"
+  cardano-signing-key: "alice-fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -145,14 +145,14 @@ Gotchas when running mirror nodes:
 
 ### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and holds ada to pay fees. We call this the **fuel** key (see [Fuel vs funds](#fuel-vs-funds)). Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 
 ```shell
 cardano-cli address key-gen \
-  --verification-key-file cardano.vk \
-  --signing-key-file cardano.sk
+  --verification-key-file fuel.vk \
+  --signing-key-file fuel.sk
 ```
 
 :::tip HD wallet keys supported
@@ -331,7 +331,7 @@ To publish scripts yourself, use the `publish-scripts` command:
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key cardano.sk
+  --cardano-signing-key fuel.sk
 ```
 
 This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
@@ -344,7 +344,7 @@ One of those entries is the `νCRS` output, which carries the common reference s
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key cardano.sk
+  --cardano-signing-key fuel.sk
 ```
 
 You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost [project id](https://blockfrost.dev/overview/getting-started#creating-first-project).
@@ -352,7 +352,7 @@ You can also use blockfrost for script publishing. On top of providing cardano s
 ```shell
 hydra-node publish-scripts \
   --blockfrost /path/to/blockfrost-project.txt \
-  --cardano-signing-key cardano.sk
+  --cardano-signing-key fuel.sk
 ```
 
 ### Ledger parameters
@@ -378,12 +378,12 @@ Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
 ```shell
-cardano-cli address build --verification-key-file cardano.vk --mainnet
+cardano-cli address build --verification-key-file fuel.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
 ```
 
 The `hydra-tui` can display this fuel alongside the commit funds on the `Funds`
-tab: pass the internal wallet's verification key via `--fuel-key cardano.vk`.
+tab: pass the internal wallet's verification key via `--fuel-key fuel.vk`.
 The fuel listing is display-only and is never used when committing.
 
 While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to deposit **funds** into an open Hydra head. The `hydra-node` provides an HTTP endpoint at `POST /commit`, allowing you to specify either:
@@ -513,7 +513,7 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
   "api-transaction-timeout": 300.0,
   "chain": {
     "mode": "cardano",
-    "cardano-signing-key": "/abs/path/to/alice.cardano.sk",
+    "cardano-signing-key": "/abs/path/to/alice-fuel.sk",
     "cardano-verification-keys": [],
     "contestation-period": 43200,
     "deposit-period": 3600.0,
