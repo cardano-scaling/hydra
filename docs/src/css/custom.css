@@ -141,6 +141,14 @@ html.plugin-pages {
   background-color: rgba(0, 0, 0, 0.3);
 }
 
+/* The announcement bar is a fixed docusaurus element that does not follow the
+   theme, so in dark mode it shows as a white banner. Give it dark styling. */
+[data-theme="dark"] div[class*="announcementBar_"] {
+  background-color: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+
 /* Custom sidebar section headers */
 .sidebar-header {
   opacity: 0.9;
@@ -374,7 +382,7 @@ html:not(.plugin-pages)[data-theme="dark"]
 }
 
 .DocSearch-Button:hover .DocSearch-Search-Icon {
-  color: #7196a7 !important;
+  color: var(--ifm-color-primary) !important;
 }
 
 .DocSearch-Button-Keys {
@@ -391,7 +399,7 @@ html:not(.plugin-pages)[data-theme="dark"]
 }
 
 .mobile-side-menu > .menu__list-item > .menu__link {
-  color: #283032 !important;
+  color: var(--ifm-menu-color) !important;
 }
 
 .breadcrumbHomeIcon_src-theme-DocBreadcrumbs-Items-Home-styles-module {
@@ -408,12 +416,12 @@ html:not(.plugin-pages)[data-theme="dark"]
 }
 
 .menu__link--active {
-  background-color: #e7eef0 !important;
+  background-color: var(--ifm-menu-color-background-active) !important;
   font-weight: 700;
 }
 
 .breadcrumbs__item--active > span {
-  background-color: #e7eef0 !important;
+  background-color: var(--ifm-breadcrumb-item-background-active) !important;
 }
 
 .container {
@@ -476,7 +484,7 @@ html:not(.plugin-pages)[data-theme="dark"]
 }
 
 .theme-doc-toc-mobile > button {
-  @apply font-semibold text-black rounded p-4 mt-12 bg-primary-extralight;
+  @apply font-semibold text-[var(--ifm-font-color-base)] rounded p-4 mt-12 bg-[var(--ifm-background-surface-color)];
 }
 
 .theme-doc-toc-mobile > div > ul {

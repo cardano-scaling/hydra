@@ -33,6 +33,13 @@
             cp ${self'.packages.spec}/hydra-spec.pdf static/
             cp -rL ${self'.packages.haddocks} static/haddocks
             chmod -R u+w static/haddocks
+
+            # Generate the transaction-cost benchmark page fresh from the current
+            # code so it renders as a normal docusaurus page (current theme, no
+            # staleness). Its on-chain costs are deterministic, so a fixed seed
+            # keeps it reproducible and nix-cached. The output is git-ignored and
+            # never committed.
+            ${self'.packages.tx-cost}/bin/tx-cost --seed 42 --output-directory benchmarks
           '';
           # yarn pack (used by buildYarnPackage's installPhase) excludes the
           # build/ directory because it is listed in .gitignore. Copy it

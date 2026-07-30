@@ -124,6 +124,17 @@ lint PKG="all":
   if [ "$rc" -ne 0 ]; then echo "lint: FAILED" >&2; exit 1; fi
   echo "lint: OK"
 
+# serve the documentation locally. Generates the (git-ignored) transaction-cost
+# benchmark page first, so it renders locally exactly like it does in CI (which
+# generates it from nix/hydra/docs.nix). Uses cabal to build tx-cost since the
+# nix benchmark exe does not run on darwin.
+docs:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  nix develop .#default --command bash -c '\
+    cabal run hydra-node:tx-cost -- --seed 42 --output-directory docs/benchmarks && \
+    cd docs && yarn start'
+
 # run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
 # BENCH_MAX_UTXO=4000 includes the largest grid cells
 bench-snapshot OPTIONS="":
