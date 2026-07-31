@@ -175,6 +175,7 @@ cliDefaultWarnings args yaml cli =
       [ check "--cardano-signing-key" c.cardanoSigningKey y.cardanoSigningKey d.cardanoSigningKey
       , check "--contestation-period" (show c.contestationPeriod :: String) (show y.contestationPeriod) (show d.contestationPeriod)
       , check "--deposit-period" (show c.depositPeriod :: String) (show y.depositPeriod) (show d.depositPeriod)
+      , check "--deposit-activation" (show c.depositActivation :: String) (show y.depositActivation) (show d.depositActivation)
       ]
     _ -> []
 

@@ -117,12 +117,14 @@ For `incrementTx`, the input is governed by the deposit validator which ensures 
 
 For `depositTx`, the inputs may very well be spent by an attacker and an honest `hydra-node` should be cautious in observing a deposit as settled before signing a snapshot that authorizes addition of those funds to the L2 state. To mitigate this, a **deposit period** analogous to the contestation period of close/contest phase is introduced. A valid deposit must have an upper validity to indicate when it was created (at latest) and record the deposit deadline in the output datum (see [specification](./specification.md)). An honest `hydra-node` will only consider deposits that are **older** than the deposit period and when the deadline is **further out** than the deposit period. While the deposit period will delay all increments by at least that time, a `hydra-node` can configure the risk it is willing to take using this period. For example: **1 hour** means that roughly after 180 blocks on `mainnet` we would only see a rollback including the `depositTx` with `0.01%` likelihood, assuming a `15%` adversarial stake fairly conservative grinding power. See [this excellent explanation and calculator](https://aiken-lang.org/fundamentals/what-i-wish-i-knew#transaction-latency-vs-finality) in the Aiken docs.
 
+The time a deposit must mature before it becomes `Active` is configured independently from the deposit period via the **deposit activation** (defaulting to the same value as the deposit period). This decouples how fast a deposit activates from the deadline/expiry window, so both can be tuned separately.
+
 In summary, a deposit may only be picked up while `Active` in the following deposit life cycle:
 ```mermaid
 stateDiagram
     direction LR
     [*] --> Inactive : observeDepositTx{depositTime}
-    Inactive --> Active : Tick{chainTime} > depositTime + depositPeriod
+    Inactive --> Active : Tick{chainTime} > depositTime + depositActivation
     Active --> Expired : Tick{chainTime} > deadline - depositPeriod
     Inactive --> Expired : Tick{chainTime} > deadline - depositPeriod
     Active --> [*] : incrementTx

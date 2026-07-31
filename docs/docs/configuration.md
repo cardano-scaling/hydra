@@ -68,6 +68,7 @@ chain:
   cardano-signing-key: "alice.cardano.sk"
   contestation-period: 43200
   deposit-period: 3600
+  deposit-activation: 3600
   backend:
     mode: direct
     node-socket: "node.socket"
@@ -123,6 +124,7 @@ chain:
   cardano-signing-key: "alice.cardano.sk"
   contestation-period: 43200
   deposit-period: 3600
+  deposit-activation: 3600
   backend:
     mode: direct
     node-socket: "node.socket"
@@ -281,7 +283,25 @@ hydra-node --deposit-period 7200s
 
 Anyone can submit a deposit transaction that targets a given head. Each deposit has a **deposit deadline**, after which a deposit can be recovered. All participants need to agree before a deposit can be incremented into the head state and deposited funds are made available on the L2.
 
-For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`. The `hydra-node` will pick the deadline `now + 3 * DP` for any deposit transactions created through `POST /commit`. For example, if you set a deposit period of 2 hours, the deposit will be picked up after 2 hours and at latest after 4 hours, while it may be recovered by the user after 6 hours.
+For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`.
+
+### Deposit activation
+
+The deposit activation (DA) controls **only** how long a deposit must mature before it transitions from `Inactive` to `Active` and can be incremented into the head. It is independent from the deposit period and defaults to `3600s`.
+
+```
+hydra-node --deposit-activation 1800s
+```
+
+The `hydra-node` picks the deadline `now + DA + 2 * DP` for any deposit transactions created through `POST /commit`. This splits the lifetime of a deposit into three independent windows:
+
+- **maturity** (`DA`): time before the deposit becomes active,
+- **active** (`DP`): time during which the deposit can be incremented,
+- **recovery** (`DP`): time before the deadline during which the deposit can no longer be incremented but is not yet recoverable.
+
+For example, with `--deposit-activation 1800s` and `--deposit-period 3600s`, a deposit is picked up after 30 minutes, can be incremented until 1.5 hours, and may be recovered by the user after 2.5 hours.
+
+Keeping the default `3600s` for both flags reproduces the previous behaviour where the deadline was `now + 3 * DP`. Like the deposit period, all nodes in a head should configure identical values.
 
 See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev/protocol#incremental-commits) for more details.
 
@@ -489,6 +509,7 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
     "cardano-verification-keys": [],
     "contestation-period": 43200,
     "deposit-period": 3600.0,
+    "deposit-activation": 3600.0,
     "unsynced-period": 21600.0,
     "backend": {
       "mode": "direct",

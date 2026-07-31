@@ -282,6 +282,7 @@ spec = do
             cfg.startChainFrom `shouldBe` Nothing
             cfg.contestationPeriod `shouldBe` defaultCardanoChainConfig.contestationPeriod
             cfg.depositPeriod `shouldBe` defaultCardanoChainConfig.depositPeriod
+            cfg.depositActivation `shouldBe` defaultCardanoChainConfig.depositActivation
             -- Path fields are resolved relative to the config directory
             cfg.cardanoSigningKey `shouldBe` dir </> defaultCardanoChainConfig.cardanoSigningKey
             case cfg.chainBackendOptions of

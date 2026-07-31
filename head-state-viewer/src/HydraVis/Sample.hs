@@ -50,6 +50,7 @@ sampleEnvironment =
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
     , depositPeriod = DepositPeriod 20
+    , depositActivation = DepositPeriod 20
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""

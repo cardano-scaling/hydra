@@ -257,6 +257,21 @@ spec = parallel $
       ["--deposit-period", "-1s"] `shouldParse` defaultWithDepositPeriod (-1)
       ["--deposit-period", "300s"] `shouldParse` defaultWithDepositPeriod 300
 
+    it "parses --deposit-activation option as a number of seconds" $ do
+      let defaultWithDepositActivation depositActivation =
+            Run
+              defaultRunOptions
+                { chainConfig = Cardano defaultCardanoChainConfig{depositActivation}
+                }
+      shouldNotParse ["--deposit-activation", "abc"]
+      shouldNotParse ["--deposit-activation", "s"]
+      shouldNotParse ["--deposit-activation", "-1"]
+      ["--deposit-activation", "0s"] `shouldParse` defaultWithDepositActivation 0
+      ["--deposit-activation", "00s"] `shouldParse` defaultWithDepositActivation 0
+      ["--deposit-activation", "1s"] `shouldParse` defaultWithDepositActivation 1
+      ["--deposit-activation", "-1s"] `shouldParse` defaultWithDepositActivation (-1)
+      ["--deposit-activation", "300s"] `shouldParse` defaultWithDepositActivation 300
+
     it "parses --api-transaction-timeout option as a number of seconds" $ do
       let defaultWithApiTransactionTimeout apiTransactionTimeout =
             Run

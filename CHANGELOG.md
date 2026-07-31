@@ -15,6 +15,13 @@ changes.
       All nodes in a head must configure the same value; a mismatch causes the node
       to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
 
+- Add `--deposit-activation` flag to decouple deposit activation from the
+  deadline calculation. It controls only the `Inactive -> Active` transition,
+  while `--deposit-period` keeps its role in deadline/expiry. The drafted deposit
+  deadline is now `now + deposit-activation + 2 x deposit-period`, giving three
+  independent windows (maturity, active, recovery). Defaults to `3600s`
+  [#2744](https://github.com/cardano-scaling/hydra/issues/2744)
+
 - Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
   version of each observed transaction via script hash matching, removing the
   compile-time coupling to a single version's scripts [#2740](https://github.com/cardano-scaling/hydra/pull/2740)
