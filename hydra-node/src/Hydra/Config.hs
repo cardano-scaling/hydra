@@ -13,7 +13,7 @@
 -- listen: "0.0.0.0:5001"
 -- peers:
 --   - address: "peer1:5001"
---     cardano-verification-key: peer1.cardano.vk
+--     fuel-verification-key: peer1-fuel.vk
 --     hydra-verification-key: peer1-hydra.vk
 -- api-host: "127.0.0.1"
 -- api-port: 4001
@@ -23,7 +23,7 @@
 -- chain:
 --   mode: cardano
 --   network: preview
---   cardano-signing-key: cardano.sk
+--   fuel-signing-key: fuel.sk
 --   contestation-period: 43200
 --   deposit-period: 3600
 --   backend:
@@ -129,8 +129,8 @@ resolvePaths dir opts =
 
   resolveCardanoChainConfig cfg =
     cfg
-      { cardanoSigningKey = resolve cfg.cardanoSigningKey
-      , cardanoVerificationKeys = map resolve cfg.cardanoVerificationKeys
+      { fuelSigningKey = resolve cfg.fuelSigningKey
+      , fuelVerificationKeys = map resolve cfg.fuelVerificationKeys
       , chainBackendOptions = resolveChainBackend cfg.chainBackendOptions
       }
 
@@ -195,7 +195,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   extraHydraVKs <- o .:? "hydra-verification-keys" .!= []
   let filteredEntries = filter (not . isSelfAddress listen advertise . (.peerHost)) peerEntries
       peers = map (.peerHost) filteredEntries
-      peerCardanoVKs = mapMaybe (.peerCardanoVK) filteredEntries
+      peerFuelVKs = mapMaybe (.peerFuelVK) filteredEntries
       hydraVerificationKeys = mapMaybe (.peerHydraVK) filteredEntries <> extraHydraVKs
   apiHostStr <- o .:? "api-host" .!= ("127.0.0.1" :: String)
   apiHost <- parseIP "api-host" apiHostStr
@@ -208,8 +208,8 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   persistenceRotateAfter <- fmap Positive <$> (o .:? "persistence-rotate-after" :: Parser (Maybe Natural))
   mChain <- o .:? "chain"
   chainConfig <- case mChain of
-    Just v -> parseChainConfig peerCardanoVKs v
-    Nothing -> pure $ applyPeerCardanoVKs peerCardanoVKs defaultRunOptions.chainConfig
+    Just v -> parseChainConfig peerFuelVKs v
+    Nothing -> pure $ applyPeerCardanoVKs peerFuelVKs defaultRunOptions.chainConfig
   ledgerProtocolParams <- o .:? "ledger-protocol-parameters" .!= "protocol-parameters.json"
   let ledgerConfig = CardanoLedgerConfig ledgerProtocolParams
   useSystemEtcd <- o .:? "use-system-etcd" .!= False
@@ -241,21 +241,21 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
 -- Chain config
 
 parseChainConfig :: [FilePath] -> Value -> Parser ChainConfig
-parseChainConfig peerCardanoVKs = withObject "chain" $ \o -> do
+parseChainConfig peerFuelVKs = withObject "chain" $ \o -> do
   mode <- o .:? "mode" .!= ("cardano" :: Text)
   case mode of
-    "cardano" -> Cardano <$> parseCardanoChainConfig peerCardanoVKs o
+    "cardano" -> Cardano <$> parseCardanoChainConfig peerFuelVKs o
     "offline" -> Offline <$> parseOfflineChainConfig o
     other -> fail $ "Unknown chain mode '" <> toString other <> "'. Expected 'cardano' or 'offline'."
 
 parseCardanoChainConfig :: [FilePath] -> Object -> Parser CardanoChainConfig
-parseCardanoChainConfig peerCardanoVKs o = do
+parseCardanoChainConfig peerFuelVKs o = do
   checkUnknownKeys
     [ "mode"
     , "network"
     , "hydra-scripts-tx-id"
-    , "cardano-signing-key"
-    , "cardano-verification-keys"
+    , "fuel-signing-key"
+    , "fuel-verification-keys"
     , "start-chain-from"
     , "contestation-period"
     , "deposit-period"
@@ -265,9 +265,9 @@ parseCardanoChainConfig peerCardanoVKs o = do
     ]
     o
   hydraScriptsTxId <- parseHydraScripts o
-  cardanoSigningKey <- o .:? "cardano-signing-key" .!= defaultCardanoChainConfig.cardanoSigningKey
-  chainVKs <- o .:? "cardano-verification-keys" .!= []
-  let cardanoVerificationKeys = peerCardanoVKs <> chainVKs
+  fuelSigningKey <- o .:? "fuel-signing-key" .!= defaultCardanoChainConfig.fuelSigningKey
+  chainVKs <- o .:? "fuel-verification-keys" .!= []
+  let fuelVerificationKeys = peerFuelVKs <> chainVKs
   mStartChainFrom <- o .:? "start-chain-from" :: Parser (Maybe Text)
   startChainFrom <- mapM parseChainPointText mStartChainFrom
   contestationPeriod <- o .:? "contestation-period" .!= defaultContestationPeriod
@@ -280,8 +280,8 @@ parseCardanoChainConfig peerCardanoVKs o = do
   pure
     CardanoChainConfig
       { hydraScriptsTxId
-      , cardanoSigningKey
-      , cardanoVerificationKeys
+      , fuelSigningKey
+      , fuelVerificationKeys
       , startChainFrom
       , contestationPeriod
       , depositPeriod
@@ -357,12 +357,12 @@ parseBlockfrostOptions o = do
 
 data PeerEntry = PeerEntry
   { peerHost :: Host
-  , peerCardanoVK :: Maybe FilePath
+  , peerFuelVK :: Maybe FilePath
   , peerHydraVK :: Maybe FilePath
   }
 
 -- | Parse a peer entry which may be a plain "HOST:PORT" string or an object
--- with @address@ and optional @cardano-verification-key@ / @hydra-verification-key@ fields.
+-- with @address@ and optional @fuel-verification-key@ / @hydra-verification-key@ fields.
 --
 -- For object-form entries, either both verification keys are present (a
 -- signing peer) or both are absent (a mirror/observer peer). Providing
@@ -372,31 +372,31 @@ data PeerEntry = PeerEntry
 parsePeerEntry :: Value -> Parser PeerEntry
 parsePeerEntry (String s) = do
   h <- parseHost "peers" (toString s)
-  pure PeerEntry{peerHost = h, peerCardanoVK = Nothing, peerHydraVK = Nothing}
+  pure PeerEntry{peerHost = h, peerFuelVK = Nothing, peerHydraVK = Nothing}
 parsePeerEntry v =
   withObject
     "peer"
     ( \o -> do
-        checkUnknownKeys ["address", "cardano-verification-key", "hydra-verification-key"] o
+        checkUnknownKeys ["address", "fuel-verification-key", "hydra-verification-key"] o
         addrStr <- o .: "address"
         h <- parseHost "peers.address" addrStr
-        cardanoVK <- o .:? "cardano-verification-key"
+        cardanoVK <- o .:? "fuel-verification-key"
         hydraVK <- o .:? "hydra-verification-key"
         case (cardanoVK, hydraVK) of
           (Just _, Nothing) ->
             fail $
               "Peer entry for '"
                 <> showHost h
-                <> "' has 'cardano-verification-key' but no 'hydra-verification-key'. \
+                <> "' has 'fuel-verification-key' but no 'hydra-verification-key'. \
                    \For a signing peer, provide both; for an observer/mirror peer, omit both."
           (Nothing, Just _) ->
             fail $
               "Peer entry for '"
                 <> showHost h
-                <> "' has 'hydra-verification-key' but no 'cardano-verification-key'. \
+                <> "' has 'hydra-verification-key' but no 'fuel-verification-key'. \
                    \For a signing peer, provide both; for an observer/mirror peer, omit both."
           _ ->
-            pure PeerEntry{peerHost = h, peerCardanoVK = cardanoVK, peerHydraVK = hydraVK}
+            pure PeerEntry{peerHost = h, peerFuelVK = cardanoVK, peerHydraVK = hydraVK}
     )
     v
 
@@ -436,7 +436,7 @@ isSelfAddress listenHost mAdvertise peer =
 -- | Inject peer-sourced cardano VKs into an existing 'ChainConfig'.
 applyPeerCardanoVKs :: [FilePath] -> ChainConfig -> ChainConfig
 applyPeerCardanoVKs [] cfg = cfg
-applyPeerCardanoVKs vks (Cardano cfg) = Cardano cfg{cardanoVerificationKeys = vks <> cfg.cardanoVerificationKeys}
+applyPeerCardanoVKs vks (Cardano cfg) = Cardano cfg{fuelVerificationKeys = vks <> cfg.fuelVerificationKeys}
 applyPeerCardanoVKs _ cfg = cfg
 
 parseHost :: MonadFail m => String -> String -> m Host
@@ -509,8 +509,8 @@ renderConfig opts =
   renderChainConfig (Cardano cfg) =
     object $
       [ "mode" .= ("cardano" :: Text)
-      , "cardano-signing-key" .= cfg.cardanoSigningKey
-      , "cardano-verification-keys" .= cfg.cardanoVerificationKeys
+      , "fuel-signing-key" .= cfg.fuelSigningKey
+      , "fuel-verification-keys" .= cfg.fuelVerificationKeys
       , "contestation-period" .= cfg.contestationPeriod
       , "deposit-period" .= cfg.depositPeriod
       , "deposit-activation" .= cfg.depositActivation

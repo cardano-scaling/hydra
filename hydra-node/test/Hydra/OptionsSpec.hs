@@ -66,12 +66,12 @@ spec = parallel $
 
     it ("validateRunOptions: using more than " <> show maximumNumberOfParties <> " parties should error out") $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (+ 2) (+ 1)
-          chainCfg = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Cardano defaultCardanoChainConfig{fuelVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left MaximumNumberOfPartiesExceeded
     it "validateRunOptions: loaded cardano keys needs to match with the hydra keys length" $ do
       let (cardanoKeys, hydraKeys) = genCardanoAndHydraKeys (subtract 2) (subtract 1)
-          chainCfg = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
+          chainCfg = Cardano defaultCardanoChainConfig{fuelVerificationKeys = cardanoKeys}
       validateRunOptions (defaultRunOptions{hydraVerificationKeys = hydraKeys, chainConfig = chainCfg})
         `shouldBe` Left CardanoAndHydraKeysMismatch
 
@@ -328,22 +328,22 @@ spec = parallel $
                   )
             }
 
-    it "parses --cardano-signing-key option as a filepath" $
-      ["--cardano-signing-key", "./alice-cardano.sk"]
+    it "parses --fuel-signing-key option as a filepath" $
+      ["--fuel-signing-key", "./alice-fuel.sk"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Cardano
-                  (defaultCardanoChainConfig & #cardanoSigningKey .~ "./alice-cardano.sk")
+                  (defaultCardanoChainConfig & #fuelSigningKey .~ "./alice-fuel.sk")
             }
 
-    it "parses --cardano-verification-key option as a filepath" $
-      ["--cardano-verification-key", "./alice-cardano.vk"]
+    it "parses --fuel-verification-key option as a filepath" $
+      ["--fuel-verification-key", "./alice-fuel.vk"]
         `shouldParse` Run
           defaultRunOptions
             { chainConfig =
                 Cardano
-                  (defaultCardanoChainConfig & #cardanoVerificationKeys .~ ["./alice-cardano.vk"])
+                  (defaultCardanoChainConfig & #fuelVerificationKeys .~ ["./alice-fuel.vk"])
             }
 
     it "parses --ledger-protocol-parameters-file as a filepath" $
@@ -474,7 +474,7 @@ spec = parallel $
         mconcat
           [ ["publish-scripts"]
           , ["--testnet-magic", "42"]
-          , ["--cardano-signing-key", "foo"]
+          , ["--fuel-signing-key", "foo"]
           ]
           `shouldParse` Publish defaultPublishOptions{chainBackendOptions = Direct defaultDirectOptions{networkId = Testnet (NetworkMagic 42)}, publishSigningKey = "foo"}
 
@@ -482,7 +482,7 @@ spec = parallel $
         mconcat
           [ ["publish-scripts"]
           , ["--node-socket", "foo"]
-          , ["--cardano-signing-key", "foo"]
+          , ["--fuel-signing-key", "foo"]
           ]
           `shouldParse` Publish defaultPublishOptions{chainBackendOptions = Direct defaultDirectOptions{nodeSocket = "foo"}, publishSigningKey = "foo"}
 
@@ -491,7 +491,7 @@ spec = parallel $
           [ ["publish-scripts"]
           , ["--node-socket", "foo"]
           , ["--testnet-magic", "42"]
-          , ["--cardano-signing-key", "bar"]
+          , ["--fuel-signing-key", "bar"]
           ]
           `shouldParse` Publish
             defaultPublishOptions
@@ -504,7 +504,7 @@ spec = parallel $
           [ ["publish-scripts"]
           , ["--node-socket", "baz"]
           , ["--mainnet"]
-          , ["--cardano-signing-key", "crux"]
+          , ["--fuel-signing-key", "crux"]
           ]
           `shouldParse` Publish
             defaultPublishOptions
@@ -525,7 +525,7 @@ spec = parallel $
                         { projectPath = "baz"
                         , retryTimeout = 300
                         }
-                , publishSigningKey = "cardano.sk"
+                , publishSigningKey = "fuel.sk"
                 }
             )
     describe "gen-hydra-keys sub-command" $ do

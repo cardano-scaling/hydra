@@ -402,7 +402,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 
 - IP addresses and the port on which their `hydra-node` will run
 - A Hydra verification key to identify them in the head
-- A Cardano verification key to identify them on the blockchain
+- A fuel verification key to identify them on the blockchain
 - Protocol parameters to use in the Hydra head.
 
 ## Step 3. Start the Hydra node
@@ -419,7 +419,7 @@ hydra_version=2.3.0
 hydra-node \
   --node-id "alice-fuel" \
   --persistence-dir persistence-alice \
-  --cardano-signing-key credentials/alice-fuel.sk \
+  --fuel-signing-key credentials/alice-fuel.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
   --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
@@ -430,7 +430,7 @@ hydra-node \
   --api-host 0.0.0.0 \
   --peer 127.0.0.1:5002 \
   --hydra-verification-key credentials/bob-hydra.vk \
-  --cardano-verification-key credentials/bob-fuel.vk
+  --fuel-verification-key credentials/bob-fuel.vk
 ```
 
 </TabItem>
@@ -441,7 +441,7 @@ hydra_version=2.3.0
 hydra-node \
   --node-id "bob-fuel" \
   --persistence-dir persistence-bob \
-  --cardano-signing-key credentials/bob-fuel.sk \
+  --fuel-signing-key credentials/bob-fuel.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
   --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
@@ -452,7 +452,7 @@ hydra-node \
   --api-host 0.0.0.0 \
   --peer 127.0.0.1:5001 \
   --hydra-verification-key credentials/alice-hydra.vk \
-  --cardano-verification-key credentials/alice-fuel.vk
+  --fuel-verification-key credentials/alice-fuel.vk
 ```
 
 </TabItem>

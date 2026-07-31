@@ -223,7 +223,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     : mconcat
                       [ ["--node-socket", unFile nodeSocket]
                       , toArgNetworkId networkId
-                      , ["--cardano-signing-key", tmp </> "faucet.sk"]
+                      , ["--fuel-signing-key", tmp </> "faucet.sk"]
                       ]
                 )
             )

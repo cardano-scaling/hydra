@@ -296,7 +296,7 @@ instance Semigroup ChainConfig where
         error
           "Conflicting chain configuration: the config file specifies \
           \offline mode but Cardano-specific flags were also passed on the \
-          \command line (e.g. --node-socket, --cardano-signing-key, \
+          \command line (e.g. --node-socket, --fuel-signing-key, \
           \--contestation-period, --hydra-scripts-tx-id). \
           \Either remove those CLI flags or change the config file to use \
           \cardano mode."
@@ -308,11 +308,11 @@ instance Semigroup CardanoChainConfig where
   base <> cli =
     CardanoChainConfig
       { hydraScriptsTxId = o defaultCardanoChainConfig.hydraScriptsTxId base.hydraScriptsTxId cli.hydraScriptsTxId
-      , cardanoSigningKey = o defaultCardanoChainConfig.cardanoSigningKey base.cardanoSigningKey cli.cardanoSigningKey
-      , -- Lists are unioned so that YAML peer entries and CLI --cardano-verification-key
+      , fuelSigningKey = o defaultCardanoChainConfig.fuelSigningKey base.fuelSigningKey cli.fuelSigningKey
+      , -- Lists are unioned so that YAML peer entries and CLI --fuel-verification-key
         -- flags are both included rather than one silently replacing the other.
         -- Duplicates are removed.
-        cardanoVerificationKeys = nub (base.cardanoVerificationKeys <> cli.cardanoVerificationKeys)
+        fuelVerificationKeys = nub (base.fuelVerificationKeys <> cli.fuelVerificationKeys)
       , startChainFrom = o defaultCardanoChainConfig.startChainFrom base.startChainFrom cli.startChainFrom
       , contestationPeriod = mergedContestationPeriod
       , depositPeriod = o defaultCardanoChainConfig.depositPeriod base.depositPeriod cli.depositPeriod
@@ -531,9 +531,9 @@ data OfflineChainConfig = OfflineChainConfig
 data CardanoChainConfig = CardanoChainConfig
   { hydraScriptsTxId :: [TxId]
   -- ^ Identifier of transaction holding the hydra scripts to use.
-  , cardanoSigningKey :: FilePath
-  -- ^ Path to the cardano signing key of the internal wallet.
-  , cardanoVerificationKeys :: [FilePath]
+  , fuelSigningKey :: FilePath
+  -- ^ Path to the fuel signing key of the internal wallet.
+  , fuelVerificationKeys :: [FilePath]
   -- ^ Paths to other node's verification keys.
   , startChainFrom :: Maybe ChainPoint
   -- ^ Point at which to start following the chain.
@@ -554,8 +554,8 @@ defaultCardanoChainConfig :: CardanoChainConfig
 defaultCardanoChainConfig =
   CardanoChainConfig
     { hydraScriptsTxId = []
-    , cardanoSigningKey = "cardano.sk"
-    , cardanoVerificationKeys = []
+    , fuelSigningKey = "fuel.sk"
+    , fuelVerificationKeys = []
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositPeriod = defaultDepositPeriod
@@ -615,11 +615,11 @@ cardanoChainConfigParser =
     <*> optional unsyncedPeriodParser
     <*> chainBackendOptionsParser
  where
-  mkCardanoChainConfig hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys startChainFrom contestationPeriod depositPeriod depositActivation maybeUnsyncedPeriod chainBackendOptions =
+  mkCardanoChainConfig hydraScriptsTxId fuelSigningKey fuelVerificationKeys startChainFrom contestationPeriod depositPeriod depositActivation maybeUnsyncedPeriod chainBackendOptions =
     CardanoChainConfig
       { hydraScriptsTxId
-      , cardanoSigningKey
-      , cardanoVerificationKeys
+      , fuelSigningKey
+      , fuelVerificationKeys
       , startChainFrom
       , contestationPeriod
       , depositPeriod
@@ -692,12 +692,12 @@ nodeSocketParser =
 cardanoSigningKeyFileParser :: Parser FilePath
 cardanoSigningKeyFileParser =
   strOption
-    ( long "cardano-signing-key"
+    ( long "fuel-signing-key"
         <> metavar "FILE"
         <> showDefault
-        <> value defaultCardanoChainConfig.cardanoSigningKey
+        <> value defaultCardanoChainConfig.fuelSigningKey
         <> help
-          "Cardano signing key of our hydra-node. This will be used to authorize \
+          "Fuel signing key of our hydra-node. This will be used to authorize \
           \Hydra protocol transactions for heads the node takes part in and any \
           \funds owned by this key will be used as 'fuel'."
     )
@@ -706,10 +706,10 @@ cardanoVerificationKeyFileParser :: Parser FilePath
 cardanoVerificationKeyFileParser =
   option
     str
-    ( long "cardano-verification-key"
+    ( long "fuel-verification-key"
         <> metavar "FILE"
         <> help
-          ( "Cardano verification key of another party in the Head. Can be \
+          ( "Fuel verification key of another party in the Head. Can be \
             \provided multiple times, once for each participant (current maximum limit is "
               <> show maximumNumberOfParties
               <> ")."
@@ -1092,10 +1092,10 @@ validateRunOptions :: RunOptions -> Either InvalidOptions ()
 validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
   case chainConfig of
     Offline{} -> Right ()
-    Cardano CardanoChainConfig{cardanoVerificationKeys}
-      | max (length hydraVerificationKeys) (length cardanoVerificationKeys) + 1 > maximumNumberOfParties ->
+    Cardano CardanoChainConfig{fuelVerificationKeys}
+      | max (length hydraVerificationKeys) (length fuelVerificationKeys) + 1 > maximumNumberOfParties ->
           Left MaximumNumberOfPartiesExceeded
-      | length cardanoVerificationKeys /= length hydraVerificationKeys ->
+      | length fuelVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMismatch
       | otherwise -> Right ()
 
@@ -1190,8 +1190,8 @@ toArgs
       Cardano
         CardanoChainConfig
           { hydraScriptsTxId
-          , cardanoSigningKey
-          , cardanoVerificationKeys
+          , fuelSigningKey
+          , fuelVerificationKeys
           , startChainFrom
           , contestationPeriod
           , depositPeriod
@@ -1208,12 +1208,12 @@ toArgs
                   <> toArgNodeSocket nodeSocket
           )
             <> ["--hydra-scripts-tx-id", intercalate "," $ toString . serialiseToRawBytesHexText <$> hydraScriptsTxId]
-            <> ["--cardano-signing-key", cardanoSigningKey]
+            <> ["--fuel-signing-key", fuelSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> ["--deposit-period", show depositPeriod]
             <> ["--deposit-activation", show depositActivation]
             <> ["--unsynced-period", show unsyncedPeriod]
-            <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
+            <> concatMap (\vk -> ["--fuel-verification-key", vk]) fuelVerificationKeys
             <> toArgStartChainFrom startChainFrom
 
     argsLedgerConfig =

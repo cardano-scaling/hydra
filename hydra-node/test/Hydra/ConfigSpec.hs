@@ -50,23 +50,23 @@ spec = do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
 
-    it "parses peers with hydra and cardano verification keys" $ do
+    it "parses peers with hydra and fuel verification keys" $ do
       let yaml =
             "peers:\n\
             \  - address: \"peer1:5001\"\n\
             \    hydra-verification-key: peer1.hydra.vk\n\
-            \    cardano-verification-key: peer1.cardano.vk\n\
+            \    fuel-verification-key: peer1-fuel.vk\n\
             \  - address: \"peer2:5002\"\n\
             \    hydra-verification-key: peer2.hydra.vk\n\
-            \    cardano-verification-key: peer2.cardano.vk\n"
+            \    fuel-verification-key: peer2-fuel.vk\n"
       withYaml yaml $ \path dir -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
         hydraVerificationKeys opts `shouldBe` [dir </> "peer1.hydra.vk", dir </> "peer2.hydra.vk"]
         case chainConfig opts of
           Cardano cfg ->
-            cardanoVerificationKeys cfg
-              `shouldBe` [dir </> "peer1.cardano.vk", dir </> "peer2.cardano.vk"]
+            fuelVerificationKeys cfg
+              `shouldBe` [dir </> "peer1-fuel.vk", dir </> "peer2-fuel.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "parses mirror peers with null keys" $ do
@@ -74,7 +74,7 @@ spec = do
             "peers:\n\
             \  - address: \"peer1:5001\"\n\
             \    hydra-verification-key: peer1.hydra.vk\n\
-            \    cardano-verification-key: peer1.cardano.vk\n\
+            \    fuel-verification-key: peer1-fuel.vk\n\
             \  - address: \"mirror:5002\"\n"
       withYaml yaml $ \path dir -> do
         opts <- loadConfig path
@@ -82,7 +82,7 @@ spec = do
         hydraVerificationKeys opts `shouldBe` [dir </> "peer1.hydra.vk"]
         case chainConfig opts of
           Cardano cfg ->
-            cardanoVerificationKeys cfg `shouldBe` [dir </> "peer1.cardano.vk"]
+            fuelVerificationKeys cfg `shouldBe` [dir </> "peer1-fuel.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "parses peers with mixed formats" $ do
@@ -91,14 +91,14 @@ spec = do
             \  - \"peer1:5001\"\n\
             \  - address: \"peer2:5002\"\n\
             \    hydra-verification-key: peer2.hydra.vk\n\
-            \    cardano-verification-key: peer2.cardano.vk\n"
+            \    fuel-verification-key: peer2-fuel.vk\n"
       withYaml yaml $ \path dir -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
         hydraVerificationKeys opts `shouldBe` [dir </> "peer2.hydra.vk"]
         case chainConfig opts of
           Cardano cfg ->
-            cardanoVerificationKeys cfg `shouldBe` [dir </> "peer2.cardano.vk"]
+            fuelVerificationKeys cfg `shouldBe` [dir </> "peer2-fuel.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "filters self from peers when address matches advertise" $ do
@@ -108,17 +108,17 @@ spec = do
             \peers:\n\
             \  - address: \"127.0.0.1:5001\"\n\
             \    hydra-verification-key: self.hydra.vk\n\
-            \    cardano-verification-key: self.cardano.vk\n\
+            \    fuel-verification-key: self-fuel.vk\n\
             \  - address: \"peer2:5002\"\n\
             \    hydra-verification-key: peer2.hydra.vk\n\
-            \    cardano-verification-key: peer2.cardano.vk\n"
+            \    fuel-verification-key: peer2-fuel.vk\n"
       withYaml yaml $ \path dir -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer2" 5002]
         hydraVerificationKeys opts `shouldBe` [dir </> "peer2.hydra.vk"]
         case chainConfig opts of
           Cardano cfg ->
-            cardanoVerificationKeys cfg `shouldBe` [dir </> "peer2.cardano.vk"]
+            fuelVerificationKeys cfg `shouldBe` [dir </> "peer2-fuel.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "filters self from peers when address matches listen (no advertise)" $ do
@@ -140,17 +140,17 @@ spec = do
             \peers:\n\
             \  - address: \"127.0.0.1:5001\"\n\
             \    hydra-verification-key: self.hydra.vk\n\
-            \    cardano-verification-key: self.cardano.vk\n\
+            \    fuel-verification-key: self-fuel.vk\n\
             \  - address: \"peer2:5002\"\n\
             \    hydra-verification-key: peer2.hydra.vk\n\
-            \    cardano-verification-key: peer2.cardano.vk\n"
+            \    fuel-verification-key: peer2-fuel.vk\n"
       withYaml yaml $ \path dir -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer2" 5002]
         hydraVerificationKeys opts `shouldBe` [dir </> "peer2.hydra.vk"]
         case chainConfig opts of
           Cardano cfg ->
-            cardanoVerificationKeys cfg `shouldBe` [dir </> "peer2.cardano.vk"]
+            fuelVerificationKeys cfg `shouldBe` [dir </> "peer2-fuel.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "filters self when listen uses 127.0.0.1 and peer uses localhost" $ do
@@ -172,11 +172,11 @@ spec = do
       withYaml yaml $ \path _dir -> do
         loadConfig path `shouldThrow` anyException
 
-    it "rejects peer entry with only cardano-verification-key" $ do
+    it "rejects peer entry with only fuel-verification-key" $ do
       let yaml =
             "peers:\n\
             \  - address: \"peer1:5001\"\n\
-            \    cardano-verification-key: peer1.cardano.vk\n"
+            \    fuel-verification-key: peer1-fuel.vk\n"
       withYaml yaml $ \path _dir -> do
         loadConfig path `shouldThrow` anyException
 
@@ -227,7 +227,7 @@ spec = do
       let yaml =
             "chain:\n\
             \  mode: cardano\n\
-            \  cardano-signing-key: cardano.sk\n\
+            \  fuel-signing-key: fuel.sk\n\
             \  backend:\n\
             \    mode: direct\n\
             \    testnet-magic: 2\n\
@@ -236,7 +236,7 @@ spec = do
         opts <- loadConfig path
         case chainConfig opts of
           Cardano cfg -> do
-            cardanoSigningKey cfg `shouldBe` dir </> "cardano.sk"
+            fuelSigningKey cfg `shouldBe` dir </> "fuel.sk"
             case chainBackendOptions cfg of
               Direct DirectOptions{networkId, nodeSocket} -> do
                 networkId `shouldBe` Testnet (NetworkMagic 2)
@@ -278,13 +278,13 @@ spec = do
           Cardano cfg -> do
             -- Non-path fields match defaults
             cfg.hydraScriptsTxId `shouldBe` defaultCardanoChainConfig.hydraScriptsTxId
-            cfg.cardanoVerificationKeys `shouldBe` []
+            cfg.fuelVerificationKeys `shouldBe` []
             cfg.startChainFrom `shouldBe` Nothing
             cfg.contestationPeriod `shouldBe` defaultCardanoChainConfig.contestationPeriod
             cfg.depositPeriod `shouldBe` defaultCardanoChainConfig.depositPeriod
             cfg.depositActivation `shouldBe` defaultCardanoChainConfig.depositActivation
             -- Path fields are resolved relative to the config directory
-            cfg.cardanoSigningKey `shouldBe` dir </> defaultCardanoChainConfig.cardanoSigningKey
+            cfg.fuelSigningKey `shouldBe` dir </> defaultCardanoChainConfig.fuelSigningKey
             case cfg.chainBackendOptions of
               Direct d -> d.nodeSocket `shouldBe` fromString (dir </> "node.socket")
               other -> expectationFailure $ "Expected Direct backend, got: " <> show other
@@ -333,7 +333,7 @@ spec = do
       let yaml =
             "chain:\n\
             \  mode: cardano\n\
-            \  cardano-signing-key: yaml.sk\n"
+            \  fuel-signing-key: yaml.sk\n"
       withYaml yaml $ \path dir -> do
         base <- loadConfig path
         let txId = replicate 64 '0'
@@ -341,7 +341,7 @@ spec = do
         let merged = base <> cli
         case chainConfig merged of
           Cardano cfg -> do
-            cardanoSigningKey cfg `shouldBe` dir </> "yaml.sk"
+            fuelSigningKey cfg `shouldBe` dir </> "yaml.sk"
             hydraScriptsTxId cfg `shouldNotBe` []
           other -> expectationFailure $ "Expected Cardano, got: " <> show other
 
@@ -360,7 +360,7 @@ spec = do
         length (hydraVerificationKeys opts) `shouldBe` 2
         case chainConfig opts of
           Cardano cfg ->
-            length (cardanoVerificationKeys cfg) `shouldBe` 2
+            length (fuelVerificationKeys cfg) `shouldBe` 2
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
 -- | Parse args as 'RunOptions', or fail the test.

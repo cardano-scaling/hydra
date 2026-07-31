@@ -86,9 +86,9 @@ source .env && hydra-node \
   --hydra-verification-key bob.vk \
   --hydra-verification-key carol.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --cardano-signing-key devnet/credentials/alice.sk \
-  --cardano-verification-key devnet/credentials/bob.vk \
-  --cardano-verification-key devnet/credentials/carol.vk \
+  --fuel-signing-key devnet/credentials/alice.sk \
+  --fuel-verification-key devnet/credentials/bob.vk \
+  --fuel-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -108,9 +108,9 @@ source .env && hydra-node \
   --hydra-verification-key alice.vk \
   --hydra-verification-key carol.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --cardano-signing-key devnet/credentials/bob.sk \
-  --cardano-verification-key devnet/credentials/alice.vk \
-  --cardano-verification-key devnet/credentials/carol.vk \
+  --fuel-signing-key devnet/credentials/bob.sk \
+  --fuel-verification-key devnet/credentials/alice.vk \
+  --fuel-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -130,9 +130,9 @@ source .env && hydra-node \
   --hydra-verification-key alice.vk \
   --hydra-verification-key bob.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --cardano-signing-key devnet/credentials/carol.sk \
-  --cardano-verification-key devnet/credentials/alice.vk \
-  --cardano-verification-key devnet/credentials/bob.vk \
+  --fuel-signing-key devnet/credentials/carol.sk \
+  --fuel-verification-key devnet/credentials/alice.vk \
+  --fuel-verification-key devnet/credentials/bob.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -159,7 +159,7 @@ Connect to the nodes using hydra-tui.
 ```
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key devnet/credentials/alice-funds.sk \
+  --funds-signing-key devnet/credentials/alice-funds.sk \
   --fuel-key devnet/credentials/alice.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
@@ -172,7 +172,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4002 \
-  --cardano-signing-key devnet/credentials/bob-funds.sk \
+  --funds-signing-key devnet/credentials/bob-funds.sk \
   --fuel-key devnet/credentials/bob.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
@@ -185,7 +185,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4003 \
-  --cardano-signing-key devnet/credentials/carol-funds.sk \
+  --funds-signing-key devnet/credentials/carol-funds.sk \
   --fuel-key devnet/credentials/carol.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket

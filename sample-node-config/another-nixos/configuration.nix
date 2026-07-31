@@ -265,14 +265,14 @@ in
                   [
                     "--peer $(cat ${dir}/${name}.peer)"
                     "--hydra-verification-key ${dir}/${name}.hydra.vk"
-                    "--cardano-verification-key ${dir}/${name}.cardano.vk"
+                    "--fuel-verification-key ${dir}/${name}-fuel.vk"
                   ];
               in
               pkgs.lib.strings.concatMapStringsSep " " f peers;
             spinupHydra = pkgs.writeShellScriptBin "spinupHydra" ''
               ${hydra.packages.${system}.hydra-node}/bin/hydra-node \
                 --node-id ${nodeId} \
-                --cardano-signing-key credentials/${nodeId}-node.sk \
+                --fuel-signing-key credentials/${nodeId}-fuel.sk \
                 --hydra-signing-key credentials/${nodeId}-hydra.sk \
                 --port ${hydraPort} \
                 --api-host 0.0.0.0 \

@@ -157,7 +157,7 @@ hydra-node \
   --node-id 1 \
   --api-port 4001 \
   --hydra-signing-key ${CREDENTIALS_PATH}/../alice.sk \
-  --cardano-signing-key ${CREDENTIALS_PATH}/alice.sk \
+  --fuel-signing-key ${CREDENTIALS_PATH}/alice-fuel.sk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic $CARDANO_TESTNET_MAGIC \
   --node-socket $CARDANO_NODE_SOCKET_PATH
@@ -167,7 +167,7 @@ In another **new terminal**, start the `hydra-tui`.
 ```shell
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
+  --funds-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
 ```
 In the TUI, press `i` to initialize the Head. The head opens immediately. You can quit the TUI (`q`) and proceed.
 
@@ -202,7 +202,7 @@ This is the final step. The `commit-tx.json` file now contains a valid, balanced
 cardano-cli conway transaction sign \
   --tx-body-file commit-tx.json \
   --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
-  --signing-key-file ${CREDENTIALS_PATH}/alice.sk \
+  --signing-key-file ${CREDENTIALS_PATH}/alice-fuel.sk \
   --out-file signed-tx.json
 
 cardano-cli conway transaction submit \

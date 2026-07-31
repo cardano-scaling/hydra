@@ -32,7 +32,7 @@ A detailed description of each of the artifacts relevant for an audit can be fou
 
 For its operations, the hydra-node process relies on a cardano-node process and client processes can connect to the hydra-node process through API.
 Generally, we recommend to run the Hydra and cardano node in a trusted environment so that any assessment performed during an audit should be done under the following assumptions:
-* Organizational procedures for managing the hydra and cardano signing keys are trusted;
+* Organizational procedures for managing the hydra and fuel signing keys are trusted;
 * The system running the hydra-node is trusted;
 * The cardano-node software is trusted as is the system running it;
 * Any client software connecting through the API is trusted as are the systems running them;

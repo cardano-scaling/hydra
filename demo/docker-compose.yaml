@@ -42,9 +42,9 @@ services:
       , "--hydra-signing-key", "/keys/alice.sk"
       , "--hydra-verification-key", "/keys/bob.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
-      , "--cardano-signing-key", "/devnet/credentials/alice.sk"
-      , "--cardano-verification-key", "/devnet/credentials/bob.vk"
-      , "--cardano-verification-key", "/devnet/credentials/carol.vk"
+      , "--fuel-signing-key", "/devnet/credentials/alice.sk"
+      , "--fuel-verification-key", "/devnet/credentials/bob.vk"
+      , "--fuel-verification-key", "/devnet/credentials/carol.vk"
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
@@ -81,9 +81,9 @@ services:
       , "--hydra-signing-key", "/keys/bob.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/carol.vk"
-      , "--cardano-signing-key", "/devnet/credentials/bob.sk"
-      , "--cardano-verification-key", "/devnet/credentials/alice.vk"
-      , "--cardano-verification-key", "/devnet/credentials/carol.vk"
+      , "--fuel-signing-key", "/devnet/credentials/bob.sk"
+      , "--fuel-verification-key", "/devnet/credentials/alice.vk"
+      , "--fuel-verification-key", "/devnet/credentials/carol.vk"
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
@@ -120,9 +120,9 @@ services:
       , "--hydra-signing-key", "/keys/carol.sk"
       , "--hydra-verification-key", "/keys/alice.vk"
       , "--hydra-verification-key", "/keys/bob.vk"
-      , "--cardano-signing-key", "/devnet/credentials/carol.sk"
-      , "--cardano-verification-key", "/devnet/credentials/alice.vk"
-      , "--cardano-verification-key", "/devnet/credentials/bob.vk"
+      , "--fuel-signing-key", "/devnet/credentials/carol.sk"
+      , "--fuel-verification-key", "/devnet/credentials/alice.vk"
+      , "--fuel-verification-key", "/devnet/credentials/bob.vk"
       , "--ledger-protocol-parameters", "/devnet/protocol-parameters.json"
       , "--testnet-magic", "42"
       , "--node-socket", "/devnet/node.socket"
@@ -145,7 +145,7 @@ services:
       [ "--connect", "172.16.238.10:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/alice-funds.sk"
+      , "--funds-signing-key", "/devnet/credentials/alice-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet
@@ -162,7 +162,7 @@ services:
       [ "--connect", "172.16.238.20:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/bob-funds.sk"
+      , "--funds-signing-key", "/devnet/credentials/bob-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet
@@ -179,7 +179,7 @@ services:
       [ "--connect", "172.16.238.30:4001"
       , "--node-socket", "/devnet/node.socket"
       , "--testnet-magic", "42"
-      , "--cardano-signing-key", "/devnet/credentials/carol-funds.sk"
+      , "--funds-signing-key", "/devnet/credentials/carol-funds.sk"
       ]
     volumes:
       - ./devnet:/devnet

@@ -87,8 +87,8 @@ instance Arbitrary ChainConfig where
    where
     genCardanoChainConfig = do
       hydraScriptsTxId <- reasonablySized arbitrary
-      cardanoSigningKey <- genFilePath "sk"
-      cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
+      fuelSigningKey <- genFilePath "sk"
+      fuelVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
@@ -102,8 +102,8 @@ instance Arbitrary ChainConfig where
       pure
         CardanoChainConfig
           { hydraScriptsTxId
-          , cardanoSigningKey
-          , cardanoVerificationKeys
+          , fuelSigningKey
+          , fuelVerificationKeys
           , startChainFrom
           , contestationPeriod
           , depositPeriod

@@ -66,6 +66,15 @@ changes.
   time conversions.
   [#2803](https://github.com/cardano-scaling/hydra/pull/2803)
 
+- **BREAKING** (CLI) Renamed the Cardano key options so the fuel/funds
+  distinction is explicit and consistent everywhere. On `hydra-node`,
+  `--cardano-signing-key` is now `--fuel-signing-key` and
+  `--cardano-verification-key` is now `--fuel-verification-key`. On `hydra-tui`,
+  `--cardano-signing-key` is now `--funds-signing-key`. The YAML config keys
+  change to match (`fuel-signing-key`, `fuel-verification-key`). The old names
+  are removed, so update your command lines and config files.
+  [#2405](https://github.com/cardano-scaling/hydra/issues/2405)
+
 - **BREAKING**:
     - --deposit-period is now a protocol parameter embedded on-chain at Init time.
       All nodes in a head must configure the same value; a mismatch causes the node

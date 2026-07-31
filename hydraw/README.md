@@ -26,7 +26,7 @@ The frontend is written in vanilla HTML/CSS/JS and is dynamically served from th
 
 # Run
 
-All commands must be run from within `hydraw/` and assuming your Hydra API host+port is `hydra.example.io:4001` and your cardano signing key is `cardano.sk`:
+All commands must be run from within `hydraw/` and assuming your Hydra API host+port is `hydra.example.io:4001` and your fuel signing key is `fuel.sk`:
 
 You can choose the network by specifying `HYDRAW_NETWORK`.
 

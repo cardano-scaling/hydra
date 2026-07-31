@@ -172,7 +172,7 @@ cliDefaultWarnings args yaml cli =
  where
   cardanoChainChecks = case (cli.chainConfig, yaml.chainConfig, defaultRunOptions.chainConfig) of
     (Cardano c, Cardano y, Cardano d) ->
-      [ check "--cardano-signing-key" c.cardanoSigningKey y.cardanoSigningKey d.cardanoSigningKey
+      [ check "--fuel-signing-key" c.fuelSigningKey y.fuelSigningKey d.fuelSigningKey
       , check "--contestation-period" (show c.contestationPeriod :: String) (show y.contestationPeriod) (show d.contestationPeriod)
       , check "--deposit-period" (show c.depositPeriod :: String) (show y.depositPeriod) (show d.depositPeriod)
       , check "--deposit-activation" (show c.depositActivation :: String) (show y.depositActivation) (show d.depositActivation)
@@ -206,13 +206,13 @@ validationHint err opts =
     "CardanoAndHydraKeysMismatch" ->
       let hvks = length opts.hydraVerificationKeys
           cvks = case opts.chainConfig of
-            Cardano c -> length c.cardanoVerificationKeys
+            Cardano c -> length c.fuelVerificationKeys
             _ -> 0
        in "got "
             <> (show hvks :: String)
             <> " hydra-verification-key(s) and "
             <> (show cvks :: String)
-            <> " cardano-verification-key(s). Each signing peer needs both; "
+            <> " fuel-verification-key(s). Each signing peer needs both; "
             <> "a peer entry with only one is almost certainly a mistake, and "
             <> "an observer/mirror peer needs neither."
     "MaximumNumberOfPartiesExceeded" ->

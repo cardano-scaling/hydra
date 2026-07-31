@@ -28,8 +28,8 @@ spec = parallel $ do
     shouldParseWith parseOptions ["--connect", "127.0.0.2:4002"] defaultOptions{hydraNodeHost = Host "127.0.0.2" 4002}
   it "parses --testnet-magic option" $ do
     shouldParseWith parseOptions ["--testnet-magic", "123"] defaultOptions{cardanoNetworkId = Testnet $ NetworkMagic 123}
-  it "parses --cardano-signing-key option" $ do
-    shouldParseWith parseOptions ["--cardano-signing-key", "foo.sk"] defaultOptions{cardanoSigningKey = "foo.sk"}
+  it "parses --funds-signing-key option" $ do
+    shouldParseWith parseOptions ["--funds-signing-key", "foo.sk"] defaultOptions{fundsSigningKey = "foo.sk"}
   it "parses --node-socket option" $ do
     shouldParseWith parseOptions ["--node-socket", "something.socket"] defaultOptions{cardanoConnection = Right "something.socket"}
   it "parses --fuel-key option" $ do
@@ -48,7 +48,7 @@ defaultOptions =
     { hydraNodeHost = Host "127.0.0.1" 4001
     , cardanoNetworkId = Testnet $ NetworkMagic 42
     , cardanoConnection = Right "node.socket"
-    , cardanoSigningKey = "me.sk"
+    , fundsSigningKey = "me.sk"
     , fuelVerificationKey = Nothing
     , apiEncoding = JsonEncoding
     }

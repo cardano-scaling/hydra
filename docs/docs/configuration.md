@@ -26,7 +26,7 @@ A few things to keep in mind:
 
 - **Relative paths are resolved relative to the config file's directory**, not the current working directory. For example, if `alice.yaml` lives in `/etc/hydra/` and sets `hydra-signing-key: alice.sk`, the node will look for `/etc/hydra/alice.sk` regardless of where you run `hydra-node` from.
 - **Scalar fields**: CLI flags override YAML values. There is one known limitation: if you pass a CLI flag whose value happens to equal the compiled-in default (e.g. `--api-port 4001` when 4001 is the default), the YAML value wins silently. The node logs a warning when this happens, so watch for it on startup.
-- **List fields** (`peers`, `hydra-verification-keys`, `cardano-verification-keys`): CLI and YAML values are **unioned**, not overridden. There is no way to "clear" the YAML list from the CLI — if you need full CLI control over a list, omit it from the config file.
+- **List fields** (`peers`, `hydra-verification-keys`, `fuel-verification-keys`): CLI and YAML values are **unioned**, not overridden. There is no way to "clear" the YAML list from the CLI — if you need full CLI control over a list, omit it from the config file.
 
 #### Peer list with co-located keys
 
@@ -53,19 +53,19 @@ hydra-signing-key: "alice.sk"
 peers:
   - address: "127.0.0.1:5001"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice-fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol-fuel.vk"
 ledger-protocol-parameters: "protocol-parameters.json"
 persistence-dir: "persistence/alice"
 chain:
   mode: cardano
   network: preview
-  cardano-signing-key: "alice-fuel.sk"
+  fuel-signing-key: "alice-fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -76,7 +76,7 @@ chain:
 
 The self entry (`127.0.0.1:5001` here) carries keys like every other peer — those keys are simply ignored for the self entry, which lets you copy the same `peers:` block into `bob.yaml` and `carol.yaml` and only change the top-level fields.
 
-`bob.yaml` and `carol.yaml` follow the same structure — change `node-id`, `listen`/`advertise`, `api-port`, `monitoring-port`, `hydra-signing-key`, `persistence-dir`, and `cardano-signing-key`.
+`bob.yaml` and `carol.yaml` follow the same structure — change `node-id`, `listen`/`advertise`, `api-port`, `monitoring-port`, `hydra-signing-key`, `persistence-dir`, and `fuel-signing-key`.
 
 #### Mirror nodes
 
@@ -87,13 +87,13 @@ A **mirror node** observes the head without holding signing keys. To set one up,
 peers:
   - address: "127.0.0.1:5001"
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice-fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol-fuel.vk"
   - address: "127.0.0.1:5004"   # mirror — address only, no keys
 ```
 
@@ -111,17 +111,17 @@ peers:
   - address: "127.0.0.1:5001"          # alice primary — address only, no keys needed
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    cardano-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob-fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    cardano-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol-fuel.vk"
   - address: "127.0.0.1:5004"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    cardano-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice-fuel.vk"
 persistence-dir: "persistence/alice-mirror"
 chain:
   mode: cardano
-  cardano-signing-key: "alice-fuel.sk"
+  fuel-signing-key: "alice-fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -139,13 +139,13 @@ hydra-node --config alice-mirror.yaml
 
 Gotchas when running mirror nodes:
 
-- A **peer entry with exactly one verification key** (just `hydra-verification-key` or just `cardano-verification-key`) is rejected at startup. Signing peers need both; observer/mirror peers need neither.
+- A **peer entry with exactly one verification key** (just `hydra-verification-key` or just `fuel-verification-key`) is rejected at startup. Signing peers need both; observer/mirror peers need neither.
 - The mirror in this example reuses the primary Alice node's `hydra-signing-key`, so both processes sign as the same party. Hydra dedups identical `AckSn` messages (there is explicit handling for "same keys, multiple instances"), so this is safe while the two are in sync. The risks are at the edges: if one drifts out of sync and then resyncs, the process whose `AckSn` lost the race can end up one step behind the confirmed chain snapshot, and any on-chain action (close, contest) posted by both races on the UTxO. Treat the mirror as a warm standby rather than a second independent signer.
 - Self-filtering compares host strings, so the `listen`/`advertise` value and the self peer entry must use the same form (both IP, or both DNS name). See the address-matching rules above.
 
 ### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and holds ada to pay fees. We call this the **fuel** key (see [Fuel vs funds](#fuel-vs-funds)). Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and holds ada to pay fees. We call this the **fuel** key (see [Fuel vs funds](#fuel-vs-funds)). Each `hydra-node` requires a `--fuel-signing-key`, and you must provide the `--fuel-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 
@@ -331,7 +331,7 @@ To publish scripts yourself, use the `publish-scripts` command:
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key fuel.sk
+  --fuel-signing-key fuel.sk
 ```
 
 This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
@@ -344,15 +344,15 @@ One of those entries is the `νCRS` output, which carries the common reference s
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key fuel.sk
+  --fuel-signing-key fuel.sk
 ```
 
-You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost [project id](https://blockfrost.dev/overview/getting-started#creating-first-project).
+You can also use blockfrost for script publishing. On top of providing fuel signing key you need to provide a path to the file containing the blockfrost [project id](https://blockfrost.dev/overview/getting-started#creating-first-project).
 
 ```shell
 hydra-node publish-scripts \
   --blockfrost /path/to/blockfrost-project.txt \
-  --cardano-signing-key fuel.sk
+  --fuel-signing-key fuel.sk
 ```
 
 ### Ledger parameters
@@ -373,7 +373,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel vs funds
 
-Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--fuel-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
@@ -513,8 +513,8 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
   "api-transaction-timeout": 300.0,
   "chain": {
     "mode": "cardano",
-    "cardano-signing-key": "/abs/path/to/alice-fuel.sk",
-    "cardano-verification-keys": [],
+    "fuel-signing-key": "/abs/path/to/alice-fuel.sk",
+    "fuel-verification-keys": [],
     "contestation-period": 43200,
     "deposit-period": 3600.0,
     "deposit-activation": 3600.0,

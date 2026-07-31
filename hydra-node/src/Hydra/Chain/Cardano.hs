@@ -66,7 +66,7 @@ loadChainContext ::
   Party ->
   m ChainContext
 loadChainContext config party = do
-  (vk, _) <- liftIO $ readKeyPair cardanoSigningKey
+  (vk, _) <- liftIO $ readKeyPair fuelSigningKey
   scriptRegistry <- queryScriptRegistry hydraScriptsTxId
   networkId <- queryNetworkId
   pure $
@@ -79,7 +79,7 @@ loadChainContext config party = do
  where
   CardanoChainConfig
     { hydraScriptsTxId
-    , cardanoSigningKey
+    , fuelSigningKey
     } = config
 
 mkTinyWallet ::
@@ -90,11 +90,11 @@ mkTinyWallet ::
   CardanoChainConfig ->
   IO (TinyWallet IO)
 mkTinyWallet runM tracer config = do
-  keyPair <- readKeyPair cardanoSigningKey
+  keyPair <- readKeyPair fuelSigningKey
   networkId <- runM queryNetworkId
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
-  CardanoChainConfig{cardanoSigningKey} = config
+  CardanoChainConfig{fuelSigningKey} = config
 
   queryEpochInfo = runM $ toEpochInfo <$> queryEraHistory QueryTip
 

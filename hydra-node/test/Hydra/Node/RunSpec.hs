@@ -26,7 +26,7 @@ spec = do
     hydraVerificationKeys <- generate $ replicateM 2 (genFilePath "vk")
     run
       defaultRunOptions
-        { chainConfig = Cardano defaultCardanoChainConfig{cardanoVerificationKeys = cardanoKeys}
+        { chainConfig = Cardano defaultCardanoChainConfig{fuelVerificationKeys = cardanoKeys}
         , hydraVerificationKeys
         }
       `shouldThrow` aConfigurationException

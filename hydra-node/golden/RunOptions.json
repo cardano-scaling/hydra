@@ -9,11 +9,6 @@
             "apiPort": 16485,
             "apiTransactionTimeout": 54284,
             "chainConfig": {
-                "cardanoSigningKey": "b.sk",
-                "cardanoVerificationKeys": [
-                    "c/a.vk",
-                    "a.vk"
-                ],
                 "chainBackendOptions": {
                     "contents": {
                         "projectPath": "blockfrost-project.txt",
@@ -24,6 +19,11 @@
                 "contestationPeriod": 43200,
                 "depositActivation": 12339,
                 "depositPeriod": 9820,
+                "fuelSigningKey": "b.sk",
+                "fuelVerificationKeys": [
+                    "c/a.vk",
+                    "a.vk"
+                ],
                 "hydraScriptsTxId": [
                     "0401040706040305050306010402060200050103010506010408020603040703",
                     "0401050503070307060800040204020706080003050300080102040804060305",
@@ -88,14 +88,6 @@
             "apiPort": 25761,
             "apiTransactionTimeout": 78957,
             "chainConfig": {
-                "cardanoSigningKey": "a.sk",
-                "cardanoVerificationKeys": [
-                    "b/c/c.vk",
-                    "c.vk",
-                    "a/b/c.vk",
-                    "b/a/c.vk",
-                    "b/c/a.vk"
-                ],
                 "chainBackendOptions": {
                     "contents": {
                         "networkId": {
@@ -109,6 +101,14 @@
                 "contestationPeriod": 604800,
                 "depositActivation": 78927,
                 "depositPeriod": 26387,
+                "fuelSigningKey": "a.sk",
+                "fuelVerificationKeys": [
+                    "b/c/c.vk",
+                    "c.vk",
+                    "a/b/c.vk",
+                    "b/a/c.vk",
+                    "b/c/a.vk"
+                ],
                 "hydraScriptsTxId": [
                     "0502010105070806040806000404020204010608000207020602050806080108",
                     "0507040005040508010104070304050405070000030501000005000703080806"
