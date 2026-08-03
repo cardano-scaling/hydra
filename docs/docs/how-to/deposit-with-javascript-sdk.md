@@ -552,7 +552,7 @@ ws.on('message', (data) => {
 ## References
 
 - [Demo source code](https://github.com/Vtechcom/hydra-sdk-examples/tree/master/deposit-demo)
-- [Hydra Incremental Commit](https://hydra.family/head-protocol/docs/how-to/incremental-commit)
-- [Commit Blueprint](https://hydra.family/head-protocol/docs/how-to/commit-blueprint)
+- [Hydra Incremental Commit](./incremental-commit.md)
+- [Commit Blueprint](./commit-blueprint.md)
 - [Commit Script UTxO](./commit-script-utxo)
 - [Hydra SDK Documentation](https://hydrasdk.com)

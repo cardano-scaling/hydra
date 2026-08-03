@@ -27,7 +27,7 @@ function Column({ column }) {
       <div
         className={clsx(
           "footer__title text-sm pb-1 laptop:pb-5",
-          isLandingPage ? "text-[#F3F4F4]" : "text-black"
+          isLandingPage ? "text-[#F3F4F4]" : "text-[var(--ifm-font-color-base)]"
         )}
       >
         {column.title}

@@ -51,7 +51,7 @@ export default function NavbarLayout({ children }) {
         "flex navbar tablet:py-[30px] !px-0 shadow-none z-50",
         isLandingPage
           ? "border-none pt-3"
-          : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
+          : "border-b border-[var(--ifm-toc-border-color)] pt-3 pb-4 tablet:px-2",
         "navbar--fixed-top",
         hideOnScroll && [
           // styles.navbarHideable,
