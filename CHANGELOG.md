@@ -47,6 +47,14 @@ changes.
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
 
+- Fail fast on startup when the etcd peer configuration changed since the node
+  last ran against the same persistence directory. Previously, changing `--peer`
+  or `--advertise` would silently start a fresh, empty etcd cluster and orphan
+  all persisted message history, because the etcd data directory is keyed by a
+  hash of the peers. The node now records the peer set and refuses to start with
+  a clear error if it changed, so you consciously either wipe the etcd directory
+  or restore the previous configuration. [#2804](https://github.com/cardano-scaling/hydra/pull/2804)
+
 - **BREAKING** (WebSocket API) Removed the `SyncedStatusReport` server output.
   The node used to push it on every block, flooding clients; it is now gone from
   the message stream. Chain-sync status remains available on the WebSocket via
