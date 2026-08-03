@@ -160,17 +160,25 @@ computeContestCost = do
 
 computeFanOutCost :: Gen [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [numberOfParties], u <- [0, 1, 5, 10, 20, 30, 50, 100, 200, 500, 1000]]
-  limit <-
-    maybeToList
-      . getFirst
-      <$> foldMapM
-        (\(p, u) -> First <$> compute p u)
-        -- Sparse descending search: find the largest UTxO count that still fits in a tx.
-        [(p, u) | p <- [numberOfParties], u <- [2000, 1500, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 15, 10]]
-  pure $ interesting <> limit
+  -- Detailed cost of growing the fanned-out UTxO set, at a representative
+  -- number of parties.
+  interesting <- catMaybes <$> mapM (compute representativeParties) [0, 1, 5, 10, 20, 30, 50, 100, 200, 500, 1000]
+  -- Largest UTxO set that still fits in a single fanout tx, per number of
+  -- parties. Fanout burns one participation token per party, so more parties
+  -- leaves less room for outputs; this shows how fanout capacity shrinks as the
+  -- number of parties grows.
+  limits <-
+    fmap concat . forM partiesRange $ \parties ->
+      maybeToList
+        . getFirst
+        <$> foldMapM
+          (fmap First . compute parties)
+          -- Sparse descending search: find the largest UTxO count that still fits in a tx.
+          [2000, 1500, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 15, 10]
+  pure $ interesting <> limits
  where
-  numberOfParties = 10
+  representativeParties = 10
+  partiesRange = [1, 5, 10, 20, 50]
 
   compute parties numElems = do
     (utxo, tx, knownUTxO) <- genFanoutTx parties numElems
