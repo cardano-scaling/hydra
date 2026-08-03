@@ -265,7 +265,7 @@ scenarioSetup tracer tmpDir action = do
     let hydraTracer = contramap FromHydraNode tracer
 
     let Timing{depositPeriod} = mkTestTiming' 2 blockTime
-        timing = Timing{blockTime, contestationPeriod, depositPeriod}
+        timing = Timing{blockTime, contestationPeriod, depositPeriod, depositActivation = depositPeriod}
     withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
