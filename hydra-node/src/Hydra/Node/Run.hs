@@ -248,6 +248,15 @@ newGlobals genesisParameters = do
 -- slot-to-time conversions. This ensures Plutus scripts receive correct
 -- POSIXTime values in their ScriptContext on multi-era chains (mainnet/testnet).
 --
+-- The last era of the given 'EraHistory' is extended to be unbounded, because
+-- the queried era history has a forecast horizon anchored at the tip when the
+-- node started. As these 'Globals' are used for the lifetime of the hydra-node,
+-- a node running longer than the horizon (3k/f slots, i.e. 36 hours on
+-- mainnet) would otherwise reject every Plutus transaction with a validity
+-- bound as 'OutsideForecast'. Extending assumes the current era's slot length
+-- does not change, matching the linear extrapolation the ledger already
+-- applies to time translations via 'unsafeLinearExtendEpochInfo'.
+--
 -- Throws at least 'GlobalsTranslationException'
 newGlobalsWithEraHistory :: MonadThrow m => GenesisParameters ShelleyEra -> EraHistory -> m Globals
 newGlobalsWithEraHistory genesisParameters (EraHistory interpreter) = do
@@ -282,4 +291,4 @@ newGlobalsWithEraHistory genesisParameters (EraHistory interpreter) = do
     } = genesisParameters
   eraAwareEpochInfo =
     hoistEpochInfo (first show . runExcept) $
-      Consensus.interpreterToEpochInfo interpreter
+      Consensus.interpreterToEpochInfo (Consensus.unsafeExtendSafeZone interpreter)

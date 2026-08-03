@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- Fix long-running nodes rejecting layer 2 Plutus transactions that carry a
+  validity bound. The era history queried at startup has a forecast horizon
+  (36 hours on mainnet/preprod, shorter on other networks), and once the node
+  ran past it every Plutus transaction with an `invalidBefore` or
+  `invalidHereafter` failed with `OutsideForecast`/`PastHorizon` until the node
+  was restarted. The last era is now treated as unbounded for layer 2 ledger
+  time conversions.
+  [#2803](https://github.com/cardano-scaling/hydra/pull/2803)
+
 - **BREAKING**:
     - --deposit-period is now a protocol parameter embedded on-chain at Init time.
       All nodes in a head must configure the same value; a mismatch causes the node
