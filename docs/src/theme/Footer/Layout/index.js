@@ -12,7 +12,7 @@ export default function FooterLayout({ style, links, logo, copyright }) {
         "laptop:footer",
         isLandingPage
           ? "bg-primary-darker component laptop:component-xs"
-          : "bg-white py-[56px]"
+          : "bg-[var(--ifm-background-color)] py-[56px]"
       )}
     >
       <div
@@ -30,14 +30,16 @@ export default function FooterLayout({ style, links, logo, copyright }) {
             className={clsx(
               "flex flex-col gap-4 border border-solid  p-6 rounded-lg mb-14 laptop:mb-[70px]",
               !isLandingPage
-                ? "w-[250px] border-primary"
+                ? "w-[250px] border-[var(--ifm-color-primary)]"
                 : "border-primary-alternate-light"
             )}
           >
             <div
               className={clsx(
                 "inline-flex items-center ",
-                isLandingPage ? "text-primary-alternate-light" : "text-primary"
+                isLandingPage
+                  ? "text-primary-alternate-light"
+                  : "text-[var(--ifm-color-primary)]"
               )}
             >
               <HydraLogo className="shrink-0" width={24} height={24} />
@@ -46,7 +48,7 @@ export default function FooterLayout({ style, links, logo, copyright }) {
               </span>
             </div>
             <Link
-              className="px-4 py-3 justify-center text-center border text-sm border-solid hover:bg-primary-alternate-light border-primary font-bold text-primary rounded-lg no-underline bg-white hover:no-underline hover:text-primary"
+              className="px-4 py-3 justify-center text-center border text-sm border-solid hover:bg-[var(--ifm-color-primary)] border-[var(--ifm-color-primary)] font-bold text-[var(--ifm-color-primary)] rounded-lg no-underline bg-[var(--ifm-background-color)] hover:no-underline hover:text-white"
               to={"/docs/get-involved"}
             >
               Get involved

@@ -195,7 +195,7 @@ The default contestation period is **12 hours (43200 seconds)**, aligned with Ca
 On mainnet, the contestation period should be **at least 12 hours**. Shorter periods may not provide sufficient time for dispute resolution due to Cardano's consensus security parameters. See [#2389](https://github.com/cardano-scaling/hydra/issues/2389) for details.
 :::
 
-The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
+The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](pathname:///haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 
 :::warning Invalid `Close` and `Contest` transactions
 
@@ -323,7 +323,7 @@ hydra-node publish-scripts \
   --cardano-signing-key cardano.sk
 ```
 
-You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost (project id)[https://blockfrost.dev/overview/getting-started#creating-first-project].
+You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost [project id](https://blockfrost.dev/overview/getting-started#creating-first-project).
 
 ```shell
 hydra-node publish-scripts \
@@ -420,7 +420,7 @@ Hydra supports an offline mode that allows for disabling the layer 1 interface â
 
 As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which is a hexadecimal byte string. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with provided [hydra keys](#hydra-keys).
 
-To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](https://hydra.family/head-protocol/api-reference#schema-UTxO) for the schema.
+To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](pathname:///api-reference/#schema-UTxO) for the schema.
 
 For example, the following UTxO contains 100 ADA owned by test key [alice-funds.sk](https://github.com/cardano-scaling/hydra/tree/master/hydra-cluster/config/credentials/alice-funds.sk):
 ```json utxo.json

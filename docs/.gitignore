@@ -10,6 +10,10 @@
 /static/docs-metadata.json
 /static/hydra-spec.pdf
 
+# Generated fresh on every docs build from the current code (see nix/hydra/docs.nix
+# preBuild and the `docs` just recipe). Never committed.
+/benchmarks/transaction-cost.md
+
 # Misc
 .DS_Store
 .env.local
