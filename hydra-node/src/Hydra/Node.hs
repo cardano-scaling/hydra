@@ -51,7 +51,7 @@ import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
-import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Secret (mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
@@ -74,6 +74,7 @@ initEnvironment options = do
       , participants
       , contestationPeriod
       , depositPeriod
+      , depositActivation
       , unsyncedPeriod
       , configuredPeers
       }
@@ -98,6 +99,9 @@ initEnvironment options = do
   depositPeriod = case chainConfig of
     Offline{} -> defaultDepositPeriod
     Cardano CardanoChainConfig{depositPeriod = dp} -> dp
+  depositActivation = case chainConfig of
+    Offline{} -> defaultDepositActivation
+    Cardano CardanoChainConfig{depositActivation = da} -> da
   -- In offline mode, there's no real chain to sync with, so we use a very large
   -- unsynced period to effectively disable the unsynced check.
   unsyncedPeriod = case chainConfig of

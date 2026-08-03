@@ -348,6 +348,7 @@ withHydraClusterWith mQueryParams mapOptions tracer timing workDir nodeSocket fi
                 , cardanoVerificationKeys
                 , contestationPeriod
                 , depositPeriod
+                , depositActivation
                 , chainBackendOptions =
                     Direct
                       defaultDirectOptions
@@ -367,7 +368,7 @@ withHydraClusterWith mQueryParams mapOptions tracer timing workDir nodeSocket fi
         nodePorts
         (\c -> startNodes nodePorts (c : clients) rest)
 
-  Timing{blockTime, contestationPeriod, depositPeriod} = timing
+  Timing{blockTime, contestationPeriod, depositPeriod, depositActivation} = timing
 
 -- * Start / connect to a hydra-node
 

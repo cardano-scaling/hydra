@@ -72,6 +72,7 @@ import Hydra.Options (
   defaultBlockfrostOptions,
   defaultCardanoChainConfig,
   defaultContestationPeriod,
+  defaultDepositActivation,
   defaultDepositPeriod,
   defaultRunOptions,
  )
@@ -258,6 +259,7 @@ parseCardanoChainConfig peerCardanoVKs o = do
     , "start-chain-from"
     , "contestation-period"
     , "deposit-period"
+    , "deposit-activation"
     , "unsynced-period"
     , "backend"
     ]
@@ -270,6 +272,7 @@ parseCardanoChainConfig peerCardanoVKs o = do
   startChainFrom <- mapM parseChainPointText mStartChainFrom
   contestationPeriod <- o .:? "contestation-period" .!= defaultContestationPeriod
   depositPeriod <- o .:? "deposit-period" .!= defaultDepositPeriod
+  depositActivation <- o .:? "deposit-activation" .!= defaultDepositActivation
   mUnsyncedPeriod <- o .:? "unsynced-period" :: Parser (Maybe UnsyncedPeriod)
   let unsyncedPeriod = fromMaybe (defaultUnsyncedPeriodFor contestationPeriod) mUnsyncedPeriod
   chainBackendOptions <-
@@ -282,6 +285,7 @@ parseCardanoChainConfig peerCardanoVKs o = do
       , startChainFrom
       , contestationPeriod
       , depositPeriod
+      , depositActivation
       , unsyncedPeriod
       , chainBackendOptions
       }
@@ -510,6 +514,7 @@ renderConfig opts =
       , "cardano-verification-keys" .= cfg.cardanoVerificationKeys
       , "contestation-period" .= cfg.contestationPeriod
       , "deposit-period" .= cfg.depositPeriod
+      , "deposit-activation" .= cfg.depositActivation
       , "unsynced-period" .= cfg.unsyncedPeriod
       , "backend" .= renderBackend cfg.chainBackendOptions
       ]

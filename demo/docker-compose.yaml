@@ -51,6 +51,7 @@ services:
       , "--persistence-dir", "/devnet/persistence/alice"
       , "--contestation-period", "3s"
       , "--deposit-period", "10s"
+      , "--deposit-activation", "10s"
       ]
     networks:
       hydra_net:
@@ -89,6 +90,7 @@ services:
       , "--persistence-dir", "/devnet/persistence/bob"
       , "--contestation-period", "3s"
       , "--deposit-period", "10s"
+      , "--deposit-activation", "10s"
       ]
     networks:
       hydra_net:
@@ -127,6 +129,7 @@ services:
       , "--persistence-dir", "/devnet/persistence/carol"
       , "--contestation-period", "3s"
       , "--deposit-period", "10s"
+      , "--deposit-activation", "10s"
       ]
     networks:
       hydra_net:

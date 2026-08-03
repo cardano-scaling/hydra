@@ -3272,6 +3272,7 @@ components:
       - participants
       - contestationPeriod
       - depositPeriod
+      - depositActivation
       - unsyncedPeriod
       - configuredPeers
       additionalProperties: false
@@ -3289,6 +3290,8 @@ components:
         contestationPeriod:
           $ref: "api.yaml#/components/schemas/ContestationPeriod"
         depositPeriod:
+          $ref: "api.yaml#/components/schemas/DepositPeriod"
+        depositActivation:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
         unsyncedPeriod:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
@@ -4016,6 +4019,7 @@ components:
         - cardano-verification-keys
         - contestation-period
         - deposit-period
+        - deposit-activation
         - unsynced-period
         - backend
       properties:
@@ -4037,6 +4041,9 @@ components:
         deposit-period:
           type: number
           description: Deposit period in seconds (fractional).
+        deposit-activation:
+          type: number
+          description: Time in seconds (fractional) a deposit must wait before it becomes active.
         unsynced-period:
           type: number
           description: How long (in seconds) to wait for the node to sync before considering it unsynced.

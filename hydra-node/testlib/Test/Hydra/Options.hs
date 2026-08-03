@@ -92,6 +92,7 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
+      depositActivation <- arbitrary
       unsyncedPeriod <- arbitrary
       chainBackendOptions <-
         oneof
@@ -106,6 +107,7 @@ instance Arbitrary ChainConfig where
           , startChainFrom
           , contestationPeriod
           , depositPeriod
+          , depositActivation
           , unsyncedPeriod
           , chainBackendOptions
           }

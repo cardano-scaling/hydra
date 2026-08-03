@@ -376,7 +376,8 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
   blockTime <- runBackend opts getBlockTime
 
   -- NOTE: Adapt periods to block times
-  let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 50 * blockTime}
+  let depositPeriod = truncatedDepositPeriod $ 50 * blockTime
+  let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod, depositActivation = depositPeriod}
   aliceChainConfig <-
     chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
@@ -499,10 +500,10 @@ singlePartyHeadFullLifeCycle tracer workDir opts hydraScriptsTxId =
     blockTime <- runBackend opts getBlockTime
     networkId <- runBackend opts queryNetworkId
     let timing = mkTestTiming blockTime
-    let Timing{depositPeriod = timingDepositPeriod} = timing
+    let Timing{depositPeriod = timingDepositPeriod, depositActivation = timingDepositActivation} = timing
     contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
     aliceChainConfig <-
-      chainConfigFor' Alice workDir opts hydraScriptsTxId [] contestationPeriod timingDepositPeriod
+      chainConfigFor' Alice workDir opts hydraScriptsTxId [] contestationPeriod timingDepositPeriod timingDepositActivation
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
           . setNetworkId networkId
 
@@ -974,7 +975,7 @@ canCloseWithLongContestationPeriod tracer workDir opts hydraScriptsTxId = do
   let oneWeek = 60 * 60 * 24 * 7
       Timing{depositPeriod = defaultDepositPeriod} = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor' Alice workDir opts hydraScriptsTxId [] oneWeek defaultDepositPeriod
+    chainConfigFor' Alice workDir opts hydraScriptsTxId [] oneWeek defaultDepositPeriod defaultDepositPeriod
       <&> modifyConfig (\config -> config{startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
   withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
@@ -1069,7 +1070,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir opts hydraScriptsTxId = do
           Direct DirectOptions{nodeSocket} -> nodeSocket
           Blockfrost _ -> error "Unexpected Blockfrost options"
   blockTime <- runBackend opts getBlockTime
-  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncatedDepositPeriod $ 3 * blockTime}
+  let depositPeriod = truncatedDepositPeriod $ 3 * blockTime
+  let timing = Timing{blockTime, contestationPeriod, depositPeriod, depositActivation = depositPeriod}
   withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
@@ -1188,9 +1190,9 @@ initWithDifferentDepositPeriod workDir tracer opts hydraScriptsTxId = do
 
   blockTime <- runBackend opts getBlockTime
   let Timing{contestationPeriod, depositPeriod} = mkTestTiming blockTime
-  aliceChainConfig <- chainConfigFor' Alice workDir opts hydraScriptsTxId [Bob] contestationPeriod depositPeriod
+  aliceChainConfig <- chainConfigFor' Alice workDir opts hydraScriptsTxId [Bob] contestationPeriod depositPeriod depositPeriod
   -- NOTE: here we deliberately configure a different deposit period for Bob
-  bobChainConfig <- chainConfigFor' Bob workDir opts hydraScriptsTxId [Alice] contestationPeriod (2 * depositPeriod)
+  bobChainConfig <- chainConfigFor' Bob workDir opts hydraScriptsTxId [Alice] contestationPeriod (2 * depositPeriod) (2 * depositPeriod)
 
   let hydraTracer = contramap FromHydraNode tracer
   nodePorts <- allocateHydraNodePortsFor [3, 4]
@@ -1323,7 +1325,8 @@ rejectDeposit tracer workDir opts hydraScriptsTxId =
     refuelIfNeeded tracer opts Alice 30_000_000
     -- NOTE: Adapt periods to block times
     blockTime <- runBackend opts getBlockTime
-    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 100 * blockTime}
+    let depositPeriod = truncatedDepositPeriod $ 100 * blockTime
+    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod, depositActivation = depositPeriod}
     networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
@@ -1423,7 +1426,7 @@ canRecoverDeposit tracer workDir opts hydraScriptsTxId =
       -- NOTE: Directly expire deposits
       blockTime <- runBackend opts getBlockTime
       -- Use short periods so deposits expire quickly
-      let timing = Timing{blockTime, contestationPeriod = 1, depositPeriod = 1}
+      let timing = Timing{blockTime, contestationPeriod = 1, depositPeriod = 1, depositActivation = 1}
       networkId <- runBackend opts queryNetworkId
       aliceChainConfig <-
         chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
@@ -1507,7 +1510,7 @@ canRecoverDepositInAnyState tracer workDir opts hydraScriptsTxId =
     -- NOTE: Directly expire deposits
     blockTime <- runBackend opts getBlockTime
     -- Use short periods so deposits expire quickly
-    let timing = Timing{blockTime, contestationPeriod = 2, depositPeriod = 1}
+    let timing = Timing{blockTime, contestationPeriod = 2, depositPeriod = 1, depositActivation = 1}
     networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing

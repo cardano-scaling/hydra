@@ -107,7 +107,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
         Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
       -- Alice setup
-      aliceChainConfig <- chainConfigFor' Alice tmp (Blockfrost blockfrostOpts) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100)
+      aliceChainConfig <- chainConfigFor' Alice tmp (Blockfrost blockfrostOpts) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100) (DepositPeriod 100)
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do

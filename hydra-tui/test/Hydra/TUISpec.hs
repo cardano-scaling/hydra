@@ -401,7 +401,7 @@ setupRotatedStateTUI action = do
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         let backendOpts = Direct backend
         hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
-        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod tuiDepositPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
@@ -520,7 +520,7 @@ setupNodeAndTUI' hostname lovelace action =
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         let backendOpts = Direct backend
         hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
-        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod tuiDepositPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 
