@@ -259,6 +259,7 @@ parseCardanoChainConfig peerCardanoVKs o = do
     , "start-chain-from"
     , "contestation-period"
     , "deposit-period"
+    , "deposit-activation"
     , "unsynced-period"
     , "backend"
     ]

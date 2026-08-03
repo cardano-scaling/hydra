@@ -4019,6 +4019,7 @@ components:
         - cardano-verification-keys
         - contestation-period
         - deposit-period
+        - deposit-activation
         - unsynced-period
         - backend
       properties:
@@ -4040,6 +4041,9 @@ components:
         deposit-period:
           type: number
           description: Deposit period in seconds (fractional).
+        deposit-activation:
+          type: number
+          description: Time in seconds (fractional) a deposit must wait before it becomes active.
         unsynced-period:
           type: number
           description: How long (in seconds) to wait for the node to sync before considering it unsynced.
