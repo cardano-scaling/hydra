@@ -34,6 +34,7 @@ import Hydra.LoggingSpec qualified
 import Hydra.Model.MockChainSpec qualified
 import Hydra.ModelSpec qualified
 import Hydra.Network.AuthenticateSpec qualified
+import Hydra.Network.EtcdSpec qualified
 import Hydra.NetworkSpec qualified
 import Hydra.NetworkVersionsSpec qualified
 import Hydra.Node.InputQueueSpec qualified
@@ -84,6 +85,7 @@ main =
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec
     , testSpec "Model" Hydra.ModelSpec.spec
     , testSpec "Network.Authenticate" Hydra.Network.AuthenticateSpec.spec
+    , testSpec "Network.Etcd" Hydra.Network.EtcdSpec.spec
     , -- NetworkSpec spins up etcd clusters that lose RAFT quorum when CPU is
       -- oversubscribed. Run it last (after all other tests finish) and
       -- single-threaded so the etcd processes get the box to themselves, while

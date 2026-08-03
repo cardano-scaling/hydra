@@ -104,7 +104,7 @@ import Network.GRPC.Etcd (
   Watch,
  )
 import Network.Socket (PortNumber)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesFileExist, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError, isEOFError)
@@ -124,6 +124,54 @@ import System.Process.Typed (
   waitExitCode,
  )
 
+-- | Exception thrown on startup when the etcd cluster configuration changed
+-- since this persistence directory was last used. See 'checkClusterPeers'.
+data NetworkConfigurationMismatch = NetworkConfigurationMismatch
+  { persistedPeers :: Text
+  , configuredPeers :: Text
+  }
+  deriving stock (Eq, Show)
+
+instance Exception NetworkConfigurationMismatch where
+  displayException NetworkConfigurationMismatch{persistedPeers, configuredPeers} =
+    toString $
+      T.unlines
+        [ "Network configuration changed since this node last ran against this persistence directory."
+        , "  persisted peers:  " <> persistedPeers
+        , "  configured peers: " <> configuredPeers
+        , "Refusing to start to avoid silently bootstrapping a fresh, empty etcd cluster and"
+        , "orphaning previously persisted message history."
+        , "To intentionally reconfigure, delete the 'etcd' sub-directory of your persistence"
+        , "directory (this discards etcd history) or restore the previous --peer/--advertise settings."
+        ]
+
+-- | Guard against silently forking a new cluster after a peer configuration
+-- change. The etcd '--data-dir' is namespaced by a hash of the cluster peers,
+-- so a changed '--peer'/'--advertise' set would otherwise bootstrap a fresh,
+-- empty cluster and orphan all previously persisted message history with no
+-- signal to the operator. We persist the last-used cluster peers next to the
+-- (hashed) etcd data directories and 'throwIO' 'NetworkConfigurationMismatch'
+-- if they differ on a later run. This mirrors the parameter-mismatch bail-out
+-- done when loading persisted head state.
+checkClusterPeers :: FilePath -> String -> IO ()
+checkClusterPeers persistenceDir clusterPeers = do
+  createDirectoryIfMissing True dir
+  whenM (doesFileExist configFile) $
+    decodeFileStrict' configFile >>= \case
+      Just persisted
+        | persisted /= clusterPeers ->
+            throwIO
+              NetworkConfigurationMismatch
+                { persistedPeers = toText persisted
+                , configuredPeers = toText clusterPeers
+                }
+      -- Matches, or the file is unreadable: fall through and (re)write it below.
+      _ -> pure ()
+  encodeFile configFile clusterPeers
+ where
+  dir = persistenceDir </> "etcd"
+  configFile = dir </> "network-config.json"
+
 -- | Concrete network component that broadcasts messages to an etcd cluster and
 -- listens for incoming messages.
 withEtcdNetwork ::
@@ -135,9 +183,7 @@ withEtcdNetwork ::
   NetworkComponent IO msg msg ()
 withEtcdNetwork tracer protocolVersion config callback action = do
   etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
-  -- TODO: fail if cluster config / members do not match --peer
-  -- configuration? That would be similar to the 'acks' persistence
-  -- bailing out on loading.
+  checkClusterPeers persistenceDir clusterPeers
   envVars <- Map.fromList <$> getEnvironment
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     raceLabelled_

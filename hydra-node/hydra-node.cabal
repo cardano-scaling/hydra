@@ -409,6 +409,7 @@ test-suite tests
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
+    Hydra.Network.EtcdSpec
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
