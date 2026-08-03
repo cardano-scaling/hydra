@@ -4,11 +4,12 @@ module Hydra.Events.SQLiteBasedSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (decodeFull')
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.List (zipWith3)
 import Data.List qualified as List
-import Database.SQLite.Simple (close, execute, execute_, open)
+import Database.SQLite.Simple (Only (..), close, execute, execute_, open, query)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), getSchemaVersion, nextVersion, withSQLiteEventStore)
@@ -131,6 +132,24 @@ spec = do
           loadedEvents `shouldBe` events
         v <- bracket (open dbFile) close getSchemaVersion
         v `shouldBe` nextVersion
+        -- Random events from the original JSON database must be found in the
+        -- migrated database under the same event_id, with the row blob
+        -- decoding (as CBOR) to exactly the event that was inserted.
+        picked <- generate $ sublistOf events `suchThat` (not . null)
+        bracket (open dbFile) close $ \conn ->
+          forM_ picked $ \e -> do
+            rows :: [Only ByteString] <-
+              query conn "SELECT event_data FROM events WHERE event_id = ?" (Only (eventId e))
+            case rows of
+              [Only bytes] ->
+                case decodeFull' bytes of
+                  Left err ->
+                    expectationFailure $
+                      "failed to decode migrated row " <> show (eventId e) <> " as CBOR: " <> show err
+                  Right (decoded :: StateEvent SimpleTx) -> decoded `shouldBe` e
+              _ ->
+                expectationFailure $
+                  "expected exactly one row for event_id " <> show (eventId e) <> ", got " <> show (length rows)
         -- Re-encoding + VACUUM must not grow the database; with a few hundred
         -- events CBOR is strictly smaller, but we only assert non-growth to
         -- keep this stable for edge cases.
