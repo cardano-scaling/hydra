@@ -14,7 +14,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -48,6 +48,7 @@ spec = do
                 , otherParties
                 , contestationPeriod = defaultContestationPeriod
                 , depositPeriod = defaultDepositPeriod
+                , depositActivation = defaultDepositActivation
                 , unsyncedPeriod = defaultUnsyncedPeriod
                 , participants = deriveOnChainId <$> threeParties
                 , configuredPeers = ""
@@ -217,6 +218,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             , otherParties = []
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = [deriveOnChainId party]
             , configuredPeers = ""

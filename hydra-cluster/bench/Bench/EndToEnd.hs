@@ -109,7 +109,8 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
-          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncatedDepositPeriod $ 50 * blockTime}
+          let depositPeriod = truncatedDepositPeriod $ 50 * blockTime
+          let timing = Timing{blockTime, contestationPeriod, depositPeriod, depositActivation = depositPeriod}
           putStrLn $ "Timing: " <> show timing
           -- Trim the full snapshot UTxO map from SnapshotConfirmed payloads:
           -- the bench only reads txIds and the snapshot number, and parsing
@@ -164,7 +165,8 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand runOptio
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
               -- XXX: Assumes contestation and deposit periods
-              let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncatedDepositPeriod $ 20 * blockTime}
+              let depositPeriod = truncatedDepositPeriod $ 20 * blockTime
+              let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod, depositActivation = depositPeriod}
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->

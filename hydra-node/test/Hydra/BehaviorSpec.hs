@@ -61,7 +61,7 @@ import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -1476,7 +1476,8 @@ toOnChainTx now = \case
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
-  addUTCTime (3 * DP.toNominalDiffTime defaultDepositPeriod) <$> getCurrentTime
+  addUTCTime (DP.toNominalDiffTime defaultDepositActivation + 2 * DP.toNominalDiffTime defaultDepositPeriod)
+    <$> getCurrentTime
 
 nothingHappensFor ::
   (MonadTimer m, MonadThrow m, IsChainState tx) =>
@@ -1609,6 +1610,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , otherParties
       , contestationPeriod = cp
       , depositPeriod = dp
+      , depositActivation = dp
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
       , participants
       , configuredPeers = ""

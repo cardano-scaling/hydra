@@ -77,6 +77,11 @@ data Timing = Timing
   { blockTime :: BlockTime
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , depositActivation :: DepositPeriod
+  -- ^ Time a deposit must mature before it becomes active. Configured
+  -- independently from 'depositPeriod'; the smart constructors default it to the
+  -- same value so deposits activate as fast as they expire, but tests can set it
+  -- separately to exercise decoupled activation.
   }
   deriving stock (Show)
 
@@ -96,13 +101,19 @@ mkTestTiming' numDeposits blockTime =
   Timing
     { blockTime
     , contestationPeriod = truncate $ 20 * blockTime
-    , depositPeriod = truncatedDepositPeriod $ fromIntegral numDeposits * 20 * blockTime
+    , depositPeriod
+    , depositActivation = depositPeriod
     }
+ where
+  depositPeriod = truncatedDepositPeriod $ fromIntegral numDeposits * 20 * blockTime
 
--- | Get a timeout until a deposit should have happened given a 'Timing'.
+-- | Get a timeout until a deposit should have happened given a 'Timing'. A
+-- deposit becomes active after 'depositActivation' and then needs about one
+-- 'depositPeriod' to be picked up and incremented, so both are accounted for
+-- (with the defaults where they are equal this is @2 * depositPeriod@).
 depositTimeout :: Timing -> NominalDiffTime
-depositTimeout Timing{blockTime, depositPeriod} =
-  2 * DP.toNominalDiffTime depositPeriod + 5 * blockTime
+depositTimeout Timing{blockTime, depositPeriod, depositActivation} =
+  DP.toNominalDiffTime depositActivation + DP.toNominalDiffTime depositPeriod + 5 * blockTime
 
 -- | Create a (test) chain config for a given actor.
 chainConfigFor ::
@@ -116,9 +127,9 @@ chainConfigFor ::
   Timing ->
   IO ChainConfig
 chainConfigFor me targetDir opts txids actors timing =
-  chainConfigFor' me targetDir opts txids actors contestationPeriod depositPeriod
+  chainConfigFor' me targetDir opts txids actors contestationPeriod depositPeriod depositActivation
  where
-  Timing{contestationPeriod, depositPeriod} = timing
+  Timing{contestationPeriod, depositPeriod, depositActivation} = timing
 
 chainConfigFor' ::
   HasCallStack =>
@@ -130,8 +141,10 @@ chainConfigFor' ::
   [Actor] ->
   ContestationPeriod ->
   DepositPeriod ->
+  -- | Deposit activation, independent from the deposit period.
+  DepositPeriod ->
   IO ChainConfig
-chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depositPeriod = do
+chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depositPeriod depositActivation = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -151,6 +164,7 @@ chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depos
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositPeriod
+        , depositActivation
         , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
         , chainBackendOptions = opts
         }

@@ -39,7 +39,7 @@ import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -325,6 +325,7 @@ spec = parallel $ do
             , otherParties = [bob]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
@@ -519,6 +520,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , otherParties
       , contestationPeriod
       , depositPeriod = defaultDepositPeriod
+      , depositActivation = defaultDepositActivation
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
       , participants
       , configuredPeers = ""

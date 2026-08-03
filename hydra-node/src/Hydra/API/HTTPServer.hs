@@ -293,10 +293,13 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
           pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
  where
   deposit headId commitBlueprint changeAddress = do
-    -- NOTE: Three times deposit period means we have one deposit period time to
-    -- increment because a deposit only activates after one deposit period and
-    -- expires one deposit period before deadline.
-    deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
+    -- NOTE: The deadline splits into three independent windows: a deposit
+    -- matures (becomes active) after 'depositActivation', stays active for one
+    -- 'depositPeriod', and can be recovered one 'depositPeriod' before the
+    -- deadline. Hence deadline = now + depositActivation + 2 x depositPeriod.
+    deadline <-
+      addUTCTime (toNominalDiffTime depositActivation + 2 * toNominalDiffTime depositPeriod)
+        <$> getCurrentTime
     result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
     case result of
       Left e ->
@@ -314,7 +317,7 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
 
   Chain{draftDepositTx} = directChain
 
-  Environment{depositPeriod} = env
+  Environment{depositPeriod, depositActivation} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

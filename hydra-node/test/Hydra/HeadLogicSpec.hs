@@ -50,7 +50,7 @@ import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -91,6 +91,7 @@ spec =
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
@@ -102,6 +103,7 @@ spec =
             , otherParties = [bob, carol]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
@@ -238,6 +240,7 @@ spec =
           let aliceEnv' =
                 aliceEnv
                   { depositPeriod = 60
+                  , depositActivation = 60
                   , otherParties = []
                   , participants = deriveOnChainId <$> [alice]
                   }
@@ -1428,6 +1431,7 @@ spec =
           let aliceEnv' =
                 aliceEnv
                   { depositPeriod = 60
+                  , depositActivation = 60
                   , contestationPeriod = 60
                   , otherParties = []
                   , participants = deriveOnChainId <$> [alice]
@@ -1565,6 +1569,7 @@ spec =
           let aliceEnv' =
                 aliceEnv
                   { depositPeriod = 60
+                  , depositActivation = 60
                   , contestationPeriod = 60
                   , otherParties = []
                   , participants = deriveOnChainId <$> [alice]
@@ -1643,6 +1648,7 @@ spec =
           let aliceEnv' =
                 aliceEnv
                   { depositPeriod = 60
+                  , depositActivation = 60
                   , contestationPeriod = 60
                   , otherParties = []
                   , participants = deriveOnChainId <$> [alice]

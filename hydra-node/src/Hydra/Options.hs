@@ -329,6 +329,7 @@ instance Semigroup CardanoChainConfig where
       , startChainFrom = o defaultCardanoChainConfig.startChainFrom base.startChainFrom cli.startChainFrom
       , contestationPeriod = mergedContestationPeriod
       , depositPeriod = o defaultCardanoChainConfig.depositPeriod base.depositPeriod cli.depositPeriod
+      , depositActivation = o defaultCardanoChainConfig.depositActivation base.depositActivation cli.depositActivation
       , unsyncedPeriod = mergedUnsyncedPeriod
       , chainBackendOptions = base.chainBackendOptions <> cli.chainBackendOptions
       }
@@ -553,6 +554,9 @@ data CardanoChainConfig = CardanoChainConfig
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , depositActivation :: DepositPeriod
+  -- ^ Time a deposit must mature before it is considered active. Controls only
+  -- the Inactive -> Active transition, independently of 'depositPeriod'.
   , unsyncedPeriod :: UnsyncedPeriod
   -- ^ Period of time after which we consider the node becoming unsynced with the chain.
   -- Defaults to half of the contestation period if not specified via CLI.
@@ -570,6 +574,7 @@ defaultCardanoChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositPeriod = defaultDepositPeriod
+    , depositActivation = defaultDepositActivation
     , unsyncedPeriod = defaultUnsyncedPeriod
     , chainBackendOptions = Direct defaultDirectOptions
     }
@@ -631,10 +636,11 @@ cardanoChainConfigParser =
     <*> optional startChainFromParser
     <*> contestationPeriodParser
     <*> depositPeriodParser
+    <*> depositActivationParser
     <*> optional unsyncedPeriodParser
     <*> chainBackendOptionsParser
  where
-  mkCardanoChainConfig hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys startChainFrom contestationPeriod depositPeriod maybeUnsyncedPeriod chainBackendOptions =
+  mkCardanoChainConfig hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys startChainFrom contestationPeriod depositPeriod depositActivation maybeUnsyncedPeriod chainBackendOptions =
     CardanoChainConfig
       { hydraScriptsTxId
       , cardanoSigningKey
@@ -642,6 +648,7 @@ cardanoChainConfigParser =
       , startChainFrom
       , contestationPeriod
       , depositPeriod
+      , depositActivation
       , unsyncedPeriod = fromMaybe (defaultUnsyncedPeriodFor contestationPeriod) maybeUnsyncedPeriod
       , chainBackendOptions
       }
@@ -1069,8 +1076,27 @@ depositPeriodParser =
         <> showDefault
         <> completer (listCompleter ["3600", "7200", "43200"])
         <> help
-          "Minimum time before deadline to consider deposits. 2 x deposit-period \
-          \is used to set the deadline on any drafted deposit transactions."
+          "Minimum time before deadline to consider deposits. Together with \
+          \deposit-activation this sets the deadline on any drafted deposit \
+          \transactions to now + deposit-activation + 2 x deposit-period."
+    )
+
+defaultDepositActivation :: DepositPeriod
+defaultDepositActivation = DepositPeriod 3600
+
+depositActivationParser :: Parser DepositPeriod
+depositActivationParser =
+  option
+    (DepositPeriod <$> auto)
+    ( long "deposit-activation"
+        <> metavar "SECONDS"
+        <> value defaultDepositActivation
+        <> showDefault
+        <> completer (listCompleter ["3600", "7200", "43200"])
+        <> help
+          "Time a deposit must mature before it is considered active and can be \
+          \incremented. Controls only the Inactive -> Active transition, \
+          \independently of deposit-period."
     )
 
 unsyncedPeriodParser :: Parser UnsyncedPeriod
@@ -1205,6 +1231,7 @@ toArgs
           , startChainFrom
           , contestationPeriod
           , depositPeriod
+          , depositActivation
           , unsyncedPeriod
           , chainBackendOptions
           } ->
@@ -1221,6 +1248,7 @@ toArgs
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> ["--deposit-period", show depositPeriod]
+            <> ["--deposit-activation", show depositActivation]
             <> ["--unsynced-period", show unsyncedPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
