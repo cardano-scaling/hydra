@@ -336,6 +336,10 @@ hydra-node publish-scripts \
 
 This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
 
+:::info
+One of those entries is the `νCRS` output, which carries the common reference string used to verify the [membership proofs](./dev/architecture/partial-fanout.md) on every fanout transaction. A node pointed at scripts published before this output existed fails to start with a `MissingScript "νCRS"` error, so those scripts need to be re-published.
+:::
+
 ```shell
 hydra-node publish-scripts \
   --testnet-magic 42 \
