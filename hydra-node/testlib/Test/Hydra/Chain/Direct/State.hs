@@ -77,7 +77,7 @@ import Test.Hydra.Tx.Gen (
   genValidityBoundsFromContestationPeriod,
   genVerificationKey,
  )
-import Test.QuickCheck (choose, chooseEnum, elements, oneof, suchThat, vector)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, oneof, suchThat, vector)
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
@@ -655,7 +655,9 @@ genPartialFanoutTxWithComplexUTxO numParties = do
   findFittingChunk safeUnits evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
     go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
    where
-    go [] = error "genPartialFanoutTxWithComplexUTxO: no fitting chunk size found"
+    -- Some random complex UTxOs admit no chunk size that fits the safety
+    -- budget. Discard the case (QuickCheck retries a fresh draw)
+    go [] = discard
     go (n : rest) =
       let tx = unsafePartialFanout cctx spendableUTxO seedTxIn n u0 deadlineSlotNo
        in case evaluateTx' safeUnits tx evalUTxO of
