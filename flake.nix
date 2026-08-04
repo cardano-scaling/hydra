@@ -12,7 +12,7 @@
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.8.0";
     import-tree.url = "github:vic/import-tree";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
-    mithril.url = "github:input-output-hk/mithril/2617.0";
+    mithril.url = "github:input-output-hk/mithril/2630.0";
     nixpkgs.follows = "haskellNix/nixpkgs";
     nixpkgs-2411.url = "github:NixOS/nixpkgs/nixos-24.11";
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
