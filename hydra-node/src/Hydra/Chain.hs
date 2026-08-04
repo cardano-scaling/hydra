@@ -171,6 +171,14 @@ data PostTxError tx
   | -- | Committing byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
+  | -- | The deposit is too large: the increment transaction claiming it would
+    -- exceed layer 1 ledger limits (estimated sizes include a balancing margin).
+    DepositTooLarge
+      { estimatedTxSize :: Natural
+      , maximumTxSize :: Natural
+      , estimatedValueSize :: Natural
+      , maximumValueSize :: Natural
+      }
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel {failingTx :: tx}
   | NoFuelUTXOFound {failingTx :: tx}
@@ -295,13 +303,16 @@ data Chain tx m = Chain
       MonadThrow m =>
       HeadId ->
       PParams LedgerEra ->
+      ConfirmedSnapshot tx ->
       CommitBlueprintTx tx ->
       UTCTime ->
       Maybe AddressInEra ->
       m (Either (PostTxError tx) tx)
   -- ^ Create a deposit transaction using user provided utxos (zero or many) ,
   -- _blueprint_ transaction which spends these outputs and a deadline for
-  -- their inclusion into L2. Errors are handled at the call site.
+  -- their inclusion into L2. The current confirmed snapshot serves as the
+  -- basis for a dry-run increment transaction rejecting deposits which could
+  -- never be claimed. Errors are handled at the call site.
   , submitTx :: MonadThrow m => tx -> m ()
   -- ^ Submit a cardano transaction.
   --

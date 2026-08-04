@@ -171,6 +171,7 @@ channels:
         Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
           * UnsupportedLegacyOutput - 400 bad request
+          * DepositTooLarge - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -2998,6 +2999,37 @@ components:
                type: integer
                minimum: 0
             providedValue:
+               type: integer
+               minimum: 0
+        - title: DepositTooLarge
+          description: |
+            Raised if the user requests a deposit which could never be claimed:
+            the increment transaction claiming it would exceed layer 1 ledger
+            limits (maximum transaction size or maximum serialized value size
+            of the merged head output). Estimated sizes include a balancing
+            margin.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - estimatedTxSize
+          - maximumTxSize
+          - estimatedValueSize
+          - maximumValueSize
+          properties:
+            tag:
+              type: string
+              enum: ["DepositTooLarge"]
+            estimatedTxSize:
+               type: integer
+               minimum: 0
+            maximumTxSize:
+               type: integer
+               minimum: 0
+            estimatedValueSize:
+               type: integer
+               minimum: 0
+            maximumValueSize:
                type: integer
                minimum: 0
         - title: MissingTokenPolicies

@@ -31,7 +31,8 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain (PostTxError (..), maximumNumberOfParties)
+import Hydra.Chain.Direct.Handlers (incrementTxBalancingMargin, rejectOversizedDeposit, serializedValueSize)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -55,7 +56,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Tx (txInToHeadSeed)
+import Hydra.Tx (ConfirmedSnapshot (..), txInToHeadSeed)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Observe (
@@ -90,10 +91,12 @@ import Test.Hydra.Chain.Direct.State (
   genContestTx,
   genDecrementTx,
   genDepositTx,
+  genDepositTxWith,
   genFanoutTx,
   genFinalPartialFanoutTx,
   genHydraContext,
   genIncrementTx,
+  genIncrementTxWith,
   genPartialFanoutTx,
   genPartialFanoutTxWithComplexUTxO,
   genRecoverTx,
@@ -101,9 +104,9 @@ import Test.Hydra.Chain.Direct.State (
   pickChainContext,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
 import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, propTransactionEvaluates)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -115,6 +118,7 @@ import Test.QuickCheck (
   Property,
   Testable (property),
   checkCoverage,
+  choose,
   classify,
   conjoin,
   counterexample,
@@ -123,6 +127,7 @@ import Test.QuickCheck (
   forAllShow,
   forAllShrink,
   label,
+  oneof,
   tabulate,
   (.&&.),
   (===),
@@ -214,6 +219,28 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
     it "increment observation observes correct utxo" prop_incrementObservesCorrectUTxO
+
+    -- Ties 'rejectOversizedDeposit' (which sizes a dry-run increment with a
+    -- fabricated snapshot and dummy signatures) to reality: whenever the check
+    -- accepts a deposit, the real increment transaction — built with real
+    -- per-party signatures and a real accumulator — must stay within layer 1
+    -- limits. This is the regression test for drift between the dry-run
+    -- fabrication (and its balancing margin) and actual increment transactions.
+    prop "deposits accepted by rejectOversizedDeposit yield increment txs within layer 1 limits" $
+      forAllBlind (genIncrementTxWith (genDepositTxWith genMixedDeposit maximumNumberOfParties)) $
+        \(ctx, st@OpenState{headId}, txDeposit, _spendableUTxO, txIncrement) ->
+          forAllBlind (pickChainContext ctx) $ \cctx ->
+            case rejectOversizedDeposit pparamsWithMainnetValueLimit cctx (getKnownUTxO st) headId InitialSnapshot{headId} txDeposit 100 of
+              Left DepositTooLarge{} -> label "rejected" $ property True
+              Left e -> counterexample ("unexpected error: " <> show e) (property False)
+              Right () ->
+                label "accepted" $
+                  let txSize = fromIntegral $ LBS.length (serialize txIncrement)
+                      -- 5000 bytes is the maxValSize of mainnet, matching
+                      -- 'pparamsWithMainnetValueLimit'.
+                      valueFits v = serializedValueSize pparamsWithMainnetValueLimit v <= 5000
+                   in (property (txSize + incrementTxBalancingMargin <= maxTxSize) & counterexample ("Tx size too large: " <> show txSize))
+                        .&&. (property (all (valueFits . txOutValue) (txOuts' txIncrement)) & counterexample "Output value size beyond mainnet maxValSize")
 
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
@@ -536,6 +563,17 @@ forAllRecover ::
   Property
 forAllRecover action = do
   forAllShrink genRecoverTx shrink $ uncurry action
+
+-- | Deposits ranging from trivially fitting (a few ada-only outputs) to
+-- clearly oversized (>100 distinct-policy tokens whose merged value exceeds
+-- mainnet's 5000 byte maxValSize), so 'rejectOversizedDeposit' exercises both
+-- verdicts.
+genMixedDeposit :: Gen UTxO
+genMixedDeposit =
+  oneof
+    [ genUTxOAdaOnlyOfSize =<< choose (1, 10)
+    , genUTxOWithUniquePolicyTokensOfSize =<< choose (1, 140)
+    ]
 
 forAllIncrement ::
   Testable property =>
