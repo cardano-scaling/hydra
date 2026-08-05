@@ -115,7 +115,7 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds nTxs
   let fundingTransaction =
         mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
@@ -143,7 +143,7 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
   -- Prepare funding transaction which will give every client's
   -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
   -- funded in the beginning of the benchmark run.
-  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds nTxs
   let fundingTransaction =
         mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
@@ -168,8 +168,14 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
     case UTxO.find (isVkTxOut vk) utxo of
       Nothing -> error "no utxo left to spend"
       Just (txIn, txOut) -> do
-        let aBitLess = txOutValue txOut <> negateValue (lovelaceToValue 2_000_000)
-        case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, aBitLess) (mkSecret sk) of
+        -- Shave 2 ADA off to grow the UTxO set, but only while the output can
+        -- spare it and stay above the min-UTxO. Otherwise pass the full value
+        -- through, so we never build a negative TxOut.
+        let valueOut
+              | selectLovelace (txOutValue txOut) > 2 * 2_000_000 =
+                  txOutValue txOut <> negateValue (lovelaceToValue 2_000_000)
+              | otherwise = txOutValue txOut
+        case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, valueOut) (mkSecret sk) of
           Left err ->
             error $ "mkSimpleTx failed: " <> show err
           Right tx -> (utxoFromTx tx, tx : txs)
@@ -191,7 +197,7 @@ generateMixedUTxODataset ::
 generateMixedUTxODataset faucetSk nClients nTxs = do
   hydraNodeKeys <- replicateM nClients genSigningKey
   allPaymentKeys <- replicateM nClients genSigningKey
-  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds nTxs
   let fundingTransaction =
         mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
@@ -299,7 +305,7 @@ generateLargeUTxODataset ::
 generateLargeUTxODataset faucetSk nClients nTxs plateauTarget = do
   hydraNodeKeys <- replicateM nClients genSigningKey
   allPaymentKeys <- replicateM nClients genSigningKey
-  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds nTxs
   let fundingTransaction =
         mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
@@ -468,7 +474,7 @@ generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
   let (Coin fundsAvailable) = UTxO.totalLovelace faucetUTxO
   -- Generate client datasets
   allPaymentKeys <- generate $ replicateM nClients genSigningKey
-  clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable
+  clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable nTxs
   -- XXX: DRY with 'seedFromFaucet'
   fundingTransaction <- do
     let recipientOutputs =
@@ -508,10 +514,17 @@ withInitialUTxO externalSigningKey fundingTransaction =
       utxoProducedByTx fundingTransaction
         & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
 
-genClientFunds :: [SigningKey PaymentKey] -> Integer -> Gen [(VerificationKey PaymentKey, Coin)]
-genClientFunds paymentKeys availableFunds =
+genClientFunds :: [SigningKey PaymentKey] -> Integer -> Int -> Gen [(VerificationKey PaymentKey, Coin)]
+genClientFunds paymentKeys availableFunds nTxs =
   forM paymentKeys $ \paymentKey -> do
-    amount <- Coin <$> choose (1, availableFunds `div` fromIntegral nClients)
+    -- Every client must be funded enough to run its whole tx sequence. The
+    -- growing/mixed/plateau generators shave up to 4 ADA off an output per tx,
+    -- so a client funded below that budget underflows into an invalid negative
+    -- TxOut. Floor the draw at that budget (plus a min-UTxO buffer), clamped to
+    -- what is actually available.
+    let perClientBudget = (fromIntegral nTxs + 1) * 4_000_000 + 30_000_000
+        maxPerClient = availableFunds `div` fromIntegral nClients
+    amount <- Coin <$> choose (min perClientBudget maxPerClient, maxPerClient)
     pure (getVerificationKey paymentKey, amount)
  where
   nClients = length paymentKeys
