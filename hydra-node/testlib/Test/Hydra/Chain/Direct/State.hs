@@ -269,10 +269,11 @@ genInitTx ctx = do
   seedInput <- genTxIn
   pure $ initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
-genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
-genDepositTx numParties = do
+-- | Like 'genDepositTx' but depositing a UTxO drawn from the given generator.
+genDepositTxWith :: Gen UTxO -> Int -> Gen (HydraContext, OpenState, UTxO, Tx)
+genDepositTxWith genDepositUTxO numParties = do
   ctx <- genHydraContextFor numParties
-  utxoToDeposit <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
+  utxoToDeposit <- genDepositUTxO
   (_, st@OpenState{headId}) <- genStOpen ctx
   -- NOTE: Not too high so we can use chooseEnum (which goes through Int) here and in other generators
   slot <- chooseEnum (0, 1_000_000)
@@ -280,6 +281,9 @@ genDepositTx numParties = do
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
   let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxoToDeposit) slot deadline Nothing
   pure (ctx, st, utxoToDeposit, tx)
+
+genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
+genDepositTx = genDepositTxWith (genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null))
 
 genRecoverTx ::
   Gen (UTxO, Tx)
@@ -302,8 +306,22 @@ genIncrementTx ::
     , UTxO -- Deposited / to be incremented
     , Tx
     )
-genIncrementTx numParties = do
-  (ctx, st@OpenState{seedTxIn, headId}, _, txDeposit) <- genDepositTx numParties
+genIncrementTx numParties =
+  (\(ctx, st, _txDeposit, utxo, tx) -> (ctx, st, utxo, tx)) <$> genIncrementTxWith (genDepositTx numParties)
+
+-- | Like 'genIncrementTx' but building on a given deposit transaction
+-- generator and also exposing the deposit transaction itself.
+genIncrementTxWith ::
+  Gen (HydraContext, OpenState, UTxO, Tx) ->
+  Gen
+    ( HydraContext
+    , OpenState
+    , Tx -- Deposit transaction
+    , UTxO -- Spendable UTxO (head output <> deposit output)
+    , Tx -- Increment transaction
+    )
+genIncrementTxWith genDeposit = do
+  (ctx, st@OpenState{seedTxIn, headId}, _, txDeposit) <- genDeposit
   cctx <- pickChainContext ctx
   let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st
@@ -315,6 +333,7 @@ genIncrementTx numParties = do
   pure
     ( ctx
     , st
+    , txDeposit
     , openUTxO <> utxoFromTx txDeposit
     , unsafeIncrement
         cctx

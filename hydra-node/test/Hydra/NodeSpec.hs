@@ -409,7 +409,7 @@ mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
-    , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftDepositTx = \_ _ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     , checkNonADAAssets = \_ -> error "mockChain: unexpected checkNonADAAssets"
     }

@@ -30,6 +30,7 @@ import Hydra.Cardano.Api (
   UTxO,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
+  fromPlutusTxOutRef,
   fromScriptData,
   isScriptTxOut,
   mkTxIn,
@@ -39,6 +40,7 @@ import Hydra.Cardano.Api (
   txOutScriptData,
   txOutValue,
   txOuts',
+  utxoFromTx,
   pattern TxIn,
  )
 import Hydra.Chain (
@@ -63,8 +65,10 @@ import Hydra.Tx (
   getSnapshot,
   headIdToPolicyId,
   headSeedToTxIn,
+  partyFromChain,
   partyToChain,
   registryUTxO,
+  txInToHeadSeed,
  )
 import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -72,9 +76,9 @@ import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, aggregate, generateSigningKey, sign)
 import Hydra.Tx.Decrement (decrementTx)
-import Hydra.Tx.Deposit (observeDepositTxOut)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx, observeDepositTxOut)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Fanout (fanoutTx, finalPartialFanoutTx, partialFanoutTx)
@@ -215,6 +219,8 @@ data IncrementTxError
   | CannotFindDepositOutputInIncrement {depositTxId :: TxId}
   | SnapshotMissingIncrementUTxO
   | SnapshotIncrementUTxOIsNull
+  | CannotObserveDraftedDeposit
+  | CannotDecodeHeadDatumInIncrement
   deriving stock (Show)
 
 -- | Construct a increment transaction spending the head and deposit outputs in given 'UTxO',
@@ -271,6 +277,89 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
       _ -> (getSnapshot incrementingSnapshot, mempty)
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
+
+-- | Build an increment transaction claiming a drafted (not yet submitted)
+-- deposit transaction against the current head output. The incrementing
+-- snapshot is based on the given current confirmed snapshot, as the next
+-- snapshot which would commit the drafted deposit. The result can never
+-- validate on chain (for an 'InitialSnapshot' base the multi-signature is
+-- fabricated, otherwise the current snapshot's signatures do not cover the
+-- fabricated snapshot), but is byte-accurate in every component that matters
+-- for size estimation: script witnesses, datum layout, one 64-byte signature
+-- per party in the redeemer, and the merged head output value. The head seed,
+-- parties and periods are decoded from the current head output's inline datum.
+dryRunIncrementTx ::
+  ChainContext ->
+  -- | Spendable UTxO containing the current head output.
+  UTxO ->
+  HeadId ->
+  -- | Current confirmed snapshot, basis for the incrementing snapshot.
+  ConfirmedSnapshot Tx ->
+  -- | Drafted (unbalanced) deposit transaction.
+  Tx ->
+  -- | Upper validity slot.
+  SlotNo ->
+  Either IncrementTxError Tx
+dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperValiditySlot = do
+  DepositObservation{deposited, depositTxId} <-
+    observeDepositTx networkId depositDraftTx ?> CannotObserveDraftedDeposit
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
+  (_, headOut) <-
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
+      ?> CannotFindHeadOutputInIncrement
+  (headSeed, headParameters) <- decodeOpenDatum headOut
+  let HeadParameters{parties} = headParameters
+      Snapshot{version, number, utxo, accumulator} = getSnapshot currentSnapshot
+      snapshot =
+        Snapshot
+          { headId
+          , version
+          , number = number + 1
+          , confirmed = []
+          , utxo
+          , utxoToCommit = Just deposited
+          , utxoToDecommit = Nothing
+          , -- Only the constant-size hash of the accumulator ends up in the
+            -- transaction.
+            accumulator
+          }
+      signatures = case currentSnapshot of
+        -- Real multi-signature of the right multiplicity; that it does not
+        -- cover the fabricated snapshot is irrelevant, the dry-run is never
+        -- verified.
+        ConfirmedSnapshot{signatures = sigs} -> sigs
+        -- The initial snapshot carries no signatures, so fabricate one
+        -- never-verified, but byte-identical, signature per party.
+        _ -> aggregate (sign dummySigningKey snapshot <$ parties)
+  increment
+    ctx
+    -- Inject the not-yet-submitted deposit output into the spendable set.
+    (spendableUTxO <> utxoFromTx depositDraftTx)
+    (headSeed, headId)
+    headParameters
+    ConfirmedSnapshot{snapshot, signatures}
+    depositTxId
+    upperValiditySlot
+ where
+  dummySigningKey = generateSigningKey "hydra-dry-run-increment"
+
+  ChainContext{networkId} = ctx
+
+-- | Decode head seed and parameters from the inline datum of a head output.
+decodeOpenDatum :: TxOut CtxUTxO -> Either IncrementTxError (HeadSeed, HeadParameters)
+decodeOpenDatum headOut =
+  case fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headOut) of
+    Just (Head.Open Head.OpenDatum{headSeed, parties = onChainParties, contestationPeriod, depositPeriod}) -> do
+      parties <- traverse partyFromChain onChainParties ?> CannotDecodeHeadDatumInIncrement
+      pure
+        ( txInToHeadSeed (fromPlutusTxOutRef headSeed)
+        , HeadParameters
+            { contestationPeriod = ContestationPeriod.fromChain contestationPeriod
+            , depositPeriod = DepositPeriod.fromChain depositPeriod
+            , parties
+            }
+        )
+    _ -> Left CannotDecodeHeadDatumInIncrement
 
 -- | Possible errors when trying to construct decrement tx
 data DecrementTxError
