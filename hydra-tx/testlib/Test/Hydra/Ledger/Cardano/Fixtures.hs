@@ -14,6 +14,7 @@
 module Test.Hydra.Ledger.Cardano.Fixtures (
   -- * Test Fixtures
   pparams,
+  pparamsWithMainnetValueLimit,
   maxTxSize,
   maxTxExecutionUnits,
   maxMem,
@@ -119,6 +120,12 @@ pparams =
             ]
         )
     & ppMinFeeRefScriptCostPerByteL .~ fromJust (boundRational (15 % 1))
+
+-- | Like 'pparams' but with the maximum serialized value size of mainnet
+-- (5000 bytes), which the default fixture disables. Use this to exercise the
+-- ledger's OutputTooBigUTxO limit in tests.
+pparamsWithMainnetValueLimit :: PParams LedgerEra
+pparamsWithMainnetValueLimit = pparams & ppMaxValSizeL .~ 5000
 
 maxTxSize :: Natural
 maxTxSize = 16384

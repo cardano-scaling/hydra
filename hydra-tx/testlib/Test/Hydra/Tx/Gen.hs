@@ -206,6 +206,33 @@ genUTxOWithTokensOfSize numUTxO = do
         out = TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) baseValue TxOutDatumNone ReferenceScriptNone
     pure $ UTxO.singleton txIn (ensureMinAda out)
 
+-- | Generate a fixed size UTxO where every output carries a native token under
+-- a distinct policy id. Every output grows the accumulated head-output value by
+-- a full (policyId, assetName, quantity) entry (~50 bytes serialized), so large
+-- sizes exercise the ledger's max value size limit — in contrast to
+-- 'genUTxOWithTokensOfSize' which deliberately shares a single policy.
+genUTxOWithUniquePolicyTokensOfSize :: Int -> Gen UTxO
+genUTxOWithUniquePolicyTokensOfSize numUTxO =
+  fold <$> vectorOf numUTxO gen
+ where
+  gen :: Gen UTxO
+  gen = do
+    -- NOTE: Deliberately NOT the 'Arbitrary' 'PolicyId' instance, which mostly
+    -- repeats a handful of fixed policy ids. 28 random bytes yield genuinely
+    -- distinct policies, and are much cheaper than hashing actual minting
+    -- scripts.
+    policyId <-
+      either (error . show) id . deserialiseFromRawBytes AsPolicyId . BS.pack <$> vector 28
+    txIn <- arbitrary
+    vk <- arbitrary
+    let tokenValue = fromList [(AssetId policyId assetName, 1)]
+        baseValue = lovelaceToValue (Coin 3_000_000) <> tokenValue
+        out :: TxOut CtxUTxO
+        out = TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) baseValue TxOutDatumNone ReferenceScriptNone
+    pure $ UTxO.singleton txIn (ensureMinAda out)
+
+  assetName = UnsafeAssetName "unique-policy-token"
+
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
 genOneUTxOFor vk = do

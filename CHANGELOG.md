@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- The `POST /commit` endpoint now rejects deposits that could never be claimed:
+  a dry-run increment transaction is checked against the layer 1 maximum
+  transaction size and maximum serialized value size (5000 bytes on mainnet,
+  typically hit first by deposits with tokens under many distinct policy ids),
+  returning a new `DepositTooLarge` error (HTTP 400). Previously such a deposit
+  transaction succeeded, but the increment transaction claiming it could never
+  land on-chain, leaving the funds locked until recovery after the deadline and
+  wedging further incremental commits until the head closed.
+
 - Fix long-running nodes rejecting layer 2 Plutus transactions that carry a
   validity bound. The era history queried at startup has a forecast horizon
   (36 hours on mainnet/preprod, shorter on other networks), and once the node

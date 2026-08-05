@@ -10,10 +10,16 @@ module Hydra.Chain.Direct.Handlers where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
+import Cardano.Ledger.Api (ppMaxValSizeL)
+import Cardano.Ledger.BaseTypes (ProtVer (..))
+import Cardano.Ledger.Binary (serialize)
+import Cardano.Ledger.Core (PParams, ppMaxTxSizeL, ppProtocolVersionL)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
+import Control.Lens ((^.))
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
@@ -27,6 +33,7 @@ import Hydra.Cardano.Api (
   TxIn,
   TxOut,
   UTxO,
+  Value,
   calculateMinimumUTxO,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
@@ -34,9 +41,13 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   liftEither,
+  serialiseToCBOR,
   shelleyBasedEra,
   throwError,
+  toLedgerValue,
   txOutAddress,
+  txOutValue,
+  txOuts',
   pattern ByronAddressInEra,
  )
 import Hydra.Chain (
@@ -64,6 +75,7 @@ import Hydra.Chain.Direct.State (
   close,
   contest,
   decrement,
+  dryRunIncrementTx,
   fanout,
   finalPartialFanout,
   getKnownUTxO,
@@ -84,6 +96,8 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
   CommitBlueprintTx (..),
+  ConfirmedSnapshot,
+  HeadId,
   HeadParameters (..),
   IsTx (..),
   UTxOType,
@@ -249,7 +263,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             atomically (prepareTxToPost timeHandle ctx spendableUTxO tx)
               >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , draftDepositTx = \headId pparams commitBlueprintTx deadline changeAddress -> do
+    , draftDepositTx = \headId pparams currentSnapshot commitBlueprintTx deadline changeAddress -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
         TimeHandle{currentPointInTime} <- queryTimeHandle
@@ -270,8 +284,10 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             let graceTime = maxGraceTime `min` untilDeadline / 2
             -- -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
-            lift . finalizeTx wallet ctx spendableUTxO lookupUTxO $
-              depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress
+            let depositDraftTx = depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress
+            l1PParams <- lift $ getPParams wallet
+            liftEither $ rejectOversizedDeposit l1PParams ctx spendableUTxO headId currentSnapshot depositDraftTx validBeforeSlot
+            lift $ finalizeTx wallet ctx spendableUTxO lookupUTxO depositDraftTx
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
@@ -309,6 +325,56 @@ rejectByronAddresses utxo =
   toByronAddr (_, out) = case txOutAddress out of
     ByronAddressInEra addr -> [addr]
     _ -> []
+
+-- | Reject deposits which could never be claimed: builds a dry-run increment
+-- transaction for the drafted deposit and rejects with 'DepositTooLarge' when
+-- it would violate layer 1 ledger limits - the maximum transaction size, or
+-- the maximum serialized value size of the merged head output.
+rejectOversizedDeposit ::
+  -- | Layer 1 protocol parameters (from 'getPParams' of the wallet, NOT the L2
+  -- ledger parameters passed to the draft endpoint).
+  PParams LedgerEra ->
+  ChainContext ->
+  -- | Spendable UTxO containing the current head output.
+  UTxO ->
+  HeadId ->
+  -- | Current confirmed snapshot, basis for the dry-run increment.
+  ConfirmedSnapshot Tx ->
+  -- | Drafted (unbalanced) deposit transaction.
+  Tx ->
+  -- | Upper validity slot for the dry-run increment.
+  SlotNo ->
+  Either (PostTxError Tx) ()
+rejectOversizedDeposit pparams ctx spendableUTxO headId currentSnapshot depositDraftTx upperValiditySlot = do
+  dryRunTx <-
+    first
+      (\err -> FailedToConstructDepositTx{failureReason = "increment dry-run: " <> show err})
+      (dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperValiditySlot)
+  let estimatedTxSize = fromIntegral (BS.length (serialiseToCBOR dryRunTx)) + incrementTxBalancingMargin
+      maximumTxSize = fromIntegral (pparams ^. ppMaxTxSizeL)
+      -- The dry-run increment has exactly one output: the merged head output.
+      estimatedValueSize = foldr (max . serializedValueSize pparams . txOutValue) 0 (txOuts' dryRunTx)
+      maximumValueSize = fromIntegral (pparams ^. ppMaxValSizeL)
+  when (estimatedTxSize > maximumTxSize || estimatedValueSize > maximumValueSize) $
+    Left DepositTooLarge{estimatedTxSize, maximumTxSize, estimatedValueSize, maximumValueSize}
+
+-- | Serialized size of a value, computed exactly like the ledger's
+-- OutputTooBigUTxO check. NOTE: Keep in sync with
+-- 'Cardano.Ledger.Alonzo.Rules.validateOutputTooBigUTxO'.
+serializedValueSize :: PParams LedgerEra -> Value -> Natural
+serializedValueSize pparams =
+  fromIntegral . BSL.length . serialize (pvMajor (pparams ^. ppProtocolVersionL)) . toLedgerValue
+
+-- | Byte headroom added to the unbalanced dry-run increment transaction when
+-- comparing against the maximum transaction size, covering what 'coverFee' and
+-- 'sign' add to the real increment: a fee input (~40 bytes), a collateral
+-- input (~40 bytes), an ada-only change output (~70 bytes), the script
+-- integrity hash (~37 bytes), the fee field (~5 bytes), one key witness (~102
+-- bytes), and wider integer encodings for the estimated execution units,
+-- snapshot number and validity slot (~40 bytes) - around 334 bytes in total.
+-- We add some overhead and use 512 just to be more safe.
+incrementTxBalancingMargin :: Natural
+incrementTxBalancingMargin = 512
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::
