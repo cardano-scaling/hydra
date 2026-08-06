@@ -96,7 +96,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { submitTx = const $ pure ()
-      , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
+      , draftDepositTx = \_ _ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = \case
           -- Simulate on-chain confirmation of increment by immediately emitting
           -- OnIncrementTx. This allows the offline head to go through the full

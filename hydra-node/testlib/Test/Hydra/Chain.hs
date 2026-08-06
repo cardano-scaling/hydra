@@ -12,6 +12,7 @@ import Hydra.Chain (ChainEvent, ChainStateHistory, OnChainTx, PostChainTx (..), 
 import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 

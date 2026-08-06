@@ -153,7 +153,7 @@ The Hydra Head protocol requires a connection to Cardano layer 1 to verify and p
 Download the latest blockchain snapshot using `mithril-client` configured for the `preprod` network:
 
 ```shell
-mithril-client --origin-tag HYDRA cardano-db download latest --include-ancillary
+mithril-client --origin-tag HYDRA cardano-db download latest --backend v2 --include-ancillary
 ```
 
 <details>
