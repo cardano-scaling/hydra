@@ -1791,6 +1791,11 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         distributedUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
+        finalizedDecommitTxId:
+          description: The layer 2 decommit transaction id this finalizes, when known. Lets clients correlate this with the decommit they submitted.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/TxId"
+            - type: "null"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

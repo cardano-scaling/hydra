@@ -24,7 +24,7 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
-import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
+import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType, getSnapshot)
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
@@ -335,15 +335,21 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
     Right recoverTxId -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput Recover{recoverTxId}
+      -- Only react to events for the recover we submitted: gate every arm on
+      -- 'recoverTxId' so concurrent recover requests do not receive each
+      -- other's results.
       let wait = do
             event <- atomically $ readTChan dupChannel
             case event of
-              Left TimedServerOutput{output = CommitRecovered{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
-              Right (CommandFailed{clientInput = Recover{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
-              Right (RejectedInputBecauseUnsynced{clientInput = Recover{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Recover failed because node is out of sync with chain, drift: " <> show drift))
+              Left TimedServerOutput{output = CommitRecovered{recoveredTxId}}
+                | recoveredTxId == recoverTxId ->
+                    pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (CommandFailed{clientInput = Recover{recoverTxId = failedTxId}})
+                | failedTxId == recoverTxId ->
+                    pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = Recover{recoverTxId = rejectedTxId}, drift})
+                | rejectedTxId == recoverTxId ->
+                    pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Recover failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -391,7 +397,7 @@ handleSubmitUserTx directChain body = do
 
 handleDecommit ::
   forall tx.
-  FromJSON tx =>
+  IsChainState tx =>
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -404,17 +410,26 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
     Right decommitTx -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput Decommit{decommitTx}
-      let wait = do
+      -- Only react to events for the decommit we submitted: gate every arm on
+      -- its tx id so concurrent decommit requests do not receive each other's
+      -- results. 'DecommitFinalized' now carries the decommit tx id for exactly
+      -- this correlation.
+      let submittedTxId = txId decommitTx
+          wait = do
             event <- atomically $ readTChan dupChannel
             case event of
-              Left TimedServerOutput{output = DecommitFinalized{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
-              Left TimedServerOutput{output = DecommitInvalid{}} ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
-              Right (CommandFailed{clientInput = Decommit{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
-              Right (RejectedInputBecauseUnsynced{clientInput = Decommit{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Decommit failed because because node is out of sync with chain, drift: " <> show drift))
+              Left TimedServerOutput{output = DecommitFinalized{finalizedDecommitTxId = Just finalizedTxId}}
+                | finalizedTxId == submittedTxId ->
+                    pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Left TimedServerOutput{output = DecommitInvalid{decommitTx = invalidTx}}
+                | txId invalidTx == submittedTxId ->
+                    pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
+              Right (CommandFailed{clientInput = Decommit{decommitTx = failedTx}})
+                | txId failedTx == submittedTxId ->
+                    pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = Decommit{decommitTx = rejectedTx}, drift})
+                | txId rejectedTx == submittedTxId ->
+                    pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Decommit failed because because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -446,17 +461,26 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
     Right SideLoadSnapshotRequest{snapshot} -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput $ SideLoadSnapshot snapshot
-      let wait = do
+      -- Only react to events for the snapshot we requested: gate every arm on
+      -- its number so concurrent side-load requests do not receive each other's
+      -- results.
+      let requestedNumber = number $ getSnapshot snapshot
+          sideLoadNumber = number . getSnapshot
+          wait = do
             event <- atomically $ readTChan dupChannel
             case event of
-              Left TimedServerOutput{output = SnapshotSideLoaded{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
-              Right (SideLoadSnapshotRejected{clientInput = SideLoadSnapshot{}, requirementFailure}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
-              Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
-              Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift))
+              Left TimedServerOutput{output = SnapshotSideLoaded{snapshotNumber}}
+                | snapshotNumber == requestedNumber ->
+                    pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (SideLoadSnapshotRejected{clientInput = SideLoadSnapshot{snapshot = rejected}, requirementFailure})
+                | sideLoadNumber rejected == requestedNumber ->
+                    pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
+              Right (CommandFailed{clientInput = SideLoadSnapshot{snapshot = failed}})
+                | sideLoadNumber failed == requestedNumber ->
+                    pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{snapshot = rejected}, drift})
+                | sideLoadNumber rejected == requestedNumber ->
+                    pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r

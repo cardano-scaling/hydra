@@ -673,7 +673,7 @@ spec = parallel $ do
                     _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRef 42}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42, finalizedDecommitTxId = Just (txId decommitTx)}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
@@ -708,7 +708,7 @@ spec = parallel $ do
                     _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [88]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 88}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 88, finalizedDecommitTxId = Just (txId decommitTx)}
 
                   headUTxO2 <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO2 `shouldSatisfy` (not . member 11)
@@ -743,7 +743,7 @@ spec = parallel $ do
                     _ -> Nothing
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRefs [42]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42, finalizedDecommitTxId = Just (txId decommitTx)}
 
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
@@ -768,11 +768,11 @@ spec = parallel $ do
                       , decommitInvalidReason = DecommitAlreadyInFlight{otherDecommitTxId = txId decommitTx1}
                       }
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42, finalizedDecommitTxId = Just (txId decommitTx1)}
 
                   send n2 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx2, utxoToDecommit = utxoRefs [22]}
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 22}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 22, finalizedDecommitTxId = Just (txId decommitTx2)}
 
         it "can process transactions while decommit pending" $
           shouldRunInSim $ do
@@ -794,7 +794,7 @@ spec = parallel $ do
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
                     _ -> Nothing
 
-                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42, finalizedDecommitTxId = Just (txId decommitTx)}
 
         it "can fanout with decommit in flight" $
           shouldRunInSim $ do
@@ -847,6 +847,7 @@ spec = parallel $ do
                     DecommitFinalized
                       { headId = testHeadId
                       , distributedUTxO = utxoRef 42
+                      , finalizedDecommitTxId = Just (txId decommitTx)
                       }
                   let decommitTx2 = aValidTx 88
                   send n1 (Decommit{decommitTx = decommitTx2})
@@ -854,6 +855,7 @@ spec = parallel $ do
                     DecommitFinalized
                       { headId = testHeadId
                       , distributedUTxO = utxoRef 88
+                      , finalizedDecommitTxId = Just (txId decommitTx2)
                       }
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}

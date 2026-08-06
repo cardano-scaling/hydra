@@ -56,6 +56,7 @@
                     }
                 }
             },
+            "finalizedDecommitTxId": null,
             "headId": "00000001000000000001000101010100",
             "newVersion": 1,
             "tag": "DecommitFinalized"

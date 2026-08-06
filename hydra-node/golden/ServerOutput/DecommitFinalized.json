@@ -2,6 +2,7 @@
     "samples": [
         {
             "distributedUTxO": {},
+            "finalizedDecommitTxId": null,
             "headId": "01000101010100010100000001010100",
             "tag": "DecommitFinalized"
         }

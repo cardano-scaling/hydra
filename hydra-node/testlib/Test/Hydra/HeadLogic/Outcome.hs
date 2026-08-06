@@ -78,7 +78,7 @@ genStateChanged env =
     , DecommitRecorded <$> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , HeadIsReadyToFanout <$> arbitrary

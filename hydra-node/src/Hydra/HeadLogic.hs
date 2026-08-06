@@ -1091,12 +1091,13 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , headId
       , newVersion
       , distributedUTxO
+      , finalizedDecommitTxId = txId <$> decommitTx
       }
     <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot (setExistingDeposit pendingDeposits currentDepositTxId)
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot, decommitTx} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 

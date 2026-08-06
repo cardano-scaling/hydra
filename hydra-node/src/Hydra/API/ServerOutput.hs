@@ -186,7 +186,7 @@ data ServerOutput tx
   | DecommitRequested {headId :: HeadId, decommitTx :: tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
-  | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
+  | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx, finalizedDecommitTxId :: Maybe (TxIdType tx)}
   | -- TODO: Rename to DepositRecorded following the state events naming. But only
     -- do this when changing the endpoint also to /deposits
     CommitRecorded

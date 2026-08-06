@@ -45,7 +45,7 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.IsTx (UTxOType, txId)
-import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -434,12 +434,11 @@ apiServerSpec = do
 
       it "returns 200 on SnapshotSideLoaded" $ do
         responseChannel <- newTChanIO
-        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
-        request <- reqGen
+        request@(SideLoadSnapshotRequest snapshot) <- generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
         now' <- getCurrentTime
         let event =
               TimedServerOutput
-                { output = SnapshotSideLoaded{headId = generateWith arbitrary 42, snapshotNumber = 7}
+                { output = SnapshotSideLoaded{headId = generateWith arbitrary 42, snapshotNumber = number (getSnapshot snapshot)}
                 , seq = 0
                 , time = now'
                 }
@@ -812,7 +811,7 @@ apiServerSpec = do
         now' <- getCurrentTime
         let event =
               TimedServerOutput
-                { output = DecommitFinalized{headId = generateWith arbitrary 42, distributedUTxO = mempty}
+                { output = DecommitFinalized{headId = generateWith arbitrary 42, distributedUTxO = mempty, finalizedDecommitTxId = Just (txId tx)}
                 , seq = 0
                 , time = now'
                 }

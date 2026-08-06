@@ -122,6 +122,9 @@ data StateChanged tx
       , headId :: HeadId
       , distributedUTxO :: UTxOType tx
       , newVersion :: SnapshotVersion
+      , finalizedDecommitTxId :: Maybe (TxIdType tx)
+      -- ^ The layer 2 decommit tx this finalizes, when known. Lets clients
+      -- correlate a 'DecommitFinalized' with the decommit they submitted.
       }
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
