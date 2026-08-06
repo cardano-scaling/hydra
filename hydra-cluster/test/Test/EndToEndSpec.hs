@@ -76,7 +76,7 @@ import Hydra.Cluster.Scenarios (
   startWithWrongPeers,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
-  waitsForChainInSyncAndSecure,
+  waitsForChainInSync,
  )
 import Hydra.Cluster.SecurityScenarios (
   cannotAbsorbDepositDuringClose,
@@ -604,11 +604,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             publishHydraScriptsAs (Direct directOpts) Faucet
               >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir (Direct directOpts)
 
-      it "prevents network interactions until chain opts is in sync and secure." $ \tracer -> do
+      it "reports catching up and then in sync after restarting behind the chain" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ directOpts ->
             publishHydraScriptsAs (Direct directOpts) Faucet
-              >>= waitsForChainInSyncAndSecure tracer tmpDir (Direct directOpts)
+              >>= waitsForChainInSync tracer tmpDir (Direct directOpts)
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->

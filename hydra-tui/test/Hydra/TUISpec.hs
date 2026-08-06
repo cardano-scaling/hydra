@@ -17,6 +17,7 @@ import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey, EvPaste),
   Key (KBS, KChar, KEnd, KEnter, KEsc, KFun, KLeft, KRight),
+  Mode (BracketedPaste, Mouse),
   Modifier (MCtrl),
   Output (..),
   Vty (..),
@@ -59,6 +60,7 @@ import HydraNode (
  )
 import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
+import System.IO.Unsafe (unsafePerformIO)
 import System.Posix (OpenMode (WriteOnly), defaultFileFlags, openFd, stdInput)
 import Test.QuickCheck (Positive (..))
 
@@ -589,83 +591,22 @@ setupNodeAndTUIWithIsolatedXdg action =
             action IsolatedXdgTest{tuiTest, xdgConfigHome = xdgDir}
       )
 
-data TUITest = TUITest
-  { buildVty :: IO Vty
-  , sendInputEvent :: Event -> IO ()
-  , getPicture :: IO ByteString
-  , shouldRender :: HasCallStack => ByteString -> Expectation
-  -- ^ Assert that some bytes are present in the frame. The unescaped image
-  -- data is used in this assertion. That means, you do not need to include
-  -- color switching escape codes etc. in your 'expected' bytes.
-  , shouldNotRender :: HasCallStack => ByteString -> Expectation
-  }
+-- | Built once per process: 'System.Console.Terminfo' drives ncurses' global
+-- @cur_term@ and is not thread-safe, so terminfo must not be touched once the
+-- tests are running.
+sharedOutputVar :: MVar IO (Maybe Output)
+sharedOutputVar = unsafePerformIO (newMVar Nothing)
+{-# NOINLINE sharedOutputVar #-}
 
-withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
-withTUITest region action = do
-  frameBuffer <- newIORef mempty
-  q <- newLabelledTQueueIO "tui-queue"
-  let getPicture = readIORef frameBuffer
-  action $
-    TUITest
-      { buildVty = buildVty q frameBuffer
-      , sendInputEvent = atomically . writeTQueue q
-      , getPicture
-      , shouldRender = \expected -> do
-          -- Poll the frame buffer until @expected@ appears or the budget runs
-          -- out. The TUI updates asynchronously (vty render + WebSocket event
-          -- stream), so a single point check after a fixed 'threadDelay' is
-          -- racy under CI load — especially after 'restartNode', where a full
-          -- node restart (etcd spawn, KZG warm-up, state hydration) plus the
-          -- TUI reconnect must fit in the budget. Generous on purpose: the
-          -- poll returns as soon as the bytes appear, so passing tests do not
-          -- pay for it, and 5s proved too eager on loaded CI runners.
-          let budget = 30 :: NominalDiffTime
-          deadline <- addUTCTime budget <$> getCurrentTime
-          let loop = do
-                bytes <- getPicture
-                let unescaped = findBytes bytes
-                if expected `BS.isInfixOf` unescaped
-                  then pure ()
-                  else do
-                    now <- getCurrentTime
-                    if now >= deadline
-                      then
-                        failure $
-                          "Expected bytes not found in frame within "
-                            <> show budget
-                            <> ": "
-                            <> decodeUtf8 expected
-                            <> "\n"
-                            <> decodeUtf8 unescaped
-                      else threadDelay 0.05 >> loop
-          loop
-      , shouldNotRender = \expected -> do
-          bytes <- getPicture
-          let unescaped = findBytes bytes
-          when (expected `BS.isInfixOf` unescaped) $
-            failure $
-              "NOT Expected bytes found in frame: "
-                <> decodeUtf8 expected
-                <> "\n"
-                <> decodeUtf8 unescaped
-      }
+sharedOutput :: IO Output
+sharedOutput =
+  modifyMVar sharedOutputVar $ \case
+    Just out -> pure (Just out, out)
+    Nothing -> do
+      out <- buildSharedOutput
+      pure (Just out, out)
  where
-  -- Split at '\ESC' (27) and drop until 'm' (109)
-  findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
-
-  buildVty q frameBuffer = do
-    chan <- newTChanIO
-    let input =
-          Input
-            { eventChannel = chan
-            , shutdownInput = pure ()
-            , restoreInputState = pure ()
-            , inputLogMsg = \_ -> pure ()
-            }
-    -- NOTE(SN): This is used by outputPicture and we hack it such that it
-    -- always has the initial state to get a full rendering of the picture. That
-    -- way we can capture output bytes line-by-line and drop the cursor moving.
-    as <- newIORef initialAssumedState
+  buildSharedOutput = do
     -- NOTE: Direct escape sequences written by the Output (e.g. setMode for
     -- mouse) to /dev/null so they don't pollute the terminal. We also avoid
     -- 'Graphics.Vty.Platform.Unix.Settings.defaultSettings' because it calls
@@ -682,7 +623,106 @@ withTUITest region action = do
             , settingTermName = termName
             }
     userCfg <- userConfig
-    realOut <- buildOutput userCfg settings
+    out <- buildOutput userCfg settings
+    -- These capabilities are lazy thunks over 'withCurTerm'; force them here
+    -- so no test thread does.
+    _ <- evaluate (outputColorMode out)
+    _ <- evaluate (supportsMode out Mouse)
+    _ <- evaluate (supportsMode out BracketedPaste)
+    pure out
+
+data TUITest = TUITest
+  { buildVty :: IO Vty
+  , sendInputEvent :: Event -> IO ()
+  , getPicture :: IO ByteString
+  , shouldRender :: HasCallStack => ByteString -> Expectation
+  -- ^ Assert that some bytes were rendered, in the current frame or in one
+  -- rendered since the last 'sendInputEvent' or satisfied assertion. The
+  -- unescaped image data is used in this assertion. That means, you do not
+  -- need to include color switching escape codes etc. in your 'expected' bytes.
+  , shouldNotRender :: HasCallStack => ByteString -> Expectation
+  -- ^ Assert that some bytes are not on screen now. Deliberately narrower than
+  -- 'shouldRender': a frame that has since been replaced is not on screen.
+  }
+
+withTUITest :: DisplayRegion -> (TUITest -> Expectation) -> Expectation
+withTUITest region action = do
+  frameBuffer <- newIORef mempty
+  -- Completed frames not yet accounted for by a 'shouldRender', oldest first.
+  pendingFrames <- newIORef []
+  q <- newLabelledTQueueIO "tui-queue"
+  let getPicture = readIORef frameBuffer
+  action $
+    TUITest
+      { buildVty = buildVty q frameBuffer pendingFrames
+      , sendInputEvent = \e -> do
+          -- Frames drawn before this input cannot satisfy an assertion about
+          -- its effect.
+          atomicModifyIORef'_ pendingFrames (const [])
+          atomically $ writeTQueue q e
+      , getPicture
+      , shouldRender = \expected -> do
+          -- Matches a frame rendered since the last input, not just the newest
+          -- one: the feedback line is a single slot that a background refresh
+          -- can overwrite within milliseconds.
+          let budget = 30 :: NominalDiffTime
+              matches = BS.isInfixOf expected . findBytes
+              -- Atomic: the render thread appends concurrently, and a
+              -- read-then-write would drop frames appended in between.
+              consume = atomicModifyIORef' pendingFrames $ \seen ->
+                case break matches seen of
+                  (_, _ : rest) -> (rest, Nothing)
+                  (_, []) -> (seen, Just (length seen))
+          deadline <- addUTCTime budget <$> getCurrentTime
+          let loop =
+                consume >>= \case
+                  Nothing -> pure ()
+                  Just inspected -> do
+                    current <- getPicture
+                    if matches current
+                      then -- Only what we inspected; never frames appended since.
+                        atomicModifyIORef'_ pendingFrames (drop inspected)
+                      else do
+                        now <- getCurrentTime
+                        if now >= deadline
+                          then
+                            failure $
+                              "Expected bytes not found in frame within "
+                                <> show budget
+                                <> ": "
+                                <> decodeUtf8 expected
+                                <> "\n"
+                                <> decodeUtf8 (findBytes current)
+                          else threadDelay 0.05 >> loop
+          loop
+      , shouldNotRender = \expected -> do
+          bytes <- getPicture
+          let unescaped = findBytes bytes
+          when (expected `BS.isInfixOf` unescaped) $
+            failure $
+              "NOT Expected bytes found in frame: "
+                <> decodeUtf8 expected
+                <> "\n"
+                <> decodeUtf8 unescaped
+      }
+ where
+  -- Split at '\ESC' (27) and drop until 'm' (109)
+  findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
+
+  buildVty q frameBuffer pendingFrames = do
+    chan <- newTChanIO
+    let input =
+          Input
+            { eventChannel = chan
+            , shutdownInput = pure ()
+            , restoreInputState = pure ()
+            , inputLogMsg = \_ -> pure ()
+            }
+    -- NOTE(SN): This is used by outputPicture and we hack it such that it
+    -- always has the initial state to get a full rendering of the picture. That
+    -- way we can capture output bytes line-by-line and drop the cursor moving.
+    as <- newIORef initialAssumedState
+    realOut <- sharedOutput
     let output = testOut realOut as frameBuffer
     -- Poll the test event queue instead of STM-blocking on it. A blocking
     -- 'readTQueue q' makes GHC raise 'BlockedIndefinitelyOnSTM' against the
@@ -708,7 +748,11 @@ withTUITest region action = do
             -- output is leveraging this to not have re-locating write cursor
             -- escape codes in the output bytes.
             writeIORef as initialAssumedState
-            -- Clear our frame buffer to only keep the latest
+            -- Keep the frame we are about to drop, so a message that appears
+            -- only briefly is still assertable.
+            finished <- readIORef frameBuffer
+            unless (BS.null finished) $
+              atomicModifyIORef'_ pendingFrames (<> [finished])
             atomicModifyIORef'_ frameBuffer (const mempty)
             dc <- displayContext output region
             outputPicture dc p
