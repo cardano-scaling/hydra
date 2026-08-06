@@ -131,9 +131,11 @@ lint PKG="all":
 docs:
   #!/usr/bin/env bash
   set -euo pipefail
-  nix develop .#default --command bash -c '\
-    cabal run hydra-node:tx-cost -- --seed 42 --output-directory docs/benchmarks && \
-    cd docs && yarn start'
+  nix develop .#default --command bash -c '
+    cabal run hydra-node:tx-cost -- --seed 42 --output-directory docs/benchmarks
+    cd docs
+    yarn install --frozen-lockfile
+    yarn start'
 
 # run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
 # BENCH_MAX_UTXO=4000 includes the largest grid cells

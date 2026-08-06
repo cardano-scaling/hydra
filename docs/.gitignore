@@ -14,6 +14,11 @@
 # preBuild and the `docs` just recipe). Never committed.
 /benchmarks/transaction-cost.md
 
+# plantuml byproducts from `yarn regenerate-plantuml`. Only the committed
+# hydra-components.svg is used; the .png and .cmapx regenerate on every build.
+/docs/dev/architecture/hydra-components.png
+/docs/dev/architecture/hydra-components.cmapx
+
 # Misc
 .DS_Store
 .env.local

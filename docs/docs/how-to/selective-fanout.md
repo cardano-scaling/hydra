@@ -11,7 +11,8 @@ you care about, and leaving the rest in the head to fan out later.
 
 This how-to assumes we are in a similar situation as in the [Getting
 started](../getting-started) or [Testnet tutorial](../tutorial): a head has been
-`Close`d and the node has emitted a `ReadyToFanout` message.
+`Close`d and the node has emitted a `ReadyToFanout` message. For how this works
+on-chain, see [Partial fanout](../dev/architecture/partial-fanout).
 
 Open a WebSocket session if you haven't already:
 

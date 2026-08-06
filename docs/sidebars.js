@@ -69,7 +69,7 @@ module.exports = {
       type: "category",
       link: { type: "doc", id: "dev/architecture/index" },
       label: "Architecture",
-      items: ["dev/architecture/event-sourcing", "dev/architecture/networking"],
+      items: ["dev/architecture/event-sourcing", "dev/architecture/networking", "dev/architecture/partial-fanout"],
     },
     {
       type: "doc",

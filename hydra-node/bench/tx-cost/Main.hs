@@ -356,13 +356,15 @@ costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed comp
       , "Largest chunk of ada-only outputs that can be distributed in one partial fanout step, computed dynamically. "
           <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
-      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      , "| Total UTxO | Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ---------: | ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numTotal, numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
-                <> show numDistributed
+                <> show numTotal
+                <> " | "
+                <> show (numTotal - numRemaining)
                 <> " | "
                 <> show utxoSize
                 <> " | "
@@ -387,13 +389,15 @@ costOfPartialFanOutMixed = markdownPartialFanOutMixedCost . genFromSeed computeP
       , "Largest chunk of native-token outputs that can be distributed in one partial fanout step, computed dynamically. "
           <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
-      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      , "| Total UTxO | Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ---------: | ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numTotal, numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
-                <> show numDistributed
+                <> show numTotal
+                <> " | "
+                <> show (numTotal - numRemaining)
                 <> " | "
                 <> show utxoSize
                 <> " | "
