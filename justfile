@@ -155,3 +155,10 @@ bench-e2e DATASET:
   nix develop .#hydra-cluster-bench \
     --command bench-e2e single "{{DATASET}}" --output-directory "$outdir"
   echo "Results in: $outdir"
+
+# Needs agda + typst (both in the nix dev shell); mirrors `nix build .#spec` but
+# runs in place for fast iteration.
+#
+# Agda typechecks the literate-Typst sources, then Typst renders spec/_build/hydra-spec.pdf.
+spec:
+  spec/build.sh
