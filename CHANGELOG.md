@@ -66,6 +66,20 @@ changes.
   observed a block (so a stalled chain backend can be detected even while drift is
   frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
+- The formal specification (`spec/`) was migrated from LaTeX to literate Agda +
+  Typst: the same sources are type-checked by Agda (definitions, validity
+  bundles and security proofs are machine-checked, including consistency,
+  soundness/completeness and the on-chain safety invariants) and rendered to
+  the PDF by Typst. A decidable core is extracted to Haskell via MAlonzo (the
+  new `hydra-agda` package) and differentially tested against the real Plutus
+  validator (`hydra-tx` `HeadValidatorAgreement`) and the real head logic
+  handlers (`hydra-node` `OffChainAgreementSpec`/`OffChainLeaderSpec`). CI
+  gates the spec build (`checks.spec`, including reference/diagram and
+  trust-ledger drift checks) and the extraction freshness
+  (`checks.hydra-agda-generated`). The spec models the current protocol,
+  including the commit/decommit output-set hashes bound into the snapshot
+  multisignature and the canonical CRS datum binding of the fanout paths.
+
 - The head logic now enforces the specification's "no commit and decommit in
   flight at once" discipline on the message level: a `ReqSn` carrying both a
   deposit and a decommit is rejected (`ReqSnDepositAndDecommit`), and a

@@ -1,6 +1,6 @@
-{ self, ... }: {
+{ self, inputs, ... }: {
 
-  perSystem = { config, pkgs, pkgs-2511, ... }:
+  perSystem = { config, pkgs, pkgs-2411, pkgs-2511, ... }:
     let
       # Typst with the spec's diagram packages (@preview/cetz, fletcher, oxifmt)
       # pinned from nixpkgs and supplied via the wrapper's
@@ -15,9 +15,21 @@
         p.oxifmt_0_2_1
       ]);
 
-      # The Typst render, WITHOUT the notation-tooltip postprocess
-      # (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal: consume
-      # packages.spec, which adds the tooltips.
+      agdaPackages = pkgs-2411.callPackage "${self}/spec/pkgs/initial-packages.nix" {
+        inherit (pkgs-2411.haskellPackages) Agda;
+        nixpkgs = inputs.nixpkgs-2411;
+      };
+      agdaLibraries = with agdaPackages; [
+        abstract-set-theory
+        formal-ledger
+        standard-library
+        standard-library-classes
+        standard-library-meta
+      ];
+
+      # The Agda typecheck + lints + Typst render, WITHOUT the notation-tooltip
+      # postprocess (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal:
+      # consume packages.spec, which adds the tooltips.
       #
       # The postprocess runs as the separate seconds-long derivation below so
       # this minutes-long, disk-heavy build shares no build window with the
@@ -31,15 +43,16 @@
         pname = "hydra-spec-unannotated.pdf";
         version = "0.0.1";
         nativeBuildInputs = [
+          config.packages.spec-agda
           config.packages.spec-typst
         ];
         meta = { };
         src = "${self}/spec";
-        # build.sh renders the literate-Typst sources with Typst (no
-        # LaTeX/Inkscape toolchain needed). --ignore-system-fonts keeps Typst
-        # reproducible: only the fonts bundled with Typst plus JuliaMono from
-        # nixpkgs (code blocks, wired through JULIAMONO_FONT_DIR, see build.sh)
-        # are used.
+        # build.sh typechecks the literate-Typst sources with Agda and renders
+        # the PDF with Typst (no LaTeX/Inkscape toolchain needed).
+        # --ignore-system-fonts keeps Typst reproducible: only the fonts bundled
+        # with Typst plus JuliaMono from nixpkgs (code blocks, wired through
+        # JULIAMONO_FONT_DIR, see build.sh) are used.
         JULIAMONO_FONT_DIR = "${pkgs.julia-mono}/share/fonts/truetype";
         ANNOTATE_NOTATION = "skip";
         buildPhase = ''
@@ -56,6 +69,10 @@
       # Typst with the spec's diagram packages, reused by the spec build and
       # exposed so the dev shell can offer the same `typst` for working on the spec.
       packages.spec-typst = spec-typst;
+
+      # Agda with the specification's libraries, reused by the spec build and
+      # exposed so the dev shell can offer the same `agda` for working on the spec.
+      packages.spec-agda = agdaPackages.withPackages agdaLibraries;
 
       # The publishable spec PDF: the render above plus the notation hover
       # tooltips (build.sh stage 3, split out - see the spec-rendered comment).

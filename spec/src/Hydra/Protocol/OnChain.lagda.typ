@@ -1,3 +1,12 @@
+```
+module Hydra.Protocol.OnChain where
+
+open import Hydra.Protocol.Prelude
+open import Hydra.Protocol.Preliminaries
+open import Data.Product using (∃-syntax)
+open import Data.Integer using (1ℤ)
+open import Data.List using (take; drop)
+```
 
 #import "/template.typ": *
 #import "/macros.typ": *
@@ -38,6 +47,41 @@ machine and its per-state fields (as enumerated in the transitions below) are
 captured by an Agda type, with the redeemer $redeemerHead$ selecting
 the $nuHead$ transition.
 
+```
+-- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
+-- Besides the accumulator hash η#, the signed close/contest redeemers carry the
+-- decommit- and commit-output-set hashes δ# and κ# (implementation
+-- `decommitOutputsHash` / `commitOutputsHash`), which the snapshot
+-- multisignature binds (see `snapshotSigOK`).
+data CloseType : Set where
+  closeInitial                   : CloseType
+  closeAny closeUnused closeUsed : (ξ : AggSig) (ηhash δhash κhash : ℍ) → CloseType
+
+data ContestType : Set where
+  contestUnused contestUsed : (ξ : AggSig) (ηhash δhash κhash : ℍ) → ContestType
+
+data HeadDatum : Set where
+  Open : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (contestationPeriod : ℕ)
+         (version : ℕ) (η : AccCommitment) (ada : Value) → HeadDatum
+  Closed : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (contestationPeriod : ℕ)
+           (version : ℕ) (snapshotNumber : ℕ) (η : AccCommitment)
+           (contesters : List ℍ) (tfinal : ℕ) (ada : Value) → HeadDatum
+  FanoutProgress : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (tfinal : ℕ)
+                   (η : AccCommitment) (ada : Value) → HeadDatum
+  Final : HeadDatum
+
+data HeadRedeemer : Set where
+  -- Increment carries the decommit-set hash δ# (its commit-set hash is recomputed on-chain
+  -- from the claimed deposit's datum); decrement carries the commit-set hash κ# (its
+  -- decommit-set hash is recomputed from the tx's decommit outputs). Cf. `snapshotSigOK`.
+  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) → HeadRedeemer
+  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ) (κ# : ℍ)           → HeadRedeemer
+  Close              : CloseType                                  → HeadRedeemer
+  Contest            : ContestType                                → HeadRedeemer
+  Fanout             : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
+  PartialFanout      : (m : ℕ) (crs : OutputRef)                  → HeadRedeemer
+  FinalPartialFanout : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
+```
 
 The admissible $nuHead$ state transitions are captured as a typed relation
 $d ⟶⟨ r ⟩ d'$ ("datum $d$ steps to $d'$ under redeemer $r$"). The relation
@@ -54,6 +98,37 @@ remaining per-transaction conditions (signatures, value conservation, deadlines)
 are separate predicates (e.g. `closeDeadlineOK`/`contestDeadlineOK`) applied
 alongside it.
 
+```
+data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
+
+  increment : ∀ {cid hk n cp v η ada η' ξ s ref δ#}
+    → Open cid hk n cp v η ada ⟶⟨ Increment ξ s ref δ# ⟩ Open cid hk n cp (suc v) η' ada
+
+  decrement : ∀ {cid hk n cp v η ada η' ξ s m κ#}
+    → Open cid hk n cp v η ada ⟶⟨ Decrement ξ s m κ# ⟩ Open cid hk n cp (suc v) η' ada
+
+  close : ∀ {cid hk n cp v η ada s' η' tfin ct}
+    → Open cid hk n cp v η ada ⟶⟨ Close ct ⟩ Closed cid hk n cp v s' η' [] tfin ada
+
+  contest : ∀ {cid hk n cp v s η C tfin ada s' η' kh tfin' ct}
+    → ¬ (kh ∈ˡ C)                                 -- the contester has not already contested
+    → Closed cid hk n cp v s η C tfin ada
+        ⟶⟨ Contest ct ⟩ Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada
+
+  fanout : ∀ {cid hk n cp v s η C tfin ada m π crs}
+    → Closed cid hk n cp v s η C tfin ada ⟶⟨ Fanout m π crs ⟩ Final
+
+  partialFanoutStart : ∀ {cid hk n cp v s η C tfin ada η' m crs}
+    → Closed cid hk n cp v s η C tfin ada
+        ⟶⟨ PartialFanout m crs ⟩ FanoutProgress cid hk n tfin η' ada
+
+  partialFanoutStep : ∀ {cid hk n tfin η ada η' m crs}
+    → FanoutProgress cid hk n tfin η ada
+        ⟶⟨ PartialFanout m crs ⟩ FanoutProgress cid hk n tfin η' ada
+
+  finalPartialFanout : ∀ {cid hk n tfin η ada m π crs}
+    → FanoutProgress cid hk n tfin η ada ⟶⟨ FinalPartialFanout m π crs ⟩ Final
+```
 
 Beyond the state-machine shape, individual $nuHead$ *checks* are stated as
 predicates over the validation $sans("Context")$ and the datums. For example,
@@ -67,10 +142,242 @@ value projections, the signature check - and the predicates common to several
 transactions are stated once here; each transaction's own conditions are then
 given in its section below.
 
+```
+-- spec §3.4/§5.8 accumulator operations (the §3.4 Accumulator scheme at the
+-- protocol's commitment/output/witness types), kept abstract, plus the G1
+-- generator representing the empty accumulator.
+postulate
+  accUTxO          : ℙ Output → AccCommitment   -- commitment to a UTxO set
+  accVerify        : AccCommitment → ℙ Output → AccWitness → Bool
+  accVerifyExclude : AccCommitment → ℙ Output → AccCommitment → Bool
+  G₁               : AccCommitment
 
+-- We do NOT model the KZG construction; we only assume the scheme functions correctly, via
+-- these specifying laws (used to connect the on-chain accumulator to the off-chain UTxO sets):
+postulate
+  -- the empty set commits to the generator (the "empty accumulator" G₁)
+  accUTxO-∅       : accUTxO ∅ˢ ≡ G₁
+  -- soundness: a verified membership witness attests a genuine subset (no proving non-members)
+  accVerify-sound : ∀ {U S π} → accVerify (accUTxO U) S π ≡ true → S ⊆ U
+  -- completeness: any genuine subset has a membership witness that verifies
+  accVerify-complete : ∀ {U S} → S ⊆ U → ∃[ π ] (accVerify (accUTxO U) S π ≡ true)
+  -- a set is always provably a member of its own commitment (the S ≔ U case of completeness; stated
+  -- directly to avoid the set-theory `⊆`-reflexivity plumbing). Used by the coverage obligations.
+  accVerify-self : ∀ U → ∃[ π ] (accVerify (accUTxO U) U π ≡ true)
 
+-- Set-level cardinality of a UTxO set: the number of outputs a fanout distributes. Postulated (with
+-- only the non-emptiness law the coverage proofs need) rather than via the set theory's `card`, which
+-- requires strong-finiteness witnesses - this is a SPECIFICATION of the abstract accumulator/fanout's
+-- set behaviour, not the KZG construction (cf. the `accVerify-*` laws). It lets the coverage obligations
+-- DERIVE `0 < m` for a non-empty remainder instead of assuming it.
+postulate
+  setSize     : ℙ Output → ℕ
+  setSize-pos : ∀ {U} → ¬ (U ≡ ∅ˢ) → 0 < setSize U
+```
 
+```
+-- Sum the value of all outputs / resolved inputs paying to a given script hash (cf. the Plutus
+-- `valueLockedBy`/`valueSpent` idiom of folding the tx outputs/inputs at `ownHash`). `ℍ` has
+-- decidable equality (`_≟ℍ_`, Prelude), so the per-output membership test is concrete.
+valueAtOut : ℍ → List Output → Value
+valueAtOut h []       = εᵛ
+valueAtOut h (o ∷ os) =
+  if ⌊ Output.address o ≟ℍ h ⌋ then Output.value o +ᵛ valueAtOut h os else valueAtOut h os
 
+valueAtIn : ℍ → List Input → Value
+valueAtIn h []       = εᵛ
+valueAtIn h (i ∷ is) =
+  if ⌊ Output.address (Input.resolved i) ≟ℍ h ⌋
+    then Output.value (Input.resolved i) +ᵛ valueAtIn h is
+    else valueAtIn h is
+
+-- Head value in/out, DERIVED from the context: the value at the νHead script (`Context.ownHash`)
+-- among the spent inputs / produced outputs (§5.x head-output identification).
+headValueIn : Context → Value
+headValueIn ctx = valueAtIn (Context.ownHash ctx) (Context.inputs ctx)
+
+headValue : Context → Value
+headValue ctx = valueAtOut (Context.ownHash ctx) (Context.outputs ctx)
+
+-- Decidable equality of output references (txId + index), from `_≟ℍ_` and `_≟_`.
+outputRef-eqᵇ : OutputRef → OutputRef → Bool
+outputRef-eqᵇ a b = ⌊ OutputRef.txId a ≟ℍ OutputRef.txId b ⌋ ∧ ⌊ OutputRef.index a ≟ OutputRef.index b ⌋
+
+-- Value of the resolved input spending a given output reference (there is exactly one such input).
+inputValueAt : OutputRef → List Input → Value
+inputValueAt ref []       = εᵛ
+inputValueAt ref (i ∷ is) =
+  if outputRef-eqᵇ (Input.outputRef i) ref
+    then Output.value (Input.resolved i) +ᵛ inputValueAt ref is
+    else inputValueAt ref is
+
+-- DERIVED (increment): the value of the spent deposit is the value of the resolved input at the
+-- claimed deposit reference `ref` (the same `ref` the increment redeemer carries / `depositSpentOK`
+-- requires spent).
+depositValueAt : Context → OutputRef → Value
+depositValueAt ctx ref = inputValueAt ref (Context.inputs ctx)
+
+-- DERIVED (increment, all deposits): the total value of EVERY spent deposit input -- the value at the
+-- νDeposit script (`Context.depHash`) summed over the resolved inputs. This mirrors Plutus
+-- `totalNonHeadInputValue` in `checkIncrement` (the sum over every non-head script input, which the
+-- non-head SPENT inputs of an increment are exactly the claimed deposits), and is what the value
+-- conservation must account for -- forbidding the multi-deposit siphon (an extra deposit whose value
+-- is routed away would leave `headValueIn +ᵛ depositsValue ≠ headValue`). For a single-deposit
+-- increment it coincides with `depositValueAt ctx ref` (the single-deposit value above).
+depositsValue : Context → Value
+depositsValue ctx = valueAtIn (Context.depHash ctx) (Context.inputs ctx)
+
+-- DERIVED (decrement): the decommitted value is the total value of the `m` outputs FOLLOWING the head
+-- output (output 0), mirroring Plutus `decommitOutputs = take numberOfDecommitOutputs (tail outputs)`
+-- in `checkDecrement`. `m` is the decrement redeemer's output count (the same `m` carried by
+-- `Decrement ξ s m`). (The head output is identified positionally as output 0,
+-- as on-chain; change/fee outputs sit beyond index `m` and are excluded by the `take`.)
+takeSumᵛ : ℕ → List Output → Value
+takeSumᵛ zero    _        = εᵛ
+takeSumᵛ (suc _) []       = εᵛ
+takeSumᵛ (suc k) (o ∷ os) = Output.value o +ᵛ takeSumᵛ k os
+
+decommitValue : Context → ℕ → Value
+decommitValue ctx m with Context.outputs ctx
+... | []     = εᵛ
+... | _ ∷ os = takeSumᵛ m os
+```
+
+```
+-- The postulated search obligations (trust base): witnesses that involve searching the context's
+-- value/keys/mint, which the opaque Value and key-set models do not expose.
+postulate
+  -- total value of the tokens burned by the transaction (the n+1 νHead PTs + ST at fan-out). The
+  -- mint multiset is not modelled, so the burned VALUE stays abstract (the burned COUNT is
+  -- `burnedCount` / `burnAllTokensOK`); only the OUTPUT-distribution half of conservation is concrete.
+  burnedValue   : Context → Value
+  -- `signerKeyHash ctx kh` = kh names one of the transaction's signers (∃ vk ∈ keys, hash vk ≡ kh).
+  -- The thin residue of the opaque key-set model; the PT-presence half of `signedByParticipant` is
+  -- structural via `quantityOf`.
+  signerKeyHash : Context → ℍ → Set
+  -- count of policy-cid tokens burnt (mint quantity -1); the (final) fan-out law is `≡ n+1` (§5.8)
+  burnedCount   : Context → ℍ → ℕ
+  -- §5.1 init (μHead minting policy): the seed-parameterised policy script and the mint count
+  μHead         : OutputRef → Script
+  mintedCount   : Context → ℍ → ℕ   -- count of policy-cid tokens minted (positive mint quantity)
+  -- §5.4 increment: the commit-set hash the validator RECOMPUTES from the claimed deposit input's
+  -- own datum (Plutus `hashPreSerializedCommits claimedDepositCommits`). The deposit datum decode
+  -- `(cid, t_recover, C)` is below the model's granularity (`Data` is opaque); a datum that fails to
+  -- decode makes the validator error (`DepositDatumInvalid`), i.e. reject -- differentially tested.
+  depositCommitsHashOf : Context → OutputRef → ℍ
+  -- §5.8 fanout paths: the hash of the CRS carried by the reference input named by the redeemer's
+  -- `crs` out-ref (Plutus `hashCRSDatum` of the decoded G2-point list; reference inputs are not in
+  -- the Context model, so the lookup stays abstract), and the compile-time canonical trusted-setup
+  -- hash the validator is parameterised by (`canonicalCRSDatumHash`). An unresolvable or undecodable
+  -- reference input makes the validator error (`MissingCRSRefInput`/`MissingCRSDatum`), i.e. reject.
+  crsDatumHashAt : Context → OutputRef → ℍ
+  canonicalCRS#  : ℍ
+
+-- §5.5 decrement: the decommit-set hash the validator RECOMPUTES from the transaction's own decommit
+-- outputs (Plutus `hashTxOuts decommitOutputs` over `take m (tail outputs)`). Anchored to the SAME
+-- positional output list `decommitValue` sums, so the signature constrains exactly the outputs the
+-- value check accounts for. `hash` here stands for the on-chain serialise-and-hash (`hashTxOuts`).
+decommitOutputsHashOf : Context → ℕ → ℍ
+decommitOutputsHashOf ctx m = hash (take m (drop 1 (Context.outputs ctx)))
+
+-- spec §5.4–5.7: the snapshot multisignature ξ verifies, under the aggregate hydra key, over the
+-- message cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ# (shared by increment, decrement, close and contest; §7's
+-- `snapMsg` is defined as this same concatenation). Besides the accumulator hash η#, the message
+-- binds the decommit-output-set hash δ# and the commit-output-set hash κ# -- in THIS order, matching
+-- the implementation's `verifyPartySignature` tuple `(headId, version, number, accumulatorHash,
+-- decommitOutputsHash, commitOutputsHash)` -- so a participant cannot redirect the committed or
+-- decommitted outputs while reusing a valid signature.
+snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# δ# κ# : ℍ) (ξ : AggSig) → Set
+snapshotSigOK hydraKey cid v s η# δ# κ# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#) ξ ≡ true
+```
+
+```
+-- A participant signed (§5.4–5.7): there is a key-hash `kh` that BOTH names one of the transaction's
+-- signers AND names a participation token present in the head value - i.e. the value carries the asset
+-- (cid , kh) with quantity 1. This is the spec prose `∃ {cid ↦ keyHashᵢ ↦ 1} ∈ valHead' ⇒ keyHashᵢ ∈
+-- txKeys`. The PT-presence half is structural via the per-asset
+-- projection `quantityOf` (same trust family as `adaOf`/`nonAdaOf`); the signer-naming half is the
+-- postulated `signerKeyHash` above. The head currency `cid` is supplied by the caller's datum.
+-- SCOPE NOTE: this reads the PT off `headValue` (the produced head OUTPUT). The real validator's
+-- `mustBeSignedByParticipant` loops over the spent INPUTS instead. The two coincide here: every bundle
+-- carrying this field also preserves/grows the head value with its PTs intact (close/contest/decrement
+-- preserve it exactly, increment adds a deposit), so the head input and output carry the same PTs under
+-- the single-head-script-UTxO assumption. They could differ only on a malformed multi-head tx.
+signedByParticipant : ℍ → Context → Set
+signedByParticipant cid ctx =
+  ∃[ kh ] (signerKeyHash ctx kh) × (quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ)
+
+-- spec §5.6/§5.7: close and contest mint or burn nothing.
+noMint : Context → Set
+noMint ctx = Context.mint ctx ≡ εᵛ
+
+-- The outputs a fan-out step ACTUALLY distributes, as a set: the first `m` transaction outputs for a
+-- full/final fan-out (no continuing head output), and the `m` outputs FOLLOWING the continuing head
+-- output (output 0) for an intermediate partial fan-out - the same positional conventions as
+-- `fanoutValueOK` / `partialFanoutValueOK` (on-chain `take m txInfoOutputs` / `take m (tail outputs)`).
+-- The membership/exclusion conjuncts below are anchored to THESE sets (not a free `ℙ Output` bundle
+-- parameter), so the accumulator checks and the value accounting constrain the SAME transaction
+-- outputs - a fan-out cannot satisfy `membersOK` with one set while paying out another.
+distributedOuts : Context → ℕ → ℙ Output
+distributedOuts ctx m = fromList (take m (Context.outputs ctx))
+
+partialDistributedOuts : Context → ℕ → ℙ Output
+partialDistributedOuts ctx m = fromList (take m (drop 1 (Context.outputs ctx)))
+
+-- All distributed outputs are members of the unified accumulator η
+-- (fanout §5.8 and final partial fanout §5.8.2).
+fanoutMembersOK : (η : AccCommitment) (outs : ℙ Output) (π : AccWitness) → Set
+fanoutMembersOK η outs π = accVerify η outs π ≡ true
+
+-- η' is the correct accumulator after excluding the distributed batch S (§5.8.1).
+fanoutExcludeOK : (η : AccCommitment) (S : ℙ Output) (η' : AccCommitment) → Set
+fanoutExcludeOK η S η' = accVerifyExclude η S η' ≡ true
+
+-- An intermediate partial fan-out has not yet removed everything (η' ≠ G₁); the
+-- last batch must use finalPartialFanout instead (§5.8.1).
+partialFanoutNotDoneOK : (η' : AccCommitment) → Set
+partialFanoutNotDoneOK η' = ¬ (η' ≡ G₁)
+
+-- §5.8/§5.8.1/§5.8.2: the CRS reference input carries the CANONICAL trusted setup - its datum hash
+-- equals the validator's compile-time canonical hash (Plutus `withCRSLookup`: `hashCRSDatum crsData ==
+-- canonicalCRSDatumHash`, else `InvalidCRSDatum`). Without this binding an attacker could supply a
+-- substituted powers-of-tau setup with known τ and forge membership witnesses for arbitrary outputs;
+-- fanout is permissionless after the deadline, so that would be direct fund theft.
+crsBindOK : Context → OutputRef → Set
+crsBindOK ctx crs = crsDatumHashAt ctx crs ≡ canonicalCRS#
+
+-- The claimed deposit OutputRef is actually spent by the transaction (§5.4: txOutRef_increment =
+-- txOutRef_deposit). Unlike the postulated value/crypto extractors this is a STRUCTURAL check over
+-- the context's inputs, so it is defined concretely. (The νDeposit validator's own checks remain
+-- out of scope; see the deposit/recover note.)
+depositSpentOK : Context → OutputRef → Set
+depositSpentOK ctx ref = ∃[ i ] (i ∈ˡ Context.inputs ctx) × (Input.outputRef i ≡ ref)
+```
+
+```
+-- Field extractors used by the validity bundles below.
+snapNum : HeadDatum → ℕ
+snapNum (Closed _ _ _ _ _ s _ _ _ _) = s
+snapNum _ = 0
+
+ηOf : HeadDatum → AccCommitment
+ηOf (Open _ _ _ _ _ η _)             = η
+ηOf (Closed _ _ _ _ _ _ η _ _ _)     = η
+ηOf (FanoutProgress _ _ _ _ η _)     = η
+ηOf Final                            = G₁
+
+tfinalOf : HeadDatum → ℕ
+tfinalOf (Closed _ _ _ _ _ _ _ _ t _) = t
+tfinalOf (FanoutProgress _ _ _ t _ _) = t
+tfinalOf _ = 0
+
+-- The ada-overhead value stored in the datum (the head-UTxO lovelace not part of any L2 UTxO, §5.8).
+headAda : HeadDatum → Value
+headAda (Open _ _ _ _ _ _ ada)             = ada
+headAda (Closed _ _ _ _ _ _ _ _ _ ada)     = ada
+headAda (FanoutProgress _ _ _ _ _ ada)     = ada
+headAda Final                              = εᵛ
+```
 
 #dparagraph[Scope of the validity bundles.] The per-transaction conditions of the
 following sections are _validity bundles_: records conjoining the state-machine
@@ -198,6 +505,39 @@ counterpart (the `Open` datum carries no seed field).
 
 The conditions are conjoined in the `InitValid` bundle with its dispatching `initValid` predicate (typechecked, not rendered).
 
+```
+-- ── §5.1 init (μHead minting policy) ────────────────────────────────────────────────────────────
+-- A head is created by the seed-parameterised μHead policy. `cid` is the seed-derived policy id, the
+-- seed is spent (so the EUTxO ledger guarantees `cid` is unique), exactly n+1 tokens of `cid` are
+-- minted (1 ST + n PTs), and the produced head output is a well-formed initial Open (version 0,
+-- η = accUTxO ∅). Init has no predecessor datum, so it is a creation PREDICATE, not a `_⟶⟨_⟩_` step.
+-- Token PLACEMENT into the head output is modelled (`stPlaced`/`tokensPlaced`, via the `stQty`/
+-- `headTokenCount` value projections): the head output carries exactly the n+1 head-policy tokens, one
+-- being the ST. Together with the n+1 MINT count (`mintedCountOK`) this pins that every minted token is
+-- placed in the head output (form (a): the count + ST presence; naming the individual PTs would need the
+-- per-party key list, which the on-chain `Open` datum abstracts into `hk`/`n`).
+-- `mintedCountOK`/`stPlaced`/`tokensPlaced` are bridged + differentially tested (`initValid→ref`, the
+-- `HeadValidatorAgreement` init agreement). The thin `initValid` function dispatches on the produced `Open` head datum
+-- (binding its cid/n/v/η) and is ⊥ for any other produced shape.
+-- WHY count + ST presence pins placement: each head-policy token is minted with quantity 1 (the μHead
+-- policy), so the mint COUNT (n+1) equals the number of DISTINCT tokens; with the head output carrying
+-- n+1 DISTINCT head-policy tokens (`tokensPlaced`) and the ST among them (`stPlaced`), every minted token
+-- lands in the head output (pigeonhole) - no token can be minted-but-not-placed or duplicated.
+record InitValid (ctx : Context) (seed : OutputRef) (cid : ℍ) (n v : ℕ) (η : AccCommitment) : Set where
+  constructor mkInitValid
+  field
+    cidIsSeedHash : cid ≡ hash (μHead seed)         -- cid = hash(μHead(seed)) (§5.1)
+    seedSpent     : depositSpentOK ctx seed         -- the seed output is spent (uniqueness of cid)
+    mintedCountOK : mintedCount ctx cid ≡ suc n     -- mints exactly n+1 tokens of policy cid (1 ST + n PTs)
+    stPlaced      : stQty (headValue ctx) cid ≡ 1   -- the ST is placed in the head output
+    tokensPlaced  : headTokenCount (headValue ctx) cid ≡ suc n  -- all n+1 head-policy tokens placed there
+    versionZero   : v ≡ 0                           -- initial snapshot version
+    etaEmpty      : η ≡ accUTxO ∅ˢ                  -- accumulator commits to the empty initial UTxO set
+
+initValid : Context → OutputRef → HeadDatum → Set
+initValid ctx seed (Open cid hk n cp v η ada) = InitValid ctx seed cid n v η
+initValid _ _ _ = ⊥
+```
 
 The $sans("Burn")$ arm's single check is the `BurnValid` bundle: every
 head-policy entry of the mint field is a burn - no head-policy token is minted
@@ -207,6 +547,22 @@ bridged (`burnValid→ref`) and differentially tested (the
 `HeadValidatorAgreement` burn agreement, calling the real
 `validateTokensBurning`).
 
+```
+-- ── §5.1 burn (μHead minting policy, Burn redeemer) ──────────────────────────────────────────────
+-- The Burn arm forbids minting alongside a burn: every head-policy entry of the mint field is
+-- negative, i.e. no positive entry exists (`mintedCount ≡ 0`) and at least one token is burned
+-- (`1 ≤ burnedCount`; the real policy rejects a mint field without head-policy entries). WHICH
+-- burns are legitimate is νHead's concern (the fan-out family's `burnAllTokensOK` n+1 count);
+-- μHead only guarantees a burn-only mint field.
+record BurnValid (ctx : Context) (cid : ℍ) : Set where
+  constructor mkBurnValid
+  field
+    noneMinted      : mintedCount ctx cid ≡ 0
+    somethingBurned : 1 ≤ burnedCount ctx cid
+
+burnValid : Context → ℍ → Set
+burnValid = BurnValid
+```
 
 #figure(initTx-diagram, caption: [$mtxInit$ transaction spending a seed UTxO and producing the head output directly in state $stOpen$.]) <fig:initTx>
 
@@ -245,6 +601,21 @@ In Agda the deposit datum and the $nuDeposit$ redeemer are the `DepositDatum` /
 `DepositRedeemer` types; the deposit transaction itself has no
 on-chain verification, so there is no corresponding validity bundle.
 
+```
+-- ── §5.2–5.3 deposit / recover (νDeposit) ───────────────────────────────────────────────────────
+-- A deposit locks funds for later collection into the head via increment. The datum records the
+-- target head `cid`, a recover deadline, and the committed outputs C (refs + serialised outputs).
+record DepositDatum : Set where
+  constructor mkDepositDatum
+  field
+    depCid    : ℍ                      -- target head currency id
+    tRecover  : ℕ                      -- deadline after which the deposit can be recovered
+    committed : List (OutputRef × ℍ)   -- C: deposited output refs + their serialisations
+
+data DepositRedeemer : Set where
+  claim   : DepositRedeemer
+  recover : ℕ → DepositRedeemer        -- m = number of outputs to recover
+```
 
 Head protocol participants determine *off-chain* whether a
 deposit output $o_(sans("deposit"))$ is eligible for their head by checking
@@ -289,11 +660,55 @@ into the head (Claim) is authorised by the `incrementValid` predicate's `deposit
 
 The recover conditions form the `RecoverValid` bundle (typechecked, not rendered).
 
+```
+-- The deposit transaction itself has NO on-chain verification (§5.2: any payment to νDeposit is a
+-- deposit; eligibility is an off-chain check), so there is no `depositValid`. §5.3 recover: νDeposit,
+-- on `recover m`, checks the recovered outputs match the deposited ones (a serialisation-hash
+-- equality, abstracted) and that the transaction is posted strictly after the recover deadline.
+postulate
+  recoveredMatchesDeposited : Context → List (OutputRef × ℍ) → ℕ → Set  -- §5.3.1 hash(⊕oⱼ)=hash(C)
+
+-- The after-deadline conjunct is bridged + differentially tested (`recoverValid→ref` in
+-- `ReferenceBridge`, exercised by the `HeadValidatorAgreement` recover agreement, which runs the compiled
+-- `deposit.ak` as UPLC); the hash-equality conjunct stays abstracted (injected mock), as for the
+-- close/inc crypto conjuncts.
+record RecoverValid (ctx : Context) (dd : DepositDatum) (m : ℕ) : Set where
+  constructor mkRecoverValid
+  field
+    recoveredMatches     : recoveredMatchesDeposited ctx (DepositDatum.committed dd) m  -- recovered exactly as deposited
+    afterRecoverDeadline : DepositDatum.tRecover dd < ValidityInterval.lo (Context.validity ctx)  -- §5.3.2: txValidityMin > t_recover
+
+recoverValid : Context → DepositDatum → ℕ → Set
+recoverValid = RecoverValid
+```
 
 The Claim arm's own checks - the head binding and the before-deadline check, the
 two checks $nuDeposit$ performs that $nuHead$ does not - form the `ClaimValid`
 bundle, consumed by the joint claim obligation stated in @sec:increment-tx.
 
+```
+-- §5.2 Claim: a deposit is collected by an increment of its OWN head. The head-binding `cid = hcid`:
+depositClaimedBy : DepositDatum → HeadDatum → Set
+depositClaimedBy (mkDepositDatum cid _ _) (Open hcid _ _ _ _ _ _) = cid ≡ hcid
+depositClaimedBy _ _ = ⊥
+
+-- §5.2 Claim validity (νDeposit), mirroring `deposit.ak`'s Claim arm: a deposit output may be spent on
+-- `claim` only if (i) it is consumed by an increment of ITS OWN head -- the deposit datum's `cid`
+-- equals the head datum `hd` being spent in the same transaction (deposit.ak
+-- `expect_increment_redeemer(self, datum.head_id)`, modelled here as `depositClaimedBy`), and (ii) the
+-- transaction is posted strictly BEFORE the recover deadline (deposit.ak `before_deadline`:
+-- txValidityMax ≤ tRecover). These are the two checks νDeposit performs that νHead does NOT; the
+-- "spent with the Increment redeemer" half is enforced head-side by `incrementValid`/`depositSpentOK`.
+-- (claim carries no payload, so `claimValid` takes the head datum directly rather than via a redeemer.)
+record ClaimValid (ctx : Context) (dd : DepositDatum) (hd : HeadDatum) : Set where
+  constructor mkClaimValid
+  field
+    claimedByOwnHead      : depositClaimedBy dd hd             -- deposit's cid binds to the head's (deposit.ak `expect_increment_redeemer`)
+    beforeRecoverDeadline : ValidityInterval.hi (Context.validity ctx) ≤ DepositDatum.tRecover dd  -- deposit.ak `before_deadline`
+
+claimValid : Context → DepositDatum → HeadDatum → Set
+claimValid = ClaimValid
+```
 
 #figure(recoverTx-diagram, caption: [$mtxRecover$ transaction restoring UTxO of a deposit output.]) <fig:recoverTx>
 
@@ -359,12 +774,65 @@ checks:
 These conditions form the `IncrementValid` bundle, over the additive
 value-conservation predicate `incrementValueOK`.
 
+```
+-- Value conservation (additive, §5.4/§5.5). The head value grows by the deposit
+-- on increment and shrinks by the decommitted value on decrement.
+incrementValueOK : (valHead valDeposit valHead' : Value) → Set
+incrementValueOK vh vd vh' = vh +ᵛ vd ≡ vh'
+
+-- Increment: a confirmed deposit is collected into the head (version bumps to `suc v`, head value
+-- grows by ALL spent deposits). The thin `incrementValid` function destructures the source `Open`
+-- datum to feed the head key/id/version into the record, and is ⊥ for any other source shape.
+-- The signature binds the redeemer-carried decommit hash δ# and the RECOMPUTED commit hash
+-- `depositCommitsHashOf ctx ref` (from the claimed deposit's own datum, §5.4).
+record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) : Set where
+  constructor mkIncrementValid
+  field
+    step              : d ⟶⟨ Increment ξ s ref δ# ⟩ d'
+    mintEmpty         : noMint ctx
+    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) δ# (depositCommitsHashOf ctx ref) ξ
+    valueOK           : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
+    depositSpent      : depositSpentOK ctx ref            -- claimed deposit is spent (§5.4)
+    participantSigned : signedByParticipant cid ctx
+
+incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → Set
+incrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s ref δ# = IncrementValid ctx hk cid v d d' ξ s ref δ#
+incrementValid _ _ _ _ _ _ _ = ⊥
+```
 
 A deposit claim must satisfy both validators run in the same transaction:
 $nuHead$'s `incrementValid` above and $nuDeposit$'s `claimValid`
 (@sec:recover-tx). The joint claim obligation is stated here as `ClaimTxValid`,
 since it conjoins `incrementValid` with the deposit-side bundle.
 
+```
+-- A deposit is collected by an INCREMENT transaction that spends both the head and the deposit. Such a
+-- transaction must satisfy BOTH validators run in it: νHead's `incrementValid` (version/value/signature)
+-- AND νDeposit's `claimValid` for the claimed deposit datum `dd` (its `cid` binds to the head, and the
+-- claim is before the recover deadline). Conjoining them here makes the deposit→head binding a
+-- type-enforced part of a valid claim transaction, mirroring
+-- that on-chain BOTH scripts must pass. (`dd` is supplied like `recoverValid`'s, not decoded here.)
+-- NB: this type-ENCODES the joint requirement (so `depositClaimedBy`/`claimValid` are both used).
+-- ALL the decidable conjuncts of the Claim arm are bridged from this joint bundle (`claimTxValid→ref`):
+-- the before-deadline `validityHi ≤ tRecover` and head-id binding `depositCid == headCid` from the
+-- deposit side, and the Increment-redeemer-index coupling (the other half of
+-- `expect_increment_redeemer`) from the HEAD side - the joint bundle's head input is spent with
+-- `Increment` BY TYPE, so its pinned constructor index is 0 definitionally. All three are
+-- differentially tested (the `HeadValidatorAgreement` claim agreement, running the compiled
+-- `deposit.ak` Claim arm as UPLC, including a wrong-redeemer rejection). (The Recover arm is likewise
+-- bridged + tested: `recoverValid→ref` + the `HeadValidatorAgreement` recover agreement cover
+-- deposit.ak's after-deadline check.)
+record ClaimTxValid (ctx : Context) (dd : DepositDatum) (headIn headOut : HeadDatum)
+                    (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) : Set where
+  constructor mkClaimTxValid
+  field
+    headSideOK    : incrementValid ctx headIn headOut ξ s ref δ#  -- νHead: version / value / signature
+    depositSideOK : claimValid ctx dd headIn                      -- νDeposit: cid-binding + before-deadline
+
+claimTxValid : Context → DepositDatum → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → Set
+claimTxValid = ClaimTxValid
+```
 
 #figure(incrementTx-diagram, caption: [$mtxIncrement$ transaction spending an open head output, producing a new head output which includes the new UTxO.]) <fig:incrementTx>
 
@@ -413,6 +881,28 @@ validator checks:
 
 These conditions form the `DecrementValid` bundle.
 
+```
+decrementValueOK : (valHead valHead' valDecommit : Value) → Set
+decrementValueOK vh vh' vdec = vh' +ᵛ vdec ≡ vh
+
+-- Decrement: a decommit removes the `m` outputs after the head output (version bumps, head value
+-- shrinks by the decommit). Same source-shape dispatch as increment.
+-- The signature binds the RECOMPUTED decommit hash `decommitOutputsHashOf ctx m` (over the same
+-- `take m (tail outputs)` list `decommitValue` sums, §5.5) and the redeemer-carried commit hash κ#.
+record DecrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (m : ℕ) (κ# : ℍ) : Set where
+  constructor mkDecrementValid
+  field
+    step              : d ⟶⟨ Decrement ξ s m κ# ⟩ d'
+    mintEmpty         : noMint ctx
+    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) (decommitOutputsHashOf ctx m) κ# ξ
+    valueOK           : decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
+    participantSigned : signedByParticipant cid ctx
+
+decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → ℍ → Set
+decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m κ# = DecrementValid ctx hk cid v d d' ξ s m κ#
+decrementValid _ _ _ _ _ _ _ = ⊥
+```
 
 #figure(decrementTx-diagram, caption: [$mtxDecrement$ transaction spending an open head output, producing a new head output and multiple decommitted outputs.]) <fig:decrementTx>
 
@@ -502,6 +992,79 @@ Initial-case constraint, the η-hash binding, the positive-snapshot Any case and
 the version-dependent signature obligation - and conjoined in the `CloseValid`
 bundle.
 
+```
+-- spec §5.6 (close): the recorded contestation deadline is the transaction's
+-- upper validity bound extended by the contestation period, tfinal = txValidityMax
+-- + T_contest, and close must produce a Closed datum. (Contest's deadline update
+-- in §5.7 is conditional - tfinal' = tfinal if all parties contested, else
+-- tfinal + T - and is left to a separate predicate.)
+closeDeadlineOK : Context → HeadDatum → Set
+closeDeadlineOK ctx (Closed cid hk n cp v s η C tfinal ada) =
+  tfinal ≡ ValidityInterval.hi (Context.validity ctx) + cp
+closeDeadlineOK ctx _ = ⊥
+
+-- spec §5.6, CloseType = Initial case: closing on the initial snapshot requires
+-- version 0, snapshot number 0, and η' = accUTxO(∅). The other close types impose
+-- no such constraint.
+closeInitialOK : CloseType → HeadDatum → Set
+closeInitialOK closeInitial (Closed _ _ _ _ v s η _ _ _) = (v ≡ 0) × (s ≡ 0) × (η ≡ accUTxO ∅ˢ)
+closeInitialOK _            _                            = ⊤
+
+-- The redeemer-supplied η# must equal the hash of the accumulator η' actually
+-- stored in the produced datum (spec §5.6/§5.7: (η')# = hash(η')) - otherwise the
+-- signature would attest to an accumulator unrelated to the on-chain state.
+closeηOK : CloseType → HeadDatum → Set
+closeηOK closeInitial           _  = ⊤
+closeηOK (closeAny _ η# _ _)    d' = η# ≡ hash (ηOf d')
+closeηOK (closeUnused _ η# _ _) d' = η# ≡ hash (ηOf d')
+closeηOK (closeUsed _ η# _ _)   d' = η# ≡ hash (ηOf d')
+
+-- spec §5.6, Any case: the closing snapshot number is positive (s' > 0).
+closeAnyOK : CloseType → HeadDatum → Set
+closeAnyOK (closeAny _ _ _ _) d' = 0 < snapNum d'
+closeAnyOK _                  _  = ⊤
+
+-- Signature obligation of a close redeemer: the Initial type carries no signature;
+-- the other types must verify a multisignature over cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#, with
+-- the decommit/commit-set hashes δ#/κ# passed VERBATIM from the redeemer into the
+-- message (the implementation copies them from the redeemer; they are authenticated
+-- only through the signature). The Used case refers to the *previous* state version
+-- v-1 (a pending delta is applied in the snapshot); the others use the current v (spec §5.6).
+closeSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → CloseType → Set
+closeSigOK _  _   _ _ closeInitial             = ⊤
+closeSigOK hk cid v s (closeAny ξ η# δ# κ#)    = snapshotSigOK hk cid v s η# δ# κ# ξ
+closeSigOK hk cid v s (closeUnused ξ η# δ# κ#) = snapshotSigOK hk cid v s η# δ# κ# ξ
+closeSigOK hk cid v s (closeUsed ξ η# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# δ# κ# ξ
+
+-- A close is *valid* when the state-machine step holds together with all the close
+-- checks: the contestation deadline (§5.6), no minting/burning, the Initial-case
+-- constraint, and the snapshot signature. The head key/id/version come from the
+-- source Open datum, the snapshot number from the produced Closed datum, and the
+-- signature/η# from the CloseType redeemer - so the predicate is only inhabited for
+-- genuinely valid close transactions. Value is preserved EXACTLY (§5.6: valHead' = valHead).
+-- The thin `closeValid` function destructures the source `Open` and produced `Closed` datums
+-- (binding the head key/id/version/contestation-period and the produced snapshot number) and is ⊥ for
+-- any other shapes; each close check is then a named field of `CloseValid`.
+record CloseValid (ctx : Context) (hk : VKey) (cid : ℍ) (v cp s' : ℕ)
+                  (d d' : HeadDatum) (ct : CloseType) : Set where
+  constructor mkCloseValid
+  field
+    step              : d ⟶⟨ Close ct ⟩ d'
+    deadlineOK        : closeDeadlineOK ctx d'             -- tfinal = validity.hi + cp (§5.6)
+    mintEmpty         : noMint ctx
+    initialOK         : closeInitialOK ct d'               -- closeInitial ⇒ v=0 ∧ s=0 ∧ η=accUTxO(∅)
+    sigOK             : closeSigOK hk cid v s' ct
+    etaOK             : closeηOK ct d'                     -- η# bound to stored η'
+    anyOK             : closeAnyOK ct d'                   -- closeAny ⇒ 0 < s
+    valuePreserved    : headValueIn ctx ≡ headValue ctx    -- value preserved EXACTLY (§5.6; matches Plutus `mustPreserveHeadValue`, `==`)
+    participantSigned : signedByParticipant cid ctx
+    -- validity range bounded so the deadline is at most 2·T ahead (§5.6)
+    validityBounded   : ValidityInterval.hi (Context.validity ctx) ∸ ValidityInterval.lo (Context.validity ctx) ≤ cp
+
+closeValid : Context → HeadDatum → HeadDatum → CloseType → Set
+closeValid ctx d@(Open cid hk _ cp v _ _) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct = CloseValid ctx hk cid v cp s' d d' ct
+closeValid _ _ _ _ = ⊥
+```
 
 #figure(closeTx-diagram, caption: [$mtxClose$ transaction spending the $stOpen$ head output and producing a $stClosed$ head output with unified accumulator $eta'$.]) <fig:closeTx>
 
@@ -570,7 +1133,68 @@ appended contester is _a_ transaction signer; the implementation's stronger
 sole-signer cardinality (${keyHash} = txKeys$, exactly one signer) is not
 modelled.
 
+```
+-- spec §5.7: contest updates the deadline conditionally - it stays at the previous
+-- tfinal once all parties have contested (|contesters'| = n), otherwise it extends
+-- by the contestation period T (= cp). Fully computed: contesters is a List, so
+-- the cardinality is `length`, and n is carried in the datum.
+contestDeadlineOK : HeadDatum → HeadDatum → Set
+contestDeadlineOK (Closed _ _ _ _ _ _ _ _ tfinal _) (Closed _ _ n cp _ _ _ C' tfinal' _) =
+  tfinal' ≡ (if ⌊ length C' ≟ n ⌋ then tfinal else tfinal + cp)
+contestDeadlineOK _ _ = ⊥
 
+contestηOK : ContestType → HeadDatum → Set
+contestηOK (contestUnused _ η# _ _) d' = η# ≡ hash (ηOf d')
+contestηOK (contestUsed _ η# _ _)   d' = η# ≡ hash (ηOf d')
+
+-- Contest signature obligation (both ContestType cases must verify). The
+-- decommit/commit-set hashes δ#/κ# pass verbatim from the redeemer into the
+-- message, as for close. As for close, the Used case verifies against the
+-- previous version v-1 (§5.7).
+contestSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → ContestType → Set
+contestSigOK hk cid v s (contestUnused ξ η# δ# κ#) = snapshotSigOK hk cid v s η# δ# κ# ξ
+contestSigOK hk cid v s (contestUsed ξ η# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# δ# κ# ξ
+
+-- A contest replaces the closed snapshot with a more recent one and appends the contester (a key
+-- hash, as on-chain: `contesters :: [PubKeyHash]`). The thin `contestValid` function destructures the
+-- source `Closed` datum (binding its key/id/version/snapshot/deadline) and is ⊥ for any other source
+-- shape.
+record ContestValid (ctx : Context) (hk : VKey) (cid : ℍ) (v s tfin : ℕ)
+                    (d d' : HeadDatum) (ct : ContestType) (kh : ℍ) : Set where
+  constructor mkContestValid
+  field
+    step              : d ⟶⟨ Contest ct ⟩ d'
+    deadlineOK        : contestDeadlineOK d d'
+    mintEmpty         : noMint ctx
+    sigOK             : contestSigOK hk cid v (snapNum d') ct
+    etaOK             : contestηOK ct d'                      -- η# bound to stored η' (§5.7)
+    snapIncreases     : s < snapNum d'                        -- snapshot strictly increases (§5.7)
+    beforeDeadline    : ValidityInterval.hi (Context.validity ctx) ≤ tfin  -- posted before the deadline
+    valuePreserved    : headValueIn ctx ≡ headValue ctx       -- value preserved EXACTLY (§5.7; matches Plutus `mustPreserveHeadValue`, `==`)
+    contesterSigned   : signerKeyHash ctx kh                  -- the appended contester `kh` is a tx signer (§5.7; Plutus derives `contester` from the SOLE signer - that exact-one cardinality is not modelled)
+    -- the appended contester holds this head's participation token (§5.7; Plutus
+    -- `mustBeSignedByParticipant` + contester ≔ the sole signer make these one check on-chain)
+    contesterIsParticipant : quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ
+
+-- `kh` (the record's contester parameter) is bound to the head of the produced datum's contesters,
+-- so `contesterSigned`/`contesterIsParticipant` require that the newly-appended contester actually
+-- signed the transaction and is a participant of THIS head.
+contestValid : Context → HeadDatum → HeadDatum → ContestType → Set
+contestValid ctx d@(Closed cid hk _ _ v s _ _ tfin _) d'@(Closed _ _ _ _ _ _ _ (kh ∷ _) _ _) ct = ContestValid ctx hk cid v s tfin d d' ct kh
+contestValid _ _ _ _ = ⊥
+
+-- The §5.4-§5.7 shared "signed by a participant" obligation is DERIVED for contest (not a separate
+-- field): the appended contester is a signer and holds a participation token, which is exactly the
+-- `signedByParticipant` witness.
+contest-participantSigned : ∀ {ctx hk cid v s tfin d d' ct kh}
+  → ContestValid ctx hk cid v s tfin d d' ct kh
+  → signedByParticipant cid ctx
+```
+
+```
+contest-participantSigned {kh = kh} b =
+  kh , ContestValid.contesterSigned b , ContestValid.contesterIsParticipant b
+```
 
 #figure(contestTx-diagram, caption: [$mtxContest$ transaction spending the $stClosed$ head output and producing a different $stClosed$ head output.]) <fig:contestTx>
 
@@ -614,6 +1238,40 @@ The fan-out checks - the burn count, membership of the distributed outputs in th
 accumulator, the deadline, value conservation and the canonical-CRS binding - form
 the `FanoutValid` bundle.
 
+```
+burnAllTokensOK : Context → HeadDatum → Set
+burnAllTokensOK ctx (Closed cid _ n _ _ _ _ _ _ _)      = burnedCount ctx cid ≡ suc n
+burnAllTokensOK ctx (FanoutProgress cid _ n _ _ _)      = burnedCount ctx cid ≡ suc n
+burnAllTokensOK ctx _                                    = ⊥
+
+-- §5.8 value conservation for (final) fan-out (DERIVED output-sum): the head input value equals the
+-- sum of the `m` distributed (fanned-out) outputs PLUS the burned tokens PLUS the ada overhead --
+-- mirroring Plutus `mustConserveValue` (`headInValue == Σ fanoutOutputs <> mintValueBurned <> ada`).
+-- The distributed outputs are the first `m` (`takeSumᵛ m outputs`, as on-chain `take m txInfoOutputs`,
+-- since a full fan-out has no continuing head output); `burnedValue` is the only piece left abstract.
+fanoutValueOK : Context → Value → ℕ → Set
+fanoutValueOK ctx ada m =
+  headValueIn ctx ≡ (takeSumᵛ m (Context.outputs ctx) +ᵛ (burnedValue ctx +ᵛ ada))
+
+-- Fan-out is posted after the deadline (txValidityMin > tfinal), distributes m
+-- outputs that are members of η, conserves value, and burns all n+1 tokens (§5.8).
+-- NB m = 0 is permitted: it is the (only) way to finalise a genuinely EMPTY head - distribute
+-- nothing, burn the n+1 tokens. Value conservation (exact, via `valueOK`) prevents any theft at m = 0,
+-- so no `0 < m` guard is imposed on the FULL fanout (unlike the partial paths, where a 0-output batch
+-- makes no progress); this matches the real νHead `headIsFinalizedWith` (no `numberOfFanoutOutputs > 0`).
+record FanoutValid (ctx : Context) (d : HeadDatum) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
+  constructor mkFanoutValid
+  field
+    step            : d ⟶⟨ Fanout m π crs ⟩ Final
+    burnAllTokens   : burnAllTokensOK ctx d                    -- burns the n+1 tokens (§5.8)
+    membersOK       : fanoutMembersOK (ηOf d) (distributedOuts ctx m) π  -- the m distributed outputs ∈ η
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
+    valueOK         : fanoutValueOK ctx (headAda d) m
+    crsBound        : crsBindOK ctx crs                        -- the CRS ref input is canonical (§5.8)
+
+fanoutValid : Context → HeadDatum → ℕ → AccWitness → OutputRef → Set
+fanoutValid = FanoutValid
+```
 
 #figure(fanoutTx-diagram, caption: [$mtxFanout$ transaction spending the $stClosed$ head output with unified accumulator $eta$ and distributing funds with outputs $o_1 dots.h o_m$.]) <fig:fanoutTx>
 
@@ -659,6 +1317,32 @@ The validator checks:
 
 An intermediate step's conditions form the `PartialFanoutValid` bundle.
 
+```
+-- §5.8.1 value conservation for an intermediate partial fan-out (DERIVED, no burn yet): the head input
+-- value equals the CONTINUING head output (the `FanoutProgress` output at the νHead script) plus the
+-- `m` distributed outputs after it -- exactly the decrement shape (`headValue +ᵛ decommit ≡ headValueIn`).
+partialFanoutValueOK : Context → ℕ → Set
+partialFanoutValueOK ctx m =
+  headValueIn ctx ≡ (headValue ctx +ᵛ decommitValue ctx m)
+
+-- A *partial* fan-out distributes m > 0 of the still-locked outputs and carries the head on to a
+-- `FanoutProgress`. Each conjunct is a named field; the `step` field forces d' to be a `FanoutProgress`
+-- (so `ηOf d'` is its accumulator η'), which is why no wrong-shape ⊥ case is needed.
+record PartialFanoutValid (ctx : Context) (d d' : HeadDatum) (m : ℕ) (crs : OutputRef) : Set where
+  constructor mkPartialFanoutValid
+  field
+    step            : d ⟶⟨ PartialFanout m crs ⟩ d'
+    excludeOK       : fanoutExcludeOK (ηOf d) (partialDistributedOuts ctx m) (ηOf d')  -- the m distributed outputs removed from η (→ η')
+    notDoneOK       : partialFanoutNotDoneOK (ηOf d')         -- η' still non-empty (more to fan out)
+    outputsPositive : 0 < m                                   -- §5.8 no zero-output batch
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)  -- posted after tfinal
+    mintEmpty       : noMint ctx
+    valueOK         : partialFanoutValueOK ctx m              -- value conserved (modulo abstract algebra)
+    crsBound        : crsBindOK ctx crs                       -- the CRS ref input is canonical (§5.8.1)
+
+partialFanoutValid : Context → HeadDatum → HeadDatum → ℕ → OutputRef → Set
+partialFanoutValid = PartialFanoutValid
+```
 
 #figure(partialFanoutTx-diagram, caption: [$mtxPartialFanout$ transaction spending the $stFanoutProgress$ head output, distributing outputs $o_1 dots.h o_m$, and producing a new $stFanoutProgress$ head output with updated accumulator $eta'$.]) <fig:partialFanoutTx>
 
@@ -690,6 +1374,22 @@ The validator checks:
 
 The final step's conditions form the `FinalPartialFanoutValid` bundle.
 
+```
+-- The last batch of a multi-step fan-out: like `FanoutValid` but from a `FanoutProgress` source.
+record FinalPartialFanoutValid (ctx : Context) (d : HeadDatum) (m : ℕ) (π : AccWitness) (crs : OutputRef) : Set where
+  constructor mkFinalPartialFanoutValid
+  field
+    step            : d ⟶⟨ FinalPartialFanout m π crs ⟩ Final
+    burnAllTokens   : burnAllTokensOK ctx d
+    membersOK       : fanoutMembersOK (ηOf d) (distributedOuts ctx m) π
+    outputsPositive : 0 < m
+    afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
+    valueOK         : fanoutValueOK ctx (headAda d) m
+    crsBound        : crsBindOK ctx crs                       -- the CRS ref input is canonical (§5.8.2)
+
+finalPartialFanoutValid : Context → HeadDatum → ℕ → AccWitness → OutputRef → Set
+finalPartialFanoutValid = FinalPartialFanoutValid
+```
 
 #figure(finalPartialFanoutTx-diagram, caption: [$mtxFinalPartialFanout$ transaction spending the $stFanoutProgress$ head output, distributing the final batch of UTxOs $o_1 dots.h o_m$, and burning all head tokens to reach $stFinal$.]) <fig:finalPartialFanoutTx>
 
