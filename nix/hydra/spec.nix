@@ -99,5 +99,36 @@
       # .#checks) and selfci all build the flake checks. Reuses the derivation
       # above, so this adds no duplicate compilation.
       checks.spec = config.packages.spec;
+
+      # The MAlonzo extraction under hydra-agda/generated is committed and only
+      # regenerated manually (hydra-agda/regenerate.sh), so a semantic edit to
+      # Reference.agda / OffChainReference.agda would otherwise silently leave the
+      # committed oracle stale. Regenerate hermetically, replicating regenerate.sh
+      # (same agda invocation and OPTIONS_GHC stamping), and fail on any drift.
+      checks.hydra-agda-generated = pkgs.stdenv.mkDerivation {
+        name = "hydra-agda-generated";
+        nativeBuildInputs = [ config.packages.spec-agda ];
+        src = "${self}/spec";
+        buildPhase = ''
+          export HOME=$TMPDIR
+          agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$TMPDIR/generated" \
+            src/Hydra/Protocol/Reference.agda
+          agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$TMPDIR/generated" \
+            src/Hydra/Protocol/OffChainReference.agda
+          # Same `-w` stamping as regenerate.sh (see the rationale there).
+          find "$TMPDIR/generated" -name '*.hs' -print0 | while IFS= read -r -d "" f; do
+            chmod u+w "$f"
+            if ! head -1 "$f" | grep -q -- '-w'; then
+              printf '{-# OPTIONS_GHC -w #-}\n%s' "$(cat "$f")" > "$f"
+            fi
+          done
+          diff -ru ${self}/hydra-agda/generated/MAlonzo "$TMPDIR/generated/MAlonzo" || {
+            echo "hydra-agda/generated is out of date with spec/src/Hydra/Protocol/*.agda:"
+            echo "run hydra-agda/regenerate.sh and commit the result."
+            exit 1
+          }
+        '';
+        installPhase = "touch $out";
+      };
     };
 }
