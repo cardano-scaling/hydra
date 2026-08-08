@@ -4,7 +4,22 @@
 { lib, ... }: {
 
   perSystem = { pkgs, self', system, ... }:
-    lib.mkIf (system == "x86_64-linux") {
+    let
+      # Only x86_64-linux has the musl cross build, so it is the only system
+      # where a *-static package exists (see packages.nix). Everything below
+      # that insists on one stays gated to it.
+      hasStatic = system == "x86_64-linux";
+
+      # The hydra-node the image runs. On aarch64-linux there is no static
+      # build yet, so the image ships the natively linked binary; buildImage
+      # pulls its runtime closure in along with it, which is why
+      # docker-hydra-node-for-netem has always been able to do the same.
+      hydraNode =
+        if hasStatic
+        then self'.packages.hydra-node-static
+        else self'.packages.hydra-node;
+    in
+    lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
       packages = {
         docker-hydra-node = pkgs.dockerTools.buildImage {
           name = "hydra-node";
@@ -18,7 +33,7 @@
             ];
           };
           config = {
-            Entrypoint = [ "${self'.packages.hydra-node-static}/bin/hydra-node" ];
+            Entrypoint = [ "${hydraNode}/bin/hydra-node" ];
           };
         };
 
@@ -37,7 +52,7 @@
             Entrypoint = [ "${self'.packages.hydra-node}/bin/hydra-node" ];
           };
         };
-
+      } // lib.optionalAttrs hasStatic {
         docker-hydra-tui = pkgs.dockerTools.buildImage {
           name = "hydra-tui";
           tag = "latest";
