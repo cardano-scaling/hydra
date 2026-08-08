@@ -48,6 +48,15 @@ changes.
   hold for fanned-out outputs), and `minFeeRefScriptCostPerByte` zeroed like
   the other fees. See the updated "Ledger parameters" documentation.
 
+- Publish `hydra-node` docker images for `linux/arm64` alongside `linux/amd64`.
+  Every published tag is now a manifest list, so an arm64 host pulls a native
+  image instead of falling back to emulation. That fallback has not been usable
+  since 2.2.0: under Rosetta on Apple Silicon the node spends the KZG
+  trusted-setup warm-up pegged at 100% CPU and never reaches its first log line
+  (measured: 2.1.0 logs after 5s, 2.2.0 and 2.3.0 print nothing after 5 and 25
+  minutes respectively). The arm64 image ships the natively linked binary and
+  its runtime closure, as there is no musl cross build for aarch64-linux yet.
+
 - The `POST /commit` endpoint now rejects deposits that could never be claimed:
   a dry-run increment transaction is checked against the layer 1 maximum
   transaction size and maximum serialized value size (5000 bytes on mainnet,

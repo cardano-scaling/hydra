@@ -2,6 +2,13 @@
 # 'latest' docker tag on the registry will always point to the latest pushed
 # version, likely the one built from 'master', so referring to the versioned
 # images is suggested.
+#
+# Images are built once per architecture, each on a runner of that architecture
+# because nix does not cross-build them, and pushed under an arch-suffixed tag.
+# A final job combines those into a manifest list under the plain tag, so a
+# client pulls the image native to its machine. Only hydra-node is built for
+# aarch64-linux; the other targets entrypoint a *-static package, which only the
+# x86_64 musl cross build provides.
 name: Docker
 
 # Limit concurrent runs of this workflow within a single PR
@@ -25,37 +32,25 @@ permissions:
   packages: write
 
 jobs:
-  docker:
-    strategy:
-      matrix:
-        target: [ hydra-node, hydra-tui, hydraw, hydra-chain-observer ]
-
+  # Computed once and shared, so that the per-architecture builds and the
+  # manifest list combining them cannot disagree about what to call the image.
+  tags:
     runs-on: ubuntu-latest
+
+    outputs:
+      label: ${{ steps.compute.outputs.label }}
+      version: ${{ steps.compute.outputs.version }}
+      latest: ${{ steps.compute.outputs.latest }}
+
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.inputs.ref_name || '' }}
 
-    - name: 🐳 Login to GitHub Container Registry
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: ❄ Setup Nix/Cachix
-      uses: ./.github/actions/nix-cachix-setup
-      with:
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: 🔨 🏷️ Build and tag images
+    - name: 🏷️ Compute tags
+      id: compute
       run: |
-
-        IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
-        echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-        nix build .#docker-${{ matrix.target }}
-        docker load < result
 
         # Compute tags. We want the following behaviour:
         #
@@ -85,17 +80,8 @@ jobs:
         [[ ${GITHUB_REF_NAME} = "master" ]] && \
           IMAGE_LABEL=unstable
 
-        # Use 'FROM' instruction to use docker build with --label, as
-        # well as setting the tag directly.
-        echo "FROM ${{matrix.target}}" | docker build \
-          --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
-          --label org.opencontainers.image.licenses=Apache-2.0 \
-          --label org.opencontainers.image.created=$(date -Is) \
-          --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${VERSION} \
-          --tag ${IMAGE_NAME}:${IMAGE_LABEL} -
-
-        # Tag the build as 'latest' if it's the latest tag.
+        # Decide whether this build is also the 'latest' tag.
+        LATEST=false
         if [[ ${BUILDING_TAG} = true ]]; then
           # Build a sorted list of tags . We have to grep-exclude some tags
           # that we don't want to include; i.e. ones that don't point to our
@@ -112,17 +98,110 @@ jobs:
           # Note: This will also print the diff if it fails, which is useful
           # for debugging.
           if (diff mine.txt latest.txt); then
-            docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:latest
+            LATEST=true
           fi
         fi
 
-        # Also tag with ref name when manually dispatched
-        [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
-          docker tag ${IMAGE_NAME}:${IMAGE_LABEL} ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}}
+        echo "label=${IMAGE_LABEL}" >>$GITHUB_OUTPUT
+        echo "version=${VERSION}" >>$GITHUB_OUTPUT
+        echo "latest=${LATEST}" >>$GITHUB_OUTPUT
 
-        docker inspect ${IMAGE_NAME}:${IMAGE_LABEL}
+  docker:
+    needs: tags
+
+    strategy:
+      matrix:
+        include:
+        - { target: hydra-node, runner: ubuntu-latest, arch: amd64 }
+        - { target: hydra-tui, runner: ubuntu-latest, arch: amd64 }
+        - { target: hydraw, runner: ubuntu-latest, arch: amd64 }
+        - { target: hydra-chain-observer, runner: ubuntu-latest, arch: amd64 }
+        # Only hydra-node has an image on aarch64-linux, see nix/hydra/docker.nix.
+        - { target: hydra-node, runner: ubuntu-24.04-arm, arch: arm64 }
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref_name || '' }}
+
+    - name: 🐳 Login to GitHub Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🔨 🏷️ Build and tag image
+      run: |
+
+        IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
+        IMAGE_REF=${IMAGE_NAME}:${{needs.tags.outputs.label}}-${{matrix.arch}}
+        echo "IMAGE_REF=${IMAGE_REF}" >> $GITHUB_ENV
+        nix build .#docker-${{ matrix.target }}
+        docker load < result
+
+        # Use 'FROM' instruction to use docker build with --label, as
+        # well as setting the tag directly. The tag carries the architecture;
+        # the manifest job below is what publishes the tag clients pull.
+        echo "FROM ${{matrix.target}}" | docker build \
+          --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
+          --label org.opencontainers.image.licenses=Apache-2.0 \
+          --label org.opencontainers.image.created=$(date -Is) \
+          --label org.opencontainers.image.revision=${{github.sha}} \
+          --label org.opencontainers.image.version=${{needs.tags.outputs.version}} \
+          --tag ${IMAGE_REF} -
+
+        docker inspect ${IMAGE_REF}
         docker images
 
     - name: 📤 Push to registry
       run: |
-        docker push -a ${IMAGE_NAME}
+        docker push ${IMAGE_REF}
+
+  # Publish the tags clients actually pull, each a manifest list over whatever
+  # architectures the build job produced for that target.
+  manifest:
+    needs: [ tags, docker ]
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🐳 Login to GitHub Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🧩 Combine the per-architecture images
+      run: |
+
+        LABEL=${{needs.tags.outputs.label}}
+
+        for TARGET in hydra-node hydra-tui hydraw hydra-chain-observer; do
+          IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
+
+          # hydra-node is the only target built for more than one architecture.
+          SOURCES=${IMAGE_NAME}:${LABEL}-amd64
+          [[ ${TARGET} = hydra-node ]] && \
+            SOURCES="${SOURCES} ${IMAGE_NAME}:${LABEL}-arm64"
+
+          docker buildx imagetools create --tag ${IMAGE_NAME}:${LABEL} ${SOURCES}
+
+          # Tag the build as 'latest' if it's the latest tag.
+          [[ ${{needs.tags.outputs.latest}} = true ]] && \
+            docker buildx imagetools create --tag ${IMAGE_NAME}:latest ${SOURCES}
+
+          # Also tag with ref name when manually dispatched
+          [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
+            docker buildx imagetools create \
+              --tag ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}} ${SOURCES}
+
+          docker buildx imagetools inspect ${IMAGE_NAME}:${LABEL}
+        done
