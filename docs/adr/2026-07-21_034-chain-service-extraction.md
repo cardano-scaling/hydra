@@ -107,6 +107,11 @@ Proposed
 
 - One WebSocket connection per `hydra-node` carries all of its subscriptions,
   queries and submissions.
+- The connection handshake carries the network id: the node states the
+  network it expects and the service rejects a mismatch at connect time,
+  mirroring the node-to-client `NetworkMagic` handshake, so pointing a node
+  at another network's instance fails loudly instead of yielding a silent,
+  empty subscription and wrong-network query answers.
 - Message inventory:
   - client → service: `Subscribe{participantKeys, headIds, perHeadResumeSeq}`,
     `SubmitTx`, `Query{UTxO | PParams | EraHistory | SystemStart | Tip}`
@@ -125,6 +130,11 @@ Proposed
   automatically attaches the subscriber to the resulting head ID. This solves
   the bootstrap problem that a node cannot know its head ID before `Init` is
   observed.
+- Subscription by key also replays from the log the `Init` observations of
+  heads involving that key which are **still live** (not yet fanned out or
+  aborted), skipping finalized ones: a node with lost state recovers its
+  open heads with no chain-point bookkeeping, replacing today's
+  `--start-chain-from` bootstrapping.
 - Explicit head-ID subscriptions are also supported (rejoining after restart,
   observer mode).
 - Filtering happens **server-side**, sized for thousands of heads.
@@ -151,7 +161,16 @@ Proposed
   runs this as a long-lived service and points many nodes at it with
   `--chain-observer-url`: the fetch-once invariant then holds **fleet-wide
   from day 1**, and the Blockfrost cost reduction scales with the number of
-  nodes and heads served.
+  nodes and heads served. A service instance follows exactly **one
+  network**; a fleet spanning several networks runs one instance per
+  network, and nodes point at the instance matching their own network.
+- `--start-chain-from` becomes a service-side concern: embedded, the flag
+  is forwarded to the in-process observer, which starts following upstream
+  from that point when its database is fresh, preserving today's semantics.
+  Against a shared instance the flag does not apply: history scanning is
+  the service's job and per-head catch-up starts at the head's first
+  observation; heads older than the shared instance's own start point are
+  the documented limitation listed under non-goals.
 - The client code path and connection handshake are identical in both modes
   — the node presents its persisted resume point and its participant keys;
   only the URL differs (loopback vs. remote).
@@ -192,10 +211,17 @@ Proposed
   - `observations(head_id, seq, chain_point, block_no, payload_cbor)` with a
     unique index on `(head_id, seq)`,
   - a single-row `cursor` table with the last processed chain point,
-  - `recent_blocks(hash, slot)` bounded to the rollback window `k`, for
-    intersection finding and rollback detection.
-- A rollback deletes the affected heads' observations above the rollback
-  point and emits in-stream `Rollback` events.
+  - `recent_blocks(hash, slot, state_checkpoint)` bounded to the rollback
+    window `k`, for intersection finding, rollback detection and rewinding
+    the observation state: `state_checkpoint` persists the head-relevant
+    UTxO threaded through `observeHeadTx`, written atomically with the
+    block's observations and copy-on-write: only blocks containing a
+    head-relevant transaction write a new checkpoint, all others reference
+    the latest one, keeping the window's footprint proportional to head
+    activity rather than block count.
+- A rollback restores the observation state from the checkpoint at the
+  rollback point, deletes the affected heads' observations above it and
+  emits in-stream `Rollback` events.
 - Why SQLite:
   - Writes arrive at **chain rate** (one block per ~20 s with a few
     observations each), not subscriber rate — fan-out is served from memory,
@@ -209,7 +235,11 @@ Proposed
     shared instances manage the database file like any other service state.
   - It reuses the team's fresh SQLite event-store experience and idioms from
     `hydra-node`.
-- A service restart resumes from the cursor with **zero upstream re-fetch**.
+- The observation log is append-only in this stage: it grows with L1
+  protocol activity only (roughly 100 KB per head lifetime), so pruning is
+  deliberately deferred (see non-goals).
+- A service restart resumes from the cursor and its observation-state
+  checkpoint with **zero upstream re-fetch**.
   Adding a new script version later requires a one-time, bounded backfill
   from the upstream source. Postgres is explicitly deferred to the stage-2
   ADR, where multi-instance/high-availability deployments may warrant it.
@@ -239,7 +269,11 @@ Proposed
 - Per-head catch-up is served from the index without upstream re-fetch.
 - Bounded memory via streaming, in the spirit of [ADR 31](/adr/31).
 - The protocol is shaped so that one instance can serve thousands of
-  concurrent head subscriptions.
+  concurrent head subscriptions. Internally: one follower thread (fetch,
+  observe, persist, route) fans out to per-connection lightweight threads
+  over bounded outbound queues; subscribers that fall behind or reconnect
+  catch up from the index and rejoin the live stream by sequence number,
+  so the follower never blocks on any subscriber.
 
 ### 12. Architecture
 
@@ -290,6 +324,12 @@ Before:                                  After:
 - Authentication and multi-tenant hardening of shared deployments (stage 2).
 - Backfill for heads created before the service's start point — a documented
   limitation; targeted backfill via upstream address queries is future work.
+- Pruning of the observation log: append-only is affordable in this stage
+  since the log grows with L1 protocol activity only. Natural future knobs,
+  deferred to the hardening stage: deleting finalized heads' observations
+  after a grace period, and etcd-style compaction of long-lived heads'
+  logs, with resumes below the retained window rejected explicitly so a
+  straggler falls back to fresh joining instead of silently missing events.
 - Pinned performance numbers — goals stay qualitative until benchmarks exist.
 
 ## Consequences
