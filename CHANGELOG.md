@@ -66,8 +66,6 @@ changes.
   observed a block (so a stalled chain backend can be detected even while drift is
   frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
-## [2.3.0] - 2026.07.15
-
 - Add **selective partial fanout**: distribute a chosen subset of a closed
   head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
   client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`
@@ -75,16 +73,6 @@ changes.
   a `FanningOut` head status and a matching TUI selection flow. Keep issuing
   `PartialFanout` until the head is drained; the final step burns the head
   tokens. [#2333](https://github.com/cardano-scaling/hydra/issues/2333)
-
-- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
-  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
-  so deposits recorded before a rotation survive a node
-  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
-
-- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
-  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
-  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
-  natively supported, removing the need to manually convert them before use.
 
 - **BREAKING** Network protocol version bumped to 2: broadcast messages are
   now batched into a single etcd value (one Raft commit per batch) and the
@@ -103,6 +91,18 @@ changes.
 - `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
   coordinated upgrade required).
   [#2777](https://github.com/cardano-scaling/hydra/pull/2777)
+
+## [2.3.0] - 2026.07.15
+
+- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
+  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
+  so deposits recorded before a rotation survive a node
+  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
+
+- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
+  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+  natively supported, removing the need to manually convert them before use.
 
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
@@ -126,9 +126,6 @@ changes.
   in Idle state, and even while a new head is running. [#2743](https://github.com/cardano-scaling/hydra/pull/2743)
 
 - Fix Blockfrost chain backend error handling and resilience [#2729](https://github.com/cardano-scaling/hydra/pull/2729)
-
-- Hydra node can now be configured through a yaml file; easier to spot
-  differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
 - Fixed a deadlock in the network layer's `PersistentQueue` where a silent
   no-op in `popPersistentQueue` could leave the broadcast queue permanently stuck

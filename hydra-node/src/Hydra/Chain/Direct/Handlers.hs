@@ -20,7 +20,6 @@ import Control.Lens ((^.))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
-import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   Address,
@@ -297,21 +296,14 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.
 rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
-rejectLowDeposits pparams utxo = do
-  let insAndOuts = UTxO.toList utxo
-  let providedValues = (\(i, o) -> (i, UTxO.totalLovelace $ UTxO.singleton i o)) <$> insAndOuts
-  let minimumValues = (\(i, o) -> (i, calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o)) <$> insAndOuts
-  let results =
-        ( \(i, minVal) ->
-            case List.find (\(ix, providedVal) -> i == ix && providedVal < minVal) providedValues of
-              Nothing -> Right ()
-              Just (_, tooLowValue) ->
-                Left (DepositTooLow{providedValue = tooLowValue, minimumValue = minVal} :: PostTxError Tx)
-        )
-          <$> minimumValues
-  case lefts results of
-    [] -> pure ()
-    (e : _) -> Left e
+rejectLowDeposits pparams utxo =
+  -- The provided and minimum values both derive from the same output, so we can
+  -- compare them in a single pass over the UTxO.
+  forM_ (UTxO.toList utxo) $ \(i, o) -> do
+    let providedValue = UTxO.totalLovelace $ UTxO.singleton i o
+        minimumValue = calculateMinimumUTxO shelleyBasedEra pparams $ fromCtxUTxOTxOut o
+    when (providedValue < minimumValue) $
+      Left (DepositTooLow{providedValue, minimumValue} :: PostTxError Tx)
 
 -- | Reject any UTxO containing a Byron address, which cannot be represented
 -- in the Hydra head protocol.

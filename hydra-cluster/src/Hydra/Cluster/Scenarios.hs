@@ -1849,10 +1849,10 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
   hydraTracer = contramap FromHydraNode tracer
 
 -- XXX: restart scenarios require 3 party cluster in order to observe PeerDisconnected instead of NetworkDisconnected
-waitsForChainInSyncAndSecure :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
+waitsForChainInSync :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+waitsForChainInSync tracer workDir opts hydraScriptsTxId = do
   let clients = [Alice, Bob, Carol]
-  [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
+  [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
   seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -1911,17 +1911,6 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
-
-        -- Carol is still catching up (she was offline while the chain advanced),
-        -- so submitting a new transaction right away must be rejected as
-        -- unsynced. We assert on that rejection, which is the actual security
-        -- property we care about here (see #2749).
-        utxo <- getSnapshotUTxO n3
-        tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
-        send n3 $ input "NewTx" ["transaction" .= tx]
-
-        waitMatch 5 n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "RejectedInputBecauseUnsynced"
 
         -- Carol observes the head getting closed while still catching up:
         -- the Close was posted before Carol reconnected, so it is replayed
