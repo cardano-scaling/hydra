@@ -10,6 +10,13 @@ changes.
 
 ## [UNRELEASED]
 
+- Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
+  UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
+  10250 (fanout carries ~5.8 kB of overhead; safe up to 10 parties),
+  `utxoCostPerByte` restored to the mainnet value 4310 (layer 1 min ada must
+  hold for fanned-out outputs), and `minFeeRefScriptCostPerByte` zeroed like
+  the other fees. See the updated "Ledger parameters" documentation.
+
 - The `POST /commit` endpoint now rejects deposits that could never be claimed:
   a dry-run increment transaction is checked against the layer 1 maximum
   transaction size and maximum serialized value size (5000 bytes on mainnet,
