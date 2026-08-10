@@ -8,7 +8,8 @@
 # A final job combines those into a manifest list under the plain tag, so a
 # client pulls the image native to its machine. Only hydra-node is built for
 # aarch64-linux; the other targets entrypoint a *-static package, which only the
-# x86_64 musl cross build provides.
+# x86_64 musl cross build provides, so their plain tag stays a plain amd64
+# manifest rather than becoming a single-entry manifest list.
 name: Docker
 
 # Limit concurrent runs of this workflow within a single PR
@@ -37,6 +38,9 @@ jobs:
   tags:
     runs-on: ubuntu-latest
 
+    # Only reads git; does not publish anything.
+    permissions: {}
+
     outputs:
       label: ${{ steps.compute.outputs.label }}
       version: ${{ steps.compute.outputs.version }}
@@ -47,6 +51,13 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.inputs.ref_name || '' }}
+        # All history and tags, as the 'latest' decision below compares this
+        # tag against every other release tag. A shallow checkout only fetches
+        # the tag being built, which would make every build look like latest.
+        # Both inputs are needed: checkout passes --no-tags unless fetch-tags
+        # is set, see the manual re-fetch in binaries.yaml.
+        fetch-depth: 0
+        fetch-tags: true
 
     - name: 🏷️ Compute tags
       id: compute
@@ -66,14 +77,16 @@ jobs:
         # Let's default to 'unstable'.
         IMAGE_LABEL=unstable
         # And the version as the git commit.
-        VERSION=${{github.sha}}
+        VERSION=${GITHUB_SHA}
 
         # Determine whether we are building a tag and if yes, set the label
-        # name to be the tag name, and the version to be the tag.
+        # name to be the tag name, and the version to be the tag. Ref names go
+        # through the environment rather than ${{ }} interpolation, so that one
+        # containing shell metacharacters cannot inject into this script.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
-        [[ ${BUILDING_TAG} = true ]] && \
-          IMAGE_LABEL=${{github.ref_name}} && \
-          VERSION=${{github.ref_name}}
+        [[ "${BUILDING_TAG}" = true ]] && \
+          IMAGE_LABEL=${GITHUB_REF_NAME} && \
+          VERSION=${GITHUB_REF_NAME}
 
         # If we're running on master, tag it as "unstable" and
         # and leave the version as the git commit.
@@ -82,18 +95,19 @@ jobs:
 
         # Decide whether this build is also the 'latest' tag.
         LATEST=false
-        if [[ ${BUILDING_TAG} = true ]]; then
+        if [[ "${BUILDING_TAG}" = true ]]; then
           # Build a sorted list of tags . We have to grep-exclude some tags
           # that we don't want to include; i.e. ones that don't point to our
-          # actual releases.
-          git tag -l | grep -P '^\d+.\d+.\d+$' >tags.txt
+          # actual releases. The '|| true' keeps an empty match from aborting
+          # the step under 'bash -e'.
+          git tag -l | grep -P '^\d+\.\d+\.\d+$' >tags.txt || true
 
           # Get the largest one (sort -V sorts as versions).
           sort -V tags.txt | tail -n1 >latest.txt
 
           # Compare it to mine; and if it's the same, then I am the latest, so
           # we can tag it as such.
-          echo ${{ github.ref_name }}>mine.txt
+          echo "${GITHUB_REF_NAME}" >mine.txt
 
           # Note: This will also print the diff if it fails, which is useful
           # for debugging.
@@ -110,6 +124,10 @@ jobs:
     needs: tags
 
     strategy:
+      # One architecture failing should not cancel the others: the manifest job
+      # needs every leg, so a cancelled leg means no plain tags get published
+      # at all.
+      fail-fast: false
       matrix:
         include:
         - { target: hydra-node, runner: ubuntu-latest, arch: amd64 }
@@ -139,10 +157,13 @@ jobs:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: 🔨 🏷️ Build and tag image
+      env:
+        LABEL: ${{ needs.tags.outputs.label }}
+        VERSION: ${{ needs.tags.outputs.version }}
       run: |
 
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
-        IMAGE_REF=${IMAGE_NAME}:${{needs.tags.outputs.label}}-${{matrix.arch}}
+        IMAGE_REF="${IMAGE_NAME}:${LABEL}-${{matrix.arch}}"
         echo "IMAGE_REF=${IMAGE_REF}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
         docker load < result
@@ -154,16 +175,16 @@ jobs:
           --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
-          --label org.opencontainers.image.revision=${{github.sha}} \
-          --label org.opencontainers.image.version=${{needs.tags.outputs.version}} \
-          --tag ${IMAGE_REF} -
+          --label org.opencontainers.image.revision=${GITHUB_SHA} \
+          --label "org.opencontainers.image.version=${VERSION}" \
+          --tag "${IMAGE_REF}" -
 
-        docker inspect ${IMAGE_REF}
+        docker inspect "${IMAGE_REF}"
         docker images
 
     - name: 📤 Push to registry
       run: |
-        docker push ${IMAGE_REF}
+        docker push "${IMAGE_REF}"
 
   # Publish the tags clients actually pull, each a manifest list over whatever
   # architectures the build job produced for that target.
@@ -180,28 +201,41 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 🧩 Combine the per-architecture images
+      env:
+        LABEL: ${{ needs.tags.outputs.label }}
+        LATEST: ${{ needs.tags.outputs.latest }}
+        IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+        # Via the environment rather than ${{ }} interpolation, so that a ref
+        # name containing shell metacharacters cannot inject into this script.
+        DISPATCH_REF: ${{ github.event.inputs.ref_name }}
       run: |
-
-        LABEL=${{needs.tags.outputs.label}}
 
         for TARGET in hydra-node hydra-tui hydraw hydra-chain-observer; do
           IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
 
           # hydra-node is the only target built for more than one architecture.
-          SOURCES=${IMAGE_NAME}:${LABEL}-amd64
-          [[ ${TARGET} = hydra-node ]] && \
-            SOURCES="${SOURCES} ${IMAGE_NAME}:${LABEL}-arm64"
+          # The single-architecture ones ask for a carbon copy instead: an index
+          # listing only linux/amd64 makes docker refuse the pull outright on
+          # arm64, where a plain manifest still falls back to emulation.
+          SOURCES=( "${IMAGE_NAME}:${LABEL}-amd64" )
+          PREFER_INDEX=false
+          if [[ "${TARGET}" = hydra-node ]]; then
+            SOURCES+=( "${IMAGE_NAME}:${LABEL}-arm64" )
+            PREFER_INDEX=true
+          fi
 
-          docker buildx imagetools create --tag ${IMAGE_NAME}:${LABEL} ${SOURCES}
+          TAGS=( --tag "${IMAGE_NAME}:${LABEL}" )
 
           # Tag the build as 'latest' if it's the latest tag.
-          [[ ${{needs.tags.outputs.latest}} = true ]] && \
-            docker buildx imagetools create --tag ${IMAGE_NAME}:latest ${SOURCES}
+          [[ "${LATEST}" = true ]] && \
+            TAGS+=( --tag "${IMAGE_NAME}:latest" )
 
           # Also tag with ref name when manually dispatched
-          [[ ${{github.event_name == 'workflow_dispatch'}} = true ]] && \
-            docker buildx imagetools create \
-              --tag ${IMAGE_NAME}:workflow_dispatch-${{github.event.inputs.ref_name}} ${SOURCES}
+          [[ "${IS_DISPATCH}" = true ]] && \
+            TAGS+=( --tag "${IMAGE_NAME}:workflow_dispatch-${DISPATCH_REF}" )
 
-          docker buildx imagetools inspect ${IMAGE_NAME}:${LABEL}
+          docker buildx imagetools create \
+            --prefer-index=${PREFER_INDEX} "${TAGS[@]}" "${SOURCES[@]}"
+
+          docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}"
         done

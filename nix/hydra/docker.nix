@@ -34,6 +34,11 @@
           };
           config = {
             Entrypoint = [ "${hydraNode}/bin/hydra-node" ];
+            # Without this, glibc reports the C locale and GHC encodes stdout as
+            # ASCII, so anything printing the non-ASCII --help banner dies with
+            # "commitBuffer: invalid argument". The musl build does not care
+            # (musl always reports UTF-8), but the aarch64 image is glibc.
+            Env = [ "LANG=C.UTF-8" ];
           };
         };
 

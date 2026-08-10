@@ -15,6 +15,11 @@ docker pull ghcr.io/cardano-scaling/hydra-node
 docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 ```
 
+The `hydra-node` image is published for `linux/amd64` and `linux/arm64`, so the
+above pulls the image native to your machine. The `hydra-tui`, `hydraw` and
+`hydra-chain-observer` images are published for `linux/amd64` only and run under
+emulation elsewhere.
+
 ### Dependencies
 
 There is **one** run-time dependency of `hydra-node`:
