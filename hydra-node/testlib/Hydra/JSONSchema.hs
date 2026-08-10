@@ -17,7 +17,7 @@ import Data.Text (pack, takeWhileEnd)
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import Data.Yaml qualified as Yaml
 import Paths_hydra_node qualified as Pkg
-import System.Directory (copyFile, listDirectory)
+import System.Directory (copyFile, listDirectory, removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
@@ -217,16 +217,22 @@ withJsonSpecifications ::
 withJsonSpecifications action = do
   specDir <- (</> "json-schemas") . normalise <$> liftIO Pkg.getDataDir
   specFiles <- liftIO $ listDirectory specDir
-  withTempDir "Hydra_APISpec" $ \dir -> do
-    forM_ specFiles $ \file -> do
-      when (takeExtension file == ".yaml") $ do
-        spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
-        let spec' = addField "$id" ("file://" <> dir <> "/") spec
-        liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
-        -- XXX: We need to write the specFile as .yaml although it is a JSON document now,
-        -- because internally the spec reference elements using the original .yaml file name.
-        liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec
-    action dir
+  -- NOTE: Not using 'withTempDir' here. This is also called from 'PropertyM IO'
+  -- (via 'monadicIO'), which has no 'MonadMask' instance that the bracketed
+  -- 'withTempDir' now requires. The directory only holds small JSON schema
+  -- files, so a plain best-effort cleanup on success is enough.
+  dir <- createTempDir "Hydra_APISpec"
+  forM_ specFiles $ \file -> do
+    when (takeExtension file == ".yaml") $ do
+      spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
+      let spec' = addField "$id" ("file://" <> dir <> "/") spec
+      liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
+      -- XXX: We need to write the specFile as .yaml although it is a JSON document now,
+      -- because internally the spec reference elements using the original .yaml file name.
+      liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "yaml") spec
+  r <- action dir
+  liftIO $ removePathForcibly dir
+  pure r
 
 addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
 addField k v = withObject (at k ?~ toJSON v)

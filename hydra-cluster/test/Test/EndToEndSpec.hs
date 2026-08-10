@@ -109,7 +109,7 @@ allNodeIds = [1 .. 3]
 -- on CI.
 --
 -- NOTE: The ci-nix.yaml workflow depends on this.
-withClusterTempDir :: MonadIO m => (FilePath -> m a) -> m a
+withClusterTempDir :: (MonadIO m, MonadMask m) => (FilePath -> m a) -> m a
 withClusterTempDir = withTempDir "hydra-cluster"
 
 spec :: Spec
