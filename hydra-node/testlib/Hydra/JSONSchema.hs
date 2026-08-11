@@ -220,7 +220,9 @@ withJsonSpecifications action = do
   -- NOTE: Not using 'withTempDir' here. This is also called from 'PropertyM IO'
   -- (via 'monadicIO'), which has no 'MonadMask' instance that the bracketed
   -- 'withTempDir' now requires. The directory only holds small JSON schema
-  -- files, so a plain best-effort cleanup on success is enough.
+  -- files, so a plain best-effort cleanup on success is enough. Keep it that
+  -- way: this cleanup does not retry, so give anything writing into the
+  -- directory its own 'withTempDir'.
   dir <- createTempDir "Hydra_APISpec"
   forM_ specFiles $ \file -> do
     when (takeExtension file == ".yaml") $ do
