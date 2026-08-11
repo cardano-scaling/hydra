@@ -50,14 +50,18 @@ spec =
               Right _ -> pure ()
 
       it "query protocol-parameters matches our schema" $ \tracer ->
-        withJsonSpecifications $ \tmpDir ->
+        -- NOTE: The node gets its own 'withTempDir', not the schema dir: it is
+        -- still writing 'db' after 'withCardanoNodeDevnet' returns, and only
+        -- 'withTempDir' retries the cleanup that then trips over it.
+        withTempDir "hydra-cluster" $ \tmpDir ->
           withCardanoNodeDevnet tracer tmpDir $ \_ directOpts -> do
             let DirectOptions{nodeSocket, networkId} = directOpts
             pparamsValue <- cliQueryProtocolParameters nodeSocket networkId
-            validateJSON
-              (tmpDir </> "api.json")
-              (key "components" . key "schemas" . key "ProtocolParameters")
-              pparamsValue
+            withJsonSpecifications $ \schemaDir ->
+              validateJSON
+                (schemaDir </> "api.json")
+                (key "components" . key "schemas" . key "ProtocolParameters")
+                pparamsValue
  where
   cardanoCliSign txFile =
     proc
