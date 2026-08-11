@@ -24,6 +24,9 @@ data Environment = Environment
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , depositActivation :: DepositPeriod
+  -- ^ Time a deposit must mature before it is considered active. Controls only
+  -- the Inactive -> Active transition, independently of 'depositPeriod'.
   , unsyncedPeriod :: UnsyncedPeriod
   -- ^ Period of time after which we consider the node becoming unsynced with the chain.
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
@@ -36,7 +39,7 @@ data Environment = Environment
 -- 'signingKey' field, which is a 'TypeError'. The hand-rolled instance
 -- below simply omits it.
 instance Show Environment where
-  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, unsyncedPeriod, configuredPeers} =
+  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
     "Environment {party = "
       <> show party
       <> ", signingKey = <Secret>, otherParties = "
@@ -47,6 +50,8 @@ instance Show Environment where
       <> show contestationPeriod
       <> ", depositPeriod = "
       <> show depositPeriod
+      <> ", depositActivation = "
+      <> show depositActivation
       <> ", unsyncedPeriod = "
       <> show unsyncedPeriod
       <> ", configuredPeers = "
@@ -57,13 +62,14 @@ instance Show Environment where
 -- the WebSocket API sends 'Environment' to clients as part of 'Greetings',
 -- and the signing key must never appear on the wire.
 instance ToJSON Environment where
-  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, unsyncedPeriod, configuredPeers} =
+  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
     object
       [ "party" .= party
       , "otherParties" .= otherParties
       , "participants" .= participants
       , "contestationPeriod" .= contestationPeriod
       , "depositPeriod" .= depositPeriod
+      , "depositActivation" .= depositActivation
       , "unsyncedPeriod" .= unsyncedPeriod
       , "configuredPeers" .= configuredPeers
       ]
@@ -83,6 +89,7 @@ instance FromJSON Environment where
       <*> o .: "participants"
       <*> o .: "contestationPeriod"
       <*> o .: "depositPeriod"
+      <*> o .: "depositActivation"
       <*> o .: "unsyncedPeriod"
       <*> o .: "configuredPeers"
 

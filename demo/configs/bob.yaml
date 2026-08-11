@@ -24,6 +24,7 @@ chain:
   cardano-signing-key: "../../hydra-cluster/config/credentials/bob.sk"
   contestation-period: 3
   deposit-period: 10
+  deposit-activation: 10
   backend:
     mode: direct
     testnet-magic: 42

@@ -70,14 +70,20 @@ createTempDir template = liftIO $ do
 -- is removed if and only if the action completes successfully, unless the
 -- @NO_CLEANUP@ environment variable is set, in which case it is always kept
 -- and its path printed (handy for inspecting a node's @hydra.db@ afterwards).
-withTempDir :: MonadIO m => String -> (FilePath -> m r) -> m r
-withTempDir baseName action = do
-  tmpDir <- createTempDir baseName
-  res <- action tmpDir
-  lookupEnv "NO_CLEANUP" >>= \case
-    Just _ -> putStrLn ("NO_CLEANUP set, leaving temp dir: " <> tmpDir)
-    Nothing -> liftIO (cleanup 0 tmpDir)
-  pure res
+--
+-- Keeping the directory on failure is deliberate: CI uploads a failed run's
+-- logs straight out of it. The cleanup on success runs under 'mask' so an async
+-- exception (e.g. a 'failAfter' timeout firing right after the action returns)
+-- cannot sneak in between the action and the cleanup and leak the directory.
+withTempDir :: (MonadIO m, MonadMask m) => String -> (FilePath -> m r) -> m r
+withTempDir baseName action =
+  mask $ \restore -> do
+    tmpDir <- createTempDir baseName
+    res <- restore (action tmpDir)
+    lookupEnv "NO_CLEANUP" >>= \case
+      Just _ -> putStrLn ("NO_CLEANUP set, leaving temp dir: " <> tmpDir)
+      Nothing -> liftIO (uninterruptibleMask_ (cleanup 0 tmpDir))
+    pure res
  where
   -- NOTE: Somehow, since 1.35.0, cleaning-up cardano-node database directory
   -- _sometimes_ generates an empty 'clean' file which prevents the 'db' folder

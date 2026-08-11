@@ -37,6 +37,10 @@ downloadLatestSnapshotTo tracer network directory = do
                   [ ["--origin-tag", "HYDRA"]
                   , ["--aggregator-endpoint", aggregatorEndpoint']
                   , ["cardano-db", "download", "latest"]
+                  , -- Use the v2 (CardanoDatabase) backend. Since the 2630.0
+                    -- distribution the aggregator no longer certifies the v1
+                    -- backend, so a plain 'cardano-db download' (v1) fails.
+                    ["--backend", "v2"]
                   , ["--include-ancillary"]
                   , ["--genesis-verification-key", decodeUtf8 genesisKey]
                   , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]

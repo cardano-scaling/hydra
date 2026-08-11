@@ -171,6 +171,7 @@ channels:
         Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
           * UnsupportedLegacyOutput - 400 bad request
+          * DepositTooLarge - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -3000,6 +3001,37 @@ components:
             providedValue:
                type: integer
                minimum: 0
+        - title: DepositTooLarge
+          description: |
+            Raised if the user requests a deposit which could never be claimed:
+            the increment transaction claiming it would exceed layer 1 ledger
+            limits (maximum transaction size or maximum serialized value size
+            of the merged head output). Estimated sizes include a balancing
+            margin.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - estimatedTxSize
+          - maximumTxSize
+          - estimatedValueSize
+          - maximumValueSize
+          properties:
+            tag:
+              type: string
+              enum: ["DepositTooLarge"]
+            estimatedTxSize:
+               type: integer
+               minimum: 0
+            maximumTxSize:
+               type: integer
+               minimum: 0
+            estimatedValueSize:
+               type: integer
+               minimum: 0
+            maximumValueSize:
+               type: integer
+               minimum: 0
         - title: MissingTokenPolicies
           description: |
             Raised if the user requests tokens that require missing policy IDs.
@@ -3272,6 +3304,7 @@ components:
       - participants
       - contestationPeriod
       - depositPeriod
+      - depositActivation
       - unsyncedPeriod
       - configuredPeers
       additionalProperties: false
@@ -3289,6 +3322,8 @@ components:
         contestationPeriod:
           $ref: "api.yaml#/components/schemas/ContestationPeriod"
         depositPeriod:
+          $ref: "api.yaml#/components/schemas/DepositPeriod"
+        depositActivation:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
         unsyncedPeriod:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
@@ -4016,6 +4051,7 @@ components:
         - cardano-verification-keys
         - contestation-period
         - deposit-period
+        - deposit-activation
         - unsynced-period
         - backend
       properties:
@@ -4037,6 +4073,9 @@ components:
         deposit-period:
           type: number
           description: Deposit period in seconds (fractional).
+        deposit-activation:
+          type: number
+          description: Time in seconds (fractional) a deposit must wait before it becomes active.
         unsynced-period:
           type: number
           description: How long (in seconds) to wait for the node to sync before considering it unsynced.

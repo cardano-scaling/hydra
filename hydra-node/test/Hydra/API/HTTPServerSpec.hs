@@ -57,12 +57,14 @@ import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
 import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
+  choose,
   counterexample,
   cover,
   forAll,
   generate,
   property,
   withMaxSuccess,
+  (===),
  )
 
 spec :: Spec
@@ -636,7 +638,7 @@ apiServerSpec = do
       responseChannel <- runIO newTChanIO
       let workingChainHandle =
             dummyChainHandle
-              { draftDepositTx = \_ _ _ _ _ -> do
+              { draftDepositTx = \_ _ _ _ _ _ -> do
                   tx <- generate $ arbitrary @Tx
                   pure $ Right tx
               }
@@ -659,6 +661,36 @@ apiServerSpec = do
             post "/commit" (Aeson.encode request)
               `shouldRespondWith` 200
 
+      prop "responds 400 when deposit is too large to increment" $ \(request :: DraftCommitTxRequest Tx) ->
+        withApplication
+          ( httpApp
+              nullTracer
+              Aeson.Null
+              ( dummyChainHandle
+                  { draftDepositTx = \_ _ _ _ _ _ ->
+                      pure $
+                        Left
+                          DepositTooLarge
+                            { estimatedTxSize = 20000
+                            , maximumTxSize = 16384
+                            , estimatedValueSize = 6000
+                            , maximumValueSize = 5000
+                            }
+                  }
+              )
+              testEnvironment
+              defaultPParams
+              (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
+              getHeadId
+              getPendingDeposits
+              putClientInput
+              300
+              responseChannel
+          )
+          $ do
+            post "/commit" (Aeson.encode request)
+              `shouldRespondWith` 400
+
       prop "reject deposits with less than min ADA" $ do
         forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO) -> do
           let result = rejectLowDeposits pparams utxo
@@ -668,6 +700,18 @@ apiServerSpec = do
                 minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
             _ -> property True
+
+      -- A deposit is fine exactly when each of its outputs is fine on its own.
+      -- Check the whole-UTxO verdict against checking every output individually:
+      -- if the walk ever compared one output's ada to another output's minimum,
+      -- the two would disagree. Uses several outputs so such a mix-up can show.
+      prop "rejects a multi-output deposit exactly when some output alone is rejected" $
+        forAll (choose (1, 20) >>= genUTxOAdaOnlyOfSize) $ \(utxo :: UTxO) ->
+          let outputs = UTxO.toList utxo
+              eachOutputOk =
+                all (\(i, o) -> isRight (rejectLowDeposits pparams (UTxO.singleton i o))) outputs
+           in isRight (rejectLowDeposits pparams utxo) === eachOutputOk
+                & counterexample ("UTxO size: " <> show (length outputs))
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString

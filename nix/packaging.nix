@@ -28,10 +28,11 @@
             text = ''
               for nixlib in $(otool -L "$1" |awk '/nix\/store/{ print $1 }'); do
                   case "$nixlib" in
-                  *libiconv.dylib) install_name_tool -change "$nixlib" /usr/lib/libiconv.dylib "$1" ;;
-                  *libffi.*.dylib) install_name_tool -change "$nixlib" /usr/lib/libffi.dylib   "$1" ;;
-                  *libc++.*.dylib) install_name_tool -change "$nixlib" /usr/lib/libc++.dylib   "$1" ;;
-                  *libz.dylib)     install_name_tool -change "$nixlib" /usr/lib/libz.dylib     "$1" ;;
+                  # Match versioned names too, e.g. libiconv.2.dylib.
+                  *libiconv*.dylib) install_name_tool -change "$nixlib" /usr/lib/libiconv.dylib "$1" ;;
+                  *libffi.*.dylib)  install_name_tool -change "$nixlib" /usr/lib/libffi.dylib   "$1" ;;
+                  *libc++.*.dylib)  install_name_tool -change "$nixlib" /usr/lib/libc++.dylib   "$1" ;;
+                  *libz.dylib)      install_name_tool -change "$nixlib" /usr/lib/libz.dylib     "$1" ;;
                   *) ;;
                   esac
               done
@@ -40,7 +41,8 @@
         in
         pkgs.stdenv.mkDerivation {
           name = "${name'}.zip";
-          buildInputs = with pkgs; [ patchelf zip fixup-nix-deps ];
+          buildInputs = with pkgs; [ patchelf zip fixup-nix-deps ]
+            ++ pkgs.lib.optionals targetPlatform.isDarwin [ pkgs.macdylibbundler ];
 
           phases = [ "buildPhase" "installPhase" ];
 
@@ -63,6 +65,19 @@
               fixup-nix-deps $bin
               chmod $mode $bin
             done
+
+            # Whatever still points at /nix/store are libraries macOS does not
+            # ship (libsodium-vrf, secp256k1, gmp, ncursesw). Bundle them next
+            # to the binaries and rewrite the load commands to @executable_path
+            # so the zip runs on a machine without nix.
+            chmod +w bin/*
+            # --no-codesign: install_name_tool already re-signs ad-hoc on each
+            # edit, and codesign is not on PATH in the build sandbox.
+            dylibbundler \
+              --overwrite-dir --create-dir --bundle-deps --no-codesign \
+              --install-path @executable_path/lib/ \
+              --dest-dir bin/lib \
+              $(for bin in bin/*; do echo "--fix-file $bin"; done)
           '';
 
           # compress and put into hydra products

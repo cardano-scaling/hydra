@@ -47,9 +47,13 @@ This component is at the core of the Hydra node, implementing the protocol's _st
 
 This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. Currently, the contracts are written using `Plutus-Tx`. The scripts are optimized using a custom `ScriptContext` and specific error codes.
 
+### Partial fanout
+
+A head with many outputs can be fanned out across several transactions, each distributing a chosen subset, using a KZG accumulator commitment and membership proofs. See [Partial fanout](./architecture/partial-fanout) for details.
+
 ### API
 
-The `hydra-node` component exposes an [asynchronous API](https://hydra.family/head-protocol/unstable/api-reference) through a WebSocket server. This API is available to the _Hydra client_ for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.
+The `hydra-node` component exposes an [asynchronous API](/api-reference) through a WebSocket server. This API is available to the _Hydra client_ for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.
 
 ### Persistence
 
@@ -61,4 +65,4 @@ The Hydra node logs all internal side effects as JSON-formatted messages to its 
 
 ### Monitoring
 
-The Hydra node [optionally](https://hydra.family/head-protocol/docs/getting-started#monitoring) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.
+The Hydra node [optionally](../../getting-started.md#monitoring) exposes [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, on the standard `/metrics` endpoint.

@@ -12,7 +12,7 @@ export default function FooterLinkItem({ item }) {
     <Link
       className={clsx(
         "footer__link-item inline-flex hover:text-primary-light",
-        isLandingPage ? "text-[#F3F4F4]" : "text-black"
+        isLandingPage ? "text-[#F3F4F4]" : "text-[var(--ifm-font-color-base)]"
       )}
       {...(href
         ? {

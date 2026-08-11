@@ -1,7 +1,7 @@
 {
     "txFeeFixed": 0,
     "txFeePerByte": 0,
-    "utxoCostPerByte": 0,
+    "utxoCostPerByte": 4310,
     "executionUnitPrices": {
         "priceMemory": 0,
         "priceSteps": 0
@@ -682,9 +682,9 @@
         "memory": 14000000,
         "steps": 10000000000
     },
-    "maxTxSize": 16384,
+    "maxTxSize": 10250,
     "maxValueSize": 5000,
-    "minFeeRefScriptCostPerByte": 15,
+    "minFeeRefScriptCostPerByte": 0,
     "minPoolCost": 170000000,
     "monetaryExpansion": 3.0e-3,
     "poolPledgeInfluence": 0.3,

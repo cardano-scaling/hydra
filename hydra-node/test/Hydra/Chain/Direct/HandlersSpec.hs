@@ -25,7 +25,7 @@ import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import Cardano.Ledger.Api (IsValid (..), isValidTxL, ppMaxTxSizeL)
 import Control.Lens ((.~))
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
@@ -42,11 +42,13 @@ import Hydra.Chain.Direct.Handlers (
   getLatest,
   history,
   newLocalChainState,
+  rejectOversizedDeposit,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
   ClosedState (..),
+  OpenState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
   ctxNetworkId,
@@ -59,7 +61,7 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandlePara
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import Hydra.Tx (mkSimpleBlueprintTx)
+import Hydra.Tx (ConfirmedSnapshot (..), mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
 import System.IO.Error (ioeGetErrorString, userError)
@@ -68,15 +70,18 @@ import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
   genClosedStateForFanout,
+  genDepositTx,
+  genDepositTxWith,
   genHydraContext,
+  pickChainContext,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize, pparamsWithMainnetValueLimit)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (defaultPParams)
-import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize)
 import Test.QuickCheck (
   NonNegative (..),
   Positive (..),
@@ -86,10 +91,12 @@ import Test.QuickCheck (
   cover,
   elements,
   forAll,
+  forAllBlind,
   generate,
   label,
   listOf,
   oneof,
+  property,
   suchThat,
   (===),
  )
@@ -608,6 +615,42 @@ spec = do
             -- Any exception thrown here will fail the test automatically.
             _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
             assert True
+
+  describe "rejectOversizedDeposit" $ do
+    prop "rejects deposit whose merged head value exceeds max value size" $
+      -- 130 outputs, each with a token under a distinct policy id, accumulate
+      -- to a merged head-output value of well over 5 kB serialized — beyond
+      -- mainnet's 5000 byte maxValSize — so the increment transaction claiming
+      -- the deposit would fail the ledger's OutputTooBigUTxO check.
+      forAll (genDepositTxWith (genUTxOWithUniquePolicyTokensOfSize 130) 3) $
+        \(ctx, st@OpenState{headId}, _, txDeposit) ->
+          forAllBlind (pickChainContext ctx) $ \cctx ->
+            case rejectOversizedDeposit pparamsWithMainnetValueLimit cctx (getKnownUTxO st) headId InitialSnapshot{headId} txDeposit (SlotNo 100) of
+              Left DepositTooLarge{estimatedValueSize, maximumValueSize} ->
+                property (estimatedValueSize > maximumValueSize)
+              other ->
+                counterexample ("expected DepositTooLarge, got: " <> show other) (property False)
+
+    prop "rejects deposit whose increment tx would exceed max tx size" $
+      -- With mainnet parameters this limit is unreachable: a worst-case
+      -- increment is ~10.5 kB (deposit script 1615 B + parties-scaled datum
+      -- and signatures ~3 kB + merged value bounded by maxValSize at 5 kB +
+      -- skeleton), well below 16384 B. An artificially low max tx size
+      -- exercises the guard for networks with smaller limits.
+      forAll (genDepositTx 3) $
+        \(ctx, st@OpenState{headId}, _, txDeposit) ->
+          forAllBlind (pickChainContext ctx) $ \cctx ->
+            case rejectOversizedDeposit (pparamsWithMainnetValueLimit & ppMaxTxSizeL .~ 1000) cctx (getKnownUTxO st) headId InitialSnapshot{headId} txDeposit (SlotNo 100) of
+              Left DepositTooLarge{estimatedTxSize, maximumTxSize} ->
+                property (estimatedTxSize > maximumTxSize)
+              other ->
+                counterexample ("expected DepositTooLarge, got: " <> show other) (property False)
+
+    prop "accepts deposit whose increment tx fits within layer 1 limits" $
+      forAll (genDepositTxWith (genUTxOAdaOnlyOfSize 5) 3) $
+        \(ctx, st@OpenState{headId}, _, txDeposit) ->
+          forAllBlind (pickChainContext ctx) $ \cctx ->
+            rejectOversizedDeposit pparamsWithMainnetValueLimit cctx (getKnownUTxO st) headId InitialSnapshot{headId} txDeposit (SlotNo 100) === Right ()
 
 -- | Generate a byte-count limit that straddles the real serialised size of
 -- @tx@, giving roughly equal probability of the size check passing or failing.

@@ -10,10 +10,42 @@ changes.
 
 ## [UNRELEASED]
 
+- Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
+  UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
+  10250 (fanout carries ~5.8 kB of overhead; safe up to 10 parties),
+  `utxoCostPerByte` restored to the mainnet value 4310 (layer 1 min ada must
+  hold for fanned-out outputs), and `minFeeRefScriptCostPerByte` zeroed like
+  the other fees. See the updated "Ledger parameters" documentation.
+
+- The `POST /commit` endpoint now rejects deposits that could never be claimed:
+  a dry-run increment transaction is checked against the layer 1 maximum
+  transaction size and maximum serialized value size (5000 bytes on mainnet,
+  typically hit first by deposits with tokens under many distinct policy ids),
+  returning a new `DepositTooLarge` error (HTTP 400). Previously such a deposit
+  transaction succeeded, but the increment transaction claiming it could never
+  land on-chain, leaving the funds locked until recovery after the deadline and
+  wedging further incremental commits until the head closed.
+
+- Fix long-running nodes rejecting layer 2 Plutus transactions that carry a
+  validity bound. The era history queried at startup has a forecast horizon
+  (36 hours on mainnet/preprod, shorter on other networks), and once the node
+  ran past it every Plutus transaction with an `invalidBefore` or
+  `invalidHereafter` failed with `OutsideForecast`/`PastHorizon` until the node
+  was restarted. The last era is now treated as unbounded for layer 2 ledger
+  time conversions.
+  [#2803](https://github.com/cardano-scaling/hydra/pull/2803)
+
 - **BREAKING**:
     - --deposit-period is now a protocol parameter embedded on-chain at Init time.
       All nodes in a head must configure the same value; a mismatch causes the node
       to emit IgnoredHeadInitializing and ignore the head entirely. [#2734](https://github.com/cardano-scaling/hydra/pull/2734)
+
+- Add `--deposit-activation` flag to decouple deposit activation from the
+  deadline calculation. It controls only the `Inactive -> Active` transition,
+  while `--deposit-period` keeps its role in deadline/expiry. The drafted deposit
+  deadline is now `now + deposit-activation + 2 x deposit-period`, giving three
+  independent windows (maturity, active, recovery). Defaults to `3600s`
+  [#2744](https://github.com/cardano-scaling/hydra/issues/2744)
 
 - Make `hydra-chain-observer` version-aware by detecting the Hydra protocol
   version of each observed transaction via script hash matching, removing the
@@ -41,8 +73,6 @@ changes.
   observed a block (so a stalled chain backend can be detected even while drift is
   frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
-## [2.3.0] - 2026.07.15
-
 - Add **selective partial fanout**: distribute a chosen subset of a closed
   head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
   client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`
@@ -50,16 +80,6 @@ changes.
   a `FanningOut` head status and a matching TUI selection flow. Keep issuing
   `PartialFanout` until the head is drained; the final step burns the head
   tokens. [#2333](https://github.com/cardano-scaling/hydra/issues/2333)
-
-- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
-  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
-  so deposits recorded before a rotation survive a node
-  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
-
-- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
-  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
-  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
-  natively supported, removing the need to manually convert them before use.
 
 - **BREAKING** Network protocol version bumped to 2: broadcast messages are
   now batched into a single etcd value (one Raft commit per batch) and the
@@ -78,6 +98,18 @@ changes.
 - `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
   coordinated upgrade required).
   [#2777](https://github.com/cardano-scaling/hydra/pull/2777)
+
+## [2.3.0] - 2026.07.15
+
+- Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
+  restart. `aggregateNodeState` now restores the full checkpoint snapshot,
+  so deposits recorded before a rotation survive a node
+  restart. [#2642](https://github.com/cardano-scaling/hydra/issues/2642)
+
+- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
+  verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+  Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+  natively supported, removing the need to manually convert them before use.
 
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
@@ -101,9 +133,6 @@ changes.
   in Idle state, and even while a new head is running. [#2743](https://github.com/cardano-scaling/hydra/pull/2743)
 
 - Fix Blockfrost chain backend error handling and resilience [#2729](https://github.com/cardano-scaling/hydra/pull/2729)
-
-- Hydra node can now be configured through a yaml file; easier to spot
-  differences in configuration with peers. [#2296](https://github.com/cardano-scaling/hydra/issues/2296).
 
 - Fixed a deadlock in the network layer's `PersistentQueue` where a silent
   no-op in `popPersistentQueue` could leave the broadcast queue permanently stuck

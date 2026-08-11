@@ -23,6 +23,7 @@ import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (userError)
+import Hydra.API.ServerOutput (getConfirmedSnapshot)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
@@ -206,8 +207,10 @@ mockChainAndNetwork tr seedKeys = do
     -- deposit tx directly?
     readTVarIO nodes >>= \case
       [] -> error "simulateDeposit: no MockHydraNode"
-      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}}} : _) ->
-        draftDepositTx headId defaultPParams (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
+      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}} : _) -> do
+        currentSnapshot <-
+          fromMaybe InitialSnapshot{headId} . getConfirmedSnapshot . headState <$> atomically queryNodeState
+        draftDepositTx headId defaultPParams currentSnapshot (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
 

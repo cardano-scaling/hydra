@@ -12,9 +12,11 @@ import Network.Socket (
   bind,
   close,
   defaultProtocol,
+  setCloseOnExecIfNeeded,
   socket,
   socketPort,
   tupleToHostAddress,
+  withFdSocket,
  )
 
 -- | Find a TCPv4 port which is likely to be free for listening on
@@ -63,6 +65,9 @@ randomUnusedTCPPorts count =
 bindFreshLoopback :: IO Socket
 bindFreshLoopback = do
   s <- socket AF_INET Stream defaultProtocol
+  -- 'socket' does not set SOCK_CLOEXEC, so a subprocess spawned while we hold
+  -- this sentinel inherits it and pins the port for its whole lifetime.
+  withFdSocket s setCloseOnExecIfNeeded
   bind s (SockAddrInet 0 (tupleToHostAddress (127, 0, 0, 1)))
   pure s
 
@@ -81,10 +86,6 @@ bindFreshLoopback = do
 -- prove it's free; if the companion bind fails we drop the primary and
 -- retry, up to a generous bound (collisions on the companion are rare in
 -- the ephemeral range, so we should converge quickly).
---
--- NOTE: There's still a small race between releasing the bound sockets and
--- the subprocess binding them, but it's the same race 'randomUnusedTCPPorts'
--- already has, and not the root cause of the etcd flakes.
 randomUnusedTCPPortsWithDerived ::
   (PortNumber -> PortNumber) ->
   Int ->
@@ -117,5 +118,6 @@ randomUnusedTCPPortsWithDerived derive count =
 bindSpecificLoopback :: PortNumber -> IO Socket
 bindSpecificLoopback portNumber = do
   s <- socket AF_INET Stream defaultProtocol
+  withFdSocket s setCloseOnExecIfNeeded
   bind s (SockAddrInet portNumber (tupleToHostAddress (127, 0, 0, 1)))
   pure s

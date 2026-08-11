@@ -39,7 +39,7 @@ import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -225,6 +225,24 @@ spec = parallel $ do
               >>= primeWith [receiveMessage ReqTx{transaction = aValidTx 1}]
           runToCompletion node
 
+    it "rejects client inputs received while catching up" $
+      -- Omitting 'primeWithTime' leaves the node in 'NodeCatchingUp'.
+      failAfter 5 $
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          (node, getServerOutputs) <-
+            hydrate tracer testEnvironment simpleLedger 0 (mockEventStore []) []
+              >>= notConnect
+              >>= primeWith [ClientInput Init]
+              >>= recordServerOutputs
+          runToCompletion node
+          outputs <- getServerOutputs
+          outputs
+            `shouldSatisfy` any
+              ( \case
+                  Right RejectedInputBecauseUnsynced{} -> True
+                  _ -> False
+              )
+
     it "rotates snapshot leaders" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let tx1 = SimpleTx{txSimpleId = 1, txInputs = mempty, txOutputs = utxoRefs [4]}
@@ -325,6 +343,7 @@ spec = parallel $ do
             , otherParties = [bob]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
@@ -408,7 +427,7 @@ mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
-    , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
+    , draftDepositTx = \_ _ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     , checkNonADAAssets = \_ -> error "mockChain: unexpected checkNonADAAssets"
     }
@@ -519,6 +538,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , otherParties
       , contestationPeriod
       , depositPeriod = defaultDepositPeriod
+      , depositActivation = defaultDepositActivation
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
       , participants
       , configuredPeers = ""

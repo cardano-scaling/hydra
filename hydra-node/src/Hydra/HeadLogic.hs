@@ -896,14 +896,14 @@ determineNextDepositStatus env pendingDeposits chainTime =
 
   determineStatus Deposit{created, deadline}
     | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
-    | chainTime > created `plusTime` toNominalDiffTime depositPeriod = Active
+    | chainTime > created `plusTime` toNominalDiffTime depositActivation = Active
     | otherwise = Inactive
 
   minusTime time dt = addUTCTime (-dt) time
 
   plusTime = flip addUTCTime
 
-  Environment{depositPeriod} = env
+  Environment{depositPeriod, depositActivation} = env
 
 -- | Process the chain (and time) advancing in any head state.
 --

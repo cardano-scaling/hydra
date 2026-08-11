@@ -225,7 +225,7 @@ httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getP
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo tracer env pparams directChain getCommitInfo
+        >>= handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
@@ -262,12 +262,14 @@ handleDraftCommitUtxo ::
   Environment ->
   PParams LedgerEra ->
   Chain tx IO ->
+  -- | Get latest 'NodeState'.
+  IO (NodeState tx) ->
   -- | A means to get commit info.
   IO CommitInfo ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
+handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo body = do
   case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
     Left err -> do
       traceWith tracer $
@@ -293,28 +295,42 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
           pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
  where
   deposit headId commitBlueprint changeAddress = do
-    -- NOTE: Three times deposit period means we have one deposit period time to
-    -- increment because a deposit only activates after one deposit period and
-    -- expires one deposit period before deadline.
-    deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
-    result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
-    case result of
-      Left e ->
-        case e of
-          UnsupportedLegacyOutput _ -> pure $ badRequest e
-          DepositTooLow _ _ -> pure $ badRequest e
-          FailedToConstructDepositTx _ -> pure $ badRequest e
-          _ -> do
-            traceWith tracer $
-              APIReturnedError
-                { reason = "Failed to draft deposit transaction: " <> show e
-                }
-            pure $ responseLBS status500 jsonContent (Aeson.encode $ toJSON e)
-      Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
+    nodeState <- getNodeState
+    case getConfirmedSnapshot (headState nodeState) of
+      Nothing -> do
+        traceWith tracer $
+          APIInvalidInput
+            { reason = "Cannot commit: Hydra node does not have an open Head."
+            , inputReceived = show body
+            }
+        pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
+      Just currentSnapshot -> do
+        -- NOTE: The deadline splits into three independent windows: a deposit
+        -- matures (becomes active) after 'depositActivation', stays active for one
+        -- 'depositPeriod', and can be recovered one 'depositPeriod' before the
+        -- deadline. Hence deadline = now + depositActivation + 2 x depositPeriod.
+        deadline <-
+          addUTCTime (toNominalDiffTime depositActivation + 2 * toNominalDiffTime depositPeriod)
+            <$> getCurrentTime
+        result <- draftDepositTx headId pparams currentSnapshot commitBlueprint deadline changeAddress
+        case result of
+          Left e ->
+            case e of
+              UnsupportedLegacyOutput _ -> pure $ badRequest e
+              DepositTooLow _ _ -> pure $ badRequest e
+              DepositTooLarge{} -> pure $ badRequest e
+              FailedToConstructDepositTx _ -> pure $ badRequest e
+              _ -> do
+                traceWith tracer $
+                  APIReturnedError
+                    { reason = "Failed to draft deposit transaction: " <> show e
+                    }
+                pure $ responseLBS status500 jsonContent (Aeson.encode $ toJSON e)
+          Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
 
   Chain{draftDepositTx} = directChain
 
-  Environment{depositPeriod} = env
+  Environment{depositPeriod, depositActivation} = env
 
 -- | Handle request to recover a pending deposit.
 handleRecoverCommitUtxo ::

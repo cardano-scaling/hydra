@@ -321,6 +321,7 @@ costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
     unlines $
       [ "## `FanOut` transaction costs"
       , "Involves spending head output and burning head tokens. Uses ada-only UTXO for better comparability."
+      , "Rows first grow the UTxO set at a fixed 10 parties, then show the largest set that still fits per number of parties (burning more participation tokens leaves less room for outputs)."
       , ""
       , "| Parties | UTxO  | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | :---- | :----------- | ------: | --------: | --------: | --------: |"
@@ -355,13 +356,15 @@ costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed comp
       , "Largest chunk of ada-only outputs that can be distributed in one partial fanout step, computed dynamically. "
           <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
-      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      , "| Total UTxO | Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ---------: | ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numTotal, numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
-                <> show numDistributed
+                <> show numTotal
+                <> " | "
+                <> show (numTotal - numRemaining)
                 <> " | "
                 <> show utxoSize
                 <> " | "
@@ -386,13 +389,15 @@ costOfPartialFanOutMixed = markdownPartialFanOutMixedCost . genFromSeed computeP
       , "Largest chunk of native-token outputs that can be distributed in one partial fanout step, computed dynamically. "
           <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
-      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      , "| Total UTxO | Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ---------: | ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numTotal, numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
-                <> show numDistributed
+                <> show numTotal
+                <> " | "
+                <> show (numTotal - numRemaining)
                 <> " | "
                 <> show utxoSize
                 <> " | "

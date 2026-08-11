@@ -9,7 +9,9 @@ export default function FooterCopyright({ copyright }) {
     <div
       className={clsx(
         " inline-flex gap-4 text-center",
-        isLandingPage ? "text-primary-alternate-light" : "text-primary"
+        isLandingPage
+          ? "text-primary-alternate-light"
+          : "text-[var(--ifm-font-color-base)]"
       )}
       // Developer provided the HTML, so assume it's safe.
       // eslint-disable-next-line react/no-danger

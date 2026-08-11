@@ -8,7 +8,7 @@ This tutorial explains how to profile Hydra scripts and is intended for contribu
 
 ## Overview
 
-For every pull request and the latest `master` branch, we compute typical transaction costs in terms of size, memory, and CPU usage of the Hydra protocol transactions on Cardano. You can view the latest results [here](https://hydra.family/head-protocol/benchmarks/transaction-cost).
+For every pull request and the latest `master` branch, we compute typical transaction costs in terms of size, memory, and CPU usage of the Hydra protocol transactions on Cardano. You can view the latest results [here](./transaction-cost.md).
 
 Such benchmarks provide a comprehensive overview of the constraints for a given transaction, including maximum transaction size and percent of maximum memory and CPU budget. For a detailed assessment, we analyze _all_ scripts that run within a given transaction.
 
@@ -91,7 +91,7 @@ cat logs | traceToStacks | flamegraph.pl > cpu.svg
 cat logs | traceToStacks --column 2 | flamegraph.pl > mem.svg
 ```
 
-Here's an example of a memory profile for a `5` party `collectCom` (kept as a historical illustration; the `collectCom` transaction itself has been removed since [ADR-33](../adr/2026-03-10_033-directly-open-head.md)):
+Here's an example of a memory profile for a `5` party `collectCom` (kept as a historical illustration; the `collectCom` transaction itself has been removed since [ADR-33](/adr/33)):
 
 ![](profile-mem.svg)
 
