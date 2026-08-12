@@ -87,6 +87,7 @@ import Network.GRPC.Client (
   ReconnectPolicy (..),
   ReconnectTo (ReconnectToOriginal),
   Server (..),
+  ServerDisconnected,
   Timeout (..),
   TimeoutUnit (..),
   TimeoutValue (..),
@@ -103,6 +104,7 @@ import Network.GRPC.Etcd (
   Lease,
   Watch,
  )
+import Network.HTTP2.Client (HTTP2Error)
 import Network.Socket (PortNumber)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
@@ -255,9 +257,17 @@ connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
 connParams tracer to =
   def
     { connReconnectPolicy = reconnectPolicy
-    , -- NOTE: Not rate limit pings to our trusted, local etcd node. See
-      -- comment on 'http2OverridePingRateLimit'.
-      connHTTP2Settings = defaultHTTP2Settings{http2OverridePingRateLimit = Just maxBound}
+    , -- NOTE: Do not rate limit pings or settings from our trusted, local etcd
+      -- node; see the comments on both override fields. The two guards trip on
+      -- the same thing: grpc-go raises its receive window as inbound volume
+      -- grows, pinging to measure the round-trip and sending a SETTINGS frame
+      -- per step. Sustained broadcast walks more steps than the default
+      -- 4 SETTINGS/s allows, and http2 then kills the connection (#2817).
+      connHTTP2Settings =
+        defaultHTTP2Settings
+          { http2OverridePingRateLimit = Just maxBound
+          , http2OverrideSettingsRateLimit = Just maxBound
+          }
     , connDefaultTimeout = to
     }
  where
@@ -391,32 +401,28 @@ broadcastMessages tracer config ourHost queue = do
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
   inFlightVar <- newLabelledTVarIO "etcd-broadcast-in-flight" Nothing
   withGrpcContext "broadcastMessages" . forever $ do
-    -- Block for work before opening a connection, then reuse that connection
-    -- for up to 'maxPutsPerConnection' queued messages. Per-message
-    -- connections pay a TCP + HTTP/2 handshake on the broadcast hot path and
-    -- exhaust ephemeral ports at high message rates, while an unbounded
-    -- connection lifetime runs into
-    -- https://github.com/cardano-scaling/hydra/issues/2167 (long-lived
-    -- connections observed to block after several thousand unary calls).
-    -- Bounded reuse amortizes the handshake while staying well below that
-    -- onset. Messages are only popped after a successful put, so a recycled
-    -- or failed connection never loses a message.
+    -- Block for work before opening a connection, then keep it for
+    -- 'maxPutsPerConnection' puts, waiting on it while the queue is dry. A
+    -- handshake per burst costs ~0.5ms on the hot path and churns ephemeral
+    -- ports. Messages are only popped after a successful put, so a recycled or
+    -- failed connection never loses one.
     void $ peekPersistentQueue queue
-    sendPending lastModRevVar inFlightVar
-      `catch` \case
-        e@GrpcException{grpcError, grpcErrorMessage}
-          | isTransientGrpcError grpcError -> do
-              traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
-              threadDelay 1
-          | otherwise -> throwIO e
+    catchJust retryableEtcdError (sendPending lastModRevVar inFlightVar) $ \reason -> do
+      traceWith tracer $ BroadcastFailed{reason}
+      threadDelay 1
  where
   sendPending lastModRevVar inFlightVar =
     withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn ->
       let go n
             | n <= 0 = pure ()
-            | otherwise =
+            | otherwise = do
+                -- Waiting here, rather than returning on an empty queue, is what
+                -- makes a connection last 'maxPutsPerConnection' puts and not a
+                -- single burst.
+                void $ peekPersistentQueue queue
                 nextPendingBatch inFlightVar queue maxBatchCount maxBatchBytes >>= \case
-                  Nothing -> pure ()
+                  -- Unreachable: we are the only consumer and just peeked.
+                  Nothing -> go n
                   Just batch -> do
                     putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
                     popBatchPersistentQueue tracer queue batch
@@ -424,26 +430,23 @@ broadcastMessages tracer config ourHost queue = do
                     go (n - 1)
        in go maxPutsPerConnection
 
-  -- Each batch is one unary call; bounded well below the several-thousand
-  -- calls where #2167 was observed.
+  -- Hedge against a connection wedging without raising. Not needed for
+  -- https://github.com/cardano-scaling/hydra/issues/2167: that was seen while
+  -- broadcast shared the connection with 'waitMessages'' watch stream, and a
+  -- dedicated one sustains 20k puts.
   maxPutsPerConnection = 1000 :: Int
 
   maxBatchCount = 50
 
   -- Keeps the value comfortably below etcd's default 1.5MiB request limit.
   maxBatchBytes = 256 * 1024
-  -- Same retry shape as the broadcast loop: keep trying through
-  -- transient connection errors so we can survive an etcd cluster that
+  -- Same retry shape as the broadcast loop, so we survive an etcd cluster that
   -- is still electing or that we briefly cannot reach.
   retryInitQuery =
-    queryInitialModRev tracer config ourHost
-      `catch` \case
-        e@GrpcException{grpcError, grpcErrorMessage}
-          | isTransientGrpcError grpcError -> do
-              traceWith tracer $ BroadcastFailed{reason = fromMaybe "init query failed" grpcErrorMessage}
-              threadDelay 1
-              retryInitQuery
-          | otherwise -> throwIO e
+    catchJust retryableEtcdError (queryInitialModRev tracer config ourHost) $ \reason -> do
+      traceWith tracer $ BroadcastFailed{reason}
+      threadDelay 1
+      retryInitQuery
 
 -- | Query etcd for the current 'mod_revision' of this peer's broadcast key.
 -- Returns 0 if the key does not yet exist. Used by 'broadcastMessages' to
@@ -580,8 +583,16 @@ waitMessages ::
   IO ()
 waitMessages tracer conn directory NetworkCallback{deliver} =
   withGrpcContext "waitMessages" . forever $ do
-    -- NOTE: We have not observed the watch (subscription) fail even when peers
-    -- leave and we end up on a minority cluster.
+    -- Restart a failed watch from the last known revision, same as one that
+    -- ended cleanly. Without this any connection blip kills the node.
+    catchJust retryableEtcdError watch $ \reason ->
+      traceWith tracer WatchFailed{reason}
+    -- Wait before re-trying
+    threadDelay 1
+ where
+  -- NOTE: We have not observed the watch (subscription) fail even when peers
+  -- leave and we end up on a minority cluster.
+  watch =
     biDiStreaming conn (rpc @(Protobuf Watch "watch")) $ \send recv -> do
       revision <- getLastKnownRevision directory
       let startRevision = fromIntegral (revision + 1)
@@ -595,9 +606,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
               & #startRevision .~ fromIntegral (revision + 1)
       send . NextElem $ defMessage & #createRequest .~ watchRequest
       loop send recv
-    -- Wait before re-trying
-    threadDelay 1
- where
+
   loop send recv =
     recv >>= \case
       NoNextElem -> pure ()
@@ -662,16 +671,18 @@ pollConnectivity ::
   IO ()
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
-  withGrpcContext "pollConnectivity" $
-    forever . handle (onGrpcException seenAliveVar) $ do
-      leaseId <- createLease
-      -- If we can create a lease, we are connected
-      onConnectivity NetworkConnected
-      -- Write our alive key using lease
-      writeAlive leaseId
-      traceWith tracer CreatedLease{leaseId}
-      withKeepAlive leaseId (aliveLoop seenAliveVar)
+  withGrpcContext "pollConnectivity" . forever $
+    catchJust retryableEtcdError (poll seenAliveVar) (onConnectionLost seenAliveVar)
  where
+  poll seenAliveVar = do
+    leaseId <- createLease
+    -- If we can create a lease, we are connected
+    onConnectivity NetworkConnected
+    -- Write our alive key using lease
+    writeAlive leaseId
+    traceWith tracer CreatedLease{leaseId}
+    withKeepAlive leaseId (aliveLoop seenAliveVar)
+
   aliveLoop seenAliveVar keepAlive = do
     -- Keep our lease alive
     ttlRemaining <- keepAlive
@@ -689,12 +700,11 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
         threadDelay 1
         aliveLoop seenAliveVar keepAlive
 
-  onGrpcException seenAliveVar e@GrpcException{grpcError}
-    | isTransientGrpcError grpcError = do
-        onConnectivity NetworkDisconnected
-        atomically $ writeTVar seenAliveVar []
-        threadDelay 1
-    | otherwise = throwIO e
+  -- Report the network as down and let the outer loop take a fresh lease.
+  onConnectionLost seenAliveVar _reason = do
+    onConnectivity NetworkDisconnected
+    atomically $ writeTVar seenAliveVar []
+    threadDelay 1
 
   createLease = withGrpcContext "createLease" $ do
     leaseResponse <-
@@ -751,6 +761,25 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
 isTransientGrpcError :: GrpcError -> Bool
 isTransientGrpcError =
   (`elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled, GrpcNotFound])
+
+-- | Classify a failure talking to our local etcd, giving a reason to trace when
+-- retrying is the right response.
+--
+-- Connection-level failures qualify: etcd is a subprocess we started and
+-- 'connParams' reconnects, so a lost connection is a blip rather than a reason
+-- to take the node down. Those arrive either as 'HTTP2Error' (straight from the
+-- @http2@ client, e.g. the SETTINGS rate limit of #2817) or 'ServerDisconnected'
+-- (grapesy's wrapper when a call outlives its connection). Everything else
+-- escalates, including 'putMessage's cluster-reset 'fail'.
+retryableEtcdError :: SomeException -> Maybe Text
+retryableEtcdError e
+  | Just GrpcException{grpcError, grpcErrorMessage} <- fromException e =
+      if isTransientGrpcError grpcError
+        then Just $ fromMaybe (show grpcError) grpcErrorMessage
+        else Nothing
+  | Just (http2Error :: HTTP2Error) <- fromException e = Just $ show http2Error
+  | Just (disconnected :: ServerDisconnected) <- fromException e = Just $ show disconnected
+  | otherwise = Nothing
 
 -- | Add context to the 'grpcErrorMessage' of any 'GrpcException' raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a
@@ -953,6 +982,8 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   | WatchMessagesStartRevision {startRevision :: Int64}
   | WatchMessagesFallbackTo {compactRevision :: Int64}
+  | -- | The watch stream failed; it is restarted from the last known revision.
+    WatchFailed {reason :: Text}
   | -- | The etcd transaction wrapping a broadcast 'put' found that our
     -- key's @mod_revision@ had moved past what we last recorded — the
     -- expected outcome when a 'GrpcDeadlineExceeded'-retried put already
