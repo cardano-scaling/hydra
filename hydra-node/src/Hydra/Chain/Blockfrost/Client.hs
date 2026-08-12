@@ -15,6 +15,7 @@ import Blockfrost.Client (
   Project,
   Slot (..),
   TransactionCBOR (..),
+  TxHash (..),
   TxHashCBOR (..),
   allPages,
   def,

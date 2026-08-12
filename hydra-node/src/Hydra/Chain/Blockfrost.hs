@@ -162,7 +162,7 @@ withBlockfrostChain opts tracer config ctx wallet chainStateHistory callback act
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj prefix handler wallet (runBlockfrostBackend opts getBlockTime)
+          blockfrostChain tracer queue prj prefix handler wallet
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
@@ -203,13 +203,12 @@ blockfrostChain ::
   NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
-  m NominalDiffTime ->
   m ()
-blockfrostChain tracer queue prj prefix handler wallet queryBlockTime = do
+blockfrostChain tracer queue prj prefix handler wallet = do
   forever $
     raceLabelled_
       ("blockfrost-chain-follow", blockfrostChainFollow tracer prj prefix handler wallet)
-      ("blockfrost-submission", blockfrostSubmissionClient prj tracer queryBlockTime queue)
+      ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrost prj) queue)
 
 blockfrostChainFollow ::
   forall m.
@@ -363,32 +362,38 @@ rollForward tracer prj handler wallet blockConfirmations blockHash = do
 
 blockfrostSubmissionClient ::
   forall m.
-  (MonadIO m, MonadDelay m, MonadSTM m) =>
-  Blockfrost.Project ->
+  MonadSTM m =>
   Tracer m CardanoChainLog ->
-  -- | Action returning the chain's average block time (seconds), used to size
-  -- the delay before reporting 'PostTxError'.
-  m NominalDiffTime ->
+  -- | How to submit a transaction, yielding a rendered failure reason or the
+  -- transaction hash. Must not throw.
+  (Tx -> m (Either Text Blockfrost.TxHash)) ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   m ()
-blockfrostSubmissionClient prj tracer queryBlockTime queue = bfClient
+blockfrostSubmissionClient tracer submit queue = bfClient
  where
   bfClient = do
     (tx, response) <- atomically $ readTQueue queue
     let txId = getTxId $ getTxBody tx
     traceWith tracer PostingTx{txId}
-    res <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj $ Blockfrost.submitTransaction tx
+    res <- submit tx
     case res of
       Left err -> do
-        let postTxError = FailedToPostTx{failureReason = show err, failingTx = tx}
+        let postTxError = FailedToPostTx{failureReason = err, failingTx = tx}
         traceWith tracer PostingFailed{tx, postTxError}
-        blockTime <- queryBlockTime
-        threadDelay (realToFrac blockTime)
         atomically (putTMVar response (Just postTxError))
       Right _ -> do
         traceWith tracer PostedTx{txId}
         atomically (putTMVar response Nothing)
-        bfClient
+    bfClient
+
+-- | Submit a transaction via Blockfrost, rendering both transport and API
+-- level failures into a reason.
+submitViaBlockfrost :: MonadIO m => Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
+submitViaBlockfrost prj tx =
+  liftIO $
+    handle (\(e :: IOException) -> pure . Left $ show e) $
+      either (Left . show) Right
+        <$> Blockfrost.runBlockfrost prj (Blockfrost.submitTransaction tx)
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
