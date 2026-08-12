@@ -10,10 +10,16 @@ import Cardano.Binary (serialize')
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
+  modifyTVar',
+  readTBQueue,
   readTQueue,
   readTVarIO,
+  writeTBQueue,
   writeTQueue,
  )
+import Data.Bits (testBit)
+import Data.ByteString qualified as BS
+import Data.Text qualified as T
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Envelope (message), showLogsOnFailure, traceInTVar)
 import Hydra.Network (
@@ -24,13 +30,33 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (EtcdLog (..), batchValue, connParams, getClientPort, grpcServer, isTransientGrpcError, peerPortToClientPort, putMessage, queryInitialModRev, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), batchValue, connParams, getClientPort, grpcServer, isTransientGrpcError, peerPortToClientPort, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
-import Network.GRPC.Client (withConnection)
-import Network.GRPC.Common (GrpcError (..))
+import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
+import Network.GRPC.Common (GrpcError (..), GrpcException (..))
+import Network.HTTP2.Client (ErrorCode (..), HTTP2Error (..))
+import Network.Socket (
+  Family (AF_INET),
+  PortNumber,
+  SockAddr (SockAddrInet),
+  SocketOption (ReuseAddr),
+  SocketType (Stream),
+  accept,
+  bind,
+  close,
+  connect,
+  defaultProtocol,
+  setSocketOption,
+  socket,
+  socketPort,
+  tupleToHostAddress,
+ )
+import Network.Socket qualified as Socket
+import Network.Socket.ByteString (recv, sendAll)
 import System.Directory (removeFile)
 import System.FilePath ((</>))
+import System.IO.Error (userError)
 import System.Process.Typed (readProcessStdout_, runProcess_, shell)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Ledger.Simple ()
@@ -66,6 +92,28 @@ spec = do
     it "does not treat unrelated errors as transient" $ do
       isTransientGrpcError GrpcInvalidArgument `shouldBe` False
       isTransientGrpcError GrpcPermissionDenied `shouldBe` False
+
+  describe "retryableEtcdError" $ do
+    -- #2817: the SETTINGS rate limit kills the connection with a bare
+    -- 'HTTP2Error', which is not a 'GrpcException' and so escaped every handler
+    -- in the module and took the node down.
+    it "retries http2 connection errors" $
+      retryableEtcdError (toException $ ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings")
+        `shouldSatisfy` isJust
+    it "retries a connection lost under an in-flight call" $
+      retryableEtcdError (toException $ ServerDisconnected (toException ConnectionIsClosed) callStack)
+        `shouldSatisfy` isJust
+    it "retries transient grpc errors" $
+      retryableEtcdError (toException GrpcException{grpcError = GrpcUnavailable, grpcErrorMessage = Just "etcd is electing", grpcErrorDetails = Nothing, grpcErrorMetadata = []})
+        `shouldBe` Just "etcd is electing"
+    it "escalates other grpc errors" $
+      retryableEtcdError (toException GrpcException{grpcError = GrpcInvalidArgument, grpcErrorMessage = Nothing, grpcErrorDetails = Nothing, grpcErrorMetadata = []})
+        `shouldBe` Nothing
+    -- 'putMessage' fails this way when etcd has lost the key we wrote against;
+    -- that has to keep taking the node down.
+    it "escalates anything else" $
+      retryableEtcdError (toException $ userError "our broadcast key has no current value in etcd")
+        `shouldBe` Nothing
 
   describe "Etcd" $
     around (showLogsOnFailure "NetworkSpec") $ do
@@ -145,6 +193,54 @@ spec = do
                 -- the watch is in-order).
                 broadcast n 2
                 waitNext `shouldReturn` 2
+
+      -- Regression test for #2817. etcd's grpc-go server raises its receive
+      -- window as inbound volume grows, emitting a SETTINGS frame per step, and
+      -- 'http2' rate limits inbound non-ACK SETTINGS to 4/s per connection
+      -- (CVE-2019-9515), killing the connection on the 5th. Under real load the
+      -- ramp is walked gradually as the broadcast queue backs up, which is why
+      -- it only bit some runs; here the burst is injected rather than provoked,
+      -- see 'withSettingsBurstProxy'.
+      it "survives a burst of SETTINGS frames from etcd" $ \tracer -> do
+        failAfter 60 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
+              let host = Host lo port
+                  config =
+                    NetworkConfiguration
+                      { listen = host
+                      , advertise = host
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      , whichEtcd = SystemEtcd
+                      }
+              withEtcdNetwork @Text tracer v1 config noopCallback $ \_ ->
+                -- One more than http2's limit of 4/s.
+                withSettingsBurstProxy (getClientPort config) 5 $ \proxyPort settingsSeen -> do
+                  -- 'withEtcdNetwork' returns before etcd accepts clients, so
+                  -- gate on a direct query, whose reconnect policy waits.
+                  -- Doubles as the 'lastModRev' seed.
+                  lastModRevVar <-
+                    newLabelledTVarIO "settings-burst-last-mod-rev"
+                      =<< queryInitialModRev tracer config host
+                  let proxied =
+                        ServerInsecure
+                          Address
+                            { addressHost = lo
+                            , addressPort = proxyPort
+                            , addressAuthority = Nothing
+                            }
+                      -- Big enough that the burst lands while the put is still
+                      -- streaming, which is when it arrives in production.
+                      value = batchValue [serialize' $ T.replicate (512 * 1024) "a"]
+                  withConnection (connParams tracer Nothing) proxied $ \conn ->
+                    putMessage tracer conn host lastModRevVar value
+                  -- Not a vacuous pass: 5 injected plus etcd's own handshake
+                  -- frame, and possibly more from its window ramp.
+                  settingsSeen >>= (`shouldSatisfy` (>= 6))
 
       -- Note: This test is disabled as it takes took long; but it is
       -- important to keep around. Successfully completion of this test looks
@@ -451,6 +547,120 @@ spec = do
 
 lo :: IsString s => s
 lo = "127.0.0.1"
+
+-- | Run a TCP proxy in front of an etcd client port that reproduces #2817's
+-- SETTINGS burst deterministically.
+--
+-- Both directions are forwarded verbatim, and once the client starts sending
+-- request data (so an RPC is in flight, as in production, where the data being
+-- sent is what makes etcd's window ramp fire) the proxy pushes @burst@ empty
+-- SETTINGS frames at the client. Those are legal at any point; the client ACKs
+-- each and etcd ignores stray ACKs.
+--
+-- Injecting beats provoking: how many frames grpc-go's estimator emits depends
+-- on how much data lands in one round-trip, which on an idle machine stops at
+-- 3, one under the limit. Reaching 5 needs the scheduling latency of the
+-- reporter's six-nodes-on-one-host setup.
+withSettingsBurstProxy ::
+  -- | Upstream etcd client port.
+  PortNumber ->
+  -- | How many SETTINGS frames to burst at the client.
+  Int ->
+  -- | Given the proxy's port and the count of non-ACK SETTINGS frames
+  -- forwarded to the client so far.
+  (PortNumber -> IO Int -> IO a) ->
+  IO a
+withSettingsBurstProxy upstreamPort burst action = do
+  settingsSeen <- newLabelledTVarIO "settings-burst-seen" 0
+  bracket listenLoopback close $ \server -> do
+    proxyPort <- socketPort server
+    withAsyncLabelled ("settings-burst-proxy", acceptLoop settingsSeen server) $ \_ ->
+      action proxyPort (readTVarIO settingsSeen)
+ where
+  loopback = tupleToHostAddress (127, 0, 0, 1)
+
+  listenLoopback = do
+    sock <- socket AF_INET Stream defaultProtocol
+    setSocketOption sock ReuseAddr 1
+    bind sock $ SockAddrInet 0 loopback
+    Socket.listen sock 5
+    pure sock
+
+  acceptLoop settingsSeen server = forever $ do
+    (client, _) <- accept server
+    -- Socket teardown at the end of a test races the relay threads; a dead
+    -- proxy connection has nothing left to report, so let it go quietly.
+    void . asyncLabelled "settings-burst-proxy-connection" $
+      (void . try @_ @SomeException $ relay settingsSeen client) `finally` close client
+
+  relay settingsSeen client =
+    bracket connectUpstream close $ \upstream -> do
+      -- Single writer towards the client, so forwarded bytes and the injected
+      -- burst cannot interleave mid-frame.
+      toClient <- newLabelledTBQueueIO "settings-burst-to-client" 100
+      raceLabelled_
+        ("settings-burst-writer", writeToClient settingsSeen toClient client "")
+        ( "settings-burst-readers"
+        , raceLabelled_
+            ("settings-burst-upstream-reader", readInto upstream (atomically . writeTBQueue toClient))
+            ("settings-burst-client-reader", readFromClient toClient client upstream 0)
+        )
+
+  connectUpstream = do
+    sock <- socket AF_INET Stream defaultProtocol
+    connect sock $ SockAddrInet upstreamPort loopback
+    pure sock
+
+  readInto from sink = do
+    bs <- recv from chunkSize
+    unless (BS.null bs) $ do
+      sink bs
+      readInto from sink
+
+  writeToClient settingsSeen toClient client buffer = do
+    bs <- atomically $ readTBQueue toClient
+    sendAll client bs
+    buffer' <- countSettingsFrames settingsSeen (buffer <> bs)
+    writeToClient settingsSeen toClient client buffer'
+
+  -- Trigger off bytes sent rather than parsing client frames: anything past the
+  -- 24-byte preface and the SETTINGS + HEADERS frames is request body.
+  readFromClient toClient client upstream sent = do
+    bs <- recv client chunkSize
+    unless (BS.null bs) $ do
+      sendAll upstream bs
+      let sent' = sent + BS.length bs
+      when (sent < burstAfterBytes && sent' >= burstAfterBytes) $
+        atomically . writeTBQueue toClient . BS.concat $
+          replicate burst emptySettingsFrame
+      readFromClient toClient client upstream sent'
+
+  -- Walk whole HTTP/2 frames out of the buffer, counting the non-ACK SETTINGS
+  -- ones, and hand back the trailing partial frame.
+  countSettingsFrames settingsSeen buffer
+    | BS.length buffer < frameHeaderSize = pure buffer
+    | otherwise = do
+        let frameSize = frameHeaderSize + BS.foldl' (\acc b -> acc * 256 + fromIntegral b) 0 (BS.take 3 buffer)
+            frameType = BS.index buffer 3
+            flags = BS.index buffer 4
+        if BS.length buffer < frameSize
+          then pure buffer
+          else do
+            when (frameType == settingsFrameType && not (testBit flags 0)) $
+              atomically $
+                modifyTVar' settingsSeen (+ 1)
+            countSettingsFrames settingsSeen (BS.drop frameSize buffer)
+
+  -- SETTINGS, empty payload, no flags, stream 0.
+  emptySettingsFrame = BS.pack [0, 0, 0, settingsFrameType, 0, 0, 0, 0, 0]
+
+  settingsFrameType = 4 :: Word8
+
+  frameHeaderSize = 9
+
+  burstAfterBytes = 16 * 1024
+
+  chunkSize = 65536
 
 data PeerConfig2 = PeerConfig2
   { aliceConfig :: NetworkConfiguration
