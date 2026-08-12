@@ -68,11 +68,11 @@ instance ChainBackend BlockfrostBackend where
   queryTip = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO addresses = withProject $ \opts prj -> do
+  queryUTxO addresses = withProject $ \_ prj -> do
     Blockfrost.Genesis{_genesisNetworkMagic} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO opts networkId addresses
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
 
   queryUTxOByTxIn txins = withProject $ \opts prj -> do
     Blockfrost.Genesis{_genesisNetworkMagic} <-
@@ -92,8 +92,8 @@ instance ChainBackend BlockfrostBackend where
   queryStakePools _ = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor _ vk = withProject $ \opts prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor opts vk
+  queryUTxOFor _ vk = withProject $ \_ prj ->
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor vk
 
   submitTransaction tx = withProject $ \_ prj ->
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx

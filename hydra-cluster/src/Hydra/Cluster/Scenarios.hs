@@ -2045,7 +2045,6 @@ refuelIfNeeded ::
   Coin ->
   IO ()
 refuelIfNeeded tracer opts actor amount = do
-  Faucet.delayBF opts
   (actorVk, _) <- keysFor actor
   existingUtxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
