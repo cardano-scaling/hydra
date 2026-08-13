@@ -87,6 +87,7 @@ data APIBlockfrostError
   | DecodeError Text
   | MissingBlockNo BlockHash
   | MissingBlockSlot (Maybe Slot)
+  | BlockfrostRateLimited
   deriving stock (Show)
   deriving anyclass (Exception)
 
@@ -97,17 +98,37 @@ isRetryable = \case
   DecodeError _ -> True
   MissingBlockNo _ -> True
   MissingBlockSlot _ -> True
+  BlockfrostRateLimited -> True
 
+-- | Run a Blockfrost client action, retrying with capped exponential backoff
+-- when rate limited (HTTP 429). blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
+-- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = do
-  result <- liftIO $ runBlockfrost prj action
-  case result of
-    Left err -> throwIO $ BlockfrostError (show err)
-    Right val -> pure val
+runBlockfrostM prj action = go 0
+ where
+  go attempt = do
+    result <- liftIO $ Blockfrost.runBlockfrost prj action
+    case result of
+      Right val -> pure val
+      Left Blockfrost.BlockfrostUsageLimitReached
+        | attempt < maxRateLimitRetries -> do
+            liftIO $ threadDelay (rateLimitBackoff attempt)
+            go (attempt + 1)
+        | otherwise -> throwIO BlockfrostRateLimited
+      Left err -> throwIO $ BlockfrostError (show err)
+
+-- | Delay before the n-th rate-limit retry.
+rateLimitBackoff :: Int -> DiffTime
+rateLimitBackoff attempt = min 60 (2 ^ attempt)
+
+-- | How often to retry a rate-limited request before giving up.
+maxRateLimitRetries :: Int
+maxRateLimitRetries = 6
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.

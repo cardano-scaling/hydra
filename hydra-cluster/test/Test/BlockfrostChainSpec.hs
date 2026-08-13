@@ -9,7 +9,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
-import Data.Time (secondsToNominalDiffTime)
 import Hydra.Cardano.Api (CardanoSigningKey (..), TxIn (..), TxIx (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
@@ -89,7 +88,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
   -- Parked until #2753 makes the Blockfrost lifecycle fast enough to run in CI.
   it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
-    pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
+    -- pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
     withTempDir "hydra-cluster" $ \tmp -> do
       (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
@@ -113,7 +112,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
           postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
+          (headId, headSeed) <- observesInTimeSatisfying' aliceChain 120 $ hasInitTxWith headParameters participants
 
           let snapshotVersion = 0
           let emptyUTxO :: UTxOType Tx = mempty
@@ -153,7 +152,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ \case
+          observesInTimeSatisfying' aliceChain 120 $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
                   if UTxO.containsOutputs fanoutUTxO (UTxO.txOutputs expectedUTxO)

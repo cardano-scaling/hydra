@@ -4,14 +4,18 @@ import Hydra.Prelude
 import Test.Hspec
 
 import Control.Concurrent.Class.MonadSTM (takeTMVar, writeTQueue)
+import Control.Retry (RetryPolicyM, limitRetries)
 import Control.Tracer (nullTracer)
 import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, retryOnBlockfrostError)
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable, rateLimitBackoff)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Logging (Tracer)
 import Test.Hydra.Prelude (failAfter)
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (arbitrary, generate)
+
+retry :: RetryPolicyM IO
+retry = limitRetries 3
 
 spec :: Spec
 spec = do
@@ -22,11 +26,14 @@ spec = do
     it "treats BlockfrostError as retryable" $ do
       isRetryable (BlockfrostError "some API error") `shouldBe` True
 
+    it "treats BlockfrostRateLimited as retryable" $ do
+      isRetryable BlockfrostRateLimited `shouldBe` True
+
   describe "retryOnBlockfrostError" $ do
     it "retries on transient APIBlockfrostError and eventually succeeds" $ do
       attemptsRef <- newIORef (0 :: Int)
       result <-
-        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 $ const $ do
+        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) retry $ const $ do
           attempts <- readIORef attemptsRef
           writeIORef attemptsRef (attempts + 1)
           if attempts < 2
@@ -41,7 +48,7 @@ spec = do
       let action = do
             modifyIORef attemptsRef (+ 1)
             throwIO $ BlockfrostError "persistent error"
-      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 (const action)
+      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) retry (const action)
         `shouldThrow` \case
           BlockfrostError{} -> True
           _ -> False
@@ -51,7 +58,7 @@ spec = do
     it "retries on HTTP error (BlockfrostError Text) and eventually succeeds" $ do
       attemptsRef <- newIORef (0 :: Int)
       result <-
-        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 $ const $ do
+        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) retry $ const $ do
           attempts <- readIORef attemptsRef
           modifyIORef attemptsRef (+ 1)
           if attempts < 2
@@ -66,7 +73,7 @@ spec = do
       let action = do
             modifyIORef attemptsRef (+ 1)
             throwIO $ BlockfrostError "HTTP 403 Forbidden"
-      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 (const action)
+      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) retry (const action)
         `shouldThrow` \case
           BlockfrostError _ -> True
           _ -> False
@@ -78,12 +85,18 @@ spec = do
       let action = do
             modifyIORef attemptsRef (+ 1)
             throwIO $ BlockfrostClientError ByronAddressNotSupported
-      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 (const action)
+      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) retry (const action)
         `shouldThrow` \case
           BlockfrostClientError{} -> True
           _ -> False
       finalAttempts <- readIORef attemptsRef
       finalAttempts `shouldBe` 1
+
+  describe "rateLimitBackoff" $
+    it "grows exponentially and caps at 60s" $ do
+      rateLimitBackoff 0 `shouldBe` 1
+      rateLimitBackoff 3 `shouldBe` 8
+      rateLimitBackoff 10 `shouldBe` 60
 
   describe "blockfrostSubmissionClient" $
     it "reports submission failures immediately and keeps serving the queue" $
