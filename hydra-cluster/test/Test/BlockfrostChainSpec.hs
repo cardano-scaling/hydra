@@ -130,6 +130,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing
+                  , depositTxId = Nothing
                   , version = snapshotVersion
                   , accumulator
                   }

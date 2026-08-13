@@ -3121,6 +3121,15 @@ components:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
             - type: "null"
+        depositTxId:
+          description: >-
+            Transaction which deposited `utxoToCommit` on L1, i.e. the deposit an
+            increment of this snapshot may claim. Bound into the snapshot
+            signature, so the increment cannot claim another deposit. Present
+            exactly when `utxoToCommit` is.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/TxId"
+            - type: "null"
         utxoToDecommit:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"

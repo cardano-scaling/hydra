@@ -15,6 +15,8 @@ data DepositError
   | DepositHeadInputNotFound
   | HeadInputRedeemerNotFound
   | HeadRedeemerNotIncrement
+  | DepositNotClaimedByHead
+  | MultipleDepositsRecovered
   deriving stock (Show)
 
 instance ToErrorCode DepositError where
@@ -27,3 +29,5 @@ instance ToErrorCode DepositError where
     DepositHeadInputNotFound -> "D06"
     HeadInputRedeemerNotFound -> "D07"
     HeadRedeemerNotIncrement -> "D08"
+    DepositNotClaimedByHead -> "D09"
+    MultipleDepositsRecovered -> "D10"

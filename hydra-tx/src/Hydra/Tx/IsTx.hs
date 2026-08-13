@@ -88,6 +88,11 @@ class
   -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
   hashUTxO :: UTxOType tx -> ByteString
 
+  -- | Raw bytes identifying a transaction, as bound into snapshot signatures.
+  -- Must match what the on-chain code reads out of a 'TxOutRef', see
+  -- 'Hydra.Tx.Snapshot.getSignableRepresentation'.
+  txIdBytes :: TxIdType tx -> ByteString
+
   txSpendingUTxO :: UTxOType tx -> tx
 
   -- | Get the UTxO produced by given transaction.
@@ -179,6 +184,9 @@ instance IsTx Tx where
 
   -- NOTE: See note from `Util.hashTxOuts`.
   hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs
+
+  -- NOTE: Same 32 bytes as the on-chain 'getTxId' of a 'TxOutRef'.
+  txIdBytes = serialiseToRawBytes
 
   txSpendingUTxO = Api.txSpendingUTxO
 

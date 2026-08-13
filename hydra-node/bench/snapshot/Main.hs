@@ -72,6 +72,7 @@ benchCell n m = do
           , utxo
           , utxoToCommit = Nothing
           , utxoToDecommit = Nothing
+          , depositTxId = Nothing
           , accumulator = acc0
           }
       st =

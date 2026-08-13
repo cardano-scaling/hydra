@@ -369,6 +369,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               , utxo = nextUTxO
                               , utxoToCommit = mUtxoToCommit
                               , utxoToDecommit = mUtxoToDecommit
+                              , -- Bound into the signature so the increment can only
+                                -- claim this very deposit, see 'Hydra.Tx.Snapshot'.
+                                depositTxId = mDepositTxId
                               , accumulator
                               }
 
@@ -651,12 +654,12 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
           <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) decommitTx nextDeposit)
       else outcome
 
-  maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    -- NOTE: gate on both 'currentDepositTxId' and 'snapshot.utxoToCommit'.
-    -- 'DepositActivated' can set 'currentDepositTxId' during the ack flow of a
-    -- non-commit snapshot, so we'd otherwise post an Increment for a snapshot
-    -- that has no 'utxoToCommit'.
-    case (currentDepositTxId, utxoToCommit) of
+  maybePostIncrementTx snapshot@Snapshot{utxoToCommit, depositTxId = signedDepositTxId} signatures outcome =
+    -- NOTE: use the snapshot's own deposit and not 'currentDepositTxId'. The
+    -- latter can be set by a 'DepositActivated' during the ack flow of an
+    -- unrelated snapshot, and only the deposit bound into the signed snapshot
+    -- can be claimed by an increment on-chain.
+    case (signedDepositTxId, utxoToCommit) of
       (Just depositTxId, Just _) ->
         case Map.lookup depositTxId pendingDeposits of
           Just Deposit{deposited} ->

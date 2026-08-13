@@ -111,6 +111,7 @@ healthyContestSnapshot =
     , confirmed = []
     , utxoToCommit = Nothing
     , utxoToDecommit = Just splitUTxOToDecommit
+    , depositTxId = Nothing
     , version = healthyCloseSnapshotVersion
     , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
     }

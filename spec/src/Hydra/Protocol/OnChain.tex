@@ -201,6 +201,14 @@ to recover, and checks:
 	\[
 		\txValidityMin > t_{\mathsf{recover}}
 	\]
+	\item This deposit is the only one spent by the transaction. The recovered
+	outputs $o_{1} \dots o_{m}$ are the transaction's first $m$ outputs and are
+	therefore shared by every deposit input, so two deposits recording the same
+	$C$ would both be satisfied by a single set of recovered outputs, leaving the
+	second deposit's value to be directed anywhere by the transaction author:
+	\[
+		|\{ (\cdot, o) \in \txInputs \mid o \text{ is governed by } \nuDeposit \}| = 1
+	\]
 \end{menumerate}
 
 \begin{figure}[H]
@@ -237,6 +245,13 @@ $\redeemerDeposit = \mathsf{Claim}$ and ensures:
 	\[
 		\txValidityMax <= t_{\mathsf{recover}}
 	\]
+	\item The head input is spent with an $\mathsf{increment}$ redeemer that
+	claims this very deposit. Otherwise a legitimate \mtxIncrement{} could carry
+	additional deposit inputs whose value enters the head without any snapshot
+	crediting it:
+	\[
+		\txOutRef_{\mathsf{increment}} = \txOutRef_{\mathsf{deposit}}
+	\]
 \end{menumerate}
 
 \noindent The state-machine validator $\nuHead$ is spent with
@@ -260,12 +275,28 @@ checks:
 	\[
 		\txOutRef_{\mathsf{increment}} = \txOutRef_{\mathsf{deposit}}
 	\]
+	\item The claimed deposit is the first output of its transaction, as produced
+	by \mtxDeposit{}~\ref{sec:deposit-tx}. Since $\eta_{\alpha}$ below binds a
+	deposit by its transaction id, sibling outputs of that same transaction would
+	otherwise be interchangeable under one signature:
+	\[
+		\txIdx(\txOutRef_{\mathsf{deposit}}) = 0
+	\]
 	\item $\xi$ is a valid multi-signature of the new head state $\eta'$
 	\[
-		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#} || \eta_{\omega} || \eta_{\alpha}),\xi) = \true
 	\]
 	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
 	stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs.
+	The commit digest $\eta_{\alpha}$ is recomputed from the claimed deposit itself,
+	binding both its recorded outputs $C$ and the identity of the transaction that
+	created it:
+	\[
+		\eta_{\alpha} = \hash(\hash(\mathsf{concat}({\sortOn(1, C)}^{\downarrow2})) || \mathsf{txId}(\txOutRef_{\mathsf{deposit}}))
+	\]
+	Hashing $C$ alone would not identify a deposit: a deposit datum is
+	unauthenticated data that anyone can copy into a look-alike deposit holding
+	less value, which hashes identically and would accept the same signature.
 	\item The value in the head output is increased accordingly
 	\[
 		\valHead \cup \valDeposit = \valHead'

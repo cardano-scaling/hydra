@@ -67,6 +67,7 @@ data HeadError
   | ChangedHeadAdaOverhead
   | DepositDatumInvalid
   | InvalidCRSDatum
+  | DepositNotFirstOutput
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -139,3 +140,4 @@ instance ToErrorCode HeadError where
     ChangedHeadAdaOverhead -> "H65"
     DepositDatumInvalid -> "H67"
     InvalidCRSDatum -> "H68"
+    DepositNotFirstOutput -> "H69"

@@ -28,7 +28,7 @@ deriving newtype instance Arbitrary tx => Arbitrary (SubmitTxRequest tx)
 instance Arbitrary TransactionSubmitted where
   arbitrary = genericArbitrary
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
   arbitrary = genericArbitrary
 
   shrink = \case

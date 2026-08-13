@@ -17,7 +17,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), mkHeadId, registryUTxO)
+import Hydra.Tx (Snapshot (..), commitOutputsHash, mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
@@ -76,6 +76,12 @@ import Test.QuickCheck.Instances ()
 healthyDepositUTxO :: UTxO
 healthyDepositUTxO = genUTxOSized 3 `generateWith` 42
 
+-- | Identity of the deposit the pending commit originates from, bound into the
+-- snapshot signature. No deposit input is spent by a close transaction, so the
+-- exact id does not matter here as long as signing and verification agree.
+healthyDepositTxId :: TxId
+healthyDepositTxId = arbitrary `generateWith` 42
+
 healthyCommitPendingSnapshotNumber :: Snapshot.SnapshotNumber
 healthyCommitPendingSnapshotNumber = 1
 
@@ -94,6 +100,7 @@ healthyCommitPendingSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Just healthyDepositUTxO
     , utxoToDecommit = Nothing
+    , depositTxId = Just healthyDepositTxId
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
     }
 
@@ -107,7 +114,7 @@ healthyCommitPendingDecommitOutputsHash =
 
 healthyCommitPendingCommitOutputsHash :: Head.Hash
 healthyCommitPendingCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCommitPendingSnapshot))
+  toBuiltin $ commitOutputsHash healthyCommitPendingSnapshot
 
 healthyCommitPendingOpenDatum :: Head.State
 healthyCommitPendingOpenDatum =

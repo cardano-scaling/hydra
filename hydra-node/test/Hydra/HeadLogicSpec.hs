@@ -659,6 +659,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just txid2
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               s0 =
@@ -1395,6 +1396,7 @@ spec =
                 , utxo = activeUTxO
                 , utxoToCommit = Nothing
                 , utxoToDecommit = utxoToDecommit
+                , depositTxId = Nothing
                 , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
                 }
             s0 =
@@ -1490,6 +1492,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -1613,6 +1616,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -1690,6 +1694,7 @@ spec =
                   , utxo = mempty -- activeUTxO after decommit
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
+                  , depositTxId = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -2584,7 +2589,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToDecom = Just utxoToDecommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing Nothing utxoToDecom accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2600,7 +2605,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToCom = Just utxoToCommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom (Just 2) Nothing accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2665,6 +2670,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUTxO
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
                   }
               depositMultisig = aggregate [sign aliceSk depositSnapshot]
@@ -3307,5 +3313,6 @@ testSnapshot number version confirmed utxo =
     , utxo
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
+    , depositTxId = Nothing
     , accumulator = Accumulator.buildFromUTxO utxo
     }

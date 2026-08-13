@@ -44,6 +44,7 @@ import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   Snapshot (..),
+  commitOutputsHash,
   deriveParty,
   hashUTxO,
   headIdToCurrencySymbol,
@@ -329,14 +330,14 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, utxoToDecommit, utxoToCommit} :: Snapshot Tx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, utxoToDecommit} :: Snapshot Tx) ->
     forAll (resize 3 arbitrary) $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToCommit))) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (commitOutputsHash snapshot)) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)

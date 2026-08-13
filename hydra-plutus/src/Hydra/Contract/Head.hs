@@ -58,10 +58,11 @@ import PlutusLedgerApi.V3 (
   PubKeyHash (getPubKeyHash),
   ScriptContext (..),
   TokenName (..),
+  TxId (getTxId),
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef,
+  TxOutRef (txOutRefId, txOutRefIdx),
   UpperBound (..),
   Value (Value),
   mintValueBurned,
@@ -124,6 +125,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
     && claimedDepositIsSpent
+    && mustClaimFirstDepositOutput
     && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   inputs = txInfoInputs txInfo
@@ -154,16 +156,36 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
+  -- The signed message binds the deposit by transaction id (see
+  -- 'commitOutputsHash'), which alone would leave sibling outputs of the SAME
+  -- deposit transaction interchangeable: a second output with a copied datum but
+  -- less value hashes into the same message. A deposit transaction always pays
+  -- the deposit as its first output (any change follows), which is what
+  -- 'Hydra.Tx.Deposit.depositTx' builds and what observation and recovery assume.
+  mustClaimFirstDepositOutput =
+    traceIfFalse $(errorCode DepositNotFirstOutput) $
+      txOutRefIdx increment == 0
+
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
 
   -- Bind the exact committed deposit into the multi-signature: recompute the
-  -- commit-outputs hash from the CLAIMED deposit input's own datum, so claiming a
-  -- different deposit than the one parties approved changes the signed message and
-  -- fails signature verification. Without this only aggregate value is checked, and
-  -- a participant could reuse a valid all-party signature while committing a
-  -- different (equal-value) deposit.
-  commitOutputsHash = hashPreSerializedCommits claimedDepositCommits
+  -- commit-outputs hash from the CLAIMED deposit input's own datum AND the id of
+  -- the transaction that created it, so claiming a different deposit than the one
+  -- parties approved changes the signed message and fails signature verification.
+  --
+  -- Hashing the deposit's content alone is not enough. A deposit datum is
+  -- unauthenticated data that anyone can copy, and nothing forces a deposit to
+  -- hold the value its commits describe, so a content-identical look-alike
+  -- deposit hashes the same while carrying less value. Claiming it under a
+  -- signature the parties gave for the real deposit would credit the full
+  -- committed UTxO on L2 against whatever the look-alike actually paid into the
+  -- head. Off-chain (see 'Hydra.Tx.Snapshot') the same hash is built from the
+  -- committed UTxO and the deposit transaction id the parties agreed on.
+  commitOutputsHash =
+    sha2_256 $
+      hashPreSerializedCommits claimedDepositCommits
+        <> getTxId (txOutRefId increment)
 
   claimedDepositCommits =
     case L.find (\i -> txInInfoOutRef i == increment) inputs of
@@ -546,6 +568,16 @@ headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crs
   -- isG1Generator is intentionally omitted — pre-settled UTxOs (decommitted/deposited
   -- before Close) remain in the accumulator but are not fanned out. Completeness is
   -- enforced by mustConserveValue instead.
+  --
+  -- NOTE: Unlike 'checkPartialFanout' and 'checkFinalPartialFanout' there is
+  -- deliberately no @numberOfFanoutOutputs > 0@ guard here, even though an empty
+  -- subset degenerates the pairing to e(A,G2) = e(proof,G2) and passes for
+  -- proof = A. A head whose UTxO set is empty (nothing was ever committed, or
+  -- everything was decommitted) fans out zero outputs on this path and on this
+  -- path only, so rejecting them would leave its ADA overhead locked forever.
+  -- The degenerate case is bounded by mustConserveValue: with no outputs the head
+  -- input must equal the burned tokens plus 'headAdaOverhead', i.e. the head holds
+  -- no L2 UTxO value at all.
   checkCRSAndMembership =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->

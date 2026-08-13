@@ -19,6 +19,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -58,7 +59,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
-          , commitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
+          , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash snapshot
           }
 
   decrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator

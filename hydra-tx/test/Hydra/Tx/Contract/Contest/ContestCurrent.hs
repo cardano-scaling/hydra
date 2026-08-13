@@ -45,7 +45,7 @@ import Hydra.Tx.Contract.Contest.Healthy (
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.IsTx (hashUTxO)
-import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.Tx.Snapshot (Snapshot (..), commitOutputsHash)
 import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -91,7 +91,7 @@ healthyContestDecommitOutputsHash =
 
 healthyContestCommitOutputsHash :: Head.Hash
 healthyContestCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestSnapshot))
+  toBuiltin $ commitOutputsHash healthyContestSnapshot
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation

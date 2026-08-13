@@ -319,6 +319,7 @@ dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperV
           , utxo
           , utxoToCommit = Just deposited
           , utxoToDecommit = Nothing
+          , depositTxId = Just depositTxId
           , -- Only the constant-size hash of the accumulator ends up in the
             -- transaction.
             accumulator

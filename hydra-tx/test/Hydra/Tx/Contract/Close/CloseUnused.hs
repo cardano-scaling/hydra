@@ -17,7 +17,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), mkHeadId, registryUTxO)
+import Hydra.Tx (Snapshot (..), commitOutputsHash, mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
@@ -129,6 +129,7 @@ healthyCurrentSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , depositTxId = Nothing
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
 
@@ -142,7 +143,7 @@ healthyCurrentDecommitOutputsHash =
 
 healthyCurrentCommitOutputsHash :: Head.Hash
 healthyCurrentCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCurrentSnapshot))
+  toBuiltin $ commitOutputsHash healthyCurrentSnapshot
 
 -- | Decommit is pending: decommitted UTxO is still in the head, so overhead
 -- is computed over both halves of healthyUTxO.
