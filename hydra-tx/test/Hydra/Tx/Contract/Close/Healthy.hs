@@ -22,12 +22,13 @@ import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Secret (Secret)
-import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromContestationPeriod, genVerificationKey)
+import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Instances ()
 

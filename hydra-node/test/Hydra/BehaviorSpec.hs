@@ -38,8 +38,8 @@ import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.Ledger (Ledger, nextChainSlot)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger (Ledger)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
@@ -69,8 +69,10 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, getVerificationKey, sign)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.Party (Party (..), deriveParty, getParty)
+import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.Ledger (nextChainSlot)
+import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -1428,7 +1430,7 @@ createMockNetworkWithDelay networkDelay node nodes =
         threadDelay networkDelay
         enqueue inputQueue $ mkNetworkInput sender msg
 
-  sender = getParty node
+  DraftHydraNode{env = Environment{party = sender}} = node
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,

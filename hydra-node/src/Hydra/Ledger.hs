@@ -8,11 +8,6 @@ import Hydra.Prelude
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
 
--- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
--- instances to 'ChainSlot'.
-nextChainSlot :: ChainSlot -> ChainSlot
-nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
-
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
@@ -41,17 +36,6 @@ data Ledger tx = Ledger
   -- Callers MUST only pass previously-validated transactions; passing an
   -- unvalidated transaction is unsound (its scripts/signatures are not checked).
   }
-
--- | Collect applicable transactions and resulting UTxO. In contrast to
--- 'applyTransactions', this functions continues on validation errors.
-collectTransactions :: Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> ([tx], UTxOType tx)
-collectTransactions Ledger{applyTransactions} slot utxo =
-  foldl' go ([], utxo)
- where
-  go (applicableTxs, u) tx =
-    case applyTransactions slot u [tx] of
-      Left _ -> (applicableTxs, u)
-      Right u' -> (applicableTxs <> [tx], u')
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
 data ValidationResult

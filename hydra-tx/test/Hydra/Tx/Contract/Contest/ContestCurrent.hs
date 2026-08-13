@@ -46,7 +46,6 @@ import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..))
-import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
@@ -76,6 +75,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotNumber,
   replaceSnapshotVersion,
  )
+import Test.Hydra.Tx.Utils (adaOnly)
 import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Hedgehog (hedgehog)

@@ -124,13 +124,3 @@ test-suite tests
     , tasty-golden
     , tasty-hunit
     , typed-process
-
-executable inspect-script
-  import:         project-config
-  hs-source-dirs: exe/inspect-script
-  main-is:        Main.hs
-  build-depends:
-    , hydra-plutus
-    , hydra-prelude
-
-  ghc-options:    -threaded -rtsopts

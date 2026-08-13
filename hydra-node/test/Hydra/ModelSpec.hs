@@ -138,8 +138,6 @@ import Test.QuickCheck.StateModel (
  )
 import Test.Util (printTrace, traceInIOSim)
 
-instance HasVariables (SigningKey PaymentKey) where
-  getAllVariables = mempty
 instance HasVariables Payment.CardanoSigningKey where
   getAllVariables = mempty
 

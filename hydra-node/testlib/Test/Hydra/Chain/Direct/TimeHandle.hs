@@ -7,11 +7,16 @@ import Test.Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (..))
+import Data.Fixed (Pico)
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.TimeHandle
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt)
 import Test.QuickCheck (getPositive)
+
+-- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
+safeZone :: Pico
+safeZone = 3 * 2160 / 0.05
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
 -- a horizon at the returned SlotNo as well as some UTCTime before that

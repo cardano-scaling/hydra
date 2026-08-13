@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Monad.Class.MonadAsync (concurrently, wait, withAsync)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
-import Hydra.Network.Etcd (EtcdLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, popPersistentQueue, writePersistentQueue)
+import Hydra.Network.Etcd (EtcdLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, writePersistentQueue)
 import System.Directory (createDirectory, listDirectory, removeFile)
 import System.FilePath ((</>))
 import Test.QuickCheck (counterexample, generate, ioProperty)
@@ -46,7 +46,7 @@ spec = do
         shouldNotBlock_ . atomically $ do
           entries <- readTVar traces
           check $ PersistentQueueFull `elem` (message <$> entries)
-        popPersistentQueue tracer q
+        popBatchPersistentQueue tracer q [(1, "")]
         shouldNotBlock_ $ wait writer
       peekPersistentQueue q `shouldReturn` 2
 
@@ -60,7 +60,7 @@ spec = do
             (forM_ items $ writePersistentQueue nullTracer q)
             ( forM items $ \_ -> do
                 item <- peekPersistentQueue q
-                popPersistentQueue nullTracer q
+                popBatchPersistentQueue nullTracer q [(item, "")]
                 pure item
             )
       received `shouldBe` items
@@ -71,7 +71,7 @@ spec = do
       q <- newPersistentQueue nullTracer dir 10
       forM_ [1, 2, 3 :: Int] $ writePersistentQueue nullTracer q
       peekPersistentQueue q `shouldReturn` 1
-      popPersistentQueue nullTracer q
+      popBatchPersistentQueue nullTracer q [(1, "")]
       peekPersistentQueue q `shouldReturn` 2
       -- A popped item must not be reloaded on restart (it was already
       -- broadcast and would be duplicated)
@@ -84,7 +84,7 @@ spec = do
       writePersistentQueue nullTracer q (1 :: Int)
       files <- listDirectory dir
       forM_ files $ \f -> removeFile (dir </> f)
-      popPersistentQueue nullTracer q
+      popBatchPersistentQueue nullTracer q [(1, "")]
 
   it "pop survives and traces a failing backing file deletion" $ do
     withTempDir "persistent-queue" $ \dir -> do
@@ -98,7 +98,7 @@ spec = do
       removeFile (dir </> file)
       createDirectory (dir </> file)
       writePersistentQueue tracer q 2
-      popPersistentQueue tracer q
+      popBatchPersistentQueue tracer q [(1, "")]
       entries <- readTVarIO traces
       (message <$> entries) `shouldSatisfy` any isDeleteFailed
       -- The consumer keeps making progress

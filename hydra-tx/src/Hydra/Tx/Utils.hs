@@ -6,7 +6,6 @@ module Hydra.Tx.Utils (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
 import Cardano.Ledger.Core (TxLevel (..))
 import Cardano.Ledger.Core qualified as LedgerCore
@@ -61,19 +60,6 @@ headTokensFromValue headTokenScript v =
     | (AssetId pid assetName, q) <- toList v
     , pid == scriptPolicyId (PlutusScript headTokenScript)
     ]
-
--- | Split a given UTxO into two, such that the second UTxO is non-empty. This
--- is useful to pick a UTxO to decommit.
-splitUTxO :: UTxO -> (UTxO, UTxO)
-splitUTxO utxo =
-  case UTxO.toList utxo of
-    [] -> (mempty, mempty)
-    ((u, o) : us) -> (UTxO.fromList us, UTxO.singleton u o)
-
-adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
-adaOnly = \case
-  TxOut addr value datum refScript ->
-    TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
 addMetadata :: TxMetadata -> Tx -> LedgerCore.Tx TopTx LedgerEra -> LedgerCore.Tx TopTx LedgerEra
 addMetadata (TxMetadata newMetadata) blueprintTx tx =

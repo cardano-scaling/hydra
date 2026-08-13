@@ -153,14 +153,6 @@ data PublishOptions = PublishOptions
   }
   deriving stock (Show, Eq, Generic)
 
--- | Default options as they should also be provided by 'runOptionsParser'.
-defaultPublishOptions :: PublishOptions
-defaultPublishOptions =
-  PublishOptions
-    { chainBackendOptions = Direct defaultDirectOptions
-    , publishSigningKey = "cardano.sk"
-    }
-
 defaultDirectOptions :: DirectOptions
 defaultDirectOptions =
   DirectOptions
@@ -578,16 +570,6 @@ defaultCardanoChainConfig =
     , unsyncedPeriod = defaultUnsyncedPeriod
     , chainBackendOptions = Direct defaultDirectOptions
     }
-
-data BlockfrostChainConfig = BlockfrostChainConfig
-  { projectPath :: FilePath
-  -- ^ Path to the blockfrost project file
-  , cardanoSigningKey :: FilePath
-  -- ^ Path to the cardano signing key of the internal wallet.
-  , hydraScriptsTxId :: [TxId]
-  -- ^ Identifier of transaction holding the hydra scripts to use.
-  }
-  deriving stock (Eq, Show, Generic)
 
 offlineChainConfigParser :: Parser OfflineChainConfig
 offlineChainConfigParser =

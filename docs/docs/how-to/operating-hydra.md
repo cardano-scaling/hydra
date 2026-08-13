@@ -15,10 +15,6 @@ This page guides Hydra users on troubleshooting issues when running their instan
 We offer sample node configurations that will help you get started with hosting a Hydra node on virtual machines in the cloud. These configurations are available in the [`sample-node-config/` directory](https://github.com/cardano-scaling/hydra/tree/master/sample-node-config/).
 
 
-### Google Cloud with Terraform
-
-This setup includes a [docker-compose.yaml](https://github.com/cardano-scaling/hydra/blob/master/sample-node-config/gcp/docker-compose.yaml) file, which serves as a robust template for configuring `cardano-node` and `hydra-node` services. Also, various scripts are provided to help you set up your cluster.
-
 ## Logs
 
 Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line.

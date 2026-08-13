@@ -28,6 +28,7 @@ jobs:
       matrix:
         package:
           - hydra-plutus
+          - hydra-plutus-extras
           - hydra-tx
           - hydra-chain-observer
           - hydra-node

@@ -950,13 +950,6 @@ popBatchPersistentQueue tracer PersistentQueue{queue, directory} batch = do
   indices <- atomically $ forM batch $ \_ -> (\(ix, _, _) -> ix) <$> readTBQueue queue
   forM_ indices $ removeQueueFile tracer directory
 
--- | Remove the head element from the queue. Must only be called after a
--- successful 'peekPersistentQueue' by the same (single) consumer thread.
-popPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> m ()
-popPersistentQueue tracer PersistentQueue{queue, directory} = do
-  (ix, _, _) <- atomically $ readTBQueue queue
-  removeQueueFile tracer directory ix
-
 -- | Delete the backing file of a popped queue item. Failing to delete is
 -- traced but not fatal: the message was already broadcast, so a leftover
 -- file only means it may be re-broadcast after a restart (at-least-once

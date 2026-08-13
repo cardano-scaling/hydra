@@ -46,10 +46,6 @@ minUTxOValue pparams (TxOut addr val dat ref) =
   defaultHighEnoughValue =
     lovelaceToValue $ Coin $ toInteger $ maxBound @Word64
 
--- | Count number of assets in a 'Value'.
-valueSize :: Value -> Int
-valueSize = length . toList
-
 -- * Type Conversions
 
 -- | Convert a cardano-ledger 'Value' into a cardano-api 'Value'.

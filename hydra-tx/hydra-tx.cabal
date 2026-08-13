@@ -9,9 +9,7 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files:
-  genesis/mainnet-conway-genesis.json
-  genesis/protocol-parameters-dijkstra.json
+extra-source-files: genesis/protocol-parameters-dijkstra.json
 
 source-repository head
   type:     git
@@ -122,6 +120,7 @@ library testlib
     Test.Hydra.Tx.Fixture
     Test.Hydra.Tx.Gen
     Test.Hydra.Tx.Mutation
+    Test.Hydra.Tx.Utils
 
   other-modules:      Paths_hydra_tx
   build-depends:

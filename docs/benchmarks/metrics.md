@@ -69,7 +69,7 @@ figure is a criterion OLS mean; recorded baselines live in
 | Benchmark (source) | Measures | How to run |
 | --- | --- | --- |
 | `hydra-node:snapshot` (`hydra-node/bench/snapshot/Main.hs`) | Per-snapshot `ReqSn` to `AckSn` work over a UTxO-size by txs-per-snapshot grid: `full-update` (the whole `update` handling a `ReqSn`), `ledger-reapply-only`, `accumulator-only`, `sign-only`, and `update-and-aggregate` | `just bench-snapshot` |
-| `hydra-tx:accumulator` (`hydra-tx/bench/accumulator/Main.hs`) | Accumulator operations across UTxO-set sizes: build, TxOut extraction and serialization, membership-proof creation, and commitment / hash | `cabal bench hydra-tx:accumulator` (set `BENCH_MAX_UTXO` to include the largest sizes) |
+| `hydra-tx:accumulator` (`hydra-tx/bench/accumulator/Main.hs`) | Accumulator operations across UTxO-set sizes: build, TxOut extraction and serialization, membership-proof creation, and commitment / hash | `cabal bench hydra-tx:accumulator-bench` (set `BENCH_MAX_UTXO` to include the largest sizes) |
 | `hydra-node:micro` (`hydra-node/bench/micro-bench`) | Cardano ledger apply cost inside a head; published on the _Ledger micro-benchmarks_ page | `cabal bench hydra-node:micro` |
 | `hydra-node:tx-cost` (`hydra-node/bench/tx-cost`) | Per-transaction on-chain cost for each protocol transaction: serialized size, memory and CPU execution units, and minimum fee | `cabal bench hydra-node:tx-cost` |
 

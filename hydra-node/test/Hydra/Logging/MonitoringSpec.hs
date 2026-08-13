@@ -7,7 +7,6 @@ import Data.Text qualified as Text
 
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
-import Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
@@ -17,6 +16,7 @@ import Hydra.Node (HydraNodeLog (..))
 
 -- import Network.Socket (PortNumber(PortNumber))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
+import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
 

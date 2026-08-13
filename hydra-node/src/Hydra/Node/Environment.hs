@@ -9,7 +9,7 @@ import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (HasParty (..), Party)
+import Hydra.Tx.Party (Party)
 import Hydra.Tx.Secret (Secret)
 import Text.Show (Show (..))
 
@@ -99,9 +99,6 @@ instance FromJSON Environment where
 -- keeping roundtrip 'Eq' stable.
 placeholderSigningKey :: Secret (SigningKey HydraKey)
 placeholderSigningKey = generateSigningKey "placeholder"
-
-instance HasParty Environment where
-  getParty = party
 
 -- | Make 'HeadParameters' that are consistent with the given 'Environment'.
 mkHeadParameters :: Environment -> HeadParameters

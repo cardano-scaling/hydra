@@ -11,7 +11,6 @@ import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (PParams)
-import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
@@ -33,24 +32,17 @@ import Hydra.Cardano.Api (
   fromPlutusTxOutRef,
   fromScriptData,
   isScriptTxOut,
-  mkTxIn,
   negateValue,
-  toCtxUTxOTxOut,
   toShelleyNetwork,
   txOutScriptData,
   txOutValue,
-  txOuts',
   utxoFromTx,
   pattern TxIn,
- )
-import Hydra.Chain (
-  OnChainTx (..),
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
-import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (
   ConfirmedSnapshot (..),
@@ -61,7 +53,6 @@ import Hydra.Tx (
   ScriptRegistry (..),
   Snapshot (..),
   SnapshotVersion (..),
-  deriveParty,
   getSnapshot,
   headIdToPolicyId,
   headSeedToTxIn,
@@ -84,17 +75,10 @@ import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Fanout (fanoutTx, finalPartialFanoutTx, partialFanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
-import Hydra.Tx.Observe (
-  CloseObservation (..),
-  InitObservation (..),
-  NotAnInitReason (..),
-  observeCloseTx,
-  observeInitTx,
- )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Secret (Secret)
-import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (setIncrementalActionMaybe)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -747,73 +731,7 @@ utxoOfThisHead policy = UTxO.filter hasHeadToken
       AdaAssetId -> False
       AssetId pid _ -> pid == policy && quantity == 1
 
--- * Observing Transitions
-
--- ** IdleState transitions
-
--- TODO: This function is not really used anymore (only from
--- 'unsafeObserveInit'). In general, most functions here are actually not used
--- from the "production code", but only to generate test cases and benchmarks.
-
--- | Observe an init transition using a 'InitialState' and 'observeInitTx'.
-observeInit ::
-  ChainContext ->
-  [VerificationKey PaymentKey] ->
-  Tx ->
-  Either NotAnInitReason (OnChainTx Tx, OpenState)
-observeInit _ctx _allVerificationKeys tx = do
-  observation <- observeInitTx tx
-  headOut <- head <$> nonEmpty (txOuts' tx) ?> NoHeadOutput
-  let headUTxO = UTxO.singleton (mkTxIn tx 0) (toCtxUTxOTxOut headOut)
-  pure (toEvent observation, toState headUTxO observation)
- where
-  toEvent :: InitObservation -> OnChainTx Tx
-  toEvent InitObservation{headParameters, headId, headSeed, participants} =
-    OnInitTx{headId, headSeed, headParameters, participants}
-
-  toState openUTxO InitObservation{headId, headSeed} =
-    OpenState
-      { openUTxO
-      , headId
-      , seedTxIn = fromJust $ headSeedToTxIn headSeed
-      }
-
--- ** OpenState transitions
-
--- | Observe a close transition using a 'OpenState' and 'observeCloseTx'.
--- This function checks the head id and ignores if not relevant.
-observeClose ::
-  OpenState ->
-  Tx ->
-  Maybe (OnChainTx Tx, ClosedState)
-observeClose st tx = do
-  let utxo = getKnownUTxO st
-  observation <- observeCloseTx utxo tx
-  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline} = observation
-  guard (headId == closeObservationHeadId)
-  let event =
-        OnCloseTx
-          { headId = closeObservationHeadId
-          , snapshotNumber
-          , contestationDeadline
-          }
-  let st' =
-        ClosedState
-          { closedUTxO = adjustUTxO tx utxo
-          , headId
-          , seedTxIn
-          , contestationDeadline
-          }
-  pure (event, st')
- where
-  OpenState
-    { headId
-    , seedTxIn
-    } = st
-
 -- * Generators
-
--- ** Warning zone
 
 -- | Define some 'global' context from which generators can pick
 -- values for generation. This allows to write fairly independent generators
@@ -833,138 +751,3 @@ data HydraContext = HydraContext
   , ctxScriptRegistry :: ScriptRegistry
   }
   deriving stock (Show)
-
-ctxParties :: HydraContext -> [Party]
-ctxParties = fmap deriveParty . ctxHydraSigningKeys
-
-ctxParticipants :: HydraContext -> [OnChainId]
-ctxParticipants = map verificationKeyToOnChainId . ctxVerificationKeys
-
-ctxHeadParameters ::
-  HydraContext ->
-  HeadParameters
-ctxHeadParameters ctx@HydraContext{ctxContestationPeriod, ctxDepositPeriod} =
-  HeadParameters ctxContestationPeriod ctxDepositPeriod (ctxParties ctx)
-
--- ** Danger zone
-
-unsafeIncrement ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  (HeadSeed, HeadId) ->
-  HeadParameters ->
-  ConfirmedSnapshot Tx ->
-  TxId ->
-  SlotNo ->
-  Tx
-unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo =
-  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo
-
-unsafeDecrement ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  (HeadSeed, HeadId) ->
-  HeadParameters ->
-  ConfirmedSnapshot Tx ->
-  Tx
-unsafeDecrement ctx spendableUTxO headId parameters decrementingSnapshot =
-  either (error . show) id $ decrement ctx spendableUTxO headId parameters decrementingSnapshot
-
--- | Unsafe version of 'close' that throws an error if the transaction fails to build.
-unsafeClose ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  HeadId ->
-  HeadParameters ->
-  SnapshotVersion ->
-  ConfirmedSnapshot Tx ->
-  SlotNo ->
-  PointInTime ->
-  Tx
-unsafeClose ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
-  either (error . show) id $ close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
-
--- | Unsafe version of 'contest' that throws an error if the transaction fails to build.
-unsafeContest ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  HeadId ->
-  ContestationPeriod ->
-  SnapshotVersion ->
-  ConfirmedSnapshot Tx ->
-  PointInTime ->
-  Tx
-unsafeContest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime =
-  either (error . show) id $ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime
-
-unsafeFanout ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | Snapshot UTxO to fanout
-  UTxO ->
-  -- | Snapshot commit UTxO to fanout
-  Maybe UTxO ->
-  -- | Snapshot decommit UTxO to fanout
-  Maybe UTxO ->
-  -- | Full snapshot UTxO for accumulator (matches closed datum)
-  UTxO ->
-  -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
-  SlotNo ->
-  Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo
-
-unsafePartialFanout ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable UTxO containing head output
-  UTxO ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | Number of UTxOs to distribute in this step
-  Int ->
-  -- | Full remaining UTxOs (will be split into distribute + new remaining)
-  UTxO ->
-  -- | Contestation deadline as SlotNo
-  SlotNo ->
-  Tx
-unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo =
-  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO remainingUTxO deadlineSlotNo
-
-unsafeFinalPartialFanout ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Spendable UTxO containing head output
-  UTxO ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | All remaining UTxOs to distribute
-  UTxO ->
-  -- | Contestation deadline as SlotNo
-  SlotNo ->
-  Tx
-unsafeFinalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo =
-  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute mempty deadlineSlotNo
-
-unsafeObserveInit ::
-  HasCallStack =>
-  ChainContext ->
-  [VerificationKey PaymentKey] ->
-  Tx ->
-  OpenState
-unsafeObserveInit cctx txInit allVerificationKeys =
-  case observeInit cctx txInit allVerificationKeys of
-    Left err -> error $ "Did not observe an init tx: " <> show err
-    Right st -> snd st

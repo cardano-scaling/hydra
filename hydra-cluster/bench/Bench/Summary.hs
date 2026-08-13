@@ -17,8 +17,6 @@ import Test.HUnit.Lang (FailureReason, formatFailureReason)
 import Test.Hydra.Prelude (HUnitFailure (..))
 import Text.Printf (printf)
 
-type Percent = Double
-
 -- | System stats like memory consumption.
 type SystemStats = [Text]
 

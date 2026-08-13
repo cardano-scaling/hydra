@@ -195,13 +195,11 @@ Fanout outputs: 3
 Writing report to: out/end-to-end-benchmarks.md
 
 ./hydra-cluster/bench/plot.sh out
-         line 0: warning: Cannot find or open file "out/system.csv"
 Created plot: out/results.png
 ```
 
 Note that the summary reports the peak resident memory of the scenario's
-hydra-node processes (Linux only). The `system.csv` file referenced by
-`plot.sh` is not currently produced.
+hydra-node processes (Linux only).
 
 The benchmark can be run in several modes:
 

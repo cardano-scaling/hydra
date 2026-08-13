@@ -1,13 +1,10 @@
 name: "Compute cost differences"
 
 on:
+  # Kept so the merge queue still sees this check, even though the job itself
+  # only runs for pull_request events.
   merge_group:
-  push:
-    branches:
-    - master
-    - release
   pull_request:
-  workflow_dispatch:
 
 permissions:
   checks: write

@@ -99,7 +99,6 @@ import Hydra.Cardano.Api.ReferenceScript as Extras
 import Hydra.Cardano.Api.ScriptData as Extras
 import Hydra.Cardano.Api.ScriptDatum as Extras
 import Hydra.Cardano.Api.ScriptHash as Extras
-import Hydra.Cardano.Api.StakeAddress as Extras
 import Hydra.Cardano.Api.Tx as Extras hiding (Tx)
 import Hydra.Cardano.Api.TxBody as Extras
 import Hydra.Cardano.Api.TxId ()

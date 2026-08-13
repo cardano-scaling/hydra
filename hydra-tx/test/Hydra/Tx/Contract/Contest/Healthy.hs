@@ -26,7 +26,6 @@ import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (
-  splitUTxO,
   verificationKeyToOnChainId,
  )
 
@@ -37,6 +36,7 @@ import Test.Hydra.Tx.Gen (
   genScriptRegistry,
   genVerificationKey,
  )
+import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (elements, suchThat)
 import Test.QuickCheck.Instances ()
 

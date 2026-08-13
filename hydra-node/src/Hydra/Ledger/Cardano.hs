@@ -226,38 +226,6 @@ mkSimpleTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk 
 
   fee = Coin 0
 
--- | Create a zero-fee, payment cardano transaction with validity range.
-mkRangedTx ::
-  (TxIn, TxOut CtxUTxO) ->
-  -- | Recipient address and amount.
-  (AddressInEra, Value) ->
-  -- | Sender's signing key.
-  Secret (SigningKey PaymentKey) ->
-  (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) ->
-  Either TxBodyError Tx
-mkRangedTx (txin, TxOut owner valueIn datum refScript) (recipient, valueOut) sk (validityLowerBound, validityUpperBound) = do
-  body <- createAndValidateTransactionBody bodyContent
-  let witnesses = withSecret sk $ \rawSk -> [makeShelleyKeyWitness body (WitnessPaymentKey rawSk)]
-  pure $ makeSignedTransaction witnesses body
- where
-  bodyContent =
-    defaultTxBodyContent
-      { txIns = [(txin, BuildTxWith $ KeyWitness KeyWitnessForSpending)]
-      , txOuts =
-          TxOut @CtxTx recipient valueOut TxOutDatumNone ReferenceScriptNone
-            : [ fromCtxUTxOTxOut $
-                TxOut
-                  owner
-                  (valueIn <> negateValue valueOut)
-                  datum
-                  refScript
-              | valueOut /= valueIn
-              ]
-      , txFee = TxFeeExplicit $ Coin 0
-      , txValidityLowerBound = fromMaybe TxValidityNoLowerBound validityLowerBound
-      , txValidityUpperBound = fromMaybe TxValidityNoUpperBound validityUpperBound
-      }
-
 -- | Utility function to "adjust" a `UTxO` set given a `Tx`
 --
 --  The inputs from the `Tx` are removed from the internal map of the `UTxO` and

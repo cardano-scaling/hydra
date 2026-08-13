@@ -58,12 +58,12 @@ import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (
-  splitUTxO,
   verificationKeyToOnChainId,
  )
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
+import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (generate)
 
 spec :: Spec
