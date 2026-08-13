@@ -62,8 +62,6 @@ import Test.DirectChainSpec (
   observesInTimeSatisfying',
   waitMatch,
  )
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do
@@ -96,7 +94,6 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
-      (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair
       let blockfrostOpts = defaultBlockfrostOptions{projectPath = blockfrostProjectPath}
       hydraScriptsTxId <- runBlockfrostBackend blockfrostOpts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
 
@@ -112,21 +109,20 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
           _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceCardanoVk 100_000_000
-          someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceExternalVk 7_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
           postTx $ InitTx{participants, headParameters}
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
 
-          -- TODO: Deposit someUTxO
           let snapshotVersion = 0
-          let accumulator = Accumulator.buildFromUTxO someUTxO
+          let emptyUTxO :: UTxOType Tx = mempty
+          let accumulator = Accumulator.buildFromUTxO emptyUTxO
           let snapshot =
                 Snapshot
                   { headId
                   , number = 1
-                  , utxo = someUTxO
+                  , utxo = emptyUTxO
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing
