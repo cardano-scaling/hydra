@@ -16,7 +16,8 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
-import PlutusLedgerApi.V3 (toBuiltin, toData)
+import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin, toData)
+import PlutusTx.Builtins (sha2_256)
 
 -- * SnapshotNumber and SnapshotVersion
 
@@ -66,6 +67,11 @@ data Snapshot tx = Snapshot
   -- ^ Snaspshotted UTxO set. Spec: U
   , utxoToCommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be committed. Spec: Uα
+  , depositTxId :: Maybe (TxIdType tx)
+  -- ^ Transaction which deposited 'utxoToCommit' on L1, i.e. the deposit an
+  -- increment of this snapshot is allowed to claim. Bound into the signature
+  -- so a deposit cannot be swapped for a look-alike one, see
+  -- 'getSignableRepresentation'. 'Just' exactly when 'utxoToCommit' is.
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator
@@ -86,30 +92,54 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
 -- decommitOutputsHash = bytes .size 32  ; sha2-256 of the ordered decommit outputs (Uω)
 -- commitOutputsHash = bytes .size 32  ; sha2-256 of the ordered commit outputs (Uα)
+--                                     ; and of the deposit transaction id
 --
 -- The BLS accumulator commitment (bound via accumulatorHash) commits to the full
 -- UTxO set. 'decommitOutputsHash' and 'commitOutputsHash' additionally bind the
 -- exact ordered sets of decommit (Uω) and commit (Uα) outputs, so the on-chain
 -- decrement and increment validators can recompute them from the materialized L1
 -- decommit outputs / claimed deposit and reject any redirected/altered output.
+--
+-- 'commitOutputsHash' further binds 'depositTxId'. Committed content on its own
+-- does not identify a deposit: a deposit datum is unauthenticated data anyone can
+-- copy into a look-alike deposit holding less value, which would otherwise hash
+-- the same and accept this snapshot's signatures. See the matching computation in
+-- 'Hydra.Contract.Head.checkIncrement'.
 instance IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, accumulator, utxoToCommit, utxoToDecommit} =
+  getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData $ toBuiltin accumulatorBytes)
         <> serialise (toData $ toBuiltin decommitOutputsHash)
-        <> serialise (toData $ toBuiltin commitOutputsHash)
+        <> serialise (toData $ toBuiltin (commitOutputsHash snapshot))
    where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
     -- Matches on-chain 'Hydra.Contract.Util.hashTxOuts' over the same outputs in
     -- the same (TxIn-sorted) order; empty-list hash when there is nothing pending.
     decommitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToDecommit)
-    commitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToCommit)
+
+-- | Digest of a snapshot's pending commit (Uα) as bound into its signature: the
+-- ordered commit outputs together with the id of the deposit transaction they
+-- come from.
+--
+-- Both halves are required. The outputs alone do not identify a deposit, since a
+-- deposit datum is unauthenticated data anyone can copy into a look-alike
+-- deposit holding less value; binding the deposit's transaction id makes the
+-- signature usable for that one deposit only. The increment validator recomputes
+-- this from the deposit input it claims, see 'Hydra.Contract.Head.checkIncrement'.
+-- Close, contest and decrement transactions cannot recompute it (they spend no
+-- deposit) and carry it in their redeemer instead, where it only feeds signature
+-- verification.
+commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+commitOutputsHash Snapshot{utxoToCommit, depositTxId} =
+  fromBuiltin . sha2_256 . toBuiltin $
+    hashUTxO @tx (fromMaybe mempty utxoToCommit)
+      <> foldMap (txIdBytes @tx) depositTxId
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, depositTxId} =
     object
       [ "headId" .= headId
       , "version" .= version
@@ -118,6 +148,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxo" .= utxo
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
+      , "depositTxId" .= depositTxId
       , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
       ]
 
@@ -136,6 +167,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       obj .:? "utxoToDecommit" >>= \case
         Nothing -> pure mempty
         (Just utxoD) -> pure utxoD
+    depositTxId <- obj .:? "depositTxId"
     -- Reconstruct accumulator from all UTxOs (including commit/decommit).
     -- The "accumulator" JSON field stores only the hash (consistent with signing
     -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
@@ -144,7 +176,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     -- and the accumulator hash is what multisignatures verify against, so it
     -- must always be derived from the UTxO content.
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
 
 -- NOTE: Like the JSON encoding, the accumulator is not transmitted (only
 -- derived data) and gets rebuilt from the UTxO sets on decode. This is why
@@ -220,6 +252,7 @@ getSnapshot = \case
       , utxo = mempty
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
+      , depositTxId = Nothing
       , accumulator = Accumulator.buildFromUTxO @tx mempty
       }
   ConfirmedSnapshot{snapshot} -> snapshot

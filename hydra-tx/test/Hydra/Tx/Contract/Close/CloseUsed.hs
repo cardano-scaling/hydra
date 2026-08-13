@@ -22,6 +22,7 @@ import Hydra.Tx (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  commitOutputsHash,
   getSnapshot,
   mkHeadId,
   registryUTxO,
@@ -97,6 +98,7 @@ healthyOutdatedSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , depositTxId = Nothing
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
 
@@ -131,7 +133,7 @@ healthyOutdatedDecommitOutputsHash =
 
 healthyOutdatedCommitOutputsHash :: Head.Hash
 healthyOutdatedCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyOutdatedSnapshot))
+  toBuiltin $ commitOutputsHash healthyOutdatedSnapshot
 
 healthyCloseOutdatedTx :: (Tx, UTxO)
 healthyCloseOutdatedTx =

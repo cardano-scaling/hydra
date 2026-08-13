@@ -269,5 +269,6 @@ testSnapshot number version confirmed utxo =
         , utxo
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
+        , depositTxId = Nothing
         , accumulator
         }

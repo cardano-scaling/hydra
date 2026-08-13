@@ -98,8 +98,13 @@ healthyIncrementTx =
     UTxO.singleton healthyDepositInput $
       mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
 
+-- | The deposit is the first output of its transaction, as built by
+-- 'Hydra.Tx.Deposit.depositTx' and required by 'checkIncrement'.
 healthyDepositInput :: TxIn
-healthyDepositInput = arbitrary `generateWith` 123
+healthyDepositInput = TxIn healthyDepositTxId (TxIx 0)
+
+healthyDepositTxId :: TxId
+healthyDepositTxId = arbitrary `generateWith` 123
 
 healthyDeposited :: UTxO
 healthyDeposited = genUTxOSized 3 `generateWith` 42
@@ -140,6 +145,7 @@ healthySnapshot =
     , utxo = healthyUTxO
     , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
+    , depositTxId = Just healthyDepositTxId
     , accumulator = healthyAccumulator
     }
 
@@ -198,6 +204,17 @@ data IncrementMutation
     -- deposit input, so a missing claim ref hard-fails with 'DepositInputNotFound'
     -- (this now precedes and subsumes the 'DepositNotSpent' check).
     IncrementDifferentClaimRedeemer
+  | -- | SECURITY: claim a look-alike deposit instead of the approved one. The
+    -- substitute is created by a different transaction but carries a
+    -- byte-identical datum and the same value, so it hashes the same and
+    -- preserves the head value; only the deposit's identity differs. The signed
+    -- snapshot binds that identity, so signature verification must fail.
+    IncrementClaimLookAlikeDeposit
+  | -- | SECURITY: claim a sibling output of the approved deposit's own
+    -- transaction, carrying a copied datum. The signed message binds the deposit
+    -- by transaction id, which the sibling shares, so the signature still
+    -- verifies and only the output index tells the two apart.
+    IncrementClaimSiblingDepositOutput
   | -- | Add a second v_deposit input alongside an attacker-controlled
     -- output that redirects its value away from the head's continuation.
     IncrementAddExtraDepositInput
@@ -275,7 +292,37 @@ genIncrementMutation (tx, utxo) =
               , increment = toPlutusTxOutRef invalidDepositRef
               , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
-    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) IncrementClaimLookAlikeDeposit <$> do
+        lookAlikeIn <- genTxIn `suchThat` (\(TxIn tid _) -> tid /= healthyDepositTxId)
+        pure $
+          Changes
+            [ RemoveInput depositIn
+            , AddInput lookAlikeIn depositOut (Just $ toScriptData Claim)
+            , ChangeHeadRedeemer $
+                Head.Increment
+                  Head.IncrementRedeemer
+                    { signature = toPlutusSignatures healthySignature
+                    , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+                    , increment = toPlutusTxOutRef lookAlikeIn
+                    , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
+                    }
+            ]
+    , SomeMutation (pure $ toErrorCode DepositNotFirstOutput) IncrementClaimSiblingDepositOutput <$> do
+        let siblingIn = TxIn healthyDepositTxId (TxIx 1)
+        pure $
+          Changes
+            [ RemoveInput depositIn
+            , AddInput siblingIn depositOut (Just $ toScriptData Claim)
+            , ChangeHeadRedeemer $
+                Head.Increment
+                  Head.IncrementRedeemer
+                    { signature = toPlutusSignatures healthySignature
+                    , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+                    , increment = toPlutusTxOutRef siblingIn
+                    , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
+                    }
+            ]
+    , SomeMutation [toErrorCode DepositNotClaimedByHead, toErrorCode HeadValueIsNotPreserved] IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
         attackerVk <- genVerificationKey

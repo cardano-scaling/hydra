@@ -346,7 +346,7 @@ genIncrementTxWith genDeposit = do
   let openUTxO = getKnownUTxO st
   let version = 0
   -- XXX: openUTxO can't be right here
-  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) (Just depositTxId) Nothing (ctxHydraSigningKeys ctx)
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
@@ -370,7 +370,7 @@ genDecrementTx numParties = do
   let IncrementObservation{newVersion, deposited} = fromJust $ observeIncrementTx (ctxNetworkId ctx) utxo txIncrement
   let (confirmedUtxo, toDecommit) = splitUTxO deposited
   cctx <- pickChainContext ctx
-  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
   let utxoSpendable = utxoFromTx txIncrement
   pure
     ( cctx
@@ -398,7 +398,10 @@ genCloseTx numParties = do
           then (inHead, Nothing, if utxoToDecommit' == mempty then Nothing else Just utxoToDecommit')
           else (u0, utxoToCommit', Nothing)
   let version = 0
-  snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)
+  -- A close transaction spends no deposit, so it cannot recompute the bound
+  -- deposit id; any value consistent with the snapshot it signs will do.
+  depositTxId <- if isJust utxoToCommit then Just <$> arbitrary else pure Nothing
+  snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit depositTxId utxoToDecommit (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -416,7 +419,7 @@ genContestTx = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUTxO, utxoToDecommit) = splitUTxO u0
   let version = 1
-  confirmed <- genConfirmedSnapshot headId version 1 confirmedUTxO Nothing (Just utxoToDecommit) []
+  confirmed <- genConfirmedSnapshot headId version 1 confirmedUTxO Nothing Nothing (Just utxoToDecommit) []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -426,7 +429,7 @@ genContestTx = do
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
-  contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore stClosed.contestationDeadline
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
@@ -444,7 +447,8 @@ genFanoutTx numParties = do
     if openVersion /= version
       then Just <$> genUTxOAdaOnlyOfSize n
       else pure Nothing
-  confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' Nothing (ctxHydraSigningKeys ctx)
+  depositTxId <- if isJust toCommit' then Just <$> arbitrary else pure Nothing
+  confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' depositTxId Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -497,7 +501,7 @@ genClosedStateForFanout numParties = do
   u0 <- genUTxOAdaOnlyOfSize n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
-  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -526,7 +530,7 @@ genClosedStateWithAppliedDecommit numParties = do
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let snapshotVersion = 0
       openVersion = 1
-  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 Nothing (Just decommitUTxO) (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 Nothing Nothing (Just decommitUTxO) (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -561,7 +565,8 @@ genClosedStateWithPendingCommit numParties = do
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let snapshotVersion = 0
       openVersion = 1
-  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  depositTxId <- Just <$> arbitrary
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) depositTxId Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -591,7 +596,8 @@ genClosedStateWithUnconfirmedCommit numParties = do
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let snapshotVersion = 0
       openVersion = 0 -- same as snapshotVersion: IncrementTx NOT confirmed
-  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  depositTxId <- Just <$> arbitrary
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) depositTxId Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -625,7 +631,7 @@ genClosedStateWithDuplicateTxOuts numParties = do
       chunkSize = n - 1 -- distribute first n-1; duplicate stays in rest
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
-  confirmed <- genConfirmedSnapshot headId version 1 u0WithDups Nothing Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0WithDups Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -659,7 +665,7 @@ genClosedStateForFanoutWithComplexUTxO numParties = do
   u0 <- genUTxOSized n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
-  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp

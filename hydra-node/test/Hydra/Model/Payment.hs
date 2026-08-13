@@ -100,6 +100,7 @@ instance IsTx Payment where
   txId = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
+  txIdBytes = encodeUtf8 . show @Text
   txSpendingUTxO = \case
     [] -> error "nothing to spend spending"
     [(from, value)] -> Payment{from, to = from, value}

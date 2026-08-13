@@ -41,11 +41,11 @@ import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
@@ -137,6 +137,7 @@ healthySnapshot =
         , utxo
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
+        , depositTxId = Nothing
         , accumulator = healthyAccumulator
         }
 
@@ -236,7 +237,7 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
-              , commitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthySnapshot))
+              , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
