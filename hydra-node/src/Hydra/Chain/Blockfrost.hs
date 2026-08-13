@@ -231,7 +231,6 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
       -- If none of them can be resolved, we fall back to the tip of the chain.
       blockHash <- resolvePrefixPoints (toList prefix)
       stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
-      void $ catchUpToLatest blockHash stateTVar
       pure (blockTime, stateTVar)
 
   void $
@@ -248,39 +247,21 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
   retryPolicy :: Double -> RetryPolicyM m
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
 
-  catchUpToLatest currentHash stateTVar = do
-    latestBlock <- Blockfrost.runBlockfrostM prj BlockfrostAPI.getLatestBlock
-    let targetHash = BlockfrostAPI._blockHash latestBlock
-
-    catchUpLoop currentHash targetHash stateTVar
-
-  catchUpLoop currentHash targetHash stateTVar = do
-    if currentHash == targetHash
-      then do
-        pure currentHash
-      else do
-        nextBlockHash <- rollForward tracer prj handler wallet 0 currentHash
-        atomically $ writeTVar stateTVar nextBlockHash
-
-        if nextBlockHash == targetHash
-          then do
-            pure nextBlockHash
-          else catchUpLoop nextBlockHash targetHash stateTVar
-
+  -- Process every already-confirmed successor of the last processed block,
+  -- then sleep one block time only once we caught up to the tip. Blocks with
+  -- zero confirmations are left for a later iteration: we only ever observe
+  -- blocks that have at least one successor.
   pollForNewBlocks blockTime' stateTVar = do
-    threadDelay (realToFrac blockTime')
     current <- readTVarIO stateTVar
-    nextBlockHash <-
-      rollForward tracer prj handler wallet 1 current
-        `catch` \case
-          MissingNextBlockHash{} -> do
-            pure current
-          ex -> throwIO ex
-
-    when (nextBlockHash /= current) $
-      atomically $
-        writeTVar stateTVar nextBlockHash
-
+    blocks <-
+      Blockfrost.runBlockfrostM prj $
+        BlockfrostAPI.getNextBlocks' (Right current) (BlockfrostAPI.paged maxBlockBatch 1)
+    let confirmed = filter ((>= 1) . Blockfrost._blockConfirmations) blocks
+    forM_ confirmed $ \block -> do
+      processBlock tracer prj handler wallet block
+      atomically $ writeTVar stateTVar (Blockfrost._blockHash block)
+    when (length blocks < maxBlockBatch) $
+      threadDelay (realToFrac blockTime')
     pollForNewBlocks blockTime' stateTVar
 
   resolvePrefixPoints :: [ChainPoint] -> m Blockfrost.BlockHash
@@ -311,54 +292,35 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
     ChainPoint _ headerHash ->
       pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
-rollForward ::
+processBlock ::
   (MonadIO m, MonadThrow m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   ChainSyncHandler m ->
   TinyWallet m ->
-  Integer ->
-  Blockfrost.BlockHash ->
-  m Blockfrost.BlockHash
-rollForward tracer prj handler wallet blockConfirmations blockHash = do
-  block@Blockfrost.Block
-    { _blockHash
-    , _blockConfirmations
-    , _blockNextBlock
-    , _blockHeight
-    , _blockSlot
-    , _blockTime
-    } <-
-    Blockfrost.runBlockfrostM prj $ Blockfrost.getBlock (Right blockHash)
-
-  -- Check if block within the safe zone to be processes
-  when (_blockConfirmations < blockConfirmations) $
-    throwIO (NotEnoughBlockConfirmations _blockHash)
-
-  -- Search block transactions
-  txHashesCBOR <- Blockfrost.runBlockfrostM prj . Blockfrost.allPages $ \p ->
-    Blockfrost.getBlockTxsCBOR' (Right _blockHash) p Blockfrost.def
-
-  -- Check if block contains a reference to its next
-  nextBlockHash <- maybe (throwIO $ MissingNextBlockHash _blockHash) pure _blockNextBlock
-
-  -- Convert to cardano-api Tx
-  receivedTxs <- mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
+  Blockfrost.Block ->
+  m ()
+processBlock tracer prj handler wallet block@Blockfrost.Block{_blockHash, _blockTxCount, _blockHeight, _blockSlot} = do
+  -- A block's transactions are a separate paginated request; the header
+  -- already tells us when there is nothing to fetch.
+  receivedTxs <-
+    if _blockTxCount == 0
+      then pure []
+      else do
+        txHashesCBOR <-
+          Blockfrost.runBlockfrostM prj . Blockfrost.allPages $ \p ->
+            Blockfrost.getBlockTxsCBOR' (Right _blockHash) p Blockfrost.def
+        mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = getTxId . getTxBody <$> receivedTxs
   let point = toChainPoint block
   traceWith tracer RolledForward{point, receivedTxIds}
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
-  let Blockfrost.BlockHash blockHash' = _blockHash
-  let blockHash'' = fromString $ T.unpack blockHash'
   blockSlot <- maybe (throwIO $ MissingBlockSlot _blockSlot) (pure . fromInteger . Blockfrost.unSlot) _blockSlot
-  let header = BlockHeader (SlotNo blockSlot) blockHash'' blockNo
-  -- wallet update
+  let Blockfrost.BlockHash blockHashText = _blockHash
+  let header = BlockHeader (SlotNo blockSlot) (fromString $ T.unpack blockHashText) blockNo
   update wallet header receivedTxs
-
   onRollForward handler header receivedTxs
-
-  pure nextBlockHash
 
 blockfrostSubmissionClient ::
   forall m.
@@ -410,6 +372,11 @@ toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
 -- | Maximum number of retries for transient Blockfrost errors.
 maxRetries :: Int
 maxRetries = 10
+
+-- | Maximum number of blocks fetched per poll iteration (the Blockfrost page
+-- size limit).
+maxBlockBatch :: Int
+maxBlockBatch = 100
 
 -- | Retry an action on transient 'APIBlockfrostError' exceptions with
 -- exponential backoff (1s, 2s, 4s, ... capped at 60s). Gives up after

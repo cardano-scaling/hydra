@@ -85,10 +85,8 @@ data APIBlockfrostError
   = BlockfrostError Text
   | BlockfrostClientError BlockfrostException
   | DecodeError Text
-  | NotEnoughBlockConfirmations BlockHash
   | MissingBlockNo BlockHash
   | MissingBlockSlot (Maybe Slot)
-  | MissingNextBlockHash BlockHash
   deriving stock (Show)
   deriving anyclass (Exception)
 
@@ -97,10 +95,8 @@ isRetryable = \case
   BlockfrostError _ -> True
   BlockfrostClientError _ -> False
   DecodeError _ -> True
-  NotEnoughBlockConfirmations _ -> True
   MissingBlockNo _ -> True
   MissingBlockSlot _ -> True
-  MissingNextBlockHash _ -> True
 
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
