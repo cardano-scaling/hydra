@@ -106,10 +106,6 @@ instance ChainBackend BlockfrostBackend where
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ CardanoClient.computeBlockTime (fromInteger _genesisSlotLength) _genesisActiveSlotsCoefficient
 
-  getQueryDelay = BlockfrostBackend $ do
-    BlockfrostOptions{queryTimeout} <- ask
-    pure $ fromIntegral queryTimeout
-
 withProject :: (BlockfrostOptions -> Blockfrost.Project -> IO a) -> BlockfrostBackend a
 withProject f = BlockfrostBackend $ do
   opts@BlockfrostOptions{projectPath} <- ask

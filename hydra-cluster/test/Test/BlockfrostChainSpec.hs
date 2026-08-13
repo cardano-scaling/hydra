@@ -86,9 +86,10 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       failure $
         "Expected a published reference output to preserve its inline datum, but none did: " <> show utxo
 
-  -- Parked until #2753 makes the Blockfrost lifecycle fast enough to run in CI.
-  it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
-    -- pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
+  -- NOTE: re-running within a minute of an aborted run can fail on submission with "all inputs are spent",
+  -- because the shared faucet's address index may not yet reflect the previous process's transactions;
+  -- wait a minute and re-run. (The retry hardening stays deferred; it's recorded in the plan.)
+  it "can open, close & fanout a Head using Blockfrost @requiresBlockfrost" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
@@ -99,8 +100,16 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       Blockfrost.Genesis
         { _genesisNetworkMagic
         , _genesisSystemStart
+        , _genesisSlotLength
+        , _genesisActiveSlotsCoefficient
         } <-
         Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+
+      let blockTime :: NominalDiffTime
+          blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+      -- Inclusion takes 1-2 blocks and the follower observes with ~1 block of
+      -- confirmation lag plus one poll interval; 6 block times gives margin.
+      let observationTimeout = 6 * blockTime
 
       -- Alice setup
       aliceChainConfig <- chainConfigFor' Alice tmp (Blockfrost blockfrostOpts) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100) (DepositPeriod 100)
@@ -112,7 +121,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
           postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain 120 $ hasInitTxWith headParameters participants
+          (headId, headSeed) <- observesInTimeSatisfying' aliceChain observationTimeout $ hasInitTxWith headParameters participants
 
           let snapshotVersion = 0
           let emptyUTxO :: UTxOType Tx = mempty
@@ -152,7 +161,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain 120 $ \case
+          observesInTimeSatisfying' aliceChain observationTimeout $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
                   if UTxO.containsOutputs fanoutUTxO (UTxO.txOutputs expectedUTxO)

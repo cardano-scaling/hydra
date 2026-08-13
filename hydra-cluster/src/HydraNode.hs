@@ -30,7 +30,7 @@ import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.Secret (Secret, withSecret)
@@ -101,7 +101,10 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
   Prelude.getHydraNetwork >>= \case
-    Prelude.Blockfrost -> pure $ d * fromIntegral defaultBFQueryTimeout
+    -- The Blockfrost follower observes ~1 block behind tip plus one poll
+    -- interval, on a network with much longer block times than the devnet
+    -- timings most waits are written for.
+    Prelude.Blockfrost -> pure $ d * 3
     _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.

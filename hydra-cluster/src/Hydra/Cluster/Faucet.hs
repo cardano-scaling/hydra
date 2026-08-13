@@ -29,7 +29,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
+import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance)
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
@@ -55,7 +55,7 @@ data FaucetLog
 delayBF :: MonadDelay m => ChainBackendOptions -> m ()
 delayBF opts = do
   let delay = case opts of
-        Options.Blockfrost{} -> defaultBFQueryTimeout
+        Options.Blockfrost{} -> 30 :: Int -- backoff before retrying a failed BF faucet operation
         _ -> 1
   threadDelay $ fromIntegral delay
 

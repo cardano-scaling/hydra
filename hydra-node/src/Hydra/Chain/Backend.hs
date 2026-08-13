@@ -28,9 +28,6 @@ class ChainBackend m where
   awaitTransaction :: Tx -> VerificationKey PaymentKey -> m UTxO
   getBlockTime :: m NominalDiffTime
 
-  -- | Get the delay to use between backend queries for rate limiting
-  getQueryDelay :: m NominalDiffTime
-
 buildTransaction ::
   ChainBackend m =>
   MonadIO m =>
