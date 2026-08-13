@@ -180,18 +180,10 @@ data ConfirmedSnapshot tx
   deriving anyclass (ToJSON, FromJSON)
 
 instance IsTx tx => ToCBOR (ConfirmedSnapshot tx) where
-  toCBOR = \case
-    InitialSnapshot{headId} ->
-      toCBOR ("InitialSnapshot" :: Text) <> toCBOR headId
-    ConfirmedSnapshot{snapshot, signatures} ->
-      toCBOR ("ConfirmedSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatures
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (ConfirmedSnapshot tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("InitialSnapshot" :: Text) -> InitialSnapshot <$> fromCBOR
-      "ConfirmedSnapshot" -> ConfirmedSnapshot <$> fromCBOR <*> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded ConfirmedSnapshot"
+  fromCBOR = genericFromCBOR
 
 -- | Safely get a 'Snapshot' from a confirmed snapshot.
 --

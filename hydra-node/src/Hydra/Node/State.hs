@@ -62,24 +62,10 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Node
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
 
 instance IsChainState tx => ToCBOR (NodeState tx) where
-  toCBOR = \case
-    NodeInSync{headState, pendingDeposits, chainPointTime} ->
-      toCBOR ("NodeInSync" :: Text)
-        <> toCBOR headState
-        <> toCBOR pendingDeposits
-        <> toCBOR chainPointTime
-    NodeCatchingUp{headState, pendingDeposits, chainPointTime} ->
-      toCBOR ("NodeCatchingUp" :: Text)
-        <> toCBOR headState
-        <> toCBOR pendingDeposits
-        <> toCBOR chainPointTime
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (NodeState tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("NodeInSync" :: Text) -> NodeInSync <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "NodeCatchingUp" -> NodeCatchingUp <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
+  fromCBOR = genericFromCBOR
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
@@ -105,16 +91,10 @@ data SyncedStatus = InSync | CatchingUp
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR SyncedStatus where
-  toCBOR = \case
-    InSync -> toCBOR ("InSync" :: Text)
-    CatchingUp -> toCBOR ("CatchingUp" :: Text)
+  toCBOR = genericToCBOR
 
 instance FromCBOR SyncedStatus where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("InSync" :: Text) -> pure InSync
-      "CatchingUp" -> pure CatchingUp
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded SyncedStatus"
+  fromCBOR = genericFromCBOR
 
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
@@ -152,18 +132,10 @@ data DepositStatus = Inactive | Active | Expired
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR DepositStatus where
-  toCBOR = \case
-    Inactive -> toCBOR ("Inactive" :: Text)
-    Active -> toCBOR ("Active" :: Text)
-    Expired -> toCBOR ("Expired" :: Text)
+  toCBOR = genericToCBOR
 
 instance FromCBOR DepositStatus where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("Inactive" :: Text) -> pure Inactive
-      "Active" -> pure Active
-      "Expired" -> pure Expired
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded DepositStatus"
+  fromCBOR = genericFromCBOR
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

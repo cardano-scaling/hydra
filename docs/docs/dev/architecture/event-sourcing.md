@@ -23,6 +23,17 @@ The database contains a single `events` table:
 | `event_id`  | INTEGER | Primary key, matches the in-memory event id |
 | `event_data` | BLOB   | CBOR-encoded event payload (`ToCBOR`/`FromCBOR`) |
 
+Event payloads use a constructor-name-tagged CBOR format: the constructor name
+as a CBOR text string, followed by the constructor fields in declaration order.
+Most instances are derived generically via `genericToCBOR` / `genericFromCBOR`
+from `Hydra.CBOR.Generic` (hydra-prelude), which makes the data type
+declaration itself the on-disk format: changing the order or types of an
+existing constructor's fields is a breaking change that requires a schema
+migration, while adding, removing or reordering constructors keeps existing
+data decodable thanks to the name tags. The golden tests in `Hydra.CBORSpec`
+lock the concrete bytes per constructor and fail on any accidental format
+change.
+
 The following connection pragmas are set on every open:
 
 - `journal_mode=WAL` — write-ahead logging for concurrent reads during writes

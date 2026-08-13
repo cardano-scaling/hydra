@@ -9,6 +9,8 @@
 "Compactible" = "Compactible"
 # 2[nd] ordinal suffix macro in spec/src/macros.tex
 "nd" = "nd"
+# GHC.Type[Lits] module name
+"Lits" = "Lits"
 
 [default]
 # Git commit hashes in docs get tokenized into letter runs (e.g. "ba" in

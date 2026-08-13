@@ -30,6 +30,8 @@ module Hydra.Prelude (
   elems,
   FromCBOR (..),
   ToCBOR (..),
+  genericToCBOR,
+  genericFromCBOR,
   FromJSON (..),
   ToJSON (..),
   encodePretty,
@@ -113,6 +115,7 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Fixed (Fixed (..))
 import Data.Text qualified as T
 import Data.Time.Clock (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
+import Hydra.CBOR.Generic (genericFromCBOR, genericToCBOR)
 import Relude hiding (
   MVar,
   Nat,

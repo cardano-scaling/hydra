@@ -45,20 +45,10 @@ deriving anyclass instance IsTx tx => ToJSON (Message tx)
 deriving anyclass instance IsTx tx => FromJSON (Message tx)
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
-  toCBOR = \case
-    ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    ReqSn sv sn txs decommitTx incrementUTxO -> toCBOR ("ReqSn" :: Text) <> toCBOR sv <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx <> toCBOR incrementUTxO
-    AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
-    ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
+  toCBOR = genericToCBOR
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
-      "ReqDec" -> ReqDec <$> fromCBOR
-      msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
+  fromCBOR = genericFromCBOR
 
 instance IsTx tx => SignableRepresentation (Message tx) where
   getSignableRepresentation = serialize'

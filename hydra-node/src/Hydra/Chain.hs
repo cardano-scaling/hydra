@@ -114,74 +114,10 @@ deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
 instance IsTx tx => ToCBOR (PostChainTx tx) where
-  toCBOR = \case
-    InitTx{participants, headParameters} ->
-      toCBOR ("InitTx" :: Text) <> toCBOR participants <> toCBOR headParameters
-    IncrementTx{headSeed, headId, headParameters, incrementingSnapshot, depositTxId} ->
-      toCBOR ("IncrementTx" :: Text)
-        <> toCBOR headSeed
-        <> toCBOR headId
-        <> toCBOR headParameters
-        <> toCBOR incrementingSnapshot
-        <> toCBOR depositTxId
-    RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
-      toCBOR ("RecoverTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR recoverTxId
-        <> toCBOR deadline
-        <> toCBOR recoverUTxO
-    DecrementTx{headSeed, headId, headParameters, decrementingSnapshot} ->
-      toCBOR ("DecrementTx" :: Text)
-        <> toCBOR headSeed
-        <> toCBOR headId
-        <> toCBOR headParameters
-        <> toCBOR decrementingSnapshot
-    CloseTx{headId, headParameters, openVersion, closingSnapshot} ->
-      toCBOR ("CloseTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR headParameters
-        <> toCBOR openVersion
-        <> toCBOR closingSnapshot
-    ContestTx{headId, headParameters, openVersion, contestingSnapshot} ->
-      toCBOR ("ContestTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR headParameters
-        <> toCBOR openVersion
-        <> toCBOR contestingSnapshot
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} ->
-      toCBOR ("FanoutTx" :: Text)
-        <> toCBOR utxo
-        <> toCBOR utxoToCommit
-        <> toCBOR utxoToDecommit
-        <> toCBOR utxoForProof
-        <> toCBOR headSeed
-        <> toCBOR contestationDeadline
-    PartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} ->
-      toCBOR ("PartialFanoutTx" :: Text)
-        <> toCBOR utxoToDistribute
-        <> toCBOR utxoForProof
-        <> toCBOR headSeed
-        <> toCBOR contestationDeadline
-    FinalPartialFanoutTx{utxoToDistribute, presettledUTxO, headSeed, contestationDeadline} ->
-      toCBOR ("FinalPartialFanoutTx" :: Text)
-        <> toCBOR utxoToDistribute
-        <> toCBOR presettledUTxO
-        <> toCBOR headSeed
-        <> toCBOR contestationDeadline
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (PostChainTx tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("InitTx" :: Text) -> InitTx <$> fromCBOR <*> fromCBOR
-      "IncrementTx" -> IncrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "RecoverTx" -> RecoverTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "DecrementTx" -> DecrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "CloseTx" -> CloseTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "ContestTx" -> ContestTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "FanoutTx" -> FanoutTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "PartialFanoutTx" -> PartialFanoutTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "FinalPartialFanoutTx" -> FinalPartialFanoutTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded PostChainTx"
+  fromCBOR = genericFromCBOR
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -234,63 +170,10 @@ deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
 instance IsTx tx => ToCBOR (OnChainTx tx) where
-  toCBOR = \case
-    OnInitTx{headId, headSeed, headParameters, participants} ->
-      toCBOR ("OnInitTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR headSeed
-        <> toCBOR headParameters
-        <> toCBOR participants
-    OnDepositTx{headId, depositTxId, deposited, created, deadline} ->
-      toCBOR ("OnDepositTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR depositTxId
-        <> toCBOR deposited
-        <> toCBOR created
-        <> toCBOR deadline
-    OnRecoverTx{headId, recoveredTxId, recoveredUTxO} ->
-      toCBOR ("OnRecoverTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR recoveredTxId
-        <> toCBOR recoveredUTxO
-    OnIncrementTx{headId, newVersion, depositTxId} ->
-      toCBOR ("OnIncrementTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR newVersion
-        <> toCBOR depositTxId
-    OnDecrementTx{headId, newVersion, distributedUTxO} ->
-      toCBOR ("OnDecrementTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR newVersion
-        <> toCBOR distributedUTxO
-    OnCloseTx{headId, snapshotNumber, contestationDeadline} ->
-      toCBOR ("OnCloseTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR snapshotNumber
-        <> toCBOR contestationDeadline
-    OnContestTx{headId, snapshotNumber, contestationDeadline} ->
-      toCBOR ("OnContestTx" :: Text)
-        <> toCBOR headId
-        <> toCBOR snapshotNumber
-        <> toCBOR contestationDeadline
-    OnFanoutTx{headId, fanoutUTxO} ->
-      toCBOR ("OnFanoutTx" :: Text) <> toCBOR headId <> toCBOR fanoutUTxO
-    OnPartialFanoutTx{headId, distributedOutputs} ->
-      toCBOR ("OnPartialFanoutTx" :: Text) <> toCBOR headId <> toCBOR distributedOutputs
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (OnChainTx tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("OnInitTx" :: Text) -> OnInitTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnDepositTx" -> OnDepositTx <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnRecoverTx" -> OnRecoverTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnIncrementTx" -> OnIncrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnDecrementTx" -> OnDecrementTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnCloseTx" -> OnCloseTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnContestTx" -> OnContestTx <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "OnFanoutTx" -> OnFanoutTx <$> fromCBOR <*> fromCBOR
-      "OnPartialFanoutTx" -> OnPartialFanoutTx <$> fromCBOR <*> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded OnChainTx"
+  fromCBOR = genericFromCBOR
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
@@ -344,84 +227,10 @@ deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 instance IsChainState tx => Exception (PostTxError tx)
 
 instance IsChainState tx => ToCBOR (PostTxError tx) where
-  toCBOR = \case
-    NoSeedInput ->
-      toCBOR ("NoSeedInput" :: Text)
-    InvalidSeed{headSeed} ->
-      toCBOR ("InvalidSeed" :: Text) <> toCBOR headSeed
-    InvalidHeadId{headId} ->
-      toCBOR ("InvalidHeadId" :: Text) <> toCBOR headId
-    UnsupportedLegacyOutput{byronAddress} ->
-      toCBOR ("UnsupportedLegacyOutput" :: Text) <> toCBOR byronAddress
-    DepositTooLow{providedValue, minimumValue} ->
-      toCBOR ("DepositTooLow" :: Text) <> toCBOR providedValue <> toCBOR minimumValue
-    InvalidStateToPost{txTried, chainState} ->
-      toCBOR ("InvalidStateToPost" :: Text) <> toCBOR txTried <> toCBOR chainState
-    NotEnoughFuel{failingTx} ->
-      toCBOR ("NotEnoughFuel" :: Text) <> toCBOR failingTx
-    NoFuelUTXOFound{failingTx} ->
-      toCBOR ("NoFuelUTXOFound" :: Text) <> toCBOR failingTx
-    ScriptFailedInWallet{redeemerPtr, failureReason, failingTx} ->
-      toCBOR ("ScriptFailedInWallet" :: Text)
-        <> toCBOR redeemerPtr
-        <> toCBOR failureReason
-        <> toCBOR failingTx
-    InternalWalletError{headUTxO, reason, failingTx} ->
-      toCBOR ("InternalWalletError" :: Text)
-        <> toCBOR headUTxO
-        <> toCBOR reason
-        <> toCBOR failingTx
-    FailedToPostTx{failureReason, failingTx} ->
-      toCBOR ("FailedToPostTx" :: Text) <> toCBOR failureReason <> toCBOR failingTx
-    FailedToConstructCloseTx ->
-      toCBOR ("FailedToConstructCloseTx" :: Text)
-    FailedToConstructContestTx ->
-      toCBOR ("FailedToConstructContestTx" :: Text)
-    FailedToConstructDepositTx{failureReason} ->
-      toCBOR ("FailedToConstructDepositTx" :: Text) <> toCBOR failureReason
-    FailedToConstructRecoverTx{failureReason} ->
-      toCBOR ("FailedToConstructRecoverTx" :: Text) <> toCBOR failureReason
-    FailedToConstructIncrementTx{failureReason} ->
-      toCBOR ("FailedToConstructIncrementTx" :: Text) <> toCBOR failureReason
-    FailedToConstructDecrementTx{failureReason} ->
-      toCBOR ("FailedToConstructDecrementTx" :: Text) <> toCBOR failureReason
-    FailedToConstructFanoutTx ->
-      toCBOR ("FailedToConstructFanoutTx" :: Text)
-    FailedToConstructPartialFanoutTx ->
-      toCBOR ("FailedToConstructPartialFanoutTx" :: Text)
-    StalePartialFanoutTx ->
-      toCBOR ("StalePartialFanoutTx" :: Text)
-    ContestationDeadlineOutsideTimeHorizon{failureReason} ->
-      toCBOR ("ContestationDeadlineOutsideTimeHorizon" :: Text) <> toCBOR failureReason
-    InvalidTokenRequest tokens ->
-      toCBOR ("InvalidTokenRequest" :: Text) <> toCBOR tokens
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PostTxError tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("NoSeedInput" :: Text) -> pure NoSeedInput
-      "InvalidSeed" -> InvalidSeed <$> fromCBOR
-      "InvalidHeadId" -> InvalidHeadId <$> fromCBOR
-      "UnsupportedLegacyOutput" -> UnsupportedLegacyOutput <$> fromCBOR
-      "DepositTooLow" -> DepositTooLow <$> fromCBOR <*> fromCBOR
-      "InvalidStateToPost" -> InvalidStateToPost <$> fromCBOR <*> fromCBOR
-      "NotEnoughFuel" -> NotEnoughFuel <$> fromCBOR
-      "NoFuelUTXOFound" -> NoFuelUTXOFound <$> fromCBOR
-      "ScriptFailedInWallet" -> ScriptFailedInWallet <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "InternalWalletError" -> InternalWalletError <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      "FailedToPostTx" -> FailedToPostTx <$> fromCBOR <*> fromCBOR
-      "FailedToConstructCloseTx" -> pure FailedToConstructCloseTx
-      "FailedToConstructContestTx" -> pure FailedToConstructContestTx
-      "FailedToConstructDepositTx" -> FailedToConstructDepositTx <$> fromCBOR
-      "FailedToConstructRecoverTx" -> FailedToConstructRecoverTx <$> fromCBOR
-      "FailedToConstructIncrementTx" -> FailedToConstructIncrementTx <$> fromCBOR
-      "FailedToConstructDecrementTx" -> FailedToConstructDecrementTx <$> fromCBOR
-      "FailedToConstructFanoutTx" -> pure FailedToConstructFanoutTx
-      "FailedToConstructPartialFanoutTx" -> pure FailedToConstructPartialFanoutTx
-      "StalePartialFanoutTx" -> pure StalePartialFanoutTx
-      "ContestationDeadlineOutsideTimeHorizon" -> ContestationDeadlineOutsideTimeHorizon <$> fromCBOR
-      "InvalidTokenRequest" -> InvalidTokenRequest <$> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded PostTxError"
+  fromCBOR = genericFromCBOR
 
 -- | A non empty sequence of chain states that can be rolled back.
 -- This is expected to be constructed by using the smart constructor
@@ -565,27 +374,10 @@ deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
 instance IsChainState tx => ToCBOR (ChainEvent tx) where
-  toCBOR = \case
-    Observation{observedTx, newChainState} ->
-      toCBOR ("Observation" :: Text) <> toCBOR observedTx <> toCBOR newChainState
-    Rollback{chainTime, rolledBackChainState} ->
-      toCBOR ("Rollback" :: Text) <> toCBOR chainTime <> toCBOR rolledBackChainState
-    Tick{chainTime, chainPoint} ->
-      toCBOR ("Tick" :: Text) <> toCBOR chainTime <> toCBOR chainPoint
-    PostTxError{postChainTx, postTxError, failingTx} ->
-      toCBOR ("PostTxError" :: Text)
-        <> toCBOR postChainTx
-        <> toCBOR postTxError
-        <> toCBOR failingTx
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (ChainEvent tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("Observation" :: Text) -> Observation <$> fromCBOR <*> fromCBOR
-      "Rollback" -> Rollback <$> fromCBOR <*> fromCBOR
-      "Tick" -> Tick <$> fromCBOR <*> fromCBOR
-      "PostTxError" -> PostTxError <$> fromCBOR <*> fromCBOR <*> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded ChainEvent"
+  fromCBOR = genericFromCBOR
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
 -- 'Observation' of a relevant Hydra transaction.

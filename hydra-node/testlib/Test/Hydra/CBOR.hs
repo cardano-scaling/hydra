@@ -10,7 +10,8 @@ import Codec.CBOR.Write (toLazyByteString)
 import Data.Typeable (typeRep)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import Test.QuickCheck (Property, (===))
+import Test.QuickCheck (Property, resize, (===))
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
 
 -- | Test that a value can be roundtripped through its CBOR encoding.
 prop_canRoundtripCBOREncoding ::
@@ -43,6 +44,16 @@ roundtripCBOR p =
 -- cannot see. If this fails, the change breaks existing databases and needs
 -- a schema migration; only delete and regenerate the golden file alongside
 -- one.
+-- | One sample per constructor of @a@, in declaration order, enumerated
+-- generically by 'ToADTArbitrary': coverage of every constructor holds by
+-- construction and new constructors are included automatically. Samples are
+-- generated small (resized): golden files lock tags and field order, which
+-- small values exercise just as well.
+genGoldenSamples :: forall a. ToADTArbitrary a => Gen [a]
+genGoldenSamples = do
+  ADTArbitrary{adtCAPs} <- resize 5 $ toADTArbitrary (Proxy @a)
+  pure $ capArbitrary <$> adtCAPs
+
 goldenCBOR ::
   forall a.
   (ToCBOR a, FromCBOR a) =>

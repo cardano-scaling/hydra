@@ -62,16 +62,10 @@ data WhichEtcd = EmbeddedEtcd | SystemEtcd
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR WhichEtcd where
-  toCBOR = \case
-    EmbeddedEtcd -> toCBOR ("EmbeddedEtcd" :: Text)
-    SystemEtcd -> toCBOR ("SystemEtcd" :: Text)
+  toCBOR = genericToCBOR
 
 instance FromCBOR WhichEtcd where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("EmbeddedEtcd" :: Text) -> pure EmbeddedEtcd
-      "SystemEtcd" -> pure SystemEtcd
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded WhichEtcd"
+  fromCBOR = genericFromCBOR
 
 -- | Configuration for a `Node` network layer.
 data NetworkConfiguration = NetworkConfiguration
@@ -196,26 +190,10 @@ data Connectivity
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR Connectivity where
-  toCBOR = \case
-    PeerConnected{peer} -> toCBOR ("PeerConnected" :: Text) <> toCBOR peer
-    PeerDisconnected{peer} -> toCBOR ("PeerDisconnected" :: Text) <> toCBOR peer
-    NetworkConnected -> toCBOR ("NetworkConnected" :: Text)
-    NetworkDisconnected -> toCBOR ("NetworkDisconnected" :: Text)
-    VersionMismatch{ourVersion, theirVersion} ->
-      toCBOR ("VersionMismatch" :: Text) <> toCBOR ourVersion <> toCBOR theirVersion
-    ClusterIDMismatch{clusterPeers} ->
-      toCBOR ("ClusterIDMismatch" :: Text) <> toCBOR clusterPeers
+  toCBOR = genericToCBOR
 
 instance FromCBOR Connectivity where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("PeerConnected" :: Text) -> PeerConnected <$> fromCBOR
-      "PeerDisconnected" -> PeerDisconnected <$> fromCBOR
-      "NetworkConnected" -> pure NetworkConnected
-      "NetworkDisconnected" -> pure NetworkDisconnected
-      "VersionMismatch" -> VersionMismatch <$> fromCBOR <*> fromCBOR
-      "ClusterIDMismatch" -> ClusterIDMismatch <$> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded Connectivity"
+  fromCBOR = genericFromCBOR
 
 newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)

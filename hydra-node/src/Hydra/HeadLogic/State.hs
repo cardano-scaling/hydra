@@ -53,20 +53,10 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Head
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
 instance IsChainState tx => ToCBOR (HeadState tx) where
-  toCBOR = \case
-    Idle st -> toCBOR ("Idle" :: Text) <> toCBOR st
-    Open st -> toCBOR ("Open" :: Text) <> toCBOR st
-    Closed st -> toCBOR ("Closed" :: Text) <> toCBOR st
-    FanoutProgress st -> toCBOR ("FanoutProgress" :: Text) <> toCBOR st
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (HeadState tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("Idle" :: Text) -> Idle <$> fromCBOR
-      "Open" -> Open <$> fromCBOR
-      "Closed" -> Closed <$> fromCBOR
-      "FanoutProgress" -> FanoutProgress <$> fromCBOR
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded HeadState"
+  fromCBOR = genericFromCBOR
 
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
@@ -402,18 +392,10 @@ deriving anyclass instance IsTx tx => ToJSON (FanoutMode tx)
 deriving anyclass instance IsTx tx => FromJSON (FanoutMode tx)
 
 instance IsTx tx => ToCBOR (FanoutMode tx) where
-  toCBOR = \case
-    AutoDrain -> toCBOR ("AutoDrain" :: Text)
-    DistributingSelection utxo -> toCBOR ("DistributingSelection" :: Text) <> toCBOR utxo
-    AwaitingSelection -> toCBOR ("AwaitingSelection" :: Text)
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (FanoutMode tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("AutoDrain" :: Text) -> pure AutoDrain
-      "DistributingSelection" -> DistributingSelection <$> fromCBOR
-      "AwaitingSelection" -> pure AwaitingSelection
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded FanoutMode"
+  fromCBOR = genericFromCBOR
 
 -- | A closed head whose UTxO is being distributed across multiple fanout
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
