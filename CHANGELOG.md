@@ -114,6 +114,21 @@ changes.
   coordinated upgrade required).
   [#2777](https://github.com/cardano-scaling/hydra/pull/2777)
 
+- Snapshots now carry the `depositTxId` of the deposit they commit, and bind it
+  into the signature alongside the committed outputs. An increment can therefore
+  only claim the exact deposit the parties approved, not another one recording the
+  same UTxO. Snapshot JSON gains an optional `depositTxId`; decoding tolerates its
+  absence. The deposit validator also checks that the head's increment redeemer
+  names the deposit being claimed (`D09`), and the head validator that the claimed
+  deposit is the first output of its transaction (`H69`).
+
+- A recover transaction now spends a single deposit (`D10`). The recovered outputs
+  are the transaction's first `n`, shared by every deposit input, so two deposits
+  recording the same UTxO were both satisfied by one set of them.
+
+- `checkMembershipPairing` rejects a subset whose polynomial outruns the deployed
+  CRS, rather than checking it against a truncated one.
+
 ## [2.3.0] - 2026.07.15
 
 - Fix event log rotation dropping `pendingDeposits` and `chainPointTime` on
