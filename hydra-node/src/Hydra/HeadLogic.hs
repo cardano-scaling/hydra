@@ -448,7 +448,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                 -- commit unless the previous commit is settled.
                 if sv == confVersion && isJust confUTxOToCommit
                   then
-                    if confUTxOToCommit == Just deposited
+                    -- NOTE: identity, not just content. Two deposits can record
+                    -- the same UTxO, and only the one bound into the confirmed
+                    -- snapshot is the pending commit being settled.
+                    if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
                       then cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
                       else Error $ RequireFailed ReqSnCommitNotSettled
                   else do
@@ -535,6 +538,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   confUTxOToCommit = case confirmedSnapshot of
     InitialSnapshot{} -> Nothing
     ConfirmedSnapshot{snapshot = Snapshot{utxoToCommit}} -> utxoToCommit
+
+  confDepositTxId = case confirmedSnapshot of
+    InitialSnapshot{} -> Nothing
+    ConfirmedSnapshot{snapshot = Snapshot{depositTxId}} -> depositTxId
 
   confUTxOToDecommit = case confirmedSnapshot of
     InitialSnapshot{} -> Nothing
@@ -1128,15 +1135,15 @@ maybeRepostIncrementTx ::
   HeadId ->
   HeadParameters ->
   PendingDeposits tx ->
-  Maybe (TxIdType tx) ->
   ConfirmedSnapshot tx ->
   Outcome tx
-maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
-  -- NOTE: gate on 'utxoToCommit = Just _' alongside the deposit txid lookup
-  -- in case 'DepositActivated' set 'currentDepositTxId' after a non-commit
-  -- snapshot was confirmed.
-  case (mDepositTxId, confirmedSnapshot) of
-    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _}, signatures}) ->
+maybeRepostIncrementTx headSeed headId parameters pendingDeposits confirmedSnapshot =
+  -- NOTE: the deposit comes from the confirmed snapshot itself, not from
+  -- 'currentDepositTxId'. Only the deposit bound into the signed snapshot can be
+  -- claimed on-chain, and 'DepositActivated' can set 'currentDepositTxId' to an
+  -- unrelated deposit after that snapshot was confirmed.
+  case confirmedSnapshot of
+    ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId}, signatures} ->
       case Map.lookup depositTxId pendingDeposits of
         Just Deposit{} ->
           cause
@@ -2102,8 +2109,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         , parameters
         , coordinatedHeadState =
           CoordinatedHeadState
-            { currentDepositTxId
-            , confirmedSnapshot
+            { confirmedSnapshot
             , decommitTx
             }
         }
@@ -2111,7 +2117,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     ) ->
       newState ChainRolledBack{chainState = rolledBackChainState}
         <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-        <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) currentDepositTxId confirmedSnapshot
+        <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) confirmedSnapshot
         <> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot
   -- FanoutProgress + Rollback: re-post the next fanout step so the fanout
   -- resumes rather than stalling (the in-flight fanout tx may have been rolled

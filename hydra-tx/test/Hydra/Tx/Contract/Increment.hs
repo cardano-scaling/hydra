@@ -218,6 +218,10 @@ data IncrementMutation
   | -- | Add a second v_deposit input alongside an attacker-controlled
     -- output that redirects its value away from the head's continuation.
     IncrementAddExtraDepositInput
+  | -- | Add a second v_deposit input whose value is absorbed into the head
+    -- output, so the head-side value check passes and only the deposit-side
+    -- claim binding can reject it.
+    IncrementAbsorbExtraDepositInput
   | -- | Minting or burning of tokens should not be possible in increment.
     MutateTokenMintingOrBurning
   deriving stock (Generic, Show, Enum, Bounded)
@@ -340,6 +344,22 @@ genIncrementMutation (tx, utxo) =
           Changes
             [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
             , AppendOutput attackerOut
+            ]
+    , SomeMutation (pure $ toErrorCode DepositNotClaimedByHead) IncrementAbsorbExtraDepositInput <$> do
+        -- SECURITY: unlike 'IncrementAddExtraDepositInput', the extra deposit's
+        -- value is added to the head output, so 'mustPreserveValue' is satisfied
+        -- and only the deposit-side claim binding rejects this. Without D09 the
+        -- head would absorb a deposit no snapshot ever credited, and could then
+        -- never satisfy the strict value conservation of (partial) fanout.
+        extraIn <- genTxIn `suchThat` (/= depositIn)
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        let extraDepositOut :: TxOut CtxUTxO
+            extraDepositOut =
+              mkDepositOutput testNetworkId (mkHeadId testPolicyId) extraDeposited healthyDeadline
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , ChangeOutput 0 (headTxOut & modifyTxOutValue (<> txOutValue extraDepositOut))
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)

@@ -145,12 +145,18 @@ fn is_claimed_deposit(d: Data, own_ref: OutputReference) -> Bool {
 // satisfied by one set of outputs, and everything past index n is unconstrained
 // and can be directed anywhere by whoever builds the transaction. Recovering one
 // deposit at a time removes that double satisfaction.
+//
+// Only the payment credential is compared. Every UTxO whose payment credential is
+// this validator's hash is governed by it, whatever its staking part, so matching
+// the whole address would let an attacker sidestep this check by parking a copied
+// deposit at the same script with a stake credential attached.
 fn only_own_deposit_spent(inputs: List<Input>, own_ref: OutputReference) -> Bool {
   expect Some(own_input) =
     list.find(inputs, fn(i) { output_reference.compare(i.output_reference, own_ref) == Equal })
+  let own_credential = own_input.output.address.payment_credential
   traceIfFalse(
     toErrorCode(MultipleDepositsRecovered),
-    list.count(inputs, fn(i) { i.output.address == own_input.output.address }) == 1,
+    list.count(inputs, fn(i) { i.output.address.payment_credential == own_credential }) == 1,
   )
 }
 
