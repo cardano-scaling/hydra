@@ -467,6 +467,7 @@ test-suite tests
     , regex-tdfa
     , req
     , resourcet
+    , retry
     , silently
     , sop-extras
     , sqlite-simple

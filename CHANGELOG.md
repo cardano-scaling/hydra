@@ -25,6 +25,17 @@ changes.
     broadcast of 5000 messages went from thousands of connections to 5, and got
     ~12% faster.
 
+- Reworked the Blockfrost chain backend to poll verifiable conditions instead
+  of sleeping fixed delays: transaction awaits check inclusion and output
+  visibility, the chain follower processes blocks in batches staying about one
+  block behind the tip, submission errors are reported immediately (API
+  rejections were previously reported as success), and HTTP 429 is retried
+  with capped exponential backoff. A full head lifecycle on preview drops from
+  over an hour to minutes, and the Blockfrost lifecycle test runs in nightly
+  CI again. `--blockfrost-retry-timeout` now bounds transaction awaits in
+  seconds; the ineffective `--blockfrost-query-timeout` option and
+  `query-timeout` config key were removed.
+
 - Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
   UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
   10250 (fanout carries ~5.8 kB of overhead; safe up to 10 parties),

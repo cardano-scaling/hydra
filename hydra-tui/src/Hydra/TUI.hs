@@ -25,7 +25,6 @@ import Hydra.Chain.CardanoClient as CC
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..), withClient)
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.Options (BlockfrostOptions (..), defaultBFQueryTimeout, defaultBFRetryTimeout)
 import Hydra.TUI.Config (Theme (..), TuiConfig (..), readConfig)
 import Hydra.TUI.Drawing
 import Hydra.TUI.Handlers
@@ -49,14 +48,7 @@ mkBFClient networkId bfProject =
   CardanoClient
     { queryUTxOByAddress = \address -> do
         prj <- liftIO $ BF.projectFromFile bfProject
-        let bfOptions =
-              BlockfrostOptions
-                { projectPath = bfProject
-                , queryTimeout = defaultBFQueryTimeout
-                , retryTimeout = defaultBFRetryTimeout
-                }
-
-        BF.runBlockfrostM prj $ BF.queryUTxO bfOptions networkId address
+        BF.runBlockfrostM prj $ BF.queryUTxO networkId address
     , networkId
     }
 

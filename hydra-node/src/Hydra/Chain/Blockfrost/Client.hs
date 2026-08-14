@@ -15,6 +15,7 @@ import Blockfrost.Client (
   Project,
   Slot (..),
   TransactionCBOR (..),
+  TxHash (..),
   TxHashCBOR (..),
   allPages,
   def,
@@ -33,7 +34,7 @@ import Cardano.Chain.Genesis (mainnetProtocolMagicId)
 import Cardano.Crypto.ProtocolMagic (ProtocolMagicId (..))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX
-import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
+import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters, txId)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams
@@ -64,7 +65,7 @@ import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
 import Hydra.Options (BlockfrostOptions (..))
-import Hydra.Tx (ScriptRegistry, newScriptRegistry)
+import Hydra.Tx (ScriptRegistry, newScriptRegistry, txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter, pattern NoPerasEnabled)
@@ -84,10 +85,9 @@ data APIBlockfrostError
   = BlockfrostError Text
   | BlockfrostClientError BlockfrostException
   | DecodeError Text
-  | NotEnoughBlockConfirmations BlockHash
   | MissingBlockNo BlockHash
   | MissingBlockSlot (Maybe Slot)
-  | MissingNextBlockHash BlockHash
+  | BlockfrostRateLimited
   deriving stock (Show)
   deriving anyclass (Exception)
 
@@ -96,21 +96,39 @@ isRetryable = \case
   BlockfrostError _ -> True
   BlockfrostClientError _ -> False
   DecodeError _ -> True
-  NotEnoughBlockConfirmations _ -> True
   MissingBlockNo _ -> True
   MissingBlockSlot _ -> True
-  MissingNextBlockHash _ -> True
+  BlockfrostRateLimited -> True
 
+-- | Run a Blockfrost client action, retrying with capped exponential backoff
+-- when rate limited (HTTP 429). blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
+-- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = do
-  result <- liftIO $ runBlockfrost prj action
-  case result of
-    Left err -> throwIO $ BlockfrostError (show err)
-    Right val -> pure val
+runBlockfrostM prj action = go 0
+ where
+  go attempt = do
+    result <- liftIO $ Blockfrost.runBlockfrost prj action
+    case result of
+      Right val -> pure val
+      Left Blockfrost.BlockfrostUsageLimitReached
+        | attempt < maxRateLimitRetries -> do
+            liftIO $ threadDelay (rateLimitBackoff attempt)
+            go (attempt + 1)
+        | otherwise -> throwIO BlockfrostRateLimited
+      Left err -> throwIO $ BlockfrostError (show err)
+
+-- | Delay before the n-th rate-limit retry.
+rateLimitBackoff :: Int -> DiffTime
+rateLimitBackoff attempt = min 60 (2 ^ attempt)
+
+-- | How often to retry a rate-limited request before giving up.
+maxRateLimitRetries :: Int
+maxRateLimitRetries = 6
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.
@@ -476,14 +494,11 @@ queryScript scriptHashTxt = do
 -- | Query the Blockfrost API for address UTxO and convert to cardano 'UTxO'.
 -- NOTE: We accept the address list here to be compatible with cardano-api but in
 -- fact this is a single address query always.
-queryUTxO :: BlockfrostOptions -> NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
-queryUTxO BlockfrostOptions{queryTimeout} networkId addresses = do
-  -- NOTE: We can't know at the time of doing a query if the information on specific address UTxO is _fresh_ or not
-  -- so we try to wait for sufficient period of time and hope for best.
-  liftIO $ threadDelay $ fromIntegral queryTimeout
+queryUTxO :: NetworkId -> [Address ShelleyAddr] -> BlockfrostClientT IO UTxO
+queryUTxO networkId addresses = do
   let address = Blockfrost.Address . serialiseAddress $ List.head addresses
   utxoWithAddresses <-
-    Blockfrost.getAddressUtxos address
+    Blockfrost.allPages (\p -> Blockfrost.getAddressUtxos' address p Blockfrost.def)
       `catchError` \case
         Blockfrost.BlockfrostNotFound _ ->
           pure []
@@ -506,8 +521,8 @@ queryUTxO BlockfrostOptions{queryTimeout} networkId addresses = do
     )
     utxoWithAddresses
 
-queryUTxOFor :: BlockfrostOptions -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-queryUTxOFor cfg vk = do
+queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+queryUTxOFor vk = do
   Blockfrost.Genesis
     { _genesisNetworkMagic = networkMagic
     } <-
@@ -515,7 +530,7 @@ queryUTxOFor cfg vk = do
   let networkId = toCardanoNetworkId networkMagic
   case mkVkAddress networkId vk of
     ShelleyAddressInEra addr ->
-      queryUTxO cfg networkId [addr]
+      queryUTxO networkId [addr]
     ByronAddressInEra{} ->
       liftIO $ throwIO $ BlockfrostClientError ByronAddressNotSupported
 
@@ -562,28 +577,50 @@ awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> Blo
 awaitTransaction cfg tx vk = do
   Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
   let networkId = toCardanoNetworkId _genesisNetworkMagic
-  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] (getTxId $ getTxBody tx) cfg
+  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] tx cfg
 
--- | Await for specific UTxO at address - the one that is produced by the given 'TxId'.
+-- | Await inclusion of the given transaction and then wait until the
+-- address query reflects its outputs at the given addresses. Return
+-- those outputs (empty if the transaction pays nothing to them, in
+-- which case only inclusion is awaited).
 awaitUTxO ::
   -- | Network id
   NetworkId ->
-  -- | Address we are interested in
+  -- | Addresses we are interested in
   [Address ShelleyAddr] ->
-  -- | Last transaction ID to await
-  TxId ->
+  -- | Transaction to await
+  Tx ->
   BlockfrostOptions ->
   BlockfrostClientT IO UTxO
-awaitUTxO networkId addresses txid cfg@BlockfrostOptions{retryTimeout} = do
-  go retryTimeout
+awaitUTxO networkId addresses tx BlockfrostOptions{retryTimeout} = do
+  awaitIncluded retryTimeout
+  unless (UTxO.null wantedUTxO) $ awaitVisible retryTimeout
+  pure wantedUTxO
  where
-  go 0 = liftIO $ throwIO $ BlockfrostClientError (TimeoutOnUTxO txid)
-  go n = do
-    utxo <- Blockfrost.tryError $ queryUTxO cfg networkId addresses
-    case utxo of
-      Left _e -> liftIO (threadDelay 1) >> go (n - 1)
-      Right utxo' ->
-        let wantedUTxO = UTxO.fromList $ List.filter (\(TxIn txid' _, _) -> txid' == txid) (UTxO.toList utxo')
-         in if UTxO.null wantedUTxO
-              then liftIO (threadDelay 1) >> go (n - 1)
-              else pure utxo'
+  txid = txId tx
+
+  wantedUTxO =
+    UTxO.filter
+      ( \(TxOut addr _ _ _) -> case addr of
+          ShelleyAddressInEra sh -> sh `elem` addresses
+          ByronAddressInEra{} -> False
+      )
+      (utxoFromTx tx)
+
+  awaitIncluded 0 = liftIO $ throwIO $ BlockfrostClientError (TimeoutOnUTxO txid)
+  awaitIncluded n = do
+    res <- Blockfrost.tryError $ Blockfrost.getTx (Blockfrost.TxHash $ serialiseToRawBytesHexText txid)
+    case res of
+      Left _e -> liftIO (threadDelay 1) >> awaitIncluded (n - 1)
+      Right _ -> pure ()
+
+  -- NOTE: The address endpoint lags the tx endpoint, so inclusion alone does
+  -- not guarantee the next address query reflects this tx. Wait until it does,
+  -- since callers build follow-up transactions from what they query next.
+  awaitVisible 0 = liftIO $ throwIO $ BlockfrostClientError (TimeoutOnUTxO txid)
+  awaitVisible n = do
+    res <- Blockfrost.tryError $ queryUTxO networkId addresses
+    case res of
+      Right utxo'
+        | UTxO.inputSet wantedUTxO `Set.isSubsetOf` UTxO.inputSet utxo' -> pure ()
+      _ -> liftIO (threadDelay 1) >> awaitVisible (n - 1)
