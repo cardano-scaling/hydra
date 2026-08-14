@@ -81,7 +81,6 @@ instance ChainBackend ATestBackend where
   submitTransaction _ = error "submitTransaction"
   awaitTransaction _ _ = error "awaitTransaction"
   getBlockTime = error "getBlockTime"
-  getQueryDelay = pure 0
   queryNetworkId = pure Mainnet
   queryProtocolParameters _ = pure emptyPParams
   querySystemStart _ = SystemStart <$> liftIO getCurrentTime
@@ -111,7 +110,6 @@ instance ChainBackend SuccessfulBackend where
   querySystemStart _ = SystemStart <$> liftIO getCurrentTime
   queryEraHistory _ = pure eraHistoryWithoutHorizon
   queryStakePools _ = pure mempty
-  getQueryDelay = pure 0
 
   -- Other methods are not needed for this test.
   queryGenesisParameters = error "queryGenesisParameters"

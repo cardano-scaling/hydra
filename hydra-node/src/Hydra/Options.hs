@@ -186,7 +186,6 @@ data DirectOptions = DirectOptions
 data BlockfrostOptions = BlockfrostOptions
   { projectPath :: FilePath
   -- ^ Path to the blockfrost project file
-  , queryTimeout :: Int
   , retryTimeout :: Int
   }
   deriving stock (Generic, Show, Eq)
@@ -196,12 +195,8 @@ defaultBlockfrostOptions :: BlockfrostOptions
 defaultBlockfrostOptions =
   BlockfrostOptions
     { projectPath = "blockfrost-project.txt"
-    , queryTimeout = defaultBFQueryTimeout
     , retryTimeout = defaultBFRetryTimeout
     }
-
-defaultBFQueryTimeout :: Int
-defaultBFQueryTimeout = 30
 
 defaultBFRetryTimeout :: Int
 defaultBFRetryTimeout = 300
@@ -377,7 +372,6 @@ instance Semigroup BlockfrostOptions where
   base <> cli =
     BlockfrostOptions
       { projectPath = o defaultBlockfrostOptions.projectPath base.projectPath cli.projectPath
-      , queryTimeout = o defaultBlockfrostOptions.queryTimeout base.queryTimeout cli.queryTimeout
       , retryTimeout = o defaultBlockfrostOptions.retryTimeout base.retryTimeout cli.retryTimeout
       }
    where
@@ -468,7 +462,6 @@ chainBackendOptionsParser = directOptionsParser <|> blockfrostOptionsParser
     fmap Blockfrost $
       BlockfrostOptions
         <$> blockfrostProjectPathParser
-        <*> blockfrostQueryTimeoutParser
         <*> blockfrostRetryTimeoutParser
 
 newtype GenerateKeyPair = GenerateKeyPair
@@ -662,17 +655,6 @@ blockfrostProjectPathParser =
         <> value "blockfrost.txt"
         <> help
           "Blockfrost project path containing the api key."
-    )
-
-blockfrostQueryTimeoutParser :: Parser Int
-blockfrostQueryTimeoutParser =
-  option
-    auto
-    ( long "blockfrost-query-timeout"
-        <> metavar "SECONDS"
-        <> value defaultBFQueryTimeout
-        <> showDefault
-        <> help "Timeout for single queries to the Blockfrost API, in seconds."
     )
 
 blockfrostRetryTimeoutParser :: Parser Int
@@ -1236,9 +1218,8 @@ toArgs
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
-              Blockfrost BlockfrostOptions{projectPath, queryTimeout, retryTimeout} ->
+              Blockfrost BlockfrostOptions{projectPath, retryTimeout} ->
                 ["--blockfrost", projectPath]
-                  <> ["--blockfrost-query-timeout", show queryTimeout]
                   <> ["--blockfrost-retry-timeout", show retryTimeout]
               Direct DirectOptions{networkId, nodeSocket} ->
                 toArgNetworkId networkId

@@ -4148,7 +4148,6 @@ components:
       required:
         - mode
         - project-path
-        - query-timeout
         - retry-timeout
       properties:
         mode:
@@ -4157,9 +4156,6 @@ components:
         project-path:
           type: string
           description: Path to the Blockfrost project ID file.
-        query-timeout:
-          type: number
-          description: Timeout in seconds for Blockfrost API queries.
         retry-timeout:
           type: number
           description: Total timeout in seconds for retrying failed Blockfrost queries.

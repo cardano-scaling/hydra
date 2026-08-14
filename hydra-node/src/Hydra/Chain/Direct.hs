@@ -133,8 +133,6 @@ instance ChainBackend DirectBackend where
   getBlockTime = withNodeConn $ \ci ->
     CardanoClient.queryBlockTime ci CardanoClient.QueryTip
 
-  getQueryDelay = pure 0
-
 withNodeConn :: (LocalNodeConnectInfo -> IO a) -> DirectBackend a
 withNodeConn f = DirectBackend $ do
   DirectOptions{networkId, nodeSocket} <- ask

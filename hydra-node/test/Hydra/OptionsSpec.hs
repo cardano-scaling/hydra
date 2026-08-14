@@ -388,8 +388,6 @@ spec = parallel $
     it "parses --blockfrost with timeouts" $
       [ "--blockfrost"
       , "blockfrost-project.txt"
-      , "--blockfrost-query-timeout"
-      , "30"
       , "--blockfrost-retry-timeout"
       , "600"
       ]
@@ -401,8 +399,7 @@ spec = parallel $
                       & #chainBackendOptions
                         .~ Blockfrost
                           defaultBlockfrostOptions
-                            { queryTimeout = 30
-                            , retryTimeout = 600
+                            { retryTimeout = 600
                             }
                   )
             }
@@ -519,7 +516,6 @@ spec = parallel $
                     Blockfrost
                       BlockfrostOptions
                         { projectPath = "baz"
-                        , queryTimeout = 30
                         , retryTimeout = 300
                         }
                 , publishSigningKey = "cardano.sk"

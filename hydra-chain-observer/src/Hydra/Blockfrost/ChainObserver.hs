@@ -6,7 +6,6 @@ import Hydra.Prelude
 
 import Blockfrost.Client (
   BlockfrostClientT,
-  runBlockfrost,
  )
 import Blockfrost.Client qualified as Blockfrost
 import Control.Concurrent.Class.MonadSTM (
@@ -30,6 +29,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
+import Hydra.Chain.Blockfrost.Client (maxRateLimitRetries, rateLimitBackoff)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -49,19 +49,31 @@ data APIBlockfrostError
   | NotEnoughBlockConfirmations Blockfrost.BlockHash
   | MissingBlockNo Blockfrost.BlockHash
   | MissingNextBlockHash Blockfrost.BlockHash
+  | BlockfrostRateLimited
   deriving stock (Show)
   deriving anyclass (Exception)
 
+-- | Run a Blockfrost client action, retrying with capped exponential backoff
+-- when rate limited (HTTP 429). blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
+-- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = do
-  result <- liftIO $ runBlockfrost prj action
-  case result of
-    Left err -> throwIO (BlockfrostError $ show err)
-    Right val -> pure val
+runBlockfrostM prj action = go 0
+ where
+  go attempt = do
+    result <- liftIO $ Blockfrost.runBlockfrost prj action
+    case result of
+      Right val -> pure val
+      Left Blockfrost.BlockfrostUsageLimitReached
+        | attempt < maxRateLimitRetries -> do
+            liftIO $ threadDelay (rateLimitBackoff attempt)
+            go (attempt + 1)
+        | otherwise -> throwIO BlockfrostRateLimited
+      Left err -> throwIO $ BlockfrostError (show err)
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
@@ -197,6 +209,7 @@ isRetryable (DecodeError _) = False
 isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
 isRetryable (MissingNextBlockHash _) = True
+isRetryable BlockfrostRateLimited = True
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
