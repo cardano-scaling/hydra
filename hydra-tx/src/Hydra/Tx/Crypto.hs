@@ -118,22 +118,12 @@ instance SerialiseAsRawBytes (Hash HydraKey) where
       (hashFromBytes bs)
 
 instance SerialiseAsRawBytes a => IsString (UsingRawBytesHex a) where
-  fromString = either (error . toText) id . deserialiseFromRawBytesBase16 . BSC.pack
+  fromString =
+    either (error . toText . show) UsingRawBytesHex . Cardano.deserialiseFromRawBytesHex . BSC.pack
 
 deriving via UsingRawBytesHex (Hash BlockHeader) instance IsString (Hash BlockHeader)
 deriving via UsingRawBytesHex TxId instance IsString TxId
 deriving via UsingRawBytesHex (Hash ScriptData) instance IsString (Hash ScriptData)
-
-deserialiseFromRawBytesBase16 ::
-  SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
-deserialiseFromRawBytesBase16 str =
-  case Base16.decode str of
-    Right raw -> case deserialiseFromRawBytes ttoken raw of
-      Right x -> Right (UsingRawBytesHex x)
-      Left (SerialiseAsRawBytesError msg) -> Left ("cannot deserialise " ++ show str ++ ".  The error was: " <> msg)
-    Left msg -> Left ("invalid hex " ++ show str ++ ", " ++ msg)
- where
-  ttoken = proxyToAsType (Proxy :: Proxy a)
 
 instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.

@@ -1,5 +1,7 @@
 import Hydra.Prelude hiding (catch)
 
+import Data.Aeson (encode, (.=))
+import Data.Aeson qualified as Aeson
 import Data.ByteString (hPut)
 import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
@@ -10,6 +12,7 @@ import Options.Applicative (
   ParserInfo,
   auto,
   execParser,
+  flag,
   fullDesc,
   header,
   help,
@@ -45,7 +48,10 @@ import TxCost (
   computePartialFanOutNominalCost,
  )
 
-data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int}
+data Format = Markdown | Json
+  deriving stock (Eq, Show)
+
+data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int, format :: Format}
 
 txCostOptionsParser :: Parser Options
 txCostOptionsParser =
@@ -69,6 +75,14 @@ txCostOptionsParser =
               <> help "A seed value"
           )
       )
+    <*> flag
+      Markdown
+      Json
+      ( long "json"
+          <> help
+            "Emit the same measurements as machine-readable JSON instead of \
+            \ Markdown. Used by tx-cost-diff to compare two revisions."
+      )
 
 logFilterOptions :: ParserInfo Options
 logFilterOptions =
@@ -86,10 +100,18 @@ logFilterOptions =
 main :: IO ()
 main =
   execParser logFilterOptions >>= \case
-    Options{outputDirectory = Nothing, seed = seed} -> writeTransactionCostMarkdown seed stdout
-    Options{outputDirectory = Just outputDir, seed = seed} -> do
+    Options{outputDirectory = Nothing, seed, format} -> write format seed stdout
+    Options{outputDirectory = Just outputDir, seed, format} -> do
       unlessM (doesDirectoryExist outputDir) $ createDirectoryIfMissing True outputDir
-      withFile (outputDir </> "transaction-cost.md") WriteMode (writeTransactionCostMarkdown seed)
+      withFile (outputDir </> fileName format) WriteMode (write format seed)
+ where
+  write = \case
+    Markdown -> writeTransactionCostMarkdown
+    Json -> writeTransactionCostJson
+
+  fileName = \case
+    Markdown -> "transaction-cost.md"
+    Json -> "transaction-cost.json"
 
 writeTransactionCostMarkdown :: Maybe Int -> Handle -> IO ()
 writeTransactionCostMarkdown mseed hdl = do
@@ -122,6 +144,99 @@ writeTransactionCostMarkdown mseed hdl = do
             , partialFanoutMixedC
             , finalPartialFanoutC
             ]
+
+-- | Emit the same measurements as 'writeTransactionCostMarkdown', but as JSON
+-- keyed by table and row so they can be compared numerically.
+--
+-- Each table carries the names of its index columns (which identify a row) and
+-- of its value columns; 'tx-cost-diff' matches rows across two revisions by
+-- index and subtracts the values. Emitting this directly is what lets the diff
+-- avoid rendering to HTML and scraping the tables back out positionally.
+writeTransactionCostJson :: Maybe Int -> Handle -> IO ()
+writeTransactionCostJson mseed hdl = do
+  seed <- case mseed of
+    Nothing -> generate chooseAny
+    Just s -> pure s
+  hPut hdl . toStrict . encode $
+    Aeson.object
+      [ "maxMemoryUnits" .= maxMem
+      , "maxCpuUnits" .= maxCpu
+      , "maxTxSizeBytes" .= maxTxSize
+      , "tables" .= costTables seed
+      ]
+
+-- | All measurement tables, in the same order as the Markdown report.
+costTables :: Int -> [Aeson.Value]
+costTables seed =
+  [ table "Script summary" ["Name"] ["Size (Bytes)"] $
+      [ row [name] [fromIntegral scriptSize]
+      | (name, scriptSize) <-
+          [ ("νHead" :: Text, headScriptSize)
+          , ("μHead", mintingScriptSize)
+          , ("νDeposit", depositScriptSize)
+          , ("νCRS", crsScriptSize)
+          ]
+      ]
+  , parties "`Init` transaction costs" computeInitCost
+  , parties "Cost of Increment Transaction" computeIncrementCost
+  , parties "Cost of Decrement Transaction" computeDecrementCost
+  , parties "`Close` transaction costs" computeCloseCost
+  , parties "`Contest` transaction costs" computeContestCost
+  , table "`FanOut` transaction costs" ["Parties", "UTxO"] valueColumns $
+      [ row [show p, show n] [fromIntegral utxoSize, fromIntegral txSize, pct mem maxMem, pct cpu maxCpu, ada fee]
+      | (p, n, utxoSize, txSize, mem, cpu, Coin fee) <- genFromSeed computeFanOutCost seed
+      ]
+  , distributed "`PartialFanOut` transaction costs" computePartialFanOutNominalCost
+  , distributed "`PartialFanOut` transaction costs (with native tokens)" computePartialFanOutMixedCost
+  , table "`FinalPartialFanOut` transaction costs" ["Distributed"] valueColumns $
+      [ row [show n] [fromIntegral utxoSize, fromIntegral txSize, pct mem maxMem, pct cpu maxCpu, ada fee]
+      | (n, utxoSize, txSize, mem, cpu, Coin fee) <- genFromSeed computeFinalPartialFanOutCost seed
+      ]
+  ]
+ where
+  valueColumns :: [Text]
+  valueColumns = ["UTxO (bytes)", "Tx size", "% max Mem", "% max CPU", "Min fee ₳"]
+
+  parties :: Text -> Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Aeson.Value
+  parties title compute =
+    table title ["Parties"] ["Tx size", "% max Mem", "% max CPU", "Min fee ₳"] $
+      [ row [show p] [fromIntegral txSize, pct mem maxMem, pct cpu maxCpu, ada fee]
+      | (p, txSize, mem, cpu, Coin fee) <- genFromSeed compute seed
+      ]
+
+  distributed :: Text -> Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Aeson.Value
+  distributed title compute =
+    table title ["Total UTxO", "Distributed"] valueColumns $
+      [ row
+        [show numTotal, show (numTotal - numRemaining)]
+        [fromIntegral utxoSize, fromIntegral txSize, pct mem maxMem, pct cpu maxCpu, ada fee]
+      | (numTotal, numRemaining, utxoSize, txSize, mem, cpu, Coin fee) <- genFromSeed compute seed
+      ]
+
+  table :: Text -> [Text] -> [Text] -> [Aeson.Value] -> Aeson.Value
+  table title index columns rows =
+    Aeson.object
+      [ "title" .= title
+      , "index" .= index
+      , "columns" .= columns
+      , "rows" .= rows
+      ]
+
+  row :: [Text] -> [Double] -> Aeson.Value
+  row key values = Aeson.object ["key" .= key, "values" .= values]
+
+  pct :: (Real a, Real b) => a -> b -> Double
+  pct x limit = realToFrac (x `percentOf` limit)
+
+  ada :: Integer -> Double
+  ada fee = realToFrac fee / 1_000_000
+
+  HydraScriptCatalogue
+    { mintingScriptSize
+    , headScriptSize
+    , depositScriptSize
+    , crsScriptSize
+    } = hydraScriptCatalogue
 
 -- NOTE: GitHub actions CI depends on the number of header lines, see
 -- .github/workflows/ci-nix.yaml

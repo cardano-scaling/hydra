@@ -33,6 +33,7 @@ import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Time (UTCTime (UTCTime), utctDayTime)
+import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, lovelaceToValue, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -65,6 +66,7 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraClusterWith,
  )
+import Statistics.Quantile qualified as Statistics
 import System.Directory (listDirectory)
 import System.FilePath (takeFileName, (</>))
 import System.Process.Typed (shell, withProcessTerm)
@@ -925,10 +927,18 @@ sustainedSnapshotTps snapshots = do
   firstReaching target = find (\(_, cum) -> cum >= target) cumulative
   share p = ceiling (p * fromIntegral total :: Double) :: Int
 
+-- NOTE: Uses the same estimator as the quantile table in
+-- 'Bench.Summary.makeQuantiles' ('quantilesVec def', R's type 7), so the two
+-- interpolate identically. A hand-rolled 'sort xs !! (length xs `div` 2)' does
+-- not: it is the upper-middle order statistic, which is not the median for
+-- even-length samples. (This and the reported P50 are still computed over
+-- different samples: validation times here, confirmation times there.)
 medianMilliseconds :: [NominalDiffTime] -> Maybe Double
 medianMilliseconds = \case
   [] -> Nothing
-  xs -> Just . realToFrac . nominalDiffTimeToMilliseconds $ sort xs List.!! (length xs `div` 2)
+  xs ->
+    Just . Statistics.median Statistics.def . Vector.fromList $
+      map (realToFrac . nominalDiffTimeToMilliseconds) xs
 
 -- | Peak resident set size (VmHWM) in MB across this scenario's hydra-node
 -- processes, identified by executable name plus the scenario work directory in

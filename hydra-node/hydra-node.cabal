@@ -152,7 +152,6 @@ library
     , iproute
     , lens
     , lens-aeson
-    , modern-uri
     , network
     , optparse-applicative
     , ouroboros-consensus
@@ -293,6 +292,7 @@ benchmark tx-cost
   other-modules:  TxCost
   type:           exitcode-stdio-1.0
   build-depends:
+    , aeson
     , base
     , bytestring
     , cardano-api

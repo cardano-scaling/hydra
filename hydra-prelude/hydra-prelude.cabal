@@ -27,7 +27,7 @@ library
     , base
     , base16-bytestring
     , cardano-binary        >=1.7.0   && <1.8
-    , gitrev
+    , githash
     , io-classes            >=1.8.0.1
     , io-classes:si-timers
     , pretty-simple

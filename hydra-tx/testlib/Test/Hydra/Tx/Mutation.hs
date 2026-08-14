@@ -137,6 +137,7 @@ import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
 import Control.Lens (over, set, view, (.~), (^.))
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -153,7 +154,6 @@ import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins qualified as PlutusTx
-import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -683,7 +683,7 @@ addPTWithQuantity tx quantity =
     <$>
     -- NOTE: We do not expect Ada or any other assets to be minted, so
     -- we can take the policy id from the head
-    case Prelude.head $ toList mintedValue of
+    case List.head $ toList mintedValue of
       (AdaAssetId, _) -> error "unexpected mint of Ada"
       (AssetId pid _an, _) -> do
         -- Some arbitrary token name, which could correspond to a pub key hash

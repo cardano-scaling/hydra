@@ -366,7 +366,7 @@ checkSizeAndEvaluate tx knownUTxO = do
             { executionMemory = usedMemory
             , executionSteps = usedCpu
             } = usedExecutionUnits report
-      let minFee = estimateMinFee tx report
+      let minFee = estimateMinFee knownUTxO tx report
       Just (TxSize txSize, MemUnit usedMemory, CpuUnit usedCpu, minFee)
     _ -> Nothing
  where

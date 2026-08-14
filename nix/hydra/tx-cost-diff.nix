@@ -1,27 +1,16 @@
 { self, ... }: {
   perSystem = { pkgs, ... }:
-    let
-      tx-cost-diff =
+    {
+      # Compares `tx-cost --json` output of this tree against another revision.
+      # Both sides are structured, so no Markdown/HTML round-trip (and hence no
+      # pandoc or pandas) is involved.
+      packages.tx-cost-diff =
         pkgs.writers.writeHaskellBin
           "tx-cost-diff"
           {
             libraries =
               with pkgs.haskellPackages;
-              [ aeson text bytestring lens lens-aeson shh ];
+              [ aeson bytestring containers typed-process ];
           } ''${builtins.readFile "${self}/scripts/tx-cost-diff.hs"}'';
-
-      pythonEnv = pkgs.python3.withPackages (ps: with ps; [
-        pandas
-        html5lib
-        beautifulsoup4
-        tabulate
-      ]);
-    in
-    {
-      packages.tx-cost-diff = pkgs.writeShellApplication {
-        name = "tx-cost-diff";
-        runtimeInputs = [ pkgs.pandoc pythonEnv ];
-        text = ''exec ${tx-cost-diff}/bin/tx-cost-diff "$@"'';
-      };
     };
 }

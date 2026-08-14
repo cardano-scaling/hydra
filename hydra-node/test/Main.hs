@@ -45,8 +45,8 @@ import Hydra.OptionsSpec qualified
 import Hydra.PartySpec qualified
 import Hydra.PersistentQueueSpec qualified
 import Hydra.UtilsSpec qualified
-import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
-import Test.Tasty (DependencyType (AllFinish), after)
+import Test.Hydra.TastyMain (defaultMainHydra, testSpec, testSpecs)
+import Test.Tasty (DependencyType (AllFinish), after, dependentTestGroup)
 
 main :: IO ()
 main =
@@ -85,9 +85,21 @@ main =
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec
     , testSpec "Model" Hydra.ModelSpec.spec
     , testSpec "Network.Authenticate" Hydra.Network.AuthenticateSpec.spec
+    , testSpec "Network" Hydra.NetworkSpec.spec
     , -- Runs last: these tests spawn etcd clusters and are the slowest here.
-      after AllFinish "$2 != \"Network\""
-        <$> testSpec "Network" Hydra.NetworkSpec.spec
+      --
+      -- 'dependentTestGroup' runs them one at a time. They must not overlap
+      -- (see 'Hydra.NetworkSpec.etcdSpec'), and it is the only mechanism that
+      -- works here: hspec's 'sequential' is discarded by tasty-hspec, and
+      -- tasty honours 'NumThreads' only at the top level, where setting it to
+      -- 1 would serialise the whole suite. See
+      -- https://github.com/UnkindPartition/tasty/issues/406.
+      --
+      -- 'testSpecs' rather than 'testSpec' because the group only sequences
+      -- its direct children, so the tests have to be the children themselves
+      -- rather than sit one level down inside a nested group.
+      after AllFinish "$2 != \"Network.Etcd\"" . dependentTestGroup "Network.Etcd" AllFinish
+        <$> testSpecs Hydra.NetworkSpec.etcdSpec
     , testSpec "NetworkVersions" Hydra.NetworkVersionsSpec.spec
     , testSpec "Node.InputQueue" Hydra.Node.InputQueueSpec.spec
     , testSpec "Node.Run" Hydra.Node.RunSpec.spec

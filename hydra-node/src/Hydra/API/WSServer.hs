@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.API.WSServer where
@@ -11,6 +10,7 @@ import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Control.Concurrent.STM qualified as STM
 import Data.Aeson qualified as Aeson
+import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy qualified as LBS
 import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
@@ -48,6 +48,7 @@ import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
+import Network.HTTP.Types.URI (Query, parseQueryReplacePlus)
 import Network.WebSockets (
   Connection,
   PendingConnection (pendingRequest),
@@ -58,8 +59,6 @@ import Network.WebSockets (
   sendTextData,
   withPingThread,
  )
-import Text.URI hiding (ParseException)
-import Text.URI.QQ (queryKey, queryValue)
 
 -- | Per-connection codec: resolves the negotiated wire encoding and the
 -- snapshot-utxo display policy once, so message handling needs no dispatch.
@@ -130,7 +129,10 @@ wsApp ::
 wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
-  queryParams <- uriQuery <$> mkURIBs path
+      -- NOTE: parse without the '+'-as-space rule: that is a form-encoding
+      -- convention which 'parseQuery'/'decodePath' apply but modern-uri (used
+      -- here previously) did not, so this keeps accepted values byte-identical.
+      queryParams = parseQueryReplacePlus False $ BS8.dropWhile (/= '?') path
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
@@ -175,7 +177,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   Projection{getLatest = getLatestNodeState} = nodeStateP
   Projection{getLatest = getLatestNetworkInfo} = networkInfoP
 
-  mkServerOutputConfig :: [QueryParam] -> ServerOutputConfig
+  mkServerOutputConfig :: Query -> ServerOutputConfig
   mkServerOutputConfig qp =
     ServerOutputConfig
       { utxoInSnapshot = decideOnUTxODisplay qp
@@ -183,36 +185,27 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
       , encoding = decideOnEncoding qp
       }
 
-  decideOnEncoding :: [QueryParam] -> ApiEncoding
+  decideOnEncoding :: Query -> ApiEncoding
   decideOnEncoding qp =
-    let queryP = QueryParam [queryKey|encoding|] [queryValue|cbor|]
-     in if queryP `elem` qp then CborEncoding else JsonEncoding
+    if ("encoding", Just "cbor") `elem` qp then CborEncoding else JsonEncoding
 
-  decideOnUTxODisplay :: [QueryParam] -> WithUTxO
+  decideOnUTxODisplay :: Query -> WithUTxO
   decideOnUTxODisplay qp =
-    let k :: RText t
-        k = [queryKey|snapshot-utxo|]
-        v :: RText t
-        v = [queryValue|no|]
-        queryP = QueryParam k v
-     in if queryP `elem` qp then WithoutUTxO else WithUTxO
+    if ("snapshot-utxo", Just "no") `elem` qp then WithoutUTxO else WithUTxO
 
-  decideOnAddressDisplay :: [QueryParam] -> WithAddressedTx
+  decideOnAddressDisplay :: Query -> WithAddressedTx
   decideOnAddressDisplay qp =
-    case find queryByAddress qp of
-      Just (QueryParam _ v) -> WithAddressedTx (unRText v)
-      _ -> WithoutAddressedTx
-   where
-    queryByAddress = \case
-      (QueryParam key _) | key == [queryKey|address|] -> True
-      _other -> False
+    -- NOTE: takes the first 'address' that actually carries a value. A
+    -- valueless '?address' is skipped rather than disabling the filter:
+    -- modern-uri (used here previously) parsed that as a QueryFlag, which the
+    -- old lookup ignored, so '?address&address=addr1...' still filtered.
+    case listToMaybe [v | ("address", Just v) <- qp] of
+      Just v -> WithAddressedTx (decodeUtf8 v)
+      Nothing -> WithoutAddressedTx
 
-  shouldServeHistory :: [QueryParam] -> Bool
+  shouldServeHistory :: Query -> Bool
   shouldServeHistory qp =
-    flip any qp $ \case
-      (QueryParam key val)
-        | key == [queryKey|history|] -> val == [queryValue|yes|]
-      _other -> False
+    ("history", Just "yes") `elem` qp
 
   sendOutputs codec chan ServerOutputConfig{addressInTx} = forever $ do
     response <- STM.atomically $ readTChan chan

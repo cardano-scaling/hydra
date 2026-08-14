@@ -1,7 +1,6 @@
 -- | Utilities to building transactions on top of the cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
-import Data.MonoTraversable (omap)
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
@@ -57,5 +56,5 @@ mintTokens script redeemer assets = addTxMintValue newAssets
 -- | Burn tokens with given plutus minting script and redeemer.
 -- This is really just `mintTokens` with negated 'Quantity'.
 burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> PolicyAssets -> TxBodyContent BuildTx -> TxBodyContent BuildTx
-burnTokens script redeemer assets =
-  mintTokens script redeemer $ omap negate assets
+burnTokens script redeemer (PolicyAssets assets) =
+  mintTokens script redeemer . PolicyAssets $ negate <$> assets

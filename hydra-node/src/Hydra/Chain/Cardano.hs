@@ -6,13 +6,11 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
-import Cardano.Slotting.EpochInfo (hoistEpochInfo)
-import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
-  EraHistory (EraHistory),
   Tx,
   shelleyBasedEra,
+  toLedgerEpochInfo,
+  unLedgerEpochInfo,
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory)
 import Hydra.Chain.Backend (ChainBackend (..))
@@ -34,7 +32,6 @@ import Hydra.Logging (Tracer)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 import Hydra.Tx (Party)
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
 withCardanoChain ::
   forall a.
@@ -96,7 +93,7 @@ mkTinyWallet runM tracer config = do
  where
   CardanoChainConfig{cardanoSigningKey} = config
 
-  queryEpochInfo = runM $ toEpochInfo <$> queryEraHistory QueryTip
+  queryEpochInfo = runM $ unLedgerEpochInfo . toLedgerEpochInfo <$> queryEraHistory QueryTip
 
   querySomePParams = runM $ queryProtocolParameters QueryTip
 
@@ -107,8 +104,3 @@ mkTinyWallet runM tracer config = do
     walletUTxO <- Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO [address]
     systemStart <- querySystemStart QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
-
-  toEpochInfo :: EraHistory -> EpochInfo (Either Text)
-  toEpochInfo (EraHistory interpreter) =
-    hoistEpochInfo (first show . runExcept) $
-      Consensus.interpreterToEpochInfo interpreter

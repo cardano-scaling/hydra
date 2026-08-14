@@ -14,13 +14,14 @@ module Test.Hydra.TastyMain (
   hydraTestTree,
   hydraIngredients,
   testSpec,
+  testSpecs,
 ) where
 
 import Hydra.Prelude
 
 import System.Environment qualified as Env
 import Test.Tasty (TestName, TestTree, defaultMainWithIngredients, localOption, testGroup)
-import Test.Tasty.Hspec (TreatPendingAs (TreatPendingAsSuccess), testSpec)
+import Test.Tasty.Hspec (TreatPendingAs (TreatPendingAsSuccess), testSpec, testSpecs)
 import Test.Tasty.Ingredients (Ingredient, composeReporters)
 import Test.Tasty.Ingredients.Rerun (rerunningTests)
 import Test.Tasty.Runners (consoleTestReporter, listingTests)

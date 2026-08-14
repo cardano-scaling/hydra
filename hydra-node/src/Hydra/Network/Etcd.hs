@@ -106,7 +106,7 @@ import Network.GRPC.Etcd (
  )
 import Network.HTTP2.Client (HTTP2Error)
 import Network.Socket (PortNumber)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, listDirectory, removeFile, renameFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError, isEOFError)
@@ -647,16 +647,33 @@ getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
     try (decodeFileStrict' $ directory </> "last-known-revision") >>= \case
-      Right rev -> do
-        pure $ fromMaybe 0 rev
+      -- NOTE: A 'Nothing' here means the file exists but holds no revision.
+      -- Silently treating that as 0 would restart the watch from the beginning
+      -- of history, which etcd then cancels with a compactRevision, so fail
+      -- loudly instead. 'putLastKnownRevision' writes atomically, so this can
+      -- no longer be produced by an interrupted write.
+      Right Nothing ->
+        fail $ "Failed to load last known revision: " <> (directory </> "last-known-revision") <> " is not a revision"
+      Right (Just rev) -> pure rev
       Left (e :: IOException)
         | isDoesNotExistError e -> pure 0
         | otherwise -> do
             fail $ "Failed to load last known revision: " <> show e
 
+-- | Record the revision, atomically.
+--
+-- NOTE: Written to a temporary file and renamed into place, because a plain
+-- 'encodeFile' is not atomic: killing the node mid-write (which happens
+-- routinely, both in tests and on restart) would otherwise leave a truncated
+-- file that 'getLastKnownRevision' cannot parse.
 putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
-  liftIO $ encodeFile (directory </> "last-known-revision") rev
+  liftIO $ do
+    encodeFile tmpFile rev
+    renameFile tmpFile file
+ where
+  file = directory </> "last-known-revision"
+  tmpFile = file <> ".tmp"
 
 -- | Write a well-known key to indicate being alive, keep it alive using a lease
 -- and poll other peers entries to yield connectivity events. While doing so,
