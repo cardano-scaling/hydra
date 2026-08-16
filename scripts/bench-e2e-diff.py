@@ -18,6 +18,18 @@
 # colored only when |median| exceeds the metric's noise threshold AND at
 # least 3/4 of pairs agree in direction. This is a calibrated heuristic, not
 # a significance test.
+#
+# Reports carry an end-to-end-benchmarks.json twin with raw series; when BOTH
+# sides of a pair have it, derived estimators (percentiles, sustained-TPS
+# slope) are computed here with one implementation for both sides (each side
+# runs its own bench binary, so estimators computed in Haskell could silently
+# change definition across a comparison). A pair with only one json side
+# falls back to comparing the markdown rows, never mixing definitions.
+#
+#   bench-e2e-diff.py --calibrate DIR       suggest thresholds from A/A runs
+#
+# where DIR holds one downloaded results tree per nightly A/A run; suggested
+# thresholds are the p95 of the null |median pair delta| per metric.
 
 import argparse
 import json
@@ -25,7 +37,7 @@ import math
 import re
 import sys
 from pathlib import Path
-from statistics import median
+from statistics import StatisticsError, linear_regression, median, quantiles
 
 MS_TO_S = 1e-3
 
@@ -38,6 +50,7 @@ MS_TO_S = 1e-3
 METRICS = [
     ("End-to-end TPS", "End-to-end TPS (tx/s)", +1, 1.0, False, "pct"),
     ("Sustained TPS", "Sustained TPS (tx/s)", +1, 1.0, False, "pct"),
+    ("Sustained TPS (slope)", "Sustained TPS, slope (tx/s)", +1, 1.0, False, "pct"),
     ("Backlog drain time (s)", "Backlog drain time (s)", -1, 1.0, False, "pct"),
     ("Snapshots per second", "Snapshots per second (/s)", 0, 1.0, False, "pct"),
     ("Avg txs per snapshot", "Avg txs per snapshot", 0, 1.0, False, "pct"),
@@ -75,6 +88,93 @@ REP_DIR_RE = re.compile(r"^rep-(?P<slot>\d+)-(?P<side>branch|master)$")
 def parse_value(raw):
     m = NUM_RE.search(raw.replace(",", ""))
     return float(m.group()) if m else None
+
+
+def percentile(sorted_vals, p):
+    # quantiles' n=100 cut points put the p-th percentile at index p-1,
+    # linearly interpolated ('inclusive': the data is the whole population).
+    if not sorted_vals:
+        return None
+    if len(sorted_vals) == 1:
+        return sorted_vals[0]
+    return quantiles(sorted_vals, n=100, method="inclusive")[p - 1]
+
+
+def sustained_tps_slope(snapshot_series):
+    """Least-squares slope of cumulative confirmed txs over time, restricted
+    to snapshot points whose cumulative count lies in the middle 80%. Unlike
+    endpoint-based trimming it does not move in whole-snapshot steps and works
+    from 4 in-window points."""
+    pts, cum = [], 0
+    for t, n in sorted((float(t), int(n)) for t, n in snapshot_series):
+        cum += n
+        pts.append((t, cum))
+    if cum <= 0:
+        return None
+    window = [(t, c) for t, c in pts if 0.10 * cum <= c <= 0.90 * cum]
+    if len(window) < 4:
+        return None
+    try:
+        return linear_regression(*zip(*window)).slope
+    except StatisticsError:  # all window points at one timestamp
+        return None
+
+
+def summary_to_record(s):
+    """One JSON summary -> the same record shape parse_report yields, with
+    estimators recomputed from the raw series."""
+    metrics = {}
+    n_txs = s.get("numberOfTxs") or 0
+    wall = s.get("runWallClockSeconds") or 0.0
+    if n_txs:
+        metrics["Number of txs"] = float(n_txs)
+    conf_ms = s.get("confirmationTimesMs") or []
+    if conf_ms:
+        metrics["Avg. Confirmation Time (ms)"] = sum(conf_ms) / len(conf_ms)
+        metrics["P50"] = percentile(conf_ms, 50)
+        metrics["P95"] = percentile(conf_ms, 95)
+    if s.get("validationP50Ms") is not None:
+        metrics["Tx validation time p50 (ms)"] = s["validationP50Ms"]
+    if s.get("endToEndTps") is not None:
+        metrics["End-to-end TPS"] = s["endToEndTps"]
+    slope = sustained_tps_slope(s.get("snapshotSeries") or [])
+    if slope is not None:
+        metrics["Sustained TPS (slope)"] = slope
+    metrics["Backlog drain time (s)"] = s.get("drainSeconds") or 0.0
+    n_snapshots = s.get("numberOfSnapshots") or 0
+    if wall > 0:
+        metrics["Snapshots per second"] = n_snapshots / wall
+    metrics["Avg txs per snapshot"] = s.get("avgTxsPerSnapshot") or 0.0
+    if s.get("peakNodeRssMb") is not None:
+        metrics["Peak node RSS (MB)"] = s["peakNodeRssMb"]
+    metrics["Number of Invalid txs"] = float(s.get("numberOfInvalidTxs") or 0)
+    for field, key in [
+        ("incrementalCommitTimes", "Incremental commit avg (ms)"),
+        ("incrementalDecommitTimes", "Incremental decommit avg (ms)"),
+    ]:
+        times = s.get(field) or []
+        if times:
+            metrics[key] = 1000.0 * sum(times) / len(times)
+    outcome = s.get("runOutcome")
+    return {
+        "title": s.get("summaryTitle") or "Baseline Scenario",
+        "outcome": outcome,
+        "failed": outcome is not None or n_txs == 0,
+        "metrics": metrics,
+    }
+
+
+def parse_json_report(path):
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"WARNING: unreadable JSON report {path}: {e}", file=sys.stderr)
+        return {}
+    records = {}
+    for s in doc.get("summaries", []):
+        rec = summary_to_record(s)
+        records.setdefault(rec["title"], rec)
+    return records
 
 
 def parse_report(path):
@@ -124,15 +224,24 @@ def collect_results(results_dir):
             m = REP_DIR_RE.match(rep_dir.name)
             if not m:
                 continue
-            scenarios = {}
+            scenarios, scenarios_json = {}, {}
             for report in sorted(rep_dir.glob("**/end-to-end-benchmarks.md")):
                 recs, order = parse_report(report)
                 for title in order:
                     scenarios.setdefault(title, recs[title])
                     if title not in scenario_order:
                         scenario_order.append(title)
+                twin = report.with_suffix(".json")
+                if twin.exists():
+                    for title, rec in parse_json_report(twin).items():
+                        scenarios_json.setdefault(title, rec)
             machine["reps"].append(
-                {"slot": int(m.group("slot")), "side": m.group("side"), "scenarios": scenarios}
+                {
+                    "slot": int(m.group("slot")),
+                    "side": m.group("side"),
+                    "scenarios": scenarios,
+                    "scenarios_json": scenarios_json,
+                }
             )
         machine["reps"].sort(key=lambda r: r["slot"])
         if machine["reps"]:
@@ -181,11 +290,20 @@ def decide_cell(deltas, direction, threshold, kind):
     return f"{'🟢' if improved else '🔴'} {body}", regressed_hard
 
 
+def pair_records(p, title):
+    """Prefer the json-derived records (shared estimator definitions) when
+    both sides have them; otherwise both sides' markdown rows. Never mix."""
+    oj = p["old"].get("scenarios_json", {}).get(title)
+    nj = p["new"].get("scenarios_json", {}).get(title)
+    if oj and nj:
+        return oj, nj
+    return p["old"]["scenarios"].get(title), p["new"]["scenarios"].get(title)
+
+
 def scenario_rows(title, pairs, regressions):
     valid = []
     for p in pairs:
-        old = p["old"]["scenarios"].get(title)
-        new = p["new"]["scenarios"].get(title)
+        old, new = pair_records(p, title)
         if old and new and not old["failed"] and not new["failed"]:
             valid.append((old, new))
     if not valid:
@@ -325,12 +443,40 @@ def legacy_machines(old_file, new_file):
         "name": "local",
         "fingerprint": None,
         "reps": [
-            {"slot": 1, "side": "master", "scenarios": old_recs},
-            {"slot": 2, "side": "branch", "scenarios": new_recs},
+            {"slot": 1, "side": "master", "scenarios": old_recs, "scenarios_json": {}},
+            {"slot": 2, "side": "branch", "scenarios": new_recs, "scenarios_json": {}},
         ],
     }
     order = [t for t in new_order if t in old_recs]
     return {"local": machine}, order
+
+
+def calibrate(runs_dir):
+    """runs_dir holds one downloaded A/A results tree per subdirectory."""
+    per_metric = {}
+    runs = sorted(p for p in Path(runs_dir).iterdir() if p.is_dir())
+    for run in runs:
+        machines, scenario_order = collect_results(run)
+        pairs = build_pairs(machines)
+        for title in scenario_order:
+            for key, _, _, scale, _, kind in METRICS:
+                if kind != "pct":
+                    continue
+                deltas = []
+                for p in pairs:
+                    old, new = pair_records(p, title)
+                    if not old or not new or old["failed"] or new["failed"]:
+                        continue
+                    if key in old["metrics"] and key in new["metrics"] and old["metrics"][key] != 0:
+                        deltas.append(100.0 * (new["metrics"][key] - old["metrics"][key]) / old["metrics"][key])
+                if deltas:
+                    per_metric.setdefault(key, []).append(abs(median(deltas)))
+    suggested = {}
+    for key, meds in sorted(per_metric.items()):
+        meds.sort()
+        idx = max(0, min(len(meds) - 1, math.ceil(0.95 * len(meds)) - 1))
+        suggested[key] = round(max(meds[idx], 1.0), 1)
+    print(json.dumps({"suggested_thresholds": suggested, "runs": len(runs)}, indent=2))
 
 
 def main():
@@ -340,7 +486,13 @@ def main():
     parser.add_argument("--results-dir", help="paired mode: directory of per-machine results")
     parser.add_argument("--base-sha", default=None)
     parser.add_argument("--head-sha", default=None)
+    parser.add_argument("--calibrate", metavar="DIR",
+                        help="suggest thresholds from a directory of A/A results trees")
     args = parser.parse_args()
+
+    if args.calibrate:
+        calibrate(args.calibrate)
+        return
 
     if args.results_dir:
         machines, order = collect_results(args.results_dir)

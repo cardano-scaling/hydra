@@ -360,6 +360,12 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       summaryDescription = fromMaybe defaultDescription description
       Throughput{endToEndTps, runWallClockSeconds, sustainedTps, drainSeconds, avgTxsPerSnapshot, numberOfSnapshots} =
         computeThroughput processedTransactions snapshotsSeen
+      confirmationTimesMs = sort $ map (\(_, _, c) -> 1000 * realToFrac c) res
+      snapshotSeries = case map (\Event{submittedAt} -> submittedAt) (Map.elems processedTransactions) of
+        [] -> []
+        submissions ->
+          let t0 = List.minimum submissions
+           in [(realToFrac (t `diffUTCTime` t0), n) | (t, n) <- sortOn fst (Map.elems snapshotsSeen)]
 
   pure $
     Summary
@@ -383,6 +389,9 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , incrementalCommitTimes
       , incrementalDecommitTimes
       , runOutcome = Nothing
+      , loadMode = if waitForTxValid then "closed-loop" else "open-loop"
+      , snapshotSeries
+      , confirmationTimesMs
       }
  where
   Timing{blockTime} = timing

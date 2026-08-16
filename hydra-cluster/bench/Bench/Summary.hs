@@ -50,8 +50,18 @@ data Summary = Summary
   , incrementalDecommitTimes :: [NominalDiffTime]
   , runOutcome :: Maybe Text
   -- ^ Nothing when the run completed; a short failure reason otherwise.
+  , loadMode :: Text
+  -- ^ "open-loop" (fire and forget) or "closed-loop" (one in-flight tx per
+  -- client).
+  , snapshotSeries :: [(Double, Int)]
+  -- ^ Per confirmed snapshot: (seconds since first submission, txs in the
+  -- snapshot), in observation order. Raw series so derived estimators can be
+  -- computed outside the compared binaries (see scripts/bench-e2e-diff.py).
+  , confirmationTimesMs :: [Double]
+  -- ^ Sorted per-transaction confirmation times in milliseconds.
   }
   deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
 
 errorSummary :: Dataset -> HUnitFailure -> Summary
 errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason) =
@@ -77,6 +87,9 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , incrementalCommitTimes = []
     , incrementalDecommitTimes = []
     , runOutcome = Just $ shortReason reason
+    , loadMode = "unknown"
+    , snapshotSeries = []
+    , confirmationTimesMs = []
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
@@ -183,7 +196,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats)
+formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome, loadMode}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -207,6 +220,7 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
       , "| Number of nodes |  " <> show clusterSize <> " | "
       , "| -- | -- |"
       , "| _Number of txs_ | " <> show numberOfTxs <> " |"
+      , "| _Load mode_ | " <> loadMode <> " |"
       ]
         ++ maybe [] (\reason -> ["| _Outcome_ | FAILED: " <> reason <> " |"]) runOutcome
         ++ [ "| _Avg. Confirmation Time (ms)_ | " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
