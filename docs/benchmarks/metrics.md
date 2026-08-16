@@ -21,7 +21,15 @@ when comparing them:
 
 The absolute numbers produced by the cloud CI runners are noisy. Treat them as
 relative signals (how a value moves as the code changes), not as absolute
-hardware figures.
+hardware figures. Even relative signals need care: GitHub's runner fleet mixes
+CPU models with a large performance spread, so the PR comparison workflow
+measures the PR and its merge-base interleaved on each runner and aggregates
+same-machine pair deltas (see "PR comparison methodology" in
+`hydra-cluster/README.md`). The diff comment omits the open-loop
+confirmation-latency rows (they restate throughput) and P99 everywhere
+(confirmations arrive in per-snapshot bursts, so the top percentile is a
+handful of atoms); a failed run carries an explicit `Outcome` row instead of
+silently missing numbers.
 
 ## End-to-end benchmark results
 
