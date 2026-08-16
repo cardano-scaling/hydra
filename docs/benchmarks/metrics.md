@@ -21,7 +21,11 @@ when comparing them:
 
 The absolute numbers produced by the cloud CI runners are noisy. Treat them as
 relative signals (how a value moves as the code changes), not as absolute
-hardware figures.
+hardware figures. GitHub's hosted fleet mixes CPU models with a large
+performance spread, so even the relative signal is only trustworthy when both
+sides ran on the same machine: the PR comparison workflow measures the PR and
+its merge-base interleaved on each runner and aggregates the same-machine pair
+deltas (see "PR comparison methodology" in `hydra-cluster/README.md`).
 
 ## End-to-end benchmark results
 
@@ -51,6 +55,37 @@ PR-versus-master comparison table is produced by `scripts/bench-e2e-diff.py`.
 | Number of Invalid txs | Transactions the node rejected as invalid | count of transactions that reached an `invalidAt` (`numberOfInvalidTxs`) |
 | Fanout outputs | UTxO entries fanned out when the head closed | member count of the final `finalizedUTxO`; reported as 0 if fanout did not finalize within the time budget (`numberOfFanoutOutputs`) |
 | Incremental commit / decommit: count, avg (ms), max (ms) | On-chain incremental (de)commit finalisation latency | per event, `finalisedAt - startedAt`; the run's count, mean, and maximum |
+| Load mode | How transactions were submitted | `open-loop` (fire and forget) or `closed-loop` (`--wait-for-tx-valid`); recorded so consumers pick the right rows to compare |
+| Outcome | Only present when the run failed | short failure reason (`runOutcome`); a failed dataset stays in the report next to its siblings instead of clobbering them |
+| Alloc MB per confirmed tx | GHC heap allocation per transaction, summed over nodes | delta of `hydra_rts_allocated_bytes_total` across the tx-processing window, divided by confirmed txs (`rtsAggregates`); needs nodes running with `+RTS -T` |
+| Alloc MB per snapshot | Same allocation total per confirmed snapshot | as above, divided by snapshots; batching moves it, so read together with _Avg txs per snapshot_ |
+| Mutator CPU s per 1k txs | Node CPU time spent outside GC, summed over nodes | delta of `hydra_rts_mutator_cpu_seconds_total`, normalized per 1000 confirmed txs |
+| Max live MB (max node) | Peak live heap of the largest node | `hydra_rts_max_live_bytes` at scrape time (peak since node start, not windowed) |
+
+The allocation and CPU counters exist because wall-clock numbers from shared
+runners never fully settle: bytes allocated per unit of work is nearly
+machine-independent (GHC's own CI gates on it for that reason) and directly
+catches the "extra copying or serialization" class of regression. They are
+only present when the nodes were started with `+RTS -T`, which the CI
+workflow enables through `HYDRA_NODE_RTS_FLAGS` (see the bench `--help`).
+
+The report also carries a machine-readable twin, `end-to-end-benchmarks.json`,
+with the raw snapshot series and per-transaction confirmation times.
+`scripts/bench-e2e-diff.py` computes derived estimators from those series with
+one implementation for both compared sides (each side runs its own bench
+binary, so estimators computed inside the binaries could silently diverge in
+definition). In particular _Sustained TPS (slope)_, the diffed variant of
+Sustained TPS, is the least-squares slope of cumulative confirmed transactions
+over time across snapshot points in the middle 80% by cumulative count; unlike
+the endpoint-based trim it does not move in whole-snapshot steps and works
+from 4 snapshot points up.
+
+Not every row above appears in the PR diff table: open-loop scenarios run
+saturated, so their confirmation avg/percentiles mostly restate throughput and
+are omitted there (they remain on this site's report pages); P99 is omitted
+everywhere because confirmations arrive in per-snapshot bursts and the top
+percentile is a handful of atoms. Coloring uses per-metric noise thresholds
+from `scripts/bench-e2e-thresholds.json`, calibrated from nightly A/A runs.
 
 A note on the latency statistics: the percentiles are computed over every
 confirmed transaction in the run, not per snapshot. Because confirmations arrive
@@ -100,3 +135,15 @@ metrics above, these are live counters suitable for production dashboards.
 | `hydra_head_tx_confirmation_time_ms` | histogram | per-transaction request-to-confirmation time; buckets 5, 10, 50, 100, 1000 |
 | `hydra_head_snapshot_confirmation_time_ms` | histogram | `SnapshotRequested` to `SnapshotConfirmed` time; buckets 5, 10, 50, 100, 500, 1000, 5000, 10000, 30000 |
 | `hydra_head_peers_connected` | gauge | number of currently connected peers |
+
+When the node runs with `+RTS -T`, the endpoint additionally serves GHC RTS
+work counters, refreshed at scrape time (without `-T` these series are absent
+and the endpoint output is unchanged):
+
+| Series | Type | Meaning |
+| --- | --- | --- |
+| `hydra_rts_allocated_bytes_total` | gauge (monotone) | total bytes allocated since process start |
+| `hydra_rts_mutator_cpu_seconds_total` | gauge (monotone) | CPU time spent running the program (excludes GC) |
+| `hydra_rts_gc_cpu_seconds_total` | gauge (monotone) | CPU time spent in garbage collection |
+| `hydra_rts_max_live_bytes` | gauge | peak live heap since process start |
+| `hydra_rts_major_gcs_total` | gauge (monotone) | major garbage collections since process start |

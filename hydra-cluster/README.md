@@ -206,9 +206,9 @@ hydra-node processes (Linux only). The `system.csv` file referenced by
 The benchmark can be run in several modes:
 
 * `single`: Runs one or more pre-existing _dataset_ files in sequence and collects their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over well-known datasets and is what CI uses to compare a PR against master.
-* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it.
+* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it. `--seed` makes generation reproducible.
 * `generate`: Generates and saves a dataset file without running it. `--seed` makes generation reproducible and `--title` names the scenario in reports (scenarios are paired by title when diffing two reports). Feed the resulting file to `single`.
-* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page.
+* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page. With `--seed N`, cell i generates from seed N+i, so the whole matrix is reproducible across runs (CI pins this so the published pages are comparable over time).
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 
 ## Load modes and reported metrics
@@ -250,16 +250,69 @@ Reported metrics:
   responsiveness signal for the node's ingest path under load.
 * _Peak node RSS (MB)_: peak resident memory across the scenario's hydra-node
   processes (Linux only); guards against memory regressions under load.
+* _Alloc MB per confirmed tx_, _Alloc MB per snapshot_, _Mutator CPU s per 1k
+  txs_, _Max live MB (max node)_: GHC RTS work counters scraped from the
+  nodes' monitoring endpoints around the tx-processing window (only when
+  nodes run with `+RTS -T`, see `HYDRA_NODE_RTS_FLAGS` in `bench-e2e --help`).
+  Bytes allocated per unit of work is nearly machine-independent, so these are
+  the metrics to trust when wall-clock numbers wobble.
 * Confirmation time average and percentiles: see load modes above.
 
-The CI workflow `.github/workflows/bench-e2e-diff.yaml` generates three
-scenarios per PR (3-node sustained load, 1-node `Plateau 1000` large-UTxO
-load, 3-node closed-loop latency) once, then benchmarks this branch and master
-on separate, isolated runners in parallel, posting the per-metric differences
-as a PR comment via `scripts/bench-e2e-diff.py`. Both sides consume the same
-generated dataset artifact so the workload is identical; the isolation stops
-one side's ~30-minute run from degrading the runner the other is measured on
-(which otherwise biased every comparison toward the side measured first). A new
-summary metric only shows a difference once it exists on master too, and must
-be registered in that script's `METRICS` table.
+Reports are written as markdown plus a machine-readable
+`end-to-end-benchmarks.json` twin carrying raw series (per-snapshot times and
+sizes, per-tx confirmation times); the diff tooling computes derived
+estimators from the raw series so both compared sides use one definition.
+
+## PR comparison methodology
+
+The CI workflow `.github/workflows/bench-e2e-diff.yaml` compares each PR
+against its **merge-base** (not master HEAD: re-runs then compare against the
+same baseline, and other people's merges cannot appear as PR deltas):
+
+* One job generates the three scenarios (3-node sustained load, 1-node
+  `Plateau 1000` large-UTxO load, 3-node closed-loop latency) once, with
+  fixed seeds, consumed by every benchmark job.
+* Several benchmark jobs run in parallel; **each measures both sides
+  back-to-back on its own runner** (orders alternated across jobs), after
+  prefetching both nix closures so nothing builds inside a measured slot.
+  GitHub's hosted fleet mixes CPU models with a large single-thread spread;
+  measuring one sample per side on different runners (an earlier design)
+  meant the comparison was dominated by which VMs the jobs landed on
+  (~16-19% CV on open-loop TPS across identical-code runs). Machine identity
+  cancels inside a same-machine pair.
+* `scripts/bench-e2e-diff.py` aggregates the per-pair percent deltas as
+  `median [min .. max] (pairs agreeing)` and colors a row only when the
+  median exceeds that metric's threshold (`scripts/bench-e2e-thresholds.json`)
+  AND at least three quarters of the pairs agree in direction. This is a
+  calibrated heuristic, not a significance test, and the comment says so.
+  Strong regressions on headline metrics additionally emit a `::warning`
+  annotation; nothing fails CI on timing numbers.
+* The nodes are spawned with `+RTS -N2 -T` (via `HYDRA_NODE_RTS_FLAGS`,
+  guarded by a probe so both sides always get identical settings), and the
+  whole cluster runs on tmpfs (`TMPDIR=/dev/shm/bench`) so network-disk fsync
+  latency stays out of the measurements.
+
+A new summary metric only shows a difference once both sides emit it (the
+diff skips one-sided keys with a warning), and must be registered in the
+script's `METRICS` table.
+
+### Calibration and null runs (A/A)
+
+A scheduled nightly run benchmarks master against itself: a true null
+experiment in which any colored row is a false positive. Use it to judge the
+pipeline and to calibrate thresholds:
+
+* Acceptance: at least 95% of A/A runs should show zero colored rows.
+* Calibration: download the `bench-results-*` artifacts of the last N nightly
+  runs into one directory per run, then
+  `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested per-metric
+  thresholds (p95 of the null |median pair delta|); land them in
+  `scripts/bench-e2e-thresholds.json` as a reviewed PR.
+* Sensitivity: to verify the pipeline still detects real regressions, push a
+  throwaway branch with a deliberate slowdown (for example a busy-wait per
+  snapshot in the leader path sized to ~10% capacity) and check the comment
+  flags it.
+
+`workflow_dispatch` accepts `head_ref`/`base_ref` inputs to compare arbitrary
+refs on demand; leaving `base_ref` empty makes it an A/A run of `head_ref`.
 

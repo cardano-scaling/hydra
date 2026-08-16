@@ -1,8 +1,44 @@
 name: "Compute e2e benchmark differences"
 
+# Paired benchmark design: every benchmark job measures BOTH sides (PR and
+# merge-base) back-to-back on ITS OWN runner, and the diff aggregates the
+# same-machine pair deltas (median [min .. max] across pairs). GitHub's hosted
+# fleet mixes CPU models with a ~68% single-thread performance spread, so the
+# previous one-sample-per-side-on-separate-runners design measured which VMs
+# the jobs landed on (observed: ~16-19% CV on open-loop TPS for identical
+# code). Machine identity cancels inside a pair; slot order alternates across
+# jobs so slot-position effects (cold caches in slot 1) cancel in the median.
+#
+# The baseline is the PR's MERGE-BASE, not master HEAD: re-runs of the same
+# commit compare against the same baseline, and other people's merges cannot
+# show up as PR deltas. Merge-base is a master commit, so ci-nix has already
+# built and cachix'd its closure.
+#
+# Non-PR triggers run an A/A null experiment (both sides the same SHA): any
+# colored row there is by construction a false positive. The nightly run
+# accumulates the null distribution used to calibrate the per-metric
+# thresholds in scripts/bench-e2e-thresholds.json (see --calibrate in
+# scripts/bench-e2e-diff.py, and hydra-cluster/README.md for the loop).
+
 on:
   pull_request:
+  schedule:
+    # Nightly A/A run on master to accumulate the null distribution.
+    - cron: "23 2 * * *"
   workflow_dispatch:
+    inputs:
+      head_ref:
+        description: "Ref or SHA to benchmark (default: the ref this runs on)"
+        required: false
+      base_ref:
+        description: "Baseline ref or SHA (default: head_ref, i.e. an A/A null run)"
+        required: false
+
+# Superseded runs measure dead code; cancel them. Non-PR runs key on run_id so
+# nothing cancels the nightly.
+concurrency:
+  group: bench-e2e-diff-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 # Default (inherited) token: read-only. Only the comment job is granted write.
 permissions:
@@ -10,18 +46,56 @@ permissions:
 
 
 jobs:
-  # Generate the workload ONCE, with the PR (branch) binary, and publish it as an
-  # artifact both bench jobs consume. Generating per-side would let the branch and
-  # master generators diverge (any PR touching the generator or Dataset format),
-  # silently comparing different workloads; a single shared dataset avoids that.
-  # Seeds are fixed so datasets are also comparable across workflow runs.
+  # Generate the workload ONCE, with the head (PR) binary, and publish it as
+  # an artifact all bench jobs consume. Generating per-side would let the two
+  # generators diverge (any PR touching the generator or Dataset format),
+  # silently comparing different workloads. Seeds are fixed so datasets are
+  # also comparable across workflow runs. Also resolves the compared SHAs.
   generate-datasets:
     name: Generate benchmark datasets
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 45
+    outputs:
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+      base_sha: ${{ steps.resolve.outputs.base_sha }}
     steps:
-    - name: "Checkout the PR as the 'new' source"
+    - name: "Checkout the head as the 'new' source"
       uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.head_ref || github.ref }}
+
+    - name: 🔎 Resolve compared SHAs
+      id: resolve
+      env:
+        GH_TOKEN: ${{ github.token }}
+      # The compare API yields the merge-base without a full clone and works
+      # for fork PRs (the head SHA is reachable through the base repository).
+      # base.ref rather than base.sha: the latter is a snapshot from PR
+      # creation time and goes stale.
+      run: |
+        case "${{ github.event_name }}" in
+          pull_request)
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            BASE_SHA=$(gh api \
+              "repos/${{ github.repository }}/compare/${{ github.event.pull_request.base.ref }}...$HEAD_SHA" \
+              --jq .merge_base_commit.sha) || BASE_SHA=""
+            if [ -z "$BASE_SHA" ]; then
+              echo "::warning title=bench-e2e-diff::merge-base resolution failed; falling back to master HEAD"
+              BASE_SHA=$(gh api "repos/${{ github.repository }}/commits/master" --jq .sha)
+            fi
+            ;;
+          workflow_dispatch)
+            HEAD_SHA=$(gh api "repos/${{ github.repository }}/commits/${{ inputs.head_ref || github.ref_name }}" --jq .sha)
+            BASE_SHA=$(gh api "repos/${{ github.repository }}/commits/${{ inputs.base_ref || inputs.head_ref || github.ref_name }}" --jq .sha)
+            ;;
+          schedule)
+            HEAD_SHA=$(gh api "repos/${{ github.repository }}/commits/master" --jq .sha)
+            BASE_SHA="$HEAD_SHA"
+            ;;
+        esac
+        echo "Comparing head $HEAD_SHA against base $BASE_SHA"
+        echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+        echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -58,37 +132,70 @@ jobs:
         path: bench-datasets
         if-no-files-found: error
 
-  # Benchmark each side on its OWN fresh runner, in parallel. This is the fix for
-  # the ordering bias: previously both sides ran back-to-back on one runner, so
-  # the second side (always master) was measured on a machine already degraded by
-  # ~30 min of load, inflating the branch's apparent gain regardless of code.
-  # Isolated runners remove that confound; both sides still consume the identical
-  # shared dataset artifact. NOTE: the branch is (re)built here, on a different
-  # runner from generate-datasets, so its closure is downloaded from cachix or
-  # rebuilt once more; accept that, or push the branch closure to cachix.
+  # Four parallel jobs, each measuring ONE same-machine pair; the slot order
+  # alternates (head-first vs base-first) so slot-position effects cancel
+  # across the fleet. More pairs per machine (e.g. "branch master master
+  # branch") would tighten the interval further at the cost of PR latency;
+  # this is a one-line change here plus nothing else.
   benchmark:
-    name: Benchmark (${{ matrix.side }})
+    name: Benchmark (${{ matrix.machine }})
     needs: generate-datasets
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
-      # Don't let one side's timeout cancel the other; the diff job handles a
-      # one-sided result.
+      # One wedged machine only costs its own pair; the diff degrades to the
+      # remaining pairs.
       fail-fast: false
       matrix:
         include:
-          - side: branch
-            flake: ".#hydra-cluster-bench"
-          - side: master
-            flake: "git+https://github.com/cardano-scaling/hydra?ref=master#hydra-cluster-bench"
+          - machine: m1
+            order: "branch master"
+          - machine: m2
+            order: "master branch"
+          - machine: m3
+            order: "branch master"
+          - machine: m4
+            order: "master branch"
+    env:
+      BRANCH_FLAKE: ".#hydra-cluster-bench"
+      MASTER_FLAKE: "github:cardano-scaling/hydra/${{ needs.generate-datasets.outputs.base_sha }}#hydra-cluster-bench"
     steps:
-    # Needed for the composite nix action and, on the branch side, the '.' flake.
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.head_ref || github.ref }}
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🧬 Record machine fingerprint
+      # The diff comment shows which silicon each pair ran on; GitHub's fleet
+      # mixes several CPU models and the reader should see when jobs landed on
+      # different ones.
+      run: |
+        mkdir -p results
+        python3 - "$RUNNER_NAME" > results/fingerprint.json <<'PY'
+        import json, os, sys
+        cpu = ""
+        for line in open("/proc/cpuinfo"):
+            if line.startswith("model name"):
+                cpu = line.split(":", 1)[1].strip()
+                break
+        mem_kb = 0
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemTotal"):
+                mem_kb = int(line.split()[1])
+                break
+        print(json.dumps({
+            "cpu_model": cpu,
+            "nproc": os.cpu_count(),
+            "mem_gb": round(mem_kb / 1048576),
+            "runner": sys.argv[1] if len(sys.argv) > 1 else "",
+        }))
+        PY
+        cat results/fingerprint.json
 
     - name: ⬇ Download benchmark datasets
       uses: actions/download-artifact@v4
@@ -96,41 +203,85 @@ jobs:
         name: bench-datasets
         path: bench-datasets
 
-    - name: 📈 Benchmark
-      working-directory: hydra-cluster
-      # The closed-loop scenario needs its own invocation ('--wait-for-tx-valid'
-      # applies to the whole invocation); reports are concatenated afterwards,
-      # which the diff script handles since it keys on scenario titles.
+    - name: ❄ Prefetch both closures
+      # Realize both sides before the first measurement so no build/download
+      # lands inside a measured slot. Warm the binaries once so slot 1 does
+      # not additionally pay first-page-in costs the later slots skip.
       run: |
-        nix develop "${{ matrix.flake }}" --command bench-e2e single \
-          "$PWD/../bench-datasets/sustained-3nodes.json" \
-          "$PWD/../bench-datasets/plateau-1k.json" \
-          --output-directory "$PWD/../bench-open" --timeout 1800s
-        nix develop "${{ matrix.flake }}" --command bench-e2e single \
-          "$PWD/../bench-datasets/closed-loop-3nodes.json" \
-          --wait-for-tx-valid \
-          --output-directory "$PWD/../bench-closed" --timeout 1800s
-        cat "$PWD/../bench-open/end-to-end-benchmarks.md" \
-            "$PWD/../bench-closed/end-to-end-benchmarks.md" > "$PWD/../bench-${{ matrix.side }}.md"
+        time nix develop "$BRANCH_FLAKE" --command hydra-node --version
+        time nix develop "$MASTER_FLAKE" --command hydra-node --version
 
-    - name: 💾 Upload ${{ matrix.side }} report
-      # if: always() so a partial report from a failed/timed-out side is still
-      # uploaded and the diff can be judged.
+    - name: 🎛 Probe node RTS knob support
+      # HYDRA_NODE_RTS_FLAGS trims node oversubscription (-N2: 3 nodes x 4
+      # HECs on 4 vCPUs otherwise) and enables RTS work counters (-T). Only
+      # enable it when BOTH sides' bench understands it; otherwise one side's
+      # nodes would run with different RTS settings than the other's, which is
+      # exactly the asymmetry this workflow exists to prevent. The probe is
+      # temporary: it always passes once merge-bases include the hook.
+      run: |
+        if nix develop "$MASTER_FLAKE" --command bench-e2e --help 2>&1 | grep -q HYDRA_NODE_RTS_FLAGS \
+          && nix develop "$BRANCH_FLAKE" --command bench-e2e --help 2>&1 | grep -q HYDRA_NODE_RTS_FLAGS; then
+          echo "HYDRA_NODE_RTS_FLAGS=-N2 -T" >> "$GITHUB_ENV"
+          echo "Both sides support HYDRA_NODE_RTS_FLAGS; spawning nodes with -N2 -T"
+        else
+          echo "Base side predates HYDRA_NODE_RTS_FLAGS; leaving node RTS defaults on both sides"
+        fi
+
+    - name: 📈 Benchmark (${{ matrix.order }})
+      working-directory: hydra-cluster
+      env:
+        # Node state, etcd WAL and the devnet live in tmpfs: the runners'
+        # network-backed disks have unpredictable fsync latency that would
+        # otherwise land in the measurements.
+        TMPDIR: /dev/shm/bench
+      # The closed-loop scenario needs its own invocation ('--wait-for-tx-valid'
+      # applies to the whole invocation). '|| true': a failed or timed-out
+      # invocation must not skip the remaining slots; the report carries an
+      # explicit FAILED outcome and the diff drops only the affected pairs.
+      run: |
+        mkdir -p "$TMPDIR"
+        slot=0
+        for side in ${{ matrix.order }}; do
+          slot=$((slot+1))
+          case "$side" in
+            branch) flake="$BRANCH_FLAKE" ;;
+            master) flake="$MASTER_FLAKE" ;;
+          esac
+          out="$PWD/../results/rep-$slot-$side"
+          rm -rf "${TMPDIR:?}"/*
+          nix develop "$flake" --command bench-e2e single \
+            "$PWD/../bench-datasets/sustained-3nodes.json" \
+            "$PWD/../bench-datasets/plateau-1k.json" \
+            --output-directory "$out/open" --timeout 1800s || true
+          nix develop "$flake" --command bench-e2e single \
+            "$PWD/../bench-datasets/closed-loop-3nodes.json" \
+            --wait-for-tx-valid \
+            --output-directory "$out/closed" --timeout 1800s || true
+        done
+        du -sh "$TMPDIR" || true
+        df -h /dev/shm || true
+
+    - name: 💾 Upload results
+      # if: always() so partial results from a failed/timed-out machine still
+      # contribute their surviving pairs.
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: bench-report-${{ matrix.side }}
-        path: bench-${{ matrix.side }}.md
+        name: bench-results-${{ matrix.machine }}
+        path: results
         if-no-files-found: warn
 
-  # Diff the two reports and post/update the PR comment. Named to match the
-  # original single job so any required-check configuration still resolves.
+  # Aggregate all machines' pairs and post/update the PR comment. Named to
+  # match the original single job so any required-check configuration still
+  # resolves.
   comment:
     name: Compute e2e benchmark differences
-    needs: benchmark
-    # if: always() so a one-sided result (a bench leg failed) still surfaces.
-    if: always() && github.event_name == 'pull_request'
+    needs: [generate-datasets, benchmark]
+    # if: always() so partial results (a wedged machine) still surface; on
+    # non-PR (A/A) runs the diff goes to the step summary and artifact only.
+    if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       checks: write
@@ -138,44 +289,42 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.head_ref || github.ref }}
 
-    - name: ⬇ Download branch report
+    - name: ⬇ Download benchmark results
       uses: actions/download-artifact@v4
-      # A failed bench leg leaves no artifact; don't fail the diff over it.
+      # A wedged machine leaves no artifact; don't fail the diff over it.
       continue-on-error: true
       with:
-        name: bench-report-branch
+        pattern: bench-results-*
+        path: results
 
-    - name: ⬇ Download master report
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: bench-report-master
+    - name: 🧪 Self-test the diff script
+      run: python3 scripts/test_bench_e2e_diff.py
 
     - name: 🧮 Compute the difference markdown
-      # touch so a one-sided run still renders: the diff script reports "No
-      # comparable scenarios" instead of crashing on a missing file.
       run: |
-        touch bench-master.md bench-branch.md
+        mkdir -p results
         python3 scripts/bench-e2e-diff.py \
-          bench-master.md \
-          bench-branch.md > bench-e2e-diff.md
+          --results-dir results \
+          --base-sha "${{ needs.generate-datasets.outputs.base_sha }}" \
+          --head-sha "${{ needs.generate-datasets.outputs.head_sha }}" \
+          > bench-e2e-diff.md
+        cat bench-e2e-diff.md >> "$GITHUB_STEP_SUMMARY"
 
-    - name: 💾 Upload e2e bench artifacts
-      # Raw reports included so a failed or one-sided comparison (e.g. a PR that
-      # changes the report format itself) can still be judged.
+    - name: 💾 Upload e2e bench diff
+      # Raw per-machine reports are already uploaded as bench-results-*; this
+      # adds the rendered aggregation.
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: bench-e2e-diff
-        path: |
-          bench-e2e-diff.md
-          bench-branch.md
-          bench-master.md
+        path: bench-e2e-diff.md
         if-no-files-found: warn
 
     - name: 🔎 Find Comment
-      if: github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: peter-evans/find-comment@v3
       id: find-comment
       with:
@@ -184,7 +333,7 @@ jobs:
         body-includes: End-to-end benchmark differences
 
     - name: ✏ Create or update comment
-      if: github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: peter-evans/create-or-update-comment@v4
       with:
         comment-id: ${{ steps.find-comment.outputs.comment-id }}

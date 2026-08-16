@@ -3,6 +3,11 @@
 Reference numbers every optimization PR in the 10x snapshot-throughput project
 is compared against. Captured before any optimization landed.
 
+Note: bench runs now also write an `end-to-end-benchmarks.json` next to the
+markdown report (raw snapshot series, per-tx confirmation times, RTS
+counters). Prefer capturing that file alongside future baselines; it is what
+`scripts/bench-e2e-diff.py` consumes.
+
 ## Environment
 
 - CPU: Intel Core Ultra 7 258V (8 cores), 30 GiB RAM

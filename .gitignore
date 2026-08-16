@@ -55,3 +55,6 @@ CLAUDE.local.md
 
 # Benchmarking
 bench-baselines/
+
+# Python bytecode from scripts/test_bench_e2e_diff.py
+__pycache__/

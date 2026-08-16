@@ -17,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import GHC.Stats (RTSStats (..), getRTSStats, getRTSStatsEnabled)
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
@@ -47,13 +48,38 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
+  (refreshRts, registry') <- liftIO $ registerRtsMetrics registry
   withAsyncLabelled
-    ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry))
+    ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (refreshRts >> sample registry'))
     $ \_ ->
       let wrappedTracer = Tracer $ \msg -> do
             traceMetric msg
             tracer msg
        in action wrappedTracer
+
+-- | Register GHC RTS work counters when the runtime collects them (process
+-- started with '+RTS -T'); returns a refresh action run before each scrape.
+-- Without -T the registry is returned unchanged, so the endpoint output is
+-- identical to before these metrics existed.
+registerRtsMetrics :: Registry -> IO (IO (), Registry)
+registerRtsMetrics registry = do
+  enabled <- getRTSStatsEnabled
+  if not enabled
+    then pure (pure (), registry)
+    else do
+      (allocated, r1) <- registerGauge (Name "hydra_rts_allocated_bytes_total") mempty registry
+      (mutatorCpu, r2) <- registerGauge (Name "hydra_rts_mutator_cpu_seconds_total") mempty r1
+      (gcCpu, r3) <- registerGauge (Name "hydra_rts_gc_cpu_seconds_total") mempty r2
+      (maxLive, r4) <- registerGauge (Name "hydra_rts_max_live_bytes") mempty r3
+      (majorGcs, r5) <- registerGauge (Name "hydra_rts_major_gcs_total") mempty r4
+      let refresh = do
+            stats <- getRTSStats
+            Gauge.set (fromIntegral (allocated_bytes stats)) allocated
+            Gauge.set (fromIntegral (mutator_cpu_ns stats) / 1.0e9) mutatorCpu
+            Gauge.set (fromIntegral (gc_cpu_ns stats) / 1.0e9) gcCpu
+            Gauge.set (fromIntegral (max_live_bytes stats)) maxLive
+            Gauge.set (fromIntegral (major_gcs stats)) majorGcs
+      pure (refresh, r5)
 
 -- | Register all relevant metrics.
 -- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication

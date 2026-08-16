@@ -1,0 +1,18 @@
+{
+  "_comment": "Per-metric noise thresholds (percent) for bench-e2e-diff.py. A row is colored only when the median same-machine pair delta exceeds its threshold with directional agreement. Initial values are hypotheses; recalibrate from nightly A/A runs via `bench-e2e-diff.py --calibrate <dir of downloaded A/A results trees>` and land the suggested values here as a reviewed PR.",
+  "default": 10.0,
+  "metrics": {
+    "End-to-end TPS": 10.0,
+    "Sustained TPS": 10.0,
+    "Sustained TPS (slope)": 10.0,
+    "Backlog drain time (s)": 10.0,
+    "Avg. Confirmation Time (ms)": 5.0,
+    "P50": 5.0,
+    "P95": 5.0,
+    "Tx validation time p50 (ms)": 10.0,
+    "Alloc MB per confirmed tx": 5.0,
+    "Mutator CPU s per 1k txs": 8.0,
+    "Max live MB (max node)": 10.0,
+    "Peak node RSS (MB)": 10.0
+  }
+}

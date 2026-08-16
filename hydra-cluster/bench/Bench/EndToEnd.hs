@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
+import Bench.Summary (NodeRtsStats (..), Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -54,6 +54,7 @@ import Hydra.Tx.Secret (Secret)
 import HydraNode (
   HydraClient,
   apiHost,
+  getMetrics,
   getSnapshotUTxO,
   hydraNodeId,
   input,
@@ -239,6 +240,10 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
 
   putTextLn "HeadIsOpen with deposits finalized"
 
+  -- Bracket the tx-processing window with RTS counter scrapes, outside the
+  -- measured phase so the HTTP requests cannot disturb it.
+  rtsBefore <- scrapeRtsStats clients
+
   -- Note: We only run Pumba during normal transaction processing; this is
   -- acceptable because otherwise we do not retry the particular actions that
   -- may or may not be dropped.
@@ -258,6 +263,8 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
               }
   (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
     withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx waitForTxValid
+
+  rtsAfter <- scrapeRtsStats clients
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -309,13 +316,21 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       validationTimes = map (\(_, v, _) -> v) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
-      averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
+      -- 0/0 would be NaN, which toRational-based serialization turns into
+      -- garbage; a zero-confirmation run reports 0 (and a failed Outcome).
+      averageConfirmationTime = if numberOfTxs == 0 then 0 else sum confTimes / fromIntegral numberOfTxs
       quantiles = makeQuantiles confTimes
       validationP50Ms = medianMilliseconds validationTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
       Throughput{endToEndTps, runWallClockSeconds, sustainedTps, drainSeconds, avgTxsPerSnapshot, numberOfSnapshots} =
         computeThroughput processedTransactions snapshotsSeen
+      confirmationTimesMs = sort $ map (\(_, _, c) -> 1000 * realToFrac c) res
+      snapshotSeries = case map (\Event{submittedAt} -> submittedAt) (Map.elems processedTransactions) of
+        [] -> []
+        submissions ->
+          let t0 = List.minimum submissions
+           in [(realToFrac (t `diffUTCTime` t0), n) | (t, n) <- sortOn fst (Map.elems snapshotsSeen)]
 
   pure $
     Summary
@@ -338,6 +353,11 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       , numberOfSnapshots
       , incrementalCommitTimes
       , incrementalDecommitTimes
+      , loadMode = if waitForTxValid then "closed-loop" else "open-loop"
+      , snapshotSeries
+      , confirmationTimesMs
+      , nodeRtsStats = nodeRtsDeltas rtsBefore rtsAfter
+      , runOutcome = Nothing
       }
  where
   Timing{blockTime} = timing
@@ -623,8 +643,12 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
                 -- nodes may not yet have cleared their in-flight decommit state
                 -- after gossip propagation. Hold the lock for a short tail
                 -- before releasing so the next client's WS Decommit input is
-                -- not rejected with DecommitAlreadyInFlight.
-                threadDelay 2_000_000
+                -- not rejected with DecommitAlreadyInFlight. Hydra.Prelude's
+                -- threadDelay takes seconds; 2_000_000 here used to wait ~23
+                -- days and was only survivable because the surrounding 90s
+                -- 'System.Timeout.timeout' fired instead, inflating every
+                -- incremental cycle to that ceiling.
+                threadDelay 2
                 pure (Just commitTime, Just decommitTime)
 
 -- | Like 'try' but rethrows async exceptions instead of swallowing them. Using
@@ -929,6 +953,50 @@ readPeakNodeRssMb workDir = do
       , Just rest <- [T.stripPrefix "VmHWM:" line]
       , Just (kb :: Double) <- [readMaybe . toString . T.strip $ T.replace "kB" "" rest]
       ]
+
+-- | Scrape per-node GHC RTS gauges from the monitoring endpoints. Nothing for
+-- a node whose endpoint is unreachable or lacks the gauges (nodes not started
+-- with '+RTS -T' do not serve them).
+scrapeRtsStats :: [HydraClient] -> IO [Maybe NodeRtsStats]
+scrapeRtsStats = mapM $ \client ->
+  fromRight Nothing <$> tryNonAsync (parseRtsStats . decodeUtf8 <$> getMetrics client)
+
+parseRtsStats :: Text -> Maybe NodeRtsStats
+parseRtsStats body = do
+  allocatedBytes <- val "hydra_rts_allocated_bytes_total"
+  mutatorCpuSeconds <- val "hydra_rts_mutator_cpu_seconds_total"
+  gcCpuSeconds <- val "hydra_rts_gc_cpu_seconds_total"
+  maxLiveBytes <- val "hydra_rts_max_live_bytes"
+  majorGcs <- val "hydra_rts_major_gcs_total"
+  pure NodeRtsStats{allocatedBytes, mutatorCpuSeconds, gcCpuSeconds, maxLiveBytes, majorGcs}
+ where
+  val name =
+    listToMaybe
+      [ v
+      | line <- T.lines body
+      , [n, raw] <- [T.words line]
+      , n == name
+      , Just v <- [readMaybe (toString raw)]
+      ]
+
+-- | Pair up before/after scrapes into per-node deltas. All-or-nothing: a
+-- missing scrape on either side yields no stats at all, so aggregates never
+-- silently cover a subset of nodes.
+nodeRtsDeltas :: [Maybe NodeRtsStats] -> [Maybe NodeRtsStats] -> [NodeRtsStats]
+nodeRtsDeltas begins ends = fromMaybe [] $ do
+  bs <- sequence begins
+  as <- sequence ends
+  guard (length bs == length as)
+  pure $ zipWith delta bs as
+ where
+  delta b a =
+    NodeRtsStats
+      { allocatedBytes = allocatedBytes a - allocatedBytes b
+      , mutatorCpuSeconds = mutatorCpuSeconds a - mutatorCpuSeconds b
+      , gcCpuSeconds = gcCpuSeconds a - gcCpuSeconds b
+      , maxLiveBytes = maxLiveBytes a
+      , majorGcs = majorGcs a - majorGcs b
+      }
 
 writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do

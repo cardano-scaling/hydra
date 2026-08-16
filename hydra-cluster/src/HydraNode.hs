@@ -593,8 +593,14 @@ withPreparedHydraNodeWithQuery ::
   IO a
 withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId runOptions action =
   Prelude.withLogFile logFilePath $ \logFileHandle -> do
+    -- Benchmark-only hook: HYDRA_NODE_RTS_FLAGS appends '+RTS <flags> -RTS' to
+    -- the spawned node (e.g. "-N2 -T"). Deliberately not GHCRTS, which every
+    -- GHC binary in the environment would inherit. Unset means byte-identical
+    -- spawns.
+    rtsFlags <- maybe [] (map toString . words . toText) <$> lookupEnv "HYDRA_NODE_RTS_FLAGS"
+    let extraArgs = if null rtsFlags then [] else ["+RTS"] <> rtsFlags <> ["-RTS"]
     let cmd =
-          (proc "hydra-node" . toArgs $ runOptions)
+          proc "hydra-node" (toArgs runOptions <> extraArgs)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
             & setCloseFds True

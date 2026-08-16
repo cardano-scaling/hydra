@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (BenchRunOptions (..), bench, benchDemo)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
-import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Data.Aeson (eitherDecodeFileStrict', encodeFile, object, (.=))
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.Cardano.Api (PaymentKey, SigningKey)
@@ -47,11 +47,11 @@ main = do
           benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False}
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid, generationSeed} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
       let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
-      dataset <- generate $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
+      dataset <- runGen generationSeed $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
       results <- do
@@ -59,7 +59,7 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
-    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes} -> do
+    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes, generationSeed} -> do
       (_, faucetSk) <- keysFor Faucet
       -- NOTE: Unlike a standalone matrix run, the docs pipeline points
       -- --output-directory at the shared benchmarks/ directory that already
@@ -78,7 +78,7 @@ main = do
       results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im, wt)) -> do
         let cellDir = workDir </> ("cell-" <> show i)
         createDirectoryIfMissing True cellDir
-        dataset <- generate $ datasetGen faucetSk sh cs numberOfTxs
+        dataset <- runGen ((+ i) <$> generationSeed) $ datasetGen faucetSk sh cs numberOfTxs
         let labelled = dataset{title = Just (matrixCellTitle cs sh im wt)}
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
@@ -92,14 +92,16 @@ main = do
       summarizeMatrixResults outputDirectory results
     GenerateOptions{datasetUTxO, numberOfTxs, clusterSize, datasetTitle, generationSeed, outputFile} -> do
       (_, faucetSk) <- keysFor Faucet
-      let gen = datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
-      dataset <- case generationSeed of
-        Nothing -> generate gen
-        -- Same generation size as QuickCheck's 'generate' so seeded and
-        -- unseeded datasets have the same shape.
-        Just seed -> pure $ unGen gen (mkQCGen seed) 30
+      dataset <- runGen generationSeed $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset outputFile $ maybe dataset (\t -> dataset{title = Just t}) datasetTitle
  where
+  -- Same generation size as QuickCheck's 'generate' so seeded and unseeded
+  -- datasets have the same shape.
+  runGen :: Maybe Int -> Gen a -> IO a
+  runGen = \case
+    Nothing -> generate
+    Just seed -> \gen -> pure $ unGen gen (mkQCGen seed) 30
+
   datasetGen :: Secret (SigningKey PaymentKey) -> UTxOSize -> Word64 -> Int -> Gen Dataset
   datasetGen faucetSk shape clusterSize numberOfTxs =
     case shape of
@@ -142,14 +144,16 @@ main = do
 
   summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
   summarizeResults outputDirectory results = do
-    let (failures, summaries) = partitionEithers results
-    case failures of
-      [] -> writeBenchmarkReport outputDirectory summaries
-      errs -> do
-        forM_ errs $ \(_, dir, summary, exc) -> do
-          writeBenchmarkReport outputDirectory [(summary, [])]
-          benchmarkFailedWith dir exc
-        exitFailure
+    -- One report covering every dataset in order, successes and failures
+    -- alike: a failing dataset must not clobber or hide sibling results.
+    let summaries =
+          flip map results $ \case
+            Left (_, _, summary, exc) -> (summary{runOutcome = Just (failureLabel exc)}, [])
+            Right s -> s
+    writeBenchmarkReport outputDirectory summaries
+    let failures = lefts results
+    forM_ failures $ \(_, dir, _, exc) -> benchmarkFailedWith dir exc
+    unless (null failures) exitFailure
 
   summarizeMatrixResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
   summarizeMatrixResults outputDirectory results = do
@@ -184,6 +188,17 @@ data BenchmarkFailed
   | InvalidTransactions Int
   | NotEnoughTransactions Int Int
 
+-- | One-line reason for the report's Outcome row; details go to stdout via
+-- 'benchmarkFailedWith'.
+failureLabel :: BenchmarkFailed -> Text
+failureLabel = \case
+  TestFailed (HUnitFailure _ reason) ->
+    case T.lines (T.pack (formatFailureReason reason)) of
+      [] -> "test failure"
+      (l : _) -> l
+  NotEnoughTransactions actual expected -> "confirmed " <> show actual <> " of " <> show expected <> " txs"
+  InvalidTransactions n -> show n <> " invalid txs"
+
 benchmarkFailedWith :: FilePath -> BenchmarkFailed -> IO ()
 benchmarkFailedWith benchDir = \case
   (TestFailed (HUnitFailure sourceLocation reason)) -> do
@@ -216,6 +231,13 @@ writeBenchmarkReport outputDirectory summaries = do
     let report = markdownReport now summaries
     createDirectoryIfMissing True outputDir
     writeFileBS reportPath . encodeUtf8 $ unlines report
+    -- Machine-readable twin of the md report. scripts/bench-e2e-diff.py
+    -- prefers it and computes derived estimators from the raw series with one
+    -- implementation for both compared sides.
+    let jsonPath = outputDir </> "end-to-end-benchmarks.json"
+    putStrLn $ "Writing report to: " <> jsonPath
+    encodeFile jsonPath $
+      object ["version" .= (1 :: Int), "generatedAt" .= now, "summaries" .= map fst summaries]
 
 writeMatrixReport :: Maybe FilePath -> [(Summary, SystemStats)] -> IO ()
 writeMatrixReport outputDirectory summaries = do
