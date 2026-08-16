@@ -380,6 +380,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , numberOfSnapshots
       , incrementalCommitTimes
       , incrementalDecommitTimes
+      , runOutcome = Nothing
       }
  where
   Timing{blockTime} = timing

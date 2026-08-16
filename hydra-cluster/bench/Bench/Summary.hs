@@ -48,6 +48,8 @@ data Summary = Summary
   , numberOfSnapshots :: Int
   , incrementalCommitTimes :: [NominalDiffTime]
   , incrementalDecommitTimes :: [NominalDiffTime]
+  , runOutcome :: Maybe Text
+  -- ^ Nothing when the run completed; a short failure reason otherwise.
   }
   deriving stock (Generic, Eq, Show)
 
@@ -74,6 +76,7 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , numberOfSnapshots = 0
     , incrementalCommitTimes = []
     , incrementalDecommitTimes = []
+    , runOutcome = Just $ shortReason reason
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
@@ -108,12 +111,13 @@ snapshotsPerSecond Summary{numberOfSnapshots, runWallClockSeconds}
   | otherwise = 0
 
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
+textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
       , "Average confirmation time (ms): " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime)
       ]
+        ++ maybe [] (\reason -> ["Outcome: FAILED: " <> reason]) runOutcome
         ++ ( if length quantiles == 100
               then
                 [ "P99: " <> oneDec (quantiles ! 99) <> "ms"
@@ -179,7 +183,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
+formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -203,8 +207,10 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
       , "| Number of nodes |  " <> show clusterSize <> " | "
       , "| -- | -- |"
       , "| _Number of txs_ | " <> show numberOfTxs <> " |"
-      , "| _Avg. Confirmation Time (ms)_ | " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
       ]
+        ++ maybe [] (\reason -> ["| _Outcome_ | FAILED: " <> reason <> " |"]) runOutcome
+        ++ [ "| _Avg. Confirmation Time (ms)_ | " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
+           ]
         ++ ( if length quantiles == 100
               then
                 [ "| _P99_ | " <> oneDec (quantiles ! 99) <> "ms |"
