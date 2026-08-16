@@ -144,14 +144,16 @@ main = do
 
   summarizeResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
   summarizeResults outputDirectory results = do
-    let (failures, summaries) = partitionEithers results
-    case failures of
-      [] -> writeBenchmarkReport outputDirectory summaries
-      errs -> do
-        forM_ errs $ \(_, dir, summary, exc) -> do
-          writeBenchmarkReport outputDirectory [(summary, [])]
-          benchmarkFailedWith dir exc
-        exitFailure
+    -- One report covering every dataset in order: a failing dataset must not
+    -- clobber or hide sibling results.
+    let summaries =
+          flip map results $ \case
+            Left (_, _, summary, exc) -> (summary{runOutcome = Just (failureLabel exc)}, [])
+            Right s -> s
+    writeBenchmarkReport outputDirectory summaries
+    let failures = lefts results
+    forM_ failures $ \(_, dir, _, exc) -> benchmarkFailedWith dir exc
+    unless (null failures) exitFailure
 
   summarizeMatrixResults :: Maybe FilePath -> [Either (Dataset, FilePath, Summary, BenchmarkFailed) (Summary, SystemStats)] -> IO ()
   summarizeMatrixResults outputDirectory results = do
@@ -185,6 +187,17 @@ data BenchmarkFailed
   = TestFailed HUnitFailure
   | InvalidTransactions Int
   | NotEnoughTransactions Int Int
+
+-- | One-line reason for the report's Outcome row; details go to stdout via
+-- 'benchmarkFailedWith'.
+failureLabel :: BenchmarkFailed -> Text
+failureLabel = \case
+  TestFailed (HUnitFailure _ reason) ->
+    case T.lines (T.pack (formatFailureReason reason)) of
+      [] -> "test failure"
+      (l : _) -> l
+  NotEnoughTransactions actual expected -> "confirmed " <> show actual <> " of " <> show expected <> " txs"
+  InvalidTransactions n -> show n <> " invalid txs"
 
 benchmarkFailedWith :: FilePath -> BenchmarkFailed -> IO ()
 benchmarkFailedWith benchDir = \case
