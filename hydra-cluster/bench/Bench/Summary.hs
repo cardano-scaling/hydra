@@ -89,7 +89,9 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
           (l : rest) -> l <> if null rest then "" else " (full output omitted)"
 
 makeQuantiles :: [NominalDiffTime] -> Vector Double
--- makeQuantiles [] = mempty -- No confirmations, no quantiles.
+-- quantilesVec throws on empty input and report writers force this; renderers
+-- already guard on the vector's length.
+makeQuantiles [] = mempty
 makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 

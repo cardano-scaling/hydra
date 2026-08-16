@@ -352,7 +352,8 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       validationTimes = map (\(_, v, _) -> v) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
-      averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
+      -- 0/0 is NaN, which serializes as garbage; report 0 when nothing confirmed.
+      averageConfirmationTime = if numberOfTxs == 0 then 0 else sum confTimes / fromIntegral numberOfTxs
       quantiles = makeQuantiles confTimes
       validationP50Ms = medianMilliseconds validationTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
@@ -666,8 +667,10 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
                 -- nodes may not yet have cleared their in-flight decommit state
                 -- after gossip propagation. Hold the lock for a short tail
                 -- before releasing so the next client's WS Decommit input is
-                -- not rejected with DecommitAlreadyInFlight.
-                threadDelay 2_000_000
+                -- not rejected with DecommitAlreadyInFlight. NOTE: threadDelay
+                -- is seconds here; 2_000_000 used to hit the 90s timeout above
+                -- instead, inflating every incremental cycle to that ceiling.
+                threadDelay 2
                 pure (Just commitTime, Just decommitTime)
 
 -- | Like 'try' but rethrows async exceptions instead of swallowing them. Using
