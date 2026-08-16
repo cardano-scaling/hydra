@@ -204,9 +204,9 @@ hydra-node processes (Linux only).
 The benchmark can be run in several modes:
 
 * `single`: Runs one or more pre-existing _dataset_ files in sequence and collects their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over well-known datasets and is what CI uses to compare a PR against master.
-* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it.
+* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it. `--seed` makes generation reproducible.
 * `generate`: Generates and saves a dataset file without running it. `--seed` makes generation reproducible and `--title` names the scenario in reports (scenarios are paired by title when diffing two reports). Feed the resulting file to `single`.
-* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page.
+* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page. With `--seed N`, cell i generates from seed N+i, so the matrix is reproducible across runs (CI pins this).
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 
 ## Load modes and reported metrics

@@ -47,11 +47,11 @@ main = do
           benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False, cborClients}
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid, cborClients} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid, cborClients, generationSeed} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
       let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid, cborClients}
-      dataset <- generate $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
+      dataset <- runGen generationSeed $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
       results <- do
@@ -59,7 +59,7 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
-    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes, cborClients} -> do
+    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes, cborClients, generationSeed} -> do
       (_, faucetSk) <- keysFor Faucet
       -- NOTE: Unlike a standalone matrix run, the docs pipeline points
       -- --output-directory at the shared benchmarks/ directory that already
@@ -78,7 +78,7 @@ main = do
       results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im, wt)) -> do
         let cellDir = workDir </> ("cell-" <> show i)
         createDirectoryIfMissing True cellDir
-        dataset <- generate $ datasetGen faucetSk sh cs numberOfTxs
+        dataset <- runGen ((+ i) <$> generationSeed) $ datasetGen faucetSk sh cs numberOfTxs
         let labelled = dataset{title = Just (matrixCellTitle cs sh im wt)}
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
@@ -92,14 +92,16 @@ main = do
       summarizeMatrixResults outputDirectory results
     GenerateOptions{datasetUTxO, numberOfTxs, clusterSize, datasetTitle, generationSeed, outputFile} -> do
       (_, faucetSk) <- keysFor Faucet
-      let gen = datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
-      dataset <- case generationSeed of
-        Nothing -> generate gen
-        -- Same generation size as QuickCheck's 'generate' so seeded and
-        -- unseeded datasets have the same shape.
-        Just seed -> pure $ unGen gen (mkQCGen seed) 30
+      dataset <- runGen generationSeed $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset outputFile $ maybe dataset (\t -> dataset{title = Just t}) datasetTitle
  where
+  -- Same generation size as QuickCheck's 'generate' so seeded and unseeded
+  -- datasets have the same shape.
+  runGen :: Maybe Int -> Gen a -> IO a
+  runGen = \case
+    Nothing -> generate
+    Just seed -> \gen -> pure $ unGen gen (mkQCGen seed) 30
+
   datasetGen :: Secret (SigningKey PaymentKey) -> UTxOSize -> Word64 -> Int -> Gen Dataset
   datasetGen faucetSk shape clusterSize numberOfTxs =
     case shape of
