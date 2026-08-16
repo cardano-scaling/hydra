@@ -22,6 +22,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import GHC.Stats (RTSStats (..), getRTSStats, getRTSStatsEnabled)
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
@@ -75,13 +76,39 @@ withMonitoring ::
 withMonitoring Nothing tracer action = action tracer
 withMonitoring (Just monitoringPort) (Tracer tracer) action = do
   (traceMetric, registry) <- prepareRegistry
+  refreshRts <- liftIO $ registerRtsMetrics registry
   withAsyncLabelled
-    ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (sample registry))
+    ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (refreshRts >> sample registry))
     $ \_ ->
       let wrappedTracer = Tracer $ \msg -> do
             traceMetric msg
             tracer msg
        in action wrappedTracer
+
+-- | Register GHC RTS work counters when the runtime collects them (process
+-- started with '+RTS -T'); returns a refresh action run before each scrape.
+-- Without -T nothing is registered, so the endpoint output is identical to
+-- before these metrics existed.
+registerRtsMetrics :: Registry -> IO (IO ())
+registerRtsMetrics registry = do
+  enabled <- getRTSStatsEnabled
+  if not enabled
+    then pure (pure ())
+    else do
+      allocated <- rtsGauge "hydra_rts_allocated_bytes"
+      mutatorCpu <- rtsGauge "hydra_rts_mutator_cpu_seconds"
+      gcCpu <- rtsGauge "hydra_rts_gc_cpu_seconds"
+      maxLive <- rtsGauge "hydra_rts_max_live_bytes"
+      majorGcs <- rtsGauge "hydra_rts_major_gcs"
+      pure $ do
+        stats <- getRTSStats
+        Gauge.set (fromIntegral (allocated_bytes stats)) allocated
+        Gauge.set (fromIntegral (mutator_cpu_ns stats) / 1.0e9) mutatorCpu
+        Gauge.set (fromIntegral (gc_cpu_ns stats) / 1.0e9) gcCpu
+        Gauge.set (fromIntegral (max_live_bytes stats)) maxLive
+        Gauge.set (fromIntegral (major_gcs stats)) majorGcs
+ where
+  rtsGauge name = registerGauge (Name name) mempty registry
 
 -- | Register all relevant metrics.
 -- Returns the `Registry` which is needed to `serveMetrics` or any other form of publication

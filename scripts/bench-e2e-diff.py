@@ -58,6 +58,10 @@ METRICS = [
     ("P50", "P50 confirmation (s)", -1, MS_TO_S, True, "pct"),
     ("P95", "P95 confirmation (s)", -1, MS_TO_S, True, "pct"),
     ("Tx validation time p50 (ms)", "Tx validation time p50 (s)", -1, MS_TO_S, False, "pct"),
+    ("Alloc MB per confirmed tx", "Alloc MB per confirmed tx", -1, 1.0, False, "pct"),
+    ("Alloc MB per snapshot", "Alloc MB per snapshot", 0, 1.0, False, "pct"),
+    ("Mutator CPU s per 1k txs", "Mutator CPU s per 1k txs", -1, 1.0, False, "pct"),
+    ("Max live MB (max node)", "Max live MB (max node)", -1, 1.0, False, "pct"),
     ("Peak node RSS (MB)", "Peak node RSS (MB)", -1, 1.0, False, "pct"),
     ("Number of Invalid txs", "Invalid txs", -1, 1.0, False, "count"),
     ("Incremental commit avg (ms)", "Incremental commit avg (s)", -1, MS_TO_S, False, "pct"),
@@ -71,6 +75,9 @@ THRESHOLDS = {
     "Avg. Confirmation Time (ms)": 5.0,
     "P50": 5.0,
     "P95": 5.0,
+    # Work counters are nearly machine-independent, so hold them tighter.
+    "Alloc MB per confirmed tx": 5.0,
+    "Mutator CPU s per 1k txs": 8.0,
 }
 
 # Colored regressions beyond this on the headline rates additionally emit a
@@ -120,6 +127,20 @@ def sustained_tps_slope(snapshot_series):
         return None
 
 
+def rts_metrics(node_stats, n_txs, n_snapshots):
+    # Mirrors Bench.Summary.rtsAggregates; keep the two in sync.
+    if not node_stats or n_txs <= 0 or n_snapshots <= 0:
+        return {}
+    mb = 1024.0 * 1024.0
+    total_alloc_mb = sum(s["allocatedBytes"] for s in node_stats) / mb
+    return {
+        "Alloc MB per confirmed tx": total_alloc_mb / n_txs,
+        "Alloc MB per snapshot": total_alloc_mb / n_snapshots,
+        "Mutator CPU s per 1k txs": sum(s["mutatorCpuSeconds"] for s in node_stats) / (n_txs / 1000.0),
+        "Max live MB (max node)": max(s["maxLiveBytes"] for s in node_stats) / mb,
+    }
+
+
 def summary_to_record(s):
     """One JSON summary -> the same record shape parse_report yields, with
     estimators recomputed from the raw series."""
@@ -148,6 +169,7 @@ def summary_to_record(s):
     if s.get("peakNodeRssMb") is not None:
         metrics["Peak node RSS (MB)"] = s["peakNodeRssMb"]
     metrics["Number of Invalid txs"] = float(s.get("numberOfInvalidTxs") or 0)
+    metrics.update(rts_metrics(s.get("nodeRtsStats") or [], n_txs, n_snapshots))
     for field, key in [
         ("incrementalCommitTimes", "Incremental commit avg (ms)"),
         ("incrementalDecommitTimes", "Incremental decommit avg (ms)"),
