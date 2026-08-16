@@ -166,6 +166,19 @@ class JsonPath(unittest.TestCase):
             self.assertIn("Sustained TPS (tx/s)", text)
             self.assertNotIn("slope", text)
 
+    def test_rts_metrics_mirror_haskell_formula(self):
+        mb = 1024.0 * 1024.0
+        stats = [
+            {"allocatedBytes": 1000 * mb, "mutatorCpuSeconds": 10.0, "maxLiveBytes": 300 * mb},
+            {"allocatedBytes": 500 * mb, "mutatorCpuSeconds": 6.0, "maxLiveBytes": 200 * mb},
+        ]
+        m = diff.rts_metrics(stats, n_txs=1000, n_snapshots=10)
+        self.assertAlmostEqual(m["Alloc MB per confirmed tx"], 1.5)
+        self.assertAlmostEqual(m["Alloc MB per snapshot"], 150.0)
+        self.assertAlmostEqual(m["Mutator CPU s per 1k txs"], 16.0)
+        self.assertAlmostEqual(m["Max live MB (max node)"], 300.0)
+        self.assertEqual(diff.rts_metrics([], 1000, 10), {})
+
     def test_calibrate_smoke(self):
         import contextlib
         import io
