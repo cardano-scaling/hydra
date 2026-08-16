@@ -270,12 +270,18 @@ other people's merges cannot appear as PR deltas):
   directional agreement across pairs. This is a calibrated heuristic, not a
   significance test, and nothing fails CI on it; strong regressions on the
   headline rates emit a `::warning` annotation.
+* Nodes are spawned with `+RTS -N2 -T` (via `HYDRA_NODE_RTS_FLAGS`, guarded
+  by a probe so both sides always get identical settings) and the cluster
+  runs on tmpfs, keeping scheduler oversubscription and network-disk fsync
+  latency out of the measurements. The `-T` counters feed the alloc/CPU
+  rows, the machine-insensitive signal to trust when wall clock wobbles.
 * `workflow_dispatch` takes `head_ref`/`base_ref` to compare arbitrary refs;
   an empty `base_ref` makes it an A/A null run of `head_ref`, in which any
-  colored row is a false positive. Use accumulated A/A runs to judge the
-  pipeline and recalibrate the thresholds in the script. Draft PRs are
-  skipped unless the PR carries the `bench` label (applies from the next
-  push).
+  colored row is a false positive. To recalibrate thresholds, download the
+  `bench-results-*` artifacts of accumulated A/A runs into one directory per
+  run; `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested
+  per-metric values to land in the script. Draft PRs are skipped unless the
+  PR carries the `bench` label (applies from the next push).
 
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
