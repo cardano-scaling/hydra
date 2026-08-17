@@ -99,11 +99,10 @@ data ChainStateAt = ChainStateAt
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR ChainStateAt where
-  toCBOR ChainStateAt{spendableUTxO, recordedAt} =
-    toCBOR spendableUTxO <> toCBOR recordedAt
+  toCBOR = genericToCBOR
 
 instance FromCBOR ChainStateAt where
-  fromCBOR = ChainStateAt <$> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 instance IsChainState Tx where
   type ChainPointType Tx = ChainPoint

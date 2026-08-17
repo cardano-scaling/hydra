@@ -102,10 +102,10 @@ deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
 instance IsChainState tx => ToCBOR (IdleState tx) where
-  toCBOR IdleState{chainState} = toCBOR chainState
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (IdleState tx) where
-  fromCBOR = IdleState <$> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- ** Open
 
@@ -126,15 +126,10 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Open
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
 
 instance IsChainState tx => ToCBOR (OpenState tx) where
-  toCBOR OpenState{parameters, coordinatedHeadState, chainState, headId, headSeed} =
-    toCBOR parameters
-      <> toCBOR coordinatedHeadState
-      <> toCBOR chainState
-      <> toCBOR headId
-      <> toCBOR headSeed
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (OpenState tx) where
-  fromCBOR = OpenState <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -168,27 +163,10 @@ deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} =
-    toCBOR localUTxO
-      <> toCBOR localTxs
-      <> toCBOR allTxs
-      <> toCBOR confirmedSnapshot
-      <> toCBOR seenSnapshot
-      <> toCBOR currentDepositTxId
-      <> toCBOR decommitTx
-      <> toCBOR version
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
-  fromCBOR =
-    CoordinatedHeadState
-      <$> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -338,27 +316,10 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Clos
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
 instance IsChainState tx => ToCBOR (ClosedState tx) where
-  toCBOR ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version} =
-    toCBOR parameters
-      <> toCBOR confirmedSnapshot
-      <> toCBOR contestationDeadline
-      <> toCBOR readyToFanoutSent
-      <> toCBOR chainState
-      <> toCBOR headId
-      <> toCBOR headSeed
-      <> toCBOR version
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (ClosedState tx) where
-  fromCBOR =
-    ClosedState
-      <$> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- ** PartialFanout
 
@@ -424,28 +385,7 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Part
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
 
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode} =
-    toCBOR parameters
-      <> toCBOR confirmedSnapshot
-      <> toCBOR contestationDeadline
-      <> toCBOR chainState
-      <> toCBOR headId
-      <> toCBOR headSeed
-      <> toCBOR version
-      <> toCBOR remainingOutputs
-      <> toCBOR distributedOutputs
-      <> toCBOR mode
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR =
-    PartialFanoutState
-      <$> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
+  fromCBOR = genericFromCBOR

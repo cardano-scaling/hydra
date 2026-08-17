@@ -32,11 +32,10 @@ deriving anyclass instance IsChainState tx => FromJSON (StateEvent tx)
 -- table (see "Hydra.Events.SQLiteBased"). Changing it breaks decoding of
 -- existing databases and requires a schema migration.
 instance IsChainState tx => ToCBOR (StateEvent tx) where
-  toCBOR StateEvent{eventId, stateChanged, time} =
-    toCBOR eventId <> toCBOR stateChanged <> toCBOR time
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (StateEvent tx) where
-  fromCBOR = StateEvent <$> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
 mkCheckpoint nodeState eventId time =

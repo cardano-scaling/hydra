@@ -38,27 +38,47 @@ import Hydra.API.ServerOutput (
   ServerOutput,
   TimedServerOutput,
  )
+import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), NetworkMagic (..))
+import Hydra.Cardano.Api.Gen ()
 import Hydra.Chain (ChainEvent, OnChainTx, PostChainTx, PostTxError)
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.HeadLogic.State (FanoutMode, HeadState, SeenSnapshot)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Network (Connectivity, WhichEtcd)
+import Hydra.Ledger.Simple (SimpleChainState, SimpleTx)
+import Hydra.Network (Connectivity, Host, NodeId, ProtocolVersion, WhichEtcd)
+import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (Deposit, DepositStatus, NodeState, SyncedStatus)
-import Hydra.Tx (ConfirmedSnapshot, Snapshot)
+import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
+import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Crypto (MultiSignature, Signature)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.ServerOutput ()
-import Test.Hydra.CBOR (genGoldenSamples, goldenCBOR, roundtripCBOR)
+import Test.Hydra.CBOR (genGoldenSample, genGoldenSamples, goldenCBOR, roundtripCBOR)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.Outcome ()
 import Test.Hydra.HeadLogic.StateEvent ()
+import Test.Hydra.Ledger ()
+import Test.Hydra.Ledger.Simple ()
+import Test.Hydra.Network ()
+import Test.Hydra.Network.Authenticate ()
 import Test.Hydra.Network.Message ()
+import Test.Hydra.Node.ApiTransactionTimeout ()
 import Test.Hydra.Node.Environment ()
-import Test.QuickCheck (resize)
+import Test.Hydra.Node.State ()
+import Test.Hydra.Node.UnsyncedPeriod ()
+import Test.Hydra.Tx.Gen ()
+import Test.QuickCheck (resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
 
 instance Arbitrary InvalidInput where
@@ -173,6 +193,31 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @(Deposit Tx)
     roundtripCBOR $ Proxy @Environment
     roundtripCBOR $ Proxy @Connectivity
+    roundtripCBOR $ Proxy @HeadId
+    roundtripCBOR $ Proxy @HeadSeed
+    roundtripCBOR $ Proxy @OnChainId
+    roundtripCBOR $ Proxy @Party
+    roundtripCBOR $ Proxy @HeadParameters
+    roundtripCBOR $ Proxy @ContestationPeriod
+    roundtripCBOR $ Proxy @DepositPeriod
+    roundtripCBOR $ Proxy @SnapshotNumber
+    roundtripCBOR $ Proxy @SnapshotVersion
+    roundtripCBOR $ Proxy @ChainSlot
+    roundtripCBOR $ Proxy @(Signature (Snapshot Tx))
+    roundtripCBOR $ Proxy @(MultiSignature (Snapshot Tx))
+    roundtripCBOR $ Proxy @(Signed (Message Tx))
+    roundtripCBOR $ Proxy @NodeId
+    roundtripCBOR $ Proxy @ProtocolVersion
+    roundtripCBOR $ Proxy @Host
+    roundtripCBOR $ Proxy @ValidationError
+    roundtripCBOR $ Proxy @ApiTransactionTimeout
+    roundtripCBOR $ Proxy @UnsyncedPeriod
+    roundtripCBOR $ Proxy @ChainPointTime
+    roundtripCBOR $ Proxy @SimpleTx
+    roundtripCBOR $ Proxy @SimpleChainState
+    roundtripCBOR $ Proxy @NetworkId
+    roundtripCBOR $ Proxy @NetworkMagic
+    roundtripCBOR $ Proxy @ChainPoint
 
   describe "persisted types" $ do
     roundtripCBOR $ Proxy @(StateChanged Tx)
@@ -212,6 +257,49 @@ spec = parallel $ do
     goldenCBOR "WhichEtcd" "golden/WhichEtcd.cbor" (genGoldenSamples @WhichEtcd)
     goldenCBOR "RequirementFailure Tx" "golden/RequirementFailure.cbor" (genGoldenSamples @(RequirementFailure Tx))
     goldenCBOR "SideLoadRequirementFailure Tx" "golden/SideLoadRequirementFailure.cbor" (genGoldenSamples @(SideLoadRequirementFailure Tx))
+    -- Single-constructor domain types (tagged newtypes and records), sampled
+    -- through their own 'Arbitrary' instances.
+    goldenCBOR "HeadId" "golden/HeadId.cbor" (genGoldenSample @HeadId)
+    goldenCBOR "HeadSeed" "golden/HeadSeed.cbor" (genGoldenSample @HeadSeed)
+    goldenCBOR "OnChainId" "golden/OnChainId.cbor" (genGoldenSample @OnChainId)
+    goldenCBOR "Party" "golden/Party.cbor" (genGoldenSample @Party)
+    goldenCBOR "HeadParameters" "golden/HeadParameters.cbor" (genGoldenSample @HeadParameters)
+    goldenCBOR "ContestationPeriod" "golden/ContestationPeriod.cbor" (genGoldenSample @ContestationPeriod)
+    goldenCBOR "DepositPeriod" "golden/DepositPeriod.cbor" (genGoldenSample @DepositPeriod)
+    goldenCBOR "SnapshotNumber" "golden/SnapshotNumber.cbor" (genGoldenSample @SnapshotNumber)
+    goldenCBOR "SnapshotVersion" "golden/SnapshotVersion.cbor" (genGoldenSample @SnapshotVersion)
+    goldenCBOR "ChainSlot" "golden/ChainSlot.cbor" (genGoldenSample @ChainSlot)
+    goldenCBOR "Signature (Snapshot Tx)" "golden/Signature.cbor" (genGoldenSample @(Signature (Snapshot Tx)))
+    goldenCBOR "MultiSignature (Snapshot Tx)" "golden/MultiSignature.cbor" (genGoldenSample @(MultiSignature (Snapshot Tx)))
+    goldenCBOR "Snapshot Tx" "golden/Snapshot.cbor" (genGoldenSample @(Snapshot Tx))
+    goldenCBOR "Signed (Message Tx)" "golden/Signed.cbor" (genGoldenSample @(Signed (Message Tx)))
+    goldenCBOR "NodeId" "golden/NodeId.cbor" (genGoldenSample @NodeId)
+    goldenCBOR "ProtocolVersion" "golden/ProtocolVersion.cbor" (genGoldenSample @ProtocolVersion)
+    goldenCBOR "Host" "golden/Host.cbor" (genGoldenSample @Host)
+    goldenCBOR "ValidationError" "golden/ValidationError.cbor" (genGoldenSample @ValidationError)
+    goldenCBOR "ApiTransactionTimeout" "golden/ApiTransactionTimeout.cbor" (genGoldenSample @ApiTransactionTimeout)
+    goldenCBOR "UnsyncedPeriod" "golden/UnsyncedPeriod.cbor" (genGoldenSample @UnsyncedPeriod)
+    goldenCBOR "ChainPointTime" "golden/ChainPointTime.cbor" (genGoldenSample @ChainPointTime)
+    goldenCBOR "ChainStateAt" "golden/ChainStateAt.cbor" (genGoldenSample @ChainStateAt)
+    goldenCBOR "Environment" "golden/Environment.cbor" (genGoldenSample @Environment)
+    goldenCBOR "NetworkMagic" "golden/NetworkMagic.cbor" (genGoldenSample @NetworkMagic)
+    -- Multi-constructor orphans from hydra-cardano-api, enumerated explicitly
+    -- ('ToADTArbitrary' needs field-wise 'Arbitrary' instances these types
+    -- do not have).
+    goldenCBOR "NetworkId" "golden/NetworkId.cbor" genGoldenNetworkIds
+    goldenCBOR "ChainPoint" "golden/ChainPoint.cbor" genGoldenChainPoints
+
+-- | One sample per 'NetworkId' constructor.
+genGoldenNetworkIds :: Gen [NetworkId]
+genGoldenNetworkIds = do
+  magic <- arbitrary
+  pure [Hydra.Cardano.Api.Mainnet, Testnet magic]
+
+-- | One sample per 'ChainPoint' constructor.
+genGoldenChainPoints :: Gen [ChainPoint]
+genGoldenChainPoints = do
+  point <- arbitrary `suchThat` (/= ChainPointAtGenesis)
+  pure [ChainPointAtGenesis, point]
 
 -- | One 'StateEvent' per 'StateChanged' constructor, in declaration order:
 -- 'ToADTArbitrary' enumerates the constructors generically, so coverage of

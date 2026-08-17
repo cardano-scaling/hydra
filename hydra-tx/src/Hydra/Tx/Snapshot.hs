@@ -23,7 +23,13 @@ import PlutusLedgerApi.V3 (toBuiltin, toData)
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, Real, Num, Enum, Integral)
+
+instance ToCBOR SnapshotNumber where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SnapshotNumber where
+  fromCBOR = genericFromCBOR
 
 -- NOTE: On-chain scripts ensure snapshot number does not become negative.
 fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
@@ -33,7 +39,13 @@ fromChainSnapshotNumber =
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, FromJSON, Real, Num, Enum, Integral)
+
+instance ToCBOR SnapshotVersion where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SnapshotVersion where
+  fromCBOR = genericFromCBOR
 
 -- NOTE: On-chain scripts ensure snapshot version does not become negative.
 fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
@@ -135,10 +147,12 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
 -- NOTE: Like the JSON encoding, the accumulator is not transmitted (only
--- derived data) and gets rebuilt from the UTxO sets on decode.
+-- derived data) and gets rebuilt from the UTxO sets on decode. This is why
+-- the codec stays hand-written; the leading tag matches the generic format.
 instance IsTx tx => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} =
-    toCBOR headId
+    toCBOR ("Snapshot" :: Text)
+      <> toCBOR headId
       <> toCBOR version
       <> toCBOR number
       <> toCBOR confirmed
@@ -147,16 +161,19 @@ instance IsTx tx => ToCBOR (Snapshot tx) where
       <> toCBOR utxoToDecommit
 
 instance IsTx tx => FromCBOR (Snapshot tx) where
-  fromCBOR = do
-    headId <- fromCBOR
-    version <- fromCBOR
-    number <- fromCBOR
-    confirmed <- fromCBOR
-    utxo <- fromCBOR
-    utxoToCommit <- fromCBOR
-    utxoToDecommit <- fromCBOR
-    let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
-    pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Snapshot" :: Text) -> do
+        headId <- fromCBOR
+        version <- fromCBOR
+        number <- fromCBOR
+        confirmed <- fromCBOR
+        utxo <- fromCBOR
+        utxoToCommit <- fromCBOR
+        utxoToDecommit <- fromCBOR
+        let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
+        pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Snapshot"
 
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
 snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx

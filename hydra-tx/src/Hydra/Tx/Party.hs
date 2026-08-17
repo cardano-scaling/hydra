@@ -44,10 +44,10 @@ instance Ord Party where
     verificationKeyHash a <= verificationKeyHash b
 
 instance FromCBOR Party where
-  fromCBOR = Party <$> fromCBOR
+  fromCBOR = genericFromCBOR
 
 instance ToCBOR Party where
-  toCBOR Party{vkey} = toCBOR vkey
+  toCBOR = genericToCBOR
 
 -- | Get the 'Party' from a 'Secret'-wrapped Hydra 'SigningKey'.
 -- Uses the polymorphic 'getVerificationKey' from 'Hydra.Tx.Crypto',

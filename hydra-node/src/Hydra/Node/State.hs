@@ -27,11 +27,10 @@ data ChainPointTime = ChainPointTime
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR ChainPointTime where
-  toCBOR ChainPointTime{currentSlot, currentChainTime, drift} =
-    toCBOR currentSlot <> toCBOR currentChainTime <> toCBOR drift
+  toCBOR = genericToCBOR
 
 instance FromCBOR ChainPointTime where
-  fromCBOR = ChainPointTime <$> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 data NodeState tx
   = -- | Normal operation of the node where it is connected and has a recent
@@ -117,15 +116,10 @@ deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
 instance IsTx tx => ToCBOR (Deposit tx) where
-  toCBOR Deposit{headId, deposited, created, deadline, status} =
-    toCBOR headId
-      <> toCBOR deposited
-      <> toCBOR created
-      <> toCBOR deadline
-      <> toCBOR status
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (Deposit tx) where
-  fromCBOR = Deposit <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 data DepositStatus = Inactive | Active | Expired
   deriving stock (Generic, Eq, Show)

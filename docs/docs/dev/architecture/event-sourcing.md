@@ -25,14 +25,22 @@ The database contains a single `events` table:
 
 Event payloads use a constructor-name-tagged CBOR format: the constructor name
 as a CBOR text string, followed by the constructor fields in declaration order.
-Most instances are derived generically via `genericToCBOR` / `genericFromCBOR`
-from `Hydra.CBOR.Generic` (hydra-prelude), which makes the data type
-declaration itself the on-disk format: changing the order or types of an
-existing constructor's fields is a breaking change that requires a schema
-migration, while adding, removing or reordering constructors keeps existing
-data decodable thanks to the name tags. The golden tests in `Hydra.CBORSpec`
-lock the concrete bytes per constructor and fail on any accidental format
-change.
+This applies uniformly to every hydra domain type, including newtypes and
+single-constructor records (e.g. a `HeadId` is encoded as the text
+`"UnsafeHeadId"` followed by the raw bytes). Most instances are derived
+generically via `genericToCBOR` / `genericFromCBOR` from `Hydra.CBOR.Generic`
+(hydra-prelude), which makes the data type declaration itself the on-disk
+format: changing the order or types of an existing constructor's fields is a
+breaking change that requires a schema migration, while adding, removing or
+reordering constructors keeps existing data decodable thanks to the name tags.
+The few hand-written codecs (e.g. `Snapshot`, `Environment`) carry the same
+leading tag and only exist where a field is deliberately omitted from the
+encoding. Untagged leaves are limited to standard external formats:
+cardano-ledger encodings for `Tx`/`UTxO`, raw-bytes/text encodings for opaque
+cardano-api types (`TxId`, `PolicyId`, `Hash BlockHeader`, ...), scalar
+primitives, and `VerificationKey HydraKey` whose CBOR is the on-disk key file
+format and must not change. The golden tests in `Hydra.CBORSpec` lock the
+concrete bytes per constructor and fail on any accidental format change.
 
 The following connection pragmas are set on every open:
 

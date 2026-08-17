@@ -54,6 +54,13 @@ genGoldenSamples = do
   ADTArbitrary{adtCAPs} <- resize 5 $ toADTArbitrary (Proxy @a)
   pure $ capArbitrary <$> adtCAPs
 
+-- | A single golden sample via the type's own 'Arbitrary' instance. Use for
+-- single-constructor types (newtypes, records) where the per-constructor
+-- enumeration of 'genGoldenSamples' adds nothing, or where the generic
+-- field-wise generation of 'ToADTArbitrary' is not applicable.
+genGoldenSample :: Arbitrary a => Gen [a]
+genGoldenSample = (: []) <$> resize 5 arbitrary
+
 goldenCBOR ::
   forall a.
   (ToCBOR a, FromCBOR a) =>

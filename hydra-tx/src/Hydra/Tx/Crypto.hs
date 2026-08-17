@@ -305,9 +305,14 @@ generateSigningKey seed =
 -- * Signatures
 
 -- | Signature of 'a', not containing the actual payload.
-newtype Signature a = HydraSignature (SigDSIGN Ed25519DSIGN)
-  deriving stock (Eq)
-  deriving newtype (ToCBOR, FromCBOR)
+newtype Signature (a :: Type) = HydraSignature (SigDSIGN Ed25519DSIGN)
+  deriving stock (Eq, Generic)
+
+instance Typeable a => ToCBOR (Signature a) where
+  toCBOR = genericToCBOR
+
+instance Typeable a => FromCBOR (Signature a) where
+  fromCBOR = genericFromCBOR
 
 instance Show (Signature a) where
   show (HydraSignature sig) =
@@ -361,9 +366,15 @@ verify (HydraVerificationKey vk) (HydraSignature sig) a =
 -- * Multi-signatures
 
 -- | Naiively aggregated multi-signatures.
-newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
+newtype MultiSignature (a :: Type) = HydraMultiSignature {multiSignature :: [Signature a]}
   deriving stock (Eq, Show, Generic)
-  deriving newtype (Semigroup, Monoid, ToCBOR, FromCBOR)
+  deriving newtype (Semigroup, Monoid)
+
+instance Typeable a => ToCBOR (MultiSignature a) where
+  toCBOR = genericToCBOR
+
+instance Typeable a => FromCBOR (MultiSignature a) where
+  fromCBOR = genericFromCBOR
 
 deriving anyclass instance ToJSON a => ToJSON (MultiSignature a)
 deriving anyclass instance FromJSON a => FromJSON (MultiSignature a)

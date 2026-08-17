@@ -16,7 +16,12 @@ import Hydra.Cardano.Api (
 newtype OnChainId = UnsafeOnChainId ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
-  deriving newtype (ToCBOR, FromCBOR)
+
+instance ToCBOR OnChainId where
+  toCBOR = genericToCBOR
+
+instance FromCBOR OnChainId where
+  fromCBOR = genericFromCBOR
 
 instance SerialiseAsRawBytes OnChainId where
   serialiseToRawBytes (UnsafeOnChainId bytes) = bytes

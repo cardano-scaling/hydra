@@ -94,10 +94,12 @@ instance FromJSON Environment where
       <*> o .: "configuredPeers"
 
 -- | Like the JSON instance above, 'ToCBOR' deliberately omits 'signingKey'
--- (CBOR-encoding a 'Secret' is a compile-time error by design).
+-- (CBOR-encoding a 'Secret' is a compile-time error by design). This is why
+-- the codec stays hand-written; the leading tag matches the generic format.
 instance ToCBOR Environment where
   toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
-    toCBOR party
+    toCBOR ("Environment" :: Text)
+      <> toCBOR party
       <> toCBOR otherParties
       <> toCBOR participants
       <> toCBOR contestationPeriod
@@ -109,27 +111,30 @@ instance ToCBOR Environment where
 -- | Like the JSON instance above, the decoded signing key is
 -- 'placeholderSigningKey', NOT the real key.
 instance FromCBOR Environment where
-  fromCBOR = do
-    party <- fromCBOR
-    otherParties <- fromCBOR
-    participants <- fromCBOR
-    contestationPeriod <- fromCBOR
-    depositPeriod <- fromCBOR
-    depositActivation <- fromCBOR
-    unsyncedPeriod <- fromCBOR
-    configuredPeers <- fromCBOR
-    pure
-      Environment
-        { party
-        , signingKey = placeholderSigningKey
-        , otherParties
-        , participants
-        , contestationPeriod
-        , depositPeriod
-        , depositActivation
-        , unsyncedPeriod
-        , configuredPeers
-        }
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Environment" :: Text) -> do
+        party <- fromCBOR
+        otherParties <- fromCBOR
+        participants <- fromCBOR
+        contestationPeriod <- fromCBOR
+        depositPeriod <- fromCBOR
+        depositActivation <- fromCBOR
+        unsyncedPeriod <- fromCBOR
+        configuredPeers <- fromCBOR
+        pure
+          Environment
+            { party
+            , signingKey = placeholderSigningKey
+            , otherParties
+            , participants
+            , contestationPeriod
+            , depositPeriod
+            , depositActivation
+            , unsyncedPeriod
+            , configuredPeers
+            }
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Environment"
 
 -- | Sentinel signing key used when an 'Environment' has to be
 -- reconstructed without access to the real one (e.g. JSON roundtrip

@@ -16,8 +16,7 @@ data HeadParameters = HeadParameters
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR HeadParameters where
-  toCBOR HeadParameters{contestationPeriod, depositPeriod, parties} =
-    toCBOR contestationPeriod <> toCBOR depositPeriod <> toCBOR parties
+  toCBOR = genericToCBOR
 
 instance FromCBOR HeadParameters where
-  fromCBOR = HeadParameters <$> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
