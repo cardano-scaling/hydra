@@ -417,7 +417,7 @@ Start the `hydra-node` using these parameters:
 ```shell
 hydra_version=2.3.0
 hydra-node \
-  --node-id "alice-fuel" \
+  --node-id "alice-node" \
   --persistence-dir persistence-alice \
   --fuel-signing-key credentials/alice-fuel.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
@@ -439,7 +439,7 @@ hydra-node \
 ```shell
 hydra_version=2.3.0
 hydra-node \
-  --node-id "bob-fuel" \
+  --node-id "bob-node" \
   --persistence-dir persistence-bob \
   --fuel-signing-key credentials/bob-fuel.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
@@ -481,7 +481,7 @@ This opens a duplex connection, and you should see messages indicating successfu
 
 ```json
 {
-  "peer": "bob-fuel",
+  "peer": "bob-node",
   "seq": 0,
   "tag": "PeerConnected",
   "timestamp": "2023-08-17T18:25:02.903974459Z"

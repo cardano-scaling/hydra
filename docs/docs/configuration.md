@@ -53,19 +53,19 @@ hydra-signing-key: "alice.sk"
 peers:
   - address: "127.0.0.1:5001"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    fuel-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice.fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    fuel-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob.fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    fuel-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol.fuel.vk"
 ledger-protocol-parameters: "protocol-parameters.json"
 persistence-dir: "persistence/alice"
 chain:
   mode: cardano
   network: preview
-  fuel-signing-key: "alice-fuel.sk"
+  fuel-signing-key: "alice.fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -87,13 +87,13 @@ A **mirror node** observes the head without holding signing keys. To set one up,
 peers:
   - address: "127.0.0.1:5001"
     hydra-verification-key: "alice.vk"
-    fuel-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice.fuel.vk"
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    fuel-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob.fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    fuel-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol.fuel.vk"
   - address: "127.0.0.1:5004"   # mirror — address only, no keys
 ```
 
@@ -111,17 +111,17 @@ peers:
   - address: "127.0.0.1:5001"          # alice primary — address only, no keys needed
   - address: "127.0.0.1:5002"
     hydra-verification-key: "bob.vk"
-    fuel-verification-key: "bob-fuel.vk"
+    fuel-verification-key: "bob.fuel.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "carol.vk"
-    fuel-verification-key: "carol-fuel.vk"
+    fuel-verification-key: "carol.fuel.vk"
   - address: "127.0.0.1:5004"          # self — filtered out automatically
     hydra-verification-key: "alice.vk"
-    fuel-verification-key: "alice-fuel.vk"
+    fuel-verification-key: "alice.fuel.vk"
 persistence-dir: "persistence/alice-mirror"
 chain:
   mode: cardano
-  fuel-signing-key: "alice-fuel.sk"
+  fuel-signing-key: "alice.fuel.sk"
   contestation-period: 43200
   deposit-period: 3600
   deposit-activation: 3600
@@ -513,7 +513,7 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
   "api-transaction-timeout": 300.0,
   "chain": {
     "mode": "cardano",
-    "fuel-signing-key": "/abs/path/to/alice-fuel.sk",
+    "fuel-signing-key": "/abs/path/to/alice.fuel.sk",
     "fuel-verification-keys": [],
     "contestation-period": 43200,
     "deposit-period": 3600.0,
