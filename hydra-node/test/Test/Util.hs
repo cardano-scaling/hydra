@@ -68,12 +68,6 @@ shouldBe actual expected =
  where
   reason = ExpectedButGot Nothing (show expected) (show actual)
 
--- | Lifted variant of Hspec's 'shouldNotBe'.
-shouldNotBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
-shouldNotBe actual expected
-  | actual /= expected = pure ()
-  | otherwise = failure $ "not expected: " <> show actual
-
 -- | Lifted variant of Hspec's 'shouldSatisfy'.
 shouldSatisfy :: (HasCallStack, MonadThrow m, Show a) => a -> (a -> Bool) -> m ()
 v `shouldSatisfy` p =

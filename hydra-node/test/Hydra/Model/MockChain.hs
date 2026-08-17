@@ -60,7 +60,7 @@ import Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Logging (Tracer)
@@ -76,12 +76,13 @@ import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.HeadId (HeadId)
-import Hydra.Tx.Party (Party (..), deriveParty, getParty)
+import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
+import Test.Hydra.Ledger (collectTransactions)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon, evaluateTx)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
@@ -377,7 +378,7 @@ createMockNetwork draftNode nodes =
   handleMessage HydraNode{inputQueue} msg = do
     enqueue inputQueue $ mkNetworkInput sender msg
 
-  sender = getParty draftNode
+  DraftHydraNode{env = Environment{party = sender}} = draftNode
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m

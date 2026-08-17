@@ -35,7 +35,6 @@ import Hydra.Options (
   defaultCardanoChainConfig,
   defaultDirectOptions,
   defaultLedgerConfig,
-  defaultPublishOptions,
   defaultRunOptions,
   outputFile,
   parseHydraCommandFromArgs,
@@ -47,6 +46,14 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Options ()
 import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import Text.Regex.TDFA ((=~))
+
+-- | Default options as parsed by the publish command parser.
+defaultPublishOptions :: PublishOptions
+defaultPublishOptions =
+  PublishOptions
+    { chainBackendOptions = Direct defaultDirectOptions
+    , publishSigningKey = "cardano.sk"
+    }
 
 spec :: Spec
 spec = parallel $

@@ -136,6 +136,11 @@
             pkgs.aiken
           ];
         };
+
+        hydra-plutus-extras-tests = pkgs.mkShellNoCC {
+          name = "hydra-plutus-extras-tests";
+          buildInputs = [ nativePkgs.hydra-plutus-extras.components.tests.tests ];
+        };
         hydra-tx-tests = pkgs.mkShellNoCC {
           name = "hydra-tx-tests";
           buildInputs = [
@@ -207,8 +212,8 @@
         hydra-node-prof = hsPkgsProfiled.hydra-node.components.exes.hydra-node;
 
         # Like hydra-cluster-bench, but the profiled hydra-node comes first on
-        # PATH so bench runs spawn it; see hydra-cluster/bench/README.md for
-        # how to collect .prof/eventlog files from a bench run.
+        # PATH so bench runs spawn it; see hydra-cluster/bench/BASELINES.md for
+        # how bench runs are driven.
         hydra-cluster-bench-prof = pkgs.mkShellNoCC {
           name = "hydra-cluster-bench-prof";
           buildInputs =

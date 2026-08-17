@@ -86,7 +86,7 @@ import Hydra.Cluster.SecurityScenarios (
   cannotStealLargerDepositDuringOwnIncrement,
  )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
-import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
@@ -97,6 +97,7 @@ import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
+import Test.Hydra.Ledger.Cardano (mkRangedTx)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold, testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (Positive (..), generate)

@@ -10,7 +10,7 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
+import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
@@ -21,6 +21,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,

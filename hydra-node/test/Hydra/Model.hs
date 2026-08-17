@@ -131,8 +131,6 @@ newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
 -- This is needed to be able to use `WorldState` inside DL formulae
 instance DynLogicModel WorldState
 
-type ActualCommitted = UTxOType Payment
-
 -- | Basic instantiation of `StateModel` for our `WorldState` state.
 instance StateModel WorldState where
   -- The list of possible "Actions" within our `Model`

@@ -26,11 +26,12 @@ import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, partyToChain, vkey)
-import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (dperiod, fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadAdaOverhead, replaceHeadId, replaceParties)
+import Test.Hydra.Tx.Utils (adaOnly)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 

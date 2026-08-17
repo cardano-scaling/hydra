@@ -2,7 +2,6 @@ name: "Compute e2e benchmark differences"
 
 on:
   pull_request:
-  workflow_dispatch:
 
 # Default (inherited) token: read-only. Only the comment job is granted write.
 permissions:

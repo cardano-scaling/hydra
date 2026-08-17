@@ -45,7 +45,7 @@ import Hydra.Tx.Contract.Close.Healthy (
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Snapshot (getSnapshot)
-import Hydra.Tx.Utils (IncrementalAction (..), adaOnly, setIncrementalActionMaybe)
+import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -65,6 +65,7 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotNumber,
   replaceSnapshotVersion,
  )
+import Test.Hydra.Tx.Utils (adaOnly)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 

@@ -7,7 +7,6 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (..), fromRelativeTime, toRelativeTime)
-import Data.Fixed (Pico)
 import Hydra.Cardano.Api (EraHistory (EraHistory))
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.Backend (ChainBackend (..))
@@ -32,10 +31,6 @@ data TimeHandleParams = TimeHandleParams
   , horizonSlot :: SlotNo
   , currentSlot :: SlotNo
   }
-
--- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
-safeZone :: Pico
-safeZone = 3 * 2160 / 0.05
 
 -- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.

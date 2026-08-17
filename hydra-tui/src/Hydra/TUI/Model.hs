@@ -193,7 +193,6 @@ makeLensesFor
 
 makeLensesFor
   [ ("connectedState", "connectedStateL")
-  , ("nodeHost", "nodeHostL")
   , ("now", "nowL")
   , ("timeZone", "timeZoneL")
   , ("logState", "logStateL")
@@ -234,9 +233,7 @@ makeLensesFor
   [ ("utxo", "utxoL")
   , ("pendingUTxOToDecommit", "pendingUTxOToDecommitL")
   , ("pendingIncrements", "pendingIncrementsL")
-  , ("parties", "partiesL")
   , ("activeHeadState", "activeHeadStateL")
-  , ("headId", "headIdL")
   ]
   ''ActiveLink
 

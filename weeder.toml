@@ -1,22 +1,13 @@
 roots = [
   "^Main.main$",
-  "^Spec.main$",
   "^Paths_.*",
-  "^main$",
-  "validatorHash$",
-  "validatorScript$",
-  "queryEpochNo$",
-  "queryUTxOWhole$",
   "traceDebug$",
   "spy$",
   "spy'$",
-  "redeemer$",
-  "evaluateTx'$",
   "alwaysFailingScript$",
   "dummyValidatorScriptAlwaysFails$",
   "exampleValidator$",
   "exampleSecureValidatorScript$",
-  "shouldNotBe$",
   "propTransactionFailsEvaluation$",
 ]
 
@@ -36,16 +27,12 @@ root-instances = [
   # unstableMakeIsData creates all Data instances at once, some are unused and
   # so are treated as roots.
   { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" },
-  { module = "Hydra.Contract.Commit", instance = "FromData RedeemerType" },
-  { module = "Hydra.Contract.Commit", instance = "UnsafeFromData RedeemerType" },
   { module = "Hydra.Contract.Deposit", instance = "FromData DepositRedeemer" },
   { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" },
-  { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" },
   { module = "Hydra.Contract.Dummy", instance = "FromData R" },
   { module = "Hydra.Contract.Dummy", instance = "ToData R" },
-  # This one is odd.
-  { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
-  # TODO: Remove this
+  # Load-bearing: the placebo To/FromJSON and To/FromCBOR instances on Payment
+  # are forced superclasses of IsTx; Hydra.Model does not compile without them.
   { module = "Hydra.Model.Payment", instance = "IsTx" },
   { module = "Hydra.Model", instance = "HasVariables" },
   # These are used for debugging.
@@ -56,7 +43,6 @@ root-instances = [
   { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" },
   { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" },
   # test instances
-  { module = "Hydra.ModelSpec", instance = "HasVariables" },
   { module = "Test.Hydra.Tx.Gen", instance = "Arbitrary HydraAccumulator" },
   # Forbid-constrained instances are intentionally unreachable: their purpose
   # is to emit a GHC TypeError if anyone tries to derive or call them.

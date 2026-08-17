@@ -1,5 +1,5 @@
-# Build distributable executables and prime nix caches with development shells.
-name: Binaries & devShells
+# Build distributable executables.
+name: Binaries
 
 on:
   push:

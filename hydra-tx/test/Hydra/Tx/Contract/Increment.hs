@@ -36,7 +36,7 @@ import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
@@ -49,6 +49,7 @@ import Test.Hydra.Tx.Mutation (
   replaceParties,
   replaceSnapshotVersion,
  )
+import Test.Hydra.Tx.Utils (adaOnly)
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 

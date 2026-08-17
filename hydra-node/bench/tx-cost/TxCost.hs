@@ -24,17 +24,9 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   OpenState (..),
   ctxContestationPeriod,
-  ctxHeadParameters,
   ctxHydraSigningKeys,
-  ctxParticipants,
   getKnownUTxO,
   initialize,
-  observeClose,
-  unsafeClose,
-  unsafeContest,
-  unsafeFanout,
-  unsafeFinalPartialFanout,
-  unsafePartialFanout,
  )
 import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
@@ -45,13 +37,21 @@ import Hydra.Tx (utxoFromTx)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Chain.Direct.State (
+  ctxHeadParameters,
+  ctxParticipants,
   genCloseTx,
   genDecrementTx,
   genHydraContextFor,
   genIncrementTx,
   genStClosed,
   genStOpen,
+  observeClose,
   pickChainContext,
+  unsafeClose,
+  unsafeContest,
+  unsafeFanout,
+  unsafeFinalPartialFanout,
+  unsafePartialFanout,
  )
 import Test.Hydra.Ledger.Cardano.Fixtures (
   estimateMinFee,

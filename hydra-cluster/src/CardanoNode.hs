@@ -111,17 +111,6 @@ type Port = Int
 newtype NodeId = NodeId Int
   deriving newtype (Eq, Show, Num)
 
--- | Configuration parameters for a single node devnet
-data DevnetConfig = DevnetConfig
-  { stateDirectory :: FilePath
-  -- ^ Parent state directory
-  , systemStart :: UTCTime
-  -- ^ Blockchain start time
-  , ports :: PortsConfig
-  -- ^ A list of port
-  }
-  deriving stock (Eq, Show, Generic)
-
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs = CardanoNodeArgs
   { nodeSocket :: FilePath
@@ -160,16 +149,6 @@ defaultCardanoNodeArgs =
     , nodeVrfKeyFile = Nothing
     , nodePort = Nothing
     }
-
--- | Configuration of ports from the perspective of a peer in the context of a
--- fully sockected topology.
-data PortsConfig = PortsConfig
-  { ours :: Port
-  -- ^ Our node TCP port.
-  , peers :: [Port]
-  -- ^ Other peers TCP ports.
-  }
-  deriving stock (Show, Eq, Generic)
 
 getCardanoNodeVersion :: IO String
 getCardanoNodeVersion =

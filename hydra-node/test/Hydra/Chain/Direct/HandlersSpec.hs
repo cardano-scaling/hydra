@@ -50,9 +50,7 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   OpenState (..),
   chainSlotFromPoint,
-  ctxHeadParameters,
   ctxNetworkId,
-  ctxParticipants,
   getKnownUTxO,
   initialChainState,
   initialize,
@@ -67,6 +65,8 @@ import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
 import System.IO.Error (ioeGetErrorString, userError)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
+  ctxHeadParameters,
+  ctxParticipants,
   deriveChainContexts,
   genChainStateWithTx,
   genClosedStateForFanout,

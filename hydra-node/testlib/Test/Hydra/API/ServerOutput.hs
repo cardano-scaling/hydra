@@ -35,8 +35,6 @@ instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
 
 instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
 
-data InvalidInput = InvalidInput
-
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink

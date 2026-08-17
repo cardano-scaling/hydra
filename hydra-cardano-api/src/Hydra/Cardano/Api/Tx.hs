@@ -18,10 +18,8 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Core (TxLevel (..))
 import Control.Lens ((&), (.~))
-import Data.Bifunctor (bimap)
-import Data.Functor ((<&>))
 import Data.Set qualified as Set
-import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
+import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 
 -- * Extras
 
@@ -80,16 +78,6 @@ txSpendingUTxO utxo =
       )
  where
   inputs = UTxO.inputSet utxo
-
--- | Get the UTxO that are produced by some transaction.
--- XXX: Defined here to avoid cyclic module dependency
-utxoProducedByTx :: Tx Era -> UTxO Era
-utxoProducedByTx tx =
-  UTxO.fromList $
-    zip [0 ..] (txOuts body)
-      <&> bimap (mkTxIn tx) toCtxUTxOTxOut
- where
-  body = getTxBodyContent $ getTxBody tx
 
 -- * Type Conversions
 

@@ -511,7 +511,7 @@ withInitialUTxO externalSigningKey fundingTransaction =
    in -- NOTE: The initialUTxO must all UTXO we will later commit. We assume
       -- that everything owned by the externalSigningKey will get committed
       -- into the head.
-      utxoProducedByTx fundingTransaction
+      utxoFromTx fundingTransaction
         & UTxO.filter ((== mkVkAddress networkId vk) . txOutAddress)
 
 genClientFunds :: [SigningKey PaymentKey] -> Integer -> Int -> Gen [(VerificationKey PaymentKey, Coin)]

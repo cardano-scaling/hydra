@@ -19,7 +19,7 @@ import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRefs)
+import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -46,6 +46,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
+import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,

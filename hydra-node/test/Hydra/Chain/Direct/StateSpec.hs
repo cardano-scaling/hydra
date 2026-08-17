@@ -11,6 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
+import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   ExecutionUnits (..),
   SlotNo,
@@ -26,7 +27,6 @@ import Hydra.Cardano.Api (
   txOutValue,
   txOuts',
   utxoFromTx,
-  valueSize,
   pattern PlutusScript,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -41,15 +41,11 @@ import Hydra.Chain.Direct.State (
   HydraContext (..),
   OpenState (..),
   PartialFanoutError (..),
-  ctxHeadParameters,
-  ctxParticipants,
   finalPartialFanout,
   getKnownUTxO,
   initialChainState,
   initialize,
   partialFanout,
-  unsafeIncrement,
-  unsafePartialFanout,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -75,11 +71,12 @@ import Hydra.Tx.Observe (
   observePartialFanoutTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
-import Hydra.Tx.Utils (splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Chain.Direct.State (
   ChainTransition,
+  ctxHeadParameters,
+  ctxParticipants,
   findFittingPartialChunk,
   genChainStateWithTx,
   genCloseTx,
@@ -102,6 +99,8 @@ import Test.Hydra.Chain.Direct.State (
   genRecoverTx,
   maxGenParties,
   pickChainContext,
+  unsafeIncrement,
+  unsafePartialFanout,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
@@ -114,6 +113,7 @@ import Test.Hydra.Tx.Mutation (
   replaceHeadId,
   replacePolicyIdWith,
  )
+import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (
   Property,
   Testable (property),
@@ -675,7 +675,7 @@ forAllFanout action =
   maxSupported = 44
 
   countAssets :: [TxOut ctx] -> Int
-  countAssets = getSum . foldMap (Sum . valueSize . txOutValue)
+  countAssets = getSum . foldMap (Sum . length . IsList.toList . txOutValue)
 
   prettyLength :: Int -> String
   prettyLength len

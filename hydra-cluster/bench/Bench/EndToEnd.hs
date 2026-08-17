@@ -651,10 +651,6 @@ progressReport nodeId clientId queueSize queue = do
       threadDelay 5
       progressReport nodeId clientId queueSize queue
 
-type TransactionId = Integer
-type TransactionInput = Int
-type TransactionOutput = Int
-
 newTx ::
   TVar IO (Map.Map TxId Event) ->
   HydraClient ->

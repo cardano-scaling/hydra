@@ -463,7 +463,9 @@ genBlueprintTxWithUTxO =
           let redeemer = hedgehog Gen.genHashableScriptData `generateWith` 42
               script = dummyRewardingScript
               scriptWitness = mkScriptWitness script NoScriptDatumForStake redeemer
-              stakeAddress = mkScriptStakeAddress testNetworkId script
+              stakeAddress =
+                makeStakeAddress testNetworkId . StakeCredentialByScript . hashScript $
+                  PlutusScript script
           pure
             ( utxo
             , txbody

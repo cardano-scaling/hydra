@@ -52,7 +52,7 @@ import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
-import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx (HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Secret (mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
@@ -178,9 +178,6 @@ data DraftHydraNode tx m = DraftHydraNode
     -- bootstrap. Maybe move to NodeStateHandler or make it differently accessible?
     chainStateHistory :: ChainStateHistory tx
   }
-
-instance HasParty (DraftHydraNode tx m) where
-  getParty DraftHydraNode{env} = getParty env
 
 -- | Hydrate a 'DraftHydraNode' by loading events from source, re-aggregate node
 -- state and sending events to sinks while doing so.

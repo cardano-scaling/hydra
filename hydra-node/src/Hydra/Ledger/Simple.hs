@@ -131,14 +131,3 @@ simpleLedger =
       if ins `Set.isSubsetOf` utxo && utxo `Set.disjoint` outs
         then Right $ (utxo Set.\\ ins) `Set.union` outs
         else Left (tx, ValidationError "cannot apply transaction")
-
--- * Builders
-
-utxoRef :: Integer -> UTxOType SimpleTx
-utxoRef = Set.singleton . SimpleTxOut
-
-utxoRefs :: [Integer] -> UTxOType SimpleTx
-utxoRefs = Set.fromList . fmap SimpleTxOut
-
-aValidTx :: Integer -> SimpleTx
-aValidTx n = SimpleTx n mempty (utxoRef n)

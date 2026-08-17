@@ -52,7 +52,6 @@ data TransitionCounts = TransitionCounts
   -- ^ \"close\".
   , idleSelf :: Int
   , openSelf :: Int
-  , closedSelf :: Int
   , openIncrement :: Int
   -- ^ 'CommitFinalized' events: increment self-loop on Open.
   , openDecrement :: Int
@@ -76,7 +75,7 @@ data TransitionCounts = TransitionCounts
   deriving stock (Eq, Show)
 
 emptyCounts :: TransitionCounts
-emptyCounts = TransitionCounts 0 0 0 0 0 0 0 0 0 0 0 0 0
+emptyCounts = TransitionCounts 0 0 0 0 0 0 0 0 0 0 0 0
 
 -- | Walking state for 'countTransitions'. Tracks whether the head is
 -- currently mid-partial-fanout so we can classify the subsequent
@@ -129,7 +128,9 @@ walkHistory steps = case V.toList steps of
             let c' = case (prev, curr) of
                   (SIdle, SIdle) -> c{idleSelf = idleSelf c + 1}
                   (SOpen, SOpen) -> c{openSelf = openSelf c + 1}
-                  (SClosed, SClosed) -> c{closedSelf = closedSelf c + 1}
+                  -- Closed self-loops are not rendered, so they are counted
+                  -- nowhere rather than falling through to 'unexpected'.
+                  (SClosed, SClosed) -> c
                   (SIdle, SOpen) -> c{idleToOpen = idleToOpen c + 1}
                   (SOpen, SClosed) -> c{openToClosed = openToClosed c + 1}
                   _ -> c{unexpected = unexpected c + 1}

@@ -138,17 +138,6 @@ queryEraHistory :: LocalNodeConnectInfo -> QueryPoint -> IO EraHistory
 queryEraHistory connectInfo queryPoint =
   runQuery connectInfo queryPoint QueryEraHistory
 
--- | Query the current epoch number.
---
--- Throws at least 'QueryException' if query fails.
-queryEpochNo ::
-  LocalNodeConnectInfo ->
-  QueryPoint ->
-  IO EpochNo
-queryEpochNo connectInfo queryPoint = do
-  runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryEpoch)
-
 -- | Query the protocol parameters at given point.
 --
 -- Throws at least 'QueryException' if query fails.
