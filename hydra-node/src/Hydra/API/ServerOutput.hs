@@ -31,10 +31,13 @@ import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
+--
+-- NOTE: The field order is the CBOR wire format (see 'ToCBOR' below), so
+-- reordering fields is a breaking format change.
 data TimedServerOutput tx = TimedServerOutput
-  { output :: ServerOutput tx
-  , seq :: Natural
+  { seq :: Natural
   , time :: UTCTime
+  , output :: ServerOutput tx
   }
   deriving stock (Eq, Show, Generic)
 
@@ -47,30 +50,15 @@ instance IsChainState tx => ToJSON (TimedServerOutput tx) where
 
 instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
-    TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
+    TimedServerOutput <$> o .: "seq" <*> o .: "timestamp" <*> parseJSON v
 
 -- NOTE: Unlike the JSON instance, which merges 'seq' and 'timestamp' into the
 -- inner 'ServerOutput' object, the CBOR encoding is a plain tagged envelope.
--- The tag makes any server-sent message start with a unique text token, so
--- decoders can dispatch on it.
 instance IsChainState tx => ToCBOR (TimedServerOutput tx) where
-  toCBOR TimedServerOutput{output, seq, time} =
-    toCBOR ("TimedServerOutput" :: Text) <> toCBOR seq <> toCBOR time <> toCBOR output
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (TimedServerOutput tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      ("TimedServerOutput" :: Text) -> decodeTimedServerOutputBody
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded TimedServerOutput"
-
--- | Decode a 'TimedServerOutput' after its @TimedServerOutput@ tag has already
--- been consumed (used for tag-based dispatch).
-decodeTimedServerOutputBody :: IsChainState tx => Decoder s (TimedServerOutput tx)
-decodeTimedServerOutputBody = do
-  seq <- fromCBOR
-  time <- fromCBOR
-  output <- fromCBOR
-  pure TimedServerOutput{output, seq, time}
+  fromCBOR = genericFromCBOR
 
 data DecommitInvalidReason tx
   = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
