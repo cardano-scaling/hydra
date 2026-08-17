@@ -48,7 +48,7 @@ import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
-import Network.HTTP.Types.URI (Query, parseQueryReplacePlus)
+import Network.HTTP.Types.URI (Query, parseQuery)
 import Network.WebSockets (
   Connection,
   PendingConnection (pendingRequest),
@@ -129,10 +129,7 @@ wsApp ::
 wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
-      -- NOTE: parse without the '+'-as-space rule: that is a form-encoding
-      -- convention which 'parseQuery'/'decodePath' apply but modern-uri (used
-      -- here previously) did not, so this keeps accepted values byte-identical.
-      queryParams = parseQueryReplacePlus False $ BS8.dropWhile (/= '?') path
+      queryParams = parseQuery $ BS8.dropWhile (/= '?') path
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
