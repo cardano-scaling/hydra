@@ -67,7 +67,7 @@ import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthyFano
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
@@ -254,6 +254,11 @@ spec = parallel $ do
       -- Two distinct UTxOs with identical TxOut content (same address + value) must
       -- be fanned out correctly. Currently fails due to accumulator deduplication.
       propTransactionEvaluates healthyPartialFanoutTxWithDuplicates
+    prop "recovers selected funds despite an unburned token (#2334)" $
+      -- A foreign token the head cannot burn blocks the final (token-burning) fanout,
+      -- but a partial step still distributes the selected UTxOs, so funds are
+      -- recoverable via selection regardless of the stuck token.
+      propTransactionEvaluates healthyPartialFanoutTxWithUnburnedToken
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFinalPartialFanoutTx
