@@ -44,7 +44,7 @@ parseOptions =
       <$> parseNodeHost
       <*> parsecardanoConnection
       <*> networkIdParser
-      <*> parseCardanoSigningKey
+      <*> parseFundsSigningKey
       <*> parseFuelVerificationKey
       <*> parseApiEncoding
   )
@@ -98,8 +98,8 @@ parseNodeHost =
         <> showDefault
     )
 
-parseCardanoSigningKey :: Parser FilePath
-parseCardanoSigningKey =
+parseFundsSigningKey :: Parser FilePath
+parseFundsSigningKey =
   strOption
     ( long "funds-signing-key"
         <> short 'k'

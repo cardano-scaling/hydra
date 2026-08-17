@@ -30,7 +30,7 @@ networkId = Testnet $ NetworkMagic 42
 data Dataset = Dataset
   { fundingTransaction :: Tx
   , hydraNodeKeys :: [Secret (SigningKey PaymentKey)]
-  -- ^ Fuel signing keys held by the internal wallet.
+  -- ^ Cardano signing keys that will hold fuel.
   , clientDatasets :: [ClientDataset]
   , title :: Maybe Text
   , description :: Maybe Text

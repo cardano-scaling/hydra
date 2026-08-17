@@ -37,7 +37,7 @@ The _chain_ component interfaces the Hydra node with the Cardano (layer 1) chain
 
 #### Wallet
 
-The Hydra node maintains an internal wallet using the fuel signing key provided to the `hydra-node`. This wallet is used to handle the payment of transaction fees and to sign transactions.
+The Hydra node maintains an internal wallet using the Cardano signing key provided to the `hydra-node`. This wallet is used to handle the payment of transaction fees and to sign transactions.
 
 ### Head logic
 

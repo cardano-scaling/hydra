@@ -66,13 +66,13 @@ changes.
   time conversions.
   [#2803](https://github.com/cardano-scaling/hydra/pull/2803)
 
-- **BREAKING** (CLI) Renamed the Cardano key options so the fuel/funds
-  distinction is explicit and consistent everywhere. On `hydra-node`,
-  `--cardano-signing-key` is now `--fuel-signing-key` and
-  `--cardano-verification-key` is now `--fuel-verification-key`. On `hydra-tui`,
-  `--cardano-signing-key` is now `--funds-signing-key`. The YAML config keys
-  change to match (`fuel-signing-key`, `fuel-verification-key`). The old names
-  are removed, so update your command lines and config files.
+- **BREAKING** (`hydra-tui`) Renamed `--cardano-signing-key` to
+  `--funds-signing-key`, to distinguish it from the existing `--fuel-key` and to
+  make clear it is the key holding the funds you commit into the head. The old
+  name is removed, so update your command lines. The `hydra-node`
+  `--cardano-signing-key` and `--cardano-verification-key` options are
+  unchanged: that key is the participant's layer 1 identity, not just a source
+  of fuel.
   [#2405](https://github.com/cardano-scaling/hydra/issues/2405)
 
 - **BREAKING**:

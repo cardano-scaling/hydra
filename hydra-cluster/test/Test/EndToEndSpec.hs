@@ -715,7 +715,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let chainConfig =
                   Cardano
                     defaultCardanoChainConfig
-                      { fuelSigningKey = "not-existing.sk"
+                      { cardanoSigningKey = "not-existing.sk"
                       , chainBackendOptions =
                           Direct
                             DirectOptions

@@ -77,8 +77,8 @@ hydra_head_tx_confirmation_time_ms_count  0
 * Ensure the `hydra-node` is connected to a `cardano-node` operating on the correct network. Verify the `--network` command-line argument and the `cardano-node` configuration.
 * Remember, the `hydra-node` cannot start if it cannot connect to the `cardano-node`, which might require time as the `cardano-node` must revalidate its database and potentially reconstruct its ledger state upon startup. Its connections are not open until it is fully prepared. If running as a service or a container, ensure that the orchestrator restarts the process when it crashes.
 * Check that the _Scripts_ transaction identifier is valid. This identifier is provided on the [release](https://github.com/cardano-scaling/hydra/releases/latest) page for the three major networks (`preview`, `pre-production`, `mainnet`).
-* Verify that the `hydra-node`'s _fuel signing key_ is consistent with the _Verification key_ from the `Init` transaction. Ensure the `--fuel-signing-key` parameter points to the correct key, and that peers have the accurate `--fuel-verification-key` for your node.
-* Confirm that peers' _fuel verification keys_ are accurate. This mirrors the above issue; check parameters on all peers.
+* Verify that the `hydra-node`'s _Cardano signing key_ is consistent with the _Verification key_ from the `Init` transaction. Ensure the `--cardano-signing-key` parameter points to the correct key, and that peers have the accurate `--cardano-verification-key` for your node.
+* Confirm that peers' _Cardano verification keys_ are accurate. This mirrors the above issue; check parameters on all peers.
 
 ### Head does not make progress
 
@@ -114,8 +114,8 @@ A mirror node operates with the same party credentials (Cardano and Hydra keys) 
 > - with a unique `--node-id`.
 > - with a unique `--advertise` IP address, as they run on separate machines.
 > - specify each original and mirror node with its unique `--peer` IP address being advertised.
-> - must not duplicate `--fuel-verification-key` and `--hydra-verification-key`, as these identify unique parties independently of their peer setup.
-> - mirror nodes must use the same `--hydra-signing-key` and `--fuel-signing-key` as their original counterpart.
+> - must not duplicate `--cardano-verification-key` and `--hydra-verification-key`, as these identify unique parties independently of their peer setup.
+> - mirror nodes must use the same `--hydra-signing-key` and `--cardano-signing-key` as their original counterpart.
 
 Mirror nodes coexist alongside their original counterpart without conflict, although some duplication of Hydra network messages sent and received from the mirror is expected.
 Occasionally, operators might observe a `SnapshotAlreadySigned` log, which is raised when both the mirror and the original party attempt to sign the same snapshot. This log is transient, harmless, and can be safely ignored.

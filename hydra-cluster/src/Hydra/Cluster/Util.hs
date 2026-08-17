@@ -160,8 +160,8 @@ chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depos
     Cardano
       defaultCardanoChainConfig
         { hydraScriptsTxId
-        , fuelSigningKey = actorFilePath me "sk"
-        , fuelVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
+        , cardanoSigningKey = actorFilePath me "sk"
+        , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositPeriod
         , depositActivation

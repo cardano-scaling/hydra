@@ -4054,8 +4054,8 @@ components:
       additionalProperties: false
       required:
         - mode
-        - fuel-signing-key
-        - fuel-verification-keys
+        - cardano-signing-key
+        - cardano-verification-keys
         - contestation-period
         - deposit-period
         - deposit-activation
@@ -4065,14 +4065,14 @@ components:
         mode:
           type: string
           enum: ["cardano"]
-        fuel-signing-key:
+        cardano-signing-key:
           type: string
-          description: Path to the fuel signing key file used for on-chain transactions.
-        fuel-verification-keys:
+          description: Path to the Cardano signing key file used for on-chain transactions.
+        cardano-verification-keys:
           type: array
           items:
             type: string
-          description: Paths to the fuel verification key files of the other head participants.
+          description: Paths to the Cardano verification key files of the other head participants.
         contestation-period:
           type: integer
           minimum: 1

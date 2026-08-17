@@ -86,9 +86,9 @@ source .env && hydra-node \
   --hydra-verification-key bob.vk \
   --hydra-verification-key carol.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --fuel-signing-key devnet/credentials/alice.sk \
-  --fuel-verification-key devnet/credentials/bob.vk \
-  --fuel-verification-key devnet/credentials/carol.vk \
+  --cardano-signing-key devnet/credentials/alice.sk \
+  --cardano-verification-key devnet/credentials/bob.vk \
+  --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -108,9 +108,9 @@ source .env && hydra-node \
   --hydra-verification-key alice.vk \
   --hydra-verification-key carol.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --fuel-signing-key devnet/credentials/bob.sk \
-  --fuel-verification-key devnet/credentials/alice.vk \
-  --fuel-verification-key devnet/credentials/carol.vk \
+  --cardano-signing-key devnet/credentials/bob.sk \
+  --cardano-verification-key devnet/credentials/alice.vk \
+  --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
@@ -130,9 +130,9 @@ source .env && hydra-node \
   --hydra-verification-key alice.vk \
   --hydra-verification-key bob.vk \
   --hydra-scripts-tx-id $HYDRA_SCRIPTS_TX_ID \
-  --fuel-signing-key devnet/credentials/carol.sk \
-  --fuel-verification-key devnet/credentials/alice.vk \
-  --fuel-verification-key devnet/credentials/bob.vk \
+  --cardano-signing-key devnet/credentials/carol.sk \
+  --cardano-verification-key devnet/credentials/alice.vk \
+  --cardano-verification-key devnet/credentials/bob.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \

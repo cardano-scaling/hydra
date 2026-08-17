@@ -9,19 +9,19 @@ hydra-signing-key: "../bob.sk"
 peers:
   - address: "127.0.0.1:5001"
     hydra-verification-key: "../alice.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
   - address: "127.0.0.1:5002" # self — keys here are ignored (filtered out)
     hydra-verification-key: "../bob.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "../carol.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
   - address: "127.0.0.1:5004" # alice-mirror: observer peer (no keys)
 ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
 persistence-dir: "../../devnet/persistence/bob"
 chain:
   mode: cardano
-  fuel-signing-key: "../../hydra-cluster/config/credentials/bob.sk"
+  cardano-signing-key: "../../hydra-cluster/config/credentials/bob.sk"
   contestation-period: 3
   deposit-period: 10
   deposit-activation: 10

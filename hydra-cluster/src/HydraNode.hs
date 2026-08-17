@@ -364,14 +364,14 @@ withHydraClusterWith mQueryParams mapOptions tracer timing workDir nodeSocket fi
       let hydraSigningKey = hydraKeys Prelude.!! (nodeId - firstNodeId)
           hydraVerificationKeys =
             [getVerificationKey sk | sk <- hydraKeys, sk /= hydraSigningKey]
-          fuelSigningKey = workDir </> show nodeId <.> "sk"
-          fuelVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
+          cardanoSigningKey = workDir </> show nodeId <.> "sk"
+          cardanoVerificationKeys = [workDir </> show i <.> "vk" | i <- allNodeIds, i /= nodeId]
           chainConfig =
             Cardano
               defaultCardanoChainConfig
                 { hydraScriptsTxId
-                , fuelSigningKey
-                , fuelVerificationKeys
+                , cardanoSigningKey
+                , cardanoVerificationKeys
                 , contestationPeriod
                 , depositPeriod
                 , depositActivation

@@ -157,7 +157,7 @@ hydra-node \
   --node-id 1 \
   --api-port 4001 \
   --hydra-signing-key ${CREDENTIALS_PATH}/../alice.sk \
-  --fuel-signing-key ${CREDENTIALS_PATH}/alice-fuel.sk \
+  --cardano-signing-key ${CREDENTIALS_PATH}/alice.sk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
   --testnet-magic $CARDANO_TESTNET_MAGIC \
   --node-socket $CARDANO_NODE_SOCKET_PATH
@@ -202,7 +202,7 @@ This is the final step. The `commit-tx.json` file now contains a valid, balanced
 cardano-cli conway transaction sign \
   --tx-body-file commit-tx.json \
   --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
-  --signing-key-file ${CREDENTIALS_PATH}/alice-fuel.sk \
+  --signing-key-file ${CREDENTIALS_PATH}/alice.sk \
   --out-file signed-tx.json
 
 cardano-cli conway transaction submit \

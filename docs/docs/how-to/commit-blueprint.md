@@ -105,7 +105,7 @@ hydra-node \
   --node-id 1 --listen 0.0.0.0:5001 --api-port 4001 \
   --hydra-signing-key demo/alice.sk \
   --hydra-scripts-tx-id 6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711 \
-  --fuel-signing-key hydra-cluster/config/credentials/alice.sk \
+  --cardano-signing-key hydra-cluster/config/credentials/alice.sk \
   --ledger-protocol-parameters pp-preprod.json \
   --testnet-magic 1 \
   --node-socket testnets/preprod/node.socket \

@@ -4,7 +4,7 @@
 #
 # Observer peers are represented by peer entries with **no** verification
 # keys. A peer entry with exactly one of hydra-verification-key /
-# fuel-verification-key is rejected at startup (it was almost certainly
+# cardano-verification-key is rejected at startup (it was almost certainly
 # a mistake) — observers omit both, signers provide both.
 #
 # Note: the mirror and the primary alice share the same hydra-signing-key,
@@ -26,18 +26,18 @@ peers:
   - address: "127.0.0.1:5001" # alice primary — same keys as this node, no VKs needed
   - address: "127.0.0.1:5002"
     hydra-verification-key: "../bob.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "../carol.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
   - address: "127.0.0.1:5004" # self — keys here are ignored (filtered out)
     hydra-verification-key: "../alice.vk"
-    fuel-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
 ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
 persistence-dir: "../../devnet/persistence/alice-mirror"
 chain:
   mode: cardano
-  fuel-signing-key: "../../hydra-cluster/config/credentials/alice.sk"
+  cardano-signing-key: "../../hydra-cluster/config/credentials/alice.sk"
   contestation-period: 3
   deposit-period: 10
   deposit-activation: 10

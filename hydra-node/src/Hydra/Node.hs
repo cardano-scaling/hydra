@@ -80,17 +80,17 @@ initEnvironment options = do
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
-  -- --fuel-verification-key options and deriving 'OnChainId's from it. We should be able to call out to the various chain layer
+  -- --cardano-verification-key options and deriving 'OnChainId's from it. We should be able to call out to the various chain layer
   getParticipants =
     case chainConfig of
       Offline{} -> pure []
       Cardano
         CardanoChainConfig
-          { fuelVerificationKeys
-          , fuelSigningKey
+          { cardanoVerificationKeys
+          , cardanoSigningKey
           } -> do
-          ownSigningKey <- readSigningKey fuelSigningKey
-          otherVerificationKeys <- mapM readVerificationKey fuelVerificationKeys
+          ownSigningKey <- readSigningKey cardanoSigningKey
+          otherVerificationKeys <- mapM readVerificationKey cardanoVerificationKeys
           pure $ verificationKeyToOnChainId <$> (getCardanoPaymentVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of

@@ -217,7 +217,7 @@ source <(cardano-cli --bash-completion-script cardano-cli)
 
 ## Step 2. Prepare keys and funding
 
-First, generate two Cardano key pairs and addresses for each participant on layer 1: a **fuel** key that the `hydra-node` uses to pay fees, and a **funds** key that holds the ada you commit into the head:
+First, generate two Cardano key pairs and addresses for each participant on layer 1: a `-node` key that identifies the `hydra-node` on-chain and pays the fees for protocol transactions (the ada it holds is called **fuel**), and a `-funds` key holding the ada you commit into the head:
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -229,12 +229,12 @@ import TabItem from '@theme/TabItem';
 mkdir -p credentials
 
 cardano-cli address key-gen \
-  --verification-key-file credentials/alice-fuel.vk \
-  --signing-key-file credentials/alice-fuel.sk
+  --verification-key-file credentials/alice-node.vk \
+  --signing-key-file credentials/alice-node.sk
 
 cardano-cli address build \
-  --verification-key-file credentials/alice-fuel.vk \
-  --out-file credentials/alice-fuel.addr
+  --verification-key-file credentials/alice-node.vk \
+  --out-file credentials/alice-node.addr
 
 cardano-cli address key-gen \
   --verification-key-file credentials/alice-funds.vk \
@@ -252,12 +252,12 @@ cardano-cli address build \
 mkdir -p credentials
 
 cardano-cli address key-gen \
-  --verification-key-file credentials/bob-fuel.vk \
-  --signing-key-file credentials/bob-fuel.sk
+  --verification-key-file credentials/bob-node.vk \
+  --signing-key-file credentials/bob-node.sk
 
 cardano-cli address build \
-  --verification-key-file credentials/bob-fuel.vk \
-  --out-file credentials/bob-fuel.addr
+  --verification-key-file credentials/bob-node.vk \
+  --out-file credentials/bob-node.addr
 
 cardano-cli address key-gen \
   --verification-key-file credentials/bob-funds.vk \
@@ -277,8 +277,8 @@ Next, fund these addresses. If you have test ada on the `preprod` network, distr
 <TabItem value="alice" label="Alice">
 
 ```shell
-echo "Send at least 30 tADA to alice-fuel:"
-echo $(cat credentials/alice-fuel.addr)"\n"
+echo "Send at least 30 tADA to alice-node:"
+echo $(cat credentials/alice-node.addr)"\n"
 
 echo "Send any amount of tADA or assets to alice-funds:"
 echo $(cat credentials/alice-funds.addr)"\n"
@@ -288,8 +288,8 @@ echo $(cat credentials/alice-funds.addr)"\n"
 <TabItem value="bob" label="Bob">
 
 ```shell
-echo "Send at least 30 tADA to bob-fuel:"
-echo $(cat credentials/bob-fuel.addr)"\n"
+echo "Send at least 30 tADA to bob-node:"
+echo $(cat credentials/bob-node.addr)"\n"
 
 echo "Send any amount of tADA or assets to bob-funds:"
 echo $(cat credentials/bob-funds.addr)"\n"
@@ -316,8 +316,8 @@ cardano-cli latest transaction build \
     $(cat alice-funds-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
     --change-address $(cat credentials/alice-funds.addr) \
     --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
-    --tx-out $(cat credentials/bob-fuel.addr)+1000000000 \
-    --tx-out $(cat credentials/alice-fuel.addr)+1000000000 \
+    --tx-out $(cat credentials/bob-node.addr)+1000000000 \
+    --tx-out $(cat credentials/alice-node.addr)+1000000000 \
     --out-file tx.json
 
 cardano-cli latest transaction sign \
@@ -336,8 +336,8 @@ You can check the balance of your addresses via:
 <TabItem value="alice" label="Alice">
 
 ```shell
-echo "# UTxO of alice-fuel"
-cardano-cli query utxo --address $(cat credentials/alice-fuel.addr) --out-file /dev/stdout | jq
+echo "# UTxO of alice-node"
+cardano-cli query utxo --address $(cat credentials/alice-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of alice-funds"
 cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file /dev/stdout | jq
@@ -347,8 +347,8 @@ cardano-cli query utxo --address $(cat credentials/alice-funds.addr) --out-file 
 <TabItem value="bob" label="Bob">
 
 ```shell
-echo "# UTxO of bob-fuel"
-cardano-cli query utxo --address $(cat credentials/bob-fuel.addr) --out-file /dev/stdout | jq
+echo "# UTxO of bob-node"
+cardano-cli query utxo --address $(cat credentials/bob-node.addr) --out-file /dev/stdout | jq
 
 echo "# UTxO of bob-funds"
 cardano-cli query utxo --address $(cat credentials/bob-funds.addr) --out-file /dev/stdout | jq
@@ -378,7 +378,7 @@ hydra-node gen-hydra-key --output-file credentials/bob-hydra
 </TabItem>
 </Tabs>
 
-If you are collaborating with another individual, exchange the verification (public) keys: `{alice,bob}-fuel.vk` and `{alice,bob}-hydra.vk` to ensure secure communication.
+If you are collaborating with another individual, exchange the verification (public) keys: `{alice,bob}-node.vk` and `{alice,bob}-hydra.vk` to ensure secure communication.
 
 Before launching the `hydra-node`, it's crucial to establish and communicate each participant's network connectivity details. This includes the IP addresses and ports where `Alice` and `Bob's` nodes will be reachable for layer 2 network interactions. For this tutorial, we're using placeholder IP addresses and ports, which should be replaced with your actual network details:
 
@@ -402,7 +402,7 @@ In summary, the Hydra head participants exchanged and agreed on:
 
 - IP addresses and the port on which their `hydra-node` will run
 - A Hydra verification key to identify them in the head
-- A fuel verification key to identify them on the blockchain
+- A Cardano verification key to identify them on the blockchain
 - Protocol parameters to use in the Hydra head.
 
 ## Step 3. Start the Hydra node
@@ -419,7 +419,7 @@ hydra_version=2.3.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
-  --fuel-signing-key credentials/alice-fuel.sk \
+  --cardano-signing-key credentials/alice-node.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
   --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
@@ -430,7 +430,7 @@ hydra-node \
   --api-host 0.0.0.0 \
   --peer 127.0.0.1:5002 \
   --hydra-verification-key credentials/bob-hydra.vk \
-  --fuel-verification-key credentials/bob-fuel.vk
+  --cardano-verification-key credentials/bob-node.vk
 ```
 
 </TabItem>
@@ -441,7 +441,7 @@ hydra_version=2.3.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
-  --fuel-signing-key credentials/bob-fuel.sk \
+  --cardano-signing-key credentials/bob-node.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
   --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
   --ledger-protocol-parameters protocol-parameters.json \
@@ -452,7 +452,7 @@ hydra-node \
   --api-host 0.0.0.0 \
   --peer 127.0.0.1:5001 \
   --hydra-verification-key credentials/alice-hydra.vk \
-  --fuel-verification-key credentials/alice-fuel.vk
+  --cardano-verification-key credentials/alice-node.vk
 ```
 
 </TabItem>
@@ -724,7 +724,7 @@ faucet (before we throw away the keys):
 
 ```shell
 cardano-cli query utxo \
-  --address $(cat credentials/alice-fuel.addr) \
+  --address $(cat credentials/alice-node.addr) \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-return-utxo.json
 
@@ -735,7 +735,7 @@ cardano-cli latest transaction build \
 
 cardano-cli latest transaction sign \
   --tx-file alice-return-tx.json \
-  --signing-key-file credentials/alice-fuel.sk \
+  --signing-key-file credentials/alice-node.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-return-tx-signed.json
 
@@ -747,7 +747,7 @@ cardano-cli latest transaction submit --tx-file alice-return-tx-signed.json
 
 ```shell
 cardano-cli query utxo \
-  --address $(cat credentials/bob-fuel.addr) \
+  --address $(cat credentials/bob-node.addr) \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-return-utxo.json
 
@@ -758,7 +758,7 @@ cardano-cli latest transaction build \
 
 cardano-cli latest transaction sign \
   --tx-file bob-return-tx.json \
-  --signing-key-file credentials/bob-fuel.sk \
+  --signing-key-file credentials/bob-node.sk \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-return-tx-signed.json
 
