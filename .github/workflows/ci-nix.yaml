@@ -174,14 +174,25 @@ jobs:
     - name: ⚙ Prepare comment body
       id: comment-body
       run: |
-        # Drop first 5 header lines and demote headlines one level. Concatenate
-        # tx costs, the existing single end-to-end run, and the matrix
-        # scenarios so reviewers see every benchmark output in one PR comment.
-        cat \
-          <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') \
-          <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') \
-          <(cat artifact/scenarios.md | sed '1,5d;s/^#/##/') \
-          | grep -v '^:::' > comment-body.md
+        # Drop first 5 header lines and demote headlines one level. Every
+        # benchmark output lands in one PR comment, each report inside its own
+        # collapsed <details> section so the comment stays short to scroll.
+        # The blank line after <summary> is required for the markdown inside
+        # to render.
+        section() {
+          echo "<details>"
+          echo "<summary><b>$1</b></summary>"
+          echo ""
+          sed '1,5d;s/^#/##/' "$2" | grep -v '^:::'
+          echo ""
+          echo "</details>"
+          echo ""
+        }
+        {
+          section "Transaction costs" artifact/transaction-cost.md
+          section "End-to-end benchmark results" artifact/end-to-end-benchmarks.md
+          section "Scenario benchmark results" artifact/scenarios.md
+        } > comment-body.md
 
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v3
