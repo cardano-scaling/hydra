@@ -24,13 +24,13 @@ import Graphics.Vty (
  )
 import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (FanoutProgressMode (..), NetworkInfo (..), TimedServerOutput (..))
+import Hydra.API.ServerOutput (ApiMessage (..), FanoutProgressMode (..), NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Cardano.Api.Prelude ()
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
-import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
+import Hydra.Client (Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))

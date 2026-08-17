@@ -29,28 +29,28 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps, waitForTxValid} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps, waitForTxValid, cborClients} -> do
       datasets <- forM datasetFiles loadDataset
       putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
-      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid, cborClients}
       results <- forM datasets $ \dataset ->
         withTempDir "bench-dataset" $ \dir -> do
           threadDelay 10
           runSingle dataset dir action
       summarizeResults outputDirectory results
-    DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients, pumbaCommand} -> do
+    DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients, pumbaCommand, cborClients} -> do
       (_, faucetSk) <- keysFor Faucet
       dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
-          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False}
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False, cborClients}
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid, cborClients} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
-      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid, cborClients}
       dataset <- generate $ datasetGen faucetSk datasetUTxO clusterSize numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
@@ -59,7 +59,7 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
-    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes} -> do
+    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes, cborClients} -> do
       (_, faucetSk) <- keysFor Faucet
       -- NOTE: Unlike a standalone matrix run, the docs pipeline points
       -- --output-directory at the shared benchmarks/ directory that already
@@ -83,7 +83,7 @@ main = do
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
         let nodeIdOffset = startingNodeId + i * fromIntegral (List.maximum clusterSizes)
-        let action = bench nodeIdOffset timeoutSeconds BenchRunOptions{incrementalOps = im, waitForTxValid = wt}
+        let action = bench nodeIdOffset timeoutSeconds BenchRunOptions{incrementalOps = im, waitForTxValid = wt, cborClients}
         -- Run the cluster in a throwaway dir, not 'cellDir': node working state
         -- (etcd WAL, cardano-node db, logs) must not reach the published docs.
         -- Only 'dataset.json' and the aggregated 'scenarios.md' are kept.

@@ -3,6 +3,7 @@ module Hydra.TUI.Options where
 import Hydra.Prelude
 
 import Data.Version (Version (Version), showVersion)
+import Hydra.API.ServerOutput (ApiEncoding (..))
 import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Network (Host (Host))
 import Hydra.Options (networkIdParser)
@@ -10,6 +11,7 @@ import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Options.Applicative (
   Parser,
   auto,
+  flag,
   help,
   infoOption,
   long,
@@ -31,6 +33,8 @@ data Options = Options
   , fuelVerificationKey :: Maybe FilePath
   -- ^ Optional verification key of the hydra-node's internal wallet, used only
   -- to display the node's available fuel. Never used for committing.
+  , apiEncoding :: ApiEncoding
+  -- ^ Which wire encoding to use on the WebSocket connection to the node.
   }
   deriving stock (Eq, Show)
 
@@ -42,6 +46,7 @@ parseOptions =
       <*> networkIdParser
       <*> parseCardanoSigningKey
       <*> parseFuelVerificationKey
+      <*> parseApiEncoding
   )
     <**> versionInfo
  where
@@ -102,6 +107,15 @@ parseCardanoSigningKey =
         <> help "The path to the user signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli."
         <> value "me.sk"
         <> showDefault
+    )
+
+parseApiEncoding :: Parser ApiEncoding
+parseApiEncoding =
+  flag
+    JsonEncoding
+    CborEncoding
+    ( long "cbor"
+        <> help "Use the binary CBOR encoding on the WebSocket connection to the hydra-node instead of JSON."
     )
 
 parseFuelVerificationKey :: Parser (Maybe FilePath)

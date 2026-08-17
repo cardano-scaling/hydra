@@ -52,10 +52,8 @@ import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
 import Hydra.Tx.Secret (Secret)
 import HydraNode (
-  HydraClient,
-  apiHost,
+  HydraClient (..),
   getSnapshotUTxO,
-  hydraNodeId,
   input,
   output,
   requestCommitTx,
@@ -83,6 +81,9 @@ data BenchRunOptions = BenchRunOptions
   , waitForTxValid :: Bool
   -- ^ Wait for each tx to confirm before posting the next (one in-flight tx
   -- per client) instead of firing the whole queue as fast as it drains.
+  , cborClients :: Bool
+  -- ^ Connect the bench clients using the binary CBOR API encoding
+  -- (@encoding=cbor@) instead of JSON.
   }
   deriving stock (Eq, Show)
 
@@ -207,7 +208,47 @@ scenario ::
   [UTxO] ->
   BenchRunOptions ->
   IO Summary
-scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs runOptions = do
+scenario hydraTracer timing opts workDir dataset nonEmptyClients pumbaCommand sideUTxOs runOptions =
+  withCborClients hydraTracer cborClients nonEmptyClients $ \scenarioClients ->
+    runScenario hydraTracer timing opts workDir dataset scenarioClients pumbaCommand sideUTxOs runOptions
+ where
+  BenchRunOptions{cborClients} = runOptions
+
+-- | Reconnect all clients using the binary CBOR API encoding when enabled.
+-- The original (JSON) connections stay open but unused; opening dedicated
+-- connections keeps the encoding choice orthogonal to how the cluster was
+-- started.
+withCborClients ::
+  Tracer IO HydraNodeLog ->
+  Bool ->
+  NonEmpty HydraClient ->
+  (NonEmpty HydraClient -> IO a) ->
+  IO a
+withCborClients tracer enabled clients action
+  | not enabled = action clients
+  | otherwise = do
+      putTextLn "Using CBOR encoded client connections"
+      go (toList clients) []
+ where
+  go [] acc = case nonEmpty (reverse acc) of
+    Nothing -> error "withCborClients: empty list of clients"
+    Just reconnected -> action reconnected
+  go (HydraClient{hydraNodeId = nodeId, apiHost = host, monitoringPort = monPort} : rest) acc =
+    withConnectionToNodeHost tracer nodeId host monPort (Just "/?history=no&encoding=cbor") $ \c' ->
+      go rest (c' : acc)
+
+runScenario ::
+  Tracer IO HydraNodeLog ->
+  Timing ->
+  ChainBackendOptions ->
+  FilePath ->
+  Dataset ->
+  NonEmpty HydraClient ->
+  Maybe String ->
+  [UTxO] ->
+  BenchRunOptions ->
+  IO Summary
+runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs runOptions = do
   let BenchRunOptions{waitForTxValid} = runOptions
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients

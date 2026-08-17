@@ -41,6 +41,7 @@ data Options
       , startingNodeId :: Int
       , incrementalOps :: Bool
       , waitForTxValid :: Bool
+      , cborClients :: Bool
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
@@ -51,6 +52,7 @@ data Options
       , startingNodeId :: Int
       , incrementalOps :: Bool
       , waitForTxValid :: Bool
+      , cborClients :: Bool
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -60,6 +62,7 @@ data Options
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
       , pumbaCommand :: Maybe String
+      , cborClients :: Bool
       }
   | MatrixOptions
       { outputDirectory :: Maybe FilePath
@@ -70,6 +73,7 @@ data Options
       , utxoShapes :: [UTxOSize]
       , incrementalModes :: [Bool]
       , waitForTxValidModes :: [Bool]
+      , cborClients :: Bool
       }
   | GenerateOptions
       { datasetUTxO :: UTxOSize
@@ -119,6 +123,7 @@ standaloneOptionsParser =
     <*> startingNodeIdParser
     <*> incrementalOpsParser
     <*> waitForTxValidParser
+    <*> cborClientsParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -215,6 +220,7 @@ demoOptionsParser =
     <*> nodeSocketParser
     <*> many hydraClientsParser
     <*> optional pumbaCommandParser
+    <*> cborClientsParser
 
 pumbaCommandParser :: Parser String
 pumbaCommandParser =
@@ -260,6 +266,7 @@ datasetOptionsParser =
     <*> startingNodeIdParser
     <*> incrementalOpsParser
     <*> waitForTxValidParser
+    <*> cborClientsParser
 
 generateOptionsInfo :: ParserInfo Options
 generateOptionsInfo =
@@ -322,6 +329,18 @@ incrementalOpsParser =
           \ default."
     )
 
+cborClientsParser :: Parser Bool
+cborClientsParser =
+  flag
+    False
+    True
+    ( long "cbor"
+        <> help
+          "If set, the bench clients connect to the hydra-nodes using the \
+          \ binary CBOR API encoding (encoding=cbor) instead of JSON. Useful \
+          \ to compare the client API encodings. Off by default."
+    )
+
 waitForTxValidParser :: Parser Bool
 waitForTxValidParser =
   flag
@@ -364,6 +383,7 @@ matrixOptionsParser =
     <*> utxoShapesParser
     <*> incrementalModesParser
     <*> waitForTxValidModesParser
+    <*> cborClientsParser
 
 clusterSizesParser :: Parser [Word64]
 clusterSizesParser =

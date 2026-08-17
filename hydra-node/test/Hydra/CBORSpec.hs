@@ -27,6 +27,15 @@ import Test.Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
 import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.HTTPServer (
+  DraftCommitTxRequest,
+  OperationTimedOut (..),
+  SideLoadSnapshotRequest (..),
+  SubmitL2TxRequest,
+  SubmitL2TxResponse,
+  SubmitTxRequest,
+  TransactionSubmitted,
+ )
 import Hydra.API.ServerOutput (
   ClientMessage,
   DecommitInvalidReason,
@@ -63,6 +72,7 @@ import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.API.ClientInput ()
+import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.CBOR (genGoldenSample, genGoldenSamples, goldenCBOR, roundtripCBOR)
 import Test.Hydra.Chain.Direct.State ()
@@ -83,6 +93,9 @@ import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPai
 
 instance Arbitrary InvalidInput where
   arbitrary = InvalidInput <$> arbitrary <*> arbitrary
+
+instance Arbitrary OperationTimedOut where
+  arbitrary = OperationTimedOut <$> arbitrary <*> arbitrary
 
 -- * ToADTArbitrary instances for per-constructor golden samples
 
@@ -178,6 +191,13 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @InvalidInput
     roundtripCBOR $ Proxy @HeadStatus
     roundtripCBOR $ Proxy @NetworkInfo
+    roundtripCBOR $ Proxy @(DraftCommitTxRequest Tx)
+    roundtripCBOR $ Proxy @(SubmitTxRequest Tx)
+    roundtripCBOR $ Proxy @TransactionSubmitted
+    roundtripCBOR $ Proxy @(SideLoadSnapshotRequest Tx)
+    roundtripCBOR $ Proxy @(SubmitL2TxRequest Tx)
+    roundtripCBOR $ Proxy @SubmitL2TxResponse
+    roundtripCBOR $ Proxy @OperationTimedOut
 
   describe "protocol types" $ do
     roundtripCBOR $ Proxy @(Snapshot Tx)

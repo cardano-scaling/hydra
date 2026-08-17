@@ -4,18 +4,24 @@ module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 
+import Cardano.Ledger.Binary (encCBOR, toPlainEncoding)
 import Cardano.Ledger.Core (PParams)
+import Codec.CBOR.Write qualified as CBOR
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser, parseEither)
+import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
+import Data.List qualified as List
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
+import Hydra.API.ServerOutput (ApiEncoding (..), ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.WireFormat (decodeWire, encodeWire)
+import Hydra.CBOR.Orphans ()
+import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx, ledgerEraVersion)
 import Hydra.Chain (Chain (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
@@ -26,8 +32,8 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
+import Network.HTTP.Types (ResponseHeaders, Status, hAccept, hContentType, status200, status202, status400, status404, status500, status503)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, requestHeaders, responseLBS)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -41,6 +47,12 @@ instance IsTx tx => ToJSON (DraftCommitTxResponse tx) where
 
 instance IsTx tx => FromJSON (DraftCommitTxResponse tx) where
   parseJSON v = DraftCommitTxResponse <$> parseJSON v
+
+instance IsTx tx => ToCBOR (DraftCommitTxResponse tx) where
+  toCBOR (DraftCommitTxResponse tx) = toCBOR tx
+
+instance IsTx tx => FromCBOR (DraftCommitTxResponse tx) where
+  fromCBOR = DraftCommitTxResponse <$> fromCBOR
 
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
@@ -85,11 +97,31 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
     simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val
 
+instance IsTx tx => ToCBOR (DraftCommitTxRequest tx) where
+  toCBOR = \case
+    SimpleCommitRequest{utxoToCommit} ->
+      toCBOR ("SimpleCommitRequest" :: Text) <> toCBOR utxoToCommit
+    FullCommitRequest{blueprintTx, utxo, changeAddress} ->
+      toCBOR ("FullCommitRequest" :: Text)
+        <> toCBOR blueprintTx
+        <> toCBOR utxo
+        <> toCBOR changeAddress
+
+instance IsTx tx => FromCBOR (DraftCommitTxRequest tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("SimpleCommitRequest" :: Text) -> SimpleCommitRequest <$> fromCBOR
+      "FullCommitRequest" -> FullCommitRequest <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded DraftCommitTxRequest"
+
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
   }
   deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
+
+deriving newtype instance (Typeable tx, ToCBOR tx) => ToCBOR (SubmitTxRequest tx)
+deriving newtype instance (Typeable tx, FromCBOR tx) => FromCBOR (SubmitTxRequest tx)
 
 data TransactionSubmitted = TransactionSubmitted
   deriving stock (Eq, Show, Generic)
@@ -108,11 +140,23 @@ instance FromJSON TransactionSubmitted where
         pure TransactionSubmitted
       _ -> fail "Expected tag to be TransactionSubmitted"
 
+instance ToCBOR TransactionSubmitted where
+  toCBOR TransactionSubmitted = toCBOR ("TransactionSubmitted" :: Text)
+
+instance FromCBOR TransactionSubmitted where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("TransactionSubmitted" :: Text) -> pure TransactionSubmitted
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded TransactionSubmitted"
+
 newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   { snapshot :: ConfirmedSnapshot tx
   }
   deriving newtype (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
+
+deriving newtype instance IsTx tx => ToCBOR (SideLoadSnapshotRequest tx)
+deriving newtype instance IsTx tx => FromCBOR (SideLoadSnapshotRequest tx)
 
 -- | Request to submit a transaction to the head
 newtype SubmitL2TxRequest tx = SubmitL2TxRequest
@@ -120,6 +164,9 @@ newtype SubmitL2TxRequest tx = SubmitL2TxRequest
   }
   deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
+
+deriving newtype instance (Typeable tx, ToCBOR tx) => ToCBOR (SubmitL2TxRequest tx)
+deriving newtype instance (Typeable tx, FromCBOR tx) => FromCBOR (SubmitL2TxRequest tx)
 
 -- | Response for transaction submission
 data SubmitL2TxResponse
@@ -162,6 +209,27 @@ instance FromJSON SubmitL2TxResponse where
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
       _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxRejected, or SubmitTxSubmitted"
 
+-- NOTE: Tags are kept consistent with the JSON encoding above.
+instance ToCBOR SubmitL2TxResponse where
+  toCBOR = \case
+    SubmitTxConfirmed snapshotNumber ->
+      toCBOR ("SubmitTxConfirmed" :: Text) <> toCBOR snapshotNumber
+    SubmitTxInvalidResponse validationError ->
+      toCBOR ("SubmitTxInvalid" :: Text) <> toCBOR validationError
+    SubmitTxRejectedResponse reason ->
+      toCBOR ("SubmitTxRejected" :: Text) <> toCBOR reason
+    SubmitTxSubmitted ->
+      toCBOR ("SubmitTxSubmitted" :: Text)
+
+instance FromCBOR SubmitL2TxResponse where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("SubmitTxConfirmed" :: Text) -> SubmitTxConfirmed <$> fromCBOR
+      "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> fromCBOR
+      "SubmitTxRejected" -> SubmitTxRejectedResponse <$> fromCBOR
+      "SubmitTxSubmitted" -> pure SubmitTxSubmitted
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded SubmitL2TxResponse"
+
 data HeadInitializationDetails
   = HeadInitializationDetails
   { time :: UTCTime
@@ -171,6 +239,71 @@ data HeadInitializationDetails
 
 jsonContent :: ResponseHeaders
 jsonContent = [(hContentType, "application/json")]
+
+cborContent :: ResponseHeaders
+cborContent = [(hContentType, "application/cbor")]
+
+-- | Response body sent when an operation was accepted but did not finish
+-- within the API transaction timeout.
+data OperationTimedOut = OperationTimedOut
+  { tag :: Text
+  , timeoutMessage :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+
+-- NOTE: Encoded with a "timeout" key for backwards compatibility (the field
+-- is named differently to avoid clashing with 'Hydra.Prelude.timeout').
+instance ToJSON OperationTimedOut where
+  toJSON OperationTimedOut{tag, timeoutMessage} =
+    object ["tag" .= tag, "timeout" .= timeoutMessage]
+
+instance FromJSON OperationTimedOut where
+  parseJSON = withObject "OperationTimedOut" $ \o ->
+    OperationTimedOut <$> o .: "tag" <*> o .: "timeout"
+
+instance ToCBOR OperationTimedOut where
+  toCBOR OperationTimedOut{tag, timeoutMessage} =
+    toCBOR ("OperationTimedOut" :: Text) <> toCBOR tag <> toCBOR timeoutMessage
+
+instance FromCBOR OperationTimedOut where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("OperationTimedOut" :: Text) -> OperationTimedOut <$> fromCBOR <*> fromCBOR
+      other -> fail $ show other <> " is not a proper CBOR-encoded OperationTimedOut"
+
+operationTimedOut :: Text -> ApiTransactionTimeout -> OperationTimedOut
+operationTimedOut tag apiTransactionTimeout =
+  OperationTimedOut
+    { tag
+    , timeoutMessage = "Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds"
+    }
+
+-- | Which encoding the client wants for the response, negotiated via the
+-- @Accept@ header. Anything but @application/cbor@ (including no header)
+-- yields JSON.
+responseEncodingFor :: Request -> ApiEncoding
+responseEncodingFor request =
+  case List.lookup hAccept (requestHeaders request) of
+    Just accept | "application/cbor" `BS.isInfixOf` accept -> CborEncoding
+    _ -> JsonEncoding
+
+-- | Which encoding the request body uses, negotiated via the @Content-Type@
+-- header. Anything but @application/cbor@ (including no header) is treated
+-- as JSON.
+requestEncodingFor :: Request -> ApiEncoding
+requestEncodingFor request =
+  case List.lookup hContentType (requestHeaders request) of
+    Just contentType | "application/cbor" `BS.isInfixOf` contentType -> CborEncoding
+    _ -> JsonEncoding
+
+-- | Respond in the given encoding, with matching @Content-Type@.
+respondApi :: (ToJSON a, ToCBOR a) => ApiEncoding -> Status -> a -> Response
+respondApi apiEncoding status a =
+  responseLBS status contentType (encodeWire apiEncoding a)
+ where
+  contentType = case apiEncoding of
+    JsonEncoding -> jsonContent
+    CborEncoding -> cborContent
 
 -- | Hydra HTTP server
 httpApp ::
@@ -203,52 +336,65 @@ httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getP
       }
   case (requestMethod request, pathInfo request) of
     ("GET", ["config"]) ->
-      respond $ okJSON configDoc
+      respond $ respondApi respEnc status200 configDoc
     ("GET", ["head"]) ->
-      getNodeState >>= (respond . okJSON) . headState
+      getNodeState >>= (respond . respondApi respEnc status200) . headState
     ("GET", ["snapshot"]) -> do
       hs <- headState <$> getNodeState
       case getConfirmedSnapshot hs of
-        Just confirmedSnapshot -> respond $ okJSON confirmedSnapshot
-        Nothing -> respond notFound
+        Just confirmedSnapshot -> respond $ respondApi respEnc status200 confirmedSnapshot
+        Nothing -> respond $ notFound respEnc
     ("GET", ["snapshot", "utxo"]) -> do
       hs <- headState <$> getNodeState
       case getSnapshotUtxo hs of
-        Just utxo -> respond $ okJSON utxo
-        _ -> respond notFound
+        Just utxo -> respond $ respondApi respEnc status200 utxo
+        _ -> respond $ notFound respEnc
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
-      respond . okJSON $ getSeenSnapshot hs
+      respond . respondApi respEnc status200 $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
-        >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel
+        >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo
+        >>= handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo reqEnc respEnc
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request)
+        >>= handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request) respEnc
         >>= respond
     ("GET", ["commits"]) ->
-      getPendingDeposits >>= respond . responseLBS status200 jsonContent . Aeson.encode
+      getPendingDeposits >>= respond . respondApi respEnc status200
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDecommit putClientInput apiTransactionTimeout responseChannel
+        >>= handleDecommit putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("GET", ["protocol-parameters"]) ->
-      respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
+      respond $ respondPParams respEnc pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitUserTx directChain
+        >>= handleSubmitUserTx directChain reqEnc respEnc
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel
+        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     _ ->
-      respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
+      respond $ respondApi respEnc status400 ("Resource not found" :: Text)
+ where
+  reqEnc = requestEncodingFor request
+  respEnc = responseEncodingFor request
+
+-- | Respond with protocol parameters; the ledger 'PParams' have no plain
+-- 'ToCBOR' instance, so the CBOR case goes through the ledger's 'EncCBOR'.
+respondPParams :: ApiEncoding -> PParams LedgerEra -> Response
+respondPParams apiEncoding pparams =
+  case apiEncoding of
+    JsonEncoding -> responseLBS status200 jsonContent (Aeson.encode pparams)
+    CborEncoding ->
+      responseLBS status200 cborContent $
+        CBOR.toLazyByteString (toPlainEncoding ledgerEraVersion $ encCBOR pparams)
 
 -- * Handlers
 
@@ -266,18 +412,22 @@ handleDraftCommitUtxo ::
   IO (NodeState tx) ->
   -- | A means to get commit info.
   IO CommitInfo ->
+  -- | Request body encoding.
+  ApiEncoding ->
+  -- | Response encoding.
+  ApiEncoding ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo body = do
-  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
+handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo reqEnc respEnc body = do
+  case decodeWire reqEnc body :: Either String (DraftCommitTxRequest tx) of
     Left err -> do
       traceWith tracer $
         APIInvalidInput
           { reason = "Failed to parse request to DraftCommitTxRequest: " <> show err
           , inputReceived = show body
           }
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ respondApi respEnc status400 (pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
         IncrementalCommit headId -> do
@@ -292,7 +442,7 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
               { reason = "CannotCommit: Hydra node does not have an open Head."
               , inputReceived = show body
               }
-          pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
+          pure $ respondApi respEnc status400 ("Head is not open" :: Text)
  where
   deposit headId commitBlueprint changeAddress = do
     nodeState <- getNodeState
@@ -303,7 +453,7 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
             { reason = "Cannot commit: Hydra node does not have an open Head."
             , inputReceived = show body
             }
-        pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
+        pure $ respondApi respEnc status400 ("Head is not open" :: Text)
       Just currentSnapshot -> do
         -- NOTE: The deadline splits into three independent windows: a deposit
         -- matures (becomes active) after 'depositActivation', stays active for one
@@ -316,17 +466,17 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
         case result of
           Left e ->
             case e of
-              UnsupportedLegacyOutput _ -> pure $ badRequest e
-              DepositTooLow _ _ -> pure $ badRequest e
-              DepositTooLarge{} -> pure $ badRequest e
-              FailedToConstructDepositTx _ -> pure $ badRequest e
+              UnsupportedLegacyOutput _ -> pure $ badRequest respEnc e
+              DepositTooLow _ _ -> pure $ badRequest respEnc e
+              DepositTooLarge{} -> pure $ badRequest respEnc e
+              FailedToConstructDepositTx _ -> pure $ badRequest respEnc e
               _ -> do
                 traceWith tracer $
                   APIReturnedError
                     { reason = "Failed to draft deposit transaction: " <> show e
                     }
-                pure $ responseLBS status500 jsonContent (Aeson.encode $ toJSON e)
-          Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
+                pure $ respondApi respEnc status500 e
+          Right depositTx -> pure $ respondApi respEnc status200 $ DraftCommitTxResponse depositTx
 
   Chain{draftDepositTx} = directChain
 
@@ -340,9 +490,10 @@ handleRecoverCommitUtxo ::
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Text ->
+  ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel recoverPath _body = do
+handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel recoverPath respEnc _body = do
   case parseTxIdFromPath recoverPath of
     Left err -> pure err
     Right recoverTxId -> do
@@ -352,25 +503,16 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
             event <- atomically $ readTChan dupChannel
             case event of
               Left TimedServerOutput{output = CommitRecovered{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+                pure $ respondApi respEnc status200 ("OK" :: Text)
               Right (CommandFailed{clientInput = Recover{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
+                pure $ respondApi respEnc status400 ("Recover failed" :: Text)
               Right (RejectedInputBecauseUnsynced{clientInput = Recover{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Recover failed because node is out of sync with chain, drift: " <> show drift))
+                pure $ respondApi respEnc status503 ("Recover failed because node is out of sync with chain, drift: " <> show drift :: Text)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
-          pure $
-            responseLBS
-              status202
-              jsonContent
-              ( Aeson.encode $
-                  object
-                    [ "tag" .= Aeson.String "RecoverSubmitted"
-                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
-                    ]
-              )
+          pure $ respondApi respEnc status202 $ operationTimedOut "RecoverSubmitted" apiTransactionTimeout
  where
   parseTxIdFromPath :: Text -> Either Response (TxIdType tx)
   parseTxIdFromPath txIdStr =
@@ -380,40 +522,46 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
       Right txid -> Right txid
       Left _ -> case parseEither parseJSON (Aeson.String txIdStr) of
         Right txid -> Right txid
-        Left e -> Left $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e)
+        Left e -> Left $ respondApi respEnc status400 ("Cannot recover funds. Failed to parse TxId: " <> pack e)
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
   forall tx.
-  FromJSON tx =>
+  (FromJSON tx, FromCBOR tx) =>
   Chain tx IO ->
+  -- | Request body encoding.
+  ApiEncoding ->
+  -- | Response encoding.
+  ApiEncoding ->
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleSubmitUserTx directChain body = do
-  case Aeson.eitherDecode' body of
+handleSubmitUserTx directChain reqEnc respEnc body = do
+  case decodeWire reqEnc body of
     Left err ->
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ respondApi respEnc status400 (pack err)
     Right txToSubmit -> do
       try (submitTx txToSubmit) <&> \case
-        Left (e :: PostTxError Tx) -> badRequest e
+        Left (e :: PostTxError Tx) -> badRequest respEnc e
         Right _ ->
-          responseLBS status200 jsonContent (Aeson.encode TransactionSubmitted)
+          respondApi respEnc status200 TransactionSubmitted
  where
   Chain{submitTx} = directChain
 
 handleDecommit ::
   forall tx.
-  FromJSON tx =>
+  (FromJSON tx, FromCBOR tx) =>
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  ApiEncoding ->
+  ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleDecommit putClientInput apiTransactionTimeout responseChannel body =
-  case Aeson.eitherDecode' body :: Either String tx of
+handleDecommit putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body =
+  case decodeWire reqEnc body :: Either String tx of
     Left err ->
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ respondApi respEnc status400 (pack err)
     Right decommitTx -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput Decommit{decommitTx}
@@ -421,27 +569,18 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
             event <- atomically $ readTChan dupChannel
             case event of
               Left TimedServerOutput{output = DecommitFinalized{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+                pure $ respondApi respEnc status200 ("OK" :: Text)
               Left TimedServerOutput{output = DecommitInvalid{}} ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
+                pure $ respondApi respEnc status400 ("Decommit invalid" :: Text)
               Right (CommandFailed{clientInput = Decommit{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
+                pure $ respondApi respEnc status400 ("Decommit failed" :: Text)
               Right (RejectedInputBecauseUnsynced{clientInput = Decommit{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Decommit failed because because node is out of sync with chain, drift: " <> show drift))
+                pure $ respondApi respEnc status503 ("Decommit failed because because node is out of sync with chain, drift: " <> show drift :: Text)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
-          pure $
-            responseLBS
-              status202
-              jsonContent
-              ( Aeson.encode $
-                  object
-                    [ "tag" .= Aeson.String "DecommitSubmitted"
-                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
-                    ]
-              )
+          pure $ respondApi respEnc status202 $ operationTimedOut "DecommitSubmitted" apiTransactionTimeout
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot ::
@@ -450,12 +589,14 @@ handleSideLoadSnapshot ::
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  ApiEncoding ->
+  ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body = do
-  case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
+handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+  case decodeWire reqEnc body :: Either String (SideLoadSnapshotRequest tx) of
     Left err ->
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ respondApi respEnc status400 (pack err)
     Right SideLoadSnapshotRequest{snapshot} -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput $ SideLoadSnapshot snapshot
@@ -463,27 +604,18 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
             event <- atomically $ readTChan dupChannel
             case event of
               Left TimedServerOutput{output = SnapshotSideLoaded{}} ->
-                pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+                pure $ respondApi respEnc status200 ("OK" :: Text)
               Right (SideLoadSnapshotRejected{clientInput = SideLoadSnapshot{}, requirementFailure}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
+                pure $ respondApi respEnc status400 requirementFailure
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
-                pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
+                pure $ respondApi respEnc status400 ("Side-load snapshot failed" :: Text)
               Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{}, drift}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift))
+                pure $ respondApi respEnc status503 ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift :: Text)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
-          pure $
-            responseLBS
-              status202
-              jsonContent
-              ( Aeson.encode $
-                  object
-                    [ "tag" .= Aeson.String "SideLoadSnapshotSubmitted"
-                    , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
-                    ]
-              )
+          pure $ respondApi respEnc status202 $ operationTimedOut "SideLoadSnapshotSubmitted" apiTransactionTimeout
 
 -- | Handle request to submit a transaction to the head.
 handleSubmitL2Tx ::
@@ -492,12 +624,14 @@ handleSubmitL2Tx ::
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  ApiEncoding ->
+  ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
-  case Aeson.eitherDecode' @(SubmitL2TxRequest tx) body of
+handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+  case decodeWire @(SubmitL2TxRequest tx) reqEnc body of
     Left err ->
-      pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
+      pure $ respondApi respEnc status400 (pack err)
     Right SubmitL2TxRequest{submitL2Tx} -> do
       -- Duplicate the channel to avoid consuming messages from other consumers.
       dupChannel <- atomically $ dupTChan responseChannel
@@ -513,25 +647,21 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
 
       case result of
         Just (SubmitTxConfirmed snapshotNumber) ->
-          pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
+          pure $ respondApi respEnc status200 (SubmitTxConfirmed snapshotNumber)
         Just (SubmitTxInvalidResponse validationError) ->
-          pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
+          pure $ respondApi respEnc status400 (SubmitTxInvalidResponse validationError)
         Just (SubmitTxRejectedResponse reason) ->
-          pure $ responseLBS status503 jsonContent (Aeson.encode $ SubmitTxRejectedResponse reason)
+          pure $ respondApi respEnc status503 (SubmitTxRejectedResponse reason)
         Just SubmitTxSubmitted ->
-          pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
+          pure $ respondApi respEnc status202 SubmitTxSubmitted
         Nothing ->
           -- Timeout occurred - return 202 Accepted with timeout info
           pure $
-            responseLBS
-              status202
-              jsonContent
-              ( Aeson.encode $
-                  object
-                    [ "tag" .= Aeson.String "SubmitTxSubmitted"
-                    , "timeout" .= Aeson.String ("Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
-                    ]
-              )
+            respondApi respEnc status202 $
+              OperationTimedOut
+                { tag = "SubmitTxSubmitted"
+                , timeoutMessage = "Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds"
+                }
  where
   --  Wait for transaction result by listening to events
   waitForTransactionResult :: TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> TxIdType tx -> IO SubmitL2TxResponse
@@ -557,11 +687,11 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
           _ -> go
         Right _ -> go
 
-badRequest :: IsChainState tx => PostTxError tx -> Response
-badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON
+badRequest :: IsChainState tx => ApiEncoding -> PostTxError tx -> Response
+badRequest apiEncoding = respondApi apiEncoding status400
 
-notFound :: Response
-notFound = responseLBS status404 jsonContent (Aeson.encode $ Aeson.String "")
+notFound :: ApiEncoding -> Response
+notFound apiEncoding = respondApi apiEncoding status404 ("" :: Text)
 
 okJSON :: ToJSON a => a -> Response
 okJSON = responseLBS status200 jsonContent . Aeson.encode

@@ -63,6 +63,7 @@ library
     , base
     , brick                 >=1.10
     , cardano-api
+    , cardano-binary
     , containers
     , directory
     , filepath

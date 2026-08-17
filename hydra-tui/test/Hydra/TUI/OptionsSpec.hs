@@ -3,6 +3,7 @@ module Hydra.TUI.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.API.ServerOutput (ApiEncoding (..))
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host (Host))
 import Hydra.TUI.Options (
@@ -49,6 +50,7 @@ defaultOptions =
     , cardanoConnection = Right "node.socket"
     , cardanoSigningKey = "me.sk"
     , fuelVerificationKey = Nothing
+    , apiEncoding = JsonEncoding
     }
 
 shouldParseWith :: (Show a, Eq a) => Parser a -> [String] -> a -> Expectation

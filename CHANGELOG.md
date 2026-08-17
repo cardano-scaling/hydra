@@ -10,6 +10,11 @@ changes.
 
 ## [UNRELEASED]
 
+- Add an opt-in binary CBOR encoding to the client API (WebSocket
+  `?encoding=cbor` query param, HTTP `Accept`/`Content-Type: application/cbor`
+  headers), keeping JSON as the default.
+  [#2543](https://github.com/cardano-scaling/hydra/issues/2543)
+
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
   head short a party. etcd's gRPC server raises its receive window as inbound
