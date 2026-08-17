@@ -45,9 +45,12 @@ jobs:
   generate-datasets:
     name: Generate benchmark datasets
     runs-on: ubuntu-latest
-    # Benchmarking every draft push is wasted runner time; the benchmark jobs
-    # inherit this skip through needs.
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # Draft pushes skip benchmarking (runner cost) unless the PR carries the
+    # 'bench' label; there is deliberately no 'labeled' trigger (any label
+    # addition would cancel an in-flight run via the concurrency group), so
+    # the label takes effect from the next push or dispatch. The benchmark
+    # jobs inherit this skip through needs.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'bench')
     timeout-minutes: 45
     outputs:
       head_sha: ${{ steps.resolve.outputs.head_sha }}
@@ -239,10 +242,10 @@ jobs:
     # !cancelled(): still post when a benchmark leg fails (partial pairs are
     # fine), but never from a superseded run; always() would survive the
     # concurrency cancellation and clobber the previous comment with "no
-    # results" (observed on #2828). It also ignores the needs-skip, so drafts
-    # must be excluded here too. Non-PR (A/A) runs write the diff to the step
-    # summary and artifact only.
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    # results" (observed on #2828). It also ignores the needs-skip, so the
+    # draft/label condition must be mirrored here. Non-PR (A/A) runs write
+    # the diff to the step summary and artifact only.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'bench')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
