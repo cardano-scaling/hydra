@@ -127,6 +127,7 @@
         # The HeadLogic state viewer; exposed so it can be `nix run`.
         inherit (nativePkgs.head-state-viewer.components.exes) head-state-viewer;
 
+        inherit (nativePkgs.hydraw.components.exes) hydraw;
 
         hydra-plutus-tests = pkgs.mkShellNoCC {
           name = "hydra-plutus-tests";
