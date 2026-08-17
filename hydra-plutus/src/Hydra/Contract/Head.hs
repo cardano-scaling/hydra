@@ -156,12 +156,19 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
-  -- The signed message binds the deposit by transaction id (see
-  -- 'commitOutputsHash'), which alone would leave sibling outputs of the SAME
-  -- deposit transaction interchangeable: a second output with a copied datum but
-  -- less value hashes into the same message. A deposit transaction always pays
-  -- the deposit as its first output (any change follows), which is what
-  -- 'Hydra.Tx.Deposit.depositTx' builds and what observation and recovery assume.
+  -- A deposit is the first output of its transaction. This is a protocol-wide
+  -- invariant, not a rule local to this validator: 'Hydra.Tx.Deposit.depositTx'
+  -- builds the deposit there, 'Hydra.Tx.Deposit.observeDepositTx' refuses to
+  -- observe one anywhere else, 'Hydra.Tx.Recover.recoverTx' spends
+  -- @TxIn depositTxId (TxIx 0)@, and the off-chain protocol identifies a deposit
+  -- by transaction id alone throughout ('pendingDeposits', 'ReqSn', 'IncrementTx').
+  --
+  -- It is load-bearing here because 'commitOutputsHash' binds the deposit by
+  -- transaction id: without this check, sibling outputs of the same transaction
+  -- would be interchangeable, since a second output carrying a copied datum but
+  -- less value hashes into the same signed message. Relaxing this — to allow
+  -- deposits at other indices, or several per transaction — therefore requires
+  -- binding the output index into the signed message first.
   mustClaimFirstDepositOutput =
     traceIfFalse $(errorCode DepositNotFirstOutput) $
       txOutRefIdx increment == 0

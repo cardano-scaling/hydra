@@ -71,7 +71,12 @@ data Snapshot tx = Snapshot
   -- ^ Transaction which deposited 'utxoToCommit' on L1, i.e. the deposit an
   -- increment of this snapshot is allowed to claim. Bound into the signature
   -- so a deposit cannot be swapped for a look-alike one, see
-  -- 'getSignableRepresentation'. 'Just' exactly when 'utxoToCommit' is.
+  -- 'getSignableRepresentation'.
+  --
+  -- A transaction id identifies a deposit because a deposit is always the first
+  -- output of its transaction; 'Hydra.Tx.Deposit.observeDepositTx' enforces that
+  -- and 'Hydra.Contract.Head.checkIncrement' requires it on-chain. Callers set
+  -- this exactly when 'utxoToCommit' is set.
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator

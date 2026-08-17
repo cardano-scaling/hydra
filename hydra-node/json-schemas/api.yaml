@@ -3132,8 +3132,10 @@ components:
           description: >-
             Transaction which deposited `utxoToCommit` on L1, i.e. the deposit an
             increment of this snapshot may claim. Bound into the snapshot
-            signature, so the increment cannot claim another deposit. Present
-            exactly when `utxoToCommit` is.
+            signature, so the increment cannot claim another deposit. Set
+            alongside `utxoToCommit` by nodes producing snapshots; absent in
+            snapshots written before this field existed, which decode with it
+            null and then fail signature verification.
           oneOf:
             - $ref: "api.yaml#/components/schemas/TxId"
             - type: "null"

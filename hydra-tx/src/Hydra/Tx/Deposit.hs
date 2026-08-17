@@ -123,7 +123,7 @@ data DepositObservation = DepositObservation
 -- deadline and deposited utxo in the datum.
 --
 -- This includes checking whether
--- - the first output is a deposit output
+-- - the transaction's first output is the deposit output
 -- - all of deposited value is contained in the deposit tx output,
 -- - the deposit script output actually contains the deposited value,
 -- - an upper validity bound has been set (used as creation slot).
@@ -132,7 +132,14 @@ observeDepositTx ::
   Tx ->
   Maybe DepositObservation
 observeDepositTx networkId tx = do
-  (_, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  (TxIn _ depositIx, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  -- A deposit is identified by its transaction id alone, which only works
+  -- because it is that transaction's first output: 'depositTx' builds it there,
+  -- 'recoverTx' spends @TxIn depositTxId (TxIx 0)@, and the increment validator
+  -- requires it. Observing one at any other index would let parties sign a
+  -- snapshot committing a deposit that can then neither be claimed nor
+  -- recovered.
+  guard $ depositIx == TxIx 0
   (headId, deposited, deadline) <- observeDepositTxOut network (toCtxUTxOTxOut depositOut)
   created <- getUpperBound
   pure
