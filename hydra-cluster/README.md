@@ -274,7 +274,9 @@ other people's merges cannot appear as PR deltas):
   in which any colored row is a false positive. Use its accumulated runs to
   judge the pipeline and recalibrate the thresholds in the script.
   `workflow_dispatch` takes `head_ref`/`base_ref` to compare arbitrary refs;
-  an empty `base_ref` makes it an A/A run of `head_ref`.
+  an empty `base_ref` makes it an A/A run of `head_ref`. Draft PRs are
+  skipped unless the PR carries the `bench` label (applies from the next
+  push).
 
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
