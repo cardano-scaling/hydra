@@ -7,6 +7,7 @@ import Hydra.API.HTTPServerSpec qualified
 import Hydra.API.ServerOutputSpec qualified
 import Hydra.API.ServerSpec qualified
 import Hydra.BehaviorSpec qualified
+import Hydra.CBORSpec qualified
 import Hydra.Chain.BlockfrostSpec qualified
 import Hydra.Chain.Direct.HandlersSpec qualified
 import Hydra.Chain.Direct.ScriptRegistrySpec qualified
@@ -56,6 +57,7 @@ main =
     , testSpec "API.ServerOutput" Hydra.API.ServerOutputSpec.spec
     , testSpec "API.Server" Hydra.API.ServerSpec.spec
     , testSpec "Behavior" Hydra.BehaviorSpec.spec
+    , testSpec "CBOR" Hydra.CBORSpec.spec
     , testSpec "Chain.Blockfrost" Hydra.Chain.BlockfrostSpec.spec
     , testSpec "Chain.Direct.Handlers" Hydra.Chain.Direct.HandlersSpec.spec
     , testSpec "Chain.Direct.ScriptRegistry" Hydra.Chain.Direct.ScriptRegistrySpec.spec

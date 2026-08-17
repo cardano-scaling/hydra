@@ -5,6 +5,7 @@ module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
@@ -49,6 +50,12 @@ deriving anyclass instance
   ) =>
   ToJSON (LogicError tx)
 
+instance (IsChainState tx, ToCBOR (Input tx)) => ToCBOR (LogicError tx) where
+  toCBOR = genericToCBOR
+
+instance (IsChainState tx, FromCBOR (Input tx)) => FromCBOR (LogicError tx) where
+  fromCBOR = genericFromCBOR
+
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | ReqSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
@@ -69,6 +76,12 @@ deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)
 deriving stock instance Show (TxIdType tx) => Show (RequirementFailure tx)
 deriving anyclass instance ToJSON (TxIdType tx) => ToJSON (RequirementFailure tx)
 
+instance IsTx tx => ToCBOR (RequirementFailure tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (RequirementFailure tx) where
+  fromCBOR = genericFromCBOR
+
 data SideLoadRequirementFailure tx
   = SideLoadInitialSnapshotMismatch
   | SideLoadSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
@@ -82,3 +95,9 @@ deriving stock instance Eq (UTxOType tx) => Eq (SideLoadRequirementFailure tx)
 deriving stock instance Show (UTxOType tx) => Show (SideLoadRequirementFailure tx)
 deriving anyclass instance ToJSON (UTxOType tx) => ToJSON (SideLoadRequirementFailure tx)
 deriving anyclass instance FromJSON (UTxOType tx) => FromJSON (SideLoadRequirementFailure tx)
+
+instance IsTx tx => ToCBOR (SideLoadRequirementFailure tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (SideLoadRequirementFailure tx) where
+  fromCBOR = genericFromCBOR

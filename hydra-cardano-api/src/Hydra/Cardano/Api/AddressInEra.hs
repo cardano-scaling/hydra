@@ -1,7 +1,10 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api qualified as Api
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
@@ -13,6 +16,32 @@ import PlutusLedgerApi.V3 (
   fromBuiltin,
  )
 import PlutusLedgerApi.V3 qualified as Plutus
+
+-- * Orphans
+
+-- missing CBOR instances
+
+-- NOTE: Encoded as the bech32/base58 address text, consistent with the JSON
+-- representation.
+instance (IsShelleyBasedEra era, Typeable era) => ToCBOR (AddressInEra era) where
+  toCBOR = toCBOR . serialiseAddress
+
+instance (IsShelleyBasedEra era, Typeable era) => FromCBOR (AddressInEra era) where
+  fromCBOR = do
+    t <- fromCBOR
+    case deserialiseAddress (proxyToAsType $ Proxy @(AddressInEra era)) t of
+      Nothing -> fail $ "failed to deserialise AddressInEra from " <> show (t :: Text)
+      Just addr -> pure addr
+
+instance ToCBOR (Api.Address ByronAddr) where
+  toCBOR = toCBOR . serialiseToRawBytes
+
+instance FromCBOR (Api.Address ByronAddr) where
+  fromCBOR = do
+    bs <- fromCBOR
+    case deserialiseFromRawBytes (proxyToAsType $ Proxy @(Api.Address ByronAddr)) bs of
+      Left err -> fail (show err)
+      Right v -> pure v
 
 -- * Extras
 

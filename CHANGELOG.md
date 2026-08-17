@@ -99,6 +99,16 @@ changes.
   observed a block (so a stalled chain backend can be detected even while drift is
   frozen). [#2749](https://github.com/cardano-scaling/hydra/issues/2749)
 
+- **BREAKING**: Event payloads in the `hydra.db` persistence database are now
+  CBOR-encoded instead of JSON, reducing disk usage and speeding up event
+  append and replay. Existing databases are migrated automatically on first
+  start (one-shot re-encode of all rows followed by `VACUUM`); a corrupt row
+  aborts startup and leaves the database untouched. After migration, older
+  hydra-node versions refuse to open the database — there is no downgrade
+  path.
+
+## [2.3.0] - 2026.07.15
+
 - Add **selective partial fanout**: distribute a chosen subset of a closed
   head's UTxO instead of draining it all at once. Introduces the `PartialFanout`
   client input, the `HeadPartiallyFannedOut` server output (with a `fanoutMode`

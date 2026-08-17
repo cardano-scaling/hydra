@@ -28,6 +28,15 @@ deriving stock instance IsChainState tx => Eq (StateEvent tx)
 deriving anyclass instance IsChainState tx => ToJSON (StateEvent tx)
 deriving anyclass instance IsChainState tx => FromJSON (StateEvent tx)
 
+-- NOTE: This codec defines the row format persisted in the hydra.db events
+-- table (see "Hydra.Events.SQLiteBased"). Changing it breaks decoding of
+-- existing databases and requires a schema migration.
+instance IsChainState tx => ToCBOR (StateEvent tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (StateEvent tx) where
+  fromCBOR = genericFromCBOR
+
 mkCheckpoint :: NodeState tx -> EventId -> UTCTime -> StateEvent tx
 mkCheckpoint nodeState eventId time =
   StateEvent

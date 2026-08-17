@@ -54,15 +54,10 @@ instance FromJSON SimpleTx where
       <*> (obj .: "outputs")
 
 instance ToCBOR SimpleTx where
-  toCBOR (SimpleTx txid inputs outputs) =
-    toCBOR txid <> toCBOR inputs <> toCBOR outputs
+  toCBOR = genericToCBOR
 
 instance FromCBOR SimpleTx where
-  fromCBOR =
-    SimpleTx
-      <$> fromCBOR
-      <*> fromCBOR
-      <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- | A single output of a 'SimpleTx' having an integer identity and sole value.
 newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
@@ -70,10 +65,10 @@ newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
   deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
 instance ToCBOR SimpleTxOut where
-  toCBOR (SimpleTxOut inId) = toCBOR inId
+  toCBOR = genericToCBOR
 
 instance FromCBOR SimpleTxOut where
-  fromCBOR = SimpleTxOut <$> fromCBOR
+  fromCBOR = genericFromCBOR
 
 instance IsTx SimpleTx where
   type TxIdType SimpleTx = SimpleId
@@ -109,6 +104,12 @@ newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
   deriving newtype (Num)
+
+instance ToCBOR SimpleChainState where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SimpleChainState where
+  fromCBOR = genericFromCBOR
 
 instance IsChainState SimpleTx where
   type ChainPointType SimpleTx = ChainSlot

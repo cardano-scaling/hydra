@@ -98,6 +98,12 @@ data ChainStateAt = ChainStateAt
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR ChainStateAt where
+  toCBOR = genericToCBOR
+
+instance FromCBOR ChainStateAt where
+  fromCBOR = genericFromCBOR
+
 instance IsChainState Tx where
   type ChainPointType Tx = ChainPoint
 

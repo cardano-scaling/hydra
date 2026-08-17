@@ -4,6 +4,7 @@
 
 module Hydra.API.ServerOutput where
 
+import Cardano.Binary (Decoder)
 import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -13,7 +14,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), HeadState (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), HeadState, OpenState (..), PartialFanoutState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -30,10 +31,13 @@ import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
+--
+-- NOTE: The field order is the CBOR wire format (see 'ToCBOR' below), so
+-- reordering fields is a breaking format change.
 data TimedServerOutput tx = TimedServerOutput
-  { output :: ServerOutput tx
-  , seq :: Natural
+  { seq :: Natural
   , time :: UTCTime
+  , output :: ServerOutput tx
   }
   deriving stock (Eq, Show, Generic)
 
@@ -46,7 +50,15 @@ instance IsChainState tx => ToJSON (TimedServerOutput tx) where
 
 instance IsChainState tx => FromJSON (TimedServerOutput tx) where
   parseJSON v = flip (withObject "TimedServerOutput") v $ \o ->
-    TimedServerOutput <$> parseJSON v <*> o .: "seq" <*> o .: "timestamp"
+    TimedServerOutput <$> o .: "seq" <*> o .: "timestamp" <*> parseJSON v
+
+-- NOTE: Unlike the JSON instance, which merges 'seq' and 'timestamp' into the
+-- inner 'ServerOutput' object, the CBOR encoding is a plain tagged envelope.
+instance IsChainState tx => ToCBOR (TimedServerOutput tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (TimedServerOutput tx) where
+  fromCBOR = genericFromCBOR
 
 data DecommitInvalidReason tx
   = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
@@ -61,6 +73,12 @@ instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalid
 
 instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
+
+instance IsTx tx => ToCBOR (DecommitInvalidReason tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (DecommitInvalidReason tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Individual messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
@@ -84,6 +102,12 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
       defaultOptions
         { omitNothingFields = True
         }
+
+instance IsChainState tx => ToCBOR (ClientMessage tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (ClientMessage tx) where
+  fromCBOR = genericFromCBOR
 
 -- | A friendly welcome message which tells a client something about the
 -- node. Currently used for knowing what signing key the server uses (it
@@ -121,6 +145,40 @@ instance IsChainState tx => FromJSON (Greetings tx) where
         , tagSingleConstructors = True
         }
 
+instance IsChainState tx => ToCBOR (Greetings tx) where
+  toCBOR Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion, env, networkInfo, chainSyncedStatus, currentSlot} =
+    toCBOR ("Greetings" :: Text)
+      <> toCBOR me
+      <> toCBOR headStatus
+      <> toCBOR hydraHeadId
+      <> toCBOR snapshotUtxo
+      <> toCBOR (toText hydraNodeVersion)
+      <> toCBOR env
+      <> toCBOR networkInfo
+      <> toCBOR chainSyncedStatus
+      <> toCBOR currentSlot
+
+instance IsChainState tx => FromCBOR (Greetings tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("Greetings" :: Text) -> decodeGreetingsBody
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded Greetings"
+
+-- | Decode a 'Greetings' after its @Greetings@ tag has already been consumed
+-- (used for tag-based dispatch).
+decodeGreetingsBody :: IsChainState tx => Decoder s (Greetings tx)
+decodeGreetingsBody = do
+  me <- fromCBOR
+  headStatus <- fromCBOR
+  hydraHeadId <- fromCBOR
+  snapshotUtxo <- fromCBOR
+  hydraNodeVersion <- toString <$> fromCBOR @Text
+  env <- fromCBOR
+  networkInfo <- fromCBOR
+  chainSyncedStatus <- fromCBOR
+  currentSlot <- fromCBOR
+  pure Greetings{me, headStatus, hydraHeadId, snapshotUtxo, hydraNodeVersion, env, networkInfo, chainSyncedStatus, currentSlot}
+
 data InvalidInput = InvalidInput
   { reason :: String
   , input :: Text
@@ -129,6 +187,24 @@ data InvalidInput = InvalidInput
 
 deriving anyclass instance ToJSON InvalidInput
 deriving anyclass instance FromJSON InvalidInput
+
+instance ToCBOR InvalidInput where
+  toCBOR InvalidInput{reason, input} =
+    toCBOR ("InvalidInput" :: Text) <> toCBOR (toText reason) <> toCBOR input
+
+instance FromCBOR InvalidInput where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("InvalidInput" :: Text) -> decodeInvalidInputBody
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded InvalidInput"
+
+-- | Decode an 'InvalidInput' after its @InvalidInput@ tag has already been
+-- consumed (used for tag-based dispatch).
+decodeInvalidInputBody :: Decoder s InvalidInput
+decodeInvalidInputBody = do
+  reason <- toString <$> fromCBOR @Text
+  input <- fromCBOR
+  pure InvalidInput{reason, input}
 
 data ServerOutput tx
   = NetworkConnected
@@ -219,6 +295,12 @@ deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
 
+instance IsChainState tx => ToCBOR (ServerOutput tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (ServerOutput tx) where
+  fromCBOR = genericFromCBOR
+
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
   deriving stock (Eq, Show)
@@ -303,6 +385,12 @@ data HeadStatus
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR HeadStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR HeadStatus where
+  fromCBOR = genericFromCBOR
+
 -- | Client-facing projection of the node's fanout 'FanoutMode': whether a
 -- fanning-out head will continue draining on its own or is waiting for the
 -- client to choose the next 'PartialFanout'. Surfacing this lets clients render
@@ -326,6 +414,12 @@ fanoutProgressMode = \case
   DistributingSelection{} -> AutoFanningOut
   AwaitingSelection -> AwaitingFanoutSelection
 
+instance ToCBOR FanoutProgressMode where
+  toCBOR = genericToCBOR
+
+instance FromCBOR FanoutProgressMode where
+  fromCBOR = genericFromCBOR
+
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
@@ -338,6 +432,12 @@ data NetworkInfo = NetworkInfo
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR NetworkInfo where
+  toCBOR = genericToCBOR
+
+instance FromCBOR NetworkInfo where
+  fromCBOR = genericFromCBOR
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)

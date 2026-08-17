@@ -12,8 +12,14 @@ import Text.Show (Show (..))
 -- literals, 'fromEnum' via [1..] syntax or 'fromNominalDiffTime' to create
 -- values of unknown sign.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Generic)
   deriving newtype (Real, Integral, ToJSON, FromJSON)
+
+instance ToCBOR ContestationPeriod where
+  toCBOR = genericToCBOR
+
+instance FromCBOR ContestationPeriod where
+  fromCBOR = genericFromCBOR
 
 instance Show ContestationPeriod where
   show (UnsafeContestationPeriod s) = show s <> "s"

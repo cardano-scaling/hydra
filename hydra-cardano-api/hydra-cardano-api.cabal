@@ -86,6 +86,7 @@ library
     , cardano-ledger-mary
     , cardano-ledger-shelley
     , containers
+    , hydra-prelude
     , lens
     , plutus-ledger-api
     , text                    >=2

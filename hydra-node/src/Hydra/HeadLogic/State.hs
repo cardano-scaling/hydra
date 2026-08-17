@@ -52,6 +52,12 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
 
+instance IsChainState tx => ToCBOR (HeadState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (HeadState tx) where
+  fromCBOR = genericFromCBOR
+
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
@@ -95,6 +101,12 @@ deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
+instance IsChainState tx => ToCBOR (IdleState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (IdleState tx) where
+  fromCBOR = genericFromCBOR
+
 -- ** Open
 
 -- | An 'Open' head with a 'CoordinatedHeadState' tracking off-chain
@@ -112,6 +124,12 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
+
+instance IsChainState tx => ToCBOR (OpenState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (OpenState tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -143,6 +161,12 @@ deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
 deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+
+instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -211,6 +235,28 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
         pure $ mkSeenSnapshot snapshot signatories
       other -> fail $ "unknown SeenSnapshot tag: " <> toString other
 
+-- Manual instances that exclude 'signableBytes' from CBOR (it is derived from
+-- 'snapshot' and recomputed on deserialisation), like the JSON instances above.
+instance IsTx tx => ToCBOR (SeenSnapshot tx) where
+  toCBOR = \case
+    NoSeenSnapshot ->
+      toCBOR ("NoSeenSnapshot" :: Text)
+    LastSeenSnapshot{lastSeen} ->
+      toCBOR ("LastSeenSnapshot" :: Text) <> toCBOR lastSeen
+    RequestedSnapshot{lastSeen, requested} ->
+      toCBOR ("RequestedSnapshot" :: Text) <> toCBOR lastSeen <> toCBOR requested
+    SeenSnapshot{snapshot, signatories} ->
+      toCBOR ("SeenSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatories
+
+instance IsTx tx => FromCBOR (SeenSnapshot tx) where
+  fromCBOR =
+    fromCBOR >>= \case
+      ("NoSeenSnapshot" :: Text) -> pure NoSeenSnapshot
+      "LastSeenSnapshot" -> LastSeenSnapshot <$> fromCBOR
+      "RequestedSnapshot" -> RequestedSnapshot <$> fromCBOR <*> fromCBOR
+      "SeenSnapshot" -> mkSeenSnapshot <$> fromCBOR <*> fromCBOR
+      tag -> fail $ show tag <> " is not a proper CBOR-encoded SeenSnapshot"
+
 -- | Smart constructor for 'SeenSnapshot' that computes and caches
 -- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
 mkSeenSnapshot ::
@@ -269,6 +315,12 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
+instance IsChainState tx => ToCBOR (ClosedState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (ClosedState tx) where
+  fromCBOR = genericFromCBOR
+
 -- ** PartialFanout
 
 -- Terminology note: the selective-fanout feature spans several near-synonymous
@@ -300,6 +352,12 @@ deriving stock instance IsTx tx => Show (FanoutMode tx)
 deriving anyclass instance IsTx tx => ToJSON (FanoutMode tx)
 deriving anyclass instance IsTx tx => FromJSON (FanoutMode tx)
 
+instance IsTx tx => ToCBOR (FanoutMode tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FanoutMode tx) where
+  fromCBOR = genericFromCBOR
+
 -- | A closed head whose UTxO is being distributed across multiple fanout
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
 -- that used to live in 'ClosedState'.
@@ -325,3 +383,9 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutSt
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
+
+instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
+  fromCBOR = genericFromCBOR

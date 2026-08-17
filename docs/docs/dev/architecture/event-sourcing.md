@@ -21,7 +21,26 @@ The database contains a single `events` table:
 | Column       | Type    | Description                              |
 |-------------|---------|------------------------------------------|
 | `event_id`  | INTEGER | Primary key, matches the in-memory event id |
-| `event_data` | BLOB   | JSON-encoded event payload               |
+| `event_data` | BLOB   | CBOR-encoded event payload (`ToCBOR`/`FromCBOR`) |
+
+Event payloads use a constructor-name-tagged CBOR format: the constructor name
+as a CBOR text string, followed by the constructor fields in declaration order.
+This applies uniformly to every hydra domain type, including newtypes and
+single-constructor records (e.g. a `HeadId` is encoded as the text
+`"UnsafeHeadId"` followed by the raw bytes). Most instances are derived
+generically via `genericToCBOR` / `genericFromCBOR` from `Hydra.CBOR.Generic`
+(hydra-prelude), which makes the data type declaration itself the on-disk
+format: changing the order or types of an existing constructor's fields is a
+breaking change that requires a schema migration, while adding, removing or
+reordering constructors keeps existing data decodable thanks to the name tags.
+The few hand-written codecs (e.g. `Snapshot`, `Environment`) carry the same
+leading tag and only exist where a field is deliberately omitted from the
+encoding. Untagged leaves are limited to standard external formats:
+cardano-ledger encodings for `Tx`/`UTxO`, raw-bytes/text encodings for opaque
+cardano-api types (`TxId`, `PolicyId`, `Hash BlockHeader`, ...), scalar
+primitives, and `VerificationKey HydraKey` whose CBOR is the on-disk key file
+format and must not change. The golden tests in `Hydra.CBORSpec` lock the
+concrete bytes per constructor and fail on any accidental format change.
 
 The following connection pragmas are set on every open:
 
@@ -39,15 +58,17 @@ The last-seen event id is updated atomically at enqueue time (not write time), s
 
 #### Schema versioning
 
-The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step is defined as a case in `migrateStep`:
+The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step runs together with its version bump in a single transaction, so a crash or failure mid-migration rolls back to a well-defined version. The steps are defined as cases in `migrateStep`:
 
 ```haskell
-migrateStep conn = \case
+migrateStep conn reencodeRow = \case
   0 -> -- create the events table
-  1 -> -- (future) e.g. add an index or new column
+  1 -> -- re-encode all JSON event payloads to CBOR
 ```
 
 A fresh database starts at version 0 (SQLite default). After all migrations run, `user_version` is set to `nextVersion`. If the database has a version higher than `nextVersion` (e.g. from a newer release), the node refuses to start to prevent silent data corruption on downgrade.
+
+Version 1 databases (written by earlier hydra-node releases) store event payloads as JSON. Opening one automatically re-encodes every row to CBOR and runs `VACUUM` afterwards to reclaim the freed space. A row that fails to decode aborts the migration — and thereby node startup — leaving the database untouched at version 1, still usable by the previous hydra-node version. Note that after a successful migration there is no downgrade path: older releases refuse to open a version 2 database. The legacy `state` file migration also inserts CBOR (the file itself remains JSON lines).
 
 To add a new migration:
 

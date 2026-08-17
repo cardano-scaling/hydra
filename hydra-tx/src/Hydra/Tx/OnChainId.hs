@@ -17,6 +17,12 @@ newtype OnChainId = UnsafeOnChainId ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex OnChainId)
 
+instance ToCBOR OnChainId where
+  toCBOR = genericToCBOR
+
+instance FromCBOR OnChainId where
+  fromCBOR = genericFromCBOR
+
 instance SerialiseAsRawBytes OnChainId where
   serialiseToRawBytes (UnsafeOnChainId bytes) = bytes
   deserialiseFromRawBytes _ = Right . UnsafeOnChainId

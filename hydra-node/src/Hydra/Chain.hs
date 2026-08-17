@@ -113,6 +113,12 @@ deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
 
+instance IsTx tx => ToCBOR (PostChainTx tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (PostChainTx tx) where
+  fromCBOR = genericFromCBOR
+
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
 data OnChainTx tx
@@ -162,6 +168,12 @@ deriving stock instance IsTx tx => Eq (OnChainTx tx)
 deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
+
+instance IsTx tx => ToCBOR (OnChainTx tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (OnChainTx tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
@@ -213,6 +225,12 @@ deriving anyclass instance IsChainState tx => ToJSON (PostTxError tx)
 deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
+
+instance IsChainState tx => ToCBOR (PostTxError tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (PostTxError tx) where
+  fromCBOR = genericFromCBOR
 
 -- | A non empty sequence of chain states that can be rolled back.
 -- This is expected to be constructed by using the smart constructor
@@ -354,6 +372,12 @@ deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
 deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
+
+instance IsChainState tx => ToCBOR (ChainEvent tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (ChainEvent tx) where
+  fromCBOR = genericFromCBOR
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
 -- 'Observation' of a relevant Hydra transaction.

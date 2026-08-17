@@ -3,14 +3,14 @@
 --
 -- Real Hydra nodes write to @<persistenceDir>/hydra.db@ via
 -- "Hydra.Events.SQLiteBased"; this module writes a file with the same shape
--- (the @events (event_id, event_data BLOB)@ schema, JSON-encoded
--- @StateEvent tx@ per row) using purely synthesised events so the
--- visualizer can be exercised without a running node.
+-- (the @events (event_id, event_data BLOB)@ schema, CBOR-encoded
+-- @StateEvent tx@ per row, schema version 2) using purely synthesised events
+-- so the visualizer can be exercised without a running node.
 module HydraVis.SampleDb (writeSampleDb, sampleStateEvents) where
 
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
+import Cardano.Binary (serialize')
 import Database.SQLite.Simple (close, execute, execute_, open)
 import Hydra.Events (EventId)
 import Hydra.HeadLogic (aggregateState, update)
@@ -62,7 +62,8 @@ sampleStateEvents =
      in (n, scs) : collect (n + 1) s' rest
 
 -- | Create (or recreate) a SQLite database at @path@ holding
--- 'sampleStateEvents'. Overwrites any existing rows.
+-- 'sampleStateEvents'. Overwrites any existing rows. Rows are CBOR-encoded
+-- and the schema version set to 2, matching what a current hydra-node writes.
 writeSampleDb :: FilePath -> IO ()
 writeSampleDb path = do
   conn <- open path
@@ -70,10 +71,11 @@ writeSampleDb path = do
     conn
     "CREATE TABLE IF NOT EXISTS events \
     \(event_id INTEGER NOT NULL PRIMARY KEY, event_data BLOB NOT NULL)"
+  execute_ conn "PRAGMA user_version = 2"
   execute_ conn "DELETE FROM events"
   forM_ sampleStateEvents $ \e ->
     execute
       conn
       "INSERT INTO events (event_id, event_data) VALUES (?, ?)"
-      (eventId e, toStrict (Aeson.encode e))
+      (eventId e, serialize' e)
   close conn

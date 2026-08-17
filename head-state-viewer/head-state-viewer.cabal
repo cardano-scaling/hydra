@@ -57,6 +57,7 @@ library
     , aeson
     , base
     , bytestring
+    , cardano-binary
     , containers
     , hydra-node
     , hydra-prelude

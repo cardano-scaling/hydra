@@ -36,10 +36,10 @@ data Authenticated msg = Authenticated
   deriving stock (Eq, Show, Generic)
 
 instance ToCBOR msg => ToCBOR (Signed msg) where
-  toCBOR (Signed msg sig party) = toCBOR msg <> toCBOR sig <> toCBOR party
+  toCBOR = genericToCBOR
 
 instance FromCBOR msg => FromCBOR (Signed msg) where
-  fromCBOR = Signed <$> fromCBOR <*> fromCBOR <*> fromCBOR
+  fromCBOR = genericFromCBOR
 
 -- | Middleware used to sign messages before broadcasting them to other peers
 -- and verify signed messages upon receiving.

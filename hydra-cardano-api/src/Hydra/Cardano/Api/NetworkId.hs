@@ -5,6 +5,8 @@ module Hydra.Cardano.Api.NetworkId where
 import Hydra.Cardano.Api.Prelude
 
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
+import GHC.Generics (Generic)
+import Hydra.CBOR.Generic (genericFromCBOR, genericToCBOR)
 import Hydra.Cardano.Api.NetworkMagic ()
 
 -- * Orphans
@@ -25,3 +27,13 @@ instance FromJSON NetworkId where
       "Mainnet" -> pure Mainnet
       "Testnet" -> Testnet <$> o .: "magic"
       _ -> fail "Expected tag to be Mainnet | Testnet"
+
+-- missing CBOR instances
+
+deriving stock instance Generic NetworkId
+
+instance ToCBOR NetworkId where
+  toCBOR = genericToCBOR
+
+instance FromCBOR NetworkId where
+  fromCBOR = genericFromCBOR

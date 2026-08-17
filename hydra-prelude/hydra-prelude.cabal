@@ -17,6 +17,7 @@ library
   hs-source-dirs:     src
   c-sources:          cbits/revision.c
   exposed-modules:
+    Hydra.CBOR.Generic
     Hydra.Prelude
     Hydra.Version
 
@@ -31,6 +32,7 @@ library
     , io-classes:si-timers
     , pretty-simple
     , relude
+    , time
     , transformers
 
   default-language:   GHC2021

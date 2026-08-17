@@ -8,8 +8,14 @@ import Text.Show (Show (..))
 -- | A positive duration used as the deposit validity window.
 -- Nodes within the same Head must configure identical values.
 newtype DepositPeriod = DepositPeriod {toNominalDiffTime :: NominalDiffTime}
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Generic)
   deriving newtype (Read, Num, Real, ToJSON, FromJSON)
+
+instance ToCBOR DepositPeriod where
+  toCBOR = genericToCBOR
+
+instance FromCBOR DepositPeriod where
+  fromCBOR = genericFromCBOR
 
 instance Show DepositPeriod where
   show (DepositPeriod dt) = show (round dt :: Integer) <> "s"

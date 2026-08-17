@@ -22,6 +22,7 @@ import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Data.IP (IP)
 import Data.Text (pack, unpack)
 import Data.Text qualified as T
+import Hydra.CBOR.Orphans ()
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
@@ -60,6 +61,12 @@ type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Netwo
 data WhichEtcd = EmbeddedEtcd | SystemEtcd
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR WhichEtcd where
+  toCBOR = genericToCBOR
+
+instance FromCBOR WhichEtcd where
+  fromCBOR = genericFromCBOR
 
 -- | Configuration for a `Node` network layer.
 data NetworkConfiguration = NetworkConfiguration
@@ -116,7 +123,14 @@ instance FromJSON PortNumber where
 -- ** NodeId
 
 newtype NodeId = NodeId {nodeId :: Text}
+  deriving stock (Generic)
   deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
+
+instance ToCBOR NodeId where
+  toCBOR = genericToCBOR
+
+instance FromCBOR NodeId where
+  fromCBOR = genericFromCBOR
 
 -- ** Host
 
@@ -129,14 +143,10 @@ data Host = Host
   deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR Host where
-  toCBOR Host{hostname, port} =
-    toCBOR hostname <> toCBOR (toInteger port)
+  toCBOR = genericToCBOR
 
 instance FromCBOR Host where
-  fromCBOR = do
-    hostname <- fromCBOR
-    port <- fromInteger <$> fromCBOR
-    pure Host{hostname, port}
+  fromCBOR = genericFromCBOR
 
 instance Show Host where
   show = showHost
@@ -183,7 +193,18 @@ data Connectivity
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR Connectivity where
+  toCBOR = genericToCBOR
+
+instance FromCBOR Connectivity where
+  fromCBOR = genericFromCBOR
+
 newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)
-  deriving newtype (ToCBOR, FromCBOR)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR ProtocolVersion where
+  toCBOR = genericToCBOR
+
+instance FromCBOR ProtocolVersion where
+  fromCBOR = genericFromCBOR

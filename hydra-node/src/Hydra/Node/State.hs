@@ -26,6 +26,12 @@ data ChainPointTime = ChainPointTime
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR ChainPointTime where
+  toCBOR = genericToCBOR
+
+instance FromCBOR ChainPointTime where
+  fromCBOR = genericFromCBOR
+
 data NodeState tx
   = -- | Normal operation of the node where it is connected and has a recent
     -- view of the chain.
@@ -54,6 +60,12 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState t
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
 
+instance IsChainState tx => ToCBOR (NodeState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (NodeState tx) where
+  fromCBOR = genericFromCBOR
+
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
   NodeCatchingUp
@@ -77,6 +89,12 @@ data SyncedStatus = InSync | CatchingUp
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
+instance ToCBOR SyncedStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SyncedStatus where
+  fromCBOR = genericFromCBOR
+
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
 syncedStatus NodeCatchingUp{} = CatchingUp
@@ -97,9 +115,21 @@ deriving stock instance IsTx tx => Show (Deposit tx)
 deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
+instance IsTx tx => ToCBOR (Deposit tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (Deposit tx) where
+  fromCBOR = genericFromCBOR
+
 data DepositStatus = Inactive | Active | Expired
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR DepositStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR DepositStatus where
+  fromCBOR = genericFromCBOR
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

@@ -6,8 +6,10 @@
 -- The Hydra node persists events using the schema defined by
 -- "Hydra.Events.SQLiteBased": a single @events@ table with
 -- @event_id INTEGER PRIMARY KEY@ and a @event_data BLOB@ column that holds a
--- JSON-encoded @StateEvent tx@. We open the database read-only (so a running
--- node can keep writing) and replay the events in event-id order.
+-- CBOR-encoded @StateEvent tx@ (JSON in version 1 databases; we decode CBOR
+-- first and fall back to JSON so pre-migration databases and archives still
+-- open). We open the database read-only (so a running node can keep writing)
+-- and replay the events in event-id order.
 module HydraVis.History (
   HistoryStep (..),
   loadHistoryFor,
@@ -18,6 +20,7 @@ module HydraVis.History (
 
 import Hydra.Prelude
 
+import Cardano.Binary (decodeFull')
 import Data.Aeson qualified as Aeson
 import Data.Text.Encoding qualified as TE
 import Database.SQLite.Simple (Only (..), SQLData (..), open, query, query_)
@@ -50,7 +53,7 @@ deriving stock instance (IsChainState tx, Show (NodeState tx)) => Show (HistoryS
 -- recover. If the file does not exist the underlying 'open' call throws.
 loadHistoryFor ::
   forall tx.
-  (FromJSON (StateEvent tx), IsChainState tx) =>
+  (FromCBOR (StateEvent tx), FromJSON (StateEvent tx), IsChainState tx) =>
   NodeState tx ->
   FilePath ->
   IO [HistoryStep tx]
@@ -62,13 +65,29 @@ loadHistoryFor initial path = do
       "SELECT event_data FROM events ORDER BY event_id ASC" ::
       IO [Only EventBlob]
   SQL.close conn
-  events <- forM rows $ \(Only (EventBlob blob)) ->
-    case Aeson.eitherDecodeStrict' blob of
-      Right e -> pure e
-      Left err ->
-        fail $
-          "HydraVis.History: failed to decode event in " <> path <> ": " <> err
+  events <- forM rows $ \(Only (EventBlob blob)) -> decodeEventBlob path blob
   pure (buildHistory initial events)
+
+-- | Decode an event payload: CBOR (the current production format) first,
+-- falling back to JSON for version 1 databases and pre-rotation archives.
+decodeEventBlob ::
+  (FromCBOR (StateEvent tx), FromJSON (StateEvent tx)) =>
+  FilePath ->
+  ByteString ->
+  IO (StateEvent tx)
+decodeEventBlob path blob =
+  case decodeFull' blob of
+    Right e -> pure e
+    Left cborErr -> case Aeson.eitherDecodeStrict' blob of
+      Right e -> pure e
+      Left jsonErr ->
+        fail $
+          "HydraVis.History: failed to decode event in "
+            <> path
+            <> ": CBOR: "
+            <> show cborErr
+            <> "; JSON: "
+            <> jsonErr
 
 -- | Wrapper that accepts both BLOB (the production format) and TEXT (what
 -- a quick @sqlite3 CLI@ insert produces) columns when reading event payloads.
@@ -98,7 +117,7 @@ buildHistory initial events =
 -- Used by the follow loop to fetch only newly persisted rows on each poll.
 loadEventsAfter ::
   forall tx.
-  FromJSON (StateEvent tx) =>
+  (FromCBOR (StateEvent tx), FromJSON (StateEvent tx)) =>
   FilePath ->
   Maybe EventId ->
   IO [StateEvent tx]
@@ -117,12 +136,7 @@ loadEventsAfter path lastSeen = do
         (Only eid) ::
         IO [Only EventBlob]
   SQL.close conn
-  forM rows $ \(Only (EventBlob blob)) ->
-    case Aeson.eitherDecodeStrict' blob of
-      Right e -> pure e
-      Left err ->
-        fail $
-          "HydraVis.History: failed to decode event in " <> path <> ": " <> err
+  forM rows $ \(Only (EventBlob blob)) -> decodeEventBlob path blob
 
 -- | Extend an existing history with newly observed events, folding them
 -- through 'aggregateNodeState' starting from the final state of the existing

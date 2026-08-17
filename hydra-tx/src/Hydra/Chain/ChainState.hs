@@ -11,6 +11,12 @@ newtype ChainSlot = ChainSlot Natural
   deriving stock (Ord, Eq, Show, Generic)
   deriving newtype (Num, ToJSON, FromJSON)
 
+instance ToCBOR ChainSlot where
+  toCBOR = genericToCBOR
+
+instance FromCBOR ChainSlot where
+  fromCBOR = genericFromCBOR
+
 -- | Types that can be used on-chain by the Hydra protocol. This includes the
 -- information that needs to be retained about the L1 state to interact with
 -- Hydra heads via the chain.
@@ -23,10 +29,14 @@ class
   , Show (ChainPointType tx)
   , FromJSON (ChainPointType tx)
   , ToJSON (ChainPointType tx)
+  , FromCBOR (ChainPointType tx)
+  , ToCBOR (ChainPointType tx)
   , Eq (ChainStateType tx)
   , Show (ChainStateType tx)
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
+  , FromCBOR (ChainStateType tx)
+  , ToCBOR (ChainStateType tx)
   ) =>
   IsChainState tx
   where

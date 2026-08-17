@@ -22,6 +22,12 @@ newtype HeadId = UnsafeHeadId ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
 
+instance ToCBOR HeadId where
+  toCBOR = genericToCBOR
+
+instance FromCBOR HeadId where
+  fromCBOR = genericFromCBOR
+
 instance SerialiseAsRawBytes HeadId where
   serialiseToRawBytes (UnsafeHeadId bytes) = bytes
   deserialiseFromRawBytes _ = Right . UnsafeHeadId
@@ -53,6 +59,12 @@ mkHeadId = UnsafeHeadId . serialiseToRawBytes
 newtype HeadSeed = UnsafeHeadSeed ByteString
   deriving stock (Show, Eq, Ord, Generic)
   deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadSeed)
+
+instance ToCBOR HeadSeed where
+  toCBOR = genericToCBOR
+
+instance FromCBOR HeadSeed where
+  fromCBOR = genericFromCBOR
 
 instance IsString HeadSeed where
   fromString = UnsafeHeadSeed . fromString

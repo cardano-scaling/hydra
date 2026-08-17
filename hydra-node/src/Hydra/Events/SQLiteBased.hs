@@ -7,9 +7,21 @@
 -- == Architecture
 --
 -- Events are stored in a single @events@ table with an integer primary key
--- (@event_id@) and a BLOB column (@event_data@) containing JSON-encoded event
--- data. The database uses WAL journal mode with @synchronous=NORMAL@ to avoid
--- per-write fsyncs while still syncing at WAL checkpoints.
+-- (@event_id@) and a BLOB column (@event_data@) containing CBOR-encoded event
+-- data (via 'ToCBOR' / 'FromCBOR'). The database uses WAL journal mode with
+-- @synchronous=NORMAL@ to avoid per-write fsyncs while still syncing at WAL
+-- checkpoints.
+--
+-- == Schema migrations
+--
+-- The schema version is tracked in @PRAGMA user_version@ and migrated on open
+-- (see 'applyMigrations'). Version 1 stored event data as JSON; opening a
+-- version 1 database re-encodes every row to CBOR in one transaction and runs
+-- @VACUUM@ afterwards to reclaim the freed space. A row that fails to decode
+-- aborts the migration (and thereby node startup) with
+-- 'EventDecodingException', rolling back to an intact version 1 database.
+-- The legacy file-based store (JSON lines) is migrated by decoding each line
+-- as JSON and inserting CBOR.
 --
 -- == Async write-behind
 --
@@ -58,6 +70,7 @@ module Hydra.Events.SQLiteBased where
 
 import Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
 import Conduit (ConduitT, ResourceT, bracketP, runConduitRes, sourceFile, yield, (.|))
 import Control.Concurrent.Class.MonadSTM (flushTBQueue, newEmptyTMVarIO, newTBQueueIO, putTMVar, readTBQueue, takeTMVar, writeTBQueue, writeTVar)
 import Control.Monad.Class.MonadAsync (async, cancel, link)
@@ -65,7 +78,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
 import Data.Conduit.Combinators qualified as C
-import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query_, withTransaction)
+import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query, query_, withTransaction)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -91,7 +104,7 @@ data SQLiteLog
 -- | Items in the write-behind queue: either an event to insert or a flush
 -- marker that the writer thread signals after processing all preceding items.
 --
--- Events are queued unencoded and JSON-encoded on the writer thread: the
+-- Events are queued unencoded and CBOR-encoded on the writer thread: the
 -- encoding of e.g. a SnapshotRequested event carrying a large UTxO otherwise
 -- sits on the node loop between processing a ReqSn and broadcasting the
 -- AckSn. The bounded queue briefly pins event values instead of compact
@@ -112,7 +125,7 @@ type WriteItem e = Either (TMVar IO ()) (Word64, e)
 -- event id TVar, and this bracket flushes on exit.
 withSQLiteEventStore ::
   forall e a.
-  (FromJSON e, ToJSON e, HasEventId e) =>
+  (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
   Tracer IO SQLiteLog ->
   FilePath ->
   FilePath ->
@@ -131,13 +144,20 @@ withSQLiteEventStore tracer dbFile legacyStateFile callback = do
 -- automatically.
 mkSQLiteEventStore ::
   forall e.
-  (ToJSON e, FromJSON e, HasEventId e) =>
+  (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
   FilePath ->
   IO (Connection, EventStore e IO, IO (), IO (), IO ())
 mkSQLiteEventStore dbFile = do
   createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
-  initSchema conn
+  -- Rows of a version 1 database are JSON-encoded and get re-encoded to CBOR
+  -- by the schema migration; a row that fails to decode aborts startup.
+  let reencodeRow :: Word64 -> ByteString -> IO ByteString
+      reencodeRow eid bytes =
+        case Aeson.eitherDecodeStrict' @e bytes of
+          Right evt -> pure $ serialize' evt
+          Left err -> throwIO EventDecodingException{eventId = eid, decodeError = err}
+  initSchema conn reencodeRow
   -- Dedicated connection for 'sourceEvents' streams, so concurrent client
   -- history replay cannot hold statements open on the connection rotation
   -- runs VACUUM INTO on (see module header).
@@ -161,11 +181,11 @@ mkSQLiteEventStore dbFile = do
 
     decodeRow :: (Word64, ByteString) -> IO e
     decodeRow (eid, evData) =
-      case Aeson.eitherDecodeStrict' evData of
+      case decodeFull' evData of
         Right evt -> pure evt
         -- NOTE: This will prevent the node from starting, which is intentional —
         -- starting with missing events would silently corrupt the head state.
-        Left err -> throwIO EventDecodingException{eventId = eid, decodeError = err}
+        Left err -> throwIO EventDecodingException{eventId = eid, decodeError = show err}
 
     sourceEvents :: ConduitT () e (ResourceT IO) ()
     sourceEvents = do
@@ -215,7 +235,7 @@ mkSQLiteEventStore dbFile = do
       -- Archive the current database before removing events, so the
       -- pre-rotation log is retained (mirrors the old file-based backup).
       backupDatabase conn dbFile logId
-      let evData = toStrict $ Aeson.encode checkpointEvent
+      let evData = serialize' checkpointEvent
       withTransaction conn $ do
         deleteAllEvents conn
         insertEvent conn (getEventId checkpointEvent, evData)
@@ -241,17 +261,17 @@ mkSQLiteEventStore dbFile = do
 
 -- | Background writer that drains the queue and batch-inserts into SQLite.
 -- Each iteration blocks for at least one item, then flushes everything
--- available. Events are JSON-encoded here, off the caller's thread, then
+-- available. Events are CBOR-encoded here, off the caller's thread, then
 -- batch-inserted in a single transaction, and any flush markers in the batch
 -- are signalled. Encode errors surface as writer thread crashes, which are
 -- 'link'ed to the node.
-writerLoop :: ToJSON e => Connection -> TBQueue IO (WriteItem e) -> IO ()
+writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
 writerLoop conn queue = forever $ do
   first' <- atomically $ readTBQueue queue
   rest <- atomically $ flushTBQueue queue
   let allItems = first' : rest
       (flushSignals, events) = partitionEithers allItems
-      eventRows = map (second (toStrict . Aeson.encode)) events
+      eventRows = map (second serialize') events
   unless (null eventRows) $
     withTransaction conn $
       insertEvents conn eventRows
@@ -278,7 +298,7 @@ flushWriteQueue queue = do
 -- subsequent node restarts skip the migration step automatically.
 migrateFromFileBased ::
   forall e.
-  (FromJSON e, HasEventId e) =>
+  (FromJSON e, ToCBOR e, HasEventId e) =>
   Proxy e ->
   Tracer IO SQLiteLog ->
   FilePath ->
@@ -297,11 +317,12 @@ migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
             .| linesUnboundedAscii
             .| C.filter (not . BS.null)
             .| C.sinkList
-      -- Decode each line to extract the event id, then store the original raw
-      -- bytes. Invalid JSON is caught here so corrupt files fail at migration.
+      -- Decode each JSON line (legacy files are always JSON) and store the
+      -- event re-encoded as CBOR. Invalid JSON is caught here so corrupt
+      -- files fail at migration.
       rowParams <- forM (zip [1 ..] rawLines) $ \(lineNo :: Int, line) ->
         case Aeson.eitherDecodeStrict' @e line of
-          Right evt -> pure (getEventId evt, line)
+          Right evt -> pure (getEventId evt, serialize' evt)
           Left err -> throwIO EventDecodingException{eventId = fromIntegral lineNo, decodeError = err}
       unless (null rowParams) $
         withTransaction conn $
@@ -315,17 +336,26 @@ migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
 -- Internal
 
 -- | Current schema version. Bump this and add a migration step to
--- 'applyMigrations' whenever the schema changes.
+-- 'migrateStep' whenever the schema changes.
 nextVersion :: Int
-nextVersion = 1
+nextVersion = 2
+
+-- | Re-encode a single event row given its event id and stored bytes, used by
+-- the version 1 (JSON) to version 2 (CBOR) migration. Must throw when the row
+-- cannot be decoded.
+type ReencodeRow = Word64 -> ByteString -> IO ByteString
 
 -- | Initialise connection pragmas, then create or migrate the schema to
 -- 'nextVersion' using SQLite's built-in @user_version@ pragma.
-initSchema :: Connection -> IO ()
-initSchema conn = do
+initSchema :: Connection -> ReencodeRow -> IO ()
+initSchema conn reencodeRow = do
   configurePragmas conn
   v <- getSchemaVersion conn
-  applyMigrations conn v
+  applyMigrations conn reencodeRow v
+  -- Reclaim the space freed by the JSON -> CBOR re-encode. VACUUM cannot run
+  -- inside a transaction and is a space optimization only: a crash between
+  -- the migration commit and here costs disk space, not correctness.
+  when (v == 1) $ execute_ conn "VACUUM"
 
 configurePragmas :: Connection -> IO ()
 configurePragmas conn =
@@ -353,24 +383,49 @@ setSchemaVersion conn v =
   execute_ conn $ fromString $ "PRAGMA user_version = " <> show v
 
 -- | Apply all pending migrations from version @v@ up to 'nextVersion'.
--- Each step runs in its own transaction so that a crash mid-migration leaves
--- the database at a well-defined version.
-applyMigrations :: Connection -> Int -> IO ()
-applyMigrations conn v
+-- Each step runs together with its version bump in one transaction
+-- (@PRAGMA user_version@ is transactional), so a crash or decoding failure
+-- mid-migration rolls back to a well-defined version.
+applyMigrations :: Connection -> ReencodeRow -> Int -> IO ()
+applyMigrations conn reencodeRow v
   | v > nextVersion =
       error $ "Database schema version " <> show v <> " is newer than supported " <> show nextVersion <> ", cannot downgrade"
   | v == nextVersion = pure ()
   | otherwise = do
-      migrateStep conn v
-      setSchemaVersion conn (v + 1)
-      applyMigrations conn (v + 1)
+      withTransaction conn $ do
+        migrateStep conn reencodeRow v
+        setSchemaVersion conn (v + 1)
+      applyMigrations conn reencodeRow (v + 1)
 
 -- | Individual migration steps. Pattern-match on the /source/ version.
-migrateStep :: Connection -> Int -> IO ()
-migrateStep conn = \case
+migrateStep :: Connection -> ReencodeRow -> Int -> IO ()
+migrateStep conn reencodeRow = \case
   0 -> createEventsTable conn
+  1 -> reencodeAllEvents conn reencodeRow
   unknown ->
     error $ "Unknown schema version " <> show unknown <> ", cannot migrate"
+
+-- | Re-encode all event rows using the given 'ReencodeRow' function (the
+-- version 1 JSON to version 2 CBOR migration). Rows are processed in batches
+-- of ascending event id so memory stays bounded for large databases. Runs
+-- inside the caller's transaction.
+reencodeAllEvents :: Connection -> ReencodeRow -> IO ()
+reencodeAllEvents conn reencodeRow = go 0
+ where
+  batchSize = 1000 :: Int
+
+  go :: Word64 -> IO ()
+  go startId = do
+    rows :: [(Word64, ByteString)] <-
+      query conn "SELECT event_id, event_data FROM events WHERE event_id >= ? ORDER BY event_id LIMIT ?" (startId, batchSize)
+    case nonEmpty rows of
+      Nothing -> pure ()
+      Just neRows -> do
+        updates <- forM rows $ \(eid, evData) -> do
+          encoded <- reencodeRow eid evData
+          pure (encoded, eid)
+        executeMany conn "UPDATE events SET event_data = ? WHERE event_id = ?" updates
+        go (fst (last neRows) + 1)
 
 -- SQL queries
 

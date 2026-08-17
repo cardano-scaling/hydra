@@ -242,7 +242,7 @@ applyAction a m = case a of
 -- | Background poll loop. Reads any new rows from the SQLite file at a
 -- fixed cadence and dispatches them as 'AppendEvents'.
 followSub ::
-  FromJSON (StateEvent tx) =>
+  (FromCBOR (StateEvent tx), FromJSON (StateEvent tx)) =>
   FilePath ->
   Maybe EventId ->
   Sub (Action tx)

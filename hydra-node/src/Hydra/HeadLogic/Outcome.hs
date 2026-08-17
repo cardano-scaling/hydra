@@ -195,6 +195,15 @@ instance forall tx. (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON
             Object (KeyMap.insert "mode" (toJSON (AwaitingSelection :: FanoutMode tx)) o)
       v -> v
 
+-- NOTE: This codec defines the event format persisted in the hydra.db events
+-- table (see "Hydra.Events.SQLiteBased"). Changing an encoding here breaks
+-- decoding of existing databases and requires a schema migration.
+instance IsChainState tx => ToCBOR (StateChanged tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (StateChanged tx) where
+  fromCBOR = genericFromCBOR
+
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
     Continue {stateChanges :: [StateChanged tx], effects :: [Effect tx]}
