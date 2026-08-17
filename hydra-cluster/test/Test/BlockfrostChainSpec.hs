@@ -9,7 +9,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
-import Data.Time (secondsToNominalDiffTime)
 import Hydra.Cardano.Api (CardanoSigningKey (..), TxIn (..), TxIx (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
@@ -62,8 +61,6 @@ import Test.DirectChainSpec (
   observesInTimeSatisfying',
   waitMatch,
  )
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do
@@ -89,22 +86,30 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       failure $
         "Expected a published reference output to preserve its inline datum, but none did: " <> show utxo
 
-  -- Parked until #2753 makes the Blockfrost lifecycle fast enough to run in CI.
-  it "can open, close & fanout a Head using Blockfrost" $ \tracer -> do
-    pendingWith "Blockfrost tests should run only as part of smoke-tests because they are very slow"
+  -- NOTE: re-running within a minute of an aborted run can fail on submission with "all inputs are spent",
+  -- because the shared faucet's address index may not yet reflect the previous process's transactions;
+  -- wait a minute and re-run. (The retry hardening stays deferred; it's recorded in the plan.)
+  it "can open, close & fanout a Head using Blockfrost @requiresBlockfrost" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
-      (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair
       let blockfrostOpts = defaultBlockfrostOptions{projectPath = blockfrostProjectPath}
       hydraScriptsTxId <- runBlockfrostBackend blockfrostOpts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
 
       Blockfrost.Genesis
         { _genesisNetworkMagic
         , _genesisSystemStart
+        , _genesisSlotLength
+        , _genesisActiveSlotsCoefficient
         } <-
         Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+
+      let blockTime :: NominalDiffTime
+          blockTime = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
+      -- Inclusion takes 1-2 blocks and the follower observes with ~1 block of
+      -- confirmation lag plus one poll interval; 6 block times gives margin.
+      let observationTimeout = 6 * blockTime
 
       -- Alice setup
       aliceChainConfig <- chainConfigFor' Alice tmp (Blockfrost blockfrostOpts) hydraScriptsTxId [] blockfrostcperiod (DepositPeriod 100) (DepositPeriod 100)
@@ -112,21 +117,20 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
           _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceCardanoVk 100_000_000
-          someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceExternalVk 7_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
           postTx $ InitTx{participants, headParameters}
-          (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
+          (headId, headSeed) <- observesInTimeSatisfying' aliceChain observationTimeout $ hasInitTxWith headParameters participants
 
-          -- TODO: Deposit someUTxO
           let snapshotVersion = 0
-          let accumulator = Accumulator.buildFromUTxO someUTxO
+          let emptyUTxO :: UTxOType Tx = mempty
+          let accumulator = Accumulator.buildFromUTxO emptyUTxO
           let snapshot =
                 Snapshot
                   { headId
                   , number = 1
-                  , utxo = someUTxO
+                  , utxo = emptyUTxO
                   , confirmed = []
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Nothing
@@ -157,7 +161,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
                   `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
-          observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ \case
+          observesInTimeSatisfying' aliceChain observationTimeout $ \case
             OnFanoutTx{headId = headId', fanoutUTxO}
               | headId' == headId ->
                   if UTxO.containsOutputs fanoutUTxO (UTxO.txOutputs expectedUTxO)

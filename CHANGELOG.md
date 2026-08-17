@@ -10,6 +10,32 @@ changes.
 
 ## [UNRELEASED]
 
+- Fix a node dying under sustained load with
+  `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
+  head short a party. etcd's gRPC server raises its receive window as inbound
+  volume grows and sends a SETTINGS frame per step, which trips the `http2`
+  client's limit of 4 SETTINGS/s. That limit is now lifted for the local etcd,
+  as the ping limit already was.
+  * Connection-level failures on the etcd link no longer take the node down
+    either: they are retried, since etcd is a local subprocess and the gRPC
+    client reconnects on its own. Broadcast retries are idempotent, and a failed
+    watch restarts from the last known revision.
+  * Broadcast no longer drops its etcd connection whenever the outbound queue
+    runs dry, which cost a TCP + HTTP/2 handshake every few messages. Sequential
+    broadcast of 5000 messages went from thousands of connections to 5, and got
+    ~12% faster.
+
+- Reworked the Blockfrost chain backend to poll verifiable conditions instead
+  of sleeping fixed delays: transaction awaits check inclusion and output
+  visibility, the chain follower processes blocks in batches staying about one
+  block behind the tip, submission errors are reported immediately (API
+  rejections were previously reported as success), and HTTP 429 is retried
+  with capped exponential backoff. A full head lifecycle on preview drops from
+  over an hour to minutes, and the Blockfrost lifecycle test runs in nightly
+  CI again. `--blockfrost-retry-timeout` now bounds transaction awaits in
+  seconds; the ineffective `--blockfrost-query-timeout` option and
+  `query-timeout` config key were removed.
+
 - Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
   UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
   10250 (fanout carries ~5.8 kB of overhead; safe up to 10 parties),

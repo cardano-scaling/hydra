@@ -139,6 +139,7 @@ library
     , grapesy
     , grapesy-etcd                 >=0.3
     , http-types
+    , http2
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
@@ -455,6 +456,7 @@ test-suite tests
     , hspec
     , hspec-golden-aeson
     , hspec-wai
+    , http2
     , HUnit
     , hydra-cardano-api
     , hydra-cardano-api:testlib
@@ -470,6 +472,7 @@ test-suite tests
     , io-sim
     , lens
     , lens-aeson
+    , network
     , network-simple-wss
     , network-udp
     , ouroboros-consensus
@@ -482,6 +485,7 @@ test-suite tests
     , regex-tdfa
     , req
     , resourcet
+    , retry
     , silently
     , sop-extras
     , sqlite-simple

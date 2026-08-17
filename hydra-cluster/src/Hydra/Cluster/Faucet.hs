@@ -29,9 +29,9 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
+import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Options qualified as Options
-import Hydra.Tx (balance, txId)
+import Hydra.Tx (balance)
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
 import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import System.Directory (doesFileExist)
@@ -55,7 +55,7 @@ data FaucetLog
 delayBF :: MonadDelay m => ChainBackendOptions -> m ()
 delayBF opts = do
   let delay = case opts of
-        Options.Blockfrost{} -> defaultBFQueryTimeout
+        Options.Blockfrost{} -> 30 :: Int -- backoff before retrying a failed BF faucet operation
         _ -> 1
   threadDelay $ fromIntegral delay
 
@@ -68,7 +68,6 @@ seedFromFaucet ::
   Tracer IO FaucetLog ->
   IO UTxO
 seedFromFaucet opts receivingVerificationKey val tracer = do
-  delayBF opts
   seedFromFaucetWithMinting opts receivingVerificationKey val tracer Nothing
 
 -- | Create a specially marked "seed" UTXO containing requested 'Value' by
@@ -145,7 +144,7 @@ seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
   let stakePools = Set.fromList (Blockfrost.toCardanoPoolId <$> stakePools')
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- Blockfrost.queryEraHistory
-  faucetUTxO <- Blockfrost.queryUTxO options networkId [changeAddress]
+  faucetUTxO <- Blockfrost.queryUTxO networkId [changeAddress]
   foundUTxO <- findUTxO faucetUTxO lovelace
   case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] Nothing of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
@@ -155,8 +154,8 @@ seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
-          void $ Blockfrost.awaitUTxO networkId [changeAddress] (Hydra.Tx.txId signedTx) options
-          Blockfrost.awaitUTxO networkId [receivingAddress] (Hydra.Tx.txId signedTx) options
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx options
+          Blockfrost.awaitUTxO networkId [receivingAddress] signedTx options
 
 findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
 findUTxO utxo lovelace' = do
@@ -186,7 +185,6 @@ returnFundsToFaucet ::
   Actor ->
   IO ()
 returnFundsToFaucet tracer opts sender = do
-  delayBF opts
   senderKeys <- keysFor sender
   void $ returnFundsToFaucet' tracer opts (snd senderKeys)
 
@@ -277,9 +275,7 @@ retryOnExceptions tracer opts action =
 publishHydraScriptsAs :: ChainBackendOptions -> Actor -> IO [TxId]
 publishHydraScriptsAs opts actor = do
   (_, sk) <- keysFor actor
-  txids <- runBackend opts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
-  delayBF opts
-  pure txids
+  runBackend opts $ publishHydraScripts (withSecret sk (mkSecret . CardanoSigningKey))
 
 -- | Like 'publishHydraScriptsAs', but caches the resulting 'TxId's to a file
 -- in the given directory. On subsequent calls, the cached 'TxId's are validated

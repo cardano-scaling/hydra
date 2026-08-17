@@ -349,9 +349,8 @@ parseBlockfrostOptions :: Object -> Parser BlockfrostOptions
 parseBlockfrostOptions o = do
   checkUnknownKeys ["mode", "project-path", "query-timeout", "retry-timeout"] o
   projectPath <- o .:? "project-path" .!= defaultBlockfrostOptions.projectPath
-  queryTimeout <- o .:? "query-timeout" .!= defaultBlockfrostOptions.queryTimeout
   retryTimeout <- o .:? "retry-timeout" .!= defaultBlockfrostOptions.retryTimeout
-  pure BlockfrostOptions{projectPath, queryTimeout, retryTimeout}
+  pure BlockfrostOptions{projectPath, retryTimeout}
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -542,7 +541,6 @@ renderConfig opts =
     object
       [ "mode" .= ("blockfrost" :: Text)
       , "project-path" .= o.projectPath
-      , "query-timeout" .= o.queryTimeout
       , "retry-timeout" .= o.retryTimeout
       ]
 
