@@ -236,10 +236,13 @@ jobs:
   comment:
     name: Compute e2e benchmark differences
     needs: [generate-datasets, benchmark]
-    # if: always() so partial results still surface; non-PR (A/A) runs write
-    # the diff to the step summary and artifact only. always() ignores the
-    # needs-skip, so drafts must be excluded here too.
-    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    # !cancelled(): still post when a benchmark leg fails (partial pairs are
+    # fine), but never from a superseded run; always() would survive the
+    # concurrency cancellation and clobber the previous comment with "no
+    # results" (observed on #2828). It also ignores the needs-skip, so drafts
+    # must be excluded here too. Non-PR (A/A) runs write the diff to the step
+    # summary and artifact only.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
