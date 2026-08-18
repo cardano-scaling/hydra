@@ -3,9 +3,9 @@
 Reference numbers every optimization PR in the 10x snapshot-throughput project
 is compared against. Captured before any optimization landed.
 
-Note: bench runs now also write an `end-to-end-benchmarks.json` next to the
+Note: bench runs also write an `end-to-end-benchmarks.json` next to the
 markdown report (raw series plus RTS counters); prefer capturing it alongside
-future baselines.
+baselines.
 
 ## Environment
 

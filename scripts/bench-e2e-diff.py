@@ -28,7 +28,7 @@
 #
 #   bench-e2e-diff.py --calibrate DIR       suggest thresholds from A/A runs
 #
-# where DIR holds one downloaded results tree per nightly A/A run; suggested
+# where DIR holds one downloaded results tree per A/A run; suggested
 # thresholds are the p95 of the null |median pair delta| per metric.
 
 import argparse
