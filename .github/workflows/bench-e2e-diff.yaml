@@ -15,8 +15,6 @@ on:
     # Default types plus ready_for_review: draft PRs are skipped below, so the
     # transition out of draft must trigger a run.
     types: [opened, synchronize, reopened, ready_for_review]
-  schedule:
-    - cron: "23 2 * * *"
   workflow_dispatch:
     inputs:
       head_ref:
@@ -38,7 +36,7 @@ permissions:
 
 
 jobs:
-  # Generate the workload ONCE, with the head binary, for all bench jobs:
+  # Generate the workload once, with the head binary, for all bench jobs:
   # per-side generation would silently compare different workloads whenever a
   # PR touches the generator. Fixed seeds keep datasets comparable across
   # workflow runs. Also resolves the compared SHAs.
