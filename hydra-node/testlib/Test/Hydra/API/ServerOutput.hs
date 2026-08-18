@@ -4,7 +4,7 @@
 module Test.Hydra.API.ServerOutput where
 
 import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, FanoutProgressMode, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
+import Hydra.API.ServerOutput (ApiMessage, ClientMessage, DecommitInvalidReason, FanoutProgressMode, Greetings, HeadStatus, InvalidInput, NetworkInfo, ServerOutput (..), TimedServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
@@ -40,6 +40,12 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerO
   shrink = recursivelyShrink
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+
+instance Arbitrary InvalidInput where
+  arbitrary = genericArbitrary
+
+instance (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ClientInput tx), Arbitrary (PostChainTx tx), ArbitraryIsTx tx) => Arbitrary (ApiMessage tx) where
+  arbitrary = genericArbitrary
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary

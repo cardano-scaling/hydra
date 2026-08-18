@@ -40,6 +40,7 @@ newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   }
   deriving stock (Generic)
 
+deriving stock instance Eq tx => Eq (DraftCommitTxResponse tx)
 deriving stock instance Show tx => Show (DraftCommitTxResponse tx)
 
 instance IsTx tx => ToJSON (DraftCommitTxResponse tx) where
@@ -692,6 +693,3 @@ badRequest apiEncoding = respondApi apiEncoding status400
 
 notFound :: ApiEncoding -> Response
 notFound apiEncoding = respondApi apiEncoding status404 ("" :: Text)
-
-okJSON :: ToJSON a => a -> Response
-okJSON = responseLBS status200 jsonContent . Aeson.encode

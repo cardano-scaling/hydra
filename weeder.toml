@@ -39,6 +39,10 @@ root-instances = [
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" },
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" },
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadThrow AppM" },
+  # Client-side decode counterpart of the CBOR-encoded GET /config response.
+  # Not covered by a roundtrip property: non-integral JSON numbers round-trip
+  # through Double (cborg-json) and lose precision.
+  { module = "Hydra.CBOR.Orphans", instance = "FromCBOR Value" },
   # Orphan instances needed by hydra-explorer
   { module = "Hydra.Cardano.Api.NetworkId", instance = "Arbitrary NetworkId" },
   { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" },

@@ -29,7 +29,8 @@ import Codec.CBOR.Write (toStrictByteString)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest,
-  OperationTimedOut (..),
+  DraftCommitTxResponse,
+  OperationTimedOut,
   SideLoadSnapshotRequest (..),
   SubmitL2TxRequest,
   SubmitL2TxResponse,
@@ -37,12 +38,13 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
  )
 import Hydra.API.ServerOutput (
+  ApiMessage,
   ClientMessage,
   DecommitInvalidReason,
   FanoutProgressMode,
   Greetings,
   HeadStatus,
-  InvalidInput (..),
+  InvalidInput,
   NetworkInfo,
   ServerOutput,
   TimedServerOutput,
@@ -90,12 +92,6 @@ import Test.Hydra.Node.UnsyncedPeriod ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
-
-instance Arbitrary InvalidInput where
-  arbitrary = InvalidInput <$> arbitrary <*> arbitrary
-
-instance Arbitrary OperationTimedOut where
-  arbitrary = OperationTimedOut <$> arbitrary <*> arbitrary
 
 -- * ToADTArbitrary instances for per-constructor golden samples
 
@@ -189,9 +185,11 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @(ClientMessage Tx)
     roundtripCBOR $ Proxy @(Greetings Tx)
     roundtripCBOR $ Proxy @InvalidInput
+    roundtripCBOR $ Proxy @(ApiMessage Tx)
     roundtripCBOR $ Proxy @HeadStatus
     roundtripCBOR $ Proxy @NetworkInfo
     roundtripCBOR $ Proxy @(DraftCommitTxRequest Tx)
+    roundtripCBOR $ Proxy @(DraftCommitTxResponse Tx)
     roundtripCBOR $ Proxy @(SubmitTxRequest Tx)
     roundtripCBOR $ Proxy @TransactionSubmitted
     roundtripCBOR $ Proxy @(SideLoadSnapshotRequest Tx)
