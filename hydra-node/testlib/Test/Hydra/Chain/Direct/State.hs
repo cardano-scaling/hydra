@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo,
   Tx,
-  TxId,
   TxIn,
   UTxO,
   getTxBody,

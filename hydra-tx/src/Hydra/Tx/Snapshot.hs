@@ -187,7 +187,7 @@ instance IsTx tx => FromJSON (Snapshot tx) where
 -- derived data) and gets rebuilt from the UTxO sets on decode. This is why
 -- the codec stays hand-written; the leading tag matches the generic format.
 instance IsTx tx => ToCBOR (Snapshot tx) where
-  toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} =
+  toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit} =
     toCBOR ("Snapshot" :: Text)
       <> toCBOR headId
       <> toCBOR version
@@ -195,6 +195,7 @@ instance IsTx tx => ToCBOR (Snapshot tx) where
       <> toCBOR confirmed
       <> toCBOR utxo
       <> toCBOR utxoToCommit
+      <> toCBOR depositTxId
       <> toCBOR utxoToDecommit
 
 instance IsTx tx => FromCBOR (Snapshot tx) where
@@ -207,9 +208,10 @@ instance IsTx tx => FromCBOR (Snapshot tx) where
         confirmed <- fromCBOR
         utxo <- fromCBOR
         utxoToCommit <- fromCBOR
+        depositTxId <- fromCBOR
         utxoToDecommit <- fromCBOR
         let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
-        pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+        pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator}
       tag -> fail $ show tag <> " is not a proper CBOR-encoded Snapshot"
 
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.

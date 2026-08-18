@@ -167,6 +167,7 @@ mkSnapshotConfirmed tx n =
       , confirmed = [tx]
       , utxo = u
       , utxoToCommit = Nothing
+      , depositTxId = Nothing
       , utxoToDecommit = Nothing
       , accumulator = Accumulator.buildFromUTxO @Tx u
       }
