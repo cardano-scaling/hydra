@@ -173,6 +173,13 @@ observeDepositTxOut network depositOut = do
     -- the inline datum on it. Dropping this or changing to a >= here will not
     -- work because the increment redeemer of the head validator requires an
     -- exact balance (right now).
+    -- 'UTxO.fromList' is keyed by 'TxIn', so commits repeating an input collapse
+    -- into one entry. Each such commit round-trips fine on its own and the value
+    -- guard below can be satisfied against the collapsed total, but the validators
+    -- hash the datum's list as it stands — two copies of the same bytes — so
+    -- nothing derived from this UTxO could ever match, leaving the deposit neither
+    -- claimable nor recoverable.
+    guard $ length onChainDeposits == UTxO.size depositedUTxO
     guard $ depositValue == UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)

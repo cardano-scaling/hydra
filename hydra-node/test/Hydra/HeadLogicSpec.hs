@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, setExistingDeposit, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -477,6 +477,26 @@ spec =
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 1
             _ -> False
+
+        it "does not carry an expired deposit into the next ReqSn" $ do
+          -- Requesting an expired deposit makes every receiving party hard-error
+          -- with RequestedDepositExpired, so a deposit that became unclaimable would
+          -- stall snapshots for the whole head. Dropping it downgrades that to a
+          -- commit its depositor recovers after the deadline.
+          now <- getCurrentTime
+          let depositId = 4711
+              mkDeposit status =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 50
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status
+                  }
+          setExistingDeposit (Map.singleton depositId (mkDeposit Expired)) (Just depositId)
+            `shouldBe` (Nothing :: Maybe Integer)
+          setExistingDeposit (Map.singleton depositId (mkDeposit Active)) (Just depositId)
+            `shouldBe` Just depositId
 
         it "deposit activated while snapshot in-flight is picked up by next chained snapshot" $ do
           -- Regression: a deposit that becomes Active while a snapshot is in-flight

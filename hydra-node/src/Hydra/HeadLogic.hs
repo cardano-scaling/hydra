@@ -1880,13 +1880,18 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
 --   in the map of pending deposits.
 --
 --   * If 'currentDeposit' is 'Nothing', returns 'Nothing'.
---   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits',
---     returns the original 'currentDeposit'.
+--   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits'
+--     and not 'Expired', returns the original 'currentDeposit'.
 --   * Otherwise, returns 'Nothing'.
 --
 --   This is typically used to confirm that a local deposit that is to be
 --   requested in 'ReqSn' is indeed still pending and has not been processed or
 --   removed.
+--
+--   Expired deposits are dropped rather than carried: requesting one makes every
+--   receiving party hard-error with 'RequestedDepositExpired', so a deposit that
+--   somehow became unclaimable would stall snapshots for the whole head instead of
+--   just being abandoned by its depositor.
 setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
 setExistingDeposit pendingDeposits currentDeposit = do
   case currentDeposit of
@@ -1894,7 +1899,9 @@ setExistingDeposit pendingDeposits currentDeposit = do
     Just depositTxId ->
       case Map.lookup depositTxId pendingDeposits of
         Nothing -> Nothing
-        Just _ -> currentDeposit
+        Just Deposit{status}
+          | status == Expired -> Nothing
+          | otherwise -> currentDeposit
 
 -- | Find the oldest non-empty active deposit, if any. Deposits are selected
 -- in FIFO order by their 'created' timestamp. This mirrors the selection
