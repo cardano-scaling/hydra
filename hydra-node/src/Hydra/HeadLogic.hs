@@ -1339,9 +1339,8 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     | requestedSv /= lastSeenSv = sideLoadFailed SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
     | requestedSc /= lastSeenSc = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
     -- The pending commit is L1-relevant state, and since the binding change it is
-    -- the deposit that identifies it, not the committed content. Reported as a
-    -- commit mismatch: it is the same disagreement, about the other half.
-    | requestedDeposit /= lastSeenDeposit = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    -- the deposit that identifies it, not the committed content.
+    | requestedDeposit /= lastSeenDeposit = sideLoadFailed SideLoadDepositTxIdInvalid{requestedDeposit, lastSeenDeposit}
     | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 

@@ -347,9 +347,24 @@ validator checks:
 	\[
 		v' = v + 1
 	\]
+	\item At least one decommit output is materialized. Note that this is checked on
+	the outputs actually present, not on the redeemer's $m$: the transaction's
+	decommit outputs are taken as the first $m$ after the head output, which
+	truncates silently when fewer exist.
+	\[
+		|o_{2} \dots o_{m+1}| > 0
+	\]
+	This is required because \mtxIncrement{} and \mtxDecrement{} verify the same
+	signed message. With no decommit outputs, $\eta_{\omega}$ recomputed here is the
+	digest of the empty set — exactly what a snapshot carrying no pending decommit
+	produces — while $\eta_{\alpha}$ comes from the redeemer. An
+	\mtxIncrement{} snapshot's multi-signature would otherwise authorize a decrement
+	that advances the version and adopts that snapshot's accumulator, which already
+	counts the deposited UTxOs, while no deposit is spent and no value enters the
+	head. The head would then account for UTxOs it does not hold.
 	\item $\xi$ is a valid multi-signature of the new snapshot state $\eta'$
 	\[
-		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#}),\xi) = \true
+		\msVfy(\hydraKeys,(\cid || v || s || {\eta'}^{\#} || \eta_{\omega} || \eta_{\alpha}),\xi) = \true
 	\]
 	where ${\eta'}^{\#} = (\eta')^{\#}$ is the hash of the new accumulator commitment $\eta'$
 	stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs.

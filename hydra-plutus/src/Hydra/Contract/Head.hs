@@ -47,7 +47,6 @@ import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, singleton)
 import PlutusLedgerApi.V3 (
   Address (..),
-  Credential (..),
   CurrencySymbol,
   Datum (..),
   Extended (Finite),
@@ -138,26 +137,15 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   headInValue = txOutValue (txInInfoResolved headTxIn)
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
-  -- Sum of every script input that is not the head input itself.
-  -- Pub-key inputs (e.g. fee payers) are excluded so they don't inflate the
-  -- expected head output value.
+  -- The head grows by exactly the CLAIMED deposit's value, and nothing else.
   --
-  -- NOTE: this counts ALL script inputs, while the deposit validator's
-  -- DepositNotClaimedByHead (D09) only constrains inputs governed by v_deposit.
-  -- So D09 stops another party's pending deposit riding along on an increment; it
-  -- is not a general guarantee that the head cannot be over-funded, since a
-  -- participant can still add some unrelated script UTxO of their own and have
-  -- its value forced into the head output here. That over-funds the head and
-  -- makes (partial) fanout's strict conservation unsatisfiable, at the cost of
-  -- the value donated — a griefing vector this validator does not close.
-  totalNonHeadInputValue =
-    F.foldMap (txOutValue . txInInfoResolved) $
-      L.filter (\i -> txInInfoOutRef i /= txInInfoOutRef headTxIn && isScriptInput (txInInfoResolved i)) inputs
-
-  isScriptInput txOut =
-    case addressCredential (txOutAddress txOut) of
-      ScriptCredential _ -> True
-      PubKeyCredential _ -> False
+  -- Summing every script input instead would let a participant add some unrelated
+  -- script UTxO of their own and have its value forced into the head output,
+  -- over-funding the head and making (partial) fanout's strict conservation
+  -- unsatisfiable — at the cost of the value donated, but permanently. Pub-key
+  -- inputs were already excluded so fee payers don't inflate the expectation; the
+  -- deposit being claimed is the only input whose value belongs in the head.
+  totalNonHeadInputValue = txOutValue claimedDeposit
 
   IncrementRedeemer{signature, snapshotNumber, increment, decommitOutputsHash} = redeemer
 
@@ -203,13 +191,15 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
       hashPreSerializedCommits claimedDepositCommits
         <> getTxId (txOutRefId increment)
 
-  claimedDepositCommits =
+  claimedDeposit =
     case L.find (\i -> txInInfoOutRef i == increment) inputs of
       Nothing -> traceError $(errorCode DepositInputNotFound)
-      Just TxInInfo{txInInfoResolved} ->
-        case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum txInInfoResolved) of
-          Just (_, _, commits) -> commits
-          Nothing -> traceError $(errorCode DepositDatumInvalid)
+      Just TxInInfo{txInInfoResolved} -> txInInfoResolved
+
+  claimedDepositCommits =
+    case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum claimedDeposit) of
+      Just (_, _, commits) -> commits
+      Nothing -> traceError $(errorCode DepositDatumInvalid)
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -285,9 +275,14 @@ checkDecrement ctx openBefore redeemer =
   --
   -- With one or more outputs required, the recomputed hash can no longer equal the
   -- empty-list hash, so an increment snapshot cannot authorize a decrement.
+  -- NOTE: this must test the DERIVED list, not the redeemer's count.
+  -- 'decommitOutputs' is @take numberOfDecommitOutputs (tail outputs)@, which
+  -- truncates silently: a redeemer claiming one output in a transaction that
+  -- carries only the head output yields an empty list, and the empty-list hash is
+  -- exactly what makes the replay above work.
   mustHaveDecommitOutputs =
     traceIfFalse $(errorCode DecrementZeroOutputs) $
-      numberOfDecommitOutputs > 0
+      not (L.null decommitOutputs)
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
