@@ -3,12 +3,12 @@ name: "Compute e2e benchmark differences"
 # Paired benchmark comparison: every benchmark job measures BOTH sides (PR
 # and merge-base) back to back on ITS OWN runner, and the diff aggregates the
 # same-machine pair deltas. GitHub's hosted fleet mixes CPU models with a
-# large single-thread spread, so one sample per side on separate runners
-# (the previous design) mostly measured which VMs the jobs landed on.
-# Non-PR triggers run an A/A null experiment (both sides the same SHA): any
-# colored row there is a false positive; the nightly run accumulates that
-# null distribution for threshold calibration (see scripts/bench-e2e-diff.py
-# and hydra-cluster/README.md).
+# large single-thread spread, so unpaired samples on separate runners mostly
+# measure which VMs the jobs landed on; machine identity cancels inside a
+# pair. A workflow_dispatch without base_ref is an A/A null experiment (both
+# sides the same SHA): any colored row there is a false positive, and
+# accumulated A/A results calibrate the noise thresholds (see
+# scripts/bench-e2e-diff.py and hydra-cluster/README.md).
 
 on:
   pull_request:
@@ -24,8 +24,8 @@ on:
         description: "Baseline ref or SHA (default: head_ref, i.e. an A/A null run)"
         required: false
 
-# Superseded runs measure dead code; non-PR runs key on run_id so nothing
-# cancels the nightly.
+# Superseded runs measure dead code; non-PR runs key on run_id so they never
+# cancel each other.
 concurrency:
   group: bench-e2e-diff-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -81,10 +81,6 @@ jobs:
           workflow_dispatch)
             HEAD_SHA=$(gh api "repos/${{ github.repository }}/commits/${{ inputs.head_ref || github.ref_name }}" --jq .sha)
             BASE_SHA=$(gh api "repos/${{ github.repository }}/commits/${{ inputs.base_ref || inputs.head_ref || github.ref_name }}" --jq .sha)
-            ;;
-          schedule)
-            HEAD_SHA=$(gh api "repos/${{ github.repository }}/commits/master" --jq .sha)
-            BASE_SHA="$HEAD_SHA"
             ;;
         esac
         echo "Comparing head $HEAD_SHA against base $BASE_SHA"
@@ -232,17 +228,16 @@ jobs:
         path: results
         if-no-files-found: warn
 
-  # Aggregate all machines' pairs and post/update the PR comment. Named to
-  # match the original single job so required-check configuration resolves.
+  # Aggregate all machines' pairs and post/update the PR comment.
   comment:
     name: Compute e2e benchmark differences
     needs: [generate-datasets, benchmark]
     # !cancelled(): still post when a benchmark leg fails (partial pairs are
-    # fine), but never from a superseded run; always() would survive the
-    # concurrency cancellation and clobber the previous comment with "no
-    # results" (observed on #2828). It also ignores the needs-skip, so the
-    # draft/label condition must be mirrored here. Non-PR (A/A) runs write
-    # the diff to the step summary and artifact only.
+    # fine), but never from a superseded run; always() survives concurrency
+    # cancellation and would clobber the comment with "no results". It also
+    # ignores the needs-skip, so the draft/label condition must be mirrored
+    # here. Non-PR (A/A) runs write the diff to the step summary and artifact
+    # only.
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'bench')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15

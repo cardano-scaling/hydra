@@ -51,8 +51,8 @@ METRICS = [
     ("Incremental decommit avg (ms)", "Incremental decommit avg (s)", -1, MS_TO_S, False, "pct"),
 ]
 
-# Percent thresholds below which a median delta renders as noise. Initial
-# values; recalibrate from nightly A/A (null) runs when enough accumulate.
+# Percent thresholds below which a median delta renders as noise. Recalibrate
+# from accumulated A/A (null) runs.
 THRESHOLDS = {
     "default": 10.0,
     "Avg. Confirmation Time (ms)": 5.0,

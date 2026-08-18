@@ -261,20 +261,19 @@ other people's merges cannot appear as PR deltas):
   fixed seeds, consumed by every benchmark job.
 * Four benchmark jobs run in parallel; each measures BOTH sides back to back
   on its own runner (orders alternated), after prefetching both nix closures.
-  GitHub's hosted fleet mixes CPU models with a large single-thread spread,
-  so the earlier one-sample-per-side-on-separate-runners design measured
-  which VMs the jobs landed on (16-19% CV on open-loop TPS across
-  identical-code runs); machine identity cancels inside a same-machine pair.
+  GitHub's hosted fleet mixes CPU models with a large single-thread spread:
+  unpaired cross-machine comparisons see double-digit CV on open-loop TPS
+  even for identical code, while machine identity cancels inside a
+  same-machine pair.
 * `scripts/bench-e2e-diff.py` reports the median of the per-pair percent
   deltas and colors a row only beyond that metric's noise threshold with
   directional agreement across pairs. This is a calibrated heuristic, not a
   significance test, and nothing fails CI on it; strong regressions on the
   headline rates emit a `::warning` annotation.
-* A scheduled nightly run benchmarks master against itself: a null experiment
-  in which any colored row is a false positive. Use its accumulated runs to
-  judge the pipeline and recalibrate the thresholds in the script.
-  `workflow_dispatch` takes `head_ref`/`base_ref` to compare arbitrary refs;
-  an empty `base_ref` makes it an A/A run of `head_ref`. Draft PRs are
+* `workflow_dispatch` takes `head_ref`/`base_ref` to compare arbitrary refs;
+  an empty `base_ref` makes it an A/A null run of `head_ref`, in which any
+  colored row is a false positive. Use accumulated A/A runs to judge the
+  pipeline and recalibrate the thresholds in the script. Draft PRs are
   skipped unless the PR carries the `bench` label (applies from the next
   push).
 
