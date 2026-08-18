@@ -68,6 +68,7 @@ data HeadError
   | DepositDatumInvalid
   | InvalidCRSDatum
   | DepositNotFirstOutput
+  | DecrementZeroOutputs
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -141,3 +142,4 @@ instance ToErrorCode HeadError where
     DepositDatumInvalid -> "H67"
     InvalidCRSDatum -> "H68"
     DepositNotFirstOutput -> "H69"
+    DecrementZeroOutputs -> "H70"

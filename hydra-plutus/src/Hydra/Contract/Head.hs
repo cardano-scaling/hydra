@@ -256,6 +256,7 @@ checkDecrement ctx openBefore redeemer =
   mustNotMintOrBurn txInfo
     && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId) (prevDepositPeriod, nextDepositPeriod)
     && mustIncreaseVersion
+    && mustHaveDecommitOutputs
     && checkSnapshotSignature
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
@@ -271,6 +272,22 @@ checkDecrement ctx openBefore redeemer =
   -- aggregate value is checked and a single participant could reuse a valid
   -- all-party signature while redirecting the decommitted value elsewhere.
   decommitOutputsHash = hashTxOuts decommitOutputs
+
+  -- A decrement must actually decommit something. Increment and decrement verify
+  -- the same signed message, and with zero outputs this branch recomputes
+  -- 'decommitOutputsHash' as the empty-list hash — exactly what a snapshot with no
+  -- pending decommit produces. Its 'commitOutputsHash' comes from the redeemer, so
+  -- without this guard an all-party signature for an INCREMENT snapshot verifies
+  -- here too: the version advances and the output datum carries that snapshot's
+  -- accumulator, which already counts the deposited UTxOs, while no deposit is
+  -- spent and no value enters the head. The head would then credit UTxOs it does
+  -- not hold and could never satisfy the strict conservation of (partial) fanout.
+  --
+  -- With one or more outputs required, the recomputed hash can no longer equal the
+  -- empty-list hash, so an increment snapshot cannot authorize a decrement.
+  mustHaveDecommitOutputs =
+    traceIfFalse $(errorCode DecrementZeroOutputs) $
+      numberOfDecommitOutputs > 0
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $

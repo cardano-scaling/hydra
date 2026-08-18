@@ -166,7 +166,7 @@ observeDepositTxOut network depositOut = do
   (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
-    depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
+    depositedUTxO <- UTxO.fromList <$> traverse deserializeRoundTripping onChainDeposits
     -- TODO: This silently ignores deposits that deposit less ADA than what the
     -- min ADA for the deposit output would be. For example: a 1 ADA utxo can be
     -- deposited, but the deposit tx's output will require ~1.5 ADA because of
@@ -178,3 +178,17 @@ observeDepositTxOut network depositOut = do
   pure (headId, deposit, deadline)
  where
   depositValue = txOutValue depositOut
+
+  -- The validators hash the datum's 'preSerializedOutput' bytes as they stand,
+  -- while the off-chain representation cannot express everything those bytes can:
+  -- 'fromPlutusTxOut' drops a reference script, for instance. A deposit whose
+  -- commits do not survive the round trip would still be observed and committed by
+  -- a snapshot, but every hash recomputed from the off-chain UTxO would differ from
+  -- the datum's — leaving it neither claimable by an increment nor recoverable,
+  -- since 'recoverTx' rebuilds its outputs through the same lossy path. Refuse to
+  -- observe such a deposit; the funds stay recoverable by a transaction that
+  -- reproduces the original outputs exactly.
+  deserializeRoundTripping commit = do
+    (i, o) <- Commit.deserializeCommit network commit
+    guard $ Commit.serializeCommit (i, o) == Just commit
+    pure (i, o)

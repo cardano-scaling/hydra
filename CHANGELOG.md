@@ -34,7 +34,12 @@ changes.
   nodes and published scripts are not compatible. Close and fan out any open
   heads before upgrading — a node that upgrades while a head is open can no
   longer interact with it, and a snapshot signed before this change fails
-  verification.
+  verification. In particular, a head carrying a pending commit across the
+  upgrade can neither increment (the confirmed snapshot names no deposit) nor
+  close (its signatures cover the old message), so it has to be drained first.
+  Persisted history from earlier versions still replays: the field decodes as
+  absent rather than failing, so upgrading a node whose heads are already closed
+  is unaffected.
 
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the

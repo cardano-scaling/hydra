@@ -206,6 +206,15 @@ data DecrementMutation
     -- Increment's mustPreserveValue summing every non-head script
     -- input.
     DecrementAddExtraDepositInput
+  | -- | SECURITY: claim zero decommit outputs. Increment and decrement verify the
+    -- same signed message, and with no outputs this branch recomputes
+    -- 'decommitOutputsHash' as the empty-list hash — what a snapshot without a
+    -- pending decommit produces — while taking 'commitOutputsHash' from the
+    -- redeemer. An all-party signature for an increment snapshot would then
+    -- authorize a decrement that advances the version and adopts that snapshot's
+    -- accumulator without any deposit being spent, leaving the head crediting UTxOs
+    -- it does not hold.
+    DecrementZeroDecommitOutputs
   | -- | Minting or burning of tokens should not be possible in decrement.
     MutateTokenMintingOrBurning
   | -- | Ensures deposit-period does not change between head input datum and head output
@@ -304,6 +313,15 @@ genDecrementMutation (tx, _utxo) =
             , AddScript depositValidatorScript
             , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
             ]
+    , SomeMutation (pure $ toErrorCode DecrementZeroOutputs) DecrementZeroDecommitOutputs . ChangeHeadRedeemer <$> do
+        pure $
+          Head.Decrement
+            Head.DecrementRedeemer
+              { signature = toPlutusSignatures healthySignature
+              , snapshotNumber = fromIntegral healthySnapshotNumber
+              , numberOfDecommitOutputs = 0
+              , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
+              }
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
