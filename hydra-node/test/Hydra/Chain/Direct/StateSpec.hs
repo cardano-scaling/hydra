@@ -487,7 +487,6 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
               (txInToHeadSeed seedTxIn, headId)
               (ctxHeadParameters ctx)
               snapshot
-              depositedTxId
               slotNo
       case observeIncrementTx networkId utxo txIncrement of
         Nothing -> assertWith False "Increment not observed"

@@ -141,6 +141,15 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   -- Sum of every script input that is not the head input itself.
   -- Pub-key inputs (e.g. fee payers) are excluded so they don't inflate the
   -- expected head output value.
+  --
+  -- NOTE: this counts ALL script inputs, while the deposit validator's
+  -- DepositNotClaimedByHead (D09) only constrains inputs governed by v_deposit.
+  -- So D09 stops another party's pending deposit riding along on an increment; it
+  -- is not a general guarantee that the head cannot be over-funded, since a
+  -- participant can still add some unrelated script UTxO of their own and have
+  -- its value forced into the head output here. That over-funds the head and
+  -- makes (partial) fanout's strict conservation unsatisfiable, at the cost of
+  -- the value donated — a griefing vector this validator does not close.
   totalNonHeadInputValue =
     F.foldMap (txOutValue . txInInfoResolved) $
       L.filter (\i -> txInInfoOutRef i /= txInInfoOutRef headTxIn && isScriptInput (txInInfoResolved i)) inputs

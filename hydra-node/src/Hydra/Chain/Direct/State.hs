@@ -221,18 +221,22 @@ increment ::
   UTxO ->
   (HeadSeed, HeadId) ->
   HeadParameters ->
-  -- | Snapshot to increment with.
+  -- | Snapshot to increment with. Also names the deposit to claim.
   ConfirmedSnapshot Tx ->
-  -- | Deposited TxId
-  TxId ->
   -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot depositTxId upperValiditySlot = do
+increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperValiditySlot = do
   seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInIncrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
+  -- NOTE: the deposit is taken from the snapshot rather than passed in. The
+  -- increment validator recomputes the signed commit hash from the deposit input
+  -- this transaction spends, so a transaction spending any deposit other than the
+  -- one bound into this snapshot cannot validate. Deriving it here makes the two
+  -- impossible to disagree.
+  depositTxId <- snapshotDepositTxId ?> SnapshotMissingIncrementUTxO
   (depositedIn, depositedOut) <-
     UTxO.findWithKey
       ( \(TxIn txid _) txout ->
@@ -259,7 +263,7 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
               upperValiditySlot
               sigs
  where
-  Snapshot{utxoToCommit} = sn
+  Snapshot{utxoToCommit, depositTxId = snapshotDepositTxId} = sn
 
   (sn, sigs) =
     case incrementingSnapshot of
@@ -329,7 +333,6 @@ dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperV
     (headSeed, headId)
     headParameters
     ConfirmedSnapshot{snapshot, signatures}
-    depositTxId
     upperValiditySlot
  where
   dummySigningKey = generateSigningKey "hydra-dry-run-increment"

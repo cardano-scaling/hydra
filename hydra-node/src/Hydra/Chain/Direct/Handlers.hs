@@ -553,11 +553,11 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
   case tx of
     -- InitTx is handled in mkChain.postTx before reaching this function.
     InitTx{} -> throwSTM (NoSeedInput @Tx)
-    IncrementTx{headSeed, headId, headParameters, incrementingSnapshot, depositTxId} -> do
+    IncrementTx{headSeed, headId, headParameters, incrementingSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot depositTxId upperBound of
+      case increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperBound of
         Left err -> throwIO (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
         Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do

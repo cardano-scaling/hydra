@@ -360,7 +360,6 @@ genIncrementTxWith genDeposit = do
         (txInToHeadSeed seedTxIn, headId)
         (ctxHeadParameters ctx)
         snapshot
-        depositTxId
         slotBeforeDeadline
     )
 
@@ -843,11 +842,10 @@ unsafeIncrement ::
   (HeadSeed, HeadId) ->
   HeadParameters ->
   ConfirmedSnapshot Tx ->
-  TxId ->
   SlotNo ->
   Tx
-unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo =
-  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot depositedTxId slotNo
+unsafeIncrement ctx spendableUTxO headId parameters incrementingSnapshot slotNo =
+  either (error . show) id $ increment ctx spendableUTxO headId parameters incrementingSnapshot slotNo
 
 unsafeDecrement ::
   HasCallStack =>

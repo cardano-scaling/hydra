@@ -73,6 +73,8 @@ sequenceDiagram
 
 Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one.
 
+A deposit is identified throughout by the transaction id of the `depositTx`, which is only unambiguous because the deposit output is that transaction's *first* output. The `hydra-node` drafts deposits that way, `recoverTx` spends `TxIn depositTxId (TxIx 0)`, and the increment validator requires it. A deposit output anywhere else is not observed, since committing one would produce a snapshot that could neither be incremented nor recovered.
+
 :::info
 Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
 :::

@@ -15,6 +15,27 @@ changes.
   headers), keeping JSON as the default.
   [#2543](https://github.com/cardano-scaling/hydra/issues/2543)
 
+- Snapshots now carry the `depositTxId` of the deposit they commit and bind it
+  into the signature alongside the committed outputs, so an increment can only
+  claim the exact deposit the parties approved rather than any other one
+  recording the same UTxO. Snapshot JSON gains an optional `depositTxId`.
+  * The deposit validator additionally requires the head's increment redeemer to
+    name the deposit being claimed (`D09`), and the head validator requires the
+    claimed deposit to be the first output of its transaction (`H69`).
+  * A recover transaction now spends a single deposit (`D10`). The recovered
+    outputs are the transaction's first `n`, shared by every deposit input, so
+    two deposits recording the same UTxO were both satisfied by one set of them.
+  * `hydra-node` no longer observes a deposit that is not its transaction's first
+    output. Deposits it drafts always are; one built elsewhere could previously be
+    committed by a snapshot and then neither incremented nor recovered.
+
+- **Breaking**: script hashes change for the head validator, head minting policy
+  and deposit validator, and so does the snapshot signature payload. Earlier
+  nodes and published scripts are not compatible. Close and fan out any open
+  heads before upgrading — a node that upgrades while a head is open can no
+  longer interact with it, and a snapshot signed before this change fails
+  verification.
+
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
   head short a party. etcd's gRPC server raises its receive window as inbound

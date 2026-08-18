@@ -1307,6 +1307,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     { version = lastSeenSv
     , number = lastSeenSn
     , utxoToCommit = lastSeenSc
+    , depositTxId = lastSeenDeposit
     , utxoToDecommit = lastSeenSd
     } = getSnapshot currentConfirmedSnapshot
 
@@ -1314,6 +1315,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     { version = requestedSv
     , number = requestedSn
     , utxoToCommit = requestedSc
+    , depositTxId = requestedDeposit
     , utxoToDecommit = requestedSd
     } = getSnapshot requestedConfirmedSnapshot
 
@@ -1336,6 +1338,10 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   requireVerifiedL1Snapshot cont
     | requestedSv /= lastSeenSv = sideLoadFailed SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
     | requestedSc /= lastSeenSc = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    -- The pending commit is L1-relevant state, and since the binding change it is
+    -- the deposit that identifies it, not the committed content. Reported as a
+    -- commit mismatch: it is the same disagreement, about the other half.
+    | requestedDeposit /= lastSeenDeposit = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
     | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 

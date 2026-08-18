@@ -853,9 +853,9 @@ newIncrementTx actor snapshot = do
   case utxoToCommit of
     Nothing -> pure $ Left SnapshotMissingIncrementUTxO
     Just _ -> do
-      (depositTxId, spendableUTxO) <- get
+      -- NOTE: the deposit to claim comes from the snapshot itself, see 'increment'.
+      (_, spendableUTxO) <- get
       let slotNo = SlotNo 0
-      let txid = fromMaybe (error "No deposit txid") depositTxId
       pure $
         increment
           (actorChainContext actor)
@@ -863,7 +863,6 @@ newIncrementTx actor snapshot = do
           (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
           Fixture.testHeadParameters
           snapshot
-          txid
           slotNo
 
 -- | Creates a decrement transaction using given utxo and given snapshot.

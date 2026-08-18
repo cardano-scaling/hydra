@@ -634,10 +634,12 @@ spec =
             NodeInSync{headState = Closed _} -> pure ()
             other -> fail $ "expected Closed state, got: " <> show other
 
-        it "posts IncrementTx using the snapshot's deposit txid, not by content match" $ do
-          -- Regression for #2681: with two pending deposits sharing 'deposited'
-          -- content but differing in txid, the old code did 'find' by content
-          -- and could pick the wrong one. The fix keys off 'currentDepositTxId'.
+        it "posts IncrementTx using the snapshot's deposit txid, not the current one" $ do
+          -- Regression for #2681 and for the deposit binding: with two pending
+          -- deposits sharing 'deposited' content but differing in txid, only the
+          -- deposit bound into the signed snapshot may be claimed on-chain.
+          -- 'currentDepositTxId' deliberately points at the *other* deposit here,
+          -- as 'DepositActivated' can move it after a snapshot was confirmed.
           now <- getCurrentTime
           let depositTime = flip addUTCTime now
               deadline = depositTime 600
@@ -669,7 +671,10 @@ spec =
                     [alice]
                     coordinatedHeadState
                       { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
-                      , currentDepositTxId = Just txid2
+                      , -- NOTE: diverges from the snapshot's own depositTxId on
+                        -- purpose, so this test fails if the posted transaction
+                        -- ever keys off state instead of the signed snapshot.
+                        currentDepositTxId = Just txid1
                       }
                 )
                   { pendingDeposits = Map.fromList [(txid1, mkDeposit 1), (txid2, mkDeposit 2)]
