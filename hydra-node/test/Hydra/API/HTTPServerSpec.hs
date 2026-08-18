@@ -16,6 +16,7 @@ import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
+  OperationTimedOut,
   SideLoadSnapshotRequest (..),
   SubmitL2TxRequest (..),
   SubmitL2TxResponse (..),
@@ -81,6 +82,7 @@ spec = do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (NodeState Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized SubmitL2TxResponse))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (SubmitL2TxRequest Tx)))
+    roundtripAndGoldenSpecs (Proxy @(ReasonablySized OperationTimedOut))
 
     prop "Validate /commit publish api schema" $
       prop_validateJSONSchema @(DraftCommitTxRequest Tx) "api.json" $

@@ -4,7 +4,7 @@
 
 module Test.Hydra.API.HTTPServer where
 
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SideLoadSnapshotRequest (..), SubmitL2TxRequest (..), SubmitL2TxResponse, SubmitTxRequest (..), TransactionSubmitted)
+import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), OperationTimedOut (..), SideLoadSnapshotRequest (..), SubmitL2TxRequest (..), SubmitL2TxResponse, SubmitTxRequest (..), TransactionSubmitted)
 import Hydra.Prelude
 import Hydra.Tx (IsTx (..), UTxOType)
 import Test.Hydra.Prelude
@@ -38,3 +38,6 @@ deriving newtype instance Arbitrary tx => Arbitrary (SubmitL2TxRequest tx)
 
 instance Arbitrary SubmitL2TxResponse where
   arbitrary = genericArbitrary
+
+instance Arbitrary OperationTimedOut where
+  arbitrary = OperationTimedOut <$> arbitrary <*> arbitrary

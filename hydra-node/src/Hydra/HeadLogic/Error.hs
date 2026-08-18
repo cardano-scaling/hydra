@@ -5,7 +5,6 @@ module Hydra.HeadLogic.Error where
 
 import Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
@@ -49,12 +48,6 @@ deriving anyclass instance
   , ToJSON (SideLoadRequirementFailure tx)
   ) =>
   ToJSON (LogicError tx)
-
-instance (IsChainState tx, ToCBOR (Input tx)) => ToCBOR (LogicError tx) where
-  toCBOR = genericToCBOR
-
-instance (IsChainState tx, FromCBOR (Input tx)) => FromCBOR (LogicError tx) where
-  fromCBOR = genericFromCBOR
 
 data RequirementFailure tx
   = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
