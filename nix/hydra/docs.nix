@@ -34,6 +34,21 @@
             cp -rL ${self'.packages.haddocks} static/haddocks
             chmod -R u+w static/haddocks
 
+            # Docs reference haddock pages as `pathname:///haddocks/...`. Those render
+            # root-relative, so the markdown link checker skips them and a stale path
+            # can rot unnoticed. Check each target against the tree just copied.
+            missing=""
+            for p in $(grep -rhoE 'pathname:///haddocks/[A-Za-z0-9._/-]+\.html' \
+                         --include='*.md' --include='*.mdx' . \
+                       | sed 's|pathname:///haddocks/||' | sort -u); do
+              if [ ! -f "static/haddocks/$p" ]; then missing="$missing $p"; fi
+            done
+            if [ -n "$missing" ]; then
+              echo "ERROR: docs link to haddock pages that do not exist:"
+              for p in $missing; do echo "  $p"; done
+              exit 1
+            fi
+
             # Generate the transaction-cost benchmark page fresh from the current
             # code so it renders as a normal docusaurus page (current theme, no
             # staleness). Its on-chain costs are deterministic, so a fixed seed
