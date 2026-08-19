@@ -10,6 +10,12 @@ changes.
 
 ## [UNRELEASED]
 
+- Reduce chain queries on the chain-sync path: building time conversions no
+  longer queries the chain three times per block. System start is queried
+  once, era history is cached and only re-queried when its horizon has been
+  outrun, and the current slot is derived from the wall clock. For the
+  Blockfrost backend this removes 3 HTTP requests per block, roughly 75% of
+  steady-state API usage.
 
 - Fix closing large heads missing the close tx validity window
   (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when
