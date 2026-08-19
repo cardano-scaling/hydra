@@ -15,7 +15,10 @@ changes.
   once, era history is cached and only re-queried when its horizon has been
   outrun, and the current slot is derived from the wall clock. For the
   Blockfrost backend this removes 3 HTTP requests per block, roughly 75% of
-  steady-state API usage.
+  steady-state API usage. The Blockfrost backend also reads the project file
+  once and caches genesis parameters for the lifetime of the chain connection:
+  wallet operations, transaction posting, and script publishing no longer
+  re-fetch `/genesis` per query.
 
 - Fix closing large heads missing the close tx validity window
   (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when

@@ -53,10 +53,10 @@ data APIBlockfrostError
   deriving stock (Show)
   deriving anyclass (Exception)
 
--- | Run a Blockfrost client action, retrying with capped exponential backoff
--- when rate limited (HTTP 429). blockfrost-client does not expose the
--- Retry-After header, so the delay is using our blockfrost retry policy
--- throws 'BlockfrostRateLimited'.
+-- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
+-- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind. Gives up by throwing
+-- 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
