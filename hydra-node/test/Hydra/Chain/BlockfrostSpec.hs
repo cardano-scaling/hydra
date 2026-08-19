@@ -3,10 +3,10 @@ module Hydra.Chain.BlockfrostSpec where
 import Hydra.Prelude
 import Test.Hspec
 
-import Control.Concurrent.Class.MonadSTM (takeTMVar, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, takeTMVar, writeTQueue)
 import Control.Retry (RetryPolicyM, limitRetries)
 import Control.Tracer (nullTracer)
-import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, retryOnBlockfrostError)
+import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, memoizeIO, retryOnBlockfrostError)
 import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Logging (Tracer)
@@ -91,6 +91,25 @@ spec = do
           _ -> False
       finalAttempts <- readIORef attemptsRef
       finalAttempts `shouldBe` 1
+
+  describe "memoizeIO" $ do
+    it "runs the action only once" $ do
+      calls <- newIORef (0 :: Int)
+      var <- newTVarIO Nothing
+      results <-
+        replicateM 5 $
+          memoizeIO var $ do
+            modifyIORef' calls (+ 1)
+            pure ("genesis" :: Text)
+      results `shouldBe` replicate 5 "genesis"
+      readIORef calls `shouldReturn` 1
+
+    it "does not run the action when the cache is already filled" $ do
+      calls <- newIORef (0 :: Int)
+      var <- newTVarIO (Just ("cached" :: Text))
+      result <- memoizeIO var (modifyIORef' calls (+ 1) $> "fresh")
+      result `shouldBe` "cached"
+      readIORef calls `shouldReturn` 0
 
   describe "blockfrostSubmissionClient" $
     it "reports submission failures immediately and keeps serving the queue" $

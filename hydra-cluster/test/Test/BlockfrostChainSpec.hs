@@ -18,7 +18,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.Backend (blockfrostProjectPath)
-import Hydra.Chain.Blockfrost (runBlockfrostBackend, withBlockfrostChain)
+import Hydra.Chain.Blockfrost (newBlockfrostEnv, runBlockfrostBackend, runBlockfrostBackendWith, withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
@@ -190,13 +190,14 @@ withBlockfrostChainTest tracer config party action = do
           Blockfrost bfOpts -> pure (cfg, bfOpts)
           _ -> failure $ "unexpected chainBackendOptions: " <> show chainBackendOptions
       otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
-  ctx <- runBlockfrostBackend blockfrostOptions $ loadChainContext configuration party
+  env <- newBlockfrostEnv blockfrostOptions
+  ctx <- runBlockfrostBackendWith env $ loadChainContext configuration party
   eventMVar <- newLabelledEmptyTMVarIO "blockfrost-chain-events"
 
   let callback event = atomically $ putTMVar eventMVar event
 
-  wallet <- mkTinyWallet (runBlockfrostBackend blockfrostOptions) tracer configuration
-  withBlockfrostChain blockfrostOptions tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx} -> do
+  wallet <- mkTinyWallet (runBlockfrostBackendWith env) tracer configuration
+  withBlockfrostChain env tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx} -> do
     action
       CardanoChainTest
         { postTx

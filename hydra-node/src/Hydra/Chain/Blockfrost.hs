@@ -40,7 +40,7 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
 
-newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostOptions IO a)
+newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostEnv IO a)
   deriving newtype
     ( Functor
     , Applicative
@@ -50,41 +50,66 @@ newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostOptions IO a)
     , MonadCatch
     )
 
+data BlockfrostEnv = BlockfrostEnv
+  { project :: Blockfrost.Project
+  , genesisVar :: TVar IO (Maybe Blockfrost.Genesis)
+  }
+
+newBlockfrostEnv :: BlockfrostOptions -> IO BlockfrostEnv
+newBlockfrostEnv BlockfrostOptions{projectPath} =
+  BlockfrostEnv <$> Blockfrost.projectFromFile projectPath <*> newLabelledTVarIO "blockfrost-genesis-cache" Nothing
+
 runBlockfrostBackend :: BlockfrostOptions -> BlockfrostBackend a -> IO a
-runBlockfrostBackend opts (BlockfrostBackend m) = runReaderT m opts
+runBlockfrostBackend opts action = newBlockfrostEnv opts >>= (`runBlockfrostBackendWith` action)
+
+runBlockfrostBackendWith :: BlockfrostEnv -> BlockfrostBackend a -> IO a
+runBlockfrostBackendWith env (BlockfrostBackend m) = runReaderT m env
+
+-- | Return the cached value or run the action once and store its result.
+-- Concurrent callers may run the action more than once (last write wins),
+-- which is safe for immutable values.
+memoizeIO :: TVar IO (Maybe a) -> IO a -> IO a
+memoizeIO var action = do
+  memoized <- readTVarIO var
+  case memoized of
+    Nothing -> do
+      result <- action
+      atomically $ writeTVar var (Just result)
+      pure result
+    Just d -> pure d
+
+cachedGenesis :: BlockfrostBackend Blockfrost.Genesis
+cachedGenesis = BlockfrostBackend $ do
+  BlockfrostEnv{project, genesisVar} <- ask
+  liftIO $ memoizeIO genesisVar $ Blockfrost.runBlockfrostM project Blockfrost.queryGenesisParameters
 
 instance ChainBackend BlockfrostBackend where
-  queryGenesisParameters = withProject $ \prj ->
-    Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+  queryGenesisParameters = Blockfrost.toCardanoGenesisParameters <$> cachedGenesis
 
-  queryScriptRegistry txIds = withProject $ \prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
+  queryScriptRegistry txIds = do
+    networkId <- queryNetworkId
+    withProject $ \prj ->
+      Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry networkId txIds
 
-  queryNetworkId = withProject $ \prj -> do
-    -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
-    Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
+  queryNetworkId = Blockfrost.toCardanoNetworkId . Blockfrost._genesisNetworkMagic <$> cachedGenesis
 
   queryTip = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO addresses = withProject $ \prj -> do
-    Blockfrost.Genesis{_genesisNetworkMagic} <-
-      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
+  queryUTxO addresses = do
+    networkId <- queryNetworkId
+    withProject $ \prj ->
+      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
 
-  queryUTxOByTxIn txins = withProject $ \prj -> do
-    Blockfrost.Genesis{_genesisNetworkMagic} <-
-      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
-    let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
+  queryUTxOByTxIn txins = do
+    networkId <- queryNetworkId
+    withProject $ \prj ->
+      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
 
   queryEraHistory _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
 
-  querySystemStart _ = withProject $ \prj ->
-    Blockfrost.runBlockfrostM prj Blockfrost.querySystemStart
+  querySystemStart _ = Blockfrost.toCardanoSystemStart <$> cachedGenesis
 
   queryProtocolParameters _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
@@ -92,28 +117,30 @@ instance ChainBackend BlockfrostBackend where
   queryStakePools _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor _ vk = withProject $ \prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor vk
+  queryUTxOFor _ vk = do
+    networkId <- queryNetworkId
+    withProject $ \prj ->
+      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor networkId vk
 
   submitTransaction tx = withProject $ \prj ->
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction tx vk = withProject $ \prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx vk
+  awaitTransaction tx vk = do
+    networkId <- queryNetworkId
+    withProject $ \prj ->
+      Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction networkId tx vk
 
-  getBlockTime = withProject $ \prj -> do
-    Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <-
-      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+  getBlockTime = do
+    Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <- cachedGenesis
     pure $ CardanoClient.computeBlockTime (fromInteger _genesisSlotLength) _genesisActiveSlotsCoefficient
 
 withProject :: (Blockfrost.Project -> IO a) -> BlockfrostBackend a
 withProject f = BlockfrostBackend $ do
-  BlockfrostOptions{projectPath} <- ask
-  prj <- liftIO $ Blockfrost.projectFromFile projectPath
-  liftIO $ f prj
+  BlockfrostEnv{project} <- ask
+  liftIO $ f project
 
 withBlockfrostChain ::
-  BlockfrostOptions ->
+  BlockfrostEnv ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -121,7 +148,7 @@ withBlockfrostChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withBlockfrostChain opts tracer config ctx wallet chainStateHistory callback action = do
+withBlockfrostChain env tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -137,16 +164,16 @@ withBlockfrostChain opts tracer config ctx wallet chainStateHistory callback act
   -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
   prefix <-
     case head startFromPrefix of
-      ChainPointAtGenesis -> runBlockfrostBackend opts queryTip <&> (:| [])
+      ChainPointAtGenesis -> runBlockfrostBackendWith env queryTip <&> (:| [])
       _ -> pure startFromPrefix
 
-  let getTimeHandle = runBlockfrostBackend opts queryTimeHandle
+  let getTimeHandle = runBlockfrostBackendWith env queryTimeHandle
   -- The chain-sync path only converts slots and never needs the chain tip, so
   -- it uses cached time conversions instead of 3 API requests per block.
   cachedTimeHandle <-
     newTimeHandleCache
-      (runBlockfrostBackend opts (querySystemStart CardanoClient.QueryTip))
-      (runBlockfrostBackend opts (queryEraHistory CardanoClient.QueryTip))
+      (runBlockfrostBackendWith env (querySystemStart CardanoClient.QueryTip))
+      (runBlockfrostBackendWith env (queryEraHistory CardanoClient.QueryTip))
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   let chainHandle =
@@ -159,19 +186,19 @@ withBlockfrostChain opts tracer config ctx wallet chainStateHistory callback act
           (submitTx queue)
 
   let handler = chainSyncHandler tracer callback cachedTimeHandle ctx localChainState
+  let getGenesis = liftIO (runBlockfrostBackendWith env cachedGenesis)
   res <-
     raceLabelled
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
-          prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj prefix handler wallet
+          blockfrostChain tracer queue project getGenesis prefix handler wallet
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  BlockfrostOptions{projectPath} = opts
+  BlockfrostEnv{project} = env
   CardanoChainConfig{startChainFrom} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
@@ -202,14 +229,15 @@ blockfrostChain ::
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
+  m Blockfrost.Genesis ->
   NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChain tracer queue prj prefix handler wallet = do
+blockfrostChain tracer queue prj getGenesis prefix handler wallet = do
   forever $
     raceLabelled_
-      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj prefix handler wallet)
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj getGenesis prefix handler wallet)
       ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrost prj) queue)
 
 blockfrostChainFollow ::
@@ -217,17 +245,17 @@ blockfrostChainFollow ::
   (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m, Catch.MonadMask m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
+  m Blockfrost.Genesis ->
   NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChainFollow tracer prj prefix handler wallet = do
+blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
   -- Genesis query and start point resolution are wrapped in retry to survive
   -- transient HTTP errors (e.g. 403 rate limiting, connection resets).
   (blockTime, stateTVar) <-
     retryOnBlockfrostError tracer blockfrostRetryPolicy $ \_ -> do
-      Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
-        Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
+      Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- getGenesis
       let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
       -- Start from the latest point and fall back to older ones (best effort)
       -- If none of them can be resolved, we fall back to the tip of the chain.

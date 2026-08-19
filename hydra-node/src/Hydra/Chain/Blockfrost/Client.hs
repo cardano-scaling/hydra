@@ -114,16 +114,16 @@ blockfrostRetryPolicy = capDelay 60_000_000 (fullJitterBackoff 1_000_000) <> lim
 -- | Policy for awaiting eventually-consistent query results (tx inclusion,
 -- indexer catch-up): full-jitter backoff capped at 10s per attempt, giving up
 -- once retries have accumulated ~5 minutes of waiting. Not to be confused
--- with 'rateLimitRetryPolicy', which handles HTTP 429 inside every request.
+-- with 'blockfrostRetryPolicy', which handles HTTP 429 inside every request.
 awaitPolicy :: MonadIO m => RetryPolicyM m
 awaitPolicy =
   limitRetriesByCumulativeDelay (300 * 1_000_000) $
     capDelay 10_000_000 (fullJitterBackoff 1_000_000)
 
--- | Run a Blockfrost client action, retrying with capped exponential backoff
--- when rate limited (HTTP 429). blockfrost-client does not expose the
--- Retry-After header, so the delay is using our blockfrost retry policy
--- throws 'BlockfrostRateLimited'.
+-- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
+-- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind. Gives up by throwing
+-- 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
@@ -153,15 +153,10 @@ runBlockfrostM prj action = do
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
+  NetworkId ->
   [TxId] ->
   BlockfrostClientT IO ScriptRegistry
-queryScriptRegistry txIds = do
-  Blockfrost.Genesis
-    { _genesisNetworkMagic
-    , _genesisSystemStart
-    } <-
-    queryGenesisParameters
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
+queryScriptRegistry networkId txIds = do
   utxo <- queryUTxOByTxIn networkId candidates
   case newScriptRegistry utxo of
     Left e -> liftIO $ throwIO e
@@ -368,6 +363,10 @@ toCardanoNetworkId magic =
     then Mainnet
     else Testnet (NetworkMagic (fromInteger magic))
 
+toCardanoSystemStart :: Blockfrost.Genesis -> SystemStart
+toCardanoSystemStart Blockfrost.Genesis{_genesisSystemStart} =
+  SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+
 data BlockfrostConversion
   = BlockfrostConversion
   { a0 :: NonNegativeInterval
@@ -539,13 +538,8 @@ queryUTxO networkId addresses = do
     )
     utxoWithAddresses
 
-queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-queryUTxOFor vk = do
-  Blockfrost.Genesis
-    { _genesisNetworkMagic = networkMagic
-    } <-
-    queryGenesisParameters
-  let networkId = toCardanoNetworkId networkMagic
+queryUTxOFor :: NetworkId -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+queryUTxOFor networkId vk =
   case mkVkAddress networkId vk of
     ShelleyAddressInEra addr ->
       queryUTxO networkId [addr]
@@ -555,11 +549,6 @@ queryUTxOFor vk = do
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesisParameters = Blockfrost.getLedgerGenesis
-
-querySystemStart :: BlockfrostClientT IO SystemStart
-querySystemStart = do
-  Blockfrost.Genesis{_genesisSystemStart} <- queryGenesisParameters
-  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
 
 -- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
 queryTip :: BlockfrostClientT IO ChainPoint
@@ -591,10 +580,8 @@ queryStakePools = do
   stakePools' <- Blockfrost.listPools
   pure $ Set.fromList (toCardanoPoolId <$> stakePools')
 
-awaitTransaction :: Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-awaitTransaction tx vk = do
-  Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
+awaitTransaction :: NetworkId -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+awaitTransaction networkId tx vk = do
   awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] tx
 
 awaitUTxO ::
