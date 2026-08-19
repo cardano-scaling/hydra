@@ -88,6 +88,8 @@ data APIBlockfrostError
   | MissingBlockNo BlockHash
   | MissingBlockSlot (Maybe Slot)
   | BlockfrostRateLimited
+  | MissingNextBlockHash BlockHash
+  | NotEnoughBlockConfirmations BlockHash
   deriving stock (Show)
   deriving anyclass (Exception)
 
@@ -99,6 +101,8 @@ isRetryable = \case
   MissingBlockNo _ -> True
   MissingBlockSlot _ -> True
   BlockfrostRateLimited -> True
+  MissingNextBlockHash _ -> True -- chain observer poll-again signal
+  NotEnoughBlockConfirmations _ -> True -- chain observer poll-again signal
 
 -- * Retry logic
 

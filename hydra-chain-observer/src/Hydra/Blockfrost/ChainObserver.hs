@@ -4,9 +4,6 @@ module Hydra.Blockfrost.ChainObserver where
 
 import Hydra.Prelude
 
-import Blockfrost.Client (
-  BlockfrostClientT,
- )
 import Blockfrost.Client qualified as Blockfrost
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -16,20 +13,18 @@ import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
   ChainPoint (..),
-  HasTypeProxy (..),
   Hash,
   NetworkId (..),
   NetworkMagic (..),
-  SerialiseAsCBOR (..),
   SlotNo (..),
-  Tx,
   UTxO,
   serialiseToRawBytes,
  )
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.Chain.Blockfrost.Client (blockfrostRetryPolicy)
+import Hydra.Chain.Blockfrost (toTx)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), runBlockfrostM)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -42,41 +37,6 @@ import Hydra.ChainObserver.VersionRegistry (KnownVersion)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Observe (HeadObservation (..))
-
-data APIBlockfrostError
-  = BlockfrostError Text
-  | DecodeError Text
-  | NotEnoughBlockConfirmations Blockfrost.BlockHash
-  | MissingBlockNo Blockfrost.BlockHash
-  | MissingNextBlockHash Blockfrost.BlockHash
-  | BlockfrostRateLimited
-  deriving stock (Show)
-  deriving anyclass (Exception)
-
--- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
--- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
--- Retry-After header, so the delay is blind. Gives up by throwing
--- 'BlockfrostRateLimited'.
-runBlockfrostM ::
-  (MonadIO m, MonadThrow m) =>
-  Blockfrost.Project ->
-  BlockfrostClientT IO a ->
-  m a
-runBlockfrostM prj action = do
-  res <-
-    retrying
-      blockfrostRetryPolicy
-      (\_ -> pure . isRateLimited)
-      (\_ -> liftIO $ Blockfrost.runBlockfrost prj action)
-  case res of
-    Right val -> pure val
-    Left Blockfrost.BlockfrostUsageLimitReached -> throwIO BlockfrostRateLimited
-    Left err -> throwIO $ BlockfrostError (show err)
- where
-  isRateLimited :: Either Blockfrost.BlockfrostError b -> Bool
-  isRateLimited = \case
-    Left Blockfrost.BlockfrostUsageLimitReached -> True
-    _ -> False
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
@@ -208,9 +168,14 @@ rollForward tracer prj knownVersions networkId observerHandler blockConfirmation
 
 isRetryable :: APIBlockfrostError -> Bool
 isRetryable (BlockfrostError _) = True
+isRetryable (BlockfrostClientError _) = False
+-- NOTE: Deliberately different from the hydra-node predicate: the observer's
+-- poll loop retries without limit, so an undecodable block must crash rather
+-- than spin.
 isRetryable (DecodeError _) = False
-isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
+isRetryable (MissingBlockSlot _) = True
+isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingNextBlockHash _) = True
 isRetryable BlockfrostRateLimited = True
 
@@ -228,15 +193,6 @@ fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
-
-toTx :: MonadThrow m => Blockfrost.TransactionCBOR -> m Tx
-toTx (Blockfrost.TransactionCBOR txCbor) =
-  case decodeBase16 txCbor of
-    Left decodeErr -> throwIO . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
-    Right bytes ->
-      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-        Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
-        Right tx -> pure tx
 
 fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
 fromChainPoint chainPoint genesisBlockHash = case chainPoint of
