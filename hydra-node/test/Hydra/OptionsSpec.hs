@@ -392,25 +392,6 @@ spec = parallel $
             { chainConfig = Cardano (defaultCardanoChainConfig & #chainBackendOptions .~ Blockfrost defaultBlockfrostOptions)
             }
 
-    it "parses --blockfrost with timeouts" $
-      [ "--blockfrost"
-      , "blockfrost-project.txt"
-      , "--blockfrost-retry-timeout"
-      , "600"
-      ]
-        `shouldParse` Run
-          defaultRunOptions
-            { chainConfig =
-                Cardano
-                  ( defaultCardanoChainConfig
-                      & #chainBackendOptions
-                        .~ Blockfrost
-                          defaultBlockfrostOptions
-                            { retryTimeout = 600
-                            }
-                  )
-            }
-
     it "switches to offline mode when using --offline-head-seed and --initial-utxo" $
       mconcat
         [ ["--offline-head-seed", "0100"]
@@ -523,7 +504,6 @@ spec = parallel $
                     Blockfrost
                       BlockfrostOptions
                         { projectPath = "baz"
-                        , retryTimeout = 300
                         }
                 , publishSigningKey = "cardano.sk"
                 }

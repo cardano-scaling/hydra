@@ -80,7 +80,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
         Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.queryGenesisParameters
         let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
             candidates = [TxIn txid (TxIx 0) | txid <- hydraScriptsTxIds]
-        Blockfrost.queryUTxOByTxIn defaultBlockfrostOptions networkId candidates
+        Blockfrost.queryUTxOByTxIn networkId candidates
     let inlineOutputs = [txin | (txin, TxOut _ _ (TxOutDatumInline _) _) <- UTxO.toList utxo]
     when (null inlineOutputs) $
       failure $
@@ -116,7 +116,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
-          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceCardanoVk 100_000_000
+          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]

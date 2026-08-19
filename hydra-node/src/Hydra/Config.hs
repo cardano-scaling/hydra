@@ -347,10 +347,9 @@ parseDirectOptions o = do
 
 parseBlockfrostOptions :: Object -> Parser BlockfrostOptions
 parseBlockfrostOptions o = do
-  checkUnknownKeys ["mode", "project-path", "query-timeout", "retry-timeout"] o
+  checkUnknownKeys ["mode", "project-path"] o
   projectPath <- o .:? "project-path" .!= defaultBlockfrostOptions.projectPath
-  retryTimeout <- o .:? "retry-timeout" .!= defaultBlockfrostOptions.retryTimeout
-  pure BlockfrostOptions{projectPath, retryTimeout}
+  pure BlockfrostOptions{projectPath}
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -541,7 +540,6 @@ renderConfig opts =
     object
       [ "mode" .= ("blockfrost" :: Text)
       , "project-path" .= o.projectPath
-      , "retry-timeout" .= o.retryTimeout
       ]
 
   renderChainPoint :: ChainPoint -> Text
