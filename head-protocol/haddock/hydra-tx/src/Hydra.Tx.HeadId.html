@@ -1,0 +1,439 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DerivingVia #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.HeadId</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Aeson</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html"><span class="hs-identifier">Data.ByteString</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier">HasTypeProxy</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier">PolicyId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">SerialiseAsRawBytes</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">TxIn</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">UsingRawBytesHex</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">fromPlutusCurrencySymbol</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">vectorOf</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances.Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances.Time</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- * HeadId</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- | Uniquely identifies a Hydra Head.</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">newtype</span><span> </span><span id="HeadId"><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-var">HeadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsafeHeadId"><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-var">UnsafeHeadId</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679428904"><span id="local-6989586621679428910"><span id="local-6989586621679428914"><span class="annot"><span class="annottext">Int -&gt; HeadId -&gt; ShowS
+[HeadId] -&gt; ShowS
+HeadId -&gt; String
+(Int -&gt; HeadId -&gt; ShowS)
+-&gt; (HeadId -&gt; String) -&gt; ([HeadId] -&gt; ShowS) -&gt; Show HeadId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HeadId -&gt; ShowS
+showsPrec :: Int -&gt; HeadId -&gt; ShowS
+$cshow :: HeadId -&gt; String
+show :: HeadId -&gt; String
+$cshowList :: [HeadId] -&gt; ShowS
+showList :: [HeadId] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679428918"><span id="local-6989586621679428922"><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+(HeadId -&gt; HeadId -&gt; Bool)
+-&gt; (HeadId -&gt; HeadId -&gt; Bool) -&gt; Eq HeadId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: HeadId -&gt; HeadId -&gt; Bool
+== :: HeadId -&gt; HeadId -&gt; Bool
+$c/= :: HeadId -&gt; HeadId -&gt; Bool
+/= :: HeadId -&gt; HeadId -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679428929"><span id="local-6989586621679428933"><span id="local-6989586621679428936"><span id="local-6989586621679428940"><span id="local-6989586621679428943"><span id="local-6989586621679428946"><span id="local-6989586621679428949"><span class="annot"><span class="annottext">Eq HeadId
+Eq HeadId =&gt;
+(HeadId -&gt; HeadId -&gt; Ordering)
+-&gt; (HeadId -&gt; HeadId -&gt; Bool)
+-&gt; (HeadId -&gt; HeadId -&gt; Bool)
+-&gt; (HeadId -&gt; HeadId -&gt; Bool)
+-&gt; (HeadId -&gt; HeadId -&gt; Bool)
+-&gt; (HeadId -&gt; HeadId -&gt; HeadId)
+-&gt; (HeadId -&gt; HeadId -&gt; HeadId)
+-&gt; Ord HeadId
+HeadId -&gt; HeadId -&gt; Bool
+HeadId -&gt; HeadId -&gt; Ordering
+HeadId -&gt; HeadId -&gt; HeadId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: HeadId -&gt; HeadId -&gt; Ordering
+compare :: HeadId -&gt; HeadId -&gt; Ordering
+$c&lt; :: HeadId -&gt; HeadId -&gt; Bool
+&lt; :: HeadId -&gt; HeadId -&gt; Bool
+$c&lt;= :: HeadId -&gt; HeadId -&gt; Bool
+&lt;= :: HeadId -&gt; HeadId -&gt; Bool
+$c&gt; :: HeadId -&gt; HeadId -&gt; Bool
+&gt; :: HeadId -&gt; HeadId -&gt; Bool
+$c&gt;= :: HeadId -&gt; HeadId -&gt; Bool
+&gt;= :: HeadId -&gt; HeadId -&gt; Bool
+$cmax :: HeadId -&gt; HeadId -&gt; HeadId
+max :: HeadId -&gt; HeadId -&gt; HeadId
+$cmin :: HeadId -&gt; HeadId -&gt; HeadId
+min :: HeadId -&gt; HeadId -&gt; HeadId
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679428953"><span id="local-6989586621679428955"><span class="annot"><span class="annottext">(forall x. HeadId -&gt; Rep HeadId x)
+-&gt; (forall x. Rep HeadId x -&gt; HeadId) -&gt; Generic HeadId
+forall x. Rep HeadId x -&gt; HeadId
+forall x. HeadId -&gt; Rep HeadId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. HeadId -&gt; Rep HeadId x
+from :: forall x. HeadId -&gt; Rep HeadId x
+$cto :: forall x. Rep HeadId x -&gt; HeadId
+to :: forall x. Rep HeadId x -&gt; HeadId
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679428959"><span id="local-6989586621679428965"><span id="local-6989586621679428970"><span id="local-6989586621679428975"><span id="local-6989586621679428980"><span class="annot"><span class="annottext">[HeadId] -&gt; Value
+[HeadId] -&gt; Encoding
+HeadId -&gt; Bool
+HeadId -&gt; Value
+HeadId -&gt; Encoding
+(HeadId -&gt; Value)
+-&gt; (HeadId -&gt; Encoding)
+-&gt; ([HeadId] -&gt; Value)
+-&gt; ([HeadId] -&gt; Encoding)
+-&gt; (HeadId -&gt; Bool)
+-&gt; ToJSON HeadId
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: HeadId -&gt; Value
+toJSON :: HeadId -&gt; Value
+$ctoEncoding :: HeadId -&gt; Encoding
+toEncoding :: HeadId -&gt; Encoding
+$ctoJSONList :: [HeadId] -&gt; Value
+toJSONList :: [HeadId] -&gt; Value
+$ctoEncodingList :: [HeadId] -&gt; Encoding
+toEncodingList :: [HeadId] -&gt; Encoding
+$comitField :: HeadId -&gt; Bool
+omitField :: HeadId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679428988"><span id="local-6989586621679428994"><span id="local-6989586621679428999"><span class="annot"><span class="annottext">Maybe HeadId
+Value -&gt; Parser [HeadId]
+Value -&gt; Parser HeadId
+(Value -&gt; Parser HeadId)
+-&gt; (Value -&gt; Parser [HeadId]) -&gt; Maybe HeadId -&gt; FromJSON HeadId
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser HeadId
+parseJSON :: Value -&gt; Parser HeadId
+$cparseJSONList :: Value -&gt; Parser [HeadId]
+parseJSONList :: Value -&gt; Parser [HeadId]
+$comittedField :: Maybe HeadId
+omittedField :: Maybe HeadId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">via</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UsingRawBytesHex</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsRawBytes</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679429013"><span class="annot"><span class="annottext">serialiseToRawBytes :: HeadId -&gt; ByteString
+</span><a href="#local-6989586621679429013"><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-type">UnsafeHeadId</span></a></span><span> </span><span id="local-6989586621679429015"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429015"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429015"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span id="local-6989586621679429016"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType HeadId
+-&gt; ByteString -&gt; Either SerialiseAsRawBytesError HeadId
+</span><a href="#local-6989586621679429016"><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></a></span></span><span> </span><span class="annot"><span class="annottext">AsType HeadId
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Either SerialiseAsRawBytesError HeadId
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(HeadId -&gt; Either SerialiseAsRawBytesError HeadId)
+-&gt; (ByteString -&gt; HeadId)
+-&gt; ByteString
+-&gt; Either SerialiseAsRawBytesError HeadId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-var">UnsafeHeadId</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasTypeProxy</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-keyword">data</span><span> </span><span id="AsType"><span class="annot"><span class="hs-identifier hs-var">AsType</span></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AsHeadId"><span class="annot"><a href="Hydra.Tx.HeadId.html#AsHeadId"><span class="hs-identifier hs-var">AsHeadId</span></a></span></span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679429024"><span class="annot"><span class="annottext">proxyToAsType :: Proxy HeadId -&gt; AsType HeadId
+</span><a href="#local-6989586621679429024"><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Proxy HeadId
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AsType HeadId
+</span><a href="Hydra.Tx.HeadId.html#AsHeadId"><span class="hs-identifier hs-var">AsHeadId</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679429028"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621679429036"><span class="annot"><span class="annottext">arbitrary :: Gen HeadId
+</span><a href="#local-6989586621679429036"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-var">UnsafeHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadId)
+-&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; HeadId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html#pack"><span class="hs-identifier hs-var">BS.pack</span></a></span><span> </span><span class="annot"><span class="annottext">([Word8] -&gt; HeadId) -&gt; Gen [Word8] -&gt; Gen HeadId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen Word8 -&gt; Gen [Word8]
+forall a. Int -&gt; Gen a -&gt; Gen [a]
+</span><span class="hs-identifier hs-var">vectorOf</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span> </span><span class="annot"><span class="annottext">Gen Word8
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span id="local-6989586621679428858"><span class="annot"><a href="Hydra.Tx.HeadId.html#currencySymbolToHeadId"><span class="hs-identifier hs-type">currencySymbolToHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679428858"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679428858"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span></span><span>
+</span><span id="line-41"></span><span id="currencySymbolToHeadId"><span class="annot"><span class="annottext">currencySymbolToHeadId :: forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m HeadId
+</span><a href="Hydra.Tx.HeadId.html#currencySymbolToHeadId"><span class="hs-identifier hs-var hs-var">currencySymbolToHeadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(PolicyId -&gt; HeadId) -&gt; m PolicyId -&gt; m HeadId
+forall a b. (a -&gt; b) -&gt; m a -&gt; m b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier hs-var">mkHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">(m PolicyId -&gt; m HeadId)
+-&gt; (CurrencySymbol -&gt; m PolicyId) -&gt; CurrencySymbol -&gt; m HeadId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; m PolicyId
+forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
+</span><span class="hs-identifier hs-var">fromPlutusCurrencySymbol</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span id="local-6989586621679428868"><span class="annot"><a href="Hydra.Tx.HeadId.html#headIdToPolicyId"><span class="hs-identifier hs-type">headIdToPolicyId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679428868"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679428868"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span></span><span>
+</span><span id="line-44"></span><span id="headIdToPolicyId"><span class="annot"><span class="annottext">headIdToPolicyId :: forall (m :: * -&gt; *). MonadFail m =&gt; HeadId -&gt; m PolicyId
+</span><a href="Hydra.Tx.HeadId.html#headIdToPolicyId"><span class="hs-identifier hs-var hs-var">headIdToPolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; m PolicyId
+forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
+</span><span class="hs-identifier hs-var">fromPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">(CurrencySymbol -&gt; m PolicyId)
+-&gt; (HeadId -&gt; CurrencySymbol) -&gt; HeadId -&gt; m PolicyId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
+</span><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-var">headIdToCurrencySymbol</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-type">headIdToCurrencySymbol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-47"></span><span id="headIdToCurrencySymbol"><span class="annot"><span class="annottext">headIdToCurrencySymbol :: HeadId -&gt; CurrencySymbol
+</span><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-var hs-var">headIdToCurrencySymbol</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-type">UnsafeHeadId</span></a></span><span> </span><span id="local-6989586621679429055"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429055"><span class="hs-identifier hs-var">headId</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; CurrencySymbol
+</span><span class="hs-identifier hs-var">CurrencySymbol</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429055"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier hs-type">mkHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PolicyId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span>
+</span><span id="line-50"></span><span id="mkHeadId"><span class="annot"><span class="annottext">mkHeadId :: PolicyId -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier hs-var hs-var">mkHeadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadId
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadId"><span class="hs-identifier hs-var">UnsafeHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadId)
+-&gt; (PolicyId -&gt; ByteString) -&gt; PolicyId -&gt; HeadId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; ByteString
+forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><span class="hs-comment">-- * HeadSeed</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Unique seed to create a 'HeadId'</span><span>
+</span><span id="line-55"></span><span class="hs-comment">--</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- XXX: This might actually be the 'HeadId' to the protocol and users? Then the</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- policy id of the cardano-specific implementation (being the result of minting</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- policy + seed) stays internal. A drawback is, that the seed is not such a</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- good &quot;key&quot; to find things about this head on explorers and indexers.</span><span>
+</span><span id="line-60"></span><span class="hs-keyword">newtype</span><span> </span><span id="HeadSeed"><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-var">HeadSeed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsafeHeadSeed"><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-var">UnsafeHeadSeed</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679429059"><span id="local-6989586621679429063"><span id="local-6989586621679429067"><span class="annot"><span class="annottext">Int -&gt; HeadSeed -&gt; ShowS
+[HeadSeed] -&gt; ShowS
+HeadSeed -&gt; String
+(Int -&gt; HeadSeed -&gt; ShowS)
+-&gt; (HeadSeed -&gt; String) -&gt; ([HeadSeed] -&gt; ShowS) -&gt; Show HeadSeed
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; HeadSeed -&gt; ShowS
+showsPrec :: Int -&gt; HeadSeed -&gt; ShowS
+$cshow :: HeadSeed -&gt; String
+show :: HeadSeed -&gt; String
+$cshowList :: [HeadSeed] -&gt; ShowS
+showList :: [HeadSeed] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429070"><span id="local-6989586621679429073"><span class="annot"><span class="annottext">HeadSeed -&gt; HeadSeed -&gt; Bool
+(HeadSeed -&gt; HeadSeed -&gt; Bool)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; Bool) -&gt; Eq HeadSeed
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: HeadSeed -&gt; HeadSeed -&gt; Bool
+== :: HeadSeed -&gt; HeadSeed -&gt; Bool
+$c/= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+/= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429079"><span id="local-6989586621679429082"><span id="local-6989586621679429085"><span id="local-6989586621679429089"><span id="local-6989586621679429092"><span id="local-6989586621679429095"><span id="local-6989586621679429098"><span class="annot"><span class="annottext">Eq HeadSeed
+Eq HeadSeed =&gt;
+(HeadSeed -&gt; HeadSeed -&gt; Ordering)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; Bool)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; Bool)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; Bool)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; Bool)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; HeadSeed)
+-&gt; (HeadSeed -&gt; HeadSeed -&gt; HeadSeed)
+-&gt; Ord HeadSeed
+HeadSeed -&gt; HeadSeed -&gt; Bool
+HeadSeed -&gt; HeadSeed -&gt; Ordering
+HeadSeed -&gt; HeadSeed -&gt; HeadSeed
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+$ccompare :: HeadSeed -&gt; HeadSeed -&gt; Ordering
+compare :: HeadSeed -&gt; HeadSeed -&gt; Ordering
+$c&lt; :: HeadSeed -&gt; HeadSeed -&gt; Bool
+&lt; :: HeadSeed -&gt; HeadSeed -&gt; Bool
+$c&lt;= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+&lt;= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+$c&gt; :: HeadSeed -&gt; HeadSeed -&gt; Bool
+&gt; :: HeadSeed -&gt; HeadSeed -&gt; Bool
+$c&gt;= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+&gt;= :: HeadSeed -&gt; HeadSeed -&gt; Bool
+$cmax :: HeadSeed -&gt; HeadSeed -&gt; HeadSeed
+max :: HeadSeed -&gt; HeadSeed -&gt; HeadSeed
+$cmin :: HeadSeed -&gt; HeadSeed -&gt; HeadSeed
+min :: HeadSeed -&gt; HeadSeed -&gt; HeadSeed
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429101"><span id="local-6989586621679429103"><span class="annot"><span class="annottext">(forall x. HeadSeed -&gt; Rep HeadSeed x)
+-&gt; (forall x. Rep HeadSeed x -&gt; HeadSeed) -&gt; Generic HeadSeed
+forall x. Rep HeadSeed x -&gt; HeadSeed
+forall x. HeadSeed -&gt; Rep HeadSeed x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. HeadSeed -&gt; Rep HeadSeed x
+from :: forall x. HeadSeed -&gt; Rep HeadSeed x
+$cto :: forall x. Rep HeadSeed x -&gt; HeadSeed
+to :: forall x. Rep HeadSeed x -&gt; HeadSeed
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679429106"><span id="local-6989586621679429111"><span id="local-6989586621679429116"><span id="local-6989586621679429121"><span id="local-6989586621679429126"><span class="annot"><span class="annottext">[HeadSeed] -&gt; Value
+[HeadSeed] -&gt; Encoding
+HeadSeed -&gt; Bool
+HeadSeed -&gt; Value
+HeadSeed -&gt; Encoding
+(HeadSeed -&gt; Value)
+-&gt; (HeadSeed -&gt; Encoding)
+-&gt; ([HeadSeed] -&gt; Value)
+-&gt; ([HeadSeed] -&gt; Encoding)
+-&gt; (HeadSeed -&gt; Bool)
+-&gt; ToJSON HeadSeed
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: HeadSeed -&gt; Value
+toJSON :: HeadSeed -&gt; Value
+$ctoEncoding :: HeadSeed -&gt; Encoding
+toEncoding :: HeadSeed -&gt; Encoding
+$ctoJSONList :: [HeadSeed] -&gt; Value
+toJSONList :: [HeadSeed] -&gt; Value
+$ctoEncodingList :: [HeadSeed] -&gt; Encoding
+toEncodingList :: [HeadSeed] -&gt; Encoding
+$comitField :: HeadSeed -&gt; Bool
+omitField :: HeadSeed -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679429133"><span id="local-6989586621679429138"><span id="local-6989586621679429143"><span class="annot"><span class="annottext">Maybe HeadSeed
+Value -&gt; Parser [HeadSeed]
+Value -&gt; Parser HeadSeed
+(Value -&gt; Parser HeadSeed)
+-&gt; (Value -&gt; Parser [HeadSeed])
+-&gt; Maybe HeadSeed
+-&gt; FromJSON HeadSeed
+forall a.
+(Value -&gt; Parser a)
+-&gt; (Value -&gt; Parser [a]) -&gt; Maybe a -&gt; FromJSON a
+$cparseJSON :: Value -&gt; Parser HeadSeed
+parseJSON :: Value -&gt; Parser HeadSeed
+$cparseJSONList :: Value -&gt; Parser [HeadSeed]
+parseJSONList :: Value -&gt; Parser [HeadSeed]
+$comittedField :: Maybe HeadSeed
+omittedField :: Maybe HeadSeed
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">via</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UsingRawBytesHex</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.String.html#IsString"><span class="hs-identifier hs-type">IsString</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679429153"><span class="annot"><span class="annottext">fromString :: String -&gt; HeadSeed
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.String.html#fromString"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-var">UnsafeHeadSeed</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadSeed)
+-&gt; (String -&gt; ByteString) -&gt; String -&gt; HeadSeed
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
+forall a. IsString a =&gt; String -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.String.html#fromString"><span class="hs-identifier hs-var">fromString</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsRawBytes</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-68"></span><span>  </span><span id="local-6989586621679429161"><span class="annot"><span class="annottext">serialiseToRawBytes :: HeadSeed -&gt; ByteString
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-type">UnsafeHeadSeed</span></a></span><span> </span><span id="local-6989586621679429162"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429162"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429162"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679429163"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType HeadSeed
+-&gt; ByteString -&gt; Either SerialiseAsRawBytesError HeadSeed
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></span></span><span> </span><span class="annot"><span class="annottext">AsType HeadSeed
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadSeed -&gt; Either SerialiseAsRawBytesError HeadSeed
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(HeadSeed -&gt; Either SerialiseAsRawBytesError HeadSeed)
+-&gt; (ByteString -&gt; HeadSeed)
+-&gt; ByteString
+-&gt; Either SerialiseAsRawBytesError HeadSeed
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-var">UnsafeHeadSeed</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasTypeProxy</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-keyword">data</span><span> </span><span id="AsType"><span class="annot"><span class="hs-identifier hs-var">AsType</span></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AsHeadSeed"><span class="annot"><a href="Hydra.Tx.HeadId.html#AsHeadSeed"><span class="hs-identifier hs-var">AsHeadSeed</span></a></span></span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679429168"><span class="annot"><span class="annottext">proxyToAsType :: Proxy HeadSeed -&gt; AsType HeadSeed
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></span></span><span> </span><span class="annot"><span class="annottext">Proxy HeadSeed
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AsType HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#AsHeadSeed"><span class="hs-identifier hs-var">AsHeadSeed</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679429171"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679429176"><span class="annot"><span class="annottext">arbitrary :: Gen HeadSeed
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-var">UnsafeHeadSeed</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadSeed)
+-&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; HeadSeed
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/bytestring-0.11.5.3/src/Data.ByteString.html#pack"><span class="hs-identifier hs-var">BS.pack</span></a></span><span> </span><span class="annot"><span class="annottext">([Word8] -&gt; HeadSeed) -&gt; Gen [Word8] -&gt; Gen HeadSeed
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen Word8 -&gt; Gen [Word8]
+forall a. Int -&gt; Gen a -&gt; Gen [a]
+</span><span class="hs-identifier hs-var">vectorOf</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span> </span><span class="annot"><span class="annottext">Gen Word8
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span id="local-6989586621679428875"><span class="annot"><a href="Hydra.Tx.HeadId.html#headSeedToTxIn"><span class="hs-identifier hs-type">headSeedToTxIn</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679428875"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679428875"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span></span><span>
+</span><span id="line-79"></span><span id="headSeedToTxIn"><span class="annot"><span class="annottext">headSeedToTxIn :: forall (m :: * -&gt; *). MonadFail m =&gt; HeadSeed -&gt; m TxIn
+</span><a href="Hydra.Tx.HeadId.html#headSeedToTxIn"><span class="hs-identifier hs-var hs-var">headSeedToTxIn</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-type">UnsafeHeadSeed</span></a></span><span> </span><span id="local-6989586621679429192"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429192"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe TxIn
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Aeson.decodeStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429192"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">Maybe TxIn
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m TxIn
+forall a. String -&gt; m a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m TxIn) -&gt; String -&gt; m TxIn
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Failed to decode HeadSeed &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679429192"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679429195"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679429195"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; m TxIn
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679429195"><span class="hs-identifier hs-var">txIn</span></a></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Hydra.Tx.HeadId.html#txInToHeadSeed"><span class="hs-identifier hs-type">txInToHeadSeed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadSeed"><span class="hs-identifier hs-type">HeadSeed</span></a></span><span>
+</span><span id="line-85"></span><span id="txInToHeadSeed"><span class="annot"><span class="annottext">txInToHeadSeed :: TxIn -&gt; HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#txInToHeadSeed"><span class="hs-identifier hs-var hs-var">txInToHeadSeed</span></a></span></span><span> </span><span id="local-6989586621679429197"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679429197"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadSeed
+</span><a href="Hydra.Tx.HeadId.html#UnsafeHeadSeed"><span class="hs-identifier hs-var">UnsafeHeadSeed</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadSeed) -&gt; ByteString -&gt; HeadSeed
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+forall l s. LazyStrict l s =&gt; l -&gt; s
+</span><span class="hs-identifier hs-var">toStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">Aeson.encode</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679429197"><span class="hs-identifier hs-var">txin</span></a></span><span>
+</span><span id="line-86"></span></pre></body></html>

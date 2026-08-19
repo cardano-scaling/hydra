@@ -1,0 +1,3232 @@
+asyncapi: '2.3.0'
+info:
+  title: Hydra Node API
+  version: '0.22.0'
+  description: |
+    WebSocket/HTTP API for administrating & interacting with Hydra Heads: multi-party isomorphic state-channels for Cardano.
+
+    Once started, a Hydra node provides an API in the forms of JSON messages over WebSocket/HTTP endpoints. An Hydra node is an event-driven application where users (a.k.a you) are one possible source of inputs. Other sources can be mainly other Hydra nodes in the network, or transactions observed on the layer 1 (e.g. a closing transaction).
+    Therefore, once connected, clients receive a stream of outputs as they arrive. Clients get to decide (using query parameters) if they want to observe the history of outputs and the transaction format.
+    For example if client provides a path that looks like this `/?history=no&snapshot-utxo=no` the server will not serve prior history of server outputs, and the utxo field in the json will be omitted.
+
+    They can interact with their node by pushing events to it, some are local, and some will have consequences on the rest of the head.
+
+    See [the documentation](https://hydra.family/head-protocol/docs/dev/api-behavior/) for more details on the overall API behavior.
+
+  license:
+    name: Apache 2.0
+    url: https://raw.githubusercontent.com/cardano-scaling/hydra/master/LICENSE
+
+defaultContentType: application/json
+
+servers:
+  localhost-ws:
+    url: "{host}:{port}"
+    protocol: ws
+    description: |
+    variables:
+      host:
+        description: Address the Hydra node is listening for client connections.
+        default: '127.0.0.1'
+      port:
+        description: Port the Hydra node is listening for client connections.
+        default: "4001"
+  localhost-http:
+    url: "{host}:{port}"
+    protocol: http
+    description: |
+    variables:
+      host:
+        description: Address at which the Hydra node is accepting the client requests.
+        default: '127.0.0.1'
+      port:
+        description: Port at which the Hydra node is accepting the client requests.
+        default: "4001"
+
+channels:
+  /:
+    description: Main entry point for Websockets server in Hydra service.
+    servers:
+      - localhost-ws
+    bindings:
+      ws:
+        query:
+          history:
+            required: false
+            description: Specify weather the client wants to receive the full node history. Default is yes.
+            schema:
+              type: string
+              enum: ["yes", "no"]
+          snapshot-utxo:
+            description: Specify weather the client wants see the snapshot utxo. Default is yes.
+            schema:
+              type: string
+              enum: ["yes", "no"]
+          address:
+            description: Specify whether the client wants see the transaction server outputs filtered by given address.
+            schema:
+              type: string
+
+    subscribe:
+      summary: Events emitted by the Hydra node.
+      operationId: serverOutput
+      message:
+        oneOf:
+          - $ref: "api.yaml#/components/messages/Greetings"
+          - $ref: "api.yaml#/components/messages/CommandFailed"
+          - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
+          - $ref: "api.yaml#/components/messages/PeerConnected"
+          - $ref: "api.yaml#/components/messages/PeerDisconnected"
+          - $ref: "api.yaml#/components/messages/NetworkConnected"
+          - $ref: "api.yaml#/components/messages/NetworkDisconnected"
+          - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
+          - $ref: "api.yaml#/components/messages/NetworkClusterIDMismatch"
+          - $ref: "api.yaml#/components/messages/HeadIsInitializing"
+          - $ref: "api.yaml#/components/messages/Committed"
+          - $ref: "api.yaml#/components/messages/HeadIsOpen"
+          - $ref: "api.yaml#/components/messages/HeadIsClosed"
+          - $ref: "api.yaml#/components/messages/HeadIsContested"
+          - $ref: "api.yaml#/components/messages/ReadyToFanout"
+          - $ref: "api.yaml#/components/messages/HeadIsAborted"
+          - $ref: "api.yaml#/components/messages/HeadIsFinalized"
+          - $ref: "api.yaml#/components/messages/TxValid"
+          - $ref: "api.yaml#/components/messages/TxInvalid"
+          - $ref: "api.yaml#/components/messages/SnapshotConfirmed"
+          - $ref: "api.yaml#/components/messages/InvalidInput"
+          - $ref: "api.yaml#/components/messages/IgnoredHeadInitializing"
+          - $ref: "api.yaml#/components/messages/DecommitInvalid"
+          - $ref: "api.yaml#/components/messages/DecommitRequested"
+          - $ref: "api.yaml#/components/messages/DecommitApproved"
+          - $ref: "api.yaml#/components/messages/DecommitFinalized"
+          - $ref: "api.yaml#/components/messages/CommitRecorded"
+          - $ref: "api.yaml#/components/messages/CommitApproved"
+          - $ref: "api.yaml#/components/messages/CommitFinalized"
+          - $ref: "api.yaml#/components/messages/CommitRecovered"
+          - $ref: "api.yaml#/components/messages/SnapshotSideLoaded"
+          - $ref: "api.yaml#/components/messages/EventLogRotated"
+    publish:
+      summary: Commands sent to the Hydra node.
+      operationId: clientInput
+      message:
+        oneOf:
+          - $ref: "api.yaml#/components/messages/Init"
+          - $ref: "api.yaml#/components/messages/Abort"
+          - $ref: "api.yaml#/components/messages/NewTx"
+          - $ref: "api.yaml#/components/messages/Recover"
+          - $ref: "api.yaml#/components/messages/Decommit"
+          - $ref: "api.yaml#/components/messages/Close"
+          - $ref: "api.yaml#/components/messages/Contest"
+          - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
+  
+  /head:
+    servers:
+      - localhost-http
+    publish:
+      description: Get latest head state.
+      operationId: getHeadState
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: GET
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: headStateResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/HeadState"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /commit:
+    servers:
+      - localhost-http
+    publish:
+      description: Draft a commit transaction, which can be completed and later submitted to the L1 network.
+      operationId: draftCommitTxRequest
+      message:
+        $ref: "api.yaml#/components/messages/DraftCommitTxRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: draftCommitTxResponse
+      description: |
+        Possible responses of this endpoint are:
+          * DraftCommitTxResponse - 200 ok
+          * CommittedTooMuchADAForMainnet - 400 bad request
+          * UnsupportedLegacyOutput - 400 bad request
+      message:
+        $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
+  /commits:
+    servers:
+      - localhost-http
+    publish:
+      description: Obtain a list of pending deposit transaction ID's.
+      operationId: pendingDepositsRequest
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: GET
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: pendingDepositsResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+      message:
+        payload:
+          type: array
+          items:
+            type: string
+
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /commits/tx-id:
+    servers:
+      - localhost-http
+    publish:
+      description: Recover deposited UTxO by providing a TxId of a deposit transaction in the request path.
+      operationId: recoverDepositRequest
+      message:
+        payload:
+          type: "null"
+      bindings:
+        http:
+          type: request
+          method: DELETE
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: recoverDepositResponse
+      description: |
+        Possible responses of this endpoint are:
+          * 200 OK
+          * 400 Bad Request
+      message:
+        payload:
+          type: string
+      bindings:
+        http:
+          type: response
+          method: DELETE
+          bindingVersion: '0.1.0'
+
+  /snapshot/last-seen:
+    servers:
+      - localhost-http
+    subscribe:
+      operationId: getSeenSnapshot
+      description: |
+        Get latest seen snapshot.
+
+        This endpoint can help in situations where the head is not reaching consensus
+        by identifying the peers who are missing signing the current snapshot in flight and preventing its confirmation.
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/SeenSnapshot"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /snapshot/utxo:
+    servers:
+      - localhost-http
+    subscribe:
+      operationId: getConfirmedUTxO
+      description: |
+        Get latest confirmed UTxO.
+
+        Possible responses of this endpoint are:
+          * 200: UTxO of latest confirmed snapshot
+          * 404: when head was never open
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/UTxO"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /snapshot:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Request to adopt given confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: OK
+          * 404: when head was never open
+      operationId: sideLoadSnapshotRequest
+      message:
+        $ref: "api.yaml#/components/messages/SideLoadSnapshotRequest"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: getConfirmedSnapshot
+      description: |
+        Get latest confirmed snapshot.
+
+        Possible responses of this endpoint are:
+          * 200: Latest confirmed snapshot
+          * 404: when head was never open
+      message:
+        payload:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
+  /decommit:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Provide decommit transaction that needs to be applicable to the Hydra's local ledger state. Specified transaction outputs will be
+        available on layer 1 after decommit is successfully processed.
+      operationId: decommitRequest
+      message:
+        payload:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: decommitResponse
+      description: |
+        Possible responses of this endpoint are:
+          * String - 200 OK
+          * String - 400 bad request
+      message:
+        payload:
+            $ref: "api.yaml#/components/messages/DecommitResponse"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
+  /protocol-parameters:
+    servers:
+      - localhost-http
+    subscribe:
+      description: Get cardano protocol parameters.
+      operationId: getProtocolParameters
+      message:
+        $ref: "api.yaml#/components/messages/ProtocolParameters"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+  /cardano-transaction:
+    servers:
+      - localhost-http
+    publish:
+      operationId: submitTxRequest
+      message:
+        summary: |
+          Cardano transaction to be submitted to the L1 network.
+          Accepts transactions encoded as Base16 CBOR string, TextEnvelope type or JSON.
+        payload:
+          $ref: "api.yaml#/components/schemas/Transaction"
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: submitTxResponse
+      message:
+        oneOf:
+        - name: TransactionSubmitted
+          summary: 200 OK
+          description: Successfully submitted a cardano transaction to the L1 network.
+          payload:
+            type: object
+            additionalProperties: false
+            properties:
+              tag:
+                type: string
+                enum: ["TransactionSubmitted"]
+        - name: PostTxError
+          summary: 400 Bad Request
+          payload:
+            $ref: "api.yaml#/components/schemas/PostTxError"
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+components:
+  messages:
+
+    # Client Inputs
+
+    Init:
+      title: Init
+      description: |
+        Initializes a new Head. This command is a no-op when a Head is already open and the server will output an `CommandFailed` message should this happen.
+      payload:
+        $ref: "api.yaml#/components/schemas/Init"
+
+    Abort:
+      title: Abort
+      description: |
+        Aborts a head before it is opened. This can only be done before all participants have committed. Once opened, the head can't be aborted anymore but it can be closed using: `Close`.
+      payload:
+        $ref: "api.yaml#/components/schemas/Abort"
+
+    NewTx:
+      title: NewTx
+      description: |
+        Submit a transaction through the head. Note that the transaction is only broadcast if well-formed and valid.
+      payload:
+        $ref: "api.yaml#/components/schemas/NewTx"
+
+    Recover:
+      title: Recover
+      description: |
+        Request a recover of deposited UTxO by providing a recover transaction for posting.
+      payload:
+        $ref: "api.yaml#/components/schemas/Recover"
+
+    Decommit:
+      title: Decommit
+      description: |
+        Request to decommit a UTxO from a Head by providing a decommit tx. Upon reaching consensus, this
+        will eventually result in corresponding transaction outputs becoming
+        available on the layer 1.
+      payload:
+        $ref: "api.yaml#/components/schemas/Decommit"
+
+    Close:
+      title: Close
+      description: |
+        Terminate a head with the latest known snapshot. This effectively moves the head from the Open state to the Close state where the contestation phase begin. As a result of closing a head, no more transactions can be submitted via NewTx.
+      payload:
+        $ref: "api.yaml#/components/schemas/Close"
+
+    Contest:
+      title: Contest
+      description: |
+        Challenge the latest snapshot announced as a result of a head closure from another participant. Note that this necessarily contest with the latest snapshot known of your local Hydra node. Participants can only contest once.
+      payload:
+        $ref: "api.yaml#/components/schemas/Contest"
+
+    Fanout:
+      title: Fanout
+      description: |
+        Finalize a head after the contestation period passed. This will distribute the final (as closed and maybe contested) head state back on the layer 1.
+      payload:
+        $ref: "api.yaml#/components/schemas/Fanout"
+
+    SideLoadSnapshot:
+      title: SideLoadSnapshot
+      description: |
+        Request to adopt the provided confirmed snapshot, which must be enforceable and valid against the current protocol state on L1.
+        The snapshot number and version must be equal to or greater than the previously known values and must be signed by all participants.
+        Adopting a side-loaded snapshot is particularly useful when the head becomes stuck. It clears pending transactions in the local state, resets the local UTxO, and restarts the snapshot signing round by pruning the latest seen snapshot, which also resets the current leader.
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["SideLoadSnapshot"]
+
+    # Server outputs
+
+    Greetings:
+      title: Greetings
+      description: |
+        A friendly welcome message which tells a client something about the node. Currently used for knowing what Party the server embodies. This message produced whenever the hydra-node starts and clients should take consequence of seeing this. For example, we can assume no peers connected when we see 'Greetings'.
+      payload:
+        $ref: "api.yaml#/components/schemas/Greetings"
+
+    NetworkConnected:
+      title: NetworkConnected
+      description: |
+        Node connected to the L2 Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkConnected"
+
+    NetworkDisconnected:
+      title: NetworkDisconnected
+      description: |
+        Node disconnected from the L2 Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+
+    PeerConnected:
+      title: PeerConnected
+      description: |
+        A peer appeared alive on the L2 Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/PeerConnected"
+
+    PeerDisconnected:
+      title: PeerDisconnected
+      description: |
+        A peer disappeared (has not been seen active in a while) from the L2
+        Hydra network.
+      payload:
+        $ref: "api.yaml#/components/schemas/PeerDisconnected"
+
+    NetworkVersionMismatch:
+      title: NetworkVersionMismatch
+      description: |
+        The version of our network stack is not consistent with other nodes on the network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
+
+    NetworkClusterIDMismatch:
+      title: NetworkClusterIDMismatch
+      description: |
+        The configured peers do not match with other nodes on the network.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
+
+    HeadIsInitializing:
+      title: HeadIsInitializing
+      description: |
+        A `Init` transaction has been observed on-chain, with the given HeadId
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsInitializing"
+
+    Committed:
+      title: Committed
+      description: |
+        A `Commit` from a head participant has been observed on-chain.
+      payload:
+        $ref: "api.yaml#/components/schemas/Committed"
+
+    HeadIsOpen:
+      title: HeadIsOpen
+      description: |
+        All parties have committed, and a successful `CollectCom` transaction was observed on-chain. The head is now open; transactions can flow.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsOpen"
+
+    HeadIsClosed:
+      title: HeadIsClosed
+      description: |
+        A `Close` transaction has been observed on-chain, the head is now closed
+        and the contestation phase begins.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsClosed"
+
+    HeadIsContested:
+      title: HeadIsContested
+      description: |
+        A `Contest` transaction has been observed on-chain, that means the head
+        state has been successfully contested and given snapshot number is now
+        the latest accepted snapshot. The contestation phase was extended to
+        given deadline.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsContested"
+
+    ReadyToFanout:
+      title: ReadyToFanout
+      description: |
+        The contestation period has passed and the head can now be finalized by
+        a fanout transaction.
+      payload:
+        $ref: "api.yaml#/components/schemas/ReadyToFanout"
+
+    HeadIsAborted:
+      title: HeadIsAborted
+      description: |
+        One of the participant did `Abort` the head before all commits were done or collected.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsAborted"
+
+    HeadIsFinalized:
+      title: HeadIsFinalized
+      description: |
+        The head was already closed and the contestation period is now over.
+      payload:
+        $ref: "api.yaml#/components/schemas/HeadIsFinalized"
+
+    TxValid:
+      title: TxValid
+      description: |
+        Observed a valid transaction inside the head. Note that a node observes
+        its own transactions and it may still happen that this transaction is
+        not included in a snapshot.
+      payload:
+        $ref: "api.yaml#/components/schemas/TxValid"
+
+    TxInvalid:
+      title: TxInvalid
+      description: |
+        Observed an invalid transaction inside the head. Either it is not yet
+        valid (because some other transactions need to be seen first), or it is
+        no longer valid (because of conflicting transactions observed
+        in-between. The included validation error should give an indication why
+        it was not applicable to the given UTxO (the local, seen ledger state).
+      payload:
+        $ref: "api.yaml#/components/schemas/TxInvalid"
+
+    SnapshotConfirmed:
+      title: SnapshotConfirmed
+      description: |
+        The given snapshot has been multi-signed by all head participants and is now confirmed.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
+
+    InvalidInput:
+      title: InvalidInput
+      description: |
+        Emitted by the server when it has failed to parse some client input. It returns the malformed input as well as some hint about what went wrong.
+      payload:
+        $ref: "api.yaml#/components/schemas/InvalidInput"
+
+    PostTxOnChainFailed:
+      title: PostTxOnChainFailed
+      description: |
+        Something wrong happened when trying to post a transaction on-chain. Provides information about what kind of transaction was tentatively posted, and the reason for failure.
+      payload:
+        $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
+
+    CommandFailed:
+      title: CommandFailed
+      description: |
+        Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommandFailed"
+
+    IgnoredHeadInitializing:
+      title: IgnoredHeadInitializing
+      description: |
+        A `Init` transaction has been observed on-chain, with the given HeadId
+        and the given participant identifiers (commonly public key hashes), but
+        we are not part of it. It could denote a misconfiguration, or simply
+        some other group of parties opening a head.
+      payload:
+        $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+
+    DecommitInvalid:
+      title: DecommitInvalid
+      description: |
+        Decommit tx could not be applied to local ledger state or there is another
+        requested decommit which is not yet finalized.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitInvalid"
+
+    DecommitRequested:
+      title: DecommitRequested
+      description: |
+        Notify client that the request for decommit was received.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitRequested"
+
+    DecommitApproved:
+      title: DecommitApproved
+      description: |
+        Decommit request is validated by other participants and decommit tx is ready to be posted on layer 1.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitApproved"
+
+    DecommitFinalized:
+      title: DecommitFinalized
+      description: |
+        Decommit request is fully processed and hydra-node is ready to accept another decommit request.
+      payload:
+        $ref: "api.yaml#/components/schemas/DecommitFinalized"
+
+    CommitRecorded:
+      title: CommitRecorded
+      description: |
+         Deposit is detected and recorded in the local state.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitRecorded"
+
+    CommitApproved:
+      title: CommitApproved
+      description: |
+        Deposit request is observed and validated by other participants and now increment tx is ready to be posted on layer 1 upon next snapshot.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitApproved"
+
+    CommitFinalized:
+      title: CommitFinalized
+      description: |
+        Increment transaction is observed and deposited funds are now on L2.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitFinalized"
+
+    CommitRecovered:
+      title: CommitRecovered
+      description: |
+        Recover transaction is observed and deposited funds are recovered to L1.
+      payload:
+        $ref: "api.yaml#/components/schemas/CommitRecovered"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      payload:
+        $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      payload:
+        $ref: "api.yaml#/components/schemas/EventLogRotated"
+
+    # Other messages
+
+    DraftCommitTxRequest:
+      title: DraftCommitTxRequest
+      description: |
+        Provide utxos that will be used to draft a commit transaction that will be sent back to the user.
+        Script utxos must provide a witness, regulars can omit this.
+      payload:
+        $ref: "api.yaml#/components/schemas/DraftCommitTxRequest"
+
+    DraftCommitTxResponse:
+      title: DraftCommitTxResponse
+      description: |
+          Emitted by the server after drafting a commit transaction with the user provided utxos. Transaction returned to the user is in it's cbor representation encoded as Base16.
+      payload:
+        $ref: "api.yaml#/components/schemas/Transaction"
+
+    DecommitResponse:
+      title: DecommitResponse
+      description: |
+          Emitted by the server after drafting a decommit transaction.
+      payload:
+        type: string
+
+    ProtocolParameters:
+      title: ProtocolParameters
+      payload:
+        $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    SideLoadSnapshotRequest:
+      title: SideLoadSnapshotRequest
+      description: |
+        Submit a confirmed snapshot to update the local node's state, reset pending transactions, and restart any snapshot signing round in flight. The provided snapshot must be enforceable and valid according to the current protocol state on L1, meaning it must be signed by all required participants.
+        The snapshot number and version must be equal to or greater than the previously known values.
+      payload:
+        $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+
+  schemas:
+    ClientInput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/Init"
+        - $ref: "api.yaml#/components/schemas/Abort"
+        - $ref: "api.yaml#/components/schemas/NewTx"
+        - $ref: "api.yaml#/components/schemas/Recover"
+        - $ref: "api.yaml#/components/schemas/Decommit"
+        - $ref: "api.yaml#/components/schemas/Close"
+        - $ref: "api.yaml#/components/schemas/Contest"
+        - $ref: "api.yaml#/components/schemas/Fanout"
+        - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
+
+    ServerOutput:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/NetworkConnected"
+        - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+        - $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
+        - $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
+        - $ref: "api.yaml#/components/schemas/PeerConnected"
+        - $ref: "api.yaml#/components/schemas/PeerDisconnected"
+        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
+        - $ref: "api.yaml#/components/schemas/Committed"
+        - $ref: "api.yaml#/components/schemas/HeadIsOpen"
+        - $ref: "api.yaml#/components/schemas/HeadIsClosed"
+        - $ref: "api.yaml#/components/schemas/HeadIsContested"
+        - $ref: "api.yaml#/components/schemas/ReadyToFanout"
+        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
+        - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
+        - $ref: "api.yaml#/components/schemas/TxValid"
+        - $ref: "api.yaml#/components/schemas/TxInvalid"
+        - $ref: "api.yaml#/components/schemas/SnapshotConfirmed"
+        - $ref: "api.yaml#/components/schemas/InvalidInput"
+        - $ref: "api.yaml#/components/schemas/IgnoredHeadInitializing"
+        - $ref: "api.yaml#/components/schemas/DecommitInvalid"
+        - $ref: "api.yaml#/components/schemas/DecommitRequested"
+        - $ref: "api.yaml#/components/schemas/DecommitApproved"
+        - $ref: "api.yaml#/components/schemas/DecommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecorded"
+        - $ref: "api.yaml#/components/schemas/DepositActivated"
+        - $ref: "api.yaml#/components/schemas/DepositExpired"
+        - $ref: "api.yaml#/components/schemas/CommitApproved"
+        - $ref: "api.yaml#/components/schemas/CommitFinalized"
+        - $ref: "api.yaml#/components/schemas/CommitRecovered"
+        - $ref: "api.yaml#/components/schemas/SnapshotSideLoaded"
+        - $ref: "api.yaml#/components/schemas/EventLogRotated"
+
+    ClientMessage:
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
+        - $ref: "api.yaml#/components/schemas/CommandFailed"
+
+    Greetings:
+      type: object
+      required:
+        - tag
+        - me
+        - headStatus
+        - hydraNodeVersion
+      properties:
+        tag:
+          type: string
+          enum: ["Greetings"]
+        me:
+          $ref: "api.yaml#/components/schemas/Party"
+        headStatus:
+          $ref: "api.yaml#/components/schemas/HeadStatus"
+        hydraHeadId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotUtxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        hydraNodeVersion:
+          $ref: "api.yaml#/components/schemas/HydraNodeVersion"
+
+    # Client inputs
+
+    Init:
+      title: Init
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Init"]
+
+    Abort:
+      title: Abort
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Abort"]
+
+    NewTx:
+      title: NewTx
+      type: object
+      required:
+        - tag
+        - transaction
+      properties:
+        tag:
+          type: string
+          enum: ["NewTx"]
+        transaction:
+          $ref: "api.yaml#/components/schemas/Transaction"
+
+    Recover:
+      title: Recover
+      type: object
+      required:
+        - tag
+        - recoverTxId
+      properties:
+        tag:
+          type: string
+          enum: ["Recover"]
+        recoverTxId:
+          type: string
+
+    Decommit:
+      title: Decommit
+      type: object
+      required:
+        - tag
+        - decommitTx
+      properties:
+        tag:
+          type: string
+          enum: ["Decommit"]
+        decommitTx:
+          type: object
+          $ref: "api.yaml#/components/schemas/Transaction"
+
+    Close:
+      title: Close
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Close"]
+
+    Contest:
+      title: Contest
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Contest"]
+
+    Fanout:
+      title: Fanout
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Fanout"]
+
+    SideLoadSnapshot:
+      title: SideLoadSnapshot
+      type: object
+      required:
+        - tag
+        - snapshot
+      properties:
+        tag:
+          type: string
+          enum: ["SideLoadSnapshot"]
+        snapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+
+    # Server outputs
+
+    NetworkConnected:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkConnected"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkDisconnected:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkDisconnected"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PeerConnected:
+      type: object
+      required:
+        - tag
+        - peer
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PeerConnected"]
+        peer:
+          $ref: "api.yaml#/components/schemas/Host"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PeerDisconnected:
+      type: object
+      required:
+        - tag
+        - peer
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["PeerDisconnected"]
+        peer:
+          $ref: "api.yaml#/components/schemas/Host"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkVersionMismatch:
+      type: object
+      required:
+        - tag
+        - ourVersion
+        - theirVersion
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkVersionMismatch"]
+        ourVersion:
+          $ref: "api.yaml#/components/schemas/ProtocolVersion"
+        theirVersion:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/ProtocolVersion"
+            - type: "null"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkClusterIDMismatch:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkClusterIDMismatch"]
+        clusterPeers:
+          type: string
+        misconfiguredPeers:
+          type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsInitializing:
+      type: object
+      required:
+        - tag
+        - headId
+        - parties
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsInitializing"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        parties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    Committed:
+      type: object
+      required:
+        - tag
+        - party
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["Committed"]
+        party:
+          $ref: "api.yaml#/components/schemas/Party"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsOpen:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsOpen"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsClosed:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - contestationDeadline
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsClosed"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsContested:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - contestationDeadline
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsContested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    ReadyToFanout:
+      type: object
+      required:
+        - tag
+        - headId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["ReadyToFanout"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsAborted:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsAborted"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    HeadIsFinalized:
+      type: object
+      required:
+        - tag
+        - headId
+        - utxo
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["HeadIsFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TxValid:
+      type: object
+      required:
+        - tag
+        - headId
+        - transactionId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TxValid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        transactionId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    TxInvalid:
+      type: object
+      required:
+      - tag
+      - headId
+      - utxo
+      - transaction
+      - validationError
+      - seq
+      - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["TxInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        transaction:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        validationError:
+          type: object
+          properties:
+            reason:
+              type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotConfirmed:
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshot
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotConfirmed"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshot:
+          $ref: "api.yaml#/components/schemas/Snapshot"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    InvalidInput:
+      type: object
+      required:
+      - tag
+      - reason
+      - input
+      properties:
+        tag:
+          type: string
+          enum: ["InvalidInput"]
+        reason:
+          type: string
+        input:
+          type: string
+
+    PostTxOnChainFailed:
+      type: object
+      required:
+      - tag
+      - postChainTx
+      - postTxError
+      properties:
+        tag:
+          type: string
+          enum: ["PostTxOnChainFailed"]
+        postChainTx:
+          $ref: "api.yaml#/components/schemas/PostChainTx"
+        postTxError:
+          $ref: "api.yaml#/components/schemas/PostTxError"
+
+    CommandFailed:
+      type: object
+      required:
+      - tag
+      - clientInput
+      properties:
+        tag:
+          type: string
+          enum: ["CommandFailed"]
+        clientInput:
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+
+    IgnoredHeadInitializing:
+      type: object
+      required:
+        - tag
+        - headId
+        - contestationPeriod
+        - parties
+        - participants
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["IgnoredHeadInitializing"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        contestationPeriod:
+          $ref: "api.yaml#/components/schemas/ContestationPeriod"
+        parties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        participants:
+          type: array
+          items:
+            type: string
+            contentEncoding: base16
+            description: |
+              A hex-encoded string identifying a participant on-chain (usually a hash of a key)
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitInvalid:
+      title: DecommitInvalid
+      description: |
+        Decommit tx could not be applied to local ledger state or there is another
+        requested decommit which is not yet finalized.
+      type: object
+      required:
+        - tag
+        - headId
+        - decommitTx
+        - decommitInvalidReason
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        decommitInvalidReason:
+          oneOf:
+            - type: object
+              required:
+                - tag
+                - localUTxO
+                - validationError
+              properties:
+                tag:
+                  type: string
+                  enum: ["DecommitTxInvalid"]
+                localUTxO:
+                  $ref: "api.yaml#/components/schemas/UTxO"
+                validationError:
+                  type: object
+                  properties:
+                    reason:
+                      type: string
+
+            - type: object
+              required:
+                - tag
+                - otherDecommitTxId
+              properties:
+                tag:
+                  type: string
+                  enum: ["DecommitAlreadyInFlight"]
+                otherDecommitTxId:
+                  $ref: "api.yaml#/components/schemas/TxId"
+
+    DecommitRequested:
+      title: DecommitRequested
+      description: |
+        Notify client that the request for decommit was received.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - decommitTx
+        - utxoToDecommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitRequested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        utxoToDecommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitApproved:
+      title: DecommitApproved
+      description: |
+        Decommit request is validated by other participants and decommit tx is ready to be posted on layer 1.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - decommitTxId
+        - utxoToDecommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        decommitTxId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        utxoToDecommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DecommitFinalized:
+      title: DecommitFinalized
+      description: |
+        Decommit request is fully processed and hydra-node is ready to accept another decommit request.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - distributedUTxO
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DecommitFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        distributedUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitApproved:
+      title: CommitApproved
+      description: |
+        Deposit request is approved.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToCommit
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToCommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitRecorded:
+      title: CommitRecorded
+      description: |
+        Commit request is recorded to the local state.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - utxoToCommit
+        - pendingDeposit
+        - deadline
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitRecorded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        utxoToCommit:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        pendingDeposit:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DepositActivated:
+      title: DepositActivated
+      description: |
+        Deposit for an incremental commit got activated and will be proposed in a snapshot now.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - deadline
+        - chainTime
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DepositActivated"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    DepositExpired:
+      title: DepositExpired
+      description: |
+        Deposit for an incremental commit expired and will not be picked up.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - deadline
+        - chainTime
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["DepositExpired"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitFinalized:
+      title: CommitFinalized
+      description: |
+        Deposit request is approved.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - depositTxId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        depositTxId:
+          type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    CommitRecovered:
+      title: CommitRecovered
+      description: |
+        Deposit request is recovered.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - recoveredUTxO
+        - recoveredTxId
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["CommitRecovered"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        recoveredUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        recoveredTxId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    SnapshotSideLoaded:
+      title: SnapshotSideLoaded
+      description: |
+        The given confirmed snapshot has been side-loaded. Pending transactions have been pruned, the local UTxO has been reset, any pending seen snapshots have been cleared, and the snapshot leader has been reassigned accordingly.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - snapshotNumber
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["SnapshotSideLoaded"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        snapshotNumber:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    EventLogRotated:
+      title: EventLogRotated
+      description: |
+        The node event log file has been rotated. The current aggregated head state is used as the checkpoint event to resume from.
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["EventLogRotated"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    # END OF SERVER OUTPUT SCHEMAS
+
+    Address:
+      type: string
+      description: |
+        A bech-32 encoded Cardano address, see
+        https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#Bech32s and
+        https://github.com/cardano-foundation/CIPs/blob/master/CIP-0005/CIP-0005.md
+      examples:
+        - "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5"
+        - "addr_test1gpr87kyn9d2fzpvy5r5w5fdzyhsx59znpvhfd6fcc5ar7g5yl33cdg0cq24ewdshsutgm"
+
+    ByronAddress:
+      type: string
+      description: |
+        A legacy Byron address.
+      examples:
+        - "DdzFFzCqrht2KG1vWt5WGhVC9Ezyu32RgB5M2DocdZ6BQU6zj69LSqksDmdM"
+
+    Cbor:
+      type: string
+      description: |
+        The base16-encoding of the CBOR encoding of some binary data
+      contentEncoding: base16
+      example:
+        "820082582089ff4f3ff4a6052ec9d073b3be68b5e7596bd74a04e7b74504a8302fb2278cd95840f66eb3cd160372d617411408792c0ebd9791968e9948112894e2706697a55c10296b04019ed2f146f4d81e8ab17b9d14cf99569a2f85cbfa32320127831db202"
+
+    SeenSnapshot:
+      oneOf:
+        - title: NoSeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["NoSeenSnapshot"]
+        - title: LastSeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - lastSeen
+          properties:
+            tag:
+              type: string
+              enum: ["LastSeenSnapshot"]
+            lastSeen:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: RequestedSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - lastSeen
+            - requested
+          properties:
+            tag:
+              type: string
+              enum: ["RequestedSnapshot"]
+            lastSeen:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            requested:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: SeenSnapshot
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - snapshot
+            - signatories
+          properties:
+            tag:
+              type: string
+              enum: ["SeenSnapshot"]
+            snapshot:
+              $ref: "api.yaml#/components/schemas/Snapshot"
+            signatories:
+              type: object
+              propertyNames:
+                type: string
+                contentEncoding: base16
+              items:
+                $ref: "api.yaml#/components/schemas/Signature"
+
+    ConfirmedSnapshot:
+      oneOf:
+      - title: "InitialSnapshot"
+        type: object
+        additionalProperties: false
+        required:
+          - headId
+          - initialUTxO
+          - tag
+        properties:
+          headId:
+            $ref: "api.yaml#/components/schemas/HeadId"
+          initialUTxO:
+            $ref: "api.yaml#/components/schemas/UTxO"
+          tag:
+            type: string
+            enum: ["InitialSnapshot"]
+
+      - title: "ConfirmedSnapshot"
+        type: object
+        additionalProperties: false
+        required:
+          - snapshot
+          - signatures
+        properties:
+          snapshot:
+            $ref: "api.yaml#/components/schemas/Snapshot"
+          signatures:
+            $ref: "api.yaml#/components/schemas/MultiSignature"
+          tag:
+            type: string
+            enum: ["ConfirmedSnapshot"]
+
+    ContestationPeriod:
+      type: number
+      description: |
+        A contestation duration in seconds.
+      example: 60
+
+    HeadId:
+      type: string
+      description: |
+        A unique identifier for a Head, represented by a hex-encoded 16 bytes string.
+      contentEncoding: base16
+      example:
+        "820082582089ff4f3ff4a6052ec9d073"
+
+    HeadSeed:
+      type: string
+      description: |
+        A unique seed identifier to create a 'HeadId', represented by a hex-encoded 16 bytes string.
+      contentEncoding: base16
+      example:
+        "111206190b110f1417181e0120141e05"
+
+    HeadParameters:
+      type: object
+      additionalProperties: false
+      required:
+        - contestationPeriod
+        - parties
+      properties:
+        contestationPeriod:
+          $ref: "api.yaml#/components/schemas/ContestationPeriod"
+        parties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+
+    OnChainId:
+      type: string
+      description: |
+        A on-chain identifier for a Head participant, hex-encoded as 28 bytes string.
+      contentEncoding: base16
+
+    HeadStatus:
+      type: string
+      enum:
+        - Idle
+        - Initializing
+        - Open
+        - Closed
+        - FanoutPossible
+        - Final
+
+    MultiSignature:
+      type: object
+      description: |
+        Aggregated signature produced by Head protocol when a Snapshot is confirmed by all parties.
+      additionalProperties: false
+      required:
+      - multiSignature
+      properties:
+        multiSignature:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Signature"
+
+    Party:
+      type: object
+      description: |
+        The verification key for some Party in the Head protocol, uniquely identifying it.
+      additionalProperties: false
+      required:
+        - vkey
+      properties:
+        vkey:
+          type: string
+          contentEncoding: base16
+      example:
+        {
+            "vkey": "d0b8f28427aa7b640c636075905cbd6574a431aeaca5b3dbafd47cfe66c35043"
+        }
+
+    Peer:
+      type: object
+      description: |
+        Information identifying a network peer.
+      properties:
+        hostname:
+          type: string
+          format: hostname
+        port:
+          type: number
+      example:
+        {
+            "hostname": "10.0.0.10",
+            "port": 5001
+        }
+
+    # NOTE: We are not using the cardanonical/cardano.json#ProtocolParameters as
+    # we need to be compatible with what the cardano-cli provides us
+    ProtocolParameters:
+      description: |
+        Cardano protocol parameters as provided by the cardano-cli and accepted
+        by the hydra-node on the command line.
+      type: object
+      # Allow additional parameters to not be too strict about retired values
+      # like minUTxOValue
+      additionalProperties: true
+      required:
+        - protocolVersion
+        - maxBlockHeaderSize
+        - maxBlockBodySize
+        - maxTxSize
+        - txFeeFixed
+        - txFeePerByte
+        - stakeAddressDeposit
+        - stakePoolDeposit
+        - minPoolCost
+        - poolRetireMaxEpoch
+        - stakePoolTargetNum
+        - poolPledgeInfluence
+        - monetaryExpansion
+        - treasuryCut
+        - costModels # Alonzo onwards
+        - executionUnitPrices # Alonzo onwards
+        - maxTxExecutionUnits # Alonzo onwards
+        - maxBlockExecutionUnits # Alonzo onwards
+        - maxValueSize # Alonzo onwards
+        - collateralPercentage # Alonzo onwards
+        - maxCollateralInputs # Alonzo onwards
+        - utxoCostPerByte # Babbage onwards
+      properties:
+        protocolVersion:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/ProtocolVersion"
+        maxBlockBodySize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        maxBlockHeaderSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        maxTxSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        txFeeFixed:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
+        txFeePerByte:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/UInt64"
+        stakeAddressDeposit:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
+        stakePoolDeposit:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
+        minPoolCost:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
+        poolRetireMaxEpoch:
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/UInt64"
+        stakePoolTargetNum:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        poolPledgeInfluence:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
+          type: number
+        monetaryExpansion:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
+          type: number
+        treasuryCut:
+          # XXX: would be better "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Ratio"
+          type: number
+        costModels:
+          type: object
+          # XXX: Different key naming scheme than in cardanonical
+          propertyNames:
+            title: Language
+            type: string
+            enum:
+              - "PlutusV1"
+              - "PlutusV2"
+              - "PlutusV3"
+          additionalProperties:
+            "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/CostModel"
+        executionUnitPrices:
+          # XXX: Object fields different in cardanonical and using Ratio
+          priceMemory:
+            type: number
+          priceSteps:
+            type: number
+        maxTxExecutionUnits:
+          # XXX: Object fields different in cardanonical
+          properties:
+            # XXX: UInt64 in cardanonical, but Rational in cardano-api
+            memory:
+              type: number
+            cpu:
+              type: number
+        maxBlockExecutionUnits:
+          # XXX: Object fields different in cardanonical
+          properties:
+            # XXX: UInt64 in cardanonical, but Rational in cardano-api
+            memory:
+              type: number
+            cpu:
+              type: number
+        maxValueSize:
+          # XXX: NumberOfBytes in cardanonical
+          type: integer
+          minimum: 0
+        collateralPercentage:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        maxCollateralInputs:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+        utxoCostPerByte:
+          # XXX: Coefficient in cardanonical is UInt64, but should be lovelace
+          "$ref": "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/cardanonical/cardano.json#/definitions/Lovelace"
+
+    NodeId:
+      type: string
+      description: Hydra Node identifier
+      example: "some hydra-node id"
+
+    PostChainTx:
+      description: |
+        Description of outgoing On-Chain transactions for the Head protocol. As is
+        the case for OnChainTx, these data structures completely abstract away the
+        actual details of the transaction and only represent data relevant for the
+        protocol to make some progress.
+      oneOf:
+        - title: InitTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - participants
+            - headParameters
+          description: |
+            The initial transaction of the Head defining its parameters.
+          properties:
+            tag:
+              type: string
+              enum: ["InitTx"]
+            participants:
+              type: array
+              items:
+                $ref: "api.yaml#/components/schemas/OnChainId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+        - title: AbortTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - utxo
+            - headSeed
+          description: |
+            Abort the opening of the Head process.
+          properties:
+            tag:
+              type: string
+              enum: ["AbortTx"]
+            utxo:
+              $ref: "api.yaml#/components/schemas/UTxO"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+        - title: CollectComTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - utxo
+            - headId
+            - headParameters
+          description: |
+            Confirm the opening of the Head collecting the committed UTxO set
+            combined from all individual commits.
+          properties:
+            tag:
+              type: string
+              enum: ["CollectComTx"]
+            utxo:
+              $ref: "api.yaml#/components/schemas/UTxO"
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+        - title: RecoverTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - recoverTxId
+            - recoverUTxO
+            - deadline
+          description: |
+            Post a transaction to recover deposited UTxO back to L1.
+          properties:
+            tag:
+              type: string
+              enum: ["RecoverTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            recoverTxId:
+              type: string
+            recoverUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
+            deadline:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
+        - title: IncrementTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - incrementingSnapshot
+            - depositTxId
+          description: |
+            Post a transaction to commit some UTxO to the Head.
+          properties:
+            tag:
+              type: string
+              enum: ["IncrementTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            incrementingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+            depositTxId:
+              type: string
+        - title: DecrementTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - decrementingSnapshot
+          description: |
+            Post a transaction to decommit some UTxO from the Head.
+          properties:
+            tag:
+              type: string
+              enum: ["DecrementTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            decrementingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        - title: CloseTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - openVersion
+            - closingSnapshot
+          description: |
+            Close the currently open Head with the given snapshot.
+          properties:
+            tag:
+              type: string
+              enum: ["CloseTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            closingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+            openVersion:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+        - title: ContestTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headId
+            - headParameters
+            - openVersion
+            - contestingSnapshot
+          description: |
+            Contest a previously posted snapshot (from a Close or Contest
+            transaction) with a newer snapshot.
+          properties:
+            tag:
+              type: string
+              enum: ["ContestTx"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            openVersion:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+            contestingSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+
+        - title: FanoutTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - utxo
+            - headSeed
+            - contestationDeadline
+          description: |
+            Finalise the Head posting all UTxO from the Head on-chain.
+          properties:
+            tag:
+              type: string
+              enum: ["FanoutTx"]
+            utxo:
+              $ref: "api.yaml#/components/schemas/UTxO"
+            utxoToCommit:
+             oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
+            utxoToDecommit:
+             oneOf:
+              - $ref: "api.yaml#/components/schemas/UTxO"
+              - type: "null"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+            contestationDeadline:
+              $ref: "api.yaml#/components/schemas/UTCTime"
+
+    PostTxError:
+      description: |
+        Provides more details about transaction submission failure.
+      oneOf:
+        - title: ScriptFailedInWallet
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - redeemerPtr
+          - failureReason
+          - failingTx
+          description: >-
+            Script execution failed when finalizing a transaction in the wallet.
+            The redeemer pointer should give an indication which script failed
+            while the reason is a dump of the error. Not intended to be
+            machine-processable (right now).
+          properties:
+            tag:
+              type: string
+              enum: ["ScriptFailedInWallet"]
+            redeemerPtr:
+              type: string
+            failureReason:
+              type: string
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
+        - title: InternalWalletError
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - failingTx
+            - reason
+            - headUTxO
+          description: |
+            Some input in a transaction cannot be resolved to a proper UTxO. This can happen either when some input
+            is double-spent or the DirectChain component has not yet caught up with the chain.
+          properties:
+            tag:
+              type: string
+              enum: ["InternalWalletError"]
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
+              description: |
+                A representation of the faulty transaction
+            reason:
+              type: string
+              description: >-
+                The failure reason.
+            headUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
+              description: >-
+                The Head protocol-relevant UTxO. Depending on the Head's current state, it includes the Head state thread output,
+                plus the ν_initial or ν_commit outputs.
+        - title: NotEnoughFuel
+          description: |
+            Raised if the internal wallet could not find a fuel output with
+            enough lovelace to balance a transaction. See user manual how to
+            fuel up the internal wallet.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failingTx
+          properties:
+            tag:
+              type: string
+              enum: ["NotEnoughFuel"]
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
+        - title: NoFuelUTXOFound
+          description: |
+            Raised if the internal wallet could not find a fuel output. See user
+            manual how to fuel up the internal wallet.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failingTx
+          properties:
+            tag:
+              type: string
+              enum: ["NoFuelUTXOFound"]
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
+        - title: CannotFindOwnInitial
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - knownUTxO
+          description: >-
+            The DirectChain was unable to find the output paying to Initial script corresponding
+            to this node's Party, with the relevant _Participation Token_.
+          properties:
+            tag:
+              type: string
+              enum: ["CannotFindOwnInitial"]
+            knownUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
+              description: >-
+                The known UTxO within which the Initial script was looked up for.
+        - title: UnsupportedLegacyOutput
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - byronAddress
+          description: >-
+            The UTxO provided to commit is locked by a (legacy) Byron address, which is not supported.
+          properties:
+            tag:
+              type: string
+              enum: ["UnsupportedLegacyOutput"]
+            byronAddress:
+              $ref: "api.yaml#/components/schemas/ByronAddress"
+        - title: NoSeedInput
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          description: >-
+            Initialising a new Head failed because the DirectChain component was unable to find
+            a "seed" UTxO to consume. This can happen if no UTxO has been assigned to the internal wallet's address
+            for this purpose, or if the component is still catching up with the chain.
+            This error is usually transient and clients should retry to post the transaction.
+          properties:
+            tag:
+              type: string
+              enum: ["NoSeedInput"]
+        - title: InvalidStateToPost
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - chainState
+          - txTried
+          description: >-
+            Attempted to post a transaction that's invalid given current protocol's state. This is definitely a **BUG**.
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidStateToPost"]
+            chainState:
+              $ref: "api.yaml#/components/schemas/ChainState"
+            txTried:
+              $ref: "api.yaml#/components/schemas/PostChainTx"
+        - title: FailedToPostTx
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          - failingTx
+          description: >-
+            A generic error case. Some transaction that wasn't expected to fail still failed... somehow.
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToPostTx"]
+            failureReason:
+              type: string
+            failingTx:
+              $ref: "api.yaml#/components/schemas/Transaction"
+        - title: CommittedTooMuchADAForMainnet
+          description: |
+            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - userCommittedLovelace
+          - mainnetLimitLovelace
+          properties:
+            userCommittedLovelace:
+              type: number
+            mainnetLimitLovelace:
+              type: number
+            tag:
+              type: string
+              enum: ["CommittedTooMuchADAForMainnet"]
+        - title: FailedToDraftTxNotInitializing
+          description: |
+            Raised if the user tried to draft a commit tx while Head is not in Initializing state.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToDraftTxNotInitializing"]
+        - title: InvalidSeed
+          description: |
+            Raised if the user fails to submit an abort or fanout tx using the wrong seed.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - headSeed
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidSeed"]
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+        - title: InvalidHeadId
+          description: |
+            Raised if the user fails to submit a commit tx using the wrong headId.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - headId
+          properties:
+            tag:
+              type: string
+              enum: ["InvalidHeadId"]
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+        - title: FailedToConstructAbortTx
+          description: |
+            Raised if the user fails to submit an abort tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructAbortTx"]
+        - title: FailedToConstructCloseTx
+          description: |
+            Raised if the user fails to submit a close tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructCloseTx"]
+        - title: FailedToConstructContestTx
+          description: |
+            Raised if the user fails to submit a contest tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructContestTx"]
+        - title: FailedToConstructCollectTx
+          description: |
+            Raised if the user fails to submit a collect-com tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructCollectTx"]
+        - title: FailedToConstructDepositTx
+          description: |
+            Raised if the user fails to draft a deposit tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructDepositTx"]
+            failureReason:
+              type: string
+        - title: FailedToConstructRecoverTx
+          description: |
+            Raised if the user fails to draft a recover tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructRecoverTx"]
+            failureReason:
+              type: string
+        - title: FailedToConstructIncrementTx
+          description: |
+            Raised if the user fails to submit a increment tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructIncrementTx"]
+            failureReason:
+              type: string
+        - title: FailedToConstructDecrementTx
+          description: |
+            Raised if the user fails to submit a decrement tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructDecrementTx"]
+            failureReason:
+              type: string
+        - title: FailedToConstructFanoutTx
+          description: |
+            Raised if the user fails to submit a fanout tx.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructFanoutTx"]
+
+    Signature:
+      type: string
+      description: >-
+        A base64-encoded signature.
+      contentEncoding: base16
+
+    Snapshot:
+      type: object
+      required:
+      - headId
+      - number
+      - utxo
+      - confirmed
+      - version
+      properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        number:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        confirmed:
+          description: The list of transactions that leads to this snapshot utxo.
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
+        utxo:
+          description: Choose between to display or not using the `snapshot-utxo` query parameter.
+          $ref: "api.yaml#/components/schemas/UTxO"
+        utxoToCommit:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+        utxoToDecommit:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+
+    SnapshotNumber:
+      type: integer
+      minimum: 0
+
+    SnapshotVersion:
+      type: integer
+      minimum: 0
+
+    Transaction:
+      type: object
+      required:
+        - cborHex
+        - description
+        - type
+      description: |
+        A Cardano transaction in the text envelope format . That is, a JSON
+        object wrapper with some 'type' around a 'cborHex' encoded transaction.
+        The hydra-node uses this format as follows:
+
+          - When encoding, an additonal 'txId' is included.
+          - On decoding, when 'txId' is included it is checked to be consistent.
+          - The 'type' is not used to determine content and any transaction is
+            tried to decode as a 'ConwayEra' transaction, which mostly is
+            backward compatible to previous eras.
+      properties:
+        type:
+          type: string
+          enum: ["Tx ConwayEra", "Unwitnessed Tx ConwayEra", "Witnessed Tx ConwayEra"]
+        description:
+          type: string
+        cborHex:
+          $ref: "api.yaml#/components/schemas/Cbor"
+        txId:
+          $ref: "api.yaml#/components/schemas/TxId"
+
+    Script:
+      type: object
+      additionalProperties: false
+      required:
+        - scriptLanguage
+        - script
+      properties:
+        scriptLanguage:
+          type: string
+        script:
+          type: object
+          additionalProperties: false
+          required:
+            - cborHex
+            - description
+            - type
+          properties:
+            cborHex:
+              type: string
+              contentEncoding: base16
+            description:
+              type: string
+            type:
+              type: string
+              enum:
+                - SimpleScript
+                - PlutusScriptV1
+                - PlutusScriptV2
+                - PlutusScriptV3
+      example:
+        {
+          "script": {
+              "cborHex": "8303018282051927168200581c0d94e174732ef9aae73f395ab44507bfa983d65023c11a951f0c32e4",
+              "description": "",
+              "type": "SimpleScript"
+          },
+          "scriptLanguage": "SimpleScriptLanguage"
+        }
+
+    TxId:
+      type: string
+      description: |
+        A Cardano transaction identifier. This is the hex-encoded hash of the
+        transaction's body.
+      pattern: "^[0-9a-f]{64}"
+      example: "8df1616d4337ede40bbad2914f12977815234b83951bcce3bfcd735aed3f63e4"
+
+    TxIn:
+      type: string
+      description: |
+        A reference to a Cardano transaction output, commonly used as transaction
+        input and thus named TxIn. Constructed from the transaction's id and
+        the ouput index, separated by a '#'.
+      pattern: "^[0-9a-f]{64}#[0-9]+$"
+      example: "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314#4"
+
+    TxOut:
+      type: object
+      description: |
+        A single transaction output
+      required:
+      - address
+      - value
+      additionalProperties: false
+      properties:
+        address:
+          $ref: "api.yaml#/components/schemas/Address"
+        value:
+          $ref: "api.yaml#/components/schemas/Value"
+        referenceScript:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Script"
+            - type: "null"
+        datumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        inlineDatum:
+          oneOf:
+            - type: object
+            - type: "null"
+        inlineDatumhash:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+        inlineDatumRaw:
+          description: |
+            The 'inlineDatum' in its original cbor encoded form. Useful to
+            evaluate scripts and calculate script integrity hashes.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Cbor"
+            - type: "null"
+        datum:
+          oneOf:
+            - type: string
+              contentEncoding: base16
+            - type: "null"
+      example: |
+        {
+          "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+          "value": {
+              "lovelace": 7620669
+          }
+        }
+
+    HydraNodeVersion:
+      type: string
+      description: |
+        Current hydra-node version.
+
+    SequenceNumber:
+      type: integer
+      minimum: 0
+      description: |
+        A strictly monotonically increasing counter.
+      example: 1
+
+    UTCTime:
+      type: string
+      format: "date-time"
+      description: |
+        A data and time as measured by a clock without a time zone. It is stored as a string in ISO 8601 format.
+
+    ChainSlot:
+      type: integer
+      minimum: 0
+      description: |
+        A number representing discrete time (slots) on the chain.
+
+    UTxO:
+      type: object
+      propertyNames:
+        pattern: "^[0-9a-f]{64}#[0-9]+$"
+      additionalProperties:
+        $ref: "api.yaml#/components/schemas/TxOut"
+      description: |
+        A set of unspent transaction outputs. Object keys are 'TxIn' and values are 'TxOut'.
+      example: |
+        {
+            "09d34606abdcd0b10ebc89307cbfa0b469f9144194137b45b7a04b273961add8#687": {
+                "address": "addr1w9htvds89a78ex2uls5y969ttry9s3k9etww0staxzndwlgmzuul5",
+                "value": {
+                    "lovelace": 7620669
+                }
+            }
+        }
+
+    DraftCommitTxRequest:
+      type: object
+      items:
+        oneof:
+          - $ref: "api.yaml#/components/schemas/UTxO"
+          - $ref: "api.yaml#/components/schemas/FullCommitRequest"
+
+    FullCommitRequest:
+      type: object
+      required:
+        - blueprintTx
+        - utxo
+      properties:
+        blueprintTx:
+          $ref: "api.yaml#/components/schemas/Transaction"
+        utxo:
+          $ref: "api.yaml#/components/schemas/UTxO"
+      example:
+        {
+          "blueprintTx": {
+            "cborHex": "...",
+            "type": "Tx BabbageEra"
+          },
+          "utxo": {
+            "e44bdebd6bd7f54f081b5945a5e30521833fd3944f4f4d13de309d36ac5f9615#80": {
+              "address": "addr1zyhxu2ejxercjqwz3yzv3nx5qjup37n5x2eskf4kna2rpdcqdjxnpvxsxr0plavuw385mqg2ts0zlqkm9r879kgn5vysfkfu4t",
+              "datum": null,
+              "datumhash": "aa218e748e45df83c4fe14759280170edcce8f1c45d52d555b8038b50d6cd29e",
+              "inlineDatum": null,
+              "referenceScript": {
+                "script": {
+                  "cborHex": "...",
+                  "description": "",
+                  "type": "SimpleScript"
+                },
+                "scriptLanguage": "SimpleScriptLanguage"
+              },
+              "value": {
+                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                  "32": 2
+                },
+                "lovelace": 1
+              }
+            }
+          }
+        }
+
+    PlutusV2Script:
+      type: object
+      description: |
+        Plutus V2 Script wrapped in a text-envelope.
+      additionalProperties: false
+      required:
+      - cborHex
+      - description
+      - type
+      properties:
+        cborHex:
+          $ref: "api.yaml#/components/schemas/Cbor"
+        description:
+          type: string
+        type:
+          type: string
+          enum: ["PlutusScriptV2"]
+
+    Value:
+      type: object
+      description: |
+        A Cardano value. This is an object containing a number of lovelaces, and
+        optional assets, mapping some monetary policy identifier to a
+        mapping of coin (arbitrary strings) to some integer value.
+        Assets represent native tokens available on the Cardano blockchain, including Non-Fungible Tokens.
+      additionalProperties:
+        type: object
+        description: |
+          A map of asset names to integral values. The key is the base16-encoded name of the asset.
+        minProperties: 1
+        patternProperties:
+          "[0-9a-f]*":
+            type: integer
+            description: |
+              A quantity of a certain asset.
+      properties:
+        lovelace:
+          type: integer
+          minimum: 0
+          description: |
+            A (positive) amount of lovelace
+
+    Withdrawals:
+      type: object
+      description: |
+        Mapping of reward addresses to rewards.
+      additionalProperties: false
+      patternProperties:
+        "[0-9a-f]+":
+          type: integer
+          minimum: 0
+          description: >-
+            Some non-negative lovelace value.
+
+    NetworkMagic:
+      description: |
+        NetworkMagic is used to differentiate between different networks during the initial handshake.
+      oneOf:
+        - title: Mainnet
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Mainnet"]
+
+        - title: Testnet
+          required:
+            - tag
+            - magic
+          properties:
+            tag:
+              type: string
+              enum: ["Testnet"]
+            magic:
+              type: integer
+
+    # NOTE: We don't want anyone to depend on this!
+    ChainState: {}
+
+    Host:
+      description: |
+        Describes a host we can connect to using TCP.
+      type: object
+      required:
+        - hostname
+        - port
+      properties:
+        hostname:
+          type: string
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          example: 5000
+
+    IP:
+      type: object
+      oneOf:
+        - title: IPv4
+          type: object
+          properties:
+            tag:
+              type: string
+              enum: ["IPv4"]
+            ipv4:
+              type: string
+        - title: IPv6
+          type: string
+          properties:
+            tag:
+              type: string
+              enum: ["IPv6"]
+            ipv6:
+              type: string
+
+    ProtocolVersion:
+      description: Hydra network protocol version
+      type: integer
+      minimum: 0
+
+    HeadState:
+      oneOf:
+        - title: "Idle"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Idle"]
+            contents:
+              $ref: "api.yaml#/components/schemas/IdleState"
+        - title: "Initial"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Initial"]
+            contents:
+              $ref: "api.yaml#/components/schemas/InitialState"
+        - title: "Open"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Open"]
+            contents:
+              $ref: "api.yaml#/components/schemas/OpenState"
+        - title: "Closed"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Closed"]
+            contents:
+              $ref: "api.yaml#/components/schemas/ClosedState"
+
+    IdleState:
+      type: object
+      additionalProperties: false
+      required:
+        - chainState
+      properties:
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+
+    InitialState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - pendingCommits
+        - committed
+        - chainState
+        - headId
+        - headSeed
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        pendingCommits:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        committed:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/Party"
+          items:
+            $ref: "api.yaml#/components/schemas/UTxO"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+
+    OpenState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - coordinatedHeadState
+        - chainState
+        - headId
+        - currentSlot
+        - headSeed
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        coordinatedHeadState:
+          $ref: "api.yaml#/components/schemas/CoordinatedHeadState"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+
+    ClosedState:
+      type: object
+      additionalProperties: false
+      required:
+        - parameters
+        - confirmedSnapshot
+        - contestationDeadline
+        - readyToFanoutSent
+        - chainState
+        - headId
+        - headSeed
+        - version
+      properties:
+        parameters:
+          $ref: "api.yaml#/components/schemas/HeadParameters"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        contestationDeadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        readyToFanoutSent:
+          type: boolean
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        headSeed:
+          $ref: "api.yaml#/components/schemas/HeadSeed"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+    CoordinatedHeadState:
+      type: object
+      additionalProperties: false
+      required:
+        - localUTxO
+        - localTxs
+        - allTxs
+        - confirmedSnapshot
+        - seenSnapshot
+        - pendingDeposits
+        - currentDepositTxId
+        - decommitTx
+        - version
+      properties:
+        localUTxO:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        localTxs:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
+        allTxs:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/TxId"
+          items:
+            $ref: "api.yaml#/components/schemas/Transaction"
+        confirmedSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        seenSnapshot:
+          $ref: "api.yaml#/components/schemas/SeenSnapshot"
+        pendingDeposits:
+          type: object
+          propertyNames:
+            $ref: "api.yaml#/components/schemas/TxId"
+          items:
+            $ref: "api.yaml#/components/schemas/Deposit"
+        currentDepositTxId:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/TxId"
+        decommitTx:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/Transaction"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+    Deposit:
+      type: object
+      additionalProperties: false
+      required:
+        - headId
+        - deposited
+        - created
+        - deadline
+        - status
+      properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        deposited:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        created:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        deadline:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        status:
+          $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    DepositStatus:
+      oneOf:
+        - title: Unknown
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Unknown"]
+        - title: Active
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Active"]
+        - title: Expired
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Expired"]

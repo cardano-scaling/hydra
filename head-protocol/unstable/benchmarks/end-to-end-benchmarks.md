@@ -1,0 +1,83 @@
+--- 
+sidebar_label: 'End-to-end benchmarks' 
+sidebar_position: 4 
+--- 
+
+# End-to-end benchmark results 
+
+This page is intended to collect the latest end-to-end benchmark  results produced by Hydra's continuous integration (CI) system from  the latest `master` code.
+
+:::caution
+
+Please note that these results are approximate  as they are currently produced from limited cloud VMs and not controlled hardware.  Rather than focusing on the absolute results,   the emphasis should be on relative results,  such as how the timings for a scenario evolve as the code changes.
+
+:::
+
+_Generated at_  2026-08-19 12:56:40.292449472 UTC
+
+
+## Baseline Scenario
+
+
+
+| Number of nodes |  1 | 
+| -- | -- |
+| _Number of txs_ | 300 |
+| _Avg. Confirmation Time (ms)_ | 602.6 |
+| _P99_ | 604.3ms |
+| _P95_ | 604.1ms |
+| _P50_ | 602.6ms |
+| _Tx validation time p50 (ms)_ | 433.2 |
+| _End-to-end TPS_ | 494.86 tx/s |
+| _Backlog drain time (s)_ | 0.6 |
+| _Snapshots observed_ | 3 |
+| _Snapshots per second_ | 4.95 /s |
+| _Avg txs per snapshot_ | 100.0 |
+| _Peak node RSS (MB)_ | 144.9 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 2 |
+      
+
+## Three local nodes
+
+
+
+| Number of nodes |  3 | 
+| -- | -- |
+| _Number of txs_ | 900 |
+| _Avg. Confirmation Time (ms)_ | 808.0 |
+| _P99_ | 843.1ms |
+| _P95_ | 842.6ms |
+| _P50_ | 839.3ms |
+| _Tx validation time p50 (ms)_ | 395.5 |
+| _End-to-end TPS_ | 1061.77 tx/s |
+| _Backlog drain time (s)_ | 0.8 |
+| _Snapshots observed_ | 2 |
+| _Snapshots per second_ | 2.36 /s |
+| _Avg txs per snapshot_ | 450.0 |
+| _Peak node RSS (MB)_ | 147.4 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 4 |
+      
+
+## Plateau 1000 UTxO
+
+Each client splits its funds into 1000 outputs (1-in 10-out), then holds that plateau with full-value self-transfers so every snapshot carries the large UTxO set.
+
+| Number of nodes |  1 | 
+| -- | -- |
+| _Number of txs_ | 600 |
+| _Avg. Confirmation Time (ms)_ | 1443.7 |
+| _P99_ | 1791.7ms |
+| _P95_ | 1791.5ms |
+| _P50_ | 1784.8ms |
+| _Tx validation time p50 (ms)_ | 250.7 |
+| _End-to-end TPS_ | 333.83 tx/s |
+| _Backlog drain time (s)_ | 1.8 |
+| _Snapshots observed_ | 3 |
+| _Snapshots per second_ | 1.67 /s |
+| _Avg txs per snapshot_ | 200.0 |
+| _Peak node RSS (MB)_ | 202.2 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 1000 |
+      

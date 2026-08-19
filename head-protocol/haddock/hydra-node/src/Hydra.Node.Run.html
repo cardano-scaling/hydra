@@ -1,0 +1,841 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.Run</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.IsList.html#fromList"><span class="hs-identifier">fromList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Globals</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">boundRational</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkActiveSlotCoeff</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unNonZero</span></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Shelley.API</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">computeRandomnessStabilisationWindow</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">computeStabilityWindow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Slotting.EpochInfo</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fixedEpochInfo</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Slotting.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkSlotLength</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.Server.html"><span class="hs-identifier">Hydra.API.Server</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.Server.html#APIServerConfig"><span class="hs-identifier">APIServerConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.Server.html#withAPIServer"><span class="hs-identifier">withAPIServer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html"><span class="hs-identifier">Hydra.API.ServerOutputFilter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutputFilter.html#serverOutputFilter"><span class="hs-identifier">serverOutputFilter</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">GenesisParameters</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">ProtocolParametersConversionError</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">ShelleyEra</span></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">SystemStart</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">toShelleyNetwork</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.html"><span class="hs-identifier">Hydra.Chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#maximumNumberOfParties"><span class="hs-identifier">maximumNumberOfParties</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html"><span class="hs-identifier">Hydra.Chain.CardanoClient</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryPoint"><span class="hs-identifier">QueryPoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#queryGenesisParameters"><span class="hs-identifier">queryGenesisParameters</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.html"><span class="hs-identifier">Hydra.Chain.Direct</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Direct.html#loadChainContext"><span class="hs-identifier">loadChainContext</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.html#mkTinyWallet"><span class="hs-identifier">mkTinyWallet</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.html#withDirectChain"><span class="hs-identifier">withDirectChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.State.html"><span class="hs-identifier">Hydra.Chain.Direct.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Direct.State.html#initialChainState"><span class="hs-identifier">initialChainState</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.Offline.html"><span class="hs-identifier">Hydra.Chain.Offline</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier">loadGenesisFile</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier">withOfflineChain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Events.FileBased.html"><span class="hs-identifier">Hydra.Events.FileBased</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.FileBased.html#eventPairFromPersistenceIncremental"><span class="hs-identifier">eventPairFromPersistenceIncremental</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.html"><span class="hs-identifier">Hydra.Ledger.Cardano</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Cardano.html#cardanoLedger"><span class="hs-identifier">cardanoLedger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.Cardano.html#newLedgerEnv"><span class="hs-identifier">newLedgerEnv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.html"><span class="hs-identifier">Hydra.Logging</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">traceWith</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Logging.html#withTracer"><span class="hs-identifier">withTracer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.Messages.html"><span class="hs-identifier">Hydra.Logging.Messages</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.Messages.html#HydraLog"><span class="hs-identifier">HydraLog</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.html"><span class="hs-identifier">Hydra.Logging.Monitoring</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.Monitoring.html#withMonitoring"><span class="hs-identifier">withMonitoring</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.html"><span class="hs-identifier">Hydra.Node</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#HydraNode"><span class="hs-identifier">HydraNode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.html#%24sel%3AeventSinks%3AHydraNode"><span class="hs-identifier">eventSinks</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#%24sel%3AchainStateHistory%3ADraftHydraNode"><span class="hs-identifier">chainStateHistory</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#connect"><span class="hs-identifier">connect</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#hydrate"><span class="hs-identifier">hydrate</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#initEnvironment"><span class="hs-identifier">initEnvironment</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#runHydraNode"><span class="hs-identifier">runHydraNode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#wireChainInput"><span class="hs-identifier">wireChainInput</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#wireClientInput"><span class="hs-identifier">wireClientInput</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.Node.html#wireNetworkInput"><span class="hs-identifier">wireNetworkInput</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.Network.html"><span class="hs-identifier">Hydra.Node.Network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier">NetworkConfiguration</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Network.html#withNetwork"><span class="hs-identifier">withNetwork</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Options.html"><span class="hs-identifier">Hydra.Options</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#ChainConfig"><span class="hs-identifier">ChainConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#DirectChainConfig"><span class="hs-identifier">DirectChainConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#InvalidOptions"><span class="hs-identifier">InvalidOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#LedgerConfig"><span class="hs-identifier">LedgerConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#OfflineChainConfig"><span class="hs-identifier">OfflineChainConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#RunOptions"><span class="hs-identifier">RunOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#validateRunOptions"><span class="hs-identifier">validateRunOptions</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Persistence.html"><span class="hs-identifier">Hydra.Persistence</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Persistence.html#createPersistenceIncremental"><span class="hs-identifier">createPersistenceIncremental</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Environment</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Environment</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Utils.html"><span class="hs-identifier">Hydra.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Utils.html#readJsonFileThrow"><span class="hs-identifier">readJsonFileThrow</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">data</span><span> </span><span id="ConfigurationException"><span class="annot"><a href="Hydra.Node.Run.html#ConfigurationException"><span class="hs-identifier hs-var">ConfigurationException</span></a></span></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-comment">-- XXX: this is not used</span><span>
+</span><span id="line-55"></span><span>    </span><span id="ConfigurationException"><span class="annot"><a href="Hydra.Node.Run.html#ConfigurationException"><span class="hs-identifier hs-var">ConfigurationException</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ProtocolParametersConversionError</span></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="InvalidOptionException"><span class="annot"><a href="Hydra.Node.Run.html#InvalidOptionException"><span class="hs-identifier hs-var">InvalidOptionException</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Options.html#InvalidOptions"><span class="hs-identifier hs-type">InvalidOptions</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680507880"><span id="local-6989586621680507889"><span id="local-6989586621680507893"><span class="annot"><span class="annottext">Int -&gt; ConfigurationException -&gt; ShowS
+[ConfigurationException] -&gt; ShowS
+ConfigurationException -&gt; FilePath
+(Int -&gt; ConfigurationException -&gt; ShowS)
+-&gt; (ConfigurationException -&gt; FilePath)
+-&gt; ([ConfigurationException] -&gt; ShowS)
+-&gt; Show ConfigurationException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; FilePath) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; ConfigurationException -&gt; ShowS
+showsPrec :: Int -&gt; ConfigurationException -&gt; ShowS
+$cshow :: ConfigurationException -&gt; FilePath
+show :: ConfigurationException -&gt; FilePath
+$cshowList :: [ConfigurationException] -&gt; ShowS
+showList :: [ConfigurationException] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680507901"><span id="local-6989586621680507904"><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.Run.html#ConfigurationException"><span class="hs-identifier hs-type">ConfigurationException</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621680507917"><span class="annot"><span class="annottext">displayException :: ConfigurationException -&gt; FilePath
+</span><a href="#local-6989586621680507917"><span class="hs-identifier hs-var hs-var hs-var hs-var">displayException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><a href="Hydra.Node.Run.html#InvalidOptionException"><span class="hs-identifier hs-type">InvalidOptionException</span></a></span><span> </span><span class="annot"><span class="annottext">InvalidOptions
+</span><a href="Hydra.Options.html#MaximumNumberOfPartiesExceeded"><span class="hs-identifier hs-var">MaximumNumberOfPartiesExceeded</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;Maximum number of parties is currently set to: &quot;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; FilePath
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Hydra.Chain.html#maximumNumberOfParties"><span class="hs-identifier hs-var">maximumNumberOfParties</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><a href="Hydra.Node.Run.html#InvalidOptionException"><span class="hs-identifier hs-type">InvalidOptionException</span></a></span><span> </span><span class="annot"><span class="annottext">InvalidOptions
+</span><a href="Hydra.Options.html#CardanoAndHydraKeysMissmatch"><span class="hs-identifier hs-var">CardanoAndHydraKeysMissmatch</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;Number of loaded cardano and hydra keys needs to match&quot;</span></span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><a href="Hydra.Node.Run.html#ConfigurationException"><span class="hs-identifier hs-type">ConfigurationException</span></a></span><span> </span><span id="local-6989586621680507922"><span class="annot"><span class="annottext">ProtocolParametersConversionError
+</span><a href="#local-6989586621680507922"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;Incorrect protocol parameters configuration provided: &quot;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ProtocolParametersConversionError -&gt; FilePath
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ProtocolParametersConversionError
+</span><a href="#local-6989586621680507922"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Hydra.Node.Run.html#run"><span class="hs-identifier hs-type">run</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Options.html#RunOptions"><span class="hs-identifier hs-type">RunOptions</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span id="run"><span class="annot"><span class="annottext">run :: RunOptions -&gt; IO ()
+</span><a href="Hydra.Node.Run.html#run"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span id="local-6989586621680507924"><span class="annot"><span class="annottext">RunOptions
+</span><a href="#local-6989586621680507924"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">(InvalidOptions -&gt; IO ())
+-&gt; (() -&gt; IO ()) -&gt; Either InvalidOptions () -&gt; IO ()
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfigurationException -&gt; IO ()
+forall e a. Exception e =&gt; e -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(ConfigurationException -&gt; IO ())
+-&gt; (InvalidOptions -&gt; ConfigurationException)
+-&gt; InvalidOptions
+-&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">InvalidOptions -&gt; ConfigurationException
+</span><a href="Hydra.Node.Run.html#InvalidOptionException"><span class="hs-identifier hs-var">InvalidOptionException</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Either InvalidOptions () -&gt; IO ())
+-&gt; Either InvalidOptions () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">RunOptions -&gt; Either InvalidOptions ()
+</span><a href="Hydra.Options.html#validateRunOptions"><span class="hs-identifier hs-var">validateRunOptions</span></a></span><span> </span><span class="annot"><span class="annottext">RunOptions
+</span><a href="#local-6989586621680507924"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">Verbosity -&gt; (Tracer IO (HydraLog Tx) -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) msg a.
+(MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
+Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
+</span><a href="Hydra.Logging.html#withTracer"><span class="hs-identifier hs-var">withTracer</span></a></span><span> </span><span class="annot"><span class="annottext">Verbosity
+</span><a href="#local-6989586621680507928"><span class="hs-identifier hs-var">verbosity</span></a></span><span> </span><span class="annot"><span class="annottext">((Tracer IO (HydraLog Tx) -&gt; IO ()) -&gt; IO ())
+-&gt; (Tracer IO (HydraLog Tx) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680507929"><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507929"><span class="hs-identifier hs-var">tracer'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx) -&gt; HydraLog Tx -&gt; IO ()
+forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
+</span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507929"><span class="hs-identifier hs-var">tracer'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RunOptions -&gt; HydraLog Tx
+forall tx. RunOptions -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#NodeOptions"><span class="hs-identifier hs-var">NodeOptions</span></a></span><span> </span><span class="annot"><span class="annottext">RunOptions
+</span><a href="#local-6989586621680507924"><span class="hs-identifier hs-var">opts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">Maybe PortNumber
+-&gt; Tracer IO (HydraLog Tx)
+-&gt; (Tracer IO (HydraLog Tx) -&gt; IO ())
+-&gt; IO ()
+forall (m :: * -&gt; *) tx.
+(MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m) =&gt;
+Maybe PortNumber
+-&gt; Tracer m (HydraLog tx)
+-&gt; (Tracer m (HydraLog tx) -&gt; m ())
+-&gt; m ()
+</span><a href="Hydra.Logging.Monitoring.html#withMonitoring"><span class="hs-identifier hs-var">withMonitoring</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe PortNumber
+</span><a href="#local-6989586621680507931"><span class="hs-identifier hs-var">monitoringPort</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507929"><span class="hs-identifier hs-var">tracer'</span></a></span><span> </span><span class="annot"><span class="annottext">((Tracer IO (HydraLog Tx) -&gt; IO ()) -&gt; IO ())
+-&gt; (Tracer IO (HydraLog Tx) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680507932"><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507932"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-74"></span><span>      </span><span id="local-6989586621680507933"><span class="annot"><span class="annottext">env :: Environment
+</span><a href="#local-6989586621680507933"><span class="hs-identifier hs-var">env</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Environment</span></span><span class="hs-special">{</span><span id="local-6989586621680507935"><span class="annot"><span class="annottext">Party
+party :: Party
+$sel:party:Environment :: Environment -&gt; Party
+</span><a href="#local-6989586621680507935"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507937"><span class="annot"><span class="annottext">[Party]
+otherParties :: [Party]
+$sel:otherParties:Environment :: Environment -&gt; [Party]
+</span><a href="#local-6989586621680507937"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507939"><span class="annot"><span class="annottext">SigningKey HydraKey
+signingKey :: SigningKey HydraKey
+$sel:signingKey:Environment :: Environment -&gt; SigningKey HydraKey
+</span><a href="#local-6989586621680507939"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">RunOptions -&gt; IO Environment
+</span><a href="Hydra.Node.html#initEnvironment"><span class="hs-identifier hs-var">initEnvironment</span></a></span><span> </span><span class="annot"><span class="annottext">RunOptions
+</span><a href="#local-6989586621680507924"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-75"></span><span>      </span><span class="hs-comment">-- Ledger</span><span>
+</span><span id="line-76"></span><span>      </span><span id="local-6989586621680507941"><span class="annot"><span class="annottext">PParams ConwayEra
+</span><a href="#local-6989586621680507941"><span class="hs-identifier hs-var">pparams</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (PParams ConwayEra))
+-&gt; FilePath -&gt; IO (PParams ConwayEra)
+forall a. (Value -&gt; Parser a) -&gt; FilePath -&gt; IO a
+</span><a href="Hydra.Utils.html#readJsonFileThrow"><span class="hs-identifier hs-var">readJsonFileThrow</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (PParams ConwayEra)
+forall a. FromJSON a =&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LedgerConfig -&gt; FilePath
+</span><a href="Hydra.Options.html#%24sel%3AcardanoLedgerProtocolParametersFile%3ACardanoLedgerConfig"><span class="hs-identifier hs-var">cardanoLedgerProtocolParametersFile</span></a></span><span> </span><span class="annot"><span class="annottext">LedgerConfig
+</span><a href="#local-6989586621680507944"><span class="hs-identifier hs-var">ledgerConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>      </span><span id="local-6989586621680507945"><span class="annot"><span class="annottext">Globals
+</span><a href="#local-6989586621680507945"><span class="hs-identifier hs-var">globals</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ChainConfig -&gt; IO Globals
+</span><a href="Hydra.Node.Run.html#getGlobalsForChain"><span class="hs-identifier hs-var">getGlobalsForChain</span></a></span><span> </span><span class="annot"><span class="annottext">ChainConfig
+</span><a href="#local-6989586621680507947"><span class="hs-identifier hs-var">chainConfig</span></a></span><span>
+</span><span id="line-78"></span><span>      </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; Globals -&gt; (Ledger Tx -&gt; IO ()) -&gt; IO ()
+forall {t}. PParams ConwayEra -&gt; Globals -&gt; (Ledger Tx -&gt; t) -&gt; t
+</span><a href="#local-6989586621680507948"><span class="hs-identifier hs-var">withCardanoLedger</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
+</span><a href="#local-6989586621680507941"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">Globals
+</span><a href="#local-6989586621680507945"><span class="hs-identifier hs-var">globals</span></a></span><span> </span><span class="annot"><span class="annottext">((Ledger Tx -&gt; IO ()) -&gt; IO ()) -&gt; (Ledger Tx -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680507949"><span class="annot"><span class="annottext">Ledger Tx
+</span><a href="#local-6989586621680507949"><span class="hs-identifier hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-79"></span><span>        </span><span id="local-6989586621680507950"><span class="annot"><span class="annottext">PersistenceIncremental (StateEvent Tx) IO
+</span><a href="#local-6989586621680507950"><span class="hs-identifier hs-var">incPersistence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (PersistenceIncremental (StateEvent Tx) IO)
+forall a (m :: * -&gt; *).
+(MonadUnliftIO m, MonadThrow m, FromJSON a) =&gt;
+FilePath -&gt; m (PersistenceIncremental a m)
+</span><a href="Hydra.Persistence.html#createPersistenceIncremental"><span class="hs-identifier hs-var">createPersistenceIncremental</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680507951"><span class="hs-identifier hs-var">persistenceDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;/state&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>        </span><span class="hs-comment">-- Hydrate with event source and sinks</span><span>
+</span><span id="line-81"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621680507952"><span class="annot"><span class="annottext">EventSource (StateEvent Tx) IO
+</span><a href="#local-6989586621680507952"><span class="hs-identifier hs-var">eventSource</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507953"><span class="annot"><span class="annottext">EventSink (StateEvent Tx) IO
+</span><a href="#local-6989586621680507953"><span class="hs-identifier hs-var">filePersistenceSink</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental (StateEvent Tx) IO
+-&gt; IO
+     (EventSource (StateEvent Tx) IO, EventSink (StateEvent Tx) IO)
+forall e (m :: * -&gt; *).
+(ToJSON e, FromJSON e, HasEventId e, MonadSTM m) =&gt;
+PersistenceIncremental e m -&gt; m (EventSource e m, EventSink e m)
+</span><a href="Hydra.Events.FileBased.html#eventPairFromPersistenceIncremental"><span class="hs-identifier hs-var">eventPairFromPersistenceIncremental</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental (StateEvent Tx) IO
+</span><a href="#local-6989586621680507950"><span class="hs-identifier hs-var">incPersistence</span></a></span><span>
+</span><span id="line-82"></span><span>        </span><span class="hs-comment">-- NOTE: Add any custom sink setup code here</span><span>
+</span><span id="line-83"></span><span>        </span><span class="hs-comment">-- customSink &lt;- createCustomSink</span><span>
+</span><span id="line-84"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680507954"><span class="annot"><span class="annottext">eventSinks :: [EventSink (StateEvent Tx) IO]
+</span><a href="#local-6989586621680507954"><span class="hs-identifier hs-var hs-var">eventSinks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>              </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent Tx) IO
+</span><a href="#local-6989586621680507953"><span class="hs-identifier hs-var">filePersistenceSink</span></a></span><span>
+</span><span id="line-86"></span><span>              </span><span class="hs-comment">-- NOTE: Add any custom sinks here</span><span>
+</span><span id="line-87"></span><span>              </span><span class="hs-comment">-- , customSink</span><span>
+</span><span id="line-88"></span><span>              </span><span class="hs-special">]</span><span>
+</span><span id="line-89"></span><span>        </span><span id="local-6989586621680507955"><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraNodeLog Tx)
+-&gt; Environment
+-&gt; Ledger Tx
+-&gt; ChainStateType Tx
+-&gt; EventSource (StateEvent Tx) IO
+-&gt; [EventSink (StateEvent Tx) IO]
+-&gt; IO (DraftHydraNode Tx IO)
+forall tx (m :: * -&gt; *).
+(IsChainState tx, MonadDelay m, MonadLabelledSTM m, MonadAsync m,
+ MonadThrow m, MonadUnliftIO m) =&gt;
+Tracer m (HydraNodeLog tx)
+-&gt; Environment
+-&gt; Ledger tx
+-&gt; ChainStateType tx
+-&gt; EventSource (StateEvent tx) m
+-&gt; [EventSink (StateEvent tx) m]
+-&gt; m (DraftHydraNode tx m)
+</span><a href="Hydra.Node.html#hydrate"><span class="hs-identifier hs-var">hydrate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(HydraNodeLog Tx -&gt; HydraLog Tx)
+-&gt; Tracer IO (HydraLog Tx) -&gt; Tracer IO (HydraNodeLog Tx)
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">HydraNodeLog Tx -&gt; HydraLog Tx
+forall tx. HydraNodeLog tx -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#Node"><span class="hs-identifier hs-var">Node</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507932"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Environment
+</span><a href="#local-6989586621680507933"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger Tx
+</span><a href="#local-6989586621680507949"><span class="hs-identifier hs-var">ledger</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType Tx
+</span><a href="Hydra.Chain.Direct.State.html#initialChainState"><span class="hs-identifier hs-var">initialChainState</span></a></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent Tx) IO
+</span><a href="#local-6989586621680507952"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">[EventSink (StateEvent Tx) IO]
+</span><a href="#local-6989586621680507954"><span class="hs-identifier hs-var">eventSinks</span></a></span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-comment">-- Chain</span><span>
+</span><span id="line-91"></span><span>        </span><span id="local-6989586621680507958"><span class="annot"><span class="annottext">ChainStateHistory Tx -&gt; ChainComponent Tx IO ()
+</span><a href="#local-6989586621680507958"><span class="hs-identifier hs-var">withChain</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+-&gt; Environment
+-&gt; ChainConfig
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO ())
+forall {tx} {a}.
+Tracer IO (HydraLog tx)
+-&gt; Environment
+-&gt; ChainConfig
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+</span><a href="#local-6989586621680507959"><span class="hs-identifier hs-var">prepareChainComponent</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507932"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
+</span><a href="#local-6989586621680507933"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">ChainConfig
+</span><a href="#local-6989586621680507947"><span class="hs-identifier hs-var">chainConfig</span></a></span><span>
+</span><span id="line-92"></span><span>        </span><span class="annot"><span class="annottext">ChainStateHistory Tx -&gt; ChainComponent Tx IO ()
+</span><a href="#local-6989586621680507958"><span class="hs-identifier hs-var">withChain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DraftHydraNode Tx IO -&gt; ChainStateHistory Tx
+forall tx (m :: * -&gt; *).
+DraftHydraNode tx m -&gt; ChainStateHistory tx
+</span><a href="Hydra.Node.html#%24sel%3AchainStateHistory%3ADraftHydraNode"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DraftHydraNode Tx IO -&gt; ChainEvent Tx -&gt; IO ()
+forall tx (m :: * -&gt; *).
+DraftHydraNode tx m -&gt; ChainEvent tx -&gt; m ()
+</span><a href="Hydra.Node.html#wireChainInput"><span class="hs-identifier hs-var">wireChainInput</span></a></span><span> </span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Chain Tx IO -&gt; IO ()) -&gt; IO ())
+-&gt; (Chain Tx IO -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680507960"><span class="annot"><span class="annottext">Chain Tx IO
+</span><a href="#local-6989586621680507960"><span class="hs-identifier hs-var">chain</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>          </span><span class="hs-comment">-- API</span><span>
+</span><span id="line-94"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680507961"><span class="annot"><span class="annottext">apiServerConfig :: APIServerConfig
+</span><a href="#local-6989586621680507961"><span class="hs-identifier hs-var hs-var">apiServerConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.API.Server.html#APIServerConfig"><span class="hs-identifier hs-type">APIServerConfig</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:host:APIServerConfig :: IP
+</span><a href="Hydra.API.Server.html#%24sel%3Ahost%3AAPIServerConfig"><span class="hs-identifier hs-var">host</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IP
+</span><a href="#local-6989586621680507964"><span class="hs-identifier hs-var">apiHost</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:port:APIServerConfig :: PortNumber
+</span><a href="#local-6989586621680507965"><span class="hs-identifier hs-var">port</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621680507966"><span class="hs-identifier hs-var">apiPort</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+tlsCertPath :: Maybe FilePath
+$sel:tlsCertPath:APIServerConfig :: Maybe FilePath
+</span><a href="#local-6989586621680507967"><span class="hs-identifier hs-var hs-var">tlsCertPath</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+tlsKeyPath :: Maybe FilePath
+$sel:tlsKeyPath:APIServerConfig :: Maybe FilePath
+</span><a href="#local-6989586621680507969"><span class="hs-identifier hs-var hs-var">tlsKeyPath</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-95"></span><span>          </span><span class="annot"><span class="annottext">APIServerConfig
+-&gt; Environment
+-&gt; Party
+-&gt; EventSource (StateEvent Tx) IO
+-&gt; Tracer IO APIServerLog
+-&gt; Chain Tx IO
+-&gt; PParams LedgerEra
+-&gt; ServerOutputFilter Tx
+-&gt; (ClientInput Tx -&gt; IO ())
+-&gt; ((EventSink (StateEvent Tx) IO, Server Tx IO) -&gt; IO ())
+-&gt; IO ()
+forall tx.
+IsChainState tx =&gt;
+APIServerConfig
+-&gt; Environment
+-&gt; Party
+-&gt; EventSource (StateEvent tx) IO
+-&gt; Tracer IO APIServerLog
+-&gt; Chain tx IO
+-&gt; PParams LedgerEra
+-&gt; ServerOutputFilter tx
+-&gt; (ClientInput tx -&gt; IO ())
+-&gt; ((EventSink (StateEvent tx) IO, Server tx IO) -&gt; IO ())
+-&gt; IO ()
+</span><a href="Hydra.API.Server.html#withAPIServer"><span class="hs-identifier hs-var">withAPIServer</span></a></span><span> </span><span class="annot"><span class="annottext">APIServerConfig
+</span><a href="#local-6989586621680507961"><span class="hs-identifier hs-var">apiServerConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Environment
+</span><a href="#local-6989586621680507933"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680507935"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent Tx) IO
+</span><a href="#local-6989586621680507952"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(APIServerLog -&gt; HydraLog Tx)
+-&gt; Tracer IO (HydraLog Tx) -&gt; Tracer IO APIServerLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">APIServerLog -&gt; HydraLog Tx
+forall tx. APIServerLog -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#APIServer"><span class="hs-identifier hs-var">APIServer</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507932"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Chain Tx IO
+</span><a href="#local-6989586621680507960"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
+PParams LedgerEra
+</span><a href="#local-6989586621680507941"><span class="hs-identifier hs-var">pparams</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutputFilter Tx
+</span><a href="Hydra.API.ServerOutputFilter.html#serverOutputFilter"><span class="hs-identifier hs-var">serverOutputFilter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DraftHydraNode Tx IO -&gt; ClientInput Tx -&gt; IO ()
+forall tx (m :: * -&gt; *).
+DraftHydraNode tx m -&gt; ClientInput tx -&gt; m ()
+</span><a href="Hydra.Node.html#wireClientInput"><span class="hs-identifier hs-var">wireClientInput</span></a></span><span> </span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((EventSink (StateEvent Tx) IO, Server Tx IO) -&gt; IO ()) -&gt; IO ())
+-&gt; ((EventSink (StateEvent Tx) IO, Server Tx IO) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621680507972"><span class="annot"><span class="annottext">EventSink (StateEvent Tx) IO
+</span><a href="#local-6989586621680507972"><span class="hs-identifier hs-var">apiSink</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507973"><span class="annot"><span class="annottext">Server Tx IO
+</span><a href="#local-6989586621680507973"><span class="hs-identifier hs-var">server</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-96"></span><span>            </span><span class="hs-comment">-- Network</span><span>
+</span><span id="line-97"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680507974"><span class="annot"><span class="annottext">networkConfiguration :: NetworkConfiguration
+</span><a href="#local-6989586621680507974"><span class="hs-identifier hs-var hs-var">networkConfiguration</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-98"></span><span>                  </span><span class="annot"><a href="Hydra.Network.html#NetworkConfiguration"><span class="hs-identifier hs-type">NetworkConfiguration</span></a></span><span>
+</span><span id="line-99"></span><span>                    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">FilePath
+persistenceDir :: FilePath
+$sel:persistenceDir:NetworkConfiguration :: FilePath
+</span><a href="#local-6989586621680507951"><span class="hs-identifier hs-var hs-var">persistenceDir</span></a></span><span>
+</span><span id="line-100"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+signingKey :: SigningKey HydraKey
+$sel:signingKey:NetworkConfiguration :: SigningKey HydraKey
+</span><a href="#local-6989586621680507939"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span><span>
+</span><span id="line-101"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
+otherParties :: [Party]
+$sel:otherParties:NetworkConfiguration :: [Party]
+</span><a href="#local-6989586621680507937"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span><span>
+</span><span id="line-102"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Host
+listen :: Host
+$sel:listen:NetworkConfiguration :: Host
+</span><a href="#local-6989586621680507979"><span class="hs-identifier hs-var hs-var">listen</span></a></span><span>
+</span><span id="line-103"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:advertise:NetworkConfiguration :: Host
+</span><a href="#local-6989586621680507981"><span class="hs-identifier hs-var">advertise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Host -&gt; Maybe Host -&gt; Host
+forall a. a -&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">Host
+</span><a href="#local-6989586621680507979"><span class="hs-identifier hs-var">listen</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Host
+</span><a href="#local-6989586621680507983"><span class="hs-identifier hs-var">advertise</span></a></span><span>
+</span><span id="line-104"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Host]
+peers :: [Host]
+$sel:peers:NetworkConfiguration :: [Host]
+</span><a href="#local-6989586621680507984"><span class="hs-identifier hs-var hs-var">peers</span></a></span><span>
+</span><span id="line-105"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NodeId
+nodeId :: NodeId
+$sel:nodeId:NetworkConfiguration :: NodeId
+</span><a href="#local-6989586621680507986"><span class="hs-identifier hs-var hs-var">nodeId</span></a></span><span>
+</span><span id="line-106"></span><span>                    </span><span class="hs-special">}</span><span>
+</span><span id="line-107"></span><span>            </span><span class="annot"><span class="annottext">Tracer IO NetworkLog
+-&gt; NetworkConfiguration
+-&gt; NetworkComponent IO (Authenticated (Message Tx)) (Message Tx) ()
+forall tx.
+IsTx tx =&gt;
+Tracer IO NetworkLog
+-&gt; NetworkConfiguration
+-&gt; NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
+</span><a href="Hydra.Node.Network.html#withNetwork"><span class="hs-identifier hs-var">withNetwork</span></a></span><span>
+</span><span id="line-108"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(NetworkLog -&gt; HydraLog Tx)
+-&gt; Tracer IO (HydraLog Tx) -&gt; Tracer IO NetworkLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkLog -&gt; HydraLog Tx
+forall tx. NetworkLog -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#Network"><span class="hs-identifier hs-var">Network</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog Tx)
+</span><a href="#local-6989586621680507932"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>              </span><span class="annot"><span class="annottext">NetworkConfiguration
+</span><a href="#local-6989586621680507974"><span class="hs-identifier hs-var">networkConfiguration</span></a></span><span>
+</span><span id="line-110"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+-&gt; NetworkCallback (Authenticated (Message Tx)) IO
+forall tx (m :: * -&gt; *).
+DraftHydraNode tx m
+-&gt; NetworkCallback (Authenticated (Message tx)) m
+</span><a href="Hydra.Node.html#wireNetworkInput"><span class="hs-identifier hs-var">wireNetworkInput</span></a></span><span> </span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>              </span><span class="annot"><span class="annottext">((Network IO (Message Tx) -&gt; IO ()) -&gt; IO ())
+-&gt; (Network IO (Message Tx) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680507989"><span class="annot"><span class="annottext">Network IO (Message Tx)
+</span><a href="#local-6989586621680507989"><span class="hs-identifier hs-var">network</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-112"></span><span>                </span><span class="hs-comment">-- Main loop</span><span>
+</span><span id="line-113"></span><span>                </span><span class="annot"><span class="annottext">Chain Tx IO
+-&gt; Network IO (Message Tx)
+-&gt; Server Tx IO
+-&gt; DraftHydraNode Tx IO
+-&gt; IO (HydraNode Tx IO)
+forall (m :: * -&gt; *) tx.
+Monad m =&gt;
+Chain tx m
+-&gt; Network m (Message tx)
+-&gt; Server tx m
+-&gt; DraftHydraNode tx m
+-&gt; m (HydraNode tx m)
+</span><a href="Hydra.Node.html#connect"><span class="hs-identifier hs-var">connect</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO
+</span><a href="#local-6989586621680507960"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="annot"><span class="annottext">Network IO (Message Tx)
+</span><a href="#local-6989586621680507989"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="annot"><span class="annottext">Server Tx IO
+</span><a href="#local-6989586621680507973"><span class="hs-identifier hs-var">server</span></a></span><span> </span><span class="annot"><span class="annottext">DraftHydraNode Tx IO
+</span><a href="#local-6989586621680507955"><span class="hs-identifier hs-var">wetHydraNode</span></a></span><span>
+</span><span id="line-114"></span><span>                  </span><span class="annot"><span class="annottext">IO (HydraNode Tx IO)
+-&gt; (HydraNode Tx IO -&gt; HydraNode Tx IO) -&gt; IO (HydraNode Tx IO)
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent Tx) IO -&gt; HydraNode Tx IO -&gt; HydraNode Tx IO
+forall {tx} {m :: * -&gt; *}.
+EventSink (StateEvent tx) m -&gt; HydraNode tx m -&gt; HydraNode tx m
+</span><a href="#local-6989586621680507991"><span class="hs-identifier hs-var">addEventSink</span></a></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent Tx) IO
+</span><a href="#local-6989586621680507972"><span class="hs-identifier hs-var">apiSink</span></a></span><span>
+</span><span id="line-115"></span><span>                    </span><span class="annot"><span class="annottext">IO (HydraNode Tx IO) -&gt; (HydraNode Tx IO -&gt; IO ()) -&gt; IO ()
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">HydraNode Tx IO -&gt; IO ()
+forall (m :: * -&gt; *) tx.
+(MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) =&gt;
+HydraNode tx m -&gt; m ()
+</span><a href="Hydra.Node.html#runHydraNode"><span class="hs-identifier hs-var">runHydraNode</span></a></span><span>
+</span><span id="line-116"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-117"></span><span>  </span><span id="local-6989586621680507991"><span class="annot"><span class="annottext">addEventSink :: EventSink (StateEvent tx) m -&gt; HydraNode tx m -&gt; HydraNode tx m
+</span><a href="#local-6989586621680507991"><span class="hs-identifier hs-var hs-var">addEventSink</span></a></span></span><span> </span><span id="local-6989586621680507992"><span class="annot"><span class="annottext">EventSink (StateEvent tx) m
+</span><a href="#local-6989586621680507992"><span class="hs-identifier hs-var">sink</span></a></span></span><span> </span><span id="local-6989586621680507993"><span class="annot"><span class="annottext">HydraNode tx m
+</span><a href="#local-6989586621680507993"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraNode tx m
+</span><a href="#local-6989586621680507993"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.html#%24sel%3AeventSinks%3AHydraNode"><span class="hs-identifier hs-var">eventSinks</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621680507992"><span class="hs-identifier hs-type">sink</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.html#%24sel%3AeventSinks%3AHydraNode"><span class="hs-identifier hs-var">eventSinks</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680507993"><span class="hs-identifier hs-type">node</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span>  </span><span id="local-6989586621680507948"><span class="annot"><span class="annottext">withCardanoLedger :: PParams ConwayEra -&gt; Globals -&gt; (Ledger Tx -&gt; t) -&gt; t
+</span><a href="#local-6989586621680507948"><span class="hs-identifier hs-var hs-var">withCardanoLedger</span></a></span></span><span> </span><span id="local-6989586621680507994"><span class="annot"><span class="annottext">PParams ConwayEra
+</span><a href="#local-6989586621680507994"><span class="hs-identifier hs-var">protocolParams</span></a></span></span><span> </span><span id="local-6989586621680507995"><span class="annot"><span class="annottext">Globals
+</span><a href="#local-6989586621680507995"><span class="hs-identifier hs-var">globals</span></a></span></span><span> </span><span id="local-6989586621680507996"><span class="annot"><span class="annottext">Ledger Tx -&gt; t
+</span><a href="#local-6989586621680507996"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680507997"><span class="annot"><span class="annottext">ledgerEnv :: LedgerEnv LedgerEra
+</span><a href="#local-6989586621680507997"><span class="hs-identifier hs-var hs-var">ledgerEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams LedgerEra -&gt; LedgerEnv LedgerEra
+</span><a href="Hydra.Ledger.Cardano.html#newLedgerEnv"><span class="hs-identifier hs-var">newLedgerEnv</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
+PParams LedgerEra
+</span><a href="#local-6989586621680507994"><span class="hs-identifier hs-var">protocolParams</span></a></span><span>
+</span><span id="line-121"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Ledger Tx -&gt; t
+</span><a href="#local-6989586621680507996"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Globals -&gt; LedgerEnv LedgerEra -&gt; Ledger Tx
+</span><a href="Hydra.Ledger.Cardano.html#cardanoLedger"><span class="hs-identifier hs-var">cardanoLedger</span></a></span><span> </span><span class="annot"><span class="annottext">Globals
+</span><a href="#local-6989586621680507995"><span class="hs-identifier hs-var">globals</span></a></span><span> </span><span class="annot"><span class="annottext">LedgerEnv LedgerEra
+</span><a href="#local-6989586621680507997"><span class="hs-identifier hs-var">ledgerEnv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621680507959"><span class="annot"><span class="annottext">prepareChainComponent :: Tracer IO (HydraLog tx)
+-&gt; Environment
+-&gt; ChainConfig
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+</span><a href="#local-6989586621680507959"><span class="hs-identifier hs-var hs-var">prepareChainComponent</span></a></span></span><span> </span><span id="local-6989586621680508004"><span class="annot"><span class="annottext">Tracer IO (HydraLog tx)
+</span><a href="#local-6989586621680508004"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Environment</span></span><span class="hs-special">{</span><span id="local-6989586621680508005"><span class="annot"><span class="annottext">Party
+$sel:party:Environment :: Environment -&gt; Party
+party :: Party
+</span><span class="hs-identifier hs-var hs-var">party</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508006"><span class="annot"><span class="annottext">[Party]
+$sel:otherParties:Environment :: Environment -&gt; [Party]
+otherParties :: [Party]
+</span><span class="hs-identifier hs-var hs-var">otherParties</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-124"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Offline"><span class="hs-identifier hs-type">Offline</span></a></span><span> </span><span id="local-6989586621680508008"><span class="annot"><span class="annottext">OfflineChainConfig
+</span><a href="#local-6989586621680508008"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>      </span><span class="annot"><span class="annottext">(ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">((ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+ -&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a))
+-&gt; (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">OfflineChainConfig
+-&gt; Party
+-&gt; [Party]
+-&gt; ChainStateHistory Tx
+-&gt; ChainComponent Tx IO a
+forall a.
+OfflineChainConfig
+-&gt; Party
+-&gt; [Party]
+-&gt; ChainStateHistory Tx
+-&gt; ChainComponent Tx IO a
+</span><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier hs-var">withOfflineChain</span></a></span><span> </span><span class="annot"><span class="annottext">OfflineChainConfig
+</span><a href="#local-6989586621680508008"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680508005"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621680508006"><span class="hs-identifier hs-var">otherParties</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Direct"><span class="hs-identifier hs-type">Direct</span></a></span><span> </span><span id="local-6989586621680508010"><span class="annot"><span class="annottext">DirectChainConfig
+</span><a href="#local-6989586621680508010"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-127"></span><span>      </span><span id="local-6989586621680508011"><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680508011"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DirectChainConfig -&gt; Party -&gt; IO ChainContext
+</span><a href="Hydra.Chain.Direct.html#loadChainContext"><span class="hs-identifier hs-var">loadChainContext</span></a></span><span> </span><span class="annot"><span class="annottext">DirectChainConfig
+</span><a href="#local-6989586621680508010"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680508005"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><span id="line-128"></span><span>      </span><span id="local-6989586621680508012"><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680508012"><span class="hs-identifier hs-var">wallet</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO DirectChainLog -&gt; DirectChainConfig -&gt; IO (TinyWallet IO)
+</span><a href="Hydra.Chain.Direct.html#mkTinyWallet"><span class="hs-identifier hs-var">mkTinyWallet</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(DirectChainLog -&gt; HydraLog tx)
+-&gt; Tracer IO (HydraLog tx) -&gt; Tracer IO DirectChainLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">DirectChainLog -&gt; HydraLog tx
+forall tx. DirectChainLog -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#DirectChain"><span class="hs-identifier hs-var">DirectChain</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog tx)
+</span><a href="#local-6989586621680508004"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">DirectChainConfig
+</span><a href="#local-6989586621680508010"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-129"></span><span>      </span><span class="annot"><span class="annottext">(ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">((ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+ -&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a))
+-&gt; (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+-&gt; IO (ChainStateHistory Tx -&gt; ChainComponent Tx IO a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO DirectChainLog
+-&gt; DirectChainConfig
+-&gt; ChainContext
+-&gt; TinyWallet IO
+-&gt; ChainStateHistory Tx
+-&gt; ChainComponent Tx IO a
+forall a.
+Tracer IO DirectChainLog
+-&gt; DirectChainConfig
+-&gt; ChainContext
+-&gt; TinyWallet IO
+-&gt; ChainStateHistory Tx
+-&gt; ChainComponent Tx IO a
+</span><a href="Hydra.Chain.Direct.html#withDirectChain"><span class="hs-identifier hs-var">withDirectChain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(DirectChainLog -&gt; HydraLog tx)
+-&gt; Tracer IO (HydraLog tx) -&gt; Tracer IO DirectChainLog
+forall a' a. (a' -&gt; a) -&gt; Tracer IO a -&gt; Tracer IO a'
+forall (f :: * -&gt; *) a' a.
+Contravariant f =&gt;
+(a' -&gt; a) -&gt; f a -&gt; f a'
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">DirectChainLog -&gt; HydraLog tx
+forall tx. DirectChainLog -&gt; HydraLog tx
+</span><a href="Hydra.Logging.Messages.html#DirectChain"><span class="hs-identifier hs-var">DirectChain</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO (HydraLog tx)
+</span><a href="#local-6989586621680508004"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">DirectChainConfig
+</span><a href="#local-6989586621680508010"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680508011"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680508012"><span class="hs-identifier hs-var">wallet</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#RunOptions"><span class="hs-identifier hs-type">RunOptions</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680507928"><span class="annot"><span class="annottext">Verbosity
+verbosity :: Verbosity
+$sel:verbosity:RunOptions :: RunOptions -&gt; Verbosity
+</span><a href="#local-6989586621680507928"><span class="hs-identifier hs-var hs-var">verbosity</span></a></span></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507931"><span class="annot"><span class="annottext">Maybe PortNumber
+monitoringPort :: Maybe PortNumber
+$sel:monitoringPort:RunOptions :: RunOptions -&gt; Maybe PortNumber
+</span><a href="#local-6989586621680507931"><span class="hs-identifier hs-var hs-var">monitoringPort</span></a></span></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507951"><span class="annot"><span class="annottext">FilePath
+persistenceDir :: FilePath
+$sel:persistenceDir:RunOptions :: RunOptions -&gt; FilePath
+</span><a href="#local-6989586621680507951"><span class="hs-identifier hs-var hs-var">persistenceDir</span></a></span></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507947"><span class="annot"><span class="annottext">ChainConfig
+chainConfig :: ChainConfig
+$sel:chainConfig:RunOptions :: RunOptions -&gt; ChainConfig
+</span><a href="#local-6989586621680507947"><span class="hs-identifier hs-var hs-var">chainConfig</span></a></span></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507944"><span class="annot"><span class="annottext">LedgerConfig
+ledgerConfig :: LedgerConfig
+$sel:ledgerConfig:RunOptions :: RunOptions -&gt; LedgerConfig
+</span><a href="#local-6989586621680507944"><span class="hs-identifier hs-var hs-var">ledgerConfig</span></a></span></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507979"><span class="annot"><span class="annottext">Host
+listen :: Host
+$sel:listen:RunOptions :: RunOptions -&gt; Host
+</span><a href="#local-6989586621680507979"><span class="hs-identifier hs-var hs-var">listen</span></a></span></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507983"><span class="annot"><span class="annottext">Maybe Host
+advertise :: Maybe Host
+$sel:advertise:RunOptions :: RunOptions -&gt; Maybe Host
+</span><a href="#local-6989586621680507983"><span class="hs-identifier hs-var hs-var">advertise</span></a></span></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507984"><span class="annot"><span class="annottext">[Host]
+peers :: [Host]
+$sel:peers:RunOptions :: RunOptions -&gt; [Host]
+</span><a href="#local-6989586621680507984"><span class="hs-identifier hs-var hs-var">peers</span></a></span></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507986"><span class="annot"><span class="annottext">NodeId
+nodeId :: NodeId
+$sel:nodeId:RunOptions :: RunOptions -&gt; NodeId
+</span><a href="#local-6989586621680507986"><span class="hs-identifier hs-var hs-var">nodeId</span></a></span></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507964"><span class="annot"><span class="annottext">IP
+apiHost :: IP
+$sel:apiHost:RunOptions :: RunOptions -&gt; IP
+</span><a href="#local-6989586621680507964"><span class="hs-identifier hs-var hs-var">apiHost</span></a></span></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507966"><span class="annot"><span class="annottext">PortNumber
+apiPort :: PortNumber
+$sel:apiPort:RunOptions :: RunOptions -&gt; PortNumber
+</span><a href="#local-6989586621680507966"><span class="hs-identifier hs-var hs-var">apiPort</span></a></span></span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507967"><span class="annot"><span class="annottext">Maybe FilePath
+tlsCertPath :: Maybe FilePath
+$sel:tlsCertPath:RunOptions :: RunOptions -&gt; Maybe FilePath
+</span><a href="#local-6989586621680507967"><span class="hs-identifier hs-var hs-var">tlsCertPath</span></a></span></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680507969"><span class="annot"><span class="annottext">Maybe FilePath
+tlsKeyPath :: Maybe FilePath
+$sel:tlsKeyPath:RunOptions :: RunOptions -&gt; Maybe FilePath
+</span><a href="#local-6989586621680507969"><span class="hs-identifier hs-var hs-var">tlsKeyPath</span></a></span></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RunOptions
+</span><a href="#local-6989586621680507924"><span class="hs-identifier hs-var">opts</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="annot"><a href="Hydra.Node.Run.html#getGlobalsForChain"><span class="hs-identifier hs-type">getGlobalsForChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Options.html#ChainConfig"><span class="hs-identifier hs-type">ChainConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Globals</span></span><span>
+</span><span id="line-148"></span><span id="getGlobalsForChain"><span class="annot"><span class="annottext">getGlobalsForChain :: ChainConfig -&gt; IO Globals
+</span><a href="Hydra.Node.Run.html#getGlobalsForChain"><span class="hs-identifier hs-var hs-var">getGlobalsForChain</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-149"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#Offline"><span class="hs-identifier hs-type">Offline</span></a></span><span> </span><span class="annot"><a href="Hydra.Options.html#OfflineChainConfig"><span class="hs-identifier hs-type">OfflineChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680508029"><span class="annot"><span class="annottext">Maybe FilePath
+ledgerGenesisFile :: Maybe FilePath
+$sel:ledgerGenesisFile:OfflineChainConfig :: OfflineChainConfig -&gt; Maybe FilePath
+</span><a href="#local-6989586621680508029"><span class="hs-identifier hs-var hs-var">ledgerGenesisFile</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-150"></span><span>    </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; IO (GenesisParameters ShelleyEra)
+</span><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier hs-var">loadGenesisFile</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621680508029"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span><span>
+</span><span id="line-151"></span><span>      </span><span class="annot"><span class="annottext">IO (GenesisParameters ShelleyEra)
+-&gt; (GenesisParameters ShelleyEra -&gt; IO Globals) -&gt; IO Globals
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra -&gt; IO Globals
+forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+GenesisParameters ShelleyEra -&gt; m Globals
+</span><a href="Hydra.Node.Run.html#newGlobals"><span class="hs-identifier hs-var">newGlobals</span></a></span><span>
+</span><span id="line-152"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#Direct"><span class="hs-identifier hs-type">Direct</span></a></span><span> </span><span class="annot"><a href="Hydra.Options.html#DirectChainConfig"><span class="hs-identifier hs-type">DirectChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680508033"><span class="annot"><span class="annottext">NetworkId
+networkId :: NetworkId
+$sel:networkId:DirectChainConfig :: DirectChainConfig -&gt; NetworkId
+</span><a href="#local-6989586621680508033"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508035"><span class="annot"><span class="annottext">SocketPath
+nodeSocket :: SocketPath
+$sel:nodeSocket:DirectChainConfig :: DirectChainConfig -&gt; SocketPath
+</span><a href="#local-6989586621680508035"><span class="hs-identifier hs-var hs-var">nodeSocket</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">NetworkId
+-&gt; SocketPath -&gt; QueryPoint -&gt; IO (GenesisParameters ShelleyEra)
+</span><a href="Hydra.Chain.CardanoClient.html#queryGenesisParameters"><span class="hs-identifier hs-var">queryGenesisParameters</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680508033"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621680508035"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
+</span><span id="line-154"></span><span>      </span><span class="annot"><span class="annottext">IO (GenesisParameters ShelleyEra)
+-&gt; (GenesisParameters ShelleyEra -&gt; IO Globals) -&gt; IO Globals
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra -&gt; IO Globals
+forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+GenesisParameters ShelleyEra -&gt; m Globals
+</span><a href="Hydra.Node.Run.html#newGlobals"><span class="hs-identifier hs-var">newGlobals</span></a></span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="hs-keyword">data</span><span> </span><span id="GlobalsTranslationException"><span class="annot"><a href="Hydra.Node.Run.html#GlobalsTranslationException"><span class="hs-identifier hs-var">GlobalsTranslationException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="GlobalsTranslationException"><span class="annot"><a href="Hydra.Node.Run.html#GlobalsTranslationException"><span class="hs-identifier hs-var">GlobalsTranslationException</span></a></span></span><span>
+</span><span id="line-157"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680508040"><span id="local-6989586621680508042"><span class="annot"><span class="annottext">GlobalsTranslationException -&gt; GlobalsTranslationException -&gt; Bool
+(GlobalsTranslationException
+ -&gt; GlobalsTranslationException -&gt; Bool)
+-&gt; (GlobalsTranslationException
+    -&gt; GlobalsTranslationException -&gt; Bool)
+-&gt; Eq GlobalsTranslationException
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: GlobalsTranslationException -&gt; GlobalsTranslationException -&gt; Bool
+== :: GlobalsTranslationException -&gt; GlobalsTranslationException -&gt; Bool
+$c/= :: GlobalsTranslationException -&gt; GlobalsTranslationException -&gt; Bool
+/= :: GlobalsTranslationException -&gt; GlobalsTranslationException -&gt; Bool
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508047"><span id="local-6989586621680508049"><span id="local-6989586621680508053"><span class="annot"><span class="annottext">Int -&gt; GlobalsTranslationException -&gt; ShowS
+[GlobalsTranslationException] -&gt; ShowS
+GlobalsTranslationException -&gt; FilePath
+(Int -&gt; GlobalsTranslationException -&gt; ShowS)
+-&gt; (GlobalsTranslationException -&gt; FilePath)
+-&gt; ([GlobalsTranslationException] -&gt; ShowS)
+-&gt; Show GlobalsTranslationException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; FilePath) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; GlobalsTranslationException -&gt; ShowS
+showsPrec :: Int -&gt; GlobalsTranslationException -&gt; ShowS
+$cshow :: GlobalsTranslationException -&gt; FilePath
+show :: GlobalsTranslationException -&gt; FilePath
+$cshowList :: [GlobalsTranslationException] -&gt; ShowS
+showList :: [GlobalsTranslationException] -&gt; ShowS
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680508060"><span id="local-6989586621680508064"><span id="local-6989586621680508067"><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.Run.html#GlobalsTranslationException"><span class="hs-identifier hs-type">GlobalsTranslationException</span></a></span></span></span></span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- | Create new L2 ledger 'Globals' from 'GenesisParameters'.</span><span>
+</span><span id="line-162"></span><span class="hs-comment">--</span><span>
+</span><span id="line-163"></span><span class="hs-comment">-- Throws at least 'GlobalsTranslationException'</span><span>
+</span><span id="line-164"></span><span id="local-6989586621680507717"><span class="annot"><a href="Hydra.Node.Run.html#newGlobals"><span class="hs-identifier hs-type">newGlobals</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621680507717"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680507717"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Globals</span></span></span><span>
+</span><span id="line-165"></span><span id="newGlobals"><span class="annot"><span class="annottext">newGlobals :: forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+GenesisParameters ShelleyEra -&gt; m Globals
+</span><a href="Hydra.Node.Run.html#newGlobals"><span class="hs-identifier hs-var hs-var">newGlobals</span></a></span></span><span> </span><span id="local-6989586621680508096"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621680508096"><span class="hs-identifier hs-var">genesisParameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PositiveUnitInterval -&gt; ActiveSlotCoeff
+</span><span class="hs-identifier hs-var">mkActiveSlotCoeff</span></span><span> </span><span class="annot"><span class="annottext">(PositiveUnitInterval -&gt; ActiveSlotCoeff)
+-&gt; Maybe PositiveUnitInterval -&gt; Maybe ActiveSlotCoeff
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Rational -&gt; Maybe PositiveUnitInterval
+forall r. BoundedRational r =&gt; Rational -&gt; Maybe r
+</span><span class="hs-identifier hs-var">boundRational</span></span><span> </span><span class="annot"><span class="annottext">Rational
+</span><a href="#local-6989586621680508098"><span class="hs-identifier hs-var">protocolParamActiveSlotsCoefficient</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-167"></span><span>    </span><span class="annot"><span class="annottext">Maybe ActiveSlotCoeff
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">GlobalsTranslationException -&gt; m Globals
+forall e a. Exception e =&gt; e -&gt; m a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">GlobalsTranslationException
+</span><a href="Hydra.Node.Run.html#GlobalsTranslationException"><span class="hs-identifier hs-var">GlobalsTranslationException</span></a></span><span>
+</span><span id="line-168"></span><span>    </span><span class="annot"><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680508099"><span class="annot"><span class="annottext">ActiveSlotCoeff
+</span><a href="#local-6989586621680508099"><span class="hs-identifier hs-var">slotCoeff</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-169"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680508100"><span class="annot"><span class="annottext">k :: Word64
+</span><a href="#local-6989586621680508100"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonZero Word64 -&gt; Word64
+forall a. NonZero a -&gt; a
+</span><span class="hs-identifier hs-var">unNonZero</span></span><span> </span><span class="annot"><span class="annottext">NonZero Word64
+</span><a href="#local-6989586621680508101"><span class="hs-identifier hs-var">protocolParamSecurity</span></a></span><span>
+</span><span id="line-170"></span><span>      </span><span class="annot"><span class="annottext">Globals -&gt; m Globals
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Globals -&gt; m Globals) -&gt; Globals -&gt; m Globals
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Globals</span></span><span>
+</span><span id="line-172"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">activeSlotCoeff :: ActiveSlotCoeff
+</span><span class="hs-identifier hs-var">activeSlotCoeff</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ActiveSlotCoeff
+</span><a href="#local-6989586621680508099"><span class="hs-identifier hs-var">slotCoeff</span></a></span><span>
+</span><span id="line-173"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">EpochInfo (Either Text)
+epochInfo :: EpochInfo (Either Text)
+epochInfo :: EpochInfo (Either Text)
+</span><a href="#local-6989586621680508103"><span class="hs-identifier hs-var hs-var">epochInfo</span></a></span><span>
+</span><span id="line-174"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">maxKESEvo :: Word64
+</span><span class="hs-identifier hs-var">maxKESEvo</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680508106"><span class="hs-identifier hs-var">protocolParamMaxKESEvolutions</span></a></span><span>
+</span><span id="line-175"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">maxLovelaceSupply :: Word64
+</span><span class="hs-identifier hs-var">maxLovelaceSupply</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Coin -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Coin
+</span><a href="#local-6989586621680508108"><span class="hs-identifier hs-var">protocolParamMaxLovelaceSupply</span></a></span><span>
+</span><span id="line-176"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">networkId :: Network
+</span><span class="hs-identifier hs-var">networkId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Network
+</span><span class="hs-identifier hs-var">toShelleyNetwork</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680508110"><span class="hs-identifier hs-var">protocolParamNetworkId</span></a></span><span>
+</span><span id="line-177"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">quorum :: Word64
+</span><span class="hs-identifier hs-var">quorum</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680508112"><span class="hs-identifier hs-var">protocolParamUpdateQuorum</span></a></span><span>
+</span><span id="line-178"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">randomnessStabilisationWindow :: Word64
+</span><span class="hs-identifier hs-var">randomnessStabilisationWindow</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; ActiveSlotCoeff -&gt; Word64
+</span><span class="hs-identifier hs-var">computeRandomnessStabilisationWindow</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680508100"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveSlotCoeff
+</span><a href="#local-6989586621680508099"><span class="hs-identifier hs-var">slotCoeff</span></a></span><span>
+</span><span id="line-179"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">securityParameter :: NonZero Word64
+</span><span class="hs-identifier hs-var">securityParameter</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonZero Word64
+</span><a href="#local-6989586621680508101"><span class="hs-identifier hs-var">protocolParamSecurity</span></a></span><span>
+</span><span id="line-180"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">slotsPerKESPeriod :: Word64
+</span><span class="hs-identifier hs-var">slotsPerKESPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680508116"><span class="hs-identifier hs-var">protocolParamSlotsPerKESPeriod</span></a></span><span>
+</span><span id="line-181"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">stabilityWindow :: Word64
+</span><span class="hs-identifier hs-var">stabilityWindow</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; ActiveSlotCoeff -&gt; Word64
+</span><span class="hs-identifier hs-var">computeStabilityWindow</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680508100"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveSlotCoeff
+</span><a href="#local-6989586621680508099"><span class="hs-identifier hs-var">slotCoeff</span></a></span><span>
+</span><span id="line-182"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">systemStart :: SystemStart
+</span><span class="hs-identifier hs-var">systemStart</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
+</span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621680508120"><span class="hs-identifier hs-var">protocolParamSystemStart</span></a></span><span>
+</span><span id="line-183"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-184"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-185"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span>
+</span><span id="line-186"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680508116"><span class="annot"><span class="annottext">Int
+protocolParamSlotsPerKESPeriod :: Int
+protocolParamSlotsPerKESPeriod :: forall era. GenesisParameters era -&gt; Int
+</span><a href="#local-6989586621680508116"><span class="hs-identifier hs-var hs-var">protocolParamSlotsPerKESPeriod</span></a></span></span><span>
+</span><span id="line-187"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508112"><span class="annot"><span class="annottext">Int
+protocolParamUpdateQuorum :: Int
+protocolParamUpdateQuorum :: forall era. GenesisParameters era -&gt; Int
+</span><a href="#local-6989586621680508112"><span class="hs-identifier hs-var hs-var">protocolParamUpdateQuorum</span></a></span></span><span>
+</span><span id="line-188"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508108"><span class="annot"><span class="annottext">Coin
+protocolParamMaxLovelaceSupply :: Coin
+protocolParamMaxLovelaceSupply :: forall era. GenesisParameters era -&gt; Coin
+</span><a href="#local-6989586621680508108"><span class="hs-identifier hs-var hs-var">protocolParamMaxLovelaceSupply</span></a></span></span><span>
+</span><span id="line-189"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508101"><span class="annot"><span class="annottext">NonZero Word64
+protocolParamSecurity :: NonZero Word64
+protocolParamSecurity :: forall era. GenesisParameters era -&gt; NonZero Word64
+</span><a href="#local-6989586621680508101"><span class="hs-identifier hs-var hs-var">protocolParamSecurity</span></a></span></span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508098"><span class="annot"><span class="annottext">Rational
+protocolParamActiveSlotsCoefficient :: Rational
+protocolParamActiveSlotsCoefficient :: forall era. GenesisParameters era -&gt; Rational
+</span><a href="#local-6989586621680508098"><span class="hs-identifier hs-var hs-var">protocolParamActiveSlotsCoefficient</span></a></span></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508120"><span class="annot"><span class="annottext">UTCTime
+protocolParamSystemStart :: UTCTime
+protocolParamSystemStart :: forall era. GenesisParameters era -&gt; UTCTime
+</span><a href="#local-6989586621680508120"><span class="hs-identifier hs-var hs-var">protocolParamSystemStart</span></a></span></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508110"><span class="annot"><span class="annottext">NetworkId
+protocolParamNetworkId :: NetworkId
+protocolParamNetworkId :: forall era. GenesisParameters era -&gt; NetworkId
+</span><a href="#local-6989586621680508110"><span class="hs-identifier hs-var hs-var">protocolParamNetworkId</span></a></span></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508106"><span class="annot"><span class="annottext">Int
+protocolParamMaxKESEvolutions :: Int
+protocolParamMaxKESEvolutions :: forall era. GenesisParameters era -&gt; Int
+</span><a href="#local-6989586621680508106"><span class="hs-identifier hs-var hs-var">protocolParamMaxKESEvolutions</span></a></span></span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508129"><span class="annot"><span class="annottext">EpochSize
+protocolParamEpochLength :: EpochSize
+protocolParamEpochLength :: forall era. GenesisParameters era -&gt; EpochSize
+</span><a href="#local-6989586621680508129"><span class="hs-identifier hs-var hs-var">protocolParamEpochLength</span></a></span></span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680508131"><span class="annot"><span class="annottext">NominalDiffTime
+protocolParamSlotLength :: NominalDiffTime
+protocolParamSlotLength :: forall era. GenesisParameters era -&gt; NominalDiffTime
+</span><a href="#local-6989586621680508131"><span class="hs-identifier hs-var hs-var">protocolParamSlotLength</span></a></span></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621680508096"><span class="hs-identifier hs-var">genesisParameters</span></a></span><span>
+</span><span id="line-197"></span><span>  </span><span class="hs-comment">-- NOTE: uses fixed epoch info for our L2 ledger</span><span>
+</span><span id="line-198"></span><span>  </span><span id="local-6989586621680508103"><span class="annot"><span class="annottext">epochInfo :: EpochInfo (Either Text)
+</span><a href="#local-6989586621680508103"><span class="hs-identifier hs-var hs-var">epochInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EpochSize -&gt; SlotLength -&gt; EpochInfo (Either Text)
+forall (m :: * -&gt; *).
+Monad m =&gt;
+EpochSize -&gt; SlotLength -&gt; EpochInfo m
+</span><span class="hs-identifier hs-var">fixedEpochInfo</span></span><span> </span><span class="annot"><span class="annottext">EpochSize
+</span><a href="#local-6989586621680508129"><span class="hs-identifier hs-var">protocolParamEpochLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621680508133"><span class="hs-identifier hs-var">slotLength</span></a></span><span>
+</span><span id="line-199"></span><span>  </span><span id="local-6989586621680508133"><span class="annot"><span class="annottext">slotLength :: SlotLength
+</span><a href="#local-6989586621680508133"><span class="hs-identifier hs-var hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; SlotLength
+</span><span class="hs-identifier hs-var">mkSlotLength</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680508131"><span class="hs-identifier hs-var">protocolParamSlotLength</span></a></span><span>
+</span><span id="line-200"></span></pre></body></html>

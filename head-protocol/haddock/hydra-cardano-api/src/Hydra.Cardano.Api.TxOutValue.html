@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Cardano.Api.TxOutValue</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html"><span class="hs-identifier">Hydra.Cardano.Api.Prelude</span></a></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="annot"><span class="hs-comment">-- | Inject some 'Value' into a 'TxOutValue'</span></span><span>
+</span><span id="line-6"></span><span class="annot"><a href="Hydra.Cardano.Api.TxOutValue.html#mkTxOutValue"><span class="hs-identifier hs-type">mkTxOutValue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679290084"><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsMaryBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOutValue</span></span><span> </span><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span><span>
+</span><span id="line-11"></span><span id="mkTxOutValue"><span class="annot"><span class="annottext">mkTxOutValue :: forall era. IsMaryBasedEra era =&gt; Value -&gt; TxOutValue era
+</span><a href="Hydra.Cardano.Api.TxOutValue.html#mkTxOutValue"><span class="hs-identifier hs-var hs-var">mkTxOutValue</span></a></span></span><span> </span><span id="local-6989586621679290137"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679290137"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; (ShelleyBasedEraConstraints era =&gt; TxOutValue era)
+-&gt; TxOutValue era
+forall era a.
+ShelleyBasedEra era -&gt; (ShelleyBasedEraConstraints era =&gt; a) -&gt; a
+</span><span class="hs-identifier hs-var">shelleyBasedEraConstraints</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((ShelleyBasedEraConstraints era =&gt; TxOutValue era)
+ -&gt; TxOutValue era)
+-&gt; (ShelleyBasedEraConstraints era =&gt; TxOutValue era)
+-&gt; TxOutValue era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/6hbgd0w57swq4rl9pcga8m90m9ayylh2-ghc-9.6.6-doc/share/doc/ghc-9.6.6/html/libraries/base-4.18.2.1/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+-&gt; Value (ShelleyLedgerEra era) -&gt; TxOutValue era
+forall era.
+(Eq (Value (ShelleyLedgerEra era)),
+ Show (Value (ShelleyLedgerEra era))) =&gt;
+ShelleyBasedEra era
+-&gt; Value (ShelleyLedgerEra era) -&gt; TxOutValue era
+</span><span class="hs-identifier hs-var">TxOutValueShelleyBased</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MaryEraOnwards era -&gt; Value -&gt; Value (ShelleyLedgerEra era)
+forall era.
+MaryEraOnwards era -&gt; Value -&gt; Value (ShelleyLedgerEra era)
+</span><span class="hs-identifier hs-var">toLedgerValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsMaryBasedEra era =&gt; MaryEraOnwards era
+</span><span class="hs-identifier hs-var">maryBasedEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679290084"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679290137"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span></pre></body></html>

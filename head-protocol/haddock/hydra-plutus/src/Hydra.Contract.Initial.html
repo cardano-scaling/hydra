@@ -1,0 +1,47 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | Datum and redeemer types, as well as helper functions for the commit</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- validator implemented in aiken.</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.Initial</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">CurrencySymbol</span></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">Datum</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Redeemer</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier">ToData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toBuiltinData</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">TxOutRef</span></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">type</span><span> </span><span id="DatumType"><span class="annot"><a href="Hydra.Contract.Initial.html#DatumType"><span class="hs-identifier hs-var">DatumType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">type</span><span> </span><span id="RedeemerType"><span class="annot"><a href="Hydra.Contract.Initial.html#RedeemerType"><span class="hs-identifier hs-var">RedeemerType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Contract.Initial.html#InitialRedeemer"><span class="hs-identifier hs-type">InitialRedeemer</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">data</span><span> </span><span id="InitialRedeemer"><span class="annot"><a href="Hydra.Contract.Initial.html#InitialRedeemer"><span class="hs-identifier hs-var">InitialRedeemer</span></a></span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ViaAbort"><span class="annot"><a href="Hydra.Contract.Initial.html#ViaAbort"><span class="hs-identifier hs-var">ViaAbort</span></a></span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ViaCommit"><span class="annot"><a href="Hydra.Contract.Initial.html#ViaCommit"><span class="hs-identifier hs-var">ViaCommit</span></a></span></span><span>
+</span><span id="line-23"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="committedRefs"><span class="annot"><span class="annottext">RedeemerType -&gt; [TxOutRef]
+</span><a href="Hydra.Contract.Initial.html#committedRefs"><span class="hs-identifier hs-var hs-var">committedRefs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span class="hs-special">]</span><span>
+</span><span id="line-24"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Points to the committed Utxo.</span></span><span>
+</span><span id="line-25"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span id="local-6989586621679486048"><span id="local-6989586621679486056"><span id="local-6989586621679486058"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">InitialRedeemer</span></span></span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Hydra.Contract.Initial.html#datum"><span class="hs-identifier hs-type">datum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Initial.html#DatumType"><span class="hs-identifier hs-type">DatumType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Datum</span></span><span>
+</span><span id="line-30"></span><span id="datum"><span class="annot"><span class="annottext">datum :: DatumType -&gt; Datum
+</span><a href="Hydra.Contract.Initial.html#datum"><span class="hs-identifier hs-var hs-var">datum</span></a></span></span><span> </span><span id="local-6989586621679486103"><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679486103"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Datum
+</span><span class="hs-identifier hs-var">Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DatumType -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">DatumType
+</span><a href="#local-6989586621679486103"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><a href="Hydra.Contract.Initial.html#redeemer"><span class="hs-identifier hs-type">redeemer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.Initial.html#RedeemerType"><span class="hs-identifier hs-type">RedeemerType</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Redeemer</span></span><span>
+</span><span id="line-33"></span><span id="redeemer"><span class="annot"><span class="annottext">redeemer :: RedeemerType -&gt; Redeemer
+</span><a href="Hydra.Contract.Initial.html#redeemer"><span class="hs-identifier hs-var hs-var">redeemer</span></a></span></span><span> </span><span id="local-6989586621679486106"><span class="annot"><span class="annottext">RedeemerType
+</span><a href="#local-6989586621679486106"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; Redeemer
+</span><span class="hs-identifier hs-var">Redeemer</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RedeemerType -&gt; BuiltinData
+forall a. ToData a =&gt; a -&gt; BuiltinData
+</span><span class="hs-identifier hs-var">toBuiltinData</span></span><span> </span><span class="annot"><span class="annottext">RedeemerType
+</span><a href="#local-6989586621679486106"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span></pre></body></html>
