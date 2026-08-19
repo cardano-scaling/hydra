@@ -128,8 +128,7 @@ wsApp ::
   IO ()
 wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
-  let path = requestPath $ pendingRequest pending
-      queryParams = parseQuery $ BS8.dropWhile (/= '?') path
+  let queryParams = queryParamsOf . requestPath $ pendingRequest pending
   con <- acceptRequest pending
   chan <- STM.atomically $ dupTChan responseChannel
 
@@ -173,36 +172,6 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
 
   Projection{getLatest = getLatestNodeState} = nodeStateP
   Projection{getLatest = getLatestNetworkInfo} = networkInfoP
-
-  mkServerOutputConfig :: Query -> ServerOutputConfig
-  mkServerOutputConfig qp =
-    ServerOutputConfig
-      { utxoInSnapshot = decideOnUTxODisplay qp
-      , addressInTx = decideOnAddressDisplay qp
-      , encoding = decideOnEncoding qp
-      }
-
-  decideOnEncoding :: Query -> ApiEncoding
-  decideOnEncoding qp =
-    if ("encoding", Just "cbor") `elem` qp then CborEncoding else JsonEncoding
-
-  decideOnUTxODisplay :: Query -> WithUTxO
-  decideOnUTxODisplay qp =
-    if ("snapshot-utxo", Just "no") `elem` qp then WithoutUTxO else WithUTxO
-
-  decideOnAddressDisplay :: Query -> WithAddressedTx
-  decideOnAddressDisplay qp =
-    -- NOTE: takes the first 'address' that actually carries a value. A
-    -- valueless '?address' is skipped rather than disabling the filter:
-    -- modern-uri (used here previously) parsed that as a QueryFlag, which the
-    -- old lookup ignored, so '?address&address=addr1...' still filtered.
-    case listToMaybe [v | ("address", Just v) <- qp] of
-      Just v -> WithAddressedTx (decodeUtf8 v)
-      Nothing -> WithoutAddressedTx
-
-  shouldServeHistory :: Query -> Bool
-  shouldServeHistory qp =
-    ("history", Just "yes") `elem` qp
 
   sendOutputs codec chan ServerOutputConfig{addressInTx} = forever $ do
     response <- STM.atomically $ readTChan chan
@@ -272,3 +241,45 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
     HeadState.Open OpenState{headId} -> Just headId
     HeadState.Closed ClosedState{headId} -> Just headId
     HeadState.FanoutProgress PartialFanoutState{headId} -> Just headId
+
+-- | The query parameters of a websocket connection request path.
+--
+-- NOTE: a malformed query string yields no parameters here, and hence the
+-- default output config. modern-uri (used here previously) raised a parse
+-- exception during connection setup instead.
+queryParamsOf :: ByteString -> Query
+queryParamsOf = parseQuery . BS8.dropWhile (/= '?')
+
+-- | Decide what a client wants to see, from the query string of its connection.
+mkServerOutputConfig :: Query -> ServerOutputConfig
+mkServerOutputConfig qp =
+  ServerOutputConfig
+    { utxoInSnapshot = decideOnUTxODisplay qp
+    , addressInTx = decideOnAddressDisplay qp
+    , encoding = decideOnEncoding qp
+    }
+
+decideOnEncoding :: Query -> ApiEncoding
+decideOnEncoding qp =
+  if ("encoding", Just "cbor") `elem` qp then CborEncoding else JsonEncoding
+
+decideOnUTxODisplay :: Query -> WithUTxO
+decideOnUTxODisplay qp =
+  if ("snapshot-utxo", Just "no") `elem` qp then WithoutUTxO else WithUTxO
+
+decideOnAddressDisplay :: Query -> WithAddressedTx
+decideOnAddressDisplay qp =
+  -- NOTE: takes the first 'address' that actually carries a value. A valueless
+  -- '?address' is skipped rather than disabling the filter: modern-uri (used
+  -- here previously) parsed that as a QueryFlag, which the old lookup ignored,
+  -- so '?address&address=addr1...' still filtered. An empty '?address=' is
+  -- skipped for the same reason: the filter compares addresses exactly, so
+  -- keeping it would match nothing and the client would silently see no
+  -- transaction outputs at all.
+  case listToMaybe [v | ("address", Just v) <- qp, not (BS8.null v)] of
+    Just v -> WithAddressedTx (decodeUtf8 v)
+    Nothing -> WithoutAddressedTx
+
+shouldServeHistory :: Query -> Bool
+shouldServeHistory qp =
+  ("history", Just "yes") `elem` qp

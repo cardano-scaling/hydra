@@ -643,22 +643,45 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
                 , reason = show err
                 }
 
+-- | The persisted watch revision could not be read.
+--
+-- Fatal on purpose, and deliberately not a 'retryableEtcdError': re-reading the
+-- same bad file cannot succeed, and carrying on from revision 0 would rewind the
+-- watch to the beginning of history. Deleting the file is the fix, so say so.
+data LastKnownRevisionException
+  = -- | The file exists but does not hold a revision.
+    InvalidLastKnownRevision FilePath
+  | -- | The file exists but could not be read.
+    UnreadableLastKnownRevision FilePath String
+  deriving stock (Eq, Show)
+
+instance Exception LastKnownRevisionException where
+  displayException = \case
+    InvalidLastKnownRevision file ->
+      "Failed to load last known revision: " <> file <> " does not hold a revision. " <> remediation file
+    UnreadableLastKnownRevision file reason ->
+      "Failed to load last known revision: " <> reason <> ". " <> remediation file
+   where
+    remediation :: FilePath -> String
+    remediation file =
+      "Delete " <> file <> " to re-sync from the last compacted revision."
+
 getLastKnownRevision :: MonadIO m => FilePath -> m Natural
 getLastKnownRevision directory = do
   liftIO $
-    try (decodeFileStrict' $ directory </> "last-known-revision") >>= \case
+    try (decodeFileStrict' file) >>= \case
       -- NOTE: A 'Nothing' here means the file exists but holds no revision.
       -- Silently treating that as 0 would restart the watch from the beginning
       -- of history, which etcd then cancels with a compactRevision, so fail
-      -- loudly instead. 'putLastKnownRevision' writes atomically, so this can
-      -- no longer be produced by an interrupted write.
-      Right Nothing ->
-        fail $ "Failed to load last known revision: " <> (directory </> "last-known-revision") <> " is not a revision"
+      -- loudly instead. 'putLastKnownRevision' writes atomically, so a killed
+      -- process can no longer produce this.
+      Right Nothing -> throwIO $ InvalidLastKnownRevision file
       Right (Just rev) -> pure rev
       Left (e :: IOException)
         | isDoesNotExistError e -> pure 0
-        | otherwise -> do
-            fail $ "Failed to load last known revision: " <> show e
+        | otherwise -> throwIO . UnreadableLastKnownRevision file $ displayException e
+ where
+  file = directory </> "last-known-revision"
 
 -- | Record the revision, atomically.
 --
@@ -666,6 +689,11 @@ getLastKnownRevision directory = do
 -- 'encodeFile' is not atomic: killing the node mid-write (which happens
 -- routinely, both in tests and on restart) would otherwise leave a truncated
 -- file that 'getLastKnownRevision' cannot parse.
+--
+-- NOTE: The rename is not fsynced, so an OS crash can still land it ahead of the
+-- data blocks. Closing that window costs an fsync per call, and this runs once
+-- per watch response, i.e. per received broadcast. The resulting file is instead
+-- handled on the next start, by 'LastKnownRevisionException' and its hint.
 putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 putLastKnownRevision directory rev = do
   liftIO $ do
@@ -787,7 +815,8 @@ isTransientGrpcError =
 -- to take the node down. Those arrive either as 'HTTP2Error' (straight from the
 -- @http2@ client, e.g. the SETTINGS rate limit of #2817) or 'ServerDisconnected'
 -- (grapesy's wrapper when a call outlives its connection). Everything else
--- escalates, including 'putMessage's cluster-reset 'fail'.
+-- escalates, including 'putMessage's cluster-reset 'fail' and
+-- 'LastKnownRevisionException'.
 retryableEtcdError :: SomeException -> Maybe Text
 retryableEtcdError e
   | Just GrpcException{grpcError, grpcErrorMessage} <- fromException e =

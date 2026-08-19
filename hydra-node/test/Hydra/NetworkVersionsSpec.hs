@@ -3,8 +3,9 @@ module Hydra.NetworkVersionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Version (Version, makeVersion)
+import Data.Version (Version (..), makeVersion)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
+import Hydra.Version (embeddedRevision, gitRevision)
 import Test.QuickCheck (Property, counterexample, forAll, property)
 
 spec :: Spec
@@ -23,6 +24,18 @@ spec =
       forAll arbitrary $ \version ->
         forAll arbitrary $ \network ->
           propParseNetworkTxIds version network
+
+    -- Only the executables are patched by nix, never this test binary, so the
+    -- embedded array still holds the placeholder here. A 'Just' means the
+    -- placeholder in 'Hydra.Version' has drifted from 'cbits/revision.c' again:
+    -- every unpatched build would then report the placeholder as its revision,
+    -- and 'gitRevision' would never be consulted.
+    it "finds no embedded revision in an unpatched binary" $
+      embeddedRevision `shouldBe` Nothing
+
+    it "falls back to the git revision" $
+      case hydraNodeVersion of
+        Version _ tags -> tags `shouldBe` maybeToList gitRevision
 
 propParseNetworkTxIds :: Version -> String -> Property
 propParseNetworkTxIds version network = do

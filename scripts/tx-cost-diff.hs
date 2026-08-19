@@ -12,7 +12,7 @@
 import Data.Aeson (FromJSON (..), eitherDecode, withObject, (.:))
 import Data.Bifunctor (first)
 import qualified Data.ByteString.Lazy.Char8 as LBS8
-import Data.List (intercalate, isInfixOf)
+import Data.List (intercalate, isInfixOf, mapAccumL)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Numeric (showFFloat)
@@ -152,20 +152,22 @@ diff old new =
         | columns before /= columns t -> []
         | otherwise ->
             let previous = Map.fromListWith (flip (++)) [(key r, [values r]) | r <- rows before]
-             in concatMap (rowDelta previous) (rows t)
+             in concat . snd $ mapAccumL rowDelta previous (rows t)
 
-  -- NOTE: index columns are not guaranteed unique (two rows of a table can
-  -- share a key), so rows are matched pairwise in order within a key rather
-  -- than through a Map that would silently keep only the last of each.
+  -- NOTE: index columns are not unique: the `FanOut` table lists "10 parties,
+  -- 20 UTxO" twice, once while growing the UTxO set and once while growing the
+  -- party count. Old rows sharing a key are therefore consumed one per match,
+  -- so the second new row is compared against the second old row instead of
+  -- both being compared against the first.
   rowDelta previous r =
     case Map.lookup (key r) previous of
-      Just (was : _) ->
+      Just (was : rest) ->
         -- Round before deciding whether anything changed, so a delta that is
         -- only noise below the reported precision is dropped rather than
         -- rendered as "-0.00".
         let deltas = zipWith (\n o -> roundTo2 (n - o)) (values r) was
-         in [(r, deltas) | not (all (== 0) deltas)]
-      _ -> []
+         in (Map.insert (key r) rest previous, [(r, deltas) | not (all (== 0) deltas)])
+      _ -> (previous, [])
 
 render :: [String] -> [(Table, [(Row, [Double])])] -> String
 render notes ds =

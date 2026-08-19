@@ -30,7 +30,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (EtcdLog (..), batchValue, connParams, getClientPort, grpcServer, isTransientGrpcError, peerPortToClientPort, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), LastKnownRevisionException (..), batchValue, connParams, getClientPort, getLastKnownRevision, grpcServer, isTransientGrpcError, peerPortToClientPort, putLastKnownRevision, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
@@ -114,6 +114,42 @@ spec = do
     it "escalates anything else" $
       retryableEtcdError (toException $ userError "our broadcast key has no current value in etcd")
         `shouldBe` Nothing
+    -- Retrying cannot make a bad file readable, so this must escalate rather
+    -- than spin in 'waitMessages'.
+    it "escalates an unusable last known revision" $
+      retryableEtcdError (toException $ InvalidLastKnownRevision "peer/last-known-revision")
+        `shouldBe` Nothing
+
+  -- A file that holds no revision must not silently become revision 0: that
+  -- rewinds the watch to the start of history. It takes the node down instead,
+  -- so the error has to say how to recover.
+  describe "last known revision" $ do
+    it "round-trips a revision" $
+      withTempDir "test-etcd-revision" $ \tmp -> do
+        putLastKnownRevision tmp 42
+        getLastKnownRevision tmp `shouldReturn` 42
+
+    it "starts from scratch when there is no file" $
+      withTempDir "test-etcd-revision" $ \tmp ->
+        getLastKnownRevision tmp `shouldReturn` 0
+
+    it "rejects a file that holds no revision" $
+      withTempDir "test-etcd-revision" $ \tmp -> do
+        let file = tmp </> "last-known-revision"
+        writeFileBS file ""
+        let isInvalid = \case
+              InvalidLastKnownRevision f -> f == file
+              UnreadableLastKnownRevision{} -> False
+        getLastKnownRevision tmp `shouldThrow` isInvalid
+
+    it "says how to recover from a file that holds no revision" $
+      withTempDir "test-etcd-revision" $ \tmp -> do
+        let file = tmp </> "last-known-revision"
+        writeFileBS file "not a revision"
+        try (getLastKnownRevision tmp) >>= \case
+          Right (rev :: Natural) -> failure $ "expected a failure, got revision " <> show rev
+          Left (e :: LastKnownRevisionException) ->
+            displayException e `shouldContain` ("Delete " <> file)
 
   describe "Serialisation" $ do
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)

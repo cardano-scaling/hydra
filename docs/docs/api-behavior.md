@@ -18,15 +18,15 @@ Not pictured is the `CommandFailed` output, which is implicit emitted whenever a
 
 There are some options for API clients to control the server outputs. Server outputs are controlled using the following query parameters:
 
-+ `history=no` -> Prevents historical outputs display. All server outputs are recorded and when a client re-connects these outputs are replayed unless `history=no` query param is used.
++ `history=yes` -> Replays historical outputs on connection. All server outputs are recorded, but a connecting client is sent only the outputs produced from then on unless it asks for the history with `history=yes`.
 + `snapshot-utxo=no` -> In case of a `SnapshotConfirmed` message the `utxo` field in the inner `Snapshot` will be omitted.
 + `encoding=cbor` -> All messages on this connection are exchanged as binary WebSocket frames containing a compact CBOR encoding instead of JSON text frames. Each message starts with a text tag identical to the JSON `tag` value, followed by the constructor fields in declaration order. HTTP endpoints negotiate the same encoding per request via `Content-Type: application/cbor` (request bodies) and `Accept: application/cbor` (responses). Note that combined with `snapshot-utxo=no`, the snapshot `utxo` is sent as an empty set rather than omitted.
-+ `address=$address` -> In the case of a `TxValid` or a `TxInvalid` message, it will be filtered if its `transaction` address does not contain a reference to the provided. In the case of a `SnapshotConfirmed` message, it will be filtered if its `confirmed` transactions do not contain an address that references the one provided.
++ `address=$address` -> In the case of a `TxValid` or a `TxInvalid` message, it will be filtered if its `transaction` address does not contain a reference to the provided. In the case of a `SnapshotConfirmed` message, it will be filtered if its `confirmed` transactions do not contain an address that references the one provided. An `address` given without a value, as in `?address` or `?address=`, is ignored rather than applied as a filter that matches nothing.
 
 ## Replay of past server outputs
 
-When a `hydra-node` restarts, by default it will load its history from persistence and replay previous server outputs to enable clients to re-establish their state upon re-connection. If that happens, obviously some of these outputs are not relevant anymore. One example of this is the `NetworkConnected` and `NetworkDisconnected`. To make it possible to determine the end of replayed history, client applications can use the `Greetings`, which will be emitted on every `hydra-node` start. See the `hydra-tui` example client for how this is handled.
+A `hydra-node` records all server outputs in persistence, and a client that asks for them with `history=yes` gets them replayed on connection so it can re-establish its state. Some of those outputs are obviously no longer relevant when replayed, `NetworkConnected` and `NetworkDisconnected` being the clearest examples. To make the end of the replayed history recognisable, client applications can use the `Greetings`, which is emitted after the history on every connection. See the `hydra-tui` example client for how this is handled.
 
-Clients can optionally decide to skip history outputs and receive only the `Greetings` and following ones. In order to do that they can use query param `history=no`.
+Replay is opt-in: a client that passes no `history` parameter receives only the `Greetings` and the outputs produced from then on.
 
-For example if the client wants to connect to a local `hydra-node` and doesn't want to view the server history and prevent utxo display in `SnapshotConfirmed` messages, they would connect using default port `4001` and the full path `ws://localhost:4001/?history=no`.
+For example, a client that wants the server history from a local `hydra-node` but no utxo display in `SnapshotConfirmed` messages would connect on the default port `4001` with the full path `ws://localhost:4001/?history=yes&snapshot-utxo=no`.

@@ -137,7 +137,6 @@ import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
 import Control.Lens (over, set, view, (.~), (^.))
-import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -683,9 +682,10 @@ addPTWithQuantity tx quantity =
     <$>
     -- NOTE: We do not expect Ada or any other assets to be minted, so
     -- we can take the policy id from the head
-    case List.head $ toList mintedValue of
-      (AdaAssetId, _) -> error "unexpected mint of Ada"
-      (AssetId pid _an, _) -> do
+    case toList mintedValue of
+      [] -> error "no minted value to take a policy id from"
+      (AdaAssetId, _) : _ -> error "unexpected mint of Ada"
+      (AssetId pid _an, _) : _ -> do
         -- Some arbitrary token name, which could correspond to a pub key hash
         pkh <- arbitrary
         pure $ mintedValue <> fromList [(AssetId pid pkh, quantity)]

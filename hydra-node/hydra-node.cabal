@@ -313,6 +313,7 @@ benchmark tx-cost
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck
+    , text
 
   ghc-options:    -threaded -rtsopts
 

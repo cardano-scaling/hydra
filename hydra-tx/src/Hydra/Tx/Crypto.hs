@@ -119,7 +119,9 @@ instance SerialiseAsRawBytes (Hash HydraKey) where
 
 instance SerialiseAsRawBytes a => IsString (UsingRawBytesHex a) where
   fromString =
-    either (error . toText . show) UsingRawBytesHex . Cardano.deserialiseFromRawBytesHex . BSC.pack
+    either (error . Cardano.docToText . Cardano.prettyError) UsingRawBytesHex
+      . Cardano.deserialiseFromRawBytesHex
+      . BSC.pack
 
 deriving via UsingRawBytesHex (Hash BlockHeader) instance IsString (Hash BlockHeader)
 deriving via UsingRawBytesHex TxId instance IsString TxId
