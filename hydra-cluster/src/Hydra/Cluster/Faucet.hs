@@ -116,13 +116,12 @@ findFaucetUTxO networkId opts lovelace = do
   findUTxO faucetUTxO lovelace
 
 seedFromFaucetBlockfrost ::
-  Options.BlockfrostOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Coin ->
   Blockfrost.BlockfrostClientT IO UTxO
-seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
+seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
   (faucetVk, faucetSk) <- liftIO $ keysFor Faucet
 
   Blockfrost.Genesis
@@ -154,8 +153,8 @@ seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
       case eResult of
         Left err -> liftIO $ throwIO $ FaucetBlockfrostError{blockFrostError = show err}
         Right _ -> do
-          void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx options
-          Blockfrost.awaitUTxO networkId [receivingAddress] signedTx options
+          void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx
+          Blockfrost.awaitUTxO networkId [receivingAddress] signedTx
 
 findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
 findUTxO utxo lovelace' = do

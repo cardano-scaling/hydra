@@ -175,10 +175,8 @@ data DirectOptions = DirectOptions
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
 
-data BlockfrostOptions = BlockfrostOptions
+newtype BlockfrostOptions = BlockfrostOptions
   { projectPath :: FilePath
-  -- ^ Path to the blockfrost project file
-  , retryTimeout :: Int
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -187,11 +185,7 @@ defaultBlockfrostOptions :: BlockfrostOptions
 defaultBlockfrostOptions =
   BlockfrostOptions
     { projectPath = "blockfrost-project.txt"
-    , retryTimeout = defaultBFRetryTimeout
     }
-
-defaultBFRetryTimeout :: Int
-defaultBFRetryTimeout = 300
 
 publishOptionsParser :: Parser PublishOptions
 publishOptionsParser =
@@ -364,7 +358,6 @@ instance Semigroup BlockfrostOptions where
   base <> cli =
     BlockfrostOptions
       { projectPath = o defaultBlockfrostOptions.projectPath base.projectPath cli.projectPath
-      , retryTimeout = o defaultBlockfrostOptions.retryTimeout base.retryTimeout cli.retryTimeout
       }
    where
     o :: Eq a => a -> a -> a -> a
@@ -451,10 +444,7 @@ chainBackendOptionsParser = directOptionsParser <|> blockfrostOptionsParser
         <*> nodeSocketParser
 
   blockfrostOptionsParser =
-    fmap Blockfrost $
-      BlockfrostOptions
-        <$> blockfrostProjectPathParser
-        <*> blockfrostRetryTimeoutParser
+    Blockfrost . BlockfrostOptions <$> blockfrostProjectPathParser
 
 newtype GenerateKeyPair = GenerateKeyPair
   { outputFile :: FilePath
@@ -637,17 +627,6 @@ blockfrostProjectPathParser =
         <> value "blockfrost.txt"
         <> help
           "Blockfrost project path containing the api key."
-    )
-
-blockfrostRetryTimeoutParser :: Parser Int
-blockfrostRetryTimeoutParser =
-  option
-    auto
-    ( long "blockfrost-retry-timeout"
-        <> metavar "SECONDS"
-        <> value 300
-        <> showDefault
-        <> help "Timeout for retrying queries to the Blockfrost API, in seconds."
     )
 
 networkIdParser :: Parser NetworkId
@@ -1200,9 +1179,8 @@ toArgs
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
-              Blockfrost BlockfrostOptions{projectPath, retryTimeout} ->
+              Blockfrost BlockfrostOptions{projectPath} ->
                 ["--blockfrost", projectPath]
-                  <> ["--blockfrost-retry-timeout", show retryTimeout]
               Direct DirectOptions{networkId, nodeSocket} ->
                 toArgNetworkId networkId
                   <> toArgNodeSocket nodeSocket

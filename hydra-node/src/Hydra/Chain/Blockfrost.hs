@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, take
 import Control.Exception (IOException)
 import Control.Monad.Catch (Handler (Handler))
 import Control.Monad.Catch qualified as Catch
-import Control.Retry (RetryPolicyM, RetryStatus (..), capDelay, constantDelay, fullJitterBackoff, limitRetries, recovering, retrying)
+import Control.Retry (RetryPolicyM, RetryStatus (..), constantDelay, recovering, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -24,7 +24,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), blockfrostRetryPolicy, isRetryable)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
@@ -54,63 +54,63 @@ runBlockfrostBackend :: BlockfrostOptions -> BlockfrostBackend a -> IO a
 runBlockfrostBackend opts (BlockfrostBackend m) = runReaderT m opts
 
 instance ChainBackend BlockfrostBackend where
-  queryGenesisParameters = withProject $ \_ prj ->
+  queryGenesisParameters = withProject $ \prj ->
     Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-  queryScriptRegistry txIds = withProject $ \opts prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry opts txIds
+  queryScriptRegistry txIds = withProject $ \prj ->
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry txIds
 
-  queryNetworkId = withProject $ \_ prj -> do
+  queryNetworkId = withProject $ \prj -> do
     -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
     Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
 
-  queryTip = withProject $ \_ prj ->
+  queryTip = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO addresses = withProject $ \_ prj -> do
+  queryUTxO addresses = withProject $ \prj -> do
     Blockfrost.Genesis{_genesisNetworkMagic} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
 
-  queryUTxOByTxIn txins = withProject $ \opts prj -> do
+  queryUTxOByTxIn txins = withProject $ \prj -> do
     Blockfrost.Genesis{_genesisNetworkMagic} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
-    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn opts networkId txins
+    Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
 
-  queryEraHistory _ = withProject $ \_ prj ->
+  queryEraHistory _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
 
-  querySystemStart _ = withProject $ \_ prj ->
+  querySystemStart _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.querySystemStart
 
-  queryProtocolParameters _ = withProject $ \_ prj ->
+  queryProtocolParameters _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
 
-  queryStakePools _ = withProject $ \_ prj ->
+  queryStakePools _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor _ vk = withProject $ \_ prj ->
+  queryUTxOFor _ vk = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor vk
 
-  submitTransaction tx = withProject $ \_ prj ->
+  submitTransaction tx = withProject $ \prj ->
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction tx vk = withProject $ \opts prj ->
-    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction opts tx vk
+  awaitTransaction tx vk = withProject $ \prj ->
+    Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction tx vk
 
-  getBlockTime = withProject $ \_ prj -> do
+  getBlockTime = withProject $ \prj -> do
     Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ CardanoClient.computeBlockTime (fromInteger _genesisSlotLength) _genesisActiveSlotsCoefficient
 
-withProject :: (BlockfrostOptions -> Blockfrost.Project -> IO a) -> BlockfrostBackend a
+withProject :: (Blockfrost.Project -> IO a) -> BlockfrostBackend a
 withProject f = BlockfrostBackend $ do
-  opts@BlockfrostOptions{projectPath} <- ask
+  BlockfrostOptions{projectPath} <- ask
   prj <- liftIO $ Blockfrost.projectFromFile projectPath
-  liftIO $ f opts prj
+  liftIO $ f prj
 
 withBlockfrostChain ::
   BlockfrostOptions ->
@@ -363,21 +363,10 @@ toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
   headerHash :: Hash BlockHeader
   headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
--- * Retry logic
-
--- | Maximum number of retries for transient Blockfrost errors.
-maxRetries :: Int
-maxRetries = 10
-
 -- | Maximum number of blocks fetched per poll iteration (the Blockfrost page
 -- size limit).
 maxBlockBatch :: Int
 maxBlockBatch = 100
-
--- | Retry policy for transient Blockfrost errors: full-jitter exponential
--- backoff with 1s base, capped at 60s, at most 'maxRetries' retries.
-blockfrostRetryPolicy :: MonadIO m => RetryPolicyM m
-blockfrostRetryPolicy = capDelay 60_000_000 (fullJitterBackoff 1_000_000) <> limitRetries maxRetries
 
 retryOnBlockfrostError ::
   (MonadIO m, Catch.MonadMask m) =>

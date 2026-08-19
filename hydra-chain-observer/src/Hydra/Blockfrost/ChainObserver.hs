@@ -29,7 +29,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.Chain.Blockfrost.Client (maxRateLimitRetries, rateLimitBackoff)
+import Hydra.Chain.Blockfrost.Client (blockfrostRetryPolicy)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -55,25 +55,28 @@ data APIBlockfrostError
 
 -- | Run a Blockfrost client action, retrying with capped exponential backoff
 -- when rate limited (HTTP 429). blockfrost-client does not expose the
--- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
--- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
+-- Retry-After header, so the delay is using our blockfrost retry policy
+-- throws 'BlockfrostRateLimited'.
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = go 0
+runBlockfrostM prj action = do
+  res <-
+    retrying
+      blockfrostRetryPolicy
+      (\_ -> pure . isRateLimited)
+      (\_ -> liftIO $ Blockfrost.runBlockfrost prj action)
+  case res of
+    Right val -> pure val
+    Left Blockfrost.BlockfrostUsageLimitReached -> throwIO BlockfrostRateLimited
+    Left err -> throwIO $ BlockfrostError (show err)
  where
-  go attempt = do
-    result <- liftIO $ Blockfrost.runBlockfrost prj action
-    case result of
-      Right val -> pure val
-      Left Blockfrost.BlockfrostUsageLimitReached
-        | attempt < maxRateLimitRetries -> do
-            liftIO $ threadDelay (rateLimitBackoff attempt)
-            go (attempt + 1)
-        | otherwise -> throwIO BlockfrostRateLimited
-      Left err -> throwIO $ BlockfrostError (show err)
+  isRateLimited :: Either Blockfrost.BlockfrostError b -> Bool
+  isRateLimited = \case
+    Left Blockfrost.BlockfrostUsageLimitReached -> True
+    _ -> False
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->

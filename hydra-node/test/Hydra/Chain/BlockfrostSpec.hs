@@ -7,7 +7,7 @@ import Control.Concurrent.Class.MonadSTM (takeTMVar, writeTQueue)
 import Control.Retry (RetryPolicyM, limitRetries)
 import Control.Tracer (nullTracer)
 import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, retryOnBlockfrostError)
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable, rateLimitBackoff)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Logging (Tracer)
 import Test.Hydra.Prelude (failAfter)
@@ -91,12 +91,6 @@ spec = do
           _ -> False
       finalAttempts <- readIORef attemptsRef
       finalAttempts `shouldBe` 1
-
-  describe "rateLimitBackoff" $
-    it "grows exponentially and caps at 60s" $ do
-      rateLimitBackoff 0 `shouldBe` 1
-      rateLimitBackoff 3 `shouldBe` 8
-      rateLimitBackoff 10 `shouldBe` 60
 
   describe "blockfrostSubmissionClient" $
     it "reports submission failures immediately and keeps serving the queue" $
