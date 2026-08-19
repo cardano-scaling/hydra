@@ -35,7 +35,7 @@ from a client, see the [Selective fanout](../../how-to/selective-fanout) how-to.
 
 The head does not store the individual UTxOs on-chain while it is open. Instead
 it keeps a single _commitment_ to the confirmed snapshot, a
-[`HydraAccumulator`](pathname:///haddock/hydra-tx/Hydra-Tx-Accumulator.html).
+[`HydraAccumulator`](pathname:///haddocks/hydra-tx/Hydra-Tx-Accumulator.html).
 
 The snapshot's UTxO set, together with any pending commit or decommit, is turned
 into elements: each output is serialised to its `BuiltinData` bytes and hashed
@@ -67,9 +67,9 @@ A(X) = Q(X)·P_S(X)
 ```
 
 The node commits the quotient over G1 as `Q(τ)·G1`, the _membership proof_, using
-[`createMembershipProofFromUTxO`](pathname:///haddock/hydra-tx/Hydra-Tx-Accumulator.html#v:createMembershipProofFromUTxO).
+[`createMembershipProofFromUTxO`](pathname:///haddocks/hydra-tx/Hydra-Tx-Accumulator.html#v:createMembershipProofFromUTxO).
 On-chain, the head validator's
-[`checkMembershipPairing`](pathname:///haddock/hydra-plutus/Hydra-Contract-CRS.html#v:checkMembershipPairing)
+[`checkMembershipPairing`](pathname:///haddocks/hydra-plutus/Hydra-Contract-CRS.html#v:checkMembershipPairing)
 check verifies the KZG pairing identity
 
 ```
@@ -159,7 +159,7 @@ passed.
 
 How many outputs go into one transaction is not something a client chooses or
 needs to know. The chain layer runs a binary search
-([`findFittingFanoutTx`](pathname:///haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:findFittingFanoutTx))
+([`findFittingFanoutTx`](pathname:///haddocks/hydra-node/Hydra-Chain-Direct-Handlers.html#v:findFittingFanoutTx))
 for the largest number of outputs whose transaction still fits the layer 1 size
 limit and script execution budget, so a large selection is drained over as many
 steps as needed. The search is local: candidate transactions are built and

@@ -43,10 +43,10 @@ If confidentiality is required, two options exist: encrypt individual messages (
 
 ## Implementation
 
-The current implementation of the [network stack](pathname:///haddock/hydra-node/Hydra-Node-Network.html) consists of two components:
+The current implementation of the [network stack](pathname:///haddocks/hydra-node/Hydra-Node-Network.html) consists of two components:
 
-- [`Authenticate`](pathname:///haddock/hydra-node/Hydra-Network-Authenticate.html) component that signs all outgoing and verifies incoming messages using the Hydra snapshot key pair
-- [`Etcd`](pathname:///haddock/hydra-node/Hydra-Network-Etcd.html) component that re-uses [etcd](https://etcd.io/) to implement a reliable `broadcast` primitive
+- [`Authenticate`](pathname:///haddocks/hydra-node/Hydra-Network-Authenticate.html) component that signs all outgoing and verifies incoming messages using the Hydra snapshot key pair
+- [`Etcd`](pathname:///haddocks/hydra-node/Hydra-Network-Etcd.html) component that re-uses [etcd](https://etcd.io/) to implement a reliable `broadcast` primitive
 
 See [ADR 32](/adr/32) for a rationale of this approach.
 
