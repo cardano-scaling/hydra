@@ -5,11 +5,15 @@
 #
 # Images are built once per architecture, each on a runner of that architecture
 # because nix does not cross-build them, and pushed under an arch-suffixed tag.
-# A final job combines those into a manifest list under the plain tag, so a
-# client pulls the image native to its machine. Only hydra-node is built for
-# aarch64-linux; the other targets entrypoint a *-static package, which only the
-# x86_64 musl cross build provides, so their plain tag stays a plain amd64
-# manifest rather than becoming a single-entry manifest list.
+# A final job, one leg per target, combines those into a manifest list under the
+# plain tag, so a client pulls the image native to its machine. Only hydra-node
+# is built for aarch64-linux; the other targets entrypoint a *-static package,
+# which only the x86_64 musl cross build provides, so their plain tag stays a
+# plain amd64 manifest rather than becoming a single-entry manifest list.
+#
+# Every stage after the tag computation is isolated per target and per
+# architecture, so that one flaky leg cannot hold back the images that did
+# build. Within a target, amd64 is required and arm64 is additive.
 name: Docker
 
 # Limit concurrent runs of this workflow within a single PR
@@ -191,6 +195,19 @@ jobs:
   manifest:
     needs: [ tags, docker ]
 
+    # Run even when a build leg failed: previously every target published
+    # independently via 'docker push -a', and a flaky arm64 runner must not
+    # keep the plain tags of the targets that did build from being created.
+    # The tags job is the one hard requirement, as it names the images.
+    if: ${{ !cancelled() && needs.tags.result == 'success' }}
+
+    strategy:
+      # Likewise per target: one target's manifest failing should not stop the
+      # other three from being published.
+      fail-fast: false
+      matrix:
+        target: [ hydra-node, hydra-tui, hydraw, hydra-chain-observer ]
+
     runs-on: ubuntu-latest
     steps:
     - name: 🐳 Login to GitHub Container Registry
@@ -210,32 +227,48 @@ jobs:
         DISPATCH_REF: ${{ github.event.inputs.ref_name }}
       run: |
 
-        for TARGET in hydra-node hydra-tui hydraw hydra-chain-observer; do
-          IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
+        TARGET=${{ matrix.target }}
+        IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
 
-          # hydra-node is the only target built for more than one architecture.
-          # The single-architecture ones ask for a carbon copy instead: an index
-          # listing only linux/amd64 makes docker refuse the pull outright on
-          # arm64, where a plain manifest still falls back to emulation.
-          SOURCES=( "${IMAGE_NAME}:${LABEL}-amd64" )
-          PREFER_INDEX=false
-          if [[ "${TARGET}" = hydra-node ]]; then
-            SOURCES+=( "${IMAGE_NAME}:${LABEL}-arm64" )
-            PREFER_INDEX=true
-          fi
+        # Combine whichever architectures actually landed in the registry,
+        # rather than assuming the build matrix succeeded in full.
+        #
+        # amd64 is required: an arm64-only manifest under the plain tag makes
+        # every amd64 client fail the pull with "no matching manifest", which
+        # is worse than leaving the previous tag in place.
+        if ! docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}-amd64" >/dev/null 2>&1; then
+          echo "::error::no ${LABEL}-amd64 image for ${TARGET}, refusing to publish ${LABEL}"
+          exit 1
+        fi
+        SOURCES=( "${IMAGE_NAME}:${LABEL}-amd64" )
 
-          TAGS=( --tag "${IMAGE_NAME}:${LABEL}" )
+        # hydra-node is the only target built for more than one architecture,
+        # and its arm64 leg is additive: if it did not land we still publish
+        # the amd64 image, as before this workflow knew about arm64 at all.
+        #
+        # The single-architecture case asks for a carbon copy rather than an
+        # index: an index listing only linux/amd64 makes docker refuse the pull
+        # outright on arm64, where a plain manifest still falls back to
+        # emulation.
+        PREFER_INDEX=false
+        if docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}-arm64" >/dev/null 2>&1; then
+          SOURCES+=( "${IMAGE_NAME}:${LABEL}-arm64" )
+          PREFER_INDEX=true
+        elif [[ "${TARGET}" = hydra-node ]]; then
+          echo "::warning::no ${LABEL}-arm64 image for ${TARGET}, publishing ${LABEL} as amd64 only"
+        fi
 
-          # Tag the build as 'latest' if it's the latest tag.
-          [[ "${LATEST}" = true ]] && \
-            TAGS+=( --tag "${IMAGE_NAME}:latest" )
+        TAGS=( --tag "${IMAGE_NAME}:${LABEL}" )
 
-          # Also tag with ref name when manually dispatched
-          [[ "${IS_DISPATCH}" = true ]] && \
-            TAGS+=( --tag "${IMAGE_NAME}:workflow_dispatch-${DISPATCH_REF}" )
+        # Tag the build as 'latest' if it's the latest tag.
+        [[ "${LATEST}" = true ]] && \
+          TAGS+=( --tag "${IMAGE_NAME}:latest" )
 
-          docker buildx imagetools create \
-            --prefer-index=${PREFER_INDEX} "${TAGS[@]}" "${SOURCES[@]}"
+        # Also tag with ref name when manually dispatched
+        [[ "${IS_DISPATCH}" = true ]] && \
+          TAGS+=( --tag "${IMAGE_NAME}:workflow_dispatch-${DISPATCH_REF}" )
 
-          docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}"
-        done
+        docker buildx imagetools create \
+          --prefer-index=${PREFER_INDEX} "${TAGS[@]}" "${SOURCES[@]}"
+
+        docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}"
