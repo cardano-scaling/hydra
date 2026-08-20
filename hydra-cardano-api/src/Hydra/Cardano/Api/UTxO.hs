@@ -1,8 +1,8 @@
 module Hydra.Cardano.Api.UTxO where
 
-import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
+import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (txIns')
-import Hydra.Cardano.Api.TxOut (parseTxOutFromJSON)
+import Hydra.Cardano.Api.TxOut (forceTxOut, parseTxOutFromJSON)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
@@ -41,10 +41,17 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
         [ Ledger.TxIn (toShelleyTxId $ getTxId body) ix
         | ix <- [Ledger.TxIx 0 ..]
         ]
-   in UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
+   in forceUTxO (UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts)
 
 -- | Resolve tx inputs in a given UTxO
 resolveInputsUTxO :: UTxO Era -> Tx Era -> UTxO Era
 resolveInputsUTxO utxo tx =
   UTxO.fromList $
     mapMaybe (\txIn -> (txIn,) <$> UTxO.resolveTxIn txIn utxo) (txIns' tx)
+
+-- | Force every output in the UTxO via 'forceTxOut'.
+forceUTxO :: UTxO Era -> UTxO Era
+forceUTxO = UTxO.UTxO . Map.map forceTxOut . UTxO.unUTxO
+
+fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO Era
+fromLedgerUTxO = forceUTxO . Hydra.Cardano.Api.Prelude.fromLedgerUTxO ShelleyBasedEraConway

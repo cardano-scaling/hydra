@@ -86,6 +86,7 @@ library
     , cardano-ledger-mary
     , cardano-ledger-shelley
     , containers
+    , deepseq
     , hydra-prelude
     , lens
     , plutus-ledger-api
