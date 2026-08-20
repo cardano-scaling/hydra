@@ -194,13 +194,36 @@ jobs:
         time nix develop "$BRANCH_FLAKE" --command hydra-node --version
         time nix develop "$MASTER_FLAKE" --command hydra-node --version
 
+    - name: 🎛 Probe node RTS knob support
+      # -N2 trims node oversubscription (3 nodes x 4 HECs on 4 vCPUs
+      # otherwise) and -T enables the RTS work counters. Enable only when
+      # BOTH sides' bench understands HYDRA_NODE_RTS_FLAGS, else one side's
+      # nodes would run different RTS settings than the other's, which is the
+      # asymmetry this workflow exists to prevent (a PR whose merge-base
+      # predates the hook would otherwise be silently skewed). The probe
+      # always passes once merge-bases include the hook.
+      run: |
+        if nix develop "$MASTER_FLAKE" --command bench-e2e --help 2>&1 | grep -q HYDRA_NODE_RTS_FLAGS \
+          && nix develop "$BRANCH_FLAKE" --command bench-e2e --help 2>&1 | grep -q HYDRA_NODE_RTS_FLAGS; then
+          echo "HYDRA_NODE_RTS_FLAGS=-N2 -T" >> "$GITHUB_ENV"
+          echo "Both sides support HYDRA_NODE_RTS_FLAGS; spawning nodes with -N2 -T"
+        else
+          echo "Base side predates HYDRA_NODE_RTS_FLAGS; leaving node RTS defaults on both sides"
+        fi
+
     - name: 📈 Benchmark (${{ matrix.order }})
       working-directory: hydra-cluster
+      env:
+        # Node state, etcd WAL and the devnet live in tmpfs: the runners'
+        # network-backed disks have unpredictable fsync latency that would
+        # otherwise land in the measurements.
+        TMPDIR: /dev/shm/bench
       # The closed-loop scenario needs its own invocation (--wait-for-tx-valid
       # applies to the whole invocation). '|| true': a failed invocation must
       # not skip the remaining slots; its report carries an explicit FAILED
       # outcome and the diff drops only the affected pairs.
       run: |
+        mkdir -p "$TMPDIR"
         slot=0
         for side in ${{ matrix.order }}; do
           slot=$((slot+1))
@@ -209,6 +232,7 @@ jobs:
             master) flake="$MASTER_FLAKE" ;;
           esac
           out="$PWD/../results/rep-$slot-$side"
+          rm -rf "${TMPDIR:?}"/*
           nix develop "$flake" --command bench-e2e single \
             "$PWD/../bench-datasets/sustained-3nodes.json" \
             "$PWD/../bench-datasets/plateau-1k.json" \
@@ -218,6 +242,8 @@ jobs:
             --wait-for-tx-valid \
             --output-directory "$out/closed" --timeout 1800s || true
         done
+        du -sh "$TMPDIR" || true
+        df -h /dev/shm || true
 
     - name: 💾 Upload results
       # if: always() so partial results still contribute surviving pairs.

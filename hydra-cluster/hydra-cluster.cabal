@@ -239,4 +239,8 @@ benchmark bench-e2e
     , vector
 
   build-tool-depends: hydra-node:hydra-node
-  ghc-options:        -threaded -rtsopts
+
+  -- -N2: the client is the measurement instrument; with the default single
+  -- capability its own scheduling latency lands in every confirmation
+  -- timestamp once thousands of WS messages queue up.
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N2

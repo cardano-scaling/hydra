@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 import Bench.EndToEnd (BenchRunOptions (..), bench, benchDemo)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
-import Data.Aeson (eitherDecodeFileStrict', encodeFile)
+import Data.Aeson (eitherDecodeFileStrict', encodeFile, object, (.=))
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.Cardano.Api (PaymentKey, SigningKey)
@@ -231,6 +231,12 @@ writeBenchmarkReport outputDirectory summaries = do
     let report = markdownReport now summaries
     createDirectoryIfMissing True outputDir
     writeFileBS reportPath . encodeUtf8 $ unlines report
+    -- Machine-readable twin: scripts/bench-e2e-diff.py prefers it and derives
+    -- estimators from the raw series with one implementation for both sides.
+    let jsonPath = outputDir </> "end-to-end-benchmarks.json"
+    putStrLn $ "Writing report to: " <> jsonPath
+    encodeFile jsonPath $
+      object ["version" .= (1 :: Int), "generatedAt" .= now, "summaries" .= map fst summaries]
 
 writeMatrixReport :: Maybe FilePath -> [(Summary, SystemStats)] -> IO ()
 writeMatrixReport outputDirectory summaries = do

@@ -107,7 +107,10 @@ benchOptionsParser =
           \fast as possible.\n \
           \Arguments control various parameters of the run, like number of nodes, \
           \number of transactions generated, or the 'scenarios' to run. See individual \
-          \help for each command for more usage info."
+          \help for each command for more usage info.\n \
+          \Environment: HYDRA_NODE_RTS_FLAGS appends '+RTS <flags> -RTS' to every \
+          \spawned hydra-node (e.g. \"-N2 -T\"); CI probes this help text for the \
+          \variable name before enabling it, so keep this mention intact."
         <> header "bench - load tester for Hydra node cluster"
     )
 
