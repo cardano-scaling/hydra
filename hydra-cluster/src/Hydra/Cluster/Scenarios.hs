@@ -1301,7 +1301,20 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
                 v ^? key "depositTxId" >>= parseMaybe parseJSON
           seenTxIds `shouldBe` expectedTxIds
 
-          getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
+          -- NOTE: '/snapshot/utxo' serves the latest confirmed snapshot, which can
+          -- still predate the second increment just after its 'CommitFinalized'.
+          -- Sampling it once raced on slower CI runners and saw only one of the two
+          -- deposits, so retry until it catches up. The last value seen is kept so
+          -- that a genuine mismatch is still reported as one, rather than as a bare
+          -- timeout.
+          let expectedUTxO = commitUTxO <> commitUTxO2
+          lastSeenUTxO <- newIORef mempty
+          let pollSnapshotUTxO = do
+                utxo <- getSnapshotUTxO n1
+                writeIORef lastSeenUTxO utxo
+                unless (utxo == expectedUTxO) $ threadDelay 0.1 >> pollSnapshotUTxO
+          void $ timeout (realToFrac $ depositTimeout timing) pollSnapshotUTxO
+          readIORef lastSeenUTxO >>= (`shouldBe` expectedUTxO)
 
           send n2 $ input "Close" []
           deadline <- waitMatch (10 * blockTime) n2 $ \v -> do
