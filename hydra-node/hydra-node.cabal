@@ -468,6 +468,7 @@ test-suite tests
     , network
     , network-simple-wss
     , network-udp
+    , nothunks                        ^>=0.3.1
     , ouroboros-consensus
     , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
