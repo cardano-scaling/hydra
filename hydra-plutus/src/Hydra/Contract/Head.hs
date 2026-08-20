@@ -137,15 +137,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   headInValue = txOutValue (txInInfoResolved headTxIn)
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
-  -- The head grows by exactly the CLAIMED deposit's value, and nothing else.
-  --
-  -- Summing every script input instead would let a participant add some unrelated
-  -- script UTxO of their own and have its value forced into the head output,
-  -- over-funding the head and making (partial) fanout's strict conservation
-  -- unsatisfiable — at the cost of the value donated, but permanently. Pub-key
-  -- inputs were already excluded so fee payers don't inflate the expectation; the
-  -- deposit being claimed is the only input whose value belongs in the head.
-  totalNonHeadInputValue = txOutValue claimedDeposit
+  claimedDepositValue = txOutValue claimedDeposit
 
   IncrementRedeemer{signature, snapshotNumber, increment, decommitOutputsHash} = redeemer
 
@@ -205,6 +197,10 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
+  -- The head grows by exactly the claimed deposit, so no other input can push
+  -- value into it: an unrelated script UTxO would otherwise over-fund the head and
+  -- leave (partial) fanout's strict conservation unsatisfiable.
+  --
   -- TODO: This is not as flexible as it could be and rejects deposits
   -- that are smaller than what the deposit output's min utxo value is.
   -- For example: a 1 ADA utxo can be deposited, but the deposit tx's
@@ -213,7 +209,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   -- exact.
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> totalNonHeadInputValue == headOutValue
+      headInValue <> claimedDepositValue == headOutValue
 
   OpenDatum
     { parties = prevParties
