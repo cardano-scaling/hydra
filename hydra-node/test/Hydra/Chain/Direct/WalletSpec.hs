@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose, referenceInputsTxBodyL, datsTxWitsL, scriptTxWitsL, scriptIntegrityHashTxBodyL)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, pattern SpendingPurpose)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -56,6 +56,7 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Tx.Secret (mkSecret)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut)
@@ -75,10 +76,10 @@ import Test.QuickCheck (
   scale,
   suchThat,
   vectorOf,
-  (.&&.), (===),
+  (.&&.),
+  (===),
  )
 import Prelude qualified
-import Hydra.Contract.Dummy (dummyValidatorScript)
 
 spec :: Spec
 spec = parallel $ do
@@ -464,7 +465,6 @@ prop_detectsMissingScript =
 
     pure (txSpendingScript, lookupUTxO)
 
-
 -- | Reference inputs carrying Plutus scripts must not produce a script
 -- integrity hash when the transaction executes no scripts (no redeemers, no
 -- datums). The ledger expects SNothing in that case and rejects the tx with
@@ -496,4 +496,3 @@ prop_noScriptIntegrityHashWithoutExecution =
     let Api.TxOut addr value _ _ = out
     let refOut = Api.toLedgerTxOut $ Api.TxOut addr value Api.TxOutDatumNone (Api.mkScriptRef dummyValidatorScript)
     pure (refIn, refOut)
-
