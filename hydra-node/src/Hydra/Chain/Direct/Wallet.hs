@@ -27,7 +27,6 @@ import Cardano.Ledger.Alonzo.TxWits (
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
-  BabbageEraTxBody,
   ConwayEra,
   PParams,
   TransactionScriptFailure (..),
@@ -41,18 +40,16 @@ import Cardano.Ledger.Api (
   inputsTxBodyL,
   outputsTxBodyL,
   rdmrsTxWitsL,
-  referenceInputsTxBodyL,
   scriptIntegrityHashTxBodyL,
-  scriptTxWitsL,
   witsTxL,
   pattern SpendingPurpose,
  )
-import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
+import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded, getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import Cardano.Ledger.Babbage.Tx (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
-import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Conway.State (ScriptsProvided (..))
 import Cardano.Ledger.Core (TxLevel (..), ppMaxTxSizeL)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
@@ -267,7 +264,6 @@ coverFee_ ::
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
-  , BabbageEraTxBody era
   ) =>
   PParams era ->
   SystemStart ->
@@ -308,11 +304,15 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let adjustedRedeemers =
         applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
-  -- Compute script integrity hash from adjusted redeemers
-  let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
+  -- Compute script integrity hash from adjusted redeemers. Like the ledger's
+  -- UTXOW rule, only scripts that are actually needed by the transaction
+  -- contribute their language view; a reference script that is merely carried
+  -- by a reference input must not influence the hash.
+  let ScriptsProvided scriptsProvided = getScriptsProvided (Ledger.UTxO utxo) txForEstimation
+      scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded (Ledger.UTxO utxo) (txForEstimation ^. bodyTxL)
       langs =
         [ getLanguageView pparams l
-        | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
+        | script <- toList $ Map.restrictKeys scriptsProvided scriptsNeeded
         , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
         ]
       langViews = Set.fromList langs
