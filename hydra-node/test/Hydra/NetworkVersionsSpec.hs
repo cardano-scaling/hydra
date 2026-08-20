@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Data.Version (Version (..), makeVersion)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
-import Hydra.Version (embeddedRevision, gitRevision)
+import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Test.QuickCheck (Property, counterexample, forAll, property)
 
 spec :: Spec
@@ -33,9 +33,14 @@ spec =
     it "finds no embedded revision in an unpatched binary" $
       embeddedRevision `shouldBe` Nothing
 
+    -- With no embedded revision (see above), the version tag is the git
+    -- revision, or 'unknownVersion' where git information is unavailable, as in
+    -- a nix build whose source has no '.git'. Before the placeholder fix this
+    -- reported the 'cbits/revision.c' placeholder in both cases, so this still
+    -- catches that regression without depending on git being present.
     it "falls back to the git revision" $
       case hydraNodeVersion of
-        Version _ tags -> tags `shouldBe` maybeToList gitRevision
+        Version _ tags -> tags `shouldBe` [fromMaybe unknownVersion gitRevision]
 
 propParseNetworkTxIds :: Version -> String -> Property
 propParseNetworkTxIds version network = do
