@@ -350,7 +350,8 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       validationTimes = map (\(_, v, _) -> v) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
-      averageConfirmationTime = sum confTimes / fromIntegral numberOfTxs
+      -- 0/0 is NaN, which serializes as garbage; report 0 when nothing confirmed.
+      averageConfirmationTime = if numberOfTxs == 0 then 0 else sum confTimes / fromIntegral numberOfTxs
       quantiles = makeQuantiles confTimes
       validationP50Ms = medianMilliseconds validationTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
@@ -379,6 +380,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , numberOfSnapshots
       , incrementalCommitTimes
       , incrementalDecommitTimes
+      , runOutcome = Nothing
       }
  where
   Timing{blockTime} = timing
@@ -665,7 +667,7 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
                 -- after gossip propagation. Hold the lock for a short tail
                 -- before releasing so the next client's WS Decommit input is
                 -- not rejected with DecommitAlreadyInFlight.
-                threadDelay 2_000_000
+                threadDelay 2
                 pure (Just commitTime, Just decommitTime)
 
 -- | Like 'try' but rethrows async exceptions instead of swallowing them. Using
