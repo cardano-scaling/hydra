@@ -10,7 +10,15 @@ import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Contract.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
 import Hydra.Tx.Accumulator (build, createMembershipProof, crsG1Points, getAccumulatorCommitment, requiredCRSPointCount)
-import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuiltin)
+import Plutus.Crypto.BlsUtils qualified as Bls
+import PlutusTx.Builtins (
+  bls12_381_G1_scalarMul,
+  bls12_381_G1_uncompress,
+  bls12_381_finalVerify,
+  bls12_381_millerLoop,
+  byteStringToInteger,
+  toBuiltin,
+ )
 
 spec :: Spec
 spec = parallel $ do
@@ -102,6 +110,63 @@ spec = parallel $ do
       let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
         `shouldBe` False
+
+  -- 'getG2Commitment' pairs polynomial coefficients with CRS points using
+  -- 'zipWith', which silently drops whatever the CRS cannot cover. A subset of
+  -- N elements yields N+1 coefficients, so it must satisfy N < length crsG2;
+  -- 'checkMembershipPairing' rejects anything else rather than verify a
+  -- truncated, lower-degree polynomial. On mainnet the CRS datum is pinned to
+  -- the canonical 'defaultItems' = 30 points, which is what caps a fanout batch
+  -- at 29 outputs.
+  describe "CRS length guard" $ do
+    let allElements = ["alpha", "beta", "gamma", "delta", "epsilon"] :: [ByteString]
+        fullAcc = build allElements
+        commitment = getAccumulatorCommitment fullAcc
+        subsetElements = ["alpha", "beta", "gamma", "delta"] :: [ByteString]
+        ints = map toInt subsetElements
+        genuineProof =
+          bls12_381_G1_uncompress . toBuiltin . either error id $
+            createMembershipProof subsetElements fullAcc (crsG1Points $ requiredCRSPointCount fullAcc)
+
+    it "accepts a subset that exactly fills the CRS (N + 1 == length crsG2)" $ do
+      let crsG2 = take (length ints + 1) g2BuiltinPts
+      checkMembershipPairing commitment genuineProof crsG2 ints
+        `shouldBe` True
+
+    it "rejects a subset one element past the CRS (N == length crsG2)" $ do
+      -- Same subset and same genuine proof as above; only the CRS is one point
+      -- shorter, which is exactly where the polynomial stops fitting.
+      let crsG2 = take (length ints) g2BuiltinPts
+      checkMembershipPairing commitment genuineProof crsG2 ints
+        `shouldBe` False
+
+    it "rejects an empty CRS" $
+      checkMembershipPairing commitment genuineProof [] ints
+        `shouldBe` False
+
+    -- Truncation is not merely "verifies the wrong identity and fails anyway",
+    -- it is forgeable. With a single CRS point the subset polynomial X + s
+    -- truncates to the constant s, so the identity degenerates to
+    -- e(A, G2) = e(proof, s·G2) — which proof = s⁻¹·A satisfies. That forgery
+    -- needs nothing but the public commitment from the datum: no witness, no
+    -- CRS secret, and s never added to the accumulator.
+    it "rejects a forged proof that the truncated pairing accepts" $ do
+      let crsG2 = take 1 g2BuiltinPts
+          s = toInt "omega" -- never added to the accumulator
+          forgedProof = bls12_381_G1_scalarMul (Bls.unScalar . Bls.recip $ Bls.mkScalar s) commitment
+          truncatedPolyG2 = Bls.getG2Commitment crsG2 (Bls.getFinalPoly [Bls.mkScalar s])
+      case crsG2 of
+        [] -> expectationFailure "g2BuiltinPoints is empty"
+        (g2 : _) -> do
+          -- The truncated identity really does hold for the forged proof ...
+          bls12_381_finalVerify
+            (bls12_381_millerLoop commitment g2)
+            (bls12_381_millerLoop forgedProof truncatedPolyG2)
+            `shouldBe` True
+          -- ... so the length guard is the only thing standing between the
+          -- validator and accepting it.
+          checkMembershipPairing commitment forgedProof crsG2 [s]
+            `shouldBe` False
 
 toInt :: ByteString -> Integer
 toInt e = byteStringToInteger BigEndian . toBuiltin $ digest (Proxy @Blake2b_224) e

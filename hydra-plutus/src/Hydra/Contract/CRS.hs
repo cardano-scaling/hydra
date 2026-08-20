@@ -11,7 +11,7 @@ module Hydra.Contract.CRS (
   validatorScript,
 ) where
 
-import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
+import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==), (>=))
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
@@ -27,6 +27,8 @@ import PlutusTx.Builtins (
   bls12_381_finalVerify,
   bls12_381_millerLoop,
  )
+import PlutusTx.List qualified as L
+import PlutusTx.Prelude ((>=))
 
 type CRSDatum = [BuiltinBLS12_381_G2_Element]
 
@@ -42,6 +44,14 @@ type CRSDatum = [BuiltinBLS12_381_G2_Element]
 -- * @proof@: Q(τ)·G1 — the quotient polynomial committed over G1, proving subset membership
 -- * @crsG2@: @[G2, τ·G2, ...]@ — used on-chain to compute @P_S(τ)·G2@ via MSM
 -- * @ints@: integer encodings of element hashes, defining @P_S(X) = ∏(X − sᵢ)@
+--
+-- A subset of N elements yields @P_S@ of degree N, so evaluating @P_S(τ)·G2@
+-- consumes N+1 CRS points. 'getG2Commitment' pairs the coefficients with the
+-- CRS using 'zipWith', which silently drops the coefficients the CRS cannot
+-- cover: an oversized subset would then be checked against a truncated,
+-- lower-degree polynomial instead of being rejected. Verifying a different
+-- identity than the one asked for is never the safe answer, so bail out
+-- whenever the polynomial outruns the CRS.
 {-# INLINEABLE checkMembershipPairing #-}
 checkMembershipPairing ::
   BuiltinBLS12_381_G1_Element ->
@@ -52,10 +62,12 @@ checkMembershipPairing ::
 checkMembershipPairing commitment proof crsG2 ints =
   case crsG2 of
     [] -> False
-    (g2 : _) ->
-      bls12_381_finalVerify
-        (bls12_381_millerLoop commitment g2)
-        (bls12_381_millerLoop proof (getG2Commitment crsG2 (getFinalPoly (fmap mkScalar ints))))
+    (g2 : _)
+      | L.length ints >= L.length crsG2 -> False
+      | otherwise ->
+          bls12_381_finalVerify
+            (bls12_381_millerLoop commitment g2)
+            (bls12_381_millerLoop proof (getG2Commitment crsG2 (getFinalPoly (fmap mkScalar ints))))
 
 -- | Validator for the CRS reference script UTxO.
 --

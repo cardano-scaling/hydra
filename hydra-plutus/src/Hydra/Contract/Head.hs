@@ -546,6 +546,16 @@ headIsFinalizedWith crsDatumHash ctx closedDatum numberOfFanoutOutputs proof crs
   -- isG1Generator is intentionally omitted — pre-settled UTxOs (decommitted/deposited
   -- before Close) remain in the accumulator but are not fanned out. Completeness is
   -- enforced by mustConserveValue instead.
+  --
+  -- NOTE: Unlike 'checkPartialFanout' and 'checkFinalPartialFanout' there is
+  -- deliberately no @numberOfFanoutOutputs > 0@ guard here, even though an empty
+  -- subset degenerates the pairing to e(A,G2) = e(proof,G2) and passes for
+  -- proof = A. A head whose UTxO set is empty (nothing was ever committed, or
+  -- everything was decommitted) fans out zero outputs on this path and on this
+  -- path only, so rejecting them would leave its ADA overhead locked forever.
+  -- The degenerate case is bounded by mustConserveValue: with no outputs the head
+  -- input must equal the burned tokens plus 'headAdaOverhead', i.e. the head holds
+  -- no L2 UTxO value at all.
   checkCRSAndMembership =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       withCRSLookup crsDatumHash txInfo crsRef $ \crsData ->
