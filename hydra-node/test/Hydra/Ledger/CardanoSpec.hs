@@ -7,6 +7,7 @@ import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Slotting.EpochInfo (EpochInfo, epochInfoSlotToRelativeTime, fixedEpochInfo, hoistEpochInfo)
@@ -183,6 +184,8 @@ spec =
       prop "utxoFromTx yields a thunk-free UTxO" prop_utxoFromTxThunkFree
       prop "applyTxTo yields a thunk-free UTxO" prop_applyTxToThunkFree
       prop "adjustUTxO yields a thunk-free UTxO" prop_adjustUTxOThunkFree
+      prop "JSON decoding yields a thunk-free UTxO" prop_jsonDecodeThunkFree
+      prop "CBOR decoding yields a thunk-free UTxO" prop_cborDecodeThunkFree
 
     describe "Tx" $ do
       prop "JSON encoding of Tx according to schema" $
@@ -406,6 +409,26 @@ prop_applyTxToThunkFree =
   withMaxSuccess 20 $
     forAllBlind arbitrary $ \(tx, utxo) ->
       utxoIsThunkFree (applyTxTo @Tx tx (forceUTxO utxo))
+
+-- NOTE: Deserialization is an ingress point for UTxO into the head logic
+-- (persisted state, network messages, client API), so decoding must yield
+-- thunk-free values without relying on the input having been forced.
+
+prop_jsonDecodeThunkFree :: Property
+prop_jsonDecodeThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @UTxO) $ \utxo ->
+      case Aeson.eitherDecode (Aeson.encode utxo) of
+        Left err -> property False & counterexample ("decoding failed: " <> err)
+        Right utxo' -> utxoIsThunkFree utxo'
+
+prop_cborDecodeThunkFree :: Property
+prop_cborDecodeThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @UTxO) $ \utxo ->
+      case decodeFull' (serialize' utxo) of
+        Left err -> property False & counterexample ("decoding failed: " <> show err)
+        Right utxo' -> utxoIsThunkFree utxo'
 
 -- | A realistic multi-era 'EraHistory' mimicking mainnet/testnet where:
 -- - Byron era: 21600 slots/epoch, 20s/slot, runs for 208 epochs (4,492,800 slots)
