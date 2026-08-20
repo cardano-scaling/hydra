@@ -2,7 +2,7 @@
 
 module Hydra.Ledger.CardanoSpec where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
@@ -24,9 +24,10 @@ import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (applyTransactions, reapplyTransactions)
-import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Ledger.Cardano (adjustUTxO, cardanoLedger)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Secret (mkSecret)
+import NoThunks.Class (InspectHeap (..), noThunks)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -57,6 +58,7 @@ import Test.QuickCheck (
   cover,
   forAll,
   forAllBlind,
+  ioProperty,
   listOf1,
   property,
   (===),
@@ -175,6 +177,12 @@ spec =
 
     describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
+
+    describe "UTxO strictness" $ do
+      prop "applyTransactions yields a thunk-free UTxO" prop_applyTransactionsThunkFree
+      prop "utxoFromTx yields a thunk-free UTxO" prop_utxoFromTxThunkFree
+      prop "applyTxTo yields a thunk-free UTxO" prop_applyTxToThunkFree
+      prop "adjustUTxO yields a thunk-free UTxO" prop_adjustUTxOThunkFree
 
     describe "Tx" $ do
       prop "JSON encoding of Tx according to schema" $
@@ -353,6 +361,41 @@ propGeneratesGoodTxOut txOut =
       case cred of
         KeyHashObj{} -> False
         ScriptHashObj{} -> True
+
+-- UTXO strictness properties
+
+-- the workhorse: deep heap inspection, no instances needed
+utxoIsThunkFree :: UTxO -> Property
+utxoIsThunkFree utxo = ioProperty $ do
+  mThunk <- noThunks [] (InspectHeap utxo)
+  pure $
+    isNothing mThunk
+      & counterexample ("Thunk found: " <> show mThunk)
+
+prop_applyTransactionsThunkFree :: Property
+prop_applyTransactionsThunkFree =
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+    case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo txs of
+      Left (_tx, err) -> property False & counterexample ("tx did not apply: " <> show err)
+      Right utxo' -> utxoIsThunkFree utxo'
+
+prop_utxoFromTxThunkFree :: Property
+prop_utxoFromTxThunkFree =
+  forAllBlind (arbitrary @Tx) $ \tx ->
+    utxoIsThunkFree (utxoFromTx tx)
+
+prop_adjustUTxOThunkFree :: Property
+prop_adjustUTxOThunkFree =
+  forAllBlind arbitrary $ \(tx, utxo) ->
+    -- Deep-force the input first: adjustUTxO must only guarantee a
+    -- thunk-free result for a thunk-free input, since carried-over
+    -- entries are moved by reference, not rebuilt.
+    hashUTxO @Tx utxo `seq` utxoIsThunkFree (adjustUTxO tx utxo)
+
+prop_applyTxToThunkFree :: Property
+prop_applyTxToThunkFree =
+  forAllBlind arbitrary $ \(tx, utxo) ->
+    hashUTxO @Tx utxo `seq` utxoIsThunkFree (applyTxTo @Tx tx utxo)
 
 -- | A realistic multi-era 'EraHistory' mimicking mainnet/testnet where:
 -- - Byron era: 21600 slots/epoch, 20s/slot, runs for 208 epochs (4,492,800 slots)
