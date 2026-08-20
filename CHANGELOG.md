@@ -10,6 +10,13 @@ changes.
 
 ## [UNRELEASED]
 
+
+- Fix closing large heads missing the close tx validity window
+  (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when
+  constructed instead of accumulating lazy conversion thunks that were all
+  paid at close time (over a second on a 1000-UTxO head after 4000 txs).
+  [#2837](https://github.com/cardano-scaling/hydra/pull/2837)
+
 - Add an opt-in binary CBOR encoding to the client API (WebSocket
   `?encoding=cbor` query param, HTTP `Accept`/`Content-Type: application/cbor`
   headers), keeping JSON as the default.
