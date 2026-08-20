@@ -59,7 +59,7 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude (failure, shouldBe)
 import Test.Hydra.Prelude qualified as Prelude
 import Test.Network.Ports (randomUnusedTCPPorts, randomUnusedTCPPortsWithDerived)
 import Prelude qualified
@@ -266,6 +266,24 @@ getSnapshotUTxO HydraClient{apiHost = Host{hostname, port}} =
   parseUrlThrow ("GET http://" <> T.unpack hostname <> ":" <> show port <> "/snapshot/utxo")
     >>= httpJSON
     <&> getResponseBody
+
+-- | Wait for the node's confirmed snapshot to hold exactly the given 'UTxO'.
+--
+-- NOTE: @/snapshot/utxo@ serves the latest confirmed snapshot, which can still
+-- predate an increment or decommit just after its finalisation event. Sampling
+-- it once therefore races on a slow machine, reporting the UTxO as it was one
+-- snapshot ago. The last value seen is kept so that a genuine mismatch is still
+-- reported as a mismatch, rather than as a bare timeout.
+waitForSnapshotUTxO :: HasCallStack => NominalDiffTime -> HydraClient -> UTxO -> IO ()
+waitForSnapshotUTxO delay node expected = do
+  lastSeen <- newIORef mempty
+  void . timeout (realToFrac delay) $ poll lastSeen
+  readIORef lastSeen >>= (`shouldBe` expected)
+ where
+  poll lastSeen = do
+    utxo <- getSnapshotUTxO node
+    writeIORef lastSeen utxo
+    unless (utxo == expected) $ threadDelay 0.1 >> poll lastSeen
 
 -- | Get the latest snapshot from the hydra-node. NOTE: While we usually
 -- avoid parsing responses using the same data types as the system under test,

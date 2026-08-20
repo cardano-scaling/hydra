@@ -1019,6 +1019,11 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
       confirmedTransactions <- v ^? key "snapshot" . key "confirmed"
       guard $ confirmedTransactions == toJSON [tx]
 
+    -- NOTE: Left as a single sample rather than 'waitForSnapshotUTxO'. The
+    -- 'waitMatch' above already gates on the 'SnapshotConfirmed' carrying this
+    -- exact utxo, so unlike the 'CommitFinalized' sites there is no snapshot
+    -- still to catch up on. 'newUTxO' is also a hand-built JSON fixture rather
+    -- than a 'UTxO', hence the comparison through 'toJSON'.
     (toJSON <$> getSnapshotUTxO n1) `shouldReturn` toJSON newUTxO
 
     send n1 $ input "Close" []
