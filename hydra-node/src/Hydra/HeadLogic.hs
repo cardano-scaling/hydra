@@ -358,18 +358,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                     prevSnapshot = getSnapshot confirmedSnapshot
                     accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
                  in requireValidAccumulatorSize accumulator $ do
-                      -- NOTE: Deep-force the snapshot UTxO (via the same
-                      -- 'hashUTxO' the close tx needs) before storing it in the
-                      -- snapshot: applying transactions leaves the map values
-                      -- as chains of unevaluated thunks, and the first thing to
-                      -- force them would otherwise be the close tx
-                      -- construction, inside the close tx validity window
-                      -- (bounded by the contestation period). At e.g. 1000 UTxO
-                      -- after 4000 txs that forcing costs over a second, enough
-                      -- to miss the validity window on short contestation
-                      -- periods. Forcing here pays the cost incrementally per
-                      -- snapshot, off the time-critical path.
-                      let !_forcedUTxO = hashUTxO nextUTxO
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here
                       let nextSnapshot =

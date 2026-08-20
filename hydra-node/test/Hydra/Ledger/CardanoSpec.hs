@@ -27,7 +27,6 @@ import Hydra.Ledger (applyTransactions, reapplyTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, cardanoLedger)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Secret (mkSecret)
-import NoThunks.Class (InspectHeap (..), noThunks)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -61,10 +60,11 @@ import Test.QuickCheck (
   ioProperty,
   listOf1,
   property,
+  withMaxSuccess,
   (===),
  )
 import Test.QuickCheck.Hedgehog (hedgehog)
-import Test.Util (propCollisionResistant)
+import Test.Util (propCollisionResistant, utxoNoThunks)
 
 spec :: Spec
 spec =
@@ -367,7 +367,7 @@ propGeneratesGoodTxOut txOut =
 -- the workhorse: deep heap inspection, no instances needed
 utxoIsThunkFree :: UTxO -> Property
 utxoIsThunkFree utxo = ioProperty $ do
-  mThunk <- noThunks [] (InspectHeap utxo)
+  mThunk <- utxoNoThunks utxo
   pure $
     isNothing mThunk
       & counterexample ("Thunk found: " <> show mThunk)
@@ -375,27 +375,37 @@ utxoIsThunkFree utxo = ioProperty $ do
 prop_applyTransactionsThunkFree :: Property
 prop_applyTransactionsThunkFree =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-    case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo txs of
+    -- Force the input first: with an empty transaction list the input is
+    -- returned unchanged, so the guarantee is compositional, like for
+    -- adjustUTxO.
+    case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) (forceUTxO utxo) txs of
       Left (_tx, err) -> property False & counterexample ("tx did not apply: " <> show err)
       Right utxo' -> utxoIsThunkFree utxo'
 
+-- NOTE: The following three properties use raw ledger-generated transactions
+-- (covering datums, multi-assets and reference scripts) which are large, so
+-- the number of cases is capped to keep the suite fast.
+
 prop_utxoFromTxThunkFree :: Property
 prop_utxoFromTxThunkFree =
-  forAllBlind (arbitrary @Tx) $ \tx ->
-    utxoIsThunkFree (utxoFromTx tx)
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @Tx) $ \tx ->
+      utxoIsThunkFree (utxoFromTx tx)
 
 prop_adjustUTxOThunkFree :: Property
 prop_adjustUTxOThunkFree =
-  forAllBlind arbitrary $ \(tx, utxo) ->
-    -- Deep-force the input first: adjustUTxO must only guarantee a
-    -- thunk-free result for a thunk-free input, since carried-over
-    -- entries are moved by reference, not rebuilt.
-    hashUTxO @Tx utxo `seq` utxoIsThunkFree (adjustUTxO tx utxo)
+  withMaxSuccess 20 $
+    forAllBlind arbitrary $ \(tx, utxo) ->
+      -- Force the input first: adjustUTxO only guarantees a thunk-free
+      -- result for a thunk-free input, since carried-over entries are
+      -- moved by reference, not rebuilt.
+      utxoIsThunkFree (adjustUTxO tx (forceUTxO utxo))
 
 prop_applyTxToThunkFree :: Property
 prop_applyTxToThunkFree =
-  forAllBlind arbitrary $ \(tx, utxo) ->
-    hashUTxO @Tx utxo `seq` utxoIsThunkFree (applyTxTo @Tx tx utxo)
+  withMaxSuccess 20 $
+    forAllBlind arbitrary $ \(tx, utxo) ->
+      utxoIsThunkFree (applyTxTo @Tx tx (forceUTxO utxo))
 
 -- | A realistic multi-era 'EraHistory' mimicking mainnet/testnet where:
 -- - Byron era: 21600 slots/epoch, 20s/slot, runs for 208 epochs (4,492,800 slots)
