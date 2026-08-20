@@ -16,6 +16,9 @@ changes.
   constructed instead of accumulating lazy conversion thunks that were all
   paid at close time (over a second on a 1000-UTxO head after 4000 txs).
   [#2837](https://github.com/cardano-scaling/hydra/pull/2837)
+  * UTxO deserialization (JSON and CBOR, e.g. persisted state loaded on node
+    restart) now also yields forced values, including the transaction inputs
+    which JSON parsing previously left holding thunks.
 
 - Add an opt-in binary CBOR encoding to the client API (WebSocket
   `?encoding=cbor` query param, HTTP `Accept`/`Content-Type: application/cbor`
