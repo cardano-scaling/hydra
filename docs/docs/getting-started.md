@@ -25,10 +25,14 @@ These instructions have been tested only on Linux environments (Ubuntu, NixOS). 
 All commands below are written as if executed from the `demo` folder in the project repository. Ensure you clone the repository, switch into the `demo` folder, and pull the latest Docker images:
 
 ```shell
-git clone git@github.com:cardano-scaling/hydra.git
+git clone --depth 1 git@github.com:cardano-scaling/hydra.git
 cd hydra/demo
 docker compose pull
 ```
+
+:::info Faster clone
+`--depth 1` fetches only the latest commit, which is all this tutorial needs and downloads a small fraction of the full repository. Drop the flag if you want the complete history.
+:::
 
 :::info Shortcut
 For convenience, we provide a script `./run-docker.sh`, which combines all the following steps. It also performs a few sanity checks to prevent potential issues.

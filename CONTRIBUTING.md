@@ -50,6 +50,28 @@ Note that we do NOT require a detailed technical description, but are much more 
 
 When contributing code, it is helpful to have discussed the rationale and (ideally) the implementation details in a feature idea or a bug ticket beforehand.
 
+### Getting the source
+
+A plain `git clone` downloads the full history of every branch. Unless you need
+that, prefer a *blobless* clone:
+
+```shell
+git clone --filter=blob:none git@github.com:cardano-scaling/hydra.git
+```
+
+This fetches all commits and trees but only the file contents you check out, and
+downloads the rest on demand. `git log`, `git blame`, and `git bisect` keep
+working.
+
+If you need no history at all, clone just the latest commit:
+
+```shell
+git clone --depth 1 git@github.com:cardano-scaling/hydra.git
+```
+
+Note that release tooling relies on tags, so a shallow clone is not suitable for
+releasing.
+
 ### Building and testing
 
 We use and require [Nix](https://nixos.org/download.html) to provide a
