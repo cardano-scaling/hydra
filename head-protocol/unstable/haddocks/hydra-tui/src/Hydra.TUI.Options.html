@@ -31,8 +31,8 @@
 </span><a href="Hydra.TUI.Options.html#cardanoConnection"><span class="hs-identifier hs-var hs-var">cardanoConnection</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span>
 </span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="cardanoNetworkId"><span class="annot"><span class="annottext">Options -&gt; NetworkId
 </span><a href="Hydra.TUI.Options.html#cardanoNetworkId"><span class="hs-identifier hs-var hs-var">cardanoNetworkId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span>
-</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="cardanoSigningKey"><span class="annot"><span class="annottext">Options -&gt; FilePath
-</span><a href="Hydra.TUI.Options.html#cardanoSigningKey"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="fundsSigningKey"><span class="annot"><span class="annottext">Options -&gt; FilePath
+</span><a href="Hydra.TUI.Options.html#fundsSigningKey"><span class="hs-identifier hs-var hs-var">fundsSigningKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ User key used by the tui client to commit</span></span><span>
 </span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="fuelVerificationKey"><span class="annot"><span class="annottext">Options -&gt; Maybe FilePath
 </span><a href="Hydra.TUI.Options.html#fuelVerificationKey"><span class="hs-identifier hs-var hs-var">fuelVerificationKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
@@ -122,7 +122,7 @@ forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Parser FilePath
-</span><a href="Hydra.TUI.Options.html#parseCardanoSigningKey"><span class="hs-identifier hs-var">parseCardanoSigningKey</span></a></span><span>
+</span><a href="Hydra.TUI.Options.html#parseFundsSigningKey"><span class="hs-identifier hs-var">parseFundsSigningKey</span></a></span><span>
 </span><span id="line-48"></span><span>      </span><span class="annot"><span class="annottext">Parser (Maybe FilePath -&gt; ApiEncoding -&gt; Options)
 -&gt; Parser (Maybe FilePath) -&gt; Parser (ApiEncoding -&gt; Options)
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
@@ -340,16 +340,16 @@ forall a (f :: * -&gt; *). Show a =&gt; Mod f a
 </span><span class="hs-identifier hs-var">showDefault</span></span><span>
 </span><span id="line-99"></span><span>    </span><span class="hs-special">)</span><span>
 </span><span id="line-100"></span><span>
-</span><span id="line-101"></span><span class="annot"><a href="Hydra.TUI.Options.html#parseCardanoSigningKey"><span class="hs-identifier hs-type">parseCardanoSigningKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
-</span><span id="line-102"></span><span id="parseCardanoSigningKey"><span class="annot"><span class="annottext">parseCardanoSigningKey :: Parser FilePath
-</span><a href="Hydra.TUI.Options.html#parseCardanoSigningKey"><span class="hs-identifier hs-var hs-var">parseCardanoSigningKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Hydra.TUI.Options.html#parseFundsSigningKey"><span class="hs-identifier hs-type">parseFundsSigningKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
+</span><span id="line-102"></span><span id="parseFundsSigningKey"><span class="annot"><span class="annottext">parseFundsSigningKey :: Parser FilePath
+</span><a href="Hydra.TUI.Options.html#parseFundsSigningKey"><span class="hs-identifier hs-var hs-var">parseFundsSigningKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-103"></span><span>  </span><span class="annot"><span class="annottext">Mod OptionFields FilePath -&gt; Parser FilePath
 forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
 </span><span class="hs-identifier hs-var">strOption</span></span><span>
 </span><span id="line-104"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Mod OptionFields FilePath
 forall (f :: * -&gt; *) a. HasName f =&gt; FilePath -&gt; Mod f a
 </span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><span class="hs-string">&quot;cardano-signing-key&quot;</span></span><span>
+</span><span class="hs-string">&quot;funds-signing-key&quot;</span></span><span>
 </span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields FilePath
 -&gt; Mod OptionFields FilePath -&gt; Mod OptionFields FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
@@ -370,7 +370,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Mod OptionFields FilePath
 forall (f :: * -&gt; *) a. FilePath -&gt; Mod f a
 </span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><span class="hs-string">&quot;The path to the user signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli.&quot;</span></span><span>
+</span><span class="hs-string">&quot;The path to the funds signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli.&quot;</span></span><span>
 </span><span id="line-108"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields FilePath
 -&gt; Mod OptionFields FilePath -&gt; Mod OptionFields FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a

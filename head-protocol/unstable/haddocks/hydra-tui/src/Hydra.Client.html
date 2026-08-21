@@ -89,9 +89,9 @@ hostname :: Text
 $sel:port:Host :: Host -&gt; PortNumber
 port :: PortNumber
 </span><span class="hs-identifier hs-var hs-var">port</span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494478"><span class="annot"><span class="annottext">String
-cardanoSigningKey :: String
-cardanoSigningKey :: Options -&gt; String
-</span><a href="#local-6989586621679494478"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494480"><span class="annot"><span class="annottext">NetworkId
+fundsSigningKey :: String
+fundsSigningKey :: Options -&gt; String
+</span><a href="#local-6989586621679494478"><span class="hs-identifier hs-var hs-var">fundsSigningKey</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494480"><span class="annot"><span class="annottext">NetworkId
 cardanoNetworkId :: NetworkId
 cardanoNetworkId :: Options -&gt; NetworkId
 </span><a href="#local-6989586621679494480"><span class="hs-identifier hs-var hs-var">cardanoNetworkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494482"><span class="annot"><span class="annottext">Either String SocketPath
@@ -179,7 +179,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (SigningKey PaymentKey)
 forall a. HasTextEnvelope a =&gt; String -&gt; IO a
 </span><span class="hs-identifier hs-var">readFileTextEnvelopeThrow</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679494478"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
+</span><a href="#local-6989586621679494478"><span class="hs-identifier hs-var">fundsSigningKey</span></a></span><span>
 </span><span id="line-81"></span><span>
 </span><span id="line-82"></span><span>  </span><span id="local-6989586621679494501"><span class="annot"><span class="annottext">queryString :: String
 </span><a href="#local-6989586621679494501"><span class="hs-identifier hs-var hs-var">queryString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ApiEncoding

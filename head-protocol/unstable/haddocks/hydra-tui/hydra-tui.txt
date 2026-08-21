@@ -234,7 +234,7 @@ Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Maybe 
 [cardanoNetworkId] :: Options -> NetworkId
 
 -- | User key used by the tui client to commit
-[cardanoSigningKey] :: Options -> FilePath
+[fundsSigningKey] :: Options -> FilePath
 
 -- | Optional verification key of the hydra-node's internal wallet, used
 --   only to display the node's available fuel. Never used for committing.
@@ -245,7 +245,7 @@ Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Maybe 
 parseOptions :: Parser Options
 parsecardanoConnection :: Parser (Either FilePath SocketPath)
 parseNodeHost :: Parser Host
-parseCardanoSigningKey :: Parser FilePath
+parseFundsSigningKey :: Parser FilePath
 parseApiEncoding :: Parser ApiEncoding
 parseFuelVerificationKey :: Parser (Maybe FilePath)
 instance GHC.Show.Show Hydra.TUI.Options.Options
