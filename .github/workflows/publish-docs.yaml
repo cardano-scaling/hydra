@@ -85,13 +85,16 @@ jobs:
           hydra-cluster/datasets/1-node-1kutxo.json \
           --timeout 1800s \
           --output-directory $out/benchmarks
+        # Same fixed seed as the ci-nix matrix job so both pipelines measure
+        # identical workloads (cell i uses seed+i).
         nix develop .#hydra-cluster-bench --command -- \
           bench-e2e \
           matrix \
           --output-directory $out/benchmarks \
           --number-of-txs 30 \
           --timeout 3600s \
-          --incremental-modes False
+          --incremental-modes False \
+          --seed 2755
 
     - name: 👉 Create redirects
       run: |

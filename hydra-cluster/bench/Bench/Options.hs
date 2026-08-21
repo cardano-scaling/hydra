@@ -53,6 +53,7 @@ data Options
       , incrementalOps :: Bool
       , waitForTxValid :: Bool
       , cborClients :: Bool
+      , generationSeed :: Maybe Int
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -74,6 +75,8 @@ data Options
       , incrementalModes :: [Bool]
       , waitForTxValidModes :: [Bool]
       , cborClients :: Bool
+      , generationSeed :: Maybe Int
+      -- ^ Cell i derives its dataset from seed + i: distinct but reproducible.
       }
   | GenerateOptions
       { datasetUTxO :: UTxOSize
@@ -267,6 +270,7 @@ datasetOptionsParser =
     <*> incrementalOpsParser
     <*> waitForTxValidParser
     <*> cborClientsParser
+    <*> optional generationSeedParser
 
 generateOptionsInfo :: ParserInfo Options
 generateOptionsInfo =
@@ -384,6 +388,7 @@ matrixOptionsParser =
     <*> incrementalModesParser
     <*> waitForTxValidModesParser
     <*> cborClientsParser
+    <*> optional generationSeedParser
 
 clusterSizesParser :: Parser [Word64]
 clusterSizesParser =
