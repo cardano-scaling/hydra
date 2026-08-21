@@ -24,6 +24,11 @@ jobs:
     name: "Build & test"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      # Scale test wait budgets for the slow shared runners; only failure
+      # latency is affected, passing waits return as soon as their condition
+      # holds. See scaleWaitTime in hydra-cluster's HydraNode module.
+      HYDRA_TEST_WAIT_MULTIPLIER: 3
     strategy:
       matrix:
         package:
@@ -80,13 +85,18 @@ jobs:
         check-name: tests / ${{ matrix.package }} (${{ matrix.os }})
         artifact-name: junit-${{ matrix.package }}-${{ matrix.os }}
 
-    # NOTE: This depends on the path used in hydra-cluster e2e tests
+    # NOTE: Failed tests keep their temp dir (see withTempDir), so only
+    # failures produce files here. The glob deliberately matches any temp dir
+    # with a logs/ subdirectory rather than specific withTempDir templates;
+    # template renames silently broke a template-coupled glob before. The
+    # artifact name is matrix-keyed because upload-artifact@v4 requires
+    # unique names within a run.
     - name: 💾 Upload logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: hydra-cluster-e2e-test-logs
-        path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
+        name: test-logs-${{ matrix.package }}-${{ matrix.os }}
+        path: /tmp/nix-shell.*/*/logs/*
         if-no-files-found: ignore
 
   benchmarks:

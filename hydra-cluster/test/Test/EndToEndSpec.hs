@@ -85,7 +85,7 @@ import Hydra.Cluster.SecurityScenarios (
   cannotStealDepositWithoutHeadInput,
   cannotStealLargerDepositDuringOwnIncrement,
  )
-import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
+import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig, onChainObservationBudget)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -94,7 +94,7 @@ import Hydra.Tx.Secret (mkSecret)
 import HydraNode (HydraClient (..), allocateHydraNodePortsFor, getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withConnectionToNodeHost, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (doesDirectoryExist, listDirectory, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Ledger.Cardano (mkRangedTx)
@@ -177,33 +177,32 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- identified by listen URL; if ports change between restarts etcd
         -- refuses to start with the existing data dir).
         nodePorts <- allocateHydraNodePortsFor [1]
+        -- Rotation on start up archives the live event log into 'old-state'
+        -- next to it, see 'Hydra.Events.SQLiteBased'.
+        let archiveDir = tmpDir </> "state-1" </> "old-state"
         -- Start a hydra-node in offline mode and submit several self-txs
         withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \node -> do
           -- Offline mode needs to confirm deposit of initialUTxO first.
           waitMatch 20 node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-          respendNTimes node aliceCardanoSk 0.01 200
+          respendNTimes node aliceCardanoSk 0.01 30
 
-        -- Measure restart time
-        t0 <- getCurrentTime
-        diff1 <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \_ -> do
-          t1 <- getCurrentTime
-          let diff = diffUTCTime t1 t0
-          pure diff
+        -- Restart without rotation configured: state is kept, nothing archived.
+        utxoBefore <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \node ->
+          getSnapshotUTxO node
+        doesDirectoryExist archiveDir `shouldReturn` False
 
-        -- Measure restart after rotation
+        -- Restart with rotation configured: the event log is archived on
+        -- start up and the node still runs from the same state.
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] nodePorts id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
-        t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \n -> do
-          void $ waitForNodesSynced (5 * blockTime) [n]
-          t2 <- getCurrentTime
-          let diff = diffUTCTime t2 t1
-          pure diff
-
-        unless (diff2 < diff1 * 0.9) $
-          failure $
-            "Expected to start up 10% quicker than original " <> show diff1 <> ", but it took " <> show diff2
+        withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \node -> do
+          void $ waitForNodesSynced (5 * blockTime) [node]
+          getSnapshotUTxO node `shouldReturn` utxoBefore
+          doesDirectoryExist archiveDir `shouldReturn` True
+          listDirectory archiveDir >>= (`shouldSatisfy` (not . null))
+          -- The rotated node is still live: another self-spend confirms.
+          respendNTimes node aliceCardanoSk 0.01 1
 
     it "supports multi-party networked heads" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
@@ -418,7 +417,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxBob]
 
                 send n1 $ input "Close" []
-                deadline <- waitMatch 3 n1 $ \v -> do
+                deadline <- waitMatch (onChainObservationBudget blockTime) n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   v ^? key "contestationDeadline" . _JSON
@@ -515,7 +514,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               send n1 $ input "Close" []
 
-              deadline <- waitMatch 3 n1 $ \v -> do
+              deadline <- waitMatch (onChainObservationBudget blockTime) n1 $ \v -> do
                 guard $ v ^? key "tag" == Just "HeadIsClosed"
                 guard $ v ^? key "headId" == Just (toJSON headId)
                 snapshotNumber <- v ^? key "snapshotNumber"
@@ -691,7 +690,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice, Carol] timing
             carolChainConfig <- chainConfigFor Carol tmpDir opts hydraScriptsTxId [Alice, Bob] timing
             nodePorts <- allocateHydraNodePortsFor allNodeIds
-            failAfter 20 $
+            -- Three node startups (spawn, etcd bootstrap, protocol parameter
+            -- queries) plus an Init round trip are fixed costs; 20s fired on
+            -- loaded CI runners.
+            failAfter 60 $
               withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] nodePorts $ \n1 ->
                 withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] nodePorts $ \n2 ->
                   withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
@@ -699,7 +701,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
                     send n1 $ input "Init" []
-                    void $ waitForAllMatch 3 [n1] $ headIsOpenWith (Set.fromList [alice, bob, carol])
+                    void $ waitForAllMatch (onChainObservationBudget blockTime) [n1] $ headIsOpenWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
                     -- NOTE: These names are a public interface: Prometheus
                     -- scrapes them and the dashboards in demo/grafana refer to
@@ -844,7 +846,7 @@ timedTx tmpDir tracer opts hydraScriptsTxId = do
     waitFor hydraTracer 3 [n1] $
       output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
-    confirmedTransactions <- waitMatch 3 n1 $ \v -> do
+    confirmedTransactions <- waitMatch (onChainObservationBudget blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       v ^? key "snapshot" . key "confirmed"
     confirmedTransactions ^.. values `shouldBe` [toJSON tx]
@@ -900,7 +902,7 @@ cborApiLifeCycle tmpDir tracer opts hydraScriptsTxId = do
       -- Close the head and expect the snapshot UTxO to be fanned out on the
       -- main chain
       send n1 $ input "Close" []
-      deadline <- waitMatch 3 n1 $ \v -> do
+      deadline <- waitMatch (onChainObservationBudget blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         guard $ v ^? key "headId" == Just (toJSON headId)
         v ^? key "contestationDeadline" . _JSON
@@ -1027,7 +1029,7 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
     (toJSON <$> getSnapshotUTxO n1) `shouldReturn` toJSON newUTxO
 
     send n1 $ input "Close" []
-    deadline <- waitMatch 3 n1 $ \v -> do
+    deadline <- waitMatch (onChainObservationBudget blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       guard $ v ^? key "headId" == Just (toJSON headId)
       snapshotNumber <- v ^? key "snapshotNumber"
@@ -1045,7 +1047,7 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
       Error err ->
         failure $ "newUTxO isn't valid JSON?: " <> err
       Data.Aeson.Success u -> do
-        waitForAllMatch 3 [n1] $ headIsFinalizedWith headId u
+        waitForAllMatch (onChainObservationBudget blockTime) [n1] $ headIsFinalizedWith headId u
         failAfter 5 $ waitForUTxO opts u
 
 -- | Open a head with a given number of UTxOs, close it, and fanout.

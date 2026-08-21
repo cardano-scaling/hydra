@@ -44,6 +44,7 @@ import Network.HTTP.Req qualified as Req
 import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendBinaryData, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
+import System.Environment (getEnvironment)
 import System.FilePath ((<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
@@ -53,6 +54,7 @@ import System.Process.Typed (
   getStderr,
   proc,
   setCloseFds,
+  setEnv,
   setStderr,
   setStdout,
   useHandleOpen,
@@ -77,6 +79,9 @@ data HydraClient = HydraClient
   -- ^ Which wire encoding was negotiated for 'connection' (via the
   -- @encoding=cbor@ query param). 'send' and 'waitNext' translate between
   -- CBOR on the wire and the 'Aeson.Value's used by test assertions.
+  , workDir :: Maybe FilePath
+  -- ^ Work directory of the spawned hydra-node, when this test spawned it;
+  -- used to point at its logs in failure messages.
   }
 
 -- | Create an input as expected by 'send'.
@@ -121,14 +126,30 @@ waitNext HydraClient{connection, apiEncoding} = do
 output :: Text -> [Pair] -> Aeson.Value
 output tag pairs = object $ ("tag" .= tag) : pairs
 
-setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
-setupBFDelay d = do
-  Prelude.getHydraNetwork >>= \case
-    -- The Blockfrost follower observes ~1 block behind tip plus one poll
-    -- interval, on a network with much longer block times than the devnet
-    -- timings most waits are written for.
-    Prelude.Blockfrost -> pure $ d * 3
-    _backend -> pure d
+-- | Scale a wait budget to the environment. Blockfrost runs triple it (the
+-- follower observes ~1 block behind tip plus one poll interval, on a network
+-- with much longer block times than the devnet timings most waits are written
+-- for) and HYDRA_TEST_WAIT_MULTIPLIER multiplies further; CI sets it to
+-- compensate for slow shared runners, local runs default to 1. Only failure
+-- latency is affected: a passing wait returns as soon as its message arrives.
+--
+-- Budgets get a constant floor: the many @N * blockTime@ waits come to well
+-- under a second on the 0.1s devnet, underestimating the fixed costs they
+-- also cover (tx submission, observation, node processing). Sub-second waits
+-- fired exactly when several suites shared one machine.
+scaleWaitTime :: NominalDiffTime -> IO NominalDiffTime
+scaleWaitTime d = do
+  bf <-
+    Prelude.getHydraNetwork >>= \case
+      Prelude.Blockfrost -> pure 3
+      _backend -> pure 1
+  multiplier <- maybe 1 (realToFrac @Double) . (readMaybe =<<) <$> lookupEnv "HYDRA_TEST_WAIT_MULTIPLIER"
+  pure $ max 5 (d * bf * multiplier)
+
+-- | 'failAfter' with the budget scaled like 'scaleWaitTime'. Use for
+-- whole-test backstops in end-to-end tests.
+scaledFailAfter :: HasCallStack => NominalDiffTime -> IO a -> IO a
+scaledFailAfter seconds action = scaleWaitTime seconds >>= (`Prelude.failAfter` action)
 
 -- | Wait some time for a single API server output from each of given nodes.
 -- This function waits for @delay@ seconds for message @expected@  to be seen by all
@@ -137,18 +158,26 @@ waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraCl
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
 -- | Wait up to some time and succeed if no API server output matches the given predicate.
+-- The window is deliberately NOT scaled by 'scaleWaitTime': the timeout here
+-- is the success path, so scaling it would slow every passing run.
 waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO ()
 waitNoMatch delay client match = do
-  result <- try (void $ waitMatch delay client match) :: IO (Either SomeException ())
+  result <- try (void $ waitMatchWith delay client match) :: IO (Either SomeException ())
   case result of
     Left _ -> pure () -- Success: waitMatch failed to find a match
     Right _ -> failure "waitNoMatch: A match was found when none was expected"
 
 -- | Wait up to some time for an API server output to match the given predicate.
+-- The budget is scaled to the environment, see 'scaleWaitTime'.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
-waitMatch delay' client@HydraClient{tracer, hydraNodeId} match = do
+waitMatch delay' client match = do
+  delay <- scaleWaitTime delay'
+  waitMatchWith delay client match
+
+-- | Like 'waitMatch' but with the given wall-clock budget, unscaled.
+waitMatchWith :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
+waitMatchWith delay client@HydraClient{tracer, hydraNodeId, workDir} match = do
   seenMsgs <- newLabelledTVarIO "wait-match-seen-msgs" []
-  delay <- setupBFDelay delay'
   timeout (realToFrac delay) (go seenMsgs) >>= \case
     Just x -> pure x
     Nothing -> do
@@ -158,6 +187,7 @@ waitMatch delay' client@HydraClient{tracer, hydraNodeId} match = do
           unlines
             [ "waitMatch did not match a message within " <> show delay
             , padRight ' ' 20 "  nodeId:" <> show hydraNodeId
+            , padRight ' ' 20 "  node logs:" <> maybe "<not spawned by this test>" (\d -> toText (d </> "logs")) workDir
             , padRight ' ' 20 "  seen messages:"
                 <> unlines (align 20 (decodeUtf8 . Aeson.encode <$> msgs))
             ]
@@ -193,7 +223,7 @@ waitForAllMatch delay nodes match = do
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer d nodes expected = do
   traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
-  delay <- setupBFDelay d
+  delay <- scaleWaitTime d
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
     result <- timeout (realToFrac delay) $ tryNext client msgs expected
@@ -619,26 +649,49 @@ withPreparedHydraNode ::
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing
+withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing []
 
--- | Like 'withPreparedHydraNode' but connecting the API client with the given
--- query string instead of the default "/?history=yes".
-withPreparedHydraNodeWithQuery ::
+-- | Like 'withPreparedHydraNode' but with extra environment entries for the
+-- hydra-node process (also inherited by its etcd child). Use this instead of
+-- a process-global 'setEnv', which would leak into every other concurrently
+-- spawned node.
+withPreparedHydraNodeWithEnv ::
   HasCallStack =>
-  Maybe String ->
+  [(String, String)] ->
   Tracer IO HydraNodeLog ->
   FilePath ->
   Int ->
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId runOptions action =
+withPreparedHydraNodeWithEnv = withPreparedHydraNodeWithQuery Nothing
+
+-- | Like 'withPreparedHydraNode' but connecting the API client with the given
+-- query string instead of the default "/?history=yes".
+withPreparedHydraNodeWithQuery ::
+  HasCallStack =>
+  Maybe String ->
+  [(String, String)] ->
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId runOptions action =
   Prelude.withLogFile logFilePath $ \logFileHandle -> do
+    applyExtraEnv <-
+      if null extraEnv
+        then pure id
+        else do
+          baseEnv <- getEnvironment
+          pure $ setEnv (extraEnv <> filter ((`notElem` map fst extraEnv) . fst) baseEnv)
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
             & setCloseFds True
+            & applyExtraEnv
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
@@ -646,7 +699,7 @@ withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId runOption
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       raceLabelled
         ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") action)
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir}))
         <&> either absurd id
  where
   apiAddress =
@@ -760,7 +813,7 @@ withHydraNodeWith ::
   IO a
 withHydraNodeWith mQueryParams mapOptions tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts id
-  withPreparedHydraNodeWithQuery mQueryParams tracer workDir hydraNodeId (mapOptions opts) action'
+  withPreparedHydraNodeWithQuery mQueryParams [] tracer workDir hydraNodeId (mapOptions opts) action'
  where
   waitTime = blockTime * 5
   action' client = do
@@ -841,7 +894,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} monitor
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
-      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding}
+      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding, workDir = Nothing}
       sendClose connection ("Bye" :: Text)
       pure res
 

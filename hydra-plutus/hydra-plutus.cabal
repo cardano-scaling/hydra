@@ -110,6 +110,7 @@ test-suite tests
     Hydra.Plutus.GoldenSpec
 
   build-depends:
+    , base
     , bytestring
     , hspec
     , hydra-cardano-api

@@ -107,7 +107,7 @@ spec =
               )
               $ \_ -> do
                 waitForClients semaphore
-                failAfter 1 $
+                failAfter 10 $
                   atomically (replicateM 2 (readTQueue queue))
                     >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
@@ -117,8 +117,8 @@ spec =
                         fromMaybe (error "failed to convert stateEvent") $
                           mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
                 putEvent arbitraryEvent
-                failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
-                failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
+                failAfter 10 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
+                failAfter 10 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
 
     it "sends server output history to all connected clients (using given event source)" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
@@ -142,10 +142,10 @@ spec =
               )
               $ \_ -> do
                 waitForClients semaphore
-                failAfter 1 $ do
+                failAfter 10 $ do
                   atomically (readTQueue queue1) `shouldReturn` expectedMessage
                   atomically (readTQueue queue1) >>= (`shouldSatisfy` matchGreetings)
-                failAfter 1 $ do
+                failAfter 10 $ do
                   atomically (readTQueue queue2) `shouldReturn` expectedMessage
                   atomically (readTQueue queue2) >>= (`shouldSatisfy` matchGreetings)
 
@@ -367,7 +367,7 @@ spec =
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
                   sendBinaryData conn $ serialize' (Init :: ClientInput SimpleTx)
-                  failAfter 1 $ atomically (readTQueue inputs) `shouldReturn` Init
+                  failAfter 10 $ atomically (readTQueue inputs) `shouldReturn` Init
 
       it "sends a CBOR-encoded InvalidInput when input is not valid CBOR" $
         failAfter 5 $

@@ -15,7 +15,6 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
 import Data.Aeson.Types qualified as Aeson
 import Data.Fixed (Centi)
-import Data.List qualified as List
 import Data.Text (pack)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
@@ -62,6 +61,8 @@ import System.Process (
   StdStream (CreatePipe, UseHandle),
   proc,
   readProcess,
+  terminateProcess,
+  waitForProcess,
   withCreateProcess,
  )
 import Test.Hydra.Prelude hiding (Blockfrost)
@@ -102,7 +103,6 @@ data NodeLog
   | MsgSocketIsReady SocketPath
   | MsgSynchronizing {percentDone :: Centi, timeDifference :: NominalDiffTime, blockTime :: NominalDiffTime, tipTime :: NominalDiffTime, targetTime :: NominalDiffTime}
   | MsgQueryGenesisParametersFailed {err :: Text}
-  | MsgPortBindRetry {failedPort :: Port, remainingAttempts :: Int}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -187,13 +187,6 @@ runBackend opts action = case opts of
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive
 -- "initialFunds". Use 'seedFromFaucet' to distribute funds other wallets.
---
--- 'randomUnusedTCPPorts' must close its sentinel socket before returning the
--- port, leaving a small window in which another process can grab the same
--- ephemeral port before cardano-node binds it (see the NOTE in
--- 'Test.Network.Ports'). When that happens cardano-node dies on startup with
--- @bind: Address already in use@. Detect that one specific failure and retry
--- with a freshly allocated port; everything else is rethrown unchanged.
 withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   -- | State directory in which credentials, db & logs are persisted.
@@ -202,32 +195,12 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  go args portBindMaxAttempts
- where
-  go _ 0 =
-    fail "withCardanoNodeDevnet: exhausted retries waiting for a free P2P port"
-  go args attemptsLeft = do
-    -- Allocate a free port for the cardano-node P2P listener so concurrent
-    -- devnets don't all try to bind 3001 (the cardano-node default).
-    [p] <- Ports.randomUnusedTCPPorts 1
-    let args' = args{nodePort = Just p}
-    result <- try $ withCardanoNode tracer stateDirectory args' action
-    case result of
-      Right a -> pure a
-      Left (e :: SomeException)
-        | isPortInUse e -> do
-            traceWith tracer MsgPortBindRetry{failedPort = p, remainingAttempts = attemptsLeft - 1}
-            go args (attemptsLeft - 1)
-        | otherwise -> throwIO e
-
-  isPortInUse :: SomeException -> Bool
-  isPortInUse e =
-    let msg = displayException e
-     in "Address already in use" `List.isInfixOf` msg
-          || "bind: resource busy" `List.isInfixOf` msg
-
-portBindMaxAttempts :: Int
-portBindMaxAttempts = 5
+  -- Allocate a free port for the cardano-node P2P listener so concurrent
+  -- devnets don't all try to bind 3001 (the cardano-node default). The port
+  -- is reserved for this process for its whole lifetime, see
+  -- 'Test.Network.Ports'.
+  [p] <- Ports.randomUnusedTCPPorts 1
+  withCardanoNode tracer stateDirectory args{nodePort = Just p} action
 
 withBlockfrostBackend ::
   Tracer IO EndToEndLog ->
@@ -473,12 +446,20 @@ withCardanoNode tr stateDirectory args action = do
     hSetBuffering out NoBuffering
     withCreateProcess process{std_out = UseHandle out, std_err = CreatePipe, close_fds = True} $
       \_stdin _stdout mError processHandle ->
-        (`finally` cleanupSocketFile) $
+        (`finally` (stopNode processHandle >> cleanupSocketFile)) $
           raceLabelled
             ("check-cardano-node-process-not-died", checkProcessHasNotDied "cardano-node" processHandle mError)
             ("wait-for-node", waitForNode)
             <&> either absurd id
  where
+  -- Stop the node synchronously: 'withCreateProcess's own cleanup delivers
+  -- SIGTERM but reaps in a forked thread, so without this the node can still
+  -- be flushing its database (e.g. writing db/clean) while an enclosing
+  -- 'withTempDir' already removes the directory.
+  stopNode processHandle = do
+    terminateProcess processHandle
+    void $ timeout 10 (waitForProcess processHandle)
+
   CardanoNodeArgs{nodeSocket} = args
 
   process = cardanoNodeProcess (Just stateDirectory) args

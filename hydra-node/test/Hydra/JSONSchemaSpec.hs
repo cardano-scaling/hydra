@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 import Control.Exception (IOException)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Lens (key)
-import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
+import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, validateJSONWith, withJsonSpecifications)
 import System.FilePath ((</>))
 import Test.QuickCheck.Instances.Time ()
 
@@ -22,10 +22,12 @@ spec = do
       validateJSON "does-not-exist.json" id Null
         `shouldThrow` exceptionContaining @IOException "does-not-exist.json"
 
-    it "fails with missing tool" $ do
-      withClearedPATH $
-        validateJSON "does-not-matter.json" id Null
-          `shouldThrow` exceptionContaining @IOException "installed"
+    it "fails with missing tool" $
+      -- Point at a non-existing executable instead of clearing PATH; mutating
+      -- the process-wide PATH breaks concurrently running tests that spawn
+      -- subprocesses.
+      validateJSONWith "check-jsonschema-not-on-path" "does-not-matter.json" id Null
+        `shouldThrow` exceptionContaining @IOException "installed"
 
     it "selects a sub-schema correctly" $
       withJsonSpecifications $ \dir ->

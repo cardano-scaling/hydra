@@ -54,8 +54,23 @@ validateJSON ::
   SchemaSelector ->
   Value ->
   IO ()
-validateJSON schemaFilePath selector value = do
-  ensureSystemRequirements
+validateJSON = validateJSONWith "check-jsonschema"
+
+-- | Like 'validateJSON', but with an explicit executable (name or path) used
+-- for validation. Lets tests exercise the missing-tool path without clearing
+-- the process-wide PATH, which is not safe while other tests run concurrently.
+validateJSONWith ::
+  HasCallStack =>
+  -- | Executable to validate with, normally check-jsonschema.
+  FilePath ->
+  -- | Path to the JSON file holding the schema.
+  FilePath ->
+  -- | Selector into the JSON file pointing to the schema to be validated.
+  SchemaSelector ->
+  Value ->
+  IO ()
+validateJSONWith checkJsonSchema schemaFilePath selector value = do
+  ensureSystemRequirementsWith checkJsonSchema
   withTempDir "validateJSON" $ \tmpDir -> do
     copySchemasTo tmpDir
     -- Write input file
@@ -72,7 +87,7 @@ validateJSON schemaFilePath selector value = do
         writeFileLBS jsonSchema (Aeson.encode jsonSpecSchema)
     -- Validate using external program
     (exitCode, out, err) <-
-      readProcessWithExitCode "check-jsonschema" ["-v", "--schemafile", jsonSchema, jsonInput] ""
+      readProcessWithExitCode checkJsonSchema ["-v", "--schemafile", jsonSchema, jsonInput] ""
     when (exitCode /= ExitSuccess) $
       failure . toString $
         unlines
@@ -247,7 +262,11 @@ addField k v = withObject (at k ?~ toJSON v)
 -- | Check that the required `check-jsonschema` tool is available on the system.
 -- Raises an IOException (user error via 'fail') if not found or wrong version.
 ensureSystemRequirements :: IO ()
-ensureSystemRequirements =
+ensureSystemRequirements = ensureSystemRequirementsWith "check-jsonschema"
+
+-- | Like 'ensureSystemRequirements', but checking an explicit executable.
+ensureSystemRequirementsWith :: FilePath -> IO ()
+ensureSystemRequirementsWith checkJsonSchema =
   getToolVersion >>= \case
     Right semVer ->
       unless (semVer >= SemVer 0 21 0 Nothing Nothing) $
@@ -258,7 +277,7 @@ ensureSystemRequirements =
   getToolVersion :: IO (Either String SemVer)
   getToolVersion = do
     version <-
-      try (readProcessWithExitCode "check-jsonschema" ["--version"] mempty) >>= \case
+      try (readProcessWithExitCode checkJsonSchema ["--version"] mempty) >>= \case
         Right (exitCode, out, _) ->
           pure (List.last (List.words out) <$ if exitCode == ExitSuccess then pure () else Left "")
         Left (err :: IOError)
