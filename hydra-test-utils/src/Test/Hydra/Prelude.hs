@@ -14,7 +14,6 @@ module Test.Hydra.Prelude (
   withLogFile,
   checkProcessHasNotDied,
   exceptionContaining,
-  withClearedPATH,
   onlyLocal,
   onlyNightly,
   nightlyRuns,
@@ -44,7 +43,6 @@ import GHC.IO.Exception (IOErrorType (..), IOException (..))
 import Generic.Random qualified as Random
 import Generic.Random.Internal.Generic qualified as Random
 import System.Directory (createDirectoryIfMissing, removePathForcibly)
-import System.Environment (getEnv, setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory)
 import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
@@ -225,16 +223,6 @@ pickBlind gen = MkPropertyM $ \k -> do
 exceptionContaining :: Exception e => String -> Selector e
 exceptionContaining msg e =
   msg `isInfixOf` displayException e
-
--- | Clear PATH environment variable while executing given action.
-withClearedPATH :: IO () -> IO ()
-withClearedPATH act =
-  bracket capture (setEnv "PATH") (const act)
- where
-  capture = do
-    env <- getEnv "PATH"
-    setEnv "PATH" ""
-    pure env
 
 -- | Only run this task when the CI_NIGHTLY environment variable is set (to
 -- anything).

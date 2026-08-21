@@ -96,6 +96,25 @@ test-index:
   } > index.html
   echo "wrote test-reports/index.html (${#xmls[@]} suites)"
 
+# run one package's nix test suite N times, stopping at the first failure.
+# PATTERN is a raw tasty --pattern.
+#
+# example:
+#
+# > just stress-test hydra-node 1
+stress-test PKG N PATTERN="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd {{PKG}}
+  for i in $(seq 1 {{N}}); do
+    echo "=== stress-test {{PKG}} iteration $i/{{N}}"
+    if [ -n "{{PATTERN}}" ]; then
+      nix develop .#{{PKG}}-tests --command tests -p "{{PATTERN}}" || { echo "FAILED at iteration $i"; exit 1; }
+    else
+      nix develop .#{{PKG}}-tests --command tests || { echo "FAILED at iteration $i"; exit 1; }
+    fi
+  done
+
 # format, and build with -Werror and strict linting flags.
 #
 # Uses a dedicated --builddir so the strict -Werror / extra -W… flags here

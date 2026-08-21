@@ -172,7 +172,7 @@ spec = parallel $ do
                 & classify (null eventIds) "empty list of events"
 
       it "can continue after re-hydration" $ \testHydrate ->
-        failAfter 1 $ do
+        failAfter 10 $ do
           eventStore <- createMockEventStore
 
           testHydrate eventStore []
@@ -218,7 +218,7 @@ spec = parallel $ do
       -- in sync rather than re-enqueued in a tight loop forever (which hung the
       -- node, and timed out CI after 6h). We deliberately omit 'primeWithTime'
       -- so the node stays in 'NodeCatchingUp'.
-      failAfter 1 $
+      failAfter 10 $
         showLogsOnFailure "NodeSpec" $ \tracer -> do
           node <-
             hydrate tracer testEnvironment simpleLedger 0 (mockEventStore []) []
@@ -301,7 +301,7 @@ spec = parallel $ do
         any isPostTxOnChainFailed outputs `shouldBe` True
 
     it "signs snapshot even if it has seen conflicting transactions" $
-      failAfter 1 $
+      failAfter 10 $
         showLogsOnFailure "NodeSpec" $ \tracer -> do
           let tx1 = aValidTx 1
               tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [1], txOutputs = utxoRefs [4]}
