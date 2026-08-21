@@ -29,8 +29,9 @@ import Cardano.Ledger.Alonzo.Scripts (exUnitsMem, exUnitsSteps, txscriptfee)
 import Cardano.Ledger.Api (ppMaxTxExUnitsL, ppPricesL, ppTxFeeFixedL, ppTxFeePerByteL)
 import Cardano.Ledger.Coin (Coin, CoinPerByte (..))
 import Cardano.Ledger.Compactible (fromCompact)
-import Cardano.Ledger.Core (PParams)
-import Cardano.Ledger.Val (Val ((<+>)), (<×>))
+import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
+import Cardano.Ledger.Core (PParams, getMinFeeTx)
+import Cardano.Ledger.Val (Val ((<+>), (<->)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
 import Control.Lens ((.~))
@@ -54,7 +55,10 @@ import Hydra.Cardano.Api (
   evaluateTransactionExecutionUnits,
   getTxBody,
   prettyError,
+  shelleyBasedEra,
   toLedgerExUnits,
+  toLedgerTx,
+  toLedgerUTxO,
  )
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
@@ -173,20 +177,43 @@ usedExecutionUnits report =
 
 -- | Estimate minimum fee for given transaction and evaluated redeemers. Instead
 -- of using the budgets from the transaction (which are usually set to 0 until
--- balancing), this directly computes the fee from transaction size and the
--- units of the 'EvaluationReport'. Note that this function likely
--- under-estimates cost as we have no witnesses on this 'Tx'.
+-- balancing), this directly computes the fee from transaction size, the units
+-- of the 'EvaluationReport', and the Conway reference-script charge.
+--
+-- The reference-script term is the ledger's own 'tierRefScriptFee' over the
+-- scripts reachable from the given 'UTxO', so it tracks
+-- 'minFeeRefScriptCostPerByte' and the tiering rule exactly. It matters for
+-- every Hydra protocol transaction, which supplies its validator by reference
+-- from the script registry rather than inline.
+--
+-- NOTE: This still under-estimates slightly, as there are no witnesses on this
+-- 'Tx' yet; use the ledger's 'calcMinFeeTx' (as 'Hydra.Chain.Direct.Wallet'
+-- does) when the actual fee to pay is needed.
 estimateMinFeeWith ::
   PParams LedgerEra ->
+  -- | UTxO the transaction's inputs (and reference inputs) resolve against,
+  -- needed to size the reference scripts it pulls in.
+  UTxO ->
   Tx ->
   EvaluationReport ->
   Coin
-estimateMinFeeWith pparams' tx evaluationReport =
+estimateMinFeeWith pparams' utxo tx evaluationReport =
   (txSize <×> a <+> b)
     <+> txscriptfee prices allExunits
+    <+> refScriptsFee
  where
   txSize = BS.length $ serialiseToCBOR tx
   a = fromCompact . unCoinPerByte $ pparams' ^. ppTxFeePerByteL
   b = pparams' ^. ppTxFeeFixedL
   prices = pparams' ^. ppPricesL
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
+
+  -- The Conway reference-script charge, isolated as the difference the ledger
+  -- itself computes between sizing the referenced scripts and ignoring them.
+  -- Taking it from 'getMinFeeTx' rather than reimplementing 'tierRefScriptFee'
+  -- keeps the tiering rule and its constants in one place: the ledger.
+  refScriptsFee =
+    getMinFeeTx pparams' ledgerTx (txNonDistinctRefScriptsSize (toLedgerUTxO shelleyBasedEra utxo) ledgerTx)
+      <-> getMinFeeTx pparams' ledgerTx 0
+
+  ledgerTx = toLedgerTx tx

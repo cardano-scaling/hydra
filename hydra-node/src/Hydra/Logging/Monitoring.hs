@@ -1,12 +1,17 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Provides Prometheus-based metrics server based on `Tracer` collection.
 --
 -- To add a new metric, one needs to:
 --
---  * Add a 'MetricDefinition' to the 'allMetrics' list, providing a unique 'Name', the
---    relevant constructor for the 'Metric' value and a registration function,
---  * Update the 'monitor' function to Handle relevant 'HydraLog' entries and update
---    underlying Prometheus metrics store. Nested helpers are provided to increase a
---    'Counter' by one (@tick@) and to 'observe' some value in an 'Histogram'.
+--  * Add a field to 'Metrics' and register it in 'registerMetrics',
+--  * Update the 'monitor' function to handle relevant 'HydraLog' entries and
+--    update the underlying Prometheus metric. Nested helpers are provided to
+--    increase a 'Counter' by one (@tick@) and to 'observe' some value in a
+--    'Histogram'.
+--
+-- The metric handles are typed, so a metric can only be updated in the way it
+-- was registered and a name can only be referred to if it was registered.
 module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
@@ -26,13 +31,36 @@ import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Tx (IsTx (TxIdType), Snapshot (..), SnapshotNumber, txId)
+import System.Metrics.Prometheus.Concurrent.Registry (
+  Registry,
+  new,
+  registerCounter,
+  registerGauge,
+  registerHistogram,
+  sample,
+ )
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
-import System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
-import System.Metrics.Prometheus.Metric.Counter (add, inc)
+import System.Metrics.Prometheus.Metric.Counter (Counter, add, inc)
+import System.Metrics.Prometheus.Metric.Gauge (Gauge)
 import System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
-import System.Metrics.Prometheus.Metric.Histogram (observe)
+import System.Metrics.Prometheus.Metric.Histogram (Histogram, observe)
 import System.Metrics.Prometheus.MetricId (Name (Name))
-import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerGauge, registerHistogram, sample)
+
+-- | Handles to all metrics hydra-node exposes.
+--
+-- NOTE: The 'Name's below are a public interface: they are scraped by
+-- Prometheus and referenced by the Grafana dashboards in @demo/grafana@, so
+-- renaming one is a breaking change for operators.
+data Metrics = Metrics
+  { headInputs :: Counter
+  , headRequestedTx :: Counter
+  , headConfirmedTx :: Counter
+  , txConfirmationTime :: Histogram
+  , snapshotConfirmationTime :: Histogram
+  , peersConnected :: Gauge
+  , chainDriftSeconds :: Gauge
+  , chainLastBlockTimestampSeconds :: Gauge
+  }
 
 -- | Wraps a monadic action using a `Tracer` and capture metrics based on traces.
 -- Given a `portNumber`, this wrapper starts a Prometheus-compliant server on this port.
@@ -56,47 +84,44 @@ withMonitoring (Just monitoringPort) (Tracer tracer) action = do
        in action wrappedTracer
 
 -- | Register all relevant metrics.
--- Returns an updated `Registry` which is needed to `serveMetrics` or any other form of publication
+-- Returns the `Registry` which is needed to `serveMetrics` or any other form of publication
 -- of metrics, whether push or pull, and a function for updating metrics given some trace event.
 prepareRegistry :: forall m tx. (MonadIO m, MonadMonotonicTime m, MonadTime m, IsTx tx, MonadLabelledSTM m) => m (HydraLog tx -> m (), Registry)
 prepareRegistry = do
   transactionsMap <- newLabelledTVarIO "monitoring-txs-map-registry" mempty
   snapshotsMap <- newLabelledTVarIO "monitoring-snapshots-map-registry" mempty
-  first (monitor transactionsMap snapshotsMap) <$> registerMetrics
+  registry <- liftIO new
+  metrics <- registerMetrics registry
+  pure (monitor transactionsMap snapshotsMap metrics, registry)
+
+registerMetrics :: MonadIO m => Registry -> m Metrics
+registerMetrics registry = liftIO $ do
+  headInputs <- counter "hydra_head_inputs"
+  headRequestedTx <- counter "hydra_head_requested_tx"
+  headConfirmedTx <- counter "hydra_head_confirmed_tx"
+  txConfirmationTime <-
+    histogram "hydra_head_tx_confirmation_time_ms" [5, 10, 50, 100, 1000]
+  snapshotConfirmationTime <-
+    histogram "hydra_head_snapshot_confirmation_time_ms" [5, 10, 50, 100, 500, 1000, 5000, 10000, 30000]
+  peersConnected <- gaugeMetric "hydra_head_peers_connected"
+  chainDriftSeconds <- gaugeMetric "hydra_chain_drift_seconds"
+  chainLastBlockTimestampSeconds <- gaugeMetric "hydra_chain_last_block_timestamp_seconds"
+  pure Metrics{..}
  where
-  registerMetrics = foldlM registerMetric (mempty, new) allMetrics
-
-  registerMetric :: (Map Name Metric, Registry) -> MetricDefinition -> m (Map Name Metric, Registry)
-  registerMetric (metricsMap, registry) (MetricDefinition name ctor registration) = do
-    (metric, registry') <- liftIO $ registration name registry
-    pure (Map.insert name (ctor metric) metricsMap, registry')
-
--- | Existential wrapper around different kind of metrics construction logic.
-data MetricDefinition where
-  MetricDefinition :: forall a. Name -> (a -> Metric) -> (Name -> Registry -> IO (a, Registry)) -> MetricDefinition
-
--- | All custom 'MetricDefinition's for Hydra
-allMetrics :: [MetricDefinition]
-allMetrics =
-  [ MetricDefinition (Name "hydra_head_inputs") CounterMetric $ flip registerCounter mempty
-  , MetricDefinition (Name "hydra_head_requested_tx") CounterMetric $ flip registerCounter mempty
-  , MetricDefinition (Name "hydra_head_confirmed_tx") CounterMetric $ flip registerCounter mempty
-  , MetricDefinition (Name "hydra_head_tx_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 1000]
-  , MetricDefinition (Name "hydra_head_snapshot_confirmation_time_ms") HistogramMetric $ \n -> registerHistogram n mempty [5, 10, 50, 100, 500, 1000, 5000, 10000, 30000]
-  , MetricDefinition (Name "hydra_head_peers_connected") GaugeMetric $ flip registerGauge mempty
-  , MetricDefinition (Name "hydra_chain_drift_seconds") GaugeMetric $ flip registerGauge mempty
-  , MetricDefinition (Name "hydra_chain_last_block_timestamp_seconds") GaugeMetric $ flip registerGauge mempty
-  ]
+  counter name = registerCounter (Name name) mempty registry
+  gaugeMetric name = registerGauge (Name name) mempty registry
+  histogram name buckets = registerHistogram (Name name) mempty buckets registry
 
 -- | Main monitoring function that updates metrics store given some log entries.
 monitor ::
+  forall m tx.
   (MonadIO m, MonadSTM m, MonadMonotonicTime m, MonadTime m, IsTx tx) =>
   TVar m (Map (TxIdType tx) Time) ->
   TVar m (Map SnapshotNumber (Time, [TxIdType tx])) ->
-  Map Name Metric ->
+  Metrics ->
   HydraLog tx ->
   m ()
-monitor transactionsMap snapshotsMap metricsMap = \case
+monitor transactionsMap snapshotsMap Metrics{..} = \case
   (Node BeginInput{input = NetworkInput _ (ReceivedMessage{msg = ReqTx tx})}) -> do
     t <- getMonotonicTime
     -- NOTE: If a requested transaction never gets confirmed, it might stick
@@ -104,20 +129,20 @@ monitor transactionsMap snapshotsMap metricsMap = \case
     -- memory leak. We might want to have a 'cleaner' thread run that will remove
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
-    tick "hydra_head_requested_tx"
+    tick headRequestedTx
   (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
     forM_ stateChanges $ \case
-      PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
-      PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
-      NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
+      PeerConnected{} -> gauge Gauge.inc peersConnected
+      PeerDisconnected{} -> gauge Gauge.dec peersConnected
+      NetworkDisconnected{} -> gaugeN peersConnected 0
       -- On every observed tick, report how far behind the chain we are and when
       -- we last heard from the backend. The latter is a wall-clock timestamp, so
       -- monitoring can alert on `time() - hydra_chain_last_block_timestamp_seconds`
       -- and detect a stalled backend even while the drift gauge is frozen (#2749).
       TickObserved{chainTime} -> do
         now <- getCurrentTime
-        gaugeN "hydra_chain_drift_seconds" (realToFrac (now `diffUTCTime` chainTime))
-        gaugeN "hydra_chain_last_block_timestamp_seconds" (realToFrac (utcTimeToPOSIXSeconds now))
+        gaugeN chainDriftSeconds (realToFrac (now `diffUTCTime` chainTime))
+        gaugeN chainLastBlockTimestampSeconds (realToFrac (utcTimeToPOSIXSeconds now))
       SnapshotRequested{requestedSnapshot = Snapshot{number, confirmed}} -> do
         t <- getMonotonicTime
         atomically $ modifyTVar' snapshotsMap (Map.insert number (t, txId <$> confirmed))
@@ -138,41 +163,31 @@ monitor transactionsMap snapshotsMap metricsMap = \case
           (Nothing, Just (_, txIds)) -> pure txIds
           (Nothing, Nothing) -> pure []
         forM_ mEntry $ \(start, _) ->
-          histo "hydra_head_snapshot_confirmation_time_ms" (diffTime t start)
-        tickN "hydra_head_confirmed_tx" (length confirmedIds)
+          histo snapshotConfirmationTime (diffTime t start)
+        tickN headConfirmedTx (length confirmedIds)
         forM_ confirmedIds $ \i -> do
           txsStartTime <- readTVarIO transactionsMap
           case Map.lookup i txsStartTime of
             Just start -> do
               atomically $ modifyTVar' transactionsMap $ Map.delete i
-              histo "hydra_head_tx_confirmation_time_ms" (diffTime t start)
+              histo txConfirmationTime (diffTime t start)
             Nothing -> pure ()
       _ -> pure ()
   (Node (EndInput _ _)) ->
-    tick "hydra_head_inputs"
+    tick headInputs
   _ -> pure ()
  where
-  gaugeN metricName num =
-    case Map.lookup metricName metricsMap of
-      (Just (GaugeMetric c)) -> liftIO $ Gauge.set num c
-      _ -> pure ()
+  gaugeN :: Gauge -> Double -> m ()
+  gaugeN g num = liftIO $ Gauge.set num g
 
-  gauge f metricName =
-    case Map.lookup metricName metricsMap of
-      (Just (GaugeMetric c)) -> liftIO $ f c
-      _ -> pure ()
+  gauge :: (Gauge -> IO ()) -> Gauge -> m ()
+  gauge f g = liftIO $ f g
 
-  tick metricName =
-    case Map.lookup metricName metricsMap of
-      (Just (CounterMetric c)) -> liftIO $ inc c
-      _ -> pure ()
+  tick :: Counter -> m ()
+  tick c = liftIO $ inc c
 
-  tickN metricName num =
-    case Map.lookup metricName metricsMap of
-      (Just (CounterMetric c)) -> liftIO $ add num c
-      _ -> pure ()
+  tickN :: Counter -> Int -> m ()
+  tickN c num = liftIO $ add num c
 
-  histo metricName time =
-    case Map.lookup metricName metricsMap of
-      (Just (HistogramMetric h)) -> liftIO $ observe (fromRational $ toRational $ time * 1000) h
-      _ -> pure ()
+  histo :: Histogram -> DiffTime -> m ()
+  histo h time = liftIO $ observe (fromRational $ toRational $ time * 1000) h

@@ -100,3 +100,5 @@ metrics above, these are live counters suitable for production dashboards.
 | `hydra_head_tx_confirmation_time_ms` | histogram | per-transaction request-to-confirmation time; buckets 5, 10, 50, 100, 1000 |
 | `hydra_head_snapshot_confirmation_time_ms` | histogram | `SnapshotRequested` to `SnapshotConfirmed` time; buckets 5, 10, 50, 100, 500, 1000, 5000, 10000, 30000 |
 | `hydra_head_peers_connected` | gauge | number of currently connected peers |
+| `hydra_chain_drift_seconds` | gauge | how far behind the chain the node is, updated on each observed block |
+| `hydra_chain_last_block_timestamp_seconds` | gauge | wall-clock time the node last observed a block; alert on `time() - hydra_chain_last_block_timestamp_seconds` to catch a stalled backend, which freezes the drift gauge rather than growing it |

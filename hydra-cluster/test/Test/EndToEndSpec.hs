@@ -701,7 +701,24 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     send n1 $ input "Init" []
                     void $ waitForAllMatch 3 [n1] $ headIsOpenWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
-                    metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
+                    -- NOTE: These names are a public interface: Prometheus
+                    -- scrapes them and the dashboards in demo/grafana refer to
+                    -- them, so dropping or renaming one breaks operators. All
+                    -- are registered at node startup, so the scrape carries
+                    -- every one of them even before anything has been observed.
+                    let missing =
+                          filter
+                            (not . (`BS.isInfixOf` metrics))
+                            [ "hydra_head_inputs"
+                            , "hydra_head_requested_tx"
+                            , "hydra_head_confirmed_tx"
+                            , "hydra_head_tx_confirmation_time_ms"
+                            , "hydra_head_snapshot_confirmation_time_ms"
+                            , "hydra_head_peers_connected"
+                            , "hydra_chain_drift_seconds"
+                            , "hydra_chain_last_block_timestamp_seconds"
+                            ]
+                    missing `shouldBe` []
 
     -- TODO: move to a HydraNodeSpec
     describe "withHydraNode" $ do
@@ -1002,6 +1019,11 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
       confirmedTransactions <- v ^? key "snapshot" . key "confirmed"
       guard $ confirmedTransactions == toJSON [tx]
 
+    -- NOTE: Left as a single sample rather than 'waitForSnapshotUTxO'. The
+    -- 'waitMatch' above already gates on the 'SnapshotConfirmed' carrying this
+    -- exact utxo, so unlike the 'CommitFinalized' sites there is no snapshot
+    -- still to catch up on. 'newUTxO' is also a hand-built JSON fixture rather
+    -- than a 'UTxO', hence the comparison through 'toJSON'.
     (toJSON <$> getSnapshotUTxO n1) `shouldReturn` toJSON newUTxO
 
     send n1 $ input "Close" []

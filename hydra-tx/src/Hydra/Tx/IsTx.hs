@@ -129,6 +129,15 @@ instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
 
 -- | Orphan 'Ord' instance for 'TxOut CtxUTxO' using JSON encoding for comparison.
 -- Needed to use 'TxOut CtxUTxO' in 'Set' and as 'TxOutType Tx' with the 'Ord' constraint.
+--
+-- XXX: This fully serialises both operands on every comparison (including any
+-- reference script, as hex CBOR), so it is O(size of output) rather than O(1)
+-- and allocates on each call. It is kept as-is deliberately: the ordering it
+-- induces is observable through every 'Set'/'Map' keyed by an output, so a
+-- cheaper key (e.g. comparing CBOR instead) would silently reorder them.
+-- cardano-ledger provides no 'Ord' for 'BabbageTxOut' to delegate to, so
+-- changing this needs a deliberate decision about the new ordering rather than
+-- a drop-in replacement.
 instance Ord (TxOut CtxUTxO) where
   compare x y = compare (Aeson.encode x) (Aeson.encode y)
 
