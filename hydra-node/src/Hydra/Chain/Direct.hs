@@ -59,7 +59,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollForward,
  )
 import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (newTimeHandleCache, queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
@@ -170,6 +170,12 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
 
   traceWith tracer $ StartingChainDecision startingDecision'
   let getTimeHandle = runDirectBackend opts queryTimeHandle
+  -- The chain-sync path only converts slots and never needs the chain tip, so
+  -- it uses cached time conversions instead of 3 node queries per block.
+  cachedTimeHandle <-
+    newTimeHandleCache
+      (runDirectBackend opts (querySystemStart CardanoClient.QueryTip))
+      (runDirectBackend opts (queryEraHistory CardanoClient.QueryTip))
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
@@ -181,7 +187,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
           localChainState
           (submitTx queue)
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  let handler = chainSyncHandler tracer callback cachedTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "direct-chain-connection"

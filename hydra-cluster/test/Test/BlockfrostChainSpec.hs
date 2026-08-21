@@ -18,7 +18,7 @@ import Hydra.Chain (
   initHistory,
  )
 import Hydra.Chain.Backend (blockfrostProjectPath)
-import Hydra.Chain.Blockfrost (runBlockfrostBackend, withBlockfrostChain)
+import Hydra.Chain.Blockfrost (newBlockfrostEnv, runBlockfrostBackend, runBlockfrostBackendWith, withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
@@ -80,7 +80,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
         Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.queryGenesisParameters
         let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
             candidates = [TxIn txid (TxIx 0) | txid <- hydraScriptsTxIds]
-        Blockfrost.queryUTxOByTxIn defaultBlockfrostOptions networkId candidates
+        Blockfrost.queryUTxOByTxIn networkId candidates
     let inlineOutputs = [txin | (txin, TxOut _ _ (TxOutDatumInline _) _) <- UTxO.toList utxo]
     when (null inlineOutputs) $
       failure $
@@ -116,7 +116,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
 
       withBlockfrostChainTest (contramap (FromBlockfrostChain "alice") tracer) aliceChainConfig alice $
         \aliceChain@CardanoChainTest{postTx} -> do
-          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceCardanoVk 100_000_000
+          _ <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost aliceCardanoVk 100_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
           let headParameters = HeadParameters blockfrostcperiod (DepositPeriod 100) [alice]
@@ -190,13 +190,14 @@ withBlockfrostChainTest tracer config party action = do
           Blockfrost bfOpts -> pure (cfg, bfOpts)
           _ -> failure $ "unexpected chainBackendOptions: " <> show chainBackendOptions
       otherConfig -> failure $ "unexpected chainConfig: " <> show otherConfig
-  ctx <- runBlockfrostBackend blockfrostOptions $ loadChainContext configuration party
+  env <- newBlockfrostEnv blockfrostOptions
+  ctx <- runBlockfrostBackendWith env $ loadChainContext configuration party
   eventMVar <- newLabelledEmptyTMVarIO "blockfrost-chain-events"
 
   let callback event = atomically $ putTMVar eventMVar event
 
-  wallet <- mkTinyWallet (runBlockfrostBackend blockfrostOptions) tracer configuration
-  withBlockfrostChain blockfrostOptions tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx} -> do
+  wallet <- mkTinyWallet (runBlockfrostBackendWith env) tracer configuration
+  withBlockfrostChain env tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx} -> do
     action
       CardanoChainTest
         { postTx
