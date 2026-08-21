@@ -28,7 +28,7 @@ data Options = Options
   { hydraNodeHost :: Host
   , cardanoConnection :: Either FilePath SocketPath
   , cardanoNetworkId :: NetworkId
-  , cardanoSigningKey :: FilePath
+  , fundsSigningKey :: FilePath
   -- ^ User key used by the tui client to commit
   , fuelVerificationKey :: Maybe FilePath
   -- ^ Optional verification key of the hydra-node's internal wallet, used only
@@ -44,7 +44,7 @@ parseOptions =
       <$> parseNodeHost
       <*> parsecardanoConnection
       <*> networkIdParser
-      <*> parseCardanoSigningKey
+      <*> parseFundsSigningKey
       <*> parseFuelVerificationKey
       <*> parseApiEncoding
   )
@@ -98,13 +98,13 @@ parseNodeHost =
         <> showDefault
     )
 
-parseCardanoSigningKey :: Parser FilePath
-parseCardanoSigningKey =
+parseFundsSigningKey :: Parser FilePath
+parseFundsSigningKey =
   strOption
-    ( long "cardano-signing-key"
+    ( long "funds-signing-key"
         <> short 'k'
         <> metavar "FILE"
-        <> help "The path to the user signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli."
+        <> help "The path to the funds signing key file used for selecting UTxO and signing a commit transaction. This file uses the same 'TextEnvelope' format as cardano-cli."
         <> value "me.sk"
         <> showDefault
     )

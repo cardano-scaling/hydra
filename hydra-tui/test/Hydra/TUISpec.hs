@@ -500,7 +500,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                     Right nodeSocket
                 , cardanoNetworkId =
                     networkId
-                , cardanoSigningKey = externalKeyFilePath
+                , fundsSigningKey = externalKeyFilePath
                 , fuelVerificationKey = Nothing
                 , apiEncoding = JsonEncoding
                 }
@@ -555,7 +555,7 @@ setupNodeAndTUI' hostname lovelace action =
                         Right nodeSocket
                     , cardanoNetworkId =
                         networkId
-                    , cardanoSigningKey = externalKeyFilePath
+                    , fundsSigningKey = externalKeyFilePath
                     , fuelVerificationKey = Nothing
                     , apiEncoding = JsonEncoding
                     }
