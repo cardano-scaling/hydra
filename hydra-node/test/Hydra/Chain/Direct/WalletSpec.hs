@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, pattern SpendingPurpose)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -56,9 +56,10 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Tx.Secret (mkSecret)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -76,6 +77,7 @@ import Test.QuickCheck (
   suchThat,
   vectorOf,
   (.&&.),
+  (===),
  )
 import Prelude qualified
 
@@ -93,6 +95,7 @@ spec = parallel $ do
     prop "balances transaction with fees" prop_balanceTransaction
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
     prop "reports ErrMissingScript when script witness is missing" prop_detectsMissingScript
+    prop "does not set script integrity hash when no scripts are executed" prop_noScriptIntegrityHashWithoutExecution
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -461,3 +464,35 @@ prop_detectsMissingScript =
         lookupUTxO = Map.singleton scriptTxIn scriptTxOut
 
     pure (txSpendingScript, lookupUTxO)
+
+-- | Reference inputs carrying Plutus scripts must not produce a script
+-- integrity hash when the transaction executes no scripts (no redeemers, no
+-- datums). The ledger expects SNothing in that case and rejects the tx with
+-- PPViewHashesDontMatch otherwise.
+prop_noScriptIntegrityHashWithoutExecution :: Property
+prop_noScriptIntegrityHashWithoutExecution =
+  forAllBlind (resize 0 genLedgerTx) $ \tx ->
+    forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
+      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+        forAllBlind genRefScriptUTxO $ \(refIn, refOut) -> do
+          let txWithRefInput =
+                tx
+                  & bodyTxL . referenceInputsTxBodyL .~ Set.singleton refIn
+                  -- Ensure nothing executes: no redeemers, no datums, no witness scripts
+                  & witsTxL . rdmrsTxWitsL .~ mempty
+                  & witsTxL . datsTxWitsL .~ mempty
+                  & witsTxL . scriptTxWitsL .~ mempty
+          case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (Map.insert refIn refOut lookupUTxO) walletUTxO txWithRefInput of
+            Left err ->
+              property False & counterexample ("Error: " <> show err)
+            Right balancedTx ->
+              (balancedTx ^. bodyTxL . scriptIntegrityHashTxBodyL) === Ledger.SNothing
+                & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx balancedTx))
+ where
+  -- A UTxO carrying a Plutus V3 reference script that the tx does not execute
+  genRefScriptUTxO = do
+    refIn <- toLedgerTxIn <$> genTxIn
+    out <- genTxOut
+    let Api.TxOut addr value _ _ = out
+    let refOut = Api.toLedgerTxOut $ Api.TxOut addr value Api.TxOutDatumNone (Api.mkScriptRef dummyValidatorScript)
+    pure (refIn, refOut)

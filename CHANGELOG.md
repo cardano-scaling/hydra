@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- Fixed the internal wallet setting a script integrity hash on transactions
+  that execute no scripts: reference inputs carrying Plutus scripts had their
+  language views hashed even when nothing runs, so the ledger rejected such
+  transactions with `PPViewHashesDontMatch (SJust _, expected SNothing)`. Like
+  the ledger, `coverFee` now only considers scripts the transaction actually
+  needs, which also corrects the hash for transactions that execute scripts
+  while referencing unrelated ones.
+  [#2836](https://github.com/cardano-scaling/hydra/pull/2836)
+
 - Add an opt-in binary CBOR encoding to the client API (WebSocket
   `?encoding=cbor` query param, HTTP `Accept`/`Content-Type: application/cbor`
   headers), keeping JSON as the default.
