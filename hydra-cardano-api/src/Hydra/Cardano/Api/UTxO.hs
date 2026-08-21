@@ -1,8 +1,8 @@
 module Hydra.Cardano.Api.UTxO where
 
-import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
-import Hydra.Cardano.Api.TxIn (txIns')
-import Hydra.Cardano.Api.TxOut (parseTxOutFromJSON)
+import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.TxIn (forceTxIn, txIns')
+import Hydra.Cardano.Api.TxOut (forceTxOut, parseTxOutFromJSON)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
@@ -19,11 +19,13 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 
 -- | Parse a 'UTxO' from JSON using 'parseTxOutFromJSON' to correctly handle
--- non-canonical inline datums. See 'parseTxOutFromJSON' for details.
+-- non-canonical inline datums. See 'parseTxOutFromJSON' for details. The
+-- result is forced via 'forceUTxO' as parsing is an ingress point for 'UTxO'
+-- values into the head logic.
 parseUTxOFromJSON :: Aeson.Value -> Parser (UTxO Era)
 parseUTxOFromJSON = Aeson.withObject "UTxO" $ \hm -> do
   pairs <- mapM parsePair (KeyMap.toList hm)
-  pure $ UTxO.fromList pairs
+  pure $ forceUTxO $ UTxO.fromList pairs
  where
   parsePair :: (KeyMap.Key, Aeson.Value) -> Parser (TxIn, TxOut CtxUTxO Era)
   parsePair (k, txOutVal) = do
@@ -41,10 +43,19 @@ utxoFromTx (Tx body@(ShelleyTxBody _ ledgerBody _ _ _ _) _) =
         [ Ledger.TxIn (toShelleyTxId $ getTxId body) ix
         | ix <- [Ledger.TxIx 0 ..]
         ]
-   in UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts
+   in forceUTxO (UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.UTxO $ Map.fromList $ zip txIns txOuts)
 
 -- | Resolve tx inputs in a given UTxO
 resolveInputsUTxO :: UTxO Era -> Tx Era -> UTxO Era
 resolveInputsUTxO utxo tx =
   UTxO.fromList $
     mapMaybe (\txIn -> (txIn,) <$> UTxO.resolveTxIn txIn utxo) (txIns' tx)
+
+-- | Force every entry in the UTxO: keys via 'forceTxIn' and outputs via
+-- 'forceTxOut'. Map keys are only kept in WHNF by 'Map', so thunks inside a
+-- 'TxIn' (e.g. from JSON parsing) must be forced explicitly.
+forceUTxO :: UTxO Era -> UTxO Era
+forceUTxO = UTxO.UTxO . Map.mapKeysMonotonic forceTxIn . Map.map forceTxOut . UTxO.unUTxO
+
+fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO Era
+fromLedgerUTxO = forceUTxO . Hydra.Cardano.Api.Prelude.fromLedgerUTxO ShelleyBasedEraConway

@@ -81,6 +81,7 @@ import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
+import Test.Util (utxoNoThunks)
 
 spec :: Spec
 spec =
@@ -2725,6 +2726,55 @@ spec =
 
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+
+      it "stores a fully evaluated snapshot UTxO when processing ReqSn" $ do
+        -- Two outputs; the tx spends only the first. The second is carried over
+        -- unchanged: the accumulator delta never touches it, so only strict
+        -- construction in applyTransactions guarantees it is forced.
+        (vk, sk) <- generate genKeyPair
+        txOut1 <- generate (genOutputFor vk)
+        txOut2 <- generate (genOutputFor vk)
+        txIn1 <- generate genTxIn
+        txIn2 <- generate genTxIn
+        let u0 = UTxO.fromList [(txIn1, txOut1), (txIn2, txOut2)]
+        tx <- case mkSimpleTx (txIn1, txOut1) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut1) (mkSecret sk) of
+          Left err -> failure $ "cannot create tx: " <> show err
+          Right tx' -> pure tx'
+        let st0 =
+              inSync $
+                Open
+                  OpenState
+                    { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod [alice]
+                    , coordinatedHeadState =
+                        CoordinatedHeadState
+                          { localUTxO = u0
+                          , allTxs = mempty
+                          , localTxs = mempty
+                          , confirmedSnapshot =
+                              ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                          , seenSnapshot = NoSeenSnapshot
+                          , currentDepositTxId = Nothing
+                          , decommitTx = Nothing
+                          , version = 0
+                          }
+                    , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
+                    , headId = testHeadId
+                    , headSeed = testHeadSeed
+                    }
+        s1 <- runHeadLogic aliceEnv ledger st0 $ do
+          step $ receiveMessage $ ReqTx tx
+          getState
+        outcome <- runHeadLogic aliceEnv ledger s1 $ step $ receiveMessage $ ReqSn 0 1 [txId tx] Nothing Nothing
+        case outcome of
+          Continue{stateChanges} ->
+            case listToMaybe [u | SnapshotRequested{requestedSnapshot = Snapshot{utxo = u}} <- stateChanges] of
+              Nothing -> expectationFailure "expected a SnapshotRequested state change"
+              Just snapUtxo ->
+                utxoNoThunks snapUtxo >>= \case
+                  Nothing -> pure ()
+                  Just ti -> expectationFailure $ "Thunk found in snapshot UTxO: " <> show ti
+          _ -> expectationFailure $ "expected Continue outcome, got: " <> show outcome
+
       prop "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ \now -> monadicIO $ do
         let singleParty = [alice]
             plusTime = flip addUTCTime

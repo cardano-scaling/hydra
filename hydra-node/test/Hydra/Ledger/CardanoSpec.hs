@@ -2,11 +2,12 @@
 
 module Hydra.Ledger.CardanoSpec where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Slotting.EpochInfo (EpochInfo, epochInfoSlotToRelativeTime, fixedEpochInfo, hoistEpochInfo)
@@ -24,7 +25,7 @@ import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (applyTransactions, reapplyTransactions)
-import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Ledger.Cardano (adjustUTxO, cardanoLedger)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Secret (mkSecret)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -57,12 +58,14 @@ import Test.QuickCheck (
   cover,
   forAll,
   forAllBlind,
+  ioProperty,
   listOf1,
   property,
+  withMaxSuccess,
   (===),
  )
 import Test.QuickCheck.Hedgehog (hedgehog)
-import Test.Util (propCollisionResistant)
+import Test.Util (propCollisionResistant, utxoNoThunks)
 
 spec :: Spec
 spec =
@@ -175,6 +178,14 @@ spec =
 
     describe "PParams" $
       prop "Roundtrip JSON encoding" roundtripPParams
+
+    describe "UTxO strictness" $ do
+      prop "applyTransactions yields a thunk-free UTxO" prop_applyTransactionsThunkFree
+      prop "utxoFromTx yields a thunk-free UTxO" prop_utxoFromTxThunkFree
+      prop "applyTxTo yields a thunk-free UTxO" prop_applyTxToThunkFree
+      prop "adjustUTxO yields a thunk-free UTxO" prop_adjustUTxOThunkFree
+      prop "JSON decoding yields a thunk-free UTxO" prop_jsonDecodeThunkFree
+      prop "CBOR decoding yields a thunk-free UTxO" prop_cborDecodeThunkFree
 
     describe "Tx" $ do
       prop "JSON encoding of Tx according to schema" $
@@ -353,6 +364,71 @@ propGeneratesGoodTxOut txOut =
       case cred of
         KeyHashObj{} -> False
         ScriptHashObj{} -> True
+
+-- UTXO strictness properties
+
+-- the workhorse: deep heap inspection, no instances needed
+utxoIsThunkFree :: UTxO -> Property
+utxoIsThunkFree utxo = ioProperty $ do
+  mThunk <- utxoNoThunks utxo
+  pure $
+    isNothing mThunk
+      & counterexample ("Thunk found: " <> show mThunk)
+
+prop_applyTransactionsThunkFree :: Property
+prop_applyTransactionsThunkFree =
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+    -- Force the input first: with an empty transaction list the input is
+    -- returned unchanged, so the guarantee is compositional, like for
+    -- adjustUTxO.
+    case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) (forceUTxO utxo) txs of
+      Left (_tx, err) -> property False & counterexample ("tx did not apply: " <> show err)
+      Right utxo' -> utxoIsThunkFree utxo'
+
+-- NOTE: The following three properties use raw ledger-generated transactions
+-- (covering datums, multi-assets and reference scripts) which are large, so
+-- the number of cases is capped to keep the suite fast.
+
+prop_utxoFromTxThunkFree :: Property
+prop_utxoFromTxThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @Tx) $ \tx ->
+      utxoIsThunkFree (utxoFromTx tx)
+
+prop_adjustUTxOThunkFree :: Property
+prop_adjustUTxOThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind arbitrary $ \(tx, utxo) ->
+      -- Force the input first: adjustUTxO only guarantees a thunk-free
+      -- result for a thunk-free input, since carried-over entries are
+      -- moved by reference, not rebuilt.
+      utxoIsThunkFree (adjustUTxO tx (forceUTxO utxo))
+
+prop_applyTxToThunkFree :: Property
+prop_applyTxToThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind arbitrary $ \(tx, utxo) ->
+      utxoIsThunkFree (applyTxTo @Tx tx (forceUTxO utxo))
+
+-- NOTE: Deserialization is an ingress point for UTxO into the head logic
+-- (persisted state, network messages, client API), so decoding must yield
+-- thunk-free values without relying on the input having been forced.
+
+prop_jsonDecodeThunkFree :: Property
+prop_jsonDecodeThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @UTxO) $ \utxo ->
+      case Aeson.eitherDecode (Aeson.encode utxo) of
+        Left err -> property False & counterexample ("decoding failed: " <> err)
+        Right utxo' -> utxoIsThunkFree utxo'
+
+prop_cborDecodeThunkFree :: Property
+prop_cborDecodeThunkFree =
+  withMaxSuccess 20 $
+    forAllBlind (arbitrary @UTxO) $ \utxo ->
+      case decodeFull' (serialize' utxo) of
+        Left err -> property False & counterexample ("decoding failed: " <> show err)
+        Right utxo' -> utxoIsThunkFree utxo'
 
 -- | A realistic multi-era 'EraHistory' mimicking mainnet/testnet where:
 -- - Byron era: 21600 slots/epoch, 20s/slot, runs for 208 epochs (4,492,800 slots)

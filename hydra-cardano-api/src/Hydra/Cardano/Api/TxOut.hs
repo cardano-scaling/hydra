@@ -9,6 +9,7 @@ import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Control.DeepSeq (deepseq)
 import Data.Aeson ((.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -230,3 +231,44 @@ toPlutusTxOut =
   eitherToMaybe = \case
     Left _ -> Nothing
     Right x -> Just x
+
+-- | Force a 'TxOut' deeply enough that no deferred conversion work remains:
+-- the ledger value (including decompaction), the datum (including the parsed
+-- side of inline datums), address and reference script.
+forceTxOut :: TxOut ctx Era -> TxOut ctx Era
+forceTxOut out@(TxOut addr value datum refScript) =
+  forceValue `seq` forceDatum `seq` forceAddr `seq` forceRefScript `seq` out
+ where
+  forceValue :: ()
+  forceValue = case value of
+    TxOutValueShelleyBased sbe v -> sbe `seq` v `deepseq` ()
+
+  forceAddr :: ()
+  forceAddr = case addr of
+    AddressInEra w (ShelleyAddress net cred stake) ->
+      w `seq` net `deepseq` cred `deepseq` stake `deepseq` ()
+    AddressInEra w (ByronAddress b) -> w `seq` b `seq` ()
+
+  forceDatum :: ()
+  forceDatum = case datum of
+    TxOutDatumNone -> ()
+    TxOutDatumHash w h -> w `seq` h `seq` ()
+    TxOutDatumInline w hsd ->
+      w `seq` getOriginalScriptDataBytes hsd `seq` forceScriptData (getScriptData hsd)
+    TxOutSupplementalDatum w hsd ->
+      w `seq` getOriginalScriptDataBytes hsd `seq` forceScriptData (getScriptData hsd)
+
+  forceRefScript :: ()
+  forceRefScript = case refScript of
+    ReferenceScriptNone -> ()
+    ReferenceScript w (ScriptInAnyLang lang script) ->
+      -- Hashing serializes the script, which forces the whole AST.
+      w `seq` lang `seq` hashScript script `seq` ()
+
+forceScriptData :: ScriptData -> ()
+forceScriptData = \case
+  ScriptDataConstructor i args -> i `seq` List.foldl' (\() d -> forceScriptData d) () args
+  ScriptDataMap pairs -> List.foldl' (\() (k, v) -> forceScriptData k `seq` forceScriptData v) () pairs
+  ScriptDataList ds -> List.foldl' (\() d -> forceScriptData d) () ds
+  ScriptDataNumber n -> n `seq` ()
+  ScriptDataBytes bs -> bs `seq` ()
