@@ -700,6 +700,17 @@ instance GHC.Classes.Eq Hydra.Node.InputQueueSpec.DummyInput
 -- | Test the real networking layer
 module Hydra.NetworkSpec
 spec :: Spec
+
+-- | The etcd tests, kept out of <a>spec</a> so that test/Main.hs can turn
+--   them into a tasty group of their own and run them one at a time.
+--   
+--   They must not run concurrently: each starts etcd on a port obtained by
+--   binding a socket, reading the assigned port and closing it again, so
+--   two at once can be handed the same port, or one test's peer port can
+--   be another's derived client port. Whichever etcd binds second dies
+--   with EADDRINUSE, which <a>withEtcdNetwork</a> turns straight into a
+--   failure.
+etcdSpec :: Spec
 lo :: IsString s => s
 
 -- | Run a TCP proxy in front of an etcd client port that reproduces

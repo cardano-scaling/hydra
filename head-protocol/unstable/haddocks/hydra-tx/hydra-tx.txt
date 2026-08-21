@@ -95,10 +95,20 @@ usedExecutionUnits :: EvaluationReport -> ExecutionUnits
 -- | Estimate minimum fee for given transaction and evaluated redeemers.
 --   Instead of using the budgets from the transaction (which are usually
 --   set to 0 until balancing), this directly computes the fee from
---   transaction size and the units of the <a>EvaluationReport</a>. Note
---   that this function likely under-estimates cost as we have no witnesses
---   on this <a>Tx</a>.
-estimateMinFeeWith :: PParams LedgerEra -> Tx -> EvaluationReport -> Coin
+--   transaction size, the units of the <a>EvaluationReport</a>, and the
+--   Conway reference-script charge.
+--   
+--   The reference-script term is the ledger's own
+--   <tt>tierRefScriptFee</tt> over the scripts reachable from the given
+--   <a>UTxO</a>, so it tracks <tt>minFeeRefScriptCostPerByte</tt> and the
+--   tiering rule exactly. It matters for every Hydra protocol transaction,
+--   which supplies its validator by reference from the script registry
+--   rather than inline.
+--   
+--   NOTE: This still under-estimates slightly, as there are no witnesses
+--   on this <a>Tx</a> yet; use the ledger's <tt>calcMinFeeTx</tt> (as
+--   <a>Wallet</a> does) when the actual fee to pay is needed.
+estimateMinFeeWith :: PParams LedgerEra -> UTxO -> Tx -> EvaluationReport -> Coin
 instance GHC.Show.Show Hydra.Ledger.Cardano.Evaluate.EvaluationError
 
 
@@ -646,7 +656,6 @@ generateSigningKey :: ByteString -> Secret (SigningKey HydraKey)
 -- | Verify a given 'Signature a' and value <tt>a</tt> using provided
 --   <a>VerificationKey</a>.
 verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
-deserialiseFromRawBytesBase16 :: SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
 
 -- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a

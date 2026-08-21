@@ -182,6 +182,9 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseUsed.CloseMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseUsed.CloseMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseUsed.CloseMutation
 
+module Hydra.Ledger.Cardano.EvaluateSpec
+spec :: Spec
+
 module Hydra.Tx.Contract.Close.CloseUnused
 healthyCurrentSnapshotNumber :: SnapshotNumber
 healthyCurrentSnapshotVersion :: SnapshotVersion

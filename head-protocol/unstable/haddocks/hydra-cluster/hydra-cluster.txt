@@ -620,6 +620,17 @@ waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty H
 waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 
+-- | Wait for the node's confirmed snapshot to hold exactly the given
+--   <a>UTxO</a>.
+--   
+--   NOTE: <tt><i>snapshot</i>utxo</tt> serves the latest confirmed
+--   snapshot, which can still predate an increment or decommit just after
+--   its finalisation event. Sampling it once therefore races on a slow
+--   machine, reporting the UTxO as it was one snapshot ago. The last value
+--   seen is kept so that a genuine mismatch is still reported as a
+--   mismatch, rather than as a bare timeout.
+waitForSnapshotUTxO :: HasCallStack => NominalDiffTime -> HydraClient -> UTxO -> IO ()
+
 -- | Wait up to some time for an API server output to match the given
 --   predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
