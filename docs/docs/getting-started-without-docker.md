@@ -159,7 +159,7 @@ Connect to the nodes using hydra-tui.
 ```
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key devnet/credentials/alice-funds.sk \
+  --funds-signing-key devnet/credentials/alice-funds.sk \
   --fuel-key devnet/credentials/alice.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
@@ -172,7 +172,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4002 \
-  --cardano-signing-key devnet/credentials/bob-funds.sk \
+  --funds-signing-key devnet/credentials/bob-funds.sk \
   --fuel-key devnet/credentials/bob.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket
@@ -185,7 +185,7 @@ hydra-tui \
 ```
 hydra-tui \
   --connect 0.0.0.0:4003 \
-  --cardano-signing-key devnet/credentials/carol-funds.sk \
+  --funds-signing-key devnet/credentials/carol-funds.sk \
   --fuel-key devnet/credentials/carol.vk \
   --testnet-magic 42 \
   --node-socket devnet/node.socket

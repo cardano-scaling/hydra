@@ -145,7 +145,7 @@ Gotchas when running mirror nodes:
 
 ### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees — the ada held by this key is what we call **fuel** (see [Fuel vs funds](#fuel-vs-funds)). Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 

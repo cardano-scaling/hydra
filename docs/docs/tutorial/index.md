@@ -217,7 +217,7 @@ source <(cardano-cli --bash-completion-script cardano-cli)
 
 ## Step 2. Prepare keys and funding
 
-First, generate Cardano key pairs and addresses for both participants to identify the `hydra-node` and manage funds on layer 1:
+First, generate two Cardano key pairs and addresses for each participant on layer 1: a `-node` key that identifies the `hydra-node` on-chain and pays the fees for protocol transactions (the ada it holds is called **fuel**), and a `-funds` key holding the ada you commit into the head:
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';

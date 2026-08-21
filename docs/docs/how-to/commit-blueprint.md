@@ -117,7 +117,7 @@ Now you can start `hydra-tui` and initialize the `head`:
 ```shell
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key hydra-cluster/config/credentials/alice-funds.sk \
+  --funds-signing-key hydra-cluster/config/credentials/alice-funds.sk \
   --testnet-magic 1 \
   --node-socket testnets/preprod/node.socket
 ```

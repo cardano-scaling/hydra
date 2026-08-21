@@ -167,7 +167,7 @@ In another **new terminal**, start the `hydra-tui`.
 ```shell
 hydra-tui \
   --connect 0.0.0.0:4001 \
-  --cardano-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
+  --funds-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
 ```
 In the TUI, press `i` to initialize the Head. The head opens immediately. You can quit the TUI (`q`) and proceed.
 

@@ -138,7 +138,7 @@ if not session:
         send_cmd(hydra_tui_pane_alice, ' '.join([
              'hydra-tui',
              '--connect', '0.0.0.0:4001',
-             '--cardano-signing-key', 'devnet/credentials/alice.sk',
+             '--funds-signing-key', 'devnet/credentials/alice-funds.sk',
              '--testnet-magic', '42',
              '--node-socket', 'devnet/node.socket',
             ]))
@@ -147,7 +147,7 @@ if not session:
         send_cmd(hydra_tui_pane_bob, ' '.join([
             'hydra-tui',
             '--connect', '0.0.0.0:4002',
-            '--cardano-signing-key', 'devnet/credentials/bob.sk',
+            '--funds-signing-key', 'devnet/credentials/bob-funds.sk',
             '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
@@ -156,7 +156,7 @@ if not session:
         send_cmd(hydra_tui_pane_carol, ' '.join([
             'hydra-tui',
             '--connect', '0.0.0.0:4003',
-            '--cardano-signing-key', 'devnet/credentials/carol.sk',
+            '--funds-signing-key', 'devnet/credentials/carol-funds.sk',
             '--testnet-magic', '42',
             '--node-socket', 'devnet/node.socket',
             ]))
