@@ -269,9 +269,10 @@ evaluateTx' = evaluateTxWith' systemStart epochInfo pparams
 -- test fixtures from this module for protocol parameters.
 --
 -- __NOTE__: This should only be used for /testing/ or /benchmarking/ purposes.
--- For production use, prefer 'estimateMinFeeWith' from "Hydra.Ledger.Cardano.Evaluate"
--- with explicit protocol parameters.
+-- 'estimateMinFeeWith' (which this wraps with the fixture protocol parameters)
+-- is itself an under-estimate; see its documentation.
 estimateMinFee ::
+  UTxO ->
   Tx ->
   EvaluationReport ->
   Coin

@@ -125,7 +125,7 @@
                     --connect 0.0.0.0:4001 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.funds.sk}" \
+                    --funds-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.funds.sk}" \
                     --fuel-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}"
                 '';
               };
@@ -141,7 +141,7 @@
                   --connect 0.0.0.0:4002 \
                   --node-socket devnet/node.socket \
                   --testnet-magic 42 \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.funds.sk}" \
+                  --funds-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.funds.sk}" \
                   --fuel-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}"
                 '';
               };
@@ -157,7 +157,7 @@
                     --connect 0.0.0.0:4003 \
                     --node-socket devnet/node.socket \
                     --testnet-magic 42 \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.funds.sk}" \
+                    --funds-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.funds.sk}" \
                     --fuel-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}"
                 '';
               };

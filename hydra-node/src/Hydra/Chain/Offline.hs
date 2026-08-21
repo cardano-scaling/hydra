@@ -57,12 +57,10 @@ instance Exception InitialUTxOParseException where
 -- Throws: 'InitialUTxOParseException' if the initial UTXO file could not be parsed.
 loadGenesisFile :: Maybe FilePath -> IO (GenesisParameters ShelleyEra)
 loadGenesisFile ledgerGenesisFile =
-  -- TODO: uses internal cardano-api lib
   fromShelleyGenesis
     <$> case ledgerGenesisFile of
       Nothing -> do
         now <- getCurrentTime
-        -- TODO: uses internal cardano-api lib
         pure shelleyGenesisDefaults{sgSystemStart = now}
       Just fp -> do
         jsonVal <- Aeson.eitherDecodeFileStrict fp >>= either fail pure -- just crash if we can't read the file

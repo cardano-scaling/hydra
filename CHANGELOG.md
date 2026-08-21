@@ -76,6 +76,15 @@ changes.
   time conversions.
   [#2803](https://github.com/cardano-scaling/hydra/pull/2803)
 
+- **BREAKING** (`hydra-tui`) Renamed `--cardano-signing-key` to
+  `--funds-signing-key`, to distinguish it from the existing `--fuel-key` and to
+  make clear it is the key holding the funds you commit into the head. The old
+  name is removed, so update your command lines. The `hydra-node`
+  `--cardano-signing-key` and `--cardano-verification-key` options are
+  unchanged: that key is the participant's layer 1 identity, not just a source
+  of fuel.
+  [#2405](https://github.com/cardano-scaling/hydra/issues/2405)
+
 - **BREAKING**:
     - --deposit-period is now a protocol parameter embedded on-chain at Init time.
       All nodes in a head must configure the same value; a mismatch causes the node
@@ -149,6 +158,39 @@ changes.
 - `maxTxsPerSnapshot` raised from 100 to 1000 (leader-side only, no
   coordinated upgrade required).
   [#2777](https://github.com/cardano-scaling/hydra/pull/2777)
+
+- `hydra-node --version` reports the actual git revision again. The placeholder
+  that `Hydra.Version` compared the embedded revision against had drifted from
+  the one in `cbits/revision.c` and the nix build since 2023, so every binary
+  not patched by nix printed
+  `2.3.0-0000000001000000000100000000010000000001` instead of its revision.
+  Binaries from a nix release build were unaffected.
+  [#2825](https://github.com/cardano-scaling/hydra/pull/2825)
+
+- The WebSocket API treats `?address=` carrying an empty value as no filter,
+  rather than as a filter that matches nothing. A client connecting that way
+  previously received no `TxValid`, `TxInvalid` or `SnapshotConfirmed` output
+  at all, with nothing to indicate why. A malformed query string no longer
+  raises a parse error while the connection is being set up either; it falls
+  back to the default output configuration.
+  [#2825](https://github.com/cardano-scaling/hydra/pull/2825)
+
+- A `last-known-revision` file that holds no revision now fails loudly, naming
+  the file and saying to delete it to re-sync from the last compacted revision.
+  It used to be read as revision 0, silently rewinding the etcd watch to the
+  start of history.
+  [#2825](https://github.com/cardano-scaling/hydra/pull/2825)
+
+- The published transaction cost table now includes Conway's reference-script
+  fee, which every Hydra protocol transaction pays because it supplies its
+  validator by reference from the script registry. The estimate omitted the
+  term entirely and so under-reported by roughly 30% (0.4532₳ against 0.6453₳
+  for a single-party close transaction). Only the reported estimate changes;
+  the fee a node actually pays is computed by the ledger and was always
+  correct. The fee column now also rounds rather than truncates, so a handful
+  of rows read 0.01 higher: truncating under-reports a minimum fee, and
+  rounding is what the cost-difference comment already did.
+  [#2825](https://github.com/cardano-scaling/hydra/pull/2825)
 
 ## [2.3.0] - 2026.07.15
 

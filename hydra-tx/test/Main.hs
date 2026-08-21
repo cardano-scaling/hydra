@@ -2,6 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
+import Hydra.Ledger.Cardano.EvaluateSpec qualified
 import Hydra.Tx.AccumulatorSpec qualified
 import Hydra.Tx.ContestationPeriodSpec qualified
 import Hydra.Tx.Contract.ContractSpec qualified
@@ -19,6 +20,7 @@ main =
     [ testSpec "Accumulator" Hydra.Tx.AccumulatorSpec.spec
     , testSpec "ContestationPeriod" Hydra.Tx.ContestationPeriodSpec.spec
     , testSpec "Contract" Hydra.Tx.Contract.ContractSpec.spec
+    , testSpec "Evaluate" Hydra.Ledger.Cardano.EvaluateSpec.spec
     , testSpec "HeadId" Hydra.Tx.HeadIdSpec.spec
     , testSpec "IsTx" Hydra.Tx.IsTxSpec.spec
     , testSpec "KZGTrustedSetup" Hydra.Tx.KZGTrustedSetupSpec.spec

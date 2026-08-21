@@ -62,7 +62,7 @@ withClient ::
   IsChainState tx =>
   Options ->
   ClientComponent tx IO a
-withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, cardanoNetworkId, cardanoConnection, apiEncoding} callback action = do
+withClient Options{hydraNodeHost = Host{hostname, port}, fundsSigningKey, cardanoNetworkId, cardanoConnection, apiEncoding} callback action = do
   sk <- readExternalSk
   q <- newLabelledTBQueueIO "tui-client-queue" 10
   withAsyncLabelled ("client-reconnect", reconnect $ client q) $ \thread -> do
@@ -77,7 +77,7 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
         , recoverCommit = recoverCommit'
         }
  where
-  readExternalSk = mkSecret <$> readFileTextEnvelopeThrow cardanoSigningKey
+  readExternalSk = mkSecret <$> readFileTextEnvelopeThrow fundsSigningKey
 
   queryString = case apiEncoding of
     JsonEncoding -> "/?history=yes"

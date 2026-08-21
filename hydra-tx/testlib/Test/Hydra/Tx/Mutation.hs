@@ -153,7 +153,6 @@ import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins qualified as PlutusTx
-import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -683,9 +682,10 @@ addPTWithQuantity tx quantity =
     <$>
     -- NOTE: We do not expect Ada or any other assets to be minted, so
     -- we can take the policy id from the head
-    case Prelude.head $ toList mintedValue of
-      (AdaAssetId, _) -> error "unexpected mint of Ada"
-      (AssetId pid _an, _) -> do
+    case toList mintedValue of
+      [] -> error "no minted value to take a policy id from"
+      (AdaAssetId, _) : _ -> error "unexpected mint of Ada"
+      (AssetId pid _an, _) : _ -> do
         -- Some arbitrary token name, which could correspond to a pub key hash
         pkh <- arbitrary
         pure $ mintedValue <> fromList [(AssetId pid pkh, quantity)]

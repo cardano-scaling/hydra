@@ -145,7 +145,7 @@ Gotchas when running mirror nodes:
 
 ### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees â€” the ada held by this key is what we call **fuel** (see [Fuel vs funds](#fuel-vs-funds)). Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 
@@ -197,7 +197,7 @@ The default contestation period is **12 hours (43200 seconds)**, aligned with Ca
 On mainnet, the contestation period should be **at least 12 hours**. Shorter periods may not provide sufficient time for dispute resolution due to Cardano's consensus security parameters. See [#2389](https://github.com/cardano-scaling/hydra/issues/2389) for details.
 :::
 
-The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](pathname:///haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
+The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](pathname:///haddocks/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 
 :::warning Invalid `Close` and `Contest` transactions
 
@@ -390,7 +390,7 @@ While the `hydra-node` needs to pay fees for protocol transactions, any wallet c
  - A set of `UTXO` outputs to deposit (belonging to public keys), or
  - A _blueprint_ transaction along with the `UTXO` that resolves it.
 
-This endpoint returns a deposit transaction, which is balanced, and all fees are paid by the `hydra-node`. The wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+This endpoint returns a deposit transaction, which is balanced, and all fees are paid by the `hydra-node`. The wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference#operation-publish-/commit) for details.
 
 For more details, refer to the [how to deposit funds](./how-to/incremental-commit) guide.
 
@@ -402,7 +402,7 @@ Hydra node can talk to cardano-node directly or it can be used with the [`Blockf
 
 #### Through a cardano-node
 
-When using a direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/running-cardano), or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
+When using a direct connection to a [`cardano-node`](https://github.com/input-output-hk/cardano-node/) please refer to existing documentation on starting a node, for example on [developers.cardano.org](https://developers.cardano.org/docs/get-started/cardano-node/running-cardano), or [use Mithril](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) to bootstrap the local node.
 
 To specify how to connect to the local `cardano-node`, use `--node-socket` and `--testnet-magic`:
 
@@ -448,7 +448,7 @@ Hydra supports an offline mode that allows for disabling the layer 1 interface â
 
 As an offline head will not connect to any chain, we need to provide an `--offline-head-seed` manually, which is a hexadecimal byte string. Offline heads can still use the L2 network and to make multiple `hydra-node` "see" the same offline head, the offline head seed needs to match along with provided [hydra keys](#hydra-keys).
 
-To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](pathname:///api-reference/#schema-UTxO) for the schema.
+To initialize UTxO state available on the L2 ledger, offline mode takes an obligatory `--initial-utxo` parameter, which points to a JSON-encoded UTxO file. See the [API reference](pathname:///api-reference#schema-UTxO) for the schema.
 
 For example, the following UTxO contains 100 ADA owned by test key [alice-funds.sk](https://github.com/cardano-scaling/hydra/tree/master/hydra-cluster/config/credentials/alice-funds.sk):
 ```json utxo.json
@@ -528,7 +528,7 @@ The response mirrors the YAML config file format (kebab-case keys, same hierarch
 }
 ```
 
-This is useful for verifying that all paths were resolved correctly, that CLI flags took effect, and for debugging configuration issues. The full schema is described in the [API reference](pathname:///api-reference/#operation-subscribe-/config).
+This is useful for verifying that all paths were resolved correctly, that CLI flags took effect, and for debugging configuration issues. The full schema is described in the [API reference](pathname:///api-reference#operation-subscribe-/config).
 
 :::caution
 

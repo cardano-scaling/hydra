@@ -27,8 +27,9 @@ import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.ClientInput (ClientInput (Init))
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (ApiMessage (..), InvalidInput (..), input)
+import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), InvalidInput (..), ServerOutputConfig (..), WithAddressedTx (..), WithUTxO (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
+import Hydra.API.WSServer (mkServerOutputConfig, queryParamsOf, shouldServeHistory)
 import Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
@@ -179,15 +180,24 @@ spec =
             withFreePort $ \port ->
               withTestAPIServer port alice (mockSource history) tracer $ \(EventSink{putEvent}, _) -> do
                 mapM_ putEvent history
-                -- start client that doesn't want to see the history
-                withClient port "/?history=yes" $ \conn -> do
-                  -- Wait on the greeting message. The longer-than-typical
-                  -- budget here is because this is a property test running
-                  -- ~100 iterations; each iteration spins up a full WS
-                  -- server, and the per-iteration 5s default was racing
-                  -- with CPU contention when the full hydra-node test
+                -- start client that doesn't want to see the history. Passing
+                -- 'history=no' and passing nothing at all take the same branch
+                -- of 'shouldServeHistory', so this covers the default too.
+                withClient port "/?history=no" $ \conn -> do
+                  -- NOTE: Assert on the *first* message rather than draining up
+                  -- to the greeting. 'wsApp' forwards history before the
+                  -- greeting, so a 'waitMatch' for the greeting would swallow
+                  -- any replay and pass whether or not history was served.
+                  --
+                  -- The longer-than-typical budget here is because this is a
+                  -- property test running ~100 iterations; each iteration spins
+                  -- up a full WS server, and the per-iteration 5s default was
+                  -- racing with CPU contention when the full hydra-node test
                   -- suite runs in parallel.
-                  waitMatch 20 conn $ guard . matchGreetings
+                  greeting <- failAfter 20 $ receiveData conn
+                  case Aeson.eitherDecode greeting of
+                    Left{} -> failure $ "Failed to decode greeting:\n" <> show greeting
+                    Right (v :: Value) -> v `shouldSatisfy` matchGreetings
 
                   notHistoryMessage :: StateEvent SimpleTx <- generate genStateEventForApi
                   putEvent notHistoryMessage
@@ -195,7 +205,7 @@ spec =
                   -- Receive one more message. The messages we sent
                   -- before client connected are ignored as expected and client can
                   -- see only this last sent message.
-                  received <- replicateM 1 (receiveData conn)
+                  received <- failAfter 20 $ replicateM 1 (receiveData conn)
 
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
@@ -374,6 +384,45 @@ spec =
                     Right (ApiInvalidInput InvalidInput{input = echoed}) ->
                       echoed `shouldBe` encodeBase16 garbage
                     Right other -> failure $ "Expected ApiInvalidInput, but got: " <> show other
+
+    describe "connection query string" $ do
+      let configFor = mkServerOutputConfig . queryParamsOf
+          addressIn = addressInTx . configFor
+          utxoIn = utxoInSnapshot . configFor
+          encodingIn = encoding . configFor
+
+      it "filters on the given address" $
+        addressIn "/?address=addr_test1vp" `shouldBe` WithAddressedTx "addr_test1vp"
+
+      -- An empty filter would match nothing, since addresses are compared
+      -- exactly, and the client would silently see no transaction outputs.
+      it "ignores an address without a value" $ do
+        addressIn "/?address=" `shouldBe` WithoutAddressedTx
+        addressIn "/?address" `shouldBe` WithoutAddressedTx
+
+      it "skips valueless addresses in favour of a later one" $
+        addressIn "/?address&address=addr_test1vp" `shouldBe` WithAddressedTx "addr_test1vp"
+
+      it "omits the snapshot utxo on request" $ do
+        utxoIn "/?snapshot-utxo=no" `shouldBe` WithoutUTxO
+        utxoIn "/" `shouldBe` WithUTxO
+
+      it "switches to CBOR on request" $ do
+        encodingIn "/?encoding=cbor" `shouldBe` CborEncoding
+        encodingIn "/" `shouldBe` JsonEncoding
+
+      -- Replay is opt-in: only an explicit 'yes' turns it on, so 'history=no'
+      -- and no parameter at all behave identically.
+      it "serves history on request" $ do
+        shouldServeHistory (queryParamsOf "/?history=yes") `shouldBe` True
+        shouldServeHistory (queryParamsOf "/?history=no") `shouldBe` False
+        shouldServeHistory (queryParamsOf "/") `shouldBe` False
+
+      -- A malformed query used to raise a parse exception during connection
+      -- setup; now it just leaves the client with the defaults.
+      it "falls back to the defaults on a malformed query" $
+        configFor "/?%%&=&address"
+          `shouldBe` ServerOutputConfig{utxoInSnapshot = WithUTxO, addressInTx = WithoutAddressedTx, encoding = JsonEncoding}
 
     describe "TLS support" $ do
       it "accepts TLS connections when configured" $ do

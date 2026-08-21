@@ -139,6 +139,7 @@ import HydraNode (
   waitForNodesConnected,
   waitForNodesDisconnected,
   waitForNodesSynced,
+  waitForSnapshotUTxO,
   waitMatch,
   withConnectionToNode,
   withHydraCluster,
@@ -415,7 +416,7 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
       waitFor hydraTracer (depositTimeout timing) [n1, n2] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-      getSnapshotUTxO n1 `shouldReturn` commitUTxO
+      waitForSnapshotUTxO (depositTimeout timing) n1 commitUTxO
 
       let aliceAddress = mkVkAddress networkId aliceCardanoVk
 
@@ -681,7 +682,7 @@ canDeposit tracer workDir opts hydraScriptsTxId =
 
         waitFor hydraTracer (depositTimeout timing) [n1] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
-        getSnapshotUTxO n1 `shouldReturn` utxoToDeposit
+        waitForSnapshotUTxO (depositTimeout timing) n1 utxoToDeposit
 
 singlePartyUsesScriptOnL2 ::
   Tracer IO EndToEndLog ->
@@ -912,7 +913,7 @@ canDepositScriptBlueprint tracer workDir opts hydraScriptsTxId =
       let expectedDeposit = constructDepositUTxO (getTxId (getTxBody blueprint)) (txOuts' blueprint)
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody commitTx)]
-      getSnapshotUTxO n1 `shouldReturn` expectedDeposit
+      waitForSnapshotUTxO (depositTimeout timing) n1 expectedDeposit
  where
   prepareScriptPayload lovelaceAmt = do
     networkId <- runBackend opts queryNetworkId
@@ -956,6 +957,10 @@ persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
       headId' <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
       headId' `shouldBe` headId
 
+      -- NOTE: Deliberately sampled once rather than via 'waitForSnapshotUTxO'.
+      -- This asserts a steady state (nothing was committed), and an empty
+      -- snapshot is also what a node that has not finished loading reports, so
+      -- polling for it would succeed immediately and assert nothing.
       getSnapshotUTxO n1 `shouldReturn` mempty
 
 -- | Initialize open and close a head on a real network and ensure contestation
@@ -1301,7 +1306,7 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
                 v ^? key "depositTxId" >>= parseMaybe parseJSON
           seenTxIds `shouldBe` expectedTxIds
 
-          getSnapshotUTxO n1 `shouldReturn` commitUTxO <> commitUTxO2
+          waitForSnapshotUTxO (depositTimeout timing) n1 (commitUTxO <> commitUTxO2)
 
           send n2 $ input "Close" []
           deadline <- waitMatch (10 * blockTime) n2 $ \v -> do
@@ -1412,7 +1417,7 @@ canDepositPartially tracer workDir opts hydraScriptsTxId =
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
-      getSnapshotUTxO n1 `shouldReturn` depositedUTxO
+      waitForSnapshotUTxO (depositTimeout timing) n1 depositedUTxO
       (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
         `shouldReturn` lovelaceToValue (seedAmount - commitAmount)
 
@@ -1702,7 +1707,7 @@ canDecommit tracer workDir opts hydraScriptsTxId =
       expectSuccessOnSignedDecommitTx n1 headId decommitTx
 
       -- After decommit Head UTxO should not contain decommitted outputs and wallet owns the funds on L1
-      getSnapshotUTxO n1 `shouldReturn` headUTxO
+      waitForSnapshotUTxO (10 * blockTime) n1 headUTxO
       (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
         `shouldReturn` lovelaceToValue commitAmount
 
