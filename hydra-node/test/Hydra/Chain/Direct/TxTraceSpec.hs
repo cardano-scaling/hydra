@@ -608,21 +608,24 @@ type instance Realized AppM a = a
 -- only.
 instance RunModel Model AppM where
   perform Model{currentVersion} action _lookupVar = do
+    -- The deposit an increment may claim; also bound into every snapshot
+    -- signature, see 'signedSnapshot'.
+    (depositTxId, _) <- get
     case action of
       deposit@Deposit{utxoToDeposit} -> do
         tx <- newDepositTx deposit utxoToDeposit
         performTx deposit tx
       i@Increment{actor, snapshot} -> do
-        tx <- newIncrementTx actor (confirmedSnapshot snapshot)
+        tx <- newIncrementTx actor (confirmedSnapshot depositTxId snapshot)
         performTx i tx
       d@Decrement{actor, snapshot} -> do
-        tx <- newDecrementTx actor (confirmedSnapshot snapshot)
+        tx <- newDecrementTx actor (confirmedSnapshot depositTxId snapshot)
         performTx d tx
       c@Close{actor, snapshot} -> do
-        tx <- newCloseTx actor currentVersion (confirmedSnapshot snapshot)
+        tx <- newCloseTx actor currentVersion (confirmedSnapshot depositTxId snapshot)
         performTx c tx
       c@Contest{actor, snapshot} -> do
-        tx <- newContestTx actor currentVersion (confirmedSnapshot snapshot)
+        tx <- newContestTx actor currentVersion (confirmedSnapshot depositTxId snapshot)
         performTx c tx
       f@Fanout{utxo, alphaUTxO, omegaUTxO} -> do
         tx <- newFanoutTx Alice utxo alphaUTxO omegaUTxO
@@ -744,8 +747,8 @@ realWorldModelUTxO =
 
 -- | A correctly signed snapshot. Given a snapshot number a snapshot signed by
 -- all participants (alice, bob and carol) with some UTxO contained is produced.
-signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
-signedSnapshot ms =
+signedSnapshot :: Maybe TxId -> ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot depositTxId ms =
   (snapshot, signatures)
  where
   snapshot =
@@ -757,6 +760,9 @@ signedSnapshot ms =
       , utxo
       , utxoToCommit
       , utxoToDecommit
+      , -- The increment validator recomputes the signed commit hash from the
+        -- deposit it claims, so this must be the deposit the model tracks.
+        depositTxId = depositTxId <* utxoToCommit
       , accumulator
       }
 
@@ -776,8 +782,8 @@ signedSnapshot ms =
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
-confirmedSnapshot :: ModelSnapshot -> ConfirmedSnapshot Tx
-confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
+confirmedSnapshot :: Maybe TxId -> ModelSnapshot -> ConfirmedSnapshot Tx
+confirmedSnapshot depositTxId modelSnapshot@ModelSnapshot{number} =
   case number of
     0 ->
       InitialSnapshot
@@ -787,7 +793,7 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where
-      (snapshot, signatures) = signedSnapshot modelSnapshot
+      (snapshot, signatures) = signedSnapshot depositTxId modelSnapshot
 
 -- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId, parties, and cperiod.
 openHeadUTxO :: UTxO
@@ -847,9 +853,9 @@ newIncrementTx actor snapshot = do
   case utxoToCommit of
     Nothing -> pure $ Left SnapshotMissingIncrementUTxO
     Just _ -> do
-      (depositTxId, spendableUTxO) <- get
+      -- NOTE: the deposit to claim comes from the snapshot itself, see 'increment'.
+      (_, spendableUTxO) <- get
       let slotNo = SlotNo 0
-      let txid = fromMaybe (error "No deposit txid") depositTxId
       pure $
         increment
           (actorChainContext actor)
@@ -857,7 +863,6 @@ newIncrementTx actor snapshot = do
           (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
           Fixture.testHeadParameters
           snapshot
-          txid
           slotNo
 
 -- | Creates a decrement transaction using given utxo and given snapshot.

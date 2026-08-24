@@ -121,6 +121,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
+                    , depositTxId = Nothing
                     , version = snapshotVersion
                     , accumulator
                     }
@@ -275,6 +276,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = utxoToDecommit
+                    , depositTxId = Nothing
                     , version = 0
                     , accumulator
                     }
@@ -300,6 +302,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
+                    , depositTxId = Nothing
                     , version = 1
                     , accumulator
                     }

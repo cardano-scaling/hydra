@@ -26,6 +26,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
+import Data.ByteString qualified as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest,
@@ -68,11 +69,12 @@ import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
-import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot, SnapshotNumber, SnapshotVersion)
+import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Snapshot (snapshotCBORTag, snapshotCBORTagV1)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.API.ServerOutput ()
@@ -196,6 +198,30 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @(SubmitL2TxRequest Tx)
     roundtripCBOR $ Proxy @SubmitL2TxResponse
     roundtripCBOR $ Proxy @OperationTimedOut
+
+  -- 'Snapshot' gained 'depositTxId' between two released layouts. Its fields are
+  -- a bare concatenation, so only the leading tag tells them apart and a node
+  -- must keep decoding the older one to replay an event log written before the
+  -- field existed.
+  describe "Snapshot layouts" $ do
+    let snapshot = generateWith (resize 5 arbitrary) 42 :: Snapshot Tx
+        Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit} = snapshot
+
+    it "writes the current layout under a tag of its own" $
+      serialize' snapshot `shouldSatisfy` BS.isPrefixOf (serialize' snapshotCBORTag)
+
+    it "decodes the layout written before depositTxId existed" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR snapshotCBORTagV1
+                <> toCBOR headId
+                <> toCBOR version
+                <> toCBOR number
+                <> toCBOR confirmed
+                <> toCBOR utxo
+                <> toCBOR utxoToCommit
+                <> toCBOR utxoToDecommit
+      decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
 
   describe "protocol types" $ do
     roundtripCBOR $ Proxy @(Snapshot Tx)

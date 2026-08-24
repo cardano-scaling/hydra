@@ -15,6 +15,40 @@ changes.
   headers), keeping JSON as the default.
   [#2543](https://github.com/cardano-scaling/hydra/issues/2543)
 
+- Snapshots now carry the `depositTxId` of the deposit they commit and bind it
+  into the signature alongside the committed outputs, so an increment can only
+  claim the exact deposit the parties approved rather than any other one
+  recording the same UTxO. Snapshot JSON gains an optional `depositTxId`.
+  * The deposit validator additionally requires the head's increment redeemer to
+    name the deposit being claimed (`D09`), and the head validator requires the
+    claimed deposit to be the first output of its transaction (`H69`).
+  * A recover transaction now spends a single deposit (`D10`). The recovered
+    outputs are the transaction's first `n`, shared by every deposit input, so
+    two deposits recording the same UTxO were both satisfied by one set of them.
+  * `hydra-node` no longer observes a deposit that is not its transaction's first
+    output, nor one whose recorded commits cannot be reproduced from the observed
+    UTxO. Deposits it drafts are always observable; one built elsewhere that is
+    not stays recoverable only by a transaction reproducing its outputs exactly.
+
+- A snapshot now settles a commit or a decommit, never both, and a decommit must
+  materialize at least one output. Close and fan out carry a single incremental
+  action, so a snapshot with both could not be closed; and the decrement
+  validator requires an output, so an empty decommit could not settle. Requests
+  for either are rejected, and a leader with both pending sends the commit first.
+
+- **Breaking**: script hashes change for the head validator, head minting policy
+  and deposit validator, and so does the snapshot signature payload. Earlier
+  nodes and published scripts are not compatible. Close and fan out any open
+  heads before upgrading — a node that upgrades while a head is open can no
+  longer interact with it, and a snapshot signed before this change fails
+  verification. In particular, a head carrying a pending commit across the
+  upgrade can neither increment (the confirmed snapshot names no deposit) nor
+  close (its signatures cover the old message), so it has to be drained first.
+  Persisted history from earlier versions still replays: snapshot JSON decodes a
+  missing `depositTxId` as absent, and the CBOR codec keeps a decoder for the
+  layout written before the field existed, so upgrading a node whose heads are
+  already closed is unaffected.
+
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
   head short a party. etcd's gRPC server raises its receive window as inbound

@@ -22,6 +22,7 @@ import Hydra.Tx (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  commitOutputsHash,
   getSnapshot,
   mkHeadId,
   registryUTxO,
@@ -92,6 +93,12 @@ healthyCommitAppliedOpenVersion = healthyCommitAppliedSnapshotVersion + 1
 healthyDepositUTxO :: UTxO
 healthyDepositUTxO = genUTxOSized 3 `generateWith` 42
 
+-- | Identity of the deposit the pending commit originates from, bound into the
+-- snapshot signature. No deposit input is spent by a close transaction, so the
+-- exact id does not matter here as long as signing and verification agree.
+healthyDepositTxId :: TxId
+healthyDepositTxId = arbitrary `generateWith` 42
+
 -- | Snapshot with an applied commit: version is one lower than the open state version.
 -- Exercises the (ToCommit, False) branch of headAdaOverhead computation in closeTx.
 healthyCommitAppliedSnapshot :: Snapshot Tx
@@ -104,6 +111,7 @@ healthyCommitAppliedSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Just healthyDepositUTxO
     , utxoToDecommit = Nothing
+    , depositTxId = Just healthyDepositTxId
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
     }
 
@@ -117,7 +125,7 @@ healthyCommitAppliedDecommitOutputsHash =
 
 healthyCommitAppliedCommitOutputsHash :: Head.Hash
 healthyCommitAppliedCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCommitAppliedSnapshot))
+  toBuiltin $ commitOutputsHash healthyCommitAppliedSnapshot
 
 -- | Commit was applied: both healthySplitUTxOInHead and healthyDepositUTxO are in the head.
 healthyCommitAppliedHeadAdaOverhead :: Integer

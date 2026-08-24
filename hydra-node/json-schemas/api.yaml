@@ -1600,6 +1600,29 @@ components:
           - tag
           - requestedSc
           - lastSeenSc
+        - title: SideLoadDepositTxIdInvalid
+          description: >-
+            The side-loaded snapshot commits the same UTxO as the confirmed one but
+            names a different deposit. The deposit identifies a pending commit, so
+            this is a distinct disagreement from SideLoadUTxOToCommitInvalid.
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadDepositTxIdInvalid"]
+            requestedDeposit:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/TxId"
+                - type: "null"
+            lastSeenDeposit:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/TxId"
+                - type: "null"
+          required:
+          - tag
+          - requestedDeposit
+          - lastSeenDeposit
         - title: SideLoadUTxOToDecommitInvalid
           type: object
           additionalProperties: false
@@ -3127,6 +3150,17 @@ components:
         utxoToCommit:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+        depositTxId:
+          description: >-
+            Transaction which deposited `utxoToCommit` on L1, i.e. the deposit an
+            increment of this snapshot may claim. Bound into the snapshot
+            signature, so the increment cannot claim another deposit. Set
+            alongside `utxoToCommit` by nodes producing snapshots; absent in
+            snapshots written before this field existed, which decode with it
+            null and then fail signature verification.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/TxId"
             - type: "null"
         utxoToDecommit:
           oneOf:

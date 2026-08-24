@@ -41,11 +41,11 @@ import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
@@ -137,6 +137,7 @@ healthySnapshot =
         , utxo
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
+        , depositTxId = Nothing
         , accumulator = healthyAccumulator
         }
 
@@ -205,6 +206,22 @@ data DecrementMutation
     -- Increment's mustPreserveValue summing every non-head script
     -- input.
     DecrementAddExtraDepositInput
+  | -- | Claim zero decommit outputs. Increment and decrement verify the
+    -- same signed message, and with no outputs this branch recomputes
+    -- 'decommitOutputsHash' as the empty-list hash — what a snapshot without a
+    -- pending decommit produces — while taking 'commitOutputsHash' from the
+    -- redeemer. An all-party signature for an increment snapshot would then
+    -- authorize a decrement that advances the version and adopts that snapshot's
+    -- accumulator without any deposit being spent, leaving the head crediting UTxOs
+    -- it does not hold.
+    DecrementZeroDecommitOutputs
+  | -- | The same replay as 'DecrementZeroDecommitOutputs', reached with a
+    -- NON-ZERO count. The redeemer claims one decommit output while the
+    -- transaction carries none, and 'decommitOutputs' is
+    -- @take numberOfDecommitOutputs (tail outputs)@, which truncates silently to
+    -- the empty list. A guard testing the redeemer's count rather than the derived
+    -- list accepts this, so this mutation is what distinguishes the two.
+    DecrementTruncatedDecommitOutputs
   | -- | Minting or burning of tokens should not be possible in decrement.
     MutateTokenMintingOrBurning
   | -- | Ensures deposit-period does not change between head input datum and head output
@@ -236,7 +253,7 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
-              , commitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthySnapshot))
+              , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
@@ -303,6 +320,35 @@ genDecrementMutation (tx, _utxo) =
             , AddScript depositValidatorScript
             , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
             ]
+    , SomeMutation (pure $ toErrorCode DecrementZeroOutputs) DecrementZeroDecommitOutputs . ChangeHeadRedeemer <$> do
+        pure $
+          Head.Decrement
+            Head.DecrementRedeemer
+              { signature = toPlutusSignatures healthySignature
+              , snapshotNumber = fromIntegral healthySnapshotNumber
+              , numberOfDecommitOutputs = 0
+              , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
+              }
+    , SomeMutation (pure $ toErrorCode DecrementZeroOutputs) DecrementTruncatedDecommitOutputs <$> do
+        -- Drop every decommit output, leaving only the head output at index 0, and
+        -- still claim one in the redeemer. 'Changes' folds from the right, so the
+        -- highest index is removed first and the earlier ones do not shift.
+        let removeDecommitOutputs =
+              [ RemoveOutput (fromIntegral i)
+              | i <- [1 .. maybe 0 UTxO.size (utxoToDecommit healthySnapshot)]
+              ]
+        pure $
+          Changes $
+            ChangeHeadRedeemer
+              ( Head.Decrement
+                  Head.DecrementRedeemer
+                    { signature = toPlutusSignatures healthySignature
+                    , snapshotNumber = fromIntegral healthySnapshotNumber
+                    , numberOfDecommitOutputs = 1
+                    , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
+                    }
+              )
+              : removeDecommitOutputs
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]

@@ -134,6 +134,7 @@ party's local state consists of the following variables:
 			      $\bar{\mc S}.\mT$      & list of transactions relating this snapshot to the previous \\ \hline
 			      $\bar{\mc S}.U$        & snapshotted UTxO set                                        \\ \hline
 			      $\bar{\mc S}.U_\alpha$ & pending UTxO to increment                                   \\ \hline
+			      $\bar{\mc S}.\txOutRef_\alpha$ & deposit the pending UTxO to increment comes from    \\ \hline
 			      $\bar{\mc S}.U_\omega$           & pending UTxO to decrement                                        \\ \hline
 			      $\bar{\mc S}.{\eta'}^{\#}$       & hash of the accumulator commitment over the snapshotted UTxO set \\ \hline
 		      \end{tabular}
@@ -244,6 +245,8 @@ Furthermore, the protocol validates the snapshot request by:
 \begin{enumerate}
 	\item If a decommit is requested: verify the transaction is applicable to the
 	      last confirmed UTxO set and update the active utxo set with it
+	\item If a decommit is requested: verify it produces at least one output,
+	      since \mtxDecrement{} materializes the decommit outputs and requires one
 	\item If a deposit is requested: verify the corresponding deposit is
 	      $\text{Active}$ and update the active utxo set with it
 	\item If we are on the same version as the last snapshot, any requested
@@ -260,7 +263,10 @@ $\hydraSigningKey$ on a message comprised by the $\cid$, the new snapshot number
 $\hats$, the new $\eta$ resulting from canonically combining $U$ (see
 Section~\ref{sec:close-tx} for details), and either $\eta_{\alpha}$ or
 $\eta_{\omega}$ derived from deposited $U_{\alpha}$ or decommit transaction
-$\tx_{\omega}$ respectively. The signature is sent to all head members via
+$\tx_{\omega}$ respectively. Note that $\eta_{\alpha}$ covers both $U_{\alpha}$
+and the deposit $\txOutRef_\alpha$ it comes from (see
+Section~\ref{sec:increment-tx}), so the resulting signature authorizes that one
+deposit and no other recording the same UTxO. The signature is sent to all head members via
 message $(\hpAS,\hats,\msSig_i)$. Finally, the local ledger state $\hatmL$ and
 pending transaction set $\hatmT$ get pruned by re-applying all locally pending
 transactions $\hatmT$ to the just requested snapshot's UTxO set iteratively and

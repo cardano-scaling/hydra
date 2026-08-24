@@ -537,7 +537,7 @@ instance Arbitrary HeadParameters where
     dedupParties HeadParameters{contestationPeriod, depositPeriod, parties} =
       HeadParameters{contestationPeriod, depositPeriod, parties = nub parties}
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (Snapshot tx) where
   arbitrary = do
     headId <- arbitrary
     version <- arbitrary
@@ -548,20 +548,32 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot
     utxo <- scale (min cap) arbitrary
     utxoToCommit <- scale (min cap) arbitrary
     utxoToDecommit <- scale (min cap) arbitrary
+    -- A deposit is only identified when there is something to commit.
+    depositTxId <- if isJust utxoToCommit then Just <$> arbitrary else pure Nothing
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit, depositTxId} =
     [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
-       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
+       in Snapshot
+            { headId
+            , version
+            , number
+            , confirmed = confirmed'
+            , utxo = utxo'
+            , utxoToCommit = utxoToCommit'
+            , utxoToDecommit = utxoToDecommit'
+            , depositTxId = if isJust utxoToCommit' then depositTxId else Nothing
+            , accumulator
+            }
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
     , utxoToCommit' <- shrink utxoToCommit
     , utxoToDecommit' <- shrink utxoToDecommit
     ]
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
     let cap = Accumulator.maxAccumulatorSize `div` 3
@@ -569,7 +581,8 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     utxoToCommit <- scale (min cap) arbitrary
     utxoToDecommit <- scale (min cap) arbitrary
     headId <- arbitrary
-    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
+    depositTxId <- if isJust utxoToCommit then Just <$> arbitrary else pure Nothing
+    genConfirmedSnapshot headId 0 0 utxo utxoToCommit depositTxId utxoToDecommit ks
 
   shrink = \case
     InitialSnapshot hid -> [InitialSnapshot hid]
@@ -587,10 +600,13 @@ genConfirmedSnapshot ::
   SnapshotNumber ->
   UTxOType tx ->
   Maybe (UTxOType tx) ->
+  -- | The deposit 'utxoToCommit' comes from. Bound into the signature, so an
+  -- increment built from this snapshot must claim this very deposit.
+  Maybe (TxIdType tx) ->
   Maybe (UTxOType tx) ->
   [Secret (SigningKey HydraKey)] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
+genConfirmedSnapshot headId version minSn utxo utxoToCommit depositTxId utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -604,7 +620,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     number <- arbitrary `suchThat` (> minSn)
     let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
     let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
-        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator}
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

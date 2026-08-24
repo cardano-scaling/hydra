@@ -58,10 +58,11 @@ import PlutusLedgerApi.V3 (
   PubKeyHash (getPubKeyHash),
   ScriptContext (..),
   TokenName (..),
+  TxId (getTxId),
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
-  TxOutRef,
+  TxOutRef (txOutRefId, txOutRefIdx),
   UpperBound (..),
   Value (Value),
   mintValueBurned,
@@ -124,6 +125,8 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
     && claimedDepositIsSpent
+    && mustClaimFirstDepositOutput
+    && mustNotSpendOtherScripts
     && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   inputs = txInfoInputs txInfo
@@ -136,17 +139,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   headInValue = txOutValue (txInInfoResolved headTxIn)
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
 
-  -- Sum of every script input that is not the head input itself.
-  -- Pub-key inputs (e.g. fee payers) are excluded so they don't inflate the
-  -- expected head output value.
-  totalNonHeadInputValue =
-    F.foldMap (txOutValue . txInInfoResolved) $
-      L.filter (\i -> txInInfoOutRef i /= txInInfoOutRef headTxIn && isScriptInput (txInInfoResolved i)) inputs
-
-  isScriptInput txOut =
-    case addressCredential (txOutAddress txOut) of
-      ScriptCredential _ -> True
-      PubKeyCredential _ -> False
+  claimedDepositValue = txOutValue claimedDeposit
 
   IncrementRedeemer{signature, snapshotNumber, increment, decommitOutputsHash} = redeemer
 
@@ -154,29 +147,88 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
+  -- A deposit is the first output of its transaction. This is a protocol-wide
+  -- invariant, not a rule local to this validator: 'Hydra.Tx.Deposit.depositTx'
+  -- builds the deposit there, 'Hydra.Tx.Deposit.observeDepositTx' refuses to
+  -- observe one anywhere else, 'Hydra.Tx.Recover.recoverTx' spends
+  -- @TxIn depositTxId (TxIx 0)@, and the off-chain protocol identifies a deposit
+  -- by transaction id alone throughout ('pendingDeposits', 'ReqSn', 'IncrementTx').
+  --
+  -- It is load-bearing here because 'commitOutputsHash' binds the deposit by
+  -- transaction id: without this check, sibling outputs of the same transaction
+  -- would be interchangeable, since a second output carrying a copied datum but
+  -- less value hashes into the same signed message. Relaxing this — to allow
+  -- deposits at other indices, or several per transaction — therefore requires
+  -- binding the output index into the signed message first.
+  mustClaimFirstDepositOutput =
+    traceIfFalse $(errorCode DepositNotFirstOutput) $
+      txOutRefIdx increment == 0
+
+  -- The head input and the claimed deposit are the only script inputs an
+  -- increment needs.
+  --
+  -- 'mustPreserveValue' is an equality, so it already stops an extra input's value
+  -- being pushed INTO the head. What it cannot see is that value being routed OUT:
+  -- the head output stays correct while the extra input is spent to wherever the
+  -- transaction author likes. For a second deposit that is theft of a pending
+  -- commit, otherwise caught only by the deposit validator's claim binding (D09)
+  -- and single-recover rule (D10). This check is an independent barrier that does
+  -- not rely on either, and extends to any other script.
+  --
+  -- Pub-key inputs are unrestricted, so fees and collateral are unaffected.
+  mustNotSpendOtherScripts =
+    traceIfFalse $(errorCode MustNotSpendOtherScripts) $
+      L.all isHeadOrClaimedDeposit inputs
+   where
+    isHeadOrClaimedDeposit i =
+      txInInfoOutRef i == txInInfoOutRef headTxIn
+        || txInInfoOutRef i == increment
+        || not (isScriptInput (txInInfoResolved i))
+
+    isScriptInput txOut =
+      case addressCredential (txOutAddress txOut) of
+        ScriptCredential _ -> True
+        PubKeyCredential _ -> False
+
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature
 
   -- Bind the exact committed deposit into the multi-signature: recompute the
-  -- commit-outputs hash from the CLAIMED deposit input's own datum, so claiming a
-  -- different deposit than the one parties approved changes the signed message and
-  -- fails signature verification. Without this only aggregate value is checked, and
-  -- a participant could reuse a valid all-party signature while committing a
-  -- different (equal-value) deposit.
-  commitOutputsHash = hashPreSerializedCommits claimedDepositCommits
+  -- commit-outputs hash from the CLAIMED deposit input's own datum AND the id of
+  -- the transaction that created it, so claiming a different deposit than the one
+  -- parties approved changes the signed message and fails signature verification.
+  --
+  -- Hashing the deposit's content alone is not enough. A deposit datum is
+  -- unauthenticated data that anyone can copy, and nothing forces a deposit to
+  -- hold the value its commits describe, so a content-identical look-alike
+  -- deposit hashes the same while carrying less value. Claiming it under a
+  -- signature the parties gave for the real deposit would credit the full
+  -- committed UTxO on L2 against whatever the look-alike actually paid into the
+  -- head. Off-chain (see 'Hydra.Tx.Snapshot') the same hash is built from the
+  -- committed UTxO and the deposit transaction id the parties agreed on.
+  commitOutputsHash =
+    sha2_256 $
+      hashPreSerializedCommits claimedDepositCommits
+        <> getTxId (txOutRefId increment)
 
-  claimedDepositCommits =
+  claimedDeposit =
     case L.find (\i -> txInInfoOutRef i == increment) inputs of
       Nothing -> traceError $(errorCode DepositInputNotFound)
-      Just TxInInfo{txInInfoResolved} ->
-        case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum txInInfoResolved) of
-          Just (_, _, commits) -> commits
-          Nothing -> traceError $(errorCode DepositDatumInvalid)
+      Just TxInInfo{txInInfoResolved} -> txInInfoResolved
+
+  claimedDepositCommits =
+    case fromBuiltinData @(CurrencySymbol, POSIXTime, [Commit]) $ getDatum (getTxOutDatum claimedDeposit) of
+      Just (_, _, commits) -> commits
+      Nothing -> traceError $(errorCode DepositDatumInvalid)
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
+  -- The head grows by exactly the claimed deposit, so no other input can push
+  -- value into it: an unrelated script UTxO would otherwise over-fund the head and
+  -- leave (partial) fanout's strict conservation unsatisfiable.
+  --
   -- TODO: This is not as flexible as it could be and rejects deposits
   -- that are smaller than what the deposit output's min utxo value is.
   -- For example: a 1 ADA utxo can be deposited, but the deposit tx's
@@ -185,7 +237,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   -- exact.
   mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> totalNonHeadInputValue == headOutValue
+      headInValue <> claimedDepositValue == headOutValue
 
   OpenDatum
     { parties = prevParties
@@ -218,6 +270,7 @@ checkDecrement ctx openBefore redeemer =
   mustNotMintOrBurn txInfo
     && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId) (prevDepositPeriod, nextDepositPeriod)
     && mustIncreaseVersion
+    && mustHaveDecommitOutputs
     && checkSnapshotSignature
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
@@ -233,6 +286,27 @@ checkDecrement ctx openBefore redeemer =
   -- aggregate value is checked and a single participant could reuse a valid
   -- all-party signature while redirecting the decommitted value elsewhere.
   decommitOutputsHash = hashTxOuts decommitOutputs
+
+  -- A decrement must actually decommit something. Increment and decrement verify
+  -- the same signed message, and with zero outputs this branch recomputes
+  -- 'decommitOutputsHash' as the empty-list hash — exactly what a snapshot with no
+  -- pending decommit produces. Its 'commitOutputsHash' comes from the redeemer, so
+  -- without this guard an all-party signature for an INCREMENT snapshot verifies
+  -- here too: the version advances and the output datum carries that snapshot's
+  -- accumulator, which already counts the deposited UTxOs, while no deposit is
+  -- spent and no value enters the head. The head would then credit UTxOs it does
+  -- not hold and could never satisfy the strict conservation of (partial) fanout.
+  --
+  -- With one or more outputs required, the recomputed hash can no longer equal the
+  -- empty-list hash, so an increment snapshot cannot authorize a decrement.
+  -- NOTE: this must test the DERIVED list, not the redeemer's count.
+  -- 'decommitOutputs' is @take numberOfDecommitOutputs (tail outputs)@, which
+  -- truncates silently: a redeemer claiming one output in a transaction that
+  -- carries only the head output yields an empty list, and the empty-list hash is
+  -- exactly what makes the replay above work.
+  mustHaveDecommitOutputs =
+    traceIfFalse $(errorCode DecrementZeroOutputs) $
+      not (L.null decommitOutputs)
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $

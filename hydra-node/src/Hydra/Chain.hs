@@ -56,6 +56,11 @@ data PostChainTx tx
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
       , depositTxId :: TxIdType tx
+      -- ^ Which deposit this increment was posted for. Not an input to building
+      -- the transaction: 'Hydra.Chain.Direct.State.increment' takes the deposit
+      -- from 'incrementingSnapshot', since only the deposit bound into the signed
+      -- snapshot can validate on-chain. Kept as a record of the choice, for the
+      -- offline-mode chain and for tests asserting which deposit was claimed.
       }
   | RecoverTx
       { headId :: HeadId

@@ -90,6 +90,27 @@ tests =
         case toData incrementInput of
           Constr n _ -> n @?= 0
           _ -> assertFailure "Increment redeemer did not serialise to a Constr"
+    , testCase "Increment redeemer carries the claimed deposit at field index 2 (deposit.ak invariant)" $ do
+        -- deposit.ak decodes the claimed deposit positionally out of the inner
+        -- 'IncrementRedeemer':
+        --   expect [_signature, _snapshot_number, claimed, ..] = un_constr_data(..).2nd
+        -- Reordering the record's fields would silently make it compare the wrong
+        -- field against its own output reference, so pin the position here.
+        let someRef = TxOutRef (TxId . toBuiltin $ BS.replicate 32 7) 3
+            incrementInput =
+              HeadState.Increment
+                HeadState.IncrementRedeemer
+                  { HeadState.signature = []
+                  , HeadState.snapshotNumber = 0
+                  , HeadState.increment = someRef
+                  , HeadState.decommitOutputsHash = toBuiltin (BS.replicate 32 0)
+                  }
+        case toData incrementInput of
+          Constr _ [Constr _ fields] ->
+            case fields !!? 2 of
+              Just claimed -> claimed @?= toData someRef
+              Nothing -> assertFailure "IncrementRedeemer has fewer than three fields"
+          _ -> assertFailure "Increment did not serialise to a Constr wrapping a Constr"
     , testCase "Deposit redeemer constructor indices match deposit.ak" $ do
         -- deposit.ak redefines the deposit 'Redeemer' type structurally and
         -- matches on its constructors. If these indices ever drift, deposit

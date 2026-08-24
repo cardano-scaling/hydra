@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   Tx,
   TxId,
   TxIn,
+  TxIx (..),
   TxOut,
   UTxO,
   chainPointToSlotNo,
@@ -221,22 +222,30 @@ increment ::
   UTxO ->
   (HeadSeed, HeadId) ->
   HeadParameters ->
-  -- | Snapshot to increment with.
+  -- | Snapshot to increment with. Also names the deposit to claim.
   ConfirmedSnapshot Tx ->
-  -- | Deposited TxId
-  TxId ->
   -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot depositTxId upperValiditySlot = do
+increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperValiditySlot = do
   seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInIncrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
+  -- NOTE: the deposit is taken from the snapshot rather than passed in. The
+  -- increment validator recomputes the signed commit hash from the deposit input
+  -- this transaction spends, so a transaction spending any deposit other than the
+  -- one bound into this snapshot cannot validate. Deriving it here makes the two
+  -- impossible to disagree.
+  depositTxId <- snapshotDepositTxId ?> SnapshotMissingIncrementUTxO
+  -- NOTE: resolve the exact output, not just the transaction id.
+  -- 'Hydra.Contract.Head.checkIncrement' requires the claimed deposit to be its
+  -- transaction's first output, so accepting any index here could build a
+  -- transaction that cannot validate.
   (depositedIn, depositedOut) <-
     UTxO.findWithKey
-      ( \(TxIn txid _) txout ->
-          isScriptTxOut depositValidatorScript txout && txid == depositTxId
+      ( \txin txout ->
+          txin == TxIn depositTxId (TxIx 0) && isScriptTxOut depositValidatorScript txout
       )
       spendableUTxO
       ?> CannotFindDepositOutputInIncrement{depositTxId}
@@ -259,7 +268,7 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
               upperValiditySlot
               sigs
  where
-  Snapshot{utxoToCommit} = sn
+  Snapshot{utxoToCommit, depositTxId = snapshotDepositTxId} = sn
 
   (sn, sigs) =
     case incrementingSnapshot of
@@ -309,6 +318,7 @@ dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperV
           , utxo
           , utxoToCommit = Just deposited
           , utxoToDecommit = Nothing
+          , depositTxId = Just depositTxId
           , -- Only the constant-size hash of the accumulator ends up in the
             -- transaction.
             accumulator
@@ -328,7 +338,6 @@ dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperV
     (headSeed, headId)
     headParameters
     ConfirmedSnapshot{snapshot, signatures}
-    depositTxId
     upperValiditySlot
  where
   dummySigningKey = generateSigningKey "hydra-dry-run-increment"
@@ -427,10 +436,13 @@ recover ::
   SlotNo ->
   Either RecoverTxError Tx
 recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
+  -- NOTE: resolve the exact output, not just the transaction id. 'recoverTx'
+  -- spends @TxIn depositedTxId (TxIx 0)@, so accepting any index here would
+  -- inspect one output and then spend a different one.
   (_, depositedOut) <-
     UTxO.findWithKey
-      ( \(TxIn txid _) txout ->
-          isScriptTxOut depositValidatorScript txout && txid == depositedTxId
+      ( \txin txout ->
+          txin == TxIn depositedTxId (TxIx 0) && isScriptTxOut depositValidatorScript txout
       )
       spendableUTxO
       ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}

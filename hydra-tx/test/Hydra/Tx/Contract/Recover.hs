@@ -19,9 +19,9 @@ import Hydra.Tx.Recover (recoverTx)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Ledger.Cardano.Fixtures (slotLength, systemStart)
 import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
-import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
-  Mutation (ChangeInput, ChangeOutput, ChangeValidityLowerBound),
+  Mutation (AddInput, AppendOutput, ChangeInput, ChangeOutput, ChangeValidityLowerBound, Changes),
   SomeMutation (..),
   modifyInlineDatum,
  )
@@ -62,6 +62,12 @@ data RecoverMutation
     MutateRecoverOutput
   | -- | Remove the lower bound from the recover transaction
     RemoveTxValidityLowerBound
+  | -- | SECURITY: spend a second, content-identical deposit in the same
+    -- transaction. Both deposits check their commits against the same first n
+    -- outputs, so without the single-deposit rule both would be satisfied by one
+    -- set of recovered outputs and the second deposit's value would be free for
+    -- the transaction author to direct anywhere.
+    RecoverIdenticalDepositTwice
   deriving stock (Generic, Show, Enum, Bounded)
 
 genRecoverMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -85,4 +91,20 @@ genRecoverMutation (tx, utxo) =
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , SomeMutation (pure $ toErrorCode DepositNoLowerBoundDefined) RemoveTxValidityLowerBound . ChangeValidityLowerBound <$> do
         pure TxValidityNoLowerBound
+    , SomeMutation (pure $ toErrorCode MultipleDepositsRecovered) RecoverIdenticalDepositTwice <$> do
+        let (depositIn, depositOut) = List.head $ UTxO.toList (resolveInputsUTxO utxo tx)
+        twinIn <- arbitrary `suchThat` (/= depositIn)
+        attackerVk <- genVerificationKey
+        let attackerOut :: TxOut CtxTx
+            attackerOut =
+              TxOut
+                (mkVkAddress testNetworkId attackerVk)
+                (txOutValue depositOut)
+                TxOutDatumNone
+                ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput twinIn depositOut (Just $ toScriptData $ Recover 1)
+            , AppendOutput attackerOut
+            ]
     ]

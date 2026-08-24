@@ -79,7 +79,6 @@ import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState (
   CloseRedeemer (CloseInitial),
   ClosedDatum (ClosedDatum),
@@ -390,11 +389,12 @@ assertWalletLovelace opts vk expected =
 -- deposit funds for Alice's head. Alice (the malicious participant)
 -- constructs an Increment that claims V1's deposit (which is in the
 -- snapshot Alice signs) but ALSO consumes V2's deposit and routes its
--- value to a Kate address. The head validator's @mustPreserveValue@
--- sums every non-head input and requires
--- @head_in + Σ non-head inputs == head_out@, so V2's value escaping to Kate
--- makes the equation fail and the tx is rejected with
--- @HeadValueIsNotPreserved@ (H4).
+-- value to a Kate address. V2's deposit rejects a Claim that the head's
+-- Increment redeemer does not name (@DepositNotClaimedByHead@, D09).
+--
+-- That is the only rule rejecting this: the head validator grows by exactly the
+-- deposit its redeemer names, so V2's value escaping to Kate leaves
+-- @mustPreserveValue@ satisfied.
 cannotRedirectExtraDepositDuringIncrement ::
   Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
@@ -478,6 +478,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Snapshot.utxo = mempty :: CAPI.UTxO
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
+            , Snapshot.depositTxId = Just deposit1TxId
             , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
@@ -551,15 +552,11 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             <> aliceFundsUTxO
         aliceFundsAddr = mkVkAddress networkId aliceFundsVk
 
-    -- Attempt the redirection. The head validator's mustPreserveValue
-    -- sums every non-head input and requires
-    -- head_in + Σ non-head inputs == head_out. With D2 routed to a non-Head
-    -- output, the equation fails and the tx is rejected at the head-side
-    -- with HeadValueIsNotPreserved (H4).
-    let expectedTrace = toString (toErrorCode HeadValueIsNotPreserved)
+    -- Attempt the redirection. D2's own Claim requires the head's Increment
+    -- redeemer to name it (DepositNotClaimedByHead, D09).
     case buildTransactionWithBody pparams systemStart eraHistory stakePools aliceFundsAddr body spendable of
       Left e ->
-        show e `shouldContain` expectedTrace
+        show e `shouldContain` toString (toErrorCode DepositNotClaimedByHead)
       Right _ ->
         error "expected script evaluation to reject the redirection tx, but the build succeeded"
 
@@ -787,11 +784,9 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
 -- deposit as cover ("I was just incrementing my deposit"). The asymmetric
 -- amounts (small honest, large stolen) make the economic motive explicit.
 --
--- The on-chain defense is the same: the head validator's
--- @mustPreserveValue@ sums every non-head input and requires
--- @head_in + Σ non-head inputs == head_out@. With the victim's value
--- routed to a non-Head output, the equation fails and the tx is rejected
--- with @HeadValueIsNotPreserved@ (H4).
+-- The on-chain defense is the same as there: the victim's deposit rejects its
+-- own Claim because the head's Increment redeemer does not name it
+-- (@DepositNotClaimedByHead@, D09).
 --
 -- TODO: This could move into the MutationSpec or the TraceSpec.
 cannotStealLargerDepositDuringOwnIncrement ::
@@ -874,6 +869,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Snapshot.utxo = mempty :: CAPI.UTxO
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
+            , Snapshot.depositTxId = Just leaderDepositTxId
             , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
@@ -949,9 +945,9 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             <> aliceFundsUTxO
         aliceFundsAddr = mkVkAddress networkId aliceFundsVk
 
-    let expectedTrace = toString (toErrorCode HeadValueIsNotPreserved)
     case buildTransactionWithBody pparams systemStart eraHistory stakePools aliceFundsAddr body spendable of
-      Left e -> show e `shouldContain` expectedTrace
+      Left e ->
+        show e `shouldContain` toString (toErrorCode DepositNotClaimedByHead)
       Right _ ->
         error "expected script evaluation to reject the leader-redirect tx, but the build succeeded"
 

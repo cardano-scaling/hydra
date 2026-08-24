@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, selectNextIncrementalAction, setExistingDeposit, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -478,6 +478,26 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 1
             _ -> False
 
+        it "does not carry an expired deposit into the next ReqSn" $ do
+          -- Requesting an expired deposit makes every receiving party hard-error
+          -- with RequestedDepositExpired, so a deposit that became unclaimable would
+          -- stall snapshots for the whole head. Dropping it downgrades that to a
+          -- commit its depositor recovers after the deadline.
+          now <- getCurrentTime
+          let depositId = 4711
+              mkDeposit status =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 50
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status
+                  }
+          setExistingDeposit (Map.singleton depositId (mkDeposit Expired)) (Just depositId)
+            `shouldBe` (Nothing :: Maybe Integer)
+          setExistingDeposit (Map.singleton depositId (mkDeposit Active)) (Just depositId)
+            `shouldBe` Just depositId
+
         it "deposit activated while snapshot in-flight is picked up by next chained snapshot" $ do
           -- Regression: a deposit that becomes Active while a snapshot is in-flight
           -- (so the tick cannot request a snapshot for it) must be included in the
@@ -634,10 +654,12 @@ spec =
             NodeInSync{headState = Closed _} -> pure ()
             other -> fail $ "expected Closed state, got: " <> show other
 
-        it "posts IncrementTx using the snapshot's deposit txid, not by content match" $ do
-          -- Regression for #2681: with two pending deposits sharing 'deposited'
-          -- content but differing in txid, the old code did 'find' by content
-          -- and could pick the wrong one. The fix keys off 'currentDepositTxId'.
+        it "posts IncrementTx using the snapshot's deposit txid, not the current one" $ do
+          -- Regression for #2681 and for the deposit binding: with two pending
+          -- deposits sharing 'deposited' content but differing in txid, only the
+          -- deposit bound into the signed snapshot may be claimed on-chain.
+          -- 'currentDepositTxId' deliberately points at the *other* deposit here,
+          -- as 'DepositActivated' can move it after a snapshot was confirmed.
           now <- getCurrentTime
           let depositTime = flip addUTCTime now
               deadline = depositTime 600
@@ -661,6 +683,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just txid2
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               s0 =
@@ -668,7 +691,10 @@ spec =
                     [alice]
                     coordinatedHeadState
                       { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
-                      , currentDepositTxId = Just txid2
+                      , -- NOTE: diverges from the snapshot's own depositTxId on
+                        -- purpose, so this test fails if the posted transaction
+                        -- ever keys off state instead of the signed snapshot.
+                        currentDepositTxId = Just txid1
                       }
                 )
                   { pendingDeposits = Map.fromList [(txid1, mkDeposit 1), (txid2, mkDeposit 2)]
@@ -723,6 +749,60 @@ spec =
           update aliceEnv ledger now st input `hasStateChangedSatisfying` \case
             DecommitRecorded{headId, decommitTx} -> headId == testHeadId && utxoFromTx decommitTx == outputs
             _ -> False
+
+        it "rejects a decommit tx that materializes no output" $ do
+          -- 'Hydra.Contract.Head.checkDecrement' requires at least one decommit
+          -- output, so such a decommit could never settle on-chain. Recording it
+          -- would block every later snapshot, which cannot carry another one.
+          let decommitTx = SimpleTx 1 mempty mempty
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage ReqDec{transaction = decommitTx})
+            `hasStateChangedSatisfying` \case
+              DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
+              _ -> False
+
+        it "rejects a ReqSn whose decommit tx materializes no output" $ do
+          let decommitTx = SimpleTx 1 mempty mempty
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just decommitTx) Nothing)
+            `shouldBe` Error (RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId decommitTx})
+
+        it "rejects a ReqSn carrying both a commit and a decommit" $ do
+          -- Close and fanout express a single incremental action, so a confirmed
+          -- snapshot settling both could never be closed.
+          let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
+              depositTxId = 42
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just decommitTx) (Just depositTxId))
+            `shouldBe` Error
+              ( RequireFailed
+                  ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId decommitTx}
+              )
+
+        it "never requests a commit and a decommit in the same snapshot" $ do
+          -- An in-flight commit wins: its deposit expires on-chain while a
+          -- decommit only waits. No *new* commit starts alongside a decommit, so
+          -- the decommit is not starved.
+          now <- getCurrentTime
+          let depositTxId = 4711
+              pendingDeposits =
+                Map.singleton
+                  depositTxId
+                  Deposit
+                    { headId = testHeadId
+                    , deposited = utxoRef 50
+                    , created = now
+                    , deadline = addUTCTime 3600 now
+                    , status = Active
+                    }
+              decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
+          selectNextIncrementalAction pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
+            `shouldBe` (Nothing, Just depositTxId)
+          selectNextIncrementalAction pendingDeposits Nothing (Just decommitTx) Nothing
+            `shouldBe` (Just decommitTx, Nothing)
 
         it "ignores ReqDec when not in Open state" $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
@@ -1397,6 +1477,7 @@ spec =
                 , utxo = activeUTxO
                 , utxoToCommit = Nothing
                 , utxoToDecommit = utxoToDecommit
+                , depositTxId = Nothing
                 , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
                 }
             s0 =
@@ -1492,6 +1573,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -1615,6 +1697,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -1692,6 +1775,7 @@ spec =
                   , utxo = mempty -- activeUTxO after decommit
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
+                  , depositTxId = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
@@ -2586,7 +2670,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToDecom = Just utxoToDecommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing Nothing utxoToDecom accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2602,7 +2686,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToCom = Just utxoToCommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom (Just 2) Nothing accumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2667,6 +2751,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUTxO
                   , utxoToDecommit = Nothing
+                  , depositTxId = Just depositTxId
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
                   }
               depositMultisig = aggregate [sign aliceSk depositSnapshot]
@@ -3309,5 +3394,6 @@ testSnapshot number version confirmed utxo =
     , utxo
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
+    , depositTxId = Nothing
     , accumulator = Accumulator.buildFromUTxO utxo
     }
