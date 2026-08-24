@@ -165,6 +165,8 @@ IncorrectDepositHash :: DepositError
 DepositHeadInputNotFound :: DepositError
 HeadInputRedeemerNotFound :: DepositError
 HeadRedeemerNotIncrement :: DepositError
+DepositNotClaimedByHead :: DepositError
+MultipleDepositsRecovered :: DepositError
 instance GHC.Show.Show Hydra.Contract.DepositError.DepositError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.DepositError.DepositError
 
@@ -235,6 +237,9 @@ PartialFanoutCannotBeLastBatch :: HeadError
 ChangedHeadAdaOverhead :: HeadError
 DepositDatumInvalid :: HeadError
 InvalidCRSDatum :: HeadError
+DepositNotFirstOutput :: HeadError
+DecrementZeroOutputs :: HeadError
+MustNotSpendOtherScripts :: HeadError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.HeadError.HeadError
 
 module Hydra.Contract.HeadTokensError

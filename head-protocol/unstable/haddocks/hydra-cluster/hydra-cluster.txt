@@ -1002,11 +1002,13 @@ assertWalletLovelace :: ChainBackendOptions -> VerificationKey PaymentKey -> Int
 --   deposit funds for Alice's head. Alice (the malicious participant)
 --   constructs an Increment that claims V1's deposit (which is in the
 --   snapshot Alice signs) but ALSO consumes V2's deposit and routes its
---   value to a Kate address. The head validator's
---   <tt>mustPreserveValue</tt> sums every non-head input and requires
---   <tt>head_in + Σ non-head inputs == head_out</tt>, so V2's value
---   escaping to Kate makes the equation fail and the tx is rejected with
---   <tt>HeadValueIsNotPreserved</tt> (H4).
+--   value to a Kate address. V2's deposit rejects a Claim that the head's
+--   Increment redeemer does not name (<tt>DepositNotClaimedByHead</tt>,
+--   D09).
+--   
+--   That is the only rule rejecting this: the head validator grows by
+--   exactly the deposit its redeemer names, so V2's value escaping to Kate
+--   leaves <tt>mustPreserveValue</tt> satisfied.
 cannotRedirectExtraDepositDuringIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Like <a>placeVictimDeposit</a> but does not wait for the hydra-node to
@@ -1057,11 +1059,9 @@ cannotAbsorbDepositDuringClose :: Tracer IO EndToEndLog -> FilePath -> ChainBack
 --   asymmetric amounts (small honest, large stolen) make the economic
 --   motive explicit.
 --   
---   The on-chain defense is the same: the head validator's
---   <tt>mustPreserveValue</tt> sums every non-head input and requires
---   <tt>head_in + Σ non-head inputs == head_out</tt>. With the victim's
---   value routed to a non-Head output, the equation fails and the tx is
---   rejected with <tt>HeadValueIsNotPreserved</tt> (H4).
+--   The on-chain defense is the same as there: the victim's deposit
+--   rejects its own Claim because the head's Increment redeemer does not
+--   name it (<tt>DepositNotClaimedByHead</tt>, D09).
 --   
 --   TODO: This could move into the MutationSpec or the TraceSpec.
 cannotStealLargerDepositDuringOwnIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()

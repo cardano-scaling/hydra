@@ -184,6 +184,18 @@ prop_observeAnyTx :: Property
 --   non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
 prop_incrementObservesCorrectUTxO :: Property
+
+-- | <a>checkIncrement</a> requires the claimed deposit to be its
+--   transaction's first output, so <a>increment</a> resolves exactly that
+--   output rather than any output of the deposit transaction. Matching by
+--   transaction id alone would build a transaction that cannot validate.
+prop_incrementRequiresFirstDepositOutput :: Property
+
+-- | <a>recoverTx</a> spends <tt>TxIn depositTxId (TxIx 0)</tt>, so
+--   <a>recover</a> resolves exactly that output. Matching by transaction
+--   id alone would read one output's datum and then build a transaction
+--   spending a different one.
+prop_recoverRequiresFirstDepositOutput :: Property
 propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
@@ -1379,11 +1391,11 @@ realWorldModelUTxO :: ModelUTxO -> UTxO
 -- | A correctly signed snapshot. Given a snapshot number a snapshot signed
 --   by all participants (alice, bob and carol) with some UTxO contained is
 --   produced.
-signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot :: Maybe TxId -> ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 
 -- | A confirmed snapshot (either initial or later confirmed), based
 --   onTxTra <a>signedSnapshot</a>.
-confirmedSnapshot :: ModelSnapshot -> ConfirmedSnapshot Tx
+confirmedSnapshot :: Maybe TxId -> ModelSnapshot -> ConfirmedSnapshot Tx
 
 -- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId,
 --   parties, and cperiod.

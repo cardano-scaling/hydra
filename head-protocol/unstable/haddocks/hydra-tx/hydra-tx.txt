@@ -262,6 +262,11 @@ balance :: IsTx tx => UTxOType tx -> ValueType tx
 -- | Hash a utxo set to be able to sign (off-chain) and verify it
 --   (on-chain).
 hashUTxO :: IsTx tx => UTxOType tx -> ByteString
+
+-- | Raw bytes identifying a transaction, as bound into snapshot
+--   signatures. Must match what the on-chain code reads out of a
+--   <tt>TxOutRef</tt>, see <a>getSignableRepresentation</a>.
+txIdBytes :: IsTx tx => TxIdType tx -> ByteString
 txSpendingUTxO :: IsTx tx => UTxOType tx -> tx
 
 -- | Get the UTxO produced by given transaction.
@@ -798,7 +803,7 @@ newtype SnapshotVersion
 UnsafeSnapshotVersion :: Natural -> SnapshotVersion
 fromChainSnapshotVersion :: SnapshotVersion -> SnapshotVersion
 data Snapshot tx
-Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
+Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
 [$sel:headId:Snapshot] :: Snapshot tx -> HeadId
 
 -- | Open state version this snapshot is based on. Spec: v
@@ -817,11 +822,50 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 -- | UTxO to be committed. Spec: Uα
 [$sel:utxoToCommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
+-- | Transaction which deposited <a>$sel:utxoToCommit:Snapshot</a> on L1,
+--   i.e. the deposit an increment of this snapshot is allowed to claim.
+--   Bound into the signature so a deposit cannot be swapped for a
+--   look-alike one, see <a>getSignableRepresentation</a>.
+--   
+--   A transaction id identifies a deposit because a deposit is always the
+--   first output of its transaction; <a>observeDepositTx</a> enforces that
+--   and <a>checkIncrement</a> requires it on-chain. Callers set this
+--   exactly when <a>$sel:utxoToCommit:Snapshot</a> is set.
+[$sel:depositTxId:Snapshot] :: Snapshot tx -> Maybe (TxIdType tx)
+
 -- | UTxO to be decommitted. Spec: Uω
 [$sel:utxoToDecommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
 -- | The cryptographic accumulator built from UTxO hashes. Spec: A
 [$sel:accumulator:Snapshot] :: Snapshot tx -> HydraAccumulator
+
+-- | Digest of a snapshot's pending commit (Uα) as bound into its
+--   signature: the ordered commit outputs together with the id of the
+--   deposit transaction they come from.
+--   
+--   Both halves are required. The outputs alone do not identify a deposit,
+--   since a deposit datum is unauthenticated data anyone can copy into a
+--   look-alike deposit holding less value; binding the deposit's
+--   transaction id makes the signature usable for that one deposit only.
+--   The increment validator recomputes this from the deposit input it
+--   claims, see <a>checkIncrement</a>. Close, contest and decrement
+--   transactions cannot recompute it (they spend no deposit) and carry it
+--   in their redeemer instead, where it only feeds signature verification.
+commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:depositTxId:Snapshot</a>.
+--   
+--   The fields are a bare concatenation with no length prefix, so a layout
+--   change is only decodable when the tag distinguishes it:
+--   <a>snapshotCBORTagV1</a> names the one written before
+--   <a>$sel:depositTxId:Snapshot</a> existed and is still accepted,
+--   letting a node replay an event log from an earlier version.
+snapshotCBORTag :: Text
+
+-- | Tag of the layout without <a>$sel:depositTxId:Snapshot</a>. Decoded,
+--   never written.
+snapshotCBORTagV1 :: Text
 
 -- | All UTxOs represented by this snapshot: settled plus any pending
 --   commit/decommit.
@@ -1116,10 +1160,10 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 -- | Observe a deposit transaction by decoding the target head id, deposit
 --   deadline and deposited utxo in the datum.
 --   
---   This includes checking whether - the first output is a deposit output
---   - all of deposited value is contained in the deposit tx output, - the
---   deposit script output actually contains the deposited value, - an
---   upper validity bound has been set (used as creation slot).
+--   This includes checking whether - the transaction's first output is the
+--   deposit output - all of deposited value is contained in the deposit tx
+--   output, - the deposit script output actually contains the deposited
+--   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Deposit.DepositObservation
@@ -1264,10 +1308,10 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 -- | Observe a deposit transaction by decoding the target head id, deposit
 --   deadline and deposited utxo in the datum.
 --   
---   This includes checking whether - the first output is a deposit output
---   - all of deposited value is contained in the deposit tx output, - the
---   deposit script output actually contains the deposited value, - an
---   upper validity bound has been set (used as creation slot).
+--   This includes checking whether - the transaction's first output is the
+--   deposit output - all of deposited value is contained in the deposit tx
+--   output, - the deposit script output actually contains the deposited
+--   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation

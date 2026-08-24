@@ -138,6 +138,13 @@ IncrementTx :: HeadSeed -> HeadId -> HeadParameters -> ConfirmedSnapshot tx -> T
 [$sel:headId:InitTx] :: PostChainTx tx -> HeadId
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:incrementingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
+
+-- | Which deposit this increment was posted for. Not an input to building
+--   the transaction: <a>increment</a> takes the deposit from
+--   <a>$sel:incrementingSnapshot:InitTx</a>, since only the deposit bound
+--   into the signed snapshot can validate on-chain. Kept as a record of
+--   the choice, for the offline-mode chain and for tests asserting which
+--   deposit was claimed.
 [$sel:depositTxId:InitTx] :: PostChainTx tx -> TxIdType tx
 RecoverTx :: HeadId -> TxIdType tx -> ChainSlot -> UTxOType tx -> PostChainTx tx
 [$sel:headId:InitTx] :: PostChainTx tx -> HeadId
@@ -674,7 +681,7 @@ CannotDecodeHeadDatumInIncrement :: IncrementTxError
 -- | Construct a increment transaction spending the head and deposit
 --   outputs in given <a>UTxO</a>, and producing single head output for
 --   pending <a>$sel:utxoToCommit:Snapshot</a> of given <a>Snapshot</a>.
-increment :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Either IncrementTxError Tx
+increment :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> SlotNo -> Either IncrementTxError Tx
 
 -- | Build an increment transaction claiming a drafted (not yet submitted)
 --   deposit transaction against the current head output. The incrementing
@@ -2083,6 +2090,18 @@ ReqSnNotLeader :: SnapshotNumber -> Party -> RequirementFailure tx
 [$sel:leader:ReqSnNumberInvalid] :: RequirementFailure tx -> Party
 ReqSnDecommitNotSettled :: RequirementFailure tx
 ReqSnCommitNotSettled :: RequirementFailure tx
+
+-- | A snapshot may settle a commit or a decommit, never both: close and
+--   fanout carry a single incremental action, so a snapshot with both
+--   would leave the head unclosable.
+ReqSnBothCommitAndDecommit :: TxIdType tx -> TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+[$sel:decommitTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | A decommit that materializes no output cannot be settled: the
+--   decrement validator requires at least one decommit output.
+ReqSnDecommitNoOutputs :: TxIdType tx -> RequirementFailure tx
+[$sel:decommitTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 InvalidMultisignature :: Text -> [VerificationKey HydraKey] -> RequirementFailure tx
 [$sel:multisig:ReqSnNumberInvalid] :: RequirementFailure tx -> Text
 [$sel:vkeys:ReqSnNumberInvalid] :: RequirementFailure tx -> [VerificationKey HydraKey]
@@ -2115,6 +2134,15 @@ SideLoadSvNumberInvalid :: SnapshotVersion -> SnapshotVersion -> SideLoadRequire
 SideLoadUTxOToCommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
 [$sel:requestedSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
 [$sel:lastSeenSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+
+-- | The side-loaded snapshot commits the same UTxO as the confirmed one,
+--   but from a different deposit. Since the deposit is what identifies a
+--   pending commit, this is a distinct disagreement from
+--   <a>SideLoadUTxOToCommitInvalid</a>, whose payload would show two
+--   identical UTxO sets here.
+SideLoadDepositTxIdInvalid :: Maybe (TxIdType tx) -> Maybe (TxIdType tx) -> SideLoadRequirementFailure tx
+[$sel:requestedDeposit:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (TxIdType tx)
+[$sel:lastSeenDeposit:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (TxIdType tx)
 SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
 [$sel:requestedSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
 [$sel:lastSeenSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
@@ -2130,10 +2158,10 @@ instance (Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.HeadState tx), D
 instance GHC.Classes.Eq (Hydra.Tx.IsTx.TxIdType tx) => GHC.Classes.Eq (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance GHC.Show.Show (Hydra.Tx.IsTx.TxIdType tx) => GHC.Show.Show (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.TxIdType tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.RequirementFailure tx)
-instance GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx) => GHC.Classes.Eq (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
-instance GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx) => GHC.Show.Show (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
-instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
-instance Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.UTxOType tx) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
+instance (GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx), GHC.Classes.Eq (Hydra.Tx.IsTx.TxIdType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
+instance (GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx), GHC.Show.Show (Hydra.Tx.IsTx.TxIdType tx)) => GHC.Show.Show (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
+instance (Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx), Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.TxIdType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
+instance (Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.UTxOType tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.TxIdType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.Error.RequirementFailure tx)
@@ -3716,16 +3744,18 @@ onOpenClientNewTx :: tx -> Outcome tx
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Outcome tx
 
--- | Select the deposit to include in the next snapshot.
+-- | The incremental action to put in the next <a>ReqSn</a>: a commit or a
+--   decommit, never both. A snapshot carrying both cannot be closed, since
+--   close and fanout express a single incremental action
+--   (<tt>setIncrementalActionMaybe</tt>).
 --   
---   Prefers a deposit already tracked in
---   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> (if still
---   pending). Falls back to the oldest active deposit from
---   <a>$sel:pendingDeposits:NodeInSync</a>, but only when neither a
---   decommit is pending nor the last confirmed snapshot already included a
---   deposit (to avoid double-posting <a>IncrementTx</a> before
---   <a>CommitFinalized</a> removes the deposit).
-selectNextDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
+--   A commit wins: its deposit expires on-chain, while a decommit only
+--   waits. This cannot starve the decommit, because
+--   <a>selectNextDeposit</a> refuses to start a *new* commit while a
+--   decommit is pending — only one already in flight can win, and that one
+--   stops being selected once it settles and leaves
+--   <a>$sel:pendingDeposits:NodeInSync</a>.
+selectNextIncrementalAction :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> (Maybe tx, Maybe (TxIdType tx))
 
 -- | Process a snapshot request (<a>ReqSn</a>) from party.
 --   
@@ -3776,6 +3806,16 @@ onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> TxIdType tx -> 
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenClientDecommit :: IsTx tx => HeadId -> Ledger tx -> ChainSlot -> CoordinatedHeadState tx -> tx -> Outcome tx
+
+-- | Reject a decommit that materializes no output. <a>checkDecrement</a>
+--   requires at least one, so such a decommit can never settle on-chain,
+--   and recording it would block every later snapshot (which cannot carry
+--   a different one).
+--   
+--   Belongs after the applicability check at every call site: a
+--   transaction that does not apply is reported with the ledger's own,
+--   more precise reason.
+requireDecommitOutputs :: IsTx tx => HeadId -> UTxOType tx -> tx -> Outcome tx -> Outcome tx
 
 -- | Process the request <a>ReqDec</a> to decommit something from the Open
 --   head.
@@ -3858,21 +3898,26 @@ onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenSt
 --   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
 --   <a>Nothing</a>.</li>
 --   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
---   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a>,
---   returns the original <tt>currentDeposit</tt>.</li>
+--   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a> and
+--   not <a>Expired</a>, returns the original <tt>currentDeposit</tt>.</li>
 --   <li>Otherwise, returns <a>Nothing</a>.</li>
 --   </ul>
 --   
 --   This is typically used to confirm that a local deposit that is to be
 --   requested in <a>ReqSn</a> is indeed still pending and has not been
 --   processed or removed.
+--   
+--   Expired deposits are dropped rather than carried: requesting one makes
+--   every receiving party hard-error with <a>RequestedDepositExpired</a>,
+--   so a deposit that somehow became unclaimable would stall snapshots for
+--   the whole head instead of just being abandoned by its depositor.
 setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit
 --   whose confirmed snapshot contains a matching utxoToCommit. The
 --   rollback may have erased the original on-chain IncrementTx
 --   observation.
-maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> Maybe (TxIdType tx) -> ConfirmedSnapshot tx -> Outcome tx
+maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> ConfirmedSnapshot tx -> Outcome tx
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit
 --   whose confirmed snapshot contains a matching utxoToDecommit. The
@@ -4092,6 +4137,17 @@ handleOutOfSync :: IsChainState tx => Environment -> UTCTime -> ChainPointType t
 --   mirrors the selection logic in <tt>withNextActive</tt> used by
 --   <a>onOpenChainTick</a>.
 nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
+
+-- | Select the deposit to include in the next snapshot.
+--   
+--   Prefers a deposit already tracked in
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> (if still
+--   pending). Falls back to the oldest active deposit from
+--   <a>$sel:pendingDeposits:NodeInSync</a>, but only when neither a
+--   decommit is pending nor the last confirmed snapshot already included a
+--   deposit (to avoid double-posting <a>IncrementTx</a> before
+--   <a>CommitFinalized</a> removes the deposit).
+selectNextDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
 updateCatchingUpHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 updateInSyncHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
@@ -4143,6 +4199,15 @@ SideLoadSvNumberInvalid :: SnapshotVersion -> SnapshotVersion -> SideLoadRequire
 SideLoadUTxOToCommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
 [$sel:requestedSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
 [$sel:lastSeenSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+
+-- | The side-loaded snapshot commits the same UTxO as the confirmed one,
+--   but from a different deposit. Since the deposit is what identifies a
+--   pending commit, this is a distinct disagreement from
+--   <a>SideLoadUTxOToCommitInvalid</a>, whose payload would show two
+--   identical UTxO sets here.
+SideLoadDepositTxIdInvalid :: Maybe (TxIdType tx) -> Maybe (TxIdType tx) -> SideLoadRequirementFailure tx
+[$sel:requestedDeposit:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (TxIdType tx)
+[$sel:lastSeenDeposit:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (TxIdType tx)
 SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
 [$sel:requestedSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
 [$sel:lastSeenSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
@@ -4174,6 +4239,18 @@ ReqSnNotLeader :: SnapshotNumber -> Party -> RequirementFailure tx
 [$sel:leader:ReqSnNumberInvalid] :: RequirementFailure tx -> Party
 ReqSnDecommitNotSettled :: RequirementFailure tx
 ReqSnCommitNotSettled :: RequirementFailure tx
+
+-- | A snapshot may settle a commit or a decommit, never both: close and
+--   fanout carry a single incremental action, so a snapshot with both
+--   would leave the head unclosable.
+ReqSnBothCommitAndDecommit :: TxIdType tx -> TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+[$sel:decommitTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | A decommit that materializes no output cannot be settled: the
+--   decrement validator requires at least one decommit output.
+ReqSnDecommitNoOutputs :: TxIdType tx -> RequirementFailure tx
+[$sel:decommitTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 InvalidMultisignature :: Text -> [VerificationKey HydraKey] -> RequirementFailure tx
 [$sel:multisig:ReqSnNumberInvalid] :: RequirementFailure tx -> Text
 [$sel:vkeys:ReqSnNumberInvalid] :: RequirementFailure tx -> [VerificationKey HydraKey]
