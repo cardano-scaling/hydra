@@ -245,6 +245,8 @@ Furthermore, the protocol validates the snapshot request by:
 \begin{enumerate}
 	\item If a decommit is requested: verify the transaction is applicable to the
 	      last confirmed UTxO set and update the active utxo set with it
+	\item If a decommit is requested: verify it produces at least one output,
+	      since \mtxDecrement{} materializes the decommit outputs and requires one
 	\item If a deposit is requested: verify the corresponding deposit is
 	      $\text{Active}$ and update the active utxo set with it
 	\item If we are on the same version as the last snapshot, any requested

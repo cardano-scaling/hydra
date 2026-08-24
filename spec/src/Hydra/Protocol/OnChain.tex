@@ -203,9 +203,11 @@ to recover, and checks:
 	\]
 	\item This deposit is the only one spent by the transaction. The recovered
 	outputs $o_{1} \dots o_{m}$ are the transaction's first $m$ outputs and are
-	therefore shared by every deposit input, so two deposits recording the same
-	$C$ would both be satisfied by a single set of recovered outputs, leaving the
-	second deposit's value to be directed anywhere by the transaction author:
+	therefore shared by every deposit input, so two deposits whose $C$ hashes
+	alike would both be satisfied by a single set of recovered outputs, leaving
+	the second deposit's value to be directed anywhere by the transaction author.
+	Note that $\nuDeposit$ neither parses the bytes of $C$ nor relates them to the
+	value the deposit holds, so hashing alike is weaker than being equal:
 	\[
 		|\{ (\cdot, o) \in \txInputs \mid o \text{ is governed by } \nuDeposit \}| = 1
 	\]

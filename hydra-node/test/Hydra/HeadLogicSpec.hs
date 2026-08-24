@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, setExistingDeposit, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, selectNextIncrementalAction, setExistingDeposit, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -749,6 +749,60 @@ spec =
           update aliceEnv ledger now st input `hasStateChangedSatisfying` \case
             DecommitRecorded{headId, decommitTx} -> headId == testHeadId && utxoFromTx decommitTx == outputs
             _ -> False
+
+        it "rejects a decommit tx that materializes no output" $ do
+          -- 'Hydra.Contract.Head.checkDecrement' requires at least one decommit
+          -- output, so such a decommit could never settle on-chain. Recording it
+          -- would block every later snapshot, which cannot carry another one.
+          let decommitTx = SimpleTx 1 mempty mempty
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage ReqDec{transaction = decommitTx})
+            `hasStateChangedSatisfying` \case
+              DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
+              _ -> False
+
+        it "rejects a ReqSn whose decommit tx materializes no output" $ do
+          let decommitTx = SimpleTx 1 mempty mempty
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just decommitTx) Nothing)
+            `shouldBe` Error (RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId decommitTx})
+
+        it "rejects a ReqSn carrying both a commit and a decommit" $ do
+          -- Close and fanout express a single incremental action, so a confirmed
+          -- snapshot settling both could never be closed.
+          let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
+              depositTxId = 42
+              st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just decommitTx) (Just depositTxId))
+            `shouldBe` Error
+              ( RequireFailed
+                  ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId decommitTx}
+              )
+
+        it "never requests a commit and a decommit in the same snapshot" $ do
+          -- An in-flight commit wins: its deposit expires on-chain while a
+          -- decommit only waits. No *new* commit starts alongside a decommit, so
+          -- the decommit is not starved.
+          now <- getCurrentTime
+          let depositTxId = 4711
+              pendingDeposits =
+                Map.singleton
+                  depositTxId
+                  Deposit
+                    { headId = testHeadId
+                    , deposited = utxoRef 50
+                    , created = now
+                    , deadline = addUTCTime 3600 now
+                    , status = Active
+                    }
+              decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
+          selectNextIncrementalAction pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
+            `shouldBe` (Nothing, Just depositTxId)
+          selectNextIncrementalAction pendingDeposits Nothing (Just decommitTx) Nothing
+            `shouldBe` (Just decommitTx, Nothing)
 
         it "ignores ReqDec when not in Open state" $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}

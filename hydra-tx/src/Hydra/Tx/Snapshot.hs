@@ -183,12 +183,25 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
 
+-- | Tag of the current on-disk\/wire layout, which carries 'depositTxId'.
+--
+-- The fields are a bare concatenation with no length prefix, so a layout change
+-- is only decodable when the tag distinguishes it: 'snapshotCBORTagV1' names the
+-- one written before 'depositTxId' existed and is still accepted, letting a node
+-- replay an event log from an earlier version.
+snapshotCBORTag :: Text
+snapshotCBORTag = "Snapshot2"
+
+-- | Tag of the layout without 'depositTxId'. Decoded, never written.
+snapshotCBORTagV1 :: Text
+snapshotCBORTagV1 = "Snapshot"
+
 -- NOTE: Like the JSON encoding, the accumulator is not transmitted (only
 -- derived data) and gets rebuilt from the UTxO sets on decode. This is why
--- the codec stays hand-written; the leading tag matches the generic format.
+-- the codec stays hand-written.
 instance IsTx tx => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit} =
-    toCBOR ("Snapshot" :: Text)
+    toCBOR snapshotCBORTag
       <> toCBOR headId
       <> toCBOR version
       <> toCBOR number
@@ -201,18 +214,24 @@ instance IsTx tx => ToCBOR (Snapshot tx) where
 instance IsTx tx => FromCBOR (Snapshot tx) where
   fromCBOR =
     fromCBOR >>= \case
-      ("Snapshot" :: Text) -> do
-        headId <- fromCBOR
-        version <- fromCBOR
-        number <- fromCBOR
-        confirmed <- fromCBOR
-        utxo <- fromCBOR
-        utxoToCommit <- fromCBOR
-        depositTxId <- fromCBOR
-        utxoToDecommit <- fromCBOR
-        let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
-        pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator}
-      tag -> fail $ show tag <> " is not a proper CBOR-encoded Snapshot"
+      (tag :: Text)
+        | tag == snapshotCBORTag -> decodeSnapshot True
+        | tag == snapshotCBORTagV1 -> decodeSnapshot False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded Snapshot"
+   where
+    decodeSnapshot hasDepositTxId = do
+      headId <- fromCBOR
+      version <- fromCBOR
+      number <- fromCBOR
+      confirmed <- fromCBOR
+      utxo <- fromCBOR
+      utxoToCommit <- fromCBOR
+      -- A snapshot from before this field existed names no deposit, so an
+      -- increment of it cannot validate; only replaying it has to work.
+      depositTxId <- if hasDepositTxId then fromCBOR else pure Nothing
+      utxoToDecommit <- fromCBOR
+      let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
+      pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator}
 
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
 snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx

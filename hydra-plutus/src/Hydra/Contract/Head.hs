@@ -47,6 +47,7 @@ import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, singleton)
 import PlutusLedgerApi.V3 (
   Address (..),
+  Credential (..),
   CurrencySymbol,
   Datum (..),
   Extended (Finite),
@@ -125,6 +126,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && checkSnapshotSignature
     && claimedDepositIsSpent
     && mustClaimFirstDepositOutput
+    && mustNotSpendOtherScripts
     && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   inputs = txInfoInputs txInfo
@@ -161,6 +163,32 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
   mustClaimFirstDepositOutput =
     traceIfFalse $(errorCode DepositNotFirstOutput) $
       txOutRefIdx increment == 0
+
+  -- The head input and the claimed deposit are the only script inputs an
+  -- increment needs.
+  --
+  -- 'mustPreserveValue' is an equality, so it already stops an extra input's value
+  -- being pushed INTO the head. What it cannot see is that value being routed OUT:
+  -- the head output stays correct while the extra input is spent to wherever the
+  -- transaction author likes. For a second deposit that is theft of a pending
+  -- commit, otherwise caught only by the deposit validator's claim binding (D09)
+  -- and single-recover rule (D10). This check is an independent barrier that does
+  -- not rely on either, and extends to any other script.
+  --
+  -- Pub-key inputs are unrestricted, so fees and collateral are unaffected.
+  mustNotSpendOtherScripts =
+    traceIfFalse $(errorCode MustNotSpendOtherScripts) $
+      L.all isHeadOrClaimedDeposit inputs
+   where
+    isHeadOrClaimedDeposit i =
+      txInInfoOutRef i == txInInfoOutRef headTxIn
+        || txInInfoOutRef i == increment
+        || not (isScriptInput (txInInfoResolved i))
+
+    isScriptInput txOut =
+      case addressCredential (txOutAddress txOut) of
+        ScriptCredential _ -> True
+        PubKeyCredential _ -> False
 
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash, decommitOutputsHash, commitOutputsHash) signature

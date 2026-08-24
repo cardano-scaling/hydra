@@ -121,12 +121,13 @@ fn is_head_increment(d: Data) -> Bool {
 
 // True if the head's Increment redeemer claims exactly this deposit.
 //
-// The head only checks that the deposit it names is spent, and adds the value of
-// every non-head script input to its output. Without this check any other pending
-// deposit could be attached as an extra input to a legitimate increment: its value
-// would land in the head while the multi-signed snapshot credits nothing for it,
-// leaving the head over-funded and unable to satisfy the strict value
-// conservation of (partial) fanout.
+// This is the only rule keeping other deposits out of an increment. The head
+// grows by exactly the deposit its redeemer names and checks nothing about the
+// remaining inputs, so a second pending deposit attached to an otherwise
+// legitimate increment would have its value unaccounted for: the transaction
+// author could route it to an address of their own, or push it into the head
+// where no snapshot credits it and (partial) fanout's strict value conservation
+// can never be satisfied.
 fn is_claimed_deposit(d: Data, own_ref: OutputReference) -> Bool {
   // `Increment` wraps a single `IncrementRedeemer` whose fields are
   // [signature, snapshotNumber, increment, decommitOutputsHash]; `increment` is the
@@ -141,10 +142,16 @@ fn is_claimed_deposit(d: Data, own_ref: OutputReference) -> Bool {
 //
 // `recover_outputs` checks the commits of the deposit being spent against the
 // FIRST n outputs of the transaction, which are shared by every deposit input in
-// it. Two content-identical deposits recovered together are therefore both
-// satisfied by one set of outputs, and everything past index n is unconstrained
-// and can be directed anywhere by whoever builds the transaction. Recovering one
-// deposit at a time removes that double satisfaction.
+// it. Two deposits whose commits hash alike are therefore both satisfied by one
+// set of outputs, leaving the second deposit's value free for whoever builds the
+// transaction. Recovering one deposit at a time removes that double satisfaction.
+//
+// Hashing alike is weaker than being identical: `preSerializedOutput` is raw
+// bytes this validator never parses, so one commit carrying two concatenated
+// output encodings collides with two commits carrying one each. Nothing on-chain
+// ties a deposit's value to the commits it declares either — only
+// `Hydra.Tx.Deposit.observeDepositTx` does, off-chain, before any party signs.
+// Both are why double satisfaction has to be ruled out structurally here.
 //
 // Only the payment credential is compared. Every UTxO whose payment credential is
 // this validator's hash is governed by it, whatever its staking part, so matching

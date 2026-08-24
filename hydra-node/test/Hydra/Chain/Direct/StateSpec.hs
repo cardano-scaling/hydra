@@ -17,6 +17,7 @@ import Hydra.Cardano.Api (
   SlotNo,
   Tx,
   TxIn,
+  TxIx (..),
   TxOut,
   UTxO,
   getTxBody,
@@ -28,6 +29,7 @@ import Hydra.Cardano.Api (
   txOuts',
   utxoFromTx,
   pattern PlutusScript,
+  pattern TxIn,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
@@ -39,13 +41,17 @@ import Hydra.Chain.Direct.State (
   ClosedState (..),
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
+  IncrementTxError (..),
   OpenState (..),
   PartialFanoutError (..),
+  RecoverTxError (..),
   finalPartialFanout,
   getKnownUTxO,
+  increment,
   initialChainState,
   initialize,
   partialFanout,
+  recover,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -215,10 +221,13 @@ spec = parallel $ do
           Nothing ->
             False & counterexample ("observeRecoverTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
+    it "recover requires the deposit to be its transaction's first output" prop_recoverRequiresFirstDepositOutput
+
   describe "increment" $ do
     propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
     it "increment observation observes correct utxo" prop_incrementObservesCorrectUTxO
+    it "increment requires the deposit to be its transaction's first output" prop_incrementRequiresFirstDepositOutput
 
     -- Ties 'rejectOversizedDeposit' (which sizes a dry-run increment with a
     -- fabricated snapshot and dummy signatures) to reality: whenever the check
@@ -494,6 +503,55 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
           let txDepositId = getTxId (getTxBody txDeposit)
           monitor (counterexample $ "Expected TxId:" <> show depositTxId <> " Actual TxId:" <> show txDepositId)
           assert (depositTxId == txDepositId)
+
+-- | 'Hydra.Contract.Head.checkIncrement' requires the claimed deposit to be its
+-- transaction's first output, so 'increment' resolves exactly that output rather
+-- than any output of the deposit transaction. Matching by transaction id alone
+-- would build a transaction that cannot validate.
+prop_incrementRequiresFirstDepositOutput :: Property
+prop_incrementRequiresFirstDepositOutput = monadicIO $ do
+  (ctx, st@OpenState{headId, seedTxIn}, _, txDeposit) <- pickBlind $ genDepositTx maxGenParties
+  let networkId = ctxNetworkId ctx
+  case observeDepositTx networkId txDeposit of
+    Nothing -> assertWith False "Deposit not observed"
+    Just DepositObservation{depositTxId, deposited, deadline} -> do
+      cctx <- pickBlind $ pickChainContext ctx
+      let openUTxO = getKnownUTxO st
+          slotNo = slotNoFromUTCTime systemStart slotLength deadline
+      case UTxO.findWithKey (\txin _ -> txin == TxIn depositTxId (TxIx 0)) (utxoFromTx txDeposit) of
+        Nothing -> assertWith False "Deposit is not the first output of its transaction"
+        Just (_, depositOut) -> do
+          -- Same deposit output, same transaction id, moved off index 0.
+          let utxo = openUTxO <> UTxO.singleton (TxIn depositTxId (TxIx 1)) depositOut
+          snapshot <-
+            pickBlind $
+              genConfirmedSnapshot headId 0 1 openUTxO (Just deposited) (Just depositTxId) Nothing (ctxHydraSigningKeys ctx)
+          case increment cctx utxo (txInToHeadSeed seedTxIn, headId) (ctxHeadParameters ctx) snapshot slotNo of
+            Left CannotFindDepositOutputInIncrement{} -> pure ()
+            Left err -> assertWith False $ "Expected CannotFindDepositOutputInIncrement, got: " <> show err
+            Right _ -> assertWith False "Expected increment to fail, but it built a transaction"
+
+-- | 'Hydra.Tx.Recover.recoverTx' spends @TxIn depositTxId (TxIx 0)@, so 'recover'
+-- resolves exactly that output. Matching by transaction id alone would read one
+-- output's datum and then build a transaction spending a different one.
+prop_recoverRequiresFirstDepositOutput :: Property
+prop_recoverRequiresFirstDepositOutput = monadicIO $ do
+  (ctx, OpenState{headId}, _, txDeposit) <- pickBlind $ genDepositTx maxGenParties
+  let networkId = ctxNetworkId ctx
+  case observeDepositTx networkId txDeposit of
+    Nothing -> assertWith False "Deposit not observed"
+    Just DepositObservation{depositTxId, deadline} -> do
+      cctx <- pickBlind $ pickChainContext ctx
+      let slotNo = slotNoFromUTCTime systemStart slotLength deadline
+      case UTxO.findWithKey (\txin _ -> txin == TxIn depositTxId (TxIx 0)) (utxoFromTx txDeposit) of
+        Nothing -> assertWith False "Deposit is not the first output of its transaction"
+        Just (_, depositOut) -> do
+          -- Same deposit output, same transaction id, moved off index 0.
+          let utxo = UTxO.singleton (TxIn depositTxId (TxIx 1)) depositOut
+          case recover cctx headId depositTxId utxo slotNo of
+            Left CannotFindDepositOutputToRecover{} -> pure ()
+            Left err -> assertWith False $ "Expected CannotFindDepositOutputToRecover, got: " <> show err
+            Right _ -> assertWith False "Expected recover to fail, but it built a transaction"
 
 --
 -- Generic Properties

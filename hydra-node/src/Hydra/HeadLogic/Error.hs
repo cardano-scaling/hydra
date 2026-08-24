@@ -55,6 +55,13 @@ data RequirementFailure tx
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | ReqSnDecommitNotSettled
   | ReqSnCommitNotSettled
+  | -- | A snapshot may settle a commit or a decommit, never both: close and
+    -- fanout carry a single incremental action, so a snapshot with both would
+    -- leave the head unclosable.
+    ReqSnBothCommitAndDecommit {depositTxId :: TxIdType tx, decommitTxId :: TxIdType tx}
+  | -- | A decommit that materializes no output cannot be settled: the decrement
+    -- validator requires at least one decommit output.
+    ReqSnDecommitNoOutputs {decommitTxId :: TxIdType tx}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}

@@ -26,8 +26,15 @@ changes.
     outputs are the transaction's first `n`, shared by every deposit input, so
     two deposits recording the same UTxO were both satisfied by one set of them.
   * `hydra-node` no longer observes a deposit that is not its transaction's first
-    output. Deposits it drafts always are; one built elsewhere could previously be
-    committed by a snapshot and then neither incremented nor recovered.
+    output, nor one whose recorded commits cannot be reproduced from the observed
+    UTxO. Deposits it drafts are always observable; one built elsewhere that is
+    not stays recoverable only by a transaction reproducing its outputs exactly.
+
+- A snapshot now settles a commit or a decommit, never both, and a decommit must
+  materialize at least one output. Close and fan out carry a single incremental
+  action, so a snapshot with both could not be closed; and the decrement
+  validator requires an output, so an empty decommit could not settle. Requests
+  for either are rejected, and a leader with both pending sends the commit first.
 
 - **Breaking**: script hashes change for the head validator, head minting policy
   and deposit validator, and so does the snapshot signature payload. Earlier
@@ -37,9 +44,10 @@ changes.
   verification. In particular, a head carrying a pending commit across the
   upgrade can neither increment (the confirmed snapshot names no deposit) nor
   close (its signatures cover the old message), so it has to be drained first.
-  Persisted history from earlier versions still replays: the field decodes as
-  absent rather than failing, so upgrading a node whose heads are already closed
-  is unaffected.
+  Persisted history from earlier versions still replays: snapshot JSON decodes a
+  missing `depositTxId` as absent, and the CBOR codec keeps a decoder for the
+  layout written before the field existed, so upgrading a node whose heads are
+  already closed is unaffected.
 
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the

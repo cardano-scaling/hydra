@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
   Tx,
   TxId,
   TxIn,
+  TxIx (..),
   TxOut,
   UTxO,
   chainPointToSlotNo,
@@ -237,10 +238,14 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
   -- one bound into this snapshot cannot validate. Deriving it here makes the two
   -- impossible to disagree.
   depositTxId <- snapshotDepositTxId ?> SnapshotMissingIncrementUTxO
+  -- NOTE: resolve the exact output, not just the transaction id.
+  -- 'Hydra.Contract.Head.checkIncrement' requires the claimed deposit to be its
+  -- transaction's first output, so accepting any index here could build a
+  -- transaction that cannot validate.
   (depositedIn, depositedOut) <-
     UTxO.findWithKey
-      ( \(TxIn txid _) txout ->
-          isScriptTxOut depositValidatorScript txout && txid == depositTxId
+      ( \txin txout ->
+          txin == TxIn depositTxId (TxIx 0) && isScriptTxOut depositValidatorScript txout
       )
       spendableUTxO
       ?> CannotFindDepositOutputInIncrement{depositTxId}
@@ -431,10 +436,13 @@ recover ::
   SlotNo ->
   Either RecoverTxError Tx
 recover ctx headId depositedTxId spendableUTxO lowerValiditySlot = do
+  -- NOTE: resolve the exact output, not just the transaction id. 'recoverTx'
+  -- spends @TxIn depositedTxId (TxIx 0)@, so accepting any index here would
+  -- inspect one output and then spend a different one.
   (_, depositedOut) <-
     UTxO.findWithKey
-      ( \(TxIn txid _) txout ->
-          isScriptTxOut depositValidatorScript txout && txid == depositedTxId
+      ( \txin txout ->
+          txin == TxIn depositedTxId (TxIx 0) && isScriptTxOut depositValidatorScript txout
       )
       spendableUTxO
       ?> CannotFindDepositOutputToRecover{depositTxId = depositedTxId}

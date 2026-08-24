@@ -13,6 +13,7 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Commit (Commit, serializeCommit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -215,13 +216,22 @@ data IncrementMutation
     -- by transaction id, which the sibling shares, so the signature still
     -- verifies and only the output index tells the two apart.
     IncrementClaimSiblingDepositOutput
-  | -- | Add a second v_deposit input alongside an attacker-controlled
-    -- output that redirects its value away from the head's continuation.
+  | -- | SECURITY: add a second v_deposit input alongside an attacker-controlled
+    -- output that redirects its value away from the head's continuation. The head
+    -- grows by exactly the claimed deposit, so 'mustPreserveValue' is satisfied
+    -- and only the deposit-side claim binding stands between the attacker and
+    -- another user's pending deposit.
     IncrementAddExtraDepositInput
-  | -- | Add a second v_deposit input whose value is absorbed into the head
-    -- output, so the head-side value check passes and only the deposit-side
-    -- claim binding can reject it.
+  | -- | Push a second v_deposit input's value into the head output instead of
+    -- routing it away. The head grows by exactly the claimed deposit, so this
+    -- over-funding is what the head value equality rejects.
     IncrementAbsorbExtraDepositInput
+  | -- | SECURITY: add an input from an unrelated, always-succeeding script and
+    -- absorb its value into the head. Not a deposit, so the deposit validator
+    -- cannot reject it, and 'mustPreserveValue' expects only the claimed deposit
+    -- so the head value check passes. Over-funding the head this way would leave
+    -- (partial) fanout's strict conservation permanently unsatisfiable.
+    IncrementAddForeignScriptInput
   | -- | Minting or burning of tokens should not be possible in increment.
     MutateTokenMintingOrBurning
   deriving stock (Generic, Show, Enum, Bounded)
@@ -326,7 +336,7 @@ genIncrementMutation (tx, utxo) =
                     , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
                     }
             ]
-    , SomeMutation [toErrorCode DepositNotClaimedByHead, toErrorCode HeadValueIsNotPreserved] IncrementAddExtraDepositInput <$> do
+    , SomeMutation [toErrorCode DepositNotClaimedByHead, toErrorCode MustNotSpendOtherScripts] IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
         attackerVk <- genVerificationKey
@@ -345,12 +355,12 @@ genIncrementMutation (tx, utxo) =
             [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
             , AppendOutput attackerOut
             ]
-    , SomeMutation (pure $ toErrorCode DepositNotClaimedByHead) IncrementAbsorbExtraDepositInput <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAbsorbExtraDepositInput <$> do
         -- SECURITY: unlike 'IncrementAddExtraDepositInput', the extra deposit's
-        -- value is added to the head output, so 'mustPreserveValue' is satisfied
-        -- and only the deposit-side claim binding rejects this. Without D09 the
-        -- head would absorb a deposit no snapshot ever credited, and could then
-        -- never satisfy the strict value conservation of (partial) fanout.
+        -- value is pushed into the head output. 'mustPreserveValue' grows the head
+        -- by exactly the claimed deposit and is an equality, so this over-funding
+        -- is what it rejects — the head must never hold value no snapshot credits,
+        -- or (partial) fanout's strict conservation becomes unsatisfiable forever.
         extraIn <- genTxIn `suchThat` (/= depositIn)
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
         let extraDepositOut :: TxOut CtxUTxO
@@ -360,6 +370,30 @@ genIncrementMutation (tx, utxo) =
           Changes
             [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
             , ChangeOutput 0 (headTxOut & modifyTxOutValue (<> txOutValue extraDepositOut))
+            ]
+    , SomeMutation (pure $ toErrorCode MustNotSpendOtherScripts) IncrementAddForeignScriptInput <$> do
+        foreignIn <- genTxIn `suchThat` (/= depositIn)
+        value <- genValue
+        attackerVk <- genVerificationKey
+        let foreignOut :: TxOut CtxUTxO
+            foreignOut =
+              TxOut
+                (mkScriptAddress testNetworkId dummyValidatorScript)
+                value
+                TxOutDatumNone
+                ReferenceScriptNone
+            attackerOut :: TxOut CtxTx
+            attackerOut =
+              TxOut
+                (mkVkAddress testNetworkId attackerVk)
+                value
+                TxOutDatumNone
+                ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput foreignIn foreignOut (Just $ toScriptData ())
+            , AddScript dummyValidatorScript
+            , AppendOutput attackerOut
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
