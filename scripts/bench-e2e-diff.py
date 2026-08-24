@@ -34,6 +34,7 @@
 import argparse
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -81,8 +82,10 @@ THRESHOLDS = {
 }
 
 # Colored regressions beyond this on the headline rates additionally emit a
-# ::warning annotation (soft gate, exit code stays 0).
-WARN_METRICS = {"End-to-end TPS", "Sustained TPS"}
+# ::warning annotation (soft gate, exit code stays 0). Both sustained keys:
+# markdown-fallback records carry "Sustained TPS", JSON-derived records carry
+# "Sustained TPS (slope)".
+WARN_METRICS = {"End-to-end TPS", "Sustained TPS", "Sustained TPS (slope)"}
 WARN_PCT = 15.0
 
 REQUIRED_AGREEMENT = 0.75
@@ -308,7 +311,9 @@ def decide_cell(deltas, direction, threshold, kind):
     if not significant or direction == 0:
         return (f"≈ {body}" if not significant else body), False
     improved = (med > 0) == (direction > 0)
-    regressed_hard = not improved and kind == "pct" and abs(med) >= WARN_PCT and agreeing == n
+    # Same agreement bar as the coloring above (already implied by
+    # `significant` here): one noisy pair must not silence the soft gate.
+    regressed_hard = not improved and kind == "pct" and abs(med) >= WARN_PCT
     return f"{'🟢' if improved else '🔴'} {body}", regressed_hard
 
 
@@ -322,7 +327,7 @@ def pair_records(p, title):
     return p["old"]["scenarios"].get(title), p["new"]["scenarios"].get(title)
 
 
-def scenario_rows(title, pairs, regressions):
+def scenario_rows(title, pairs, regressions, drift_keys):
     valid = []
     for p in pairs:
         old, new = pair_records(p, title)
@@ -337,7 +342,12 @@ def scenario_rows(title, pairs, regressions):
             continue
         deltas, olds, news = [], [], []
         for old, new in valid:
-            if key not in old["metrics"] or key not in new["metrics"]:
+            in_old, in_new = key in old["metrics"], key in new["metrics"]
+            if in_old != in_new:
+                # Present on one side only: possible format drift (a renamed
+                # Summary row would otherwise vanish without a trace).
+                drift_keys.add(key)
+            if not (in_old and in_new):
                 continue
             o, n = old["metrics"][key] * scale, new["metrics"][key] * scale
             olds.append(o)
@@ -411,6 +421,7 @@ def render_details(machines, scenario_order):
 
 
 def render(machines, scenario_order, base_sha=None, head_sha=None, with_footer=True):
+    """(markdown lines, warn-worthy regressions, surviving pairs)."""
     pairs = build_pairs(machines)
     out = ["# End-to-end benchmark differences", ""]
     shas = f"Comparing `{(head_sha or 'PR')[:7]}` (PR) against merge-base `{(base_sha or 'master')[:7]}`. " if (base_sha or head_sha) else ""
@@ -425,11 +436,12 @@ def render(machines, scenario_order, base_sha=None, head_sha=None, with_footer=T
     out.append("")
     if not pairs:
         out.append("No valid same-machine pairs found; benchmark runs likely failed. See the workflow run for logs.")
-        return out, []
+        return out, [], pairs
     regressions = []
+    drift_keys = set()
     matched_any = False
     for title in scenario_order:
-        rows, n_valid = scenario_rows(title, pairs, regressions)
+        rows, n_valid = scenario_rows(title, pairs, regressions, drift_keys)
         if n_valid == 0:
             out += ["", f"## {title}", ""] + failed_scenario_lines(title, pairs)
             matched_any = True
@@ -439,6 +451,12 @@ def render(machines, scenario_order, base_sha=None, head_sha=None, with_footer=T
         matched_any = True
     if not matched_any:
         out.append("No comparable scenarios found between this PR and `master`.")
+    if drift_keys:
+        print(
+            "WARNING: metric(s) present on only one side of a pair, skipped there: "
+            + ", ".join(sorted(drift_keys)),
+            file=sys.stderr,
+        )
     if with_footer:
         out += ["", "---", ""]
         for name, machine in machines.items():
@@ -455,7 +473,7 @@ def render(machines, scenario_order, base_sha=None, head_sha=None, with_footer=T
             out.append("- Same-code spread across runners (End-to-end TPS), the noise an unpaired comparison would see:")
             out += spreads
         out += render_details(machines, scenario_order)
-    return out, regressions
+    return out, regressions, pairs
 
 
 def legacy_machines(old_file, new_file):
@@ -518,10 +536,17 @@ def main():
 
     if args.results_dir:
         machines, order = collect_results(args.results_dir)
-        out, regressions = render(machines, order, args.base_sha, args.head_sha)
+        out, regressions, pairs = render(machines, order, args.base_sha, args.head_sha)
+        # Tell the workflow whether any same-machine pair survived: the
+        # comment job skips its update on has_pairs=false so a wholesale
+        # failure never overwrites a previous run's real numbers.
+        gh_output = os.environ.get("GITHUB_OUTPUT")
+        if gh_output:
+            with open(gh_output, "a", encoding="utf-8") as f:
+                f.write(f"has_pairs={'true' if pairs else 'false'}\n")
     elif args.old_file and args.new_file:
         machines, order = legacy_machines(args.old_file, args.new_file)
-        out, regressions = render(machines, order, with_footer=False)
+        out, regressions, _ = render(machines, order, with_footer=False)
     else:
         parser.error("either --results-dir or two report files are required")
         return

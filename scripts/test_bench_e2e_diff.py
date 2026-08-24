@@ -73,7 +73,8 @@ def write_rep_with_json(root, machine, slot, side, md, summaries):
 
 def render_dir(root):
     machines, order = diff.collect_results(root)
-    return diff.render(machines, order, base_sha="a" * 40, head_sha="b" * 40)
+    out, regressions, _ = diff.render(machines, order, base_sha="a" * 40, head_sha="b" * 40)
+    return out, regressions
 
 
 class DecideCell(unittest.TestCase):
@@ -95,6 +96,13 @@ class DecideCell(unittest.TestCase):
 
     def test_regression_warns_beyond_warn_pct(self):
         text, warn = self.cell([-25.0, -22.0, -24.0, -21.0])
+        self.assertTrue(text.startswith("🔴"))
+        self.assertTrue(warn)
+
+    def test_regression_warns_without_unanimity(self):
+        # The soft gate uses the same 3/4 agreement bar as row coloring; one
+        # noisy pair must not silence it.
+        text, warn = self.cell([-25.0, -22.0, -24.0, 1.0])
         self.assertTrue(text.startswith("🔴"))
         self.assertTrue(warn)
 
@@ -154,6 +162,19 @@ class JsonPath(unittest.TestCase):
             self.assertIn("Sustained TPS, slope", text)
             rows = [line for line in out if line.startswith("| ")]
             self.assertFalse(any("🔴" in r or "🟢" in r for r in rows), rows)
+
+    def test_slope_regression_warns(self):
+        # "Sustained TPS (slope)" is in WARN_METRICS: a sustained-throughput
+        # regression must still emit the soft-gate annotation once both sides
+        # speak JSON (the md fallback's "Sustained TPS" key never occurs there).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fast = [[0.5 * i, 1000] for i in range(1, 16)]
+            slow = [[1.0 * i, 1000] for i in range(1, 16)]
+            write_rep_with_json(root, "m1", 1, "branch", report_md(), [summary_json(snapshots=slow)])
+            write_rep_with_json(root, "m1", 2, "master", report_md(), [summary_json(snapshots=fast)])
+            _, regressions = render_dir(root)
+            self.assertTrue(any("slope" in r for r in regressions), regressions)
 
     def test_mixed_format_pair_falls_back_to_md(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -282,6 +303,29 @@ class PairingAndRendering(unittest.TestCase):
             self.assertIn("Same-code spread", text)
             self.assertIn("EPYC 7763", text)
 
+    def test_no_pairs_signals_empty(self):
+        out, regressions, pairs = diff.render({}, [], base_sha="a" * 40, head_sha="b" * 40)
+        self.assertEqual(pairs, [])
+        self.assertEqual(regressions, [])
+        self.assertTrue(any("No valid same-machine pairs" in line for line in out))
+
+    def test_one_sided_metric_warns(self):
+        # A metric present on one side only (renamed Summary row, or
+        # conditional emission) must leave a trace on stderr instead of the
+        # row silently vanishing.
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_rep(root, "m1", 1, "branch", report_md())
+            write_rep(root, "m1", 2, "master", report_md().replace("| _Sustained TPS_ | 921.37 tx/s |", ""))
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                render_dir(root)
+            self.assertIn("only one side", err.getvalue())
+            self.assertIn("Sustained TPS", err.getvalue())
+
     def test_legacy_mode_smoke(self):
         with tempfile.TemporaryDirectory() as tmp:
             old = Path(tmp) / "old.md"
@@ -289,7 +333,7 @@ class PairingAndRendering(unittest.TestCase):
             old.write_text(report_md(), encoding="utf-8")
             new.write_text(report_md(tps=700.0), encoding="utf-8")
             machines, order = diff.legacy_machines(old, new)
-            out, _ = diff.render(machines, order, with_footer=False)
+            out, _, _ = diff.render(machines, order, with_footer=False)
             text = "\n".join(out)
             self.assertIn("End-to-end TPS", text)
             self.assertIn("🟢", text)
