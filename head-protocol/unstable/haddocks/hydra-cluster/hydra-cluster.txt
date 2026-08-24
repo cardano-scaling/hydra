@@ -190,7 +190,26 @@ mkTestTiming' :: Int -> BlockTime -> Timing
 --   needs about one <a>Timing</a> to be picked up and incremented, so both
 --   are accounted for (with the defaults where they are equal this is
 --   <tt>2 * depositPeriod</tt>).
+--   
+--   The slack term covers the two on-chain round trips (deposit and
+--   increment: submit, include, observe) plus multi-node processing. Those
+--   costs are dominated by fixed latencies, not by block time, so the
+--   slack has a constant floor; with the devnet's 0.1s blocks a pure <tt>5
+--   * blockTime</tt> came to 0.5s and timed out regularly on loaded CI
+--   runners.
 depositTimeout :: Timing -> NominalDiffTime
+
+-- | Budget for observing the effect of one L1 transaction on the API:
+--   submission, block inclusion, chain-follower observation and node
+--   processing. The constant floor covers the fixed latencies, which
+--   dominate at devnet block times; a pure blockTime multiple (e.g. a
+--   literal 3s) fired regularly on loaded CI runners.
+onChainObservationBudget :: NominalDiffTime -> NominalDiffTime
+
+-- | Budget for a hydra-node (re)start up to its Greetings. Process spawn,
+--   etcd bootstrap and websocket connect are fixed costs, unrelated to
+--   block time, so this is a constant.
+nodeStartupBudget :: NominalDiffTime
 
 -- | Create a (test) chain config for a given actor.
 chainConfigFor :: HasCallStack => Actor -> FilePath -> ChainBackendOptions -> [TxId] -> [Actor] -> Timing -> IO ChainConfig
@@ -394,9 +413,6 @@ MsgSynchronizing :: Centi -> NominalDiffTime -> NominalDiffTime -> NominalDiffTi
 [$sel:targetTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
 MsgQueryGenesisParametersFailed :: Text -> NodeLog
 [$sel:err:MsgNodeCmdSpec] :: NodeLog -> Text
-MsgPortBindRetry :: Port -> Int -> NodeLog
-[$sel:failedPort:MsgNodeCmdSpec] :: NodeLog -> Port
-[$sel:remainingAttempts:MsgNodeCmdSpec] :: NodeLog -> Int
 type Port = Int
 newtype NodeId
 NodeId :: Int -> NodeId
@@ -438,16 +454,7 @@ runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, Mona
 --   credentials from config<i>credentials</i>. Only the <tt>Faucet</tt>
 --   actor will receive "initialFunds". Use <tt>seedFromFaucet</tt> to
 --   distribute funds other wallets.
---   
---   <tt>randomUnusedTCPPorts</tt> must close its sentinel socket before
---   returning the port, leaving a small window in which another process
---   can grab the same ephemeral port before cardano-node binds it (see the
---   NOTE in <a>Ports</a>). When that happens cardano-node dies on startup
---   with <tt>bind: Address already in use</tt>. Detect that one specific
---   failure and retry with a freshly allocated port; everything else is
---   rethrown unchanged.
 withCardanoNodeDevnet :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
-portBindMaxAttempts :: Int
 withBlockfrostBackend :: Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -> ChainBackendOptions -> IO a) -> IO a
 
 -- | Find the given file in the current directory or its parents.
@@ -525,7 +532,7 @@ instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
 data HydraClient
-HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> ApiEncoding -> HydraClient
+HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> ApiEncoding -> Maybe FilePath -> HydraClient
 [$sel:hydraNodeId:HydraClient] :: HydraClient -> Int
 [$sel:apiHost:HydraClient] :: HydraClient -> Host
 
@@ -539,6 +546,10 @@ HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraN
 --   query param). <a>send</a> and <a>waitNext</a> translate between CBOR
 --   on the wire and the <a>Value</a>s used by test assertions.
 [$sel:apiEncoding:HydraClient] :: HydraClient -> ApiEncoding
+
+-- | Work directory of the spawned hydra-node, when this test spawned it;
+--   used to point at its logs in failure messages.
+[$sel:workDir:HydraClient] :: HydraClient -> Maybe FilePath
 
 -- | The three ports a hydra-node binds: API, peer-to-peer listen, and the
 --   optional Prometheus monitoring endpoint. Callers allocate these via
@@ -604,6 +615,10 @@ prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> Secret (Si
 
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
+
+-- | <tt>failAfter</tt> with the budget scaled like <a>scaleWaitTime</a>.
+--   Use for whole-test backstops in end-to-end tests.
+scaledFailAfter :: HasCallStack => NominalDiffTime -> IO a -> IO a
 send :: HydraClient -> Value -> IO ()
 
 -- | Wait some time for a single API server output from each of given
@@ -632,7 +647,8 @@ waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 waitForSnapshotUTxO :: HasCallStack => NominalDiffTime -> HydraClient -> UTxO -> IO ()
 
 -- | Wait up to some time for an API server output to match the given
---   predicate.
+--   predicate. The budget is scaled to the environment, see
+--   <a>scaleWaitTime</a>.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
 withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] -> [Secret (SigningKey HydraKey)] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
@@ -652,6 +668,12 @@ withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
+-- | Like <a>withPreparedHydraNode</a> but with extra environment entries
+--   for the hydra-node process (also inherited by its etcd child). Use
+--   this instead of a process-global <a>setEnv</a>, which would leak into
+--   every other concurrently spawned node.
+withPreparedHydraNodeWithEnv :: HasCallStack => [(String, String)] -> Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
+
 -- | Convenience: run a single hydra-node with no peers and freshly
 --   allocated dynamic ports. Equivalent to <a>withHydraNode</a> with a
 --   singleton port map.
@@ -670,7 +692,21 @@ withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -
 --   freshly allocated dynamic ports.
 withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 waitNext :: HasCallStack => HydraClient -> IO Value
-setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
+
+-- | Scale a wait budget to the environment. Blockfrost runs triple it (the
+--   follower observes ~1 block behind tip plus one poll interval, on a
+--   network with much longer block times than the devnet timings most
+--   waits are written for) and HYDRA_TEST_WAIT_MULTIPLIER multiplies
+--   further; CI sets it to compensate for slow shared runners, local runs
+--   default to 1. Only failure latency is affected: a passing wait returns
+--   as soon as its message arrives.
+--   
+--   Budgets get a constant floor: the many <tt>N * blockTime</tt> waits
+--   come to well under a second on the 0.1s devnet, underestimating the
+--   fixed costs they also cover (tx submission, observation, node
+--   processing). Sub-second waits fired exactly when several suites shared
+--   one machine.
+scaleWaitTime :: NominalDiffTime -> IO NominalDiffTime
 
 -- | Wait some time for a list of outputs from each of given nodes. This
 --   function is the generalised version of <a>waitFor</a>, allowing
@@ -678,8 +714,13 @@ setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Value] -> IO ()
 
 -- | Wait up to some time and succeed if no API server output matches the
---   given predicate.
+--   given predicate. The window is deliberately NOT scaled by
+--   <a>scaleWaitTime</a>: the timeout here is the success path, so scaling
+--   it would slow every passing run.
 waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO ()
+
+-- | Like <a>waitMatch</a> but with the given wall-clock budget, unscaled.
+waitMatchWith :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 
 -- | Like <a>withHydraCluster</a> but connecting each node's API client
@@ -716,7 +757,7 @@ preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
 
 -- | Like <a>withPreparedHydraNode</a> but connecting the API client with
 --   the given query string instead of the default "/?history=yes".
-withPreparedHydraNodeWithQuery :: HasCallStack => Maybe String -> Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
+withPreparedHydraNodeWithQuery :: HasCallStack => Maybe String -> [(String, String)] -> Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> Maybe String -> (HydraClient -> IO a) -> IO a
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog

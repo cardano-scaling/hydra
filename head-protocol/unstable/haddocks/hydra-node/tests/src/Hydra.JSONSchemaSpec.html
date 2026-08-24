@@ -7,7 +7,7 @@
 </span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Exception.html"><span class="hs-identifier">Control.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier">IOException</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Value</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">object</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
 </span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">key</span></span><span class="hs-special">)</span><span>
-</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.JSONSchema</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">prop_validateJSONSchema</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">validateJSON</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withJsonSpecifications</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.JSONSchema</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">prop_validateJSONSchema</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">validateJSON</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">validateJSONWith</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withJsonSpecifications</span></span><span class="hs-special">)</span><span>
 </span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/template-haskell-2.20.0.0/src/System.FilePath.html"><span class="hs-identifier">System.FilePath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator">(&lt;/&gt;)</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances.Time</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-13"></span><span>
@@ -33,12 +33,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall (m :: * -&gt; *) r. MonadIO m =&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withJsonSpecifications</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699658"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699658"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699743"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699743"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-19"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 </span><span class="hs-identifier hs-var">validateJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699658"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679699743"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; f Value) -&gt; Value -&gt; f Value
 forall a. a -&gt; a
@@ -79,28 +79,29 @@ String -&gt; a -&gt; SpecWith (Arg a)
 </span><span class="hs-string">&quot;fails with missing tool&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-26"></span><span>      </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
-</span><span class="hs-identifier hs-var">withClearedPATH</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
-forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-27"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
-String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
-</span><span class="hs-identifier hs-var">validateJSON</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-26"></span><span>      </span><span class="hs-comment">-- Point at a non-existing executable instead of clearing PATH; mutating</span><span>
+</span><span id="line-27"></span><span>      </span><span class="hs-comment">-- the process-wide PATH breaks concurrently running tests that spawn</span><span>
+</span><span id="line-28"></span><span>      </span><span class="hs-comment">-- subprocesses.</span><span>
+</span><span id="line-29"></span><span>      </span><span class="annot"><span class="annottext">HasCallStack =&gt;
+String -&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
+String -&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
+</span><span class="hs-identifier hs-var">validateJSONWith</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;check-jsonschema-not-on-path&quot;</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;does-not-matter.json&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; f Value) -&gt; Value -&gt; f Value
 forall a. a -&gt; a
 SchemaSelector
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">Value
 </span><span class="hs-identifier hs-var">Null</span></span><span>
-</span><span id="line-28"></span><span>          </span><span class="annot"><span class="annottext">IO () -&gt; Selector IOException -&gt; IO ()
+</span><span id="line-30"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; Selector IOException -&gt; IO ()
 forall e a.
 (HasCallStack, Exception e) =&gt;
 IO a -&gt; Selector e -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="annot"><span class="annottext">forall e. Exception e =&gt; String -&gt; Selector e
 </span><span class="hs-identifier hs-var">exceptionContaining</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;installed&quot;</span></span><span>
-</span><span id="line-29"></span><span>
-</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -109,20 +110,20 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-31"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
+</span><span id="line-33"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) r. MonadIO m =&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withJsonSpecifications</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699667"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699667"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-32"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699751"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699751"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 </span><span class="hs-identifier hs-var">validateJSON</span></span><span>
-</span><span id="line-33"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699667"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-35"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699751"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-34"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-36"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;components&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -144,11 +145,11 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;HeadId&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-35"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Value
+</span><span id="line-37"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;some-head-id&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-36"></span><span>
-</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -157,20 +158,20 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-38"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
+</span><span id="line-40"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) r. MonadIO m =&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withJsonSpecifications</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699681"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699681"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-39"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699765"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699765"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-41"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 </span><span class="hs-identifier hs-var">validateJSON</span></span><span>
-</span><span id="line-40"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699681"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-42"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699765"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-41"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-43"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;components&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -192,7 +193,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;HeadId&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-42"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span id="line-44"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Value -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
@@ -200,16 +201,16 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;bar&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><span id="line-43"></span><span>          </span><span class="annot"><span class="annottext">IO () -&gt; Selector HUnitFailure -&gt; IO ()
+</span><span id="line-45"></span><span>          </span><span class="annot"><span class="annottext">IO () -&gt; Selector HUnitFailure -&gt; IO ()
 forall e a.
 (HasCallStack, Exception e) =&gt;
 IO a -&gt; Selector e -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="annot"><span class="annottext">forall e. Exception e =&gt; String -&gt; Selector e
 </span><span class="hs-identifier hs-var">exceptionContaining</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">HUnitFailure</span></span><span>
-</span><span id="line-44"></span><span>            </span><span class="annot"><span class="annottext">String
+</span><span id="line-46"></span><span>            </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;{'foo': 'bar'} is not of type 'string'&quot;</span></span><span>
-</span><span id="line-45"></span><span>
-</span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -218,21 +219,21 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-47"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
+</span><span id="line-49"></span><span>      </span><span class="annot"><span class="annottext">(String -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) r. MonadIO m =&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withJsonSpecifications</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699692"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699692"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-48"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679699776"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699776"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 String -&gt; SchemaSelector -&gt; Value -&gt; IO ()
 </span><span class="hs-identifier hs-var">validateJSON</span></span><span>
-</span><span id="line-49"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679699692"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-51"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679699776"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-50"></span><span>          </span><span class="hs-comment">-- NOTE: MultiSignature has a local ref into api.yaml for Signature</span><span>
-</span><span id="line-51"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-52"></span><span>          </span><span class="hs-comment">-- NOTE: MultiSignature has a local ref into api.yaml for Signature</span><span>
+</span><span id="line-53"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;components&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -254,7 +255,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;MultiSignature&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-52"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span id="line-54"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;multiSignature&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; [Value] -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
@@ -262,14 +263,14 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;bar&quot;</span></span><span class="hs-special">]</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><span id="line-53"></span><span>
-</span><span id="line-54"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;prop_validateJSONSchema&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; SpecM (Arg Property) ()
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; SpecM (Arg Property) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -278,13 +279,13 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Property -&gt; SpecM (Arg Property) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">forall a.
+</span><span id="line-58"></span><span>      </span><span class="annot"><span class="annottext">forall a.
 (HasCallStack, ToJSON a, Arbitrary a, Show a) =&gt;
 String -&gt; SchemaSelector -&gt; Property
 </span><span class="hs-identifier hs-var">prop_validateJSONSchema</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
-</span><span id="line-57"></span><span>        </span><span class="annot"><span class="annottext">String
+</span><span id="line-59"></span><span>        </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.yaml&quot;</span></span><span>
-</span><span id="line-58"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-60"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;components&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -306,4 +307,4 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;UTCTime&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-59"></span></pre></body></html>
+</span><span id="line-61"></span></pre></body></html>

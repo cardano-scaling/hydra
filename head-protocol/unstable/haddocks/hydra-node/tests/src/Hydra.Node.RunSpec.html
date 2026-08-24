@@ -31,8 +31,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-25"></span><span>    </span><span id="local-6989586621679712410"><span class="annot"><span class="annottext">[String]
-</span><a href="#local-6989586621679712410"><span class="hs-identifier hs-var">cardanoKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [String] -&gt; IO [String]
+</span><span id="line-25"></span><span>    </span><span id="local-6989586621679712522"><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621679712522"><span class="hs-identifier hs-var">cardanoKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [String] -&gt; IO [String]
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen [String] -&gt; IO [String]) -&gt; Gen [String] -&gt; IO [String]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -42,8 +42,8 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Int -&gt; m a -&gt; m [a]
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Gen String
 </span><span class="hs-identifier hs-var">genFilePath</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;vk&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-26"></span><span>    </span><span id="local-6989586621679712412"><span class="annot"><span class="annottext">[String]
-</span><a href="#local-6989586621679712412"><span class="hs-identifier hs-var">hydraVerificationKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [String] -&gt; IO [String]
+</span><span id="line-26"></span><span>    </span><span id="local-6989586621679712524"><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621679712524"><span class="hs-identifier hs-var">hydraVerificationKeys</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [String] -&gt; IO [String]
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen [String] -&gt; IO [String]) -&gt; Gen [String] -&gt; IO [String]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -57,8 +57,8 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Int -&gt; m a -&gt; m [a]
 </span><span class="hs-identifier hs-var">run</span></span><span>
 </span><span id="line-28"></span><span>      </span><span class="annot"><span class="annottext">RunOptions
 </span><span class="hs-identifier hs-var">defaultRunOptions</span></span><span>
-</span><span id="line-29"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">chainConfig</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cardano</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">defaultCardanoChainConfig</span></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">cardanoVerificationKeys</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679712410"><span class="hs-identifier hs-type">cardanoKeys</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-30"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679712412"><span class="hs-identifier hs-type hs-var">hydraVerificationKeys</span></a></span><span>
+</span><span id="line-29"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">chainConfig</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Cardano</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">defaultCardanoChainConfig</span></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">cardanoVerificationKeys</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679712522"><span class="hs-identifier hs-type">cardanoKeys</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-30"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679712524"><span class="hs-identifier hs-type hs-var">hydraVerificationKeys</span></a></span><span>
 </span><span id="line-31"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">IO () -&gt; Selector ConfigurationException -&gt; IO ()
 forall e a.
@@ -82,23 +82,23 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-36"></span><span>      </span><span id="local-6989586621679712420"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621679712420"><span class="hs-identifier hs-var">genesisParameters</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; IO (GenesisParameters ShelleyEra)
+</span><span id="line-36"></span><span>      </span><span id="local-6989586621679712532"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621679712532"><span class="hs-identifier hs-var">genesisParameters</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; IO (GenesisParameters ShelleyEra)
 </span><span class="hs-identifier hs-var">loadGenesisFile</span></span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-37"></span><span>      </span><span id="local-6989586621679712421"><span class="annot"><span class="annottext">Globals
-</span><a href="#local-6989586621679712421"><span class="hs-identifier hs-var">globals</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra -&gt; EraHistory -&gt; IO Globals
+</span><span id="line-37"></span><span>      </span><span id="local-6989586621679712533"><span class="annot"><span class="annottext">Globals
+</span><a href="#local-6989586621679712533"><span class="hs-identifier hs-var">globals</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra -&gt; EraHistory -&gt; IO Globals
 forall (m :: * -&gt; *).
 MonadThrow m =&gt;
 GenesisParameters ShelleyEra -&gt; EraHistory -&gt; m Globals
 </span><span class="hs-identifier hs-var">newGlobalsWithEraHistory</span></span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621679712420"><span class="hs-identifier hs-var">genesisParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo -&gt; EraHistory
+</span><a href="#local-6989586621679712532"><span class="hs-identifier hs-var">genesisParameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo -&gt; EraHistory
 </span><span class="hs-identifier hs-var">eraHistoryWithHorizonAt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">100</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-38"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679712424"><span class="annot"><span class="annottext">beyondHorizon :: SlotNo
-</span><a href="#local-6989586621679712424"><span class="hs-identifier hs-var hs-var">beyondHorizon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span id="line-38"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679712536"><span class="annot"><span class="annottext">beyondHorizon :: SlotNo
+</span><a href="#local-6989586621679712536"><span class="hs-identifier hs-var hs-var">beyondHorizon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">101</span></span><span>
 </span><span id="line-39"></span><span>      </span><span class="annot"><span class="annottext">EpochInfo (Either Text)
@@ -108,10 +108,10 @@ forall (m :: * -&gt; *).
 EpochInfo m -&gt; SystemStart -&gt; SlotNo -&gt; m UTCTime
 </span><span class="hs-identifier hs-var">epochInfoSlotToUTCTime</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Globals -&gt; EpochInfo (Either Text)
 </span><span class="hs-identifier hs-var">epochInfo</span></span><span> </span><span class="annot"><span class="annottext">Globals
-</span><a href="#local-6989586621679712421"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Globals -&gt; SystemStart
+</span><a href="#local-6989586621679712533"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Globals -&gt; SystemStart
 </span><span class="hs-identifier hs-var">systemStart</span></span><span> </span><span class="annot"><span class="annottext">Globals
-</span><a href="#local-6989586621679712421"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679712424"><span class="hs-identifier hs-var">beyondHorizon</span></a></span><span>
+</span><a href="#local-6989586621679712533"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679712536"><span class="hs-identifier hs-var">beyondHorizon</span></a></span><span>
 </span><span id="line-40"></span><span>        </span><span class="annot"><span class="annottext">Either Text UTCTime -&gt; (Either Text UTCTime -&gt; Bool) -&gt; IO ()
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">Either Text UTCTime -&gt; Bool
@@ -123,8 +123,8 @@ HasCallStack =&gt;
 EpochInfo m -&gt; SlotNo -&gt; m EpochNo
 </span><span class="hs-identifier hs-var">epochInfoEpoch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Globals -&gt; EpochInfo (Either Text)
 </span><span class="hs-identifier hs-var">epochInfo</span></span><span> </span><span class="annot"><span class="annottext">Globals
-</span><a href="#local-6989586621679712421"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679712424"><span class="hs-identifier hs-var">beyondHorizon</span></a></span><span>
+</span><a href="#local-6989586621679712533"><span class="hs-identifier hs-var">globals</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679712536"><span class="hs-identifier hs-var">beyondHorizon</span></a></span><span>
 </span><span id="line-42"></span><span>        </span><span class="annot"><span class="annottext">Either Text EpochNo -&gt; (Either Text EpochNo -&gt; Bool) -&gt; IO ()
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">Either Text EpochNo -&gt; Bool

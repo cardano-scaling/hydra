@@ -338,6 +338,12 @@ genContinuousEvents :: Gen [EventId]
 module Hydra.Events.UDPSpec
 spec :: Spec
 
+-- | Bind a UDP server socket on any free port and hand the assigned port
+--   to the action. Binding port 0 directly avoids probing for a free port
+--   with a separate socket, which is racy (and the previous TCP probe said
+--   nothing about UDP availability anyway).
+withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
+
 
 -- | Golden and roundtrip tests for the persisted event format
 --   (<a>StateEvent</a> and its <a>StateChanged</a> payload).
