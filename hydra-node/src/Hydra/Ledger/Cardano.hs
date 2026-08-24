@@ -95,7 +95,7 @@ cardanoLedger globals ledgerEnv =
         Left err ->
           Left (tx, toValidationError err)
         Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-          Right . forceUTxO . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
+          Right . forceNewEntries utxo . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
 
   -- NOTE: 'unsafeMakeValidated' asserts that the transaction has previously
   -- passed full validation; this holds because callers only re-apply
@@ -107,7 +107,7 @@ cardanoLedger globals ledgerEnv =
         Left err ->
           Left (tx, toValidationError err)
         Right Ledger.LedgerState{Ledger.lsUTxOState = us} ->
-          Right . forceUTxO . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
+          Right . forceNewEntries utxo . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
 
   -- Build the ledger env and mempool state for a single transaction and hand
   -- them to the given continuation. Shared by 'applyTx' and 'reapplyTx'.

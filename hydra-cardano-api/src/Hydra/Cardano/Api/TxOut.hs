@@ -262,8 +262,17 @@ forceTxOut out@(TxOut addr value datum refScript) =
   forceRefScript = case refScript of
     ReferenceScriptNone -> ()
     ReferenceScript w (ScriptInAnyLang lang script) ->
-      -- Hashing serializes the script, which forces the whole AST.
-      w `seq` lang `seq` hashScript script `seq` ()
+      w `seq` lang `seq` forceScript script
+
+-- | Force a script deeply enough to eliminate any lazy thunk, without paying
+-- for a needless hash where possible. A 'PlutusScript' already wraps
+-- serialized bytes with no AST left to force, so touching those bytes is
+-- enough. A 'SimpleScript' does carry a lazy AST, so hashing it (which
+-- serializes it) is used to force it.
+forceScript :: Script lang -> ()
+forceScript = \case
+  PlutusScript version (PlutusScriptSerialised bytes) -> version `seq` bytes `seq` ()
+  script@(SimpleScript _) -> hashScript script `seq` ()
 
 forceScriptData :: ScriptData -> ()
 forceScriptData = \case

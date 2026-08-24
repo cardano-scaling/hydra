@@ -57,5 +57,24 @@ resolveInputsUTxO utxo tx =
 forceUTxO :: UTxO Era -> UTxO Era
 forceUTxO = UTxO.UTxO . Map.mapKeysMonotonic forceTxIn . Map.map forceTxOut . UTxO.unUTxO
 
+-- | Merge a freshly-derived UTxO with the UTxO it was derived from, forcing
+-- only the entries that are genuinely new (not already present in 'old').
+-- Entries carried over from 'old' were already forced whenever they were
+-- first produced, and — since a given 'TxIn' either doesn't exist yet or maps
+-- to one immutable 'TxOut' for the rest of its life — reusing 'old's copy
+-- avoids re-walking (and, for reference scripts, re-hashing) content that
+-- this application did not touch. Suitable for ledger-style application
+-- where 'new' is the full resulting UTxO derived from 'old' plus a single
+-- transaction, as opposed to a genuine ingress point where nothing is known
+-- to be forced yet (there, use 'forceUTxO' on the whole set).
+forceNewEntries :: UTxO Era -> UTxO Era -> UTxO Era
+forceNewEntries old new =
+  UTxO.UTxO $
+    Map.mapKeysMonotonic forceTxIn (Map.map forceTxOut fresh)
+      `Map.union` reused
+ where
+  fresh = UTxO.unUTxO new `Map.difference` UTxO.unUTxO old
+  reused = UTxO.unUTxO old `Map.intersection` UTxO.unUTxO new
+
 fromLedgerUTxO :: Ledger.UTxO LedgerEra -> UTxO Era
 fromLedgerUTxO = forceUTxO . Hydra.Cardano.Api.Prelude.fromLedgerUTxO ShelleyBasedEraConway
