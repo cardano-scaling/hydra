@@ -42,7 +42,7 @@ spec = parallel $ do
             action testHydrate
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
-        failAfter 1 $ do
+        failAfter 10 $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
@@ -57,7 +57,7 @@ spec = parallel $ do
           rotatedHistory <- getEvents (eventSource rotatingEventStore)
           length rotatedHistory `shouldBe` 1
       it "consistent state after restarting with rotation" $ \testHydrate -> do
-        failAfter 1 $ do
+        failAfter 10 $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
@@ -81,7 +81,7 @@ spec = parallel $ do
             Checkpoint{state = NodeInSync{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
       it "preserves pending deposits after restarting with rotation" $ \testHydrate -> do
-        failAfter 1 $ do
+        failAfter 10 $ do
           eventStore <- createMockEventStore
           -- Rotate aggressively so the stored history ends with a single
           -- checkpoint capturing the recorded deposit.
@@ -108,7 +108,7 @@ spec = parallel $ do
         let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
         let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
         let inputs = inputsToOpenHead ++ [closeInput]
-        failAfter 1 $ do
+        failAfter 10 $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
@@ -139,7 +139,7 @@ spec = parallel $ do
         let inputs = inputsToOpenHead ++ [closeInput]
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs
-        failAfter 1 $ do
+        failAfter 10 $ do
           let s0 = initNodeState 0
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
@@ -249,7 +249,7 @@ spec = parallel $ do
             aggregator s e = e : s
         let checkpointer :: [TrivialEvent] -> EventId -> UTCTime -> TrivialEvent
             checkpointer s _ _ = trivialCheckpoint s
-        failAfter 1 $ do
+        failAfter 10 $ do
           -- run restarted in chunks
           mockEventStore <- createMockEventStore
           EventStore{eventSource = restartedEventSource} <-

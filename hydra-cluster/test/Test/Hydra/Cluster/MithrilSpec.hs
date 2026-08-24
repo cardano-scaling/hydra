@@ -16,19 +16,22 @@ import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 spec :: Spec
 spec = parallel $ do
-  describe "downloadLatestSnapshotTo" $
-    forEachKnownNetwork "invokes mithril-client correctly" $ \network -> do
-      let blockfrostNetworks = [BlockfrostPreview, BlockfrostPreprod, BlockfrostMainnet]
-      when (network `elem` blockfrostNetworks) $ pendingWith "Blockfrost doesn't need mithril to run"
-      -- TODO: re-enable once the release-preprod aggregator is reachable again
-      when (network == Fixture.Preproduction) $ pendingWith "release-preprod mithril aggregator is unreachable"
-      (tracer, getTraces) <- captureTracer "MithrilSpec"
-      withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
-        let dbPath = tmpDir </> "db"
-        doesDirectoryExist dbPath `shouldReturn` False
-        raceLabelled_
-          ("download-latest-snapshot-to", downloadLatestSnapshotTo tracer network tmpDir)
-          ("wait-for-download", waitForDownload getTraces)
+  -- Talks to real mithril aggregators and fetches verification keys from
+  -- GitHub; external availability must not block PR CI.
+  around_ onlyNightly $
+    describe "downloadLatestSnapshotTo @nightly" $
+      forEachKnownNetwork "invokes mithril-client correctly" $ \network -> do
+        let blockfrostNetworks = [BlockfrostPreview, BlockfrostPreprod, BlockfrostMainnet]
+        when (network `elem` blockfrostNetworks) $ pendingWith "Blockfrost doesn't need mithril to run"
+        -- TODO: re-enable once the release-preprod aggregator is reachable again
+        when (network == Fixture.Preproduction) $ pendingWith "release-preprod mithril aggregator is unreachable"
+        (tracer, getTraces) <- captureTracer "MithrilSpec"
+        withTempDir ("mithril-download-" <> show network) $ \tmpDir -> do
+          let dbPath = tmpDir </> "db"
+          doesDirectoryExist dbPath `shouldReturn` False
+          raceLabelled_
+            ("download-latest-snapshot-to", downloadLatestSnapshotTo tracer network tmpDir)
+            ("wait-for-download", waitForDownload getTraces)
 
 -- | Wait for the 'StdErr' message to indicate it starts downloading.
 waitForDownload :: HasCallStack => IO [Envelope MithrilLog] -> IO ()

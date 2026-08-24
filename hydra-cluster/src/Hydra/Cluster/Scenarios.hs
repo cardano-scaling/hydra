@@ -31,10 +31,10 @@ import CardanoClient (
  )
 import CardanoNode (EndToEndLog (..), runBackend)
 import Control.Concurrent.Async (concurrently, mapConcurrently_)
-import Control.Lens ((.~), (?~), (^.), (^..), (^?))
+import Control.Lens (cosmos, filtered, (.~), (?~), (^.), (^..), (^?))
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
+import Data.Aeson.Lens (atKey, key, values, _Integer, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -103,11 +103,11 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
-import Hydra.Chain.ChainState (ChainSlot)
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, setNetworkId, truncatedDepositPeriod)
+import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
@@ -122,7 +122,6 @@ import Hydra.Tx.Secret (Secret, mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
-  HydraNodeLog,
   HydraNodePorts (..),
   allocateHydraNodePortsFor,
   getProtocolParameters,
@@ -133,6 +132,7 @@ import HydraNode (
   postDecommit,
   prepareHydraNode,
   requestCommitTx,
+  scaledFailAfter,
   send,
   waitFor,
   waitForAllMatch,
@@ -146,6 +146,7 @@ import HydraNode (
   withHydraNode,
   withHydraNodeCatchingUp,
   withPreparedHydraNode,
+  withPreparedHydraNodeWithEnv,
   withSoloHydraNode,
   withSoloHydraNodeCatchingUp,
   withUnsyncedHydraNode,
@@ -168,7 +169,6 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
-import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Ledger.Cardano.Fixtures (maxTxExecutionUnits)
@@ -298,42 +298,59 @@ resumeFromLatestKnownPoint tracer workDir opts hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   chainSlot :: ChainSlot <-
-    withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
-      -- See note in the second run below; same race applies on the first
-      -- websocket the node ever serves. Use a fresh connection after a
-      -- short settle so both runs sample 'currentSlot' the same way.
-      void $ waitMatch 20 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "Greetings"
-        v ^? key "chainSyncedStatus" . _String
-      threadDelay 1
-      readGreetingsSlot hydraTracer n1
+    withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 ->
+      -- 'currentSlot' is fed from chain Ticks after start up, so wait for it
+      -- to move off 0 instead of sampling it once.
+      waitForGreetingsSlotPast (ChainSlot 0) n1
 
   chainSlot' <-
-    withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
-      -- The initial Greetings on this websocket can be sent before the
-      -- chain backend has populated 'currentSlot' from the just-resumed
-      -- state, so its value races between 0 and the live tip. Drain that
-      -- initial Greetings, wait a beat, then open a fresh websocket: the
-      -- 'Greetings' emitted by that new connection is built from the
-      -- node state at send time and reliably reflects the current slot.
-      void $ waitMatch 20 n1 $ \v -> do
-        guard $ v ^? key "tag" == Just "Greetings"
-        v ^? key "chainSyncedStatus" . _String
-      threadDelay 1
-      readGreetingsSlot hydraTracer n1
+    withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 ->
+      -- The restarted node must progress past the slot observed before the
+      -- restart.
+      waitForGreetingsSlotPast chainSlot n1
 
   chainSlot `shouldSatisfy` (< chainSlot')
+
+  -- Deterministic evidence for the property under test: the restart decided
+  -- to start at a point at or after the previously observed slot (the tip
+  -- for this idle node), never in a genesis replay. The chain layer traces
+  -- its decision on start up.
+  decisionSlot <- lastStartingDecisionSlot (workDir </> "logs" </> "hydra-node-1.log")
+  decisionSlot `shouldSatisfy` (>= chainSlot)
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  readGreetingsSlot :: Tracer IO HydraNodeLog -> HydraClient -> IO ChainSlot
-  readGreetingsSlot tr HydraClient{hydraNodeId, apiHost, monitoringPort} =
-    withConnectionToNode tr hydraNodeId apiHost monitoringPort $ \n ->
-      waitMatch 20 n $ \v -> do
-        guard $ v ^? key "tag" == Just "Greetings"
-        guard $ v ^? key "headStatus" == Just (toJSON Idle)
-        slot <- v ^? key "currentSlot"
-        parseMaybe parseJSON slot
+  -- Poll 'Greetings' via fresh connections until 'currentSlot' moved past the
+  -- given slot. Greetings carries the slot sampled at connection time, so a
+  -- fresh connection per probe is needed.
+  waitForGreetingsSlotPast :: ChainSlot -> HydraClient -> IO ChainSlot
+  waitForGreetingsSlotPast lowerBound HydraClient{hydraNodeId, apiHost, monitoringPort} =
+    scaledFailAfter 60 go
+   where
+    go = do
+      slot <- withConnectionToNode hydraTracer hydraNodeId apiHost monitoringPort $ \n ->
+        waitMatch 20 n $ \v -> do
+          guard $ v ^? key "tag" == Just "Greetings"
+          guard $ v ^? key "headStatus" == Just (toJSON Idle)
+          v ^? key "currentSlot" >>= parseMaybe parseJSON
+      if slot > lowerBound then pure slot else threadDelay 0.2 >> go
+
+  -- The slot of the last 'StartingChainDecision' in the node log. Searches
+  -- structurally so wrapping of the chain trace in the node's log envelope
+  -- does not matter; a decision without a slot (genesis) contributes nothing.
+  lastStartingDecisionSlot :: FilePath -> IO ChainSlot
+  lastStartingDecisionSlot logFile = do
+    logLines <- lines . decodeUtf8 @Text <$> readFileBS logFile
+    let decisionSlots =
+          [ slot
+          | l <- logLines
+          , Just (v :: Aeson.Value) <- [Aeson.decodeStrict (encodeUtf8 l)]
+          , decision <- v ^.. cosmos . filtered (\sub -> sub ^? key "tag" == Just "StartingChainDecision")
+          , slot <- decision ^.. cosmos . key "slot" . _Integer
+          ]
+    case nonEmpty decisionSlots of
+      Just slots -> pure $ ChainSlot (fromInteger (last slots))
+      Nothing -> failure ("no StartingChainDecision with a slot found in " <> logFile)
 
 restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
@@ -355,6 +372,10 @@ restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
     -- Also expect to see past server outputs replayed
     headId2 <- waitMatch (20 * blockTime * 10) n1 $ headIsOpenWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
+    -- The node rejects inputs while catching up, and under load a restart can
+    -- start out more than 'unsyncedPeriod' behind; wait until it reports
+    -- itself synced before closing.
+    waitUntilSynced n1
     -- Heads now open directly, so we close instead of abort
     send n1 $ input "Close" []
     waitMatch 20 n1 $ \v -> do
@@ -366,6 +387,18 @@ restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
       guard $ v ^? key "headStatus" == Just "Closed"
       guard $ v ^? key "me" == Just (toJSON alice)
       guard $ isJust (v ^? key "hydraNodeVersion")
+ where
+  -- Poll 'Greetings' via fresh connections until the node reports Synced;
+  -- Greetings carries the status sampled at connection time.
+  waitUntilSynced HydraClient{hydraNodeId, apiHost, monitoringPort} =
+    scaledFailAfter 60 go
+   where
+    go = do
+      synced <- withConnectionToNode (contramap FromHydraNode tracer) hydraNodeId apiHost monitoringPort $ \n ->
+        waitMatch 20 n $ \v -> do
+          guard $ v ^? key "tag" == Just "Greetings"
+          v ^? key "chainSyncedStatus" . _String
+      unless (synced == "InSync") $ threadDelay 0.2 >> go
 
 nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
@@ -1830,11 +1863,13 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
       <&> setNetworkId networkId
   nodePorts <- allocateHydraNodePortsFor [1, 2]
   withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] nodePorts $ \n1 -> do
-    waitMatch (20 * blockTime) n1 $ \v -> do
+    -- Node start up is a fixed cost (spawn, etcd bootstrap, websocket
+    -- connect), not a blockTime multiple.
+    waitMatch nodeStartupBudget n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
     withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] nodePorts $ \n2 -> do
-      waitMatch (20 * blockTime) n2 $ \v -> do
+      waitMatch nodeStartupBudget n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
       threadDelay 5
@@ -1847,9 +1882,12 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
         "hydra-node" `isInfixOf` show e
           && "etcd" `isInfixOf` show e
 
-    setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
-    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] nodePorts (const $ pure ())
-    unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
+    -- Tell the fresh etcd to join the existing cluster instead of
+    -- bootstrapping a new one. Scoped to this node's process environment; a
+    -- process-global setEnv would leak into every other spawned node, since
+    -- etcd children inherit the full environment.
+    bobOptions <- prepareHydraNode bobChainConfig workDir 2 bobSk [aliceVk] nodePorts id
+    withPreparedHydraNodeWithEnv [("ETCD_INITIAL_CLUSTER_STATE", "existing")] hydraTracer workDir 2 bobOptions (const $ pure ())
  where
   hydraTracer = contramap FromHydraNode tracer
 
@@ -1911,23 +1949,31 @@ waitsForChainInSync tracer workDir opts hydraScriptsTxId = do
       -- Carol restarts
       withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
         -- The node reports that it is in the Open state when restarting.
-        waitMatch 5 n3 $ \v -> do
+        waitMatch nodeStartupBudget n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
-        -- Carol observes the head getting closed while still catching up:
-        -- the Close was posted before Carol reconnected, so it is replayed
-        -- during chain sync (drift >> threshold at that point), which means
-        -- HeadIsClosed is always emitted BEFORE NodeSynced in this scenario.
-        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "HeadIsClosed"
-          guard $ v ^? key "headId" == Just (toJSON headId)
-
-        -- Carol API notifies the node is back on sync with the chain
-        waitMatch (20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeSynced"
+        -- Carol replays the Close during catch up, so she emits both
+        -- HeadIsClosed and NodeSynced from the same chain sync. Their order
+        -- is not fixed: NodeSynced fires on the first tick with drift below
+        -- the unsynced period, and the block holding the close tx can land
+        -- on either side of that crossing (Carol restarts right after the
+        -- close, leaving it well within the threshold of the tip).
+        let catchUpBudget = unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime
+            matchClosedOrSynced v = do
+              tag <- v ^? key "tag"
+              case tag of
+                "HeadIsClosed" -> do
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  pure tag
+                "NodeSynced" -> pure tag
+                _ -> Nothing
+        firstMatched <- waitMatch catchUpBudget n3 matchClosedOrSynced
+        waitMatch catchUpBudget n3 $ \v -> do
+          tag <- matchClosedOrSynced v
+          guard $ tag /= firstMatched
  where
   hydraTracer = contramap FromHydraNode tracer
 

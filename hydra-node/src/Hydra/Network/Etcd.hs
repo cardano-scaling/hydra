@@ -141,15 +141,25 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- configuration? That would be similar to the 'acks' persistence
   -- bailing out on loading.
   envVars <- Map.fromList <$> getEnvironment
+  -- Bounded buffer of recent etcd stderr lines; rendered into the failure
+  -- message below, which is otherwise silent about the reason etcd exited
+  -- (e.g. which port was already bound).
+  recentStderr <- newIORef []
   withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
     raceLabelled_
       ( "etcd-waitExitCode"
       , do
-          waitExitCode p >>= \ec -> fail $ "Sub-process etcd exited with: " <> show ec
+          ec <- waitExitCode p
+          -- Let 'traceStderr' drain the last lines out of the closing pipe.
+          threadDelay 0.1
+          stderrLines <- reverse <$> readIORef recentStderr
+          fail . toString . unlines $
+            ("Sub-process etcd exited with: " <> show ec)
+              : if null stderrLines then [] else "Recent etcd output:" : stderrLines
       )
       ( "etcd-callback-1"
       , raceLabelled_
-          ("etcd-traceStderr", traceStderr p callback)
+          ("etcd-traceStderr", traceStderr recentStderr p callback)
           ( "etcd-callback-2"
           , do
               -- NOTE: The connection to the server is set up asynchronously; the
@@ -180,9 +190,10 @@ withEtcdNetwork tracer protocolVersion config callback action = do
       )
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
-  traceStderr p NetworkCallback{onConnectivity} =
+  traceStderr recentStderr p NetworkCallback{onConnectivity} =
     let loop = do
           bs <- BS.hGetLine (getStderr p)
+          modifyIORef' recentStderr (take 20 . (decodeUtf8 bs :))
           case Aeson.eitherDecodeStrict bs of
             Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
             Right v -> do
@@ -854,7 +865,15 @@ withProcessInterrupt config =
     interruptProcessGroupOf (unsafeProcessHandle p)
     raceLabelled_
       ("etcd-signalAndStopProcess-waitExitCode", void $ waitExitCode p)
-      ("etcd-signalAndStopProcess-stopProcess", threadDelay 5 >> stopProcess p)
+      -- 'stopProcess' can lose a reap race against its own waiter thread when
+      -- the process dies right around the SIGTERM escalation: its internal
+      -- 'waitForProcess' then throws ECHILD ("does not exist"). The process is
+      -- dead either way, which is all we wanted here.
+      ( "etcd-signalAndStopProcess-stopProcess"
+      , threadDelay 5
+          >> stopProcess p
+          `catch` (\e -> unless (isDoesNotExistError e) $ throwIO e)
+      )
 
 -- * Persistent queue
 

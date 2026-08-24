@@ -92,6 +92,35 @@
 
           hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
         };
+
+        # Aiken resolves dependencies from the network unless they are already
+        # in its XDG cache. Pre-build the cache with the pinned stdlib so the
+        # blueprint test cannot fail on registry outages; GoldenSpec points
+        # aiken at it via HYDRA_AIKEN_CACHE.
+        #
+        # The version is read from aiken.toml so it cannot drift silently: a
+        # stdlib bump there makes this fetch fail on the stale hash (update
+        # the hash below alongside).
+        aikenCache =
+          let
+            aikenToml = builtins.replaceStrings [ "\n" ] [ " " ]
+              (builtins.readFile ../../hydra-plutus/aiken.toml);
+            stdlibVersion = builtins.head
+              (builtins.match ''.*name = "aiken-lang/stdlib" *version = "([^"]+)".*'' aikenToml);
+            aikenStdlib = pkgs.fetchzip {
+              url = "https://github.com/aiken-lang/stdlib/archive/refs/tags/${stdlibVersion}.zip";
+              hash = "sha256-PfnRpyt+8WAqC5No4RADag/UcFVjZhV1CtEgT8sPPKA=";
+            };
+          in
+          pkgs.runCommand "aiken-cache" { nativeBuildInputs = [ pkgs.zip ]; } ''
+            mkdir -p $out/aiken/packages work/stdlib-${stdlibVersion}
+            cp -r ${aikenStdlib}/. work/stdlib-${stdlibVersion}/
+            # zip records the permission bits and store files are read-only;
+            # extracting read-only directories into build/packages then breaks
+            # the very next mkdir inside them.
+            chmod -R u+w work
+            (cd work && zip -q -r -X $out/aiken/packages/aiken-lang-stdlib-${stdlibVersion}.zip stdlib-${stdlibVersion})
+          '';
       in
       rec {
         release =
@@ -135,6 +164,7 @@
             nativePkgs.hydra-plutus.components.tests.tests
             pkgs.aiken
           ];
+          HYDRA_AIKEN_CACHE = aikenCache;
         };
 
         hydra-plutus-extras-tests = pkgs.mkShellNoCC {

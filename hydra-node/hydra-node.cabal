@@ -480,7 +480,6 @@ test-suite tests
     , req
     , resourcet
     , retry
-    , silently
     , sop-extras
     , sqlite-simple
     , stm

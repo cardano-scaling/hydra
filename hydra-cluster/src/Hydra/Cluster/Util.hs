@@ -111,9 +111,29 @@ mkTestTiming' numDeposits blockTime =
 -- deposit becomes active after 'depositActivation' and then needs about one
 -- 'depositPeriod' to be picked up and incremented, so both are accounted for
 -- (with the defaults where they are equal this is @2 * depositPeriod@).
+--
+-- The slack term covers the two on-chain round trips (deposit and increment:
+-- submit, include, observe) plus multi-node processing. Those costs are
+-- dominated by fixed latencies, not by block time, so the slack has a
+-- constant floor; with the devnet's 0.1s blocks a pure @5 * blockTime@ came
+-- to 0.5s and timed out regularly on loaded CI runners.
 depositTimeout :: Timing -> NominalDiffTime
 depositTimeout Timing{blockTime, depositPeriod, depositActivation} =
-  DP.toNominalDiffTime depositActivation + DP.toNominalDiffTime depositPeriod + 5 * blockTime
+  DP.toNominalDiffTime depositActivation + DP.toNominalDiffTime depositPeriod + max 5 (20 * blockTime)
+
+-- | Budget for observing the effect of one L1 transaction on the API:
+-- submission, block inclusion, chain-follower observation and node
+-- processing. The constant floor covers the fixed latencies, which dominate
+-- at devnet block times; a pure blockTime multiple (e.g. a literal 3s) fired
+-- regularly on loaded CI runners.
+onChainObservationBudget :: NominalDiffTime -> NominalDiffTime
+onChainObservationBudget blockTime = 5 + 10 * blockTime
+
+-- | Budget for a hydra-node (re)start up to its Greetings. Process spawn,
+-- etcd bootstrap and websocket connect are fixed costs, unrelated to block
+-- time, so this is a constant.
+nodeStartupBudget :: NominalDiffTime
+nodeStartupBudget = 20
 
 -- | Create a (test) chain config for a given actor.
 chainConfigFor ::
