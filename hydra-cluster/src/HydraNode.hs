@@ -686,8 +686,14 @@ withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId 
         else do
           baseEnv <- getEnvironment
           pure $ setEnv (extraEnv <> filter ((`notElem` map fst extraEnv) . fst) baseEnv)
+    -- Benchmark-only hook: HYDRA_NODE_RTS_FLAGS appends '+RTS <flags> -RTS' to
+    -- the spawned node (e.g. "-N2 -T"). Deliberately not GHCRTS, which every
+    -- GHC binary in the environment would inherit. Unset means byte-identical
+    -- spawns.
+    rtsFlags <- maybe [] (map toString . words . toText) <$> lookupEnv "HYDRA_NODE_RTS_FLAGS"
+    let extraArgs = if null rtsFlags then [] else ["+RTS"] <> rtsFlags <> ["-RTS"]
     let cmd =
-          (proc "hydra-node" . toArgs $ runOptions)
+          proc "hydra-node" (toArgs runOptions <> extraArgs)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
             & setCloseFds True

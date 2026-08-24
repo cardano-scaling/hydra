@@ -39,6 +39,36 @@ def write_rep(root, machine, slot, side, md):
     d = root / machine / f"rep-{slot}-{side}" / "open"
     d.mkdir(parents=True, exist_ok=True)
     (d / "end-to-end-benchmarks.md").write_text(md, encoding="utf-8")
+    return d
+
+
+def summary_json(title="Sustained load", tps=500.0, n_txs=15000, snapshots=None):
+    snapshots = snapshots if snapshots is not None else [[0.5 * i, 1000] for i in range(1, 16)]
+    return {
+        "summaryTitle": title,
+        "loadMode": "open-loop",
+        "numberOfTxs": n_txs,
+        "numberOfInvalidTxs": 0,
+        "numberOfSnapshots": len(snapshots),
+        "avgTxsPerSnapshot": n_txs / len(snapshots),
+        "endToEndTps": tps,
+        "runWallClockSeconds": n_txs / tps,
+        "drainSeconds": 5.0,
+        "snapshotSeries": snapshots,
+        "confirmationTimesMs": [float(i) for i in range(1, 101)],
+        "validationP50Ms": 5.0,
+        "peakNodeRssMb": 400.0,
+        "incrementalCommitTimes": [],
+        "incrementalDecommitTimes": [],
+        "runOutcome": None,
+    }
+
+
+def write_rep_with_json(root, machine, slot, side, md, summaries):
+    d = write_rep(root, machine, slot, side, md)
+    (d / "end-to-end-benchmarks.json").write_text(
+        json.dumps({"version": 1, "summaries": summaries}), encoding="utf-8"
+    )
 
 
 def render_dir(root):
@@ -91,6 +121,79 @@ class DecideCell(unittest.TestCase):
     def test_all_zero_deltas_are_noise(self):
         text, _ = self.cell([0.0, 0.0, 0.0, 0.0])
         self.assertTrue(text.startswith("≈"))
+
+
+class Estimators(unittest.TestCase):
+    def test_slope_recovers_linear_rate(self):
+        series = [(0.5 * i, 200) for i in range(1, 21)]
+        self.assertAlmostEqual(diff.sustained_tps_slope(series), 400.0, places=6)
+
+    def test_slope_trims_ramp(self):
+        # Slow first 10% of txs, then steady 1000 tx/s: the window excludes
+        # the ramp point.
+        series = [(10.0, 100)] + [(10.0 + 0.1 * i, 100) for i in range(1, 10)]
+        self.assertAlmostEqual(diff.sustained_tps_slope(series), 1000.0, delta=1.0)
+
+    def test_slope_needs_four_window_points(self):
+        self.assertIsNone(diff.sustained_tps_slope([(1.0, 100), (2.0, 100), (3.0, 100)]))
+        self.assertIsNone(diff.sustained_tps_slope([]))
+
+    def test_percentile_interpolates(self):
+        self.assertEqual(diff.percentile([1.0, 2.0, 3.0, 4.0], 50), 2.5)
+        self.assertIsNone(diff.percentile([], 50))
+
+
+class JsonPath(unittest.TestCase):
+    def test_json_pair_uses_slope_and_python_percentiles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for slot, side in ((1, "branch"), (2, "master")):
+                write_rep_with_json(root, "m1", slot, side, report_md(), [summary_json()])
+            out, _ = render_dir(root)
+            text = "\n".join(out)
+            self.assertIn("Sustained TPS, slope", text)
+            rows = [line for line in out if line.startswith("| ")]
+            self.assertFalse(any("🔴" in r or "🟢" in r for r in rows), rows)
+
+    def test_mixed_format_pair_falls_back_to_md(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_rep_with_json(root, "m1", 1, "branch", report_md(), [summary_json()])
+            write_rep(root, "m1", 2, "master", report_md())
+            out, _ = render_dir(root)
+            text = "\n".join(out)
+            self.assertIn("End-to-end TPS", text)
+            self.assertIn("Sustained TPS (tx/s)", text)
+            self.assertNotIn("slope", text)
+
+    def test_rts_metrics_mirror_haskell_formula(self):
+        mb = 1024.0 * 1024.0
+        stats = [
+            {"allocatedBytes": 1000 * mb, "mutatorCpuSeconds": 10.0, "maxLiveBytes": 300 * mb},
+            {"allocatedBytes": 500 * mb, "mutatorCpuSeconds": 6.0, "maxLiveBytes": 200 * mb},
+        ]
+        m = diff.rts_metrics(stats, n_txs=1000, n_snapshots=10)
+        self.assertAlmostEqual(m["Alloc MB per confirmed tx"], 1.5)
+        self.assertAlmostEqual(m["Alloc MB per snapshot"], 150.0)
+        self.assertAlmostEqual(m["Mutator CPU s per 1k txs"], 16.0)
+        self.assertAlmostEqual(m["Max live MB (max node)"], 300.0)
+        self.assertEqual(diff.rts_metrics([], 1000, 10), {})
+
+    def test_calibrate_smoke(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for run in ("run-1", "run-2"):
+                for slot, side in ((1, "branch"), (2, "master")):
+                    write_rep(root / run, "m1", slot, side, report_md(tps=500.0 + slot))
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                diff.calibrate(root)
+            doc = json.loads(buf.getvalue())
+            self.assertEqual(doc["runs"], 2)
+            self.assertIn("End-to-end TPS", doc["suggested_thresholds"])
 
 
 class Parsing(unittest.TestCase):

@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
+import Bench.Summary (NodeRtsStats (..), Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -54,6 +54,7 @@ import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
 import Hydra.Tx.Secret (Secret)
 import HydraNode (
   HydraClient (..),
+  getMetrics,
   getSnapshotUTxO,
   input,
   output,
@@ -282,6 +283,10 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
 
   putTextLn "HeadIsOpen with deposits finalized"
 
+  -- Bracket the tx-processing window with RTS counter scrapes, outside the
+  -- measured phase so the HTTP requests cannot disturb it.
+  rtsBefore <- scrapeRtsStats clients
+
   -- Note: We only run Pumba during normal transaction processing; this is
   -- acceptable because otherwise we do not retry the particular actions that
   -- may or may not be dropped.
@@ -301,6 +306,8 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
               }
   (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
     withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx waitForTxValid
+
+  rtsAfter <- scrapeRtsStats clients
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -360,6 +367,12 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       summaryDescription = fromMaybe defaultDescription description
       Throughput{endToEndTps, runWallClockSeconds, sustainedTps, drainSeconds, avgTxsPerSnapshot, numberOfSnapshots} =
         computeThroughput processedTransactions snapshotsSeen
+      confirmationTimesMs = sort $ map (\(_, _, c) -> 1000 * realToFrac c) res
+      snapshotSeries = case map (\Event{submittedAt} -> submittedAt) (Map.elems processedTransactions) of
+        [] -> []
+        submissions ->
+          let t0 = List.minimum submissions
+           in [(realToFrac (t `diffUTCTime` t0), n) | (t, n) <- sortOn fst (Map.elems snapshotsSeen)]
 
   pure $
     Summary
@@ -383,6 +396,10 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , incrementalCommitTimes
       , incrementalDecommitTimes
       , runOutcome = Nothing
+      , loadMode = if waitForTxValid then "closed-loop" else "open-loop"
+      , snapshotSeries
+      , confirmationTimesMs
+      , nodeRtsStats = nodeRtsDeltas rtsBefore rtsAfter
       }
  where
   Timing{blockTime} = timing
@@ -978,6 +995,50 @@ readPeakNodeRssMb workDir = do
       , Just rest <- [T.stripPrefix "VmHWM:" line]
       , Just (kb :: Double) <- [readMaybe . toString . T.strip $ T.replace "kB" "" rest]
       ]
+
+-- | Scrape per-node GHC RTS gauges from the monitoring endpoints. Nothing for
+-- a node whose endpoint is unreachable or lacks the gauges (nodes not started
+-- with '+RTS -T' do not serve them).
+scrapeRtsStats :: [HydraClient] -> IO [Maybe NodeRtsStats]
+scrapeRtsStats = mapM $ \client ->
+  fromRight Nothing <$> tryNonAsync (parseRtsStats . decodeUtf8 <$> getMetrics client)
+
+parseRtsStats :: Text -> Maybe NodeRtsStats
+parseRtsStats body = do
+  allocatedBytes <- val "hydra_rts_allocated_bytes"
+  mutatorCpuSeconds <- val "hydra_rts_mutator_cpu_seconds"
+  gcCpuSeconds <- val "hydra_rts_gc_cpu_seconds"
+  maxLiveBytes <- val "hydra_rts_max_live_bytes"
+  majorGcs <- val "hydra_rts_major_gcs"
+  pure NodeRtsStats{allocatedBytes, mutatorCpuSeconds, gcCpuSeconds, maxLiveBytes, majorGcs}
+ where
+  val name =
+    listToMaybe
+      [ v
+      | line <- T.lines body
+      , [n, raw] <- [T.words line]
+      , n == name
+      , Just v <- [readMaybe (toString raw)]
+      ]
+
+-- | Pair up before/after scrapes into per-node deltas. All-or-nothing: a
+-- missing scrape on either side yields no stats at all, so aggregates never
+-- silently cover a subset of nodes.
+nodeRtsDeltas :: [Maybe NodeRtsStats] -> [Maybe NodeRtsStats] -> [NodeRtsStats]
+nodeRtsDeltas begins ends = fromMaybe [] $ do
+  bs <- sequence begins
+  as <- sequence ends
+  guard (length bs == length as)
+  pure $ zipWith delta bs as
+ where
+  delta b a =
+    NodeRtsStats
+      { allocatedBytes = allocatedBytes a - allocatedBytes b
+      , mutatorCpuSeconds = mutatorCpuSeconds a - mutatorCpuSeconds b
+      , gcCpuSeconds = gcCpuSeconds a - gcCpuSeconds b
+      , maxLiveBytes = maxLiveBytes a
+      , majorGcs = majorGcs a - majorGcs b
+      }
 
 writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do

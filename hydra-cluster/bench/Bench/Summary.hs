@@ -20,6 +20,19 @@ import Text.Printf (printf)
 -- | System stats like memory consumption.
 type SystemStats = [Text]
 
+-- | Per hydra-node GHC RTS deltas over the tx-processing window, scraped from
+-- the monitoring endpoint. Only available when nodes run with '+RTS -T'.
+data NodeRtsStats = NodeRtsStats
+  { allocatedBytes :: Double
+  , mutatorCpuSeconds :: Double
+  , gcCpuSeconds :: Double
+  , maxLiveBytes :: Double
+  -- ^ Peak live heap since process start, not a windowed delta.
+  , majorGcs :: Double
+  }
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
+
 data Summary = Summary
   { clusterSize :: Word64
   , totalTxs :: Int
@@ -50,8 +63,20 @@ data Summary = Summary
   , incrementalDecommitTimes :: [NominalDiffTime]
   , runOutcome :: Maybe Text
   -- ^ Nothing when the run completed; a short failure reason otherwise.
+  , loadMode :: Text
+  -- ^ "open-loop" (fire and forget) or "closed-loop" (one in-flight tx per
+  -- client).
+  , snapshotSeries :: [(Double, Int)]
+  -- ^ Per confirmed snapshot: (seconds since first submission, txs in the
+  -- snapshot), in observation order. Raw series so derived estimators can be
+  -- computed outside the compared binaries (see scripts/bench-e2e-diff.py).
+  , confirmationTimesMs :: [Double]
+  -- ^ Sorted per-transaction confirmation times in milliseconds.
+  , nodeRtsStats :: [NodeRtsStats]
+  -- ^ One entry per node; empty unless nodes ran with '+RTS -T'.
   }
   deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON)
 
 errorSummary :: Dataset -> HUnitFailure -> Summary
 errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason) =
@@ -77,6 +102,10 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , incrementalCommitTimes = []
     , incrementalDecommitTimes = []
     , runOutcome = Just $ shortReason reason
+    , loadMode = "unknown"
+    , snapshotSeries = []
+    , confirmationTimesMs = []
+    , nodeRtsStats = []
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
@@ -110,6 +139,23 @@ snapshotsPerSecond Summary{numberOfSnapshots, runWallClockSeconds}
   | runWallClockSeconds > 0 = fromIntegral numberOfSnapshots / runWallClockSeconds
   | otherwise = 0
 
+-- | Aggregated RTS work counters across nodes, normalized by confirmed txs
+-- and snapshots: (alloc MB per tx, alloc MB per snapshot, mutator CPU s per
+-- 1k txs, max live MB of the largest node). Mirrored by rts_metrics in
+-- scripts/bench-e2e-diff.py; keep the two in sync.
+rtsAggregates :: Summary -> Maybe (Double, Double, Double, Double)
+rtsAggregates Summary{nodeRtsStats, numberOfTxs, numberOfSnapshots} = do
+  guard (not (null nodeRtsStats) && numberOfTxs > 0 && numberOfSnapshots > 0)
+  let mb = 1024 * 1024
+      totalAllocMb = sum (map allocatedBytes nodeRtsStats) / mb
+      totalMutCpu = sum (map mutatorCpuSeconds nodeRtsStats)
+  pure
+    ( totalAllocMb / fromIntegral numberOfTxs
+    , totalAllocMb / fromIntegral numberOfSnapshots
+    , totalMutCpu / (fromIntegral numberOfTxs / 1000)
+    , List.maximum (map maxLiveBytes nodeRtsStats) / mb
+    )
+
 textReport :: (Summary, SystemStats) -> [Text]
 textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats) =
   let frac :: Double
@@ -134,6 +180,16 @@ textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quan
         ++ [pack $ printf "Snapshots per second: %.2f /s" (snapshotsPerSecond summary)]
         ++ [pack $ printf "Avg txs per snapshot: %.1f" avgTxsPerSnapshot]
         ++ maybe [] (\mb -> [pack $ printf "Peak node RSS (MB): %.1f" mb]) peakNodeRssMb
+        ++ maybe
+          []
+          ( \(allocTx, allocSnap, cpu1k, live) ->
+              [ pack $ printf "Alloc MB per confirmed tx: %.3f" allocTx
+              , pack $ printf "Alloc MB per snapshot: %.1f" allocSnap
+              , pack $ printf "Mutator CPU s per 1k txs: %.3f" cpu1k
+              , pack $ printf "Max live MB (max node): %.1f" live
+              ]
+          )
+          (rtsAggregates summary)
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
         ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
         ++ incrementalLines "Incremental commit" incrementalCommitTimes
@@ -183,7 +239,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats)
+formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome, loadMode}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -207,6 +263,7 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
       , "| Number of nodes |  " <> show clusterSize <> " | "
       , "| -- | -- |"
       , "| _Number of txs_ | " <> show numberOfTxs <> " |"
+      , "| _Load mode_ | " <> loadMode <> " |"
       ]
         ++ maybe [] (\reason -> ["| _Outcome_ | FAILED: " <> reason <> " |"]) runOutcome
         ++ [ "| _Avg. Confirmation Time (ms)_ | " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
@@ -228,6 +285,16 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
            , pack $ printf "| _Avg txs per snapshot_ | %.1f |" avgTxsPerSnapshot
            ]
         ++ maybe [] (\mb -> [pack $ printf "| _Peak node RSS (MB)_ | %.1f |" mb]) peakNodeRssMb
+        ++ maybe
+          []
+          ( \(allocTx, allocSnap, cpu1k, live) ->
+              [ pack $ printf "| _Alloc MB per confirmed tx_ | %.3f |" allocTx
+              , pack $ printf "| _Alloc MB per snapshot_ | %.1f |" allocSnap
+              , pack $ printf "| _Mutator CPU s per 1k txs_ | %.3f |" cpu1k
+              , pack $ printf "| _Max live MB (max node)_ | %.1f |" live
+              ]
+          )
+          (rtsAggregates summary)
         ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
            ]
         ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
