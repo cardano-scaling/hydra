@@ -57,7 +57,12 @@ jobs:
     - name: "Checkout the head as the 'new' source"
       uses: actions/checkout@v4
       with:
-        ref: ${{ inputs.head_ref || github.ref }}
+        # head.sha, not the default github.ref: on pull_request the latter is
+        # the transient merge ref (head merged into the base tip at event
+        # time), and measuring that against the merge-base baseline would show
+        # other people's master merges as PR deltas. All three jobs check out
+        # the same ref.
+        ref: ${{ inputs.head_ref || github.event.pull_request.head.sha || github.ref }}
 
     - name: 🔎 Resolve compared SHAs
       id: resolve
@@ -148,7 +153,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        ref: ${{ inputs.head_ref || github.ref }}
+        ref: ${{ inputs.head_ref || github.event.pull_request.head.sha || github.ref }}
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -219,9 +224,17 @@ jobs:
         # otherwise land in the measurements.
         TMPDIR: /dev/shm/bench
       # The closed-loop scenario needs its own invocation (--wait-for-tx-valid
-      # applies to the whole invocation). '|| true': a failed invocation must
-      # not skip the remaining slots; its report carries an explicit FAILED
-      # outcome and the diff drops only the affected pairs.
+      # applies to the whole invocation). '+RTS -N2 -RTS': the client is the
+      # measurement instrument, and with the default single capability its own
+      # scheduling latency lands in every confirmation timestamp once
+      # thousands of WS messages queue up; passed on the command line so BOTH
+      # sides' clients run identically (bench-e2e links with -rtsopts since
+      # 2024, long before the merge-bases this workflow can build, whereas a
+      # cabal-baked -with-rtsopts would apply to the branch side only until
+      # merge-bases catch up, and would also step-change the published
+      # benchmark series). '|| true': a failed invocation must not skip the
+      # remaining slots; its report carries an explicit FAILED outcome and the
+      # diff drops only the affected pairs.
       run: |
         mkdir -p "$TMPDIR"
         slot=0
@@ -236,11 +249,13 @@ jobs:
           nix develop "$flake" --command bench-e2e single \
             "$PWD/../bench-datasets/sustained-3nodes.json" \
             "$PWD/../bench-datasets/plateau-1k.json" \
-            --output-directory "$out/open" --timeout 1800s || true
+            --output-directory "$out/open" --timeout 1800s \
+            +RTS -N2 -RTS || true
           nix develop "$flake" --command bench-e2e single \
             "$PWD/../bench-datasets/closed-loop-3nodes.json" \
             --wait-for-tx-valid \
-            --output-directory "$out/closed" --timeout 1800s || true
+            --output-directory "$out/closed" --timeout 1800s \
+            +RTS -N2 -RTS || true
         done
         du -sh "$TMPDIR" || true
         df -h /dev/shm || true
@@ -262,8 +277,10 @@ jobs:
     # fine), but never from a superseded run; always() survives concurrency
     # cancellation and would clobber the comment with "no results". It also
     # ignores the needs-skip, so the draft/label condition must be mirrored
-    # here. Non-PR (A/A) runs write the diff to the step summary and artifact
-    # only.
+    # here. Wholesale failures (no surviving pair at all) skip the comment
+    # update below via has_pairs, so they never overwrite a previous run's
+    # real numbers either. Non-PR (A/A) runs write the diff to the step
+    # summary and artifact only.
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'bench')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -275,7 +292,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        ref: ${{ inputs.head_ref || github.ref }}
+        ref: ${{ inputs.head_ref || github.event.pull_request.head.sha || github.ref }}
 
     - name: ⬇ Download benchmark results
       uses: actions/download-artifact@v4
@@ -289,6 +306,7 @@ jobs:
       run: python3 scripts/test_bench_e2e_diff.py
 
     - name: 🧮 Compute the difference markdown
+      id: diff
       run: |
         mkdir -p results
         python3 scripts/bench-e2e-diff.py \
@@ -310,7 +328,7 @@ jobs:
         if-no-files-found: warn
 
     - name: 🔎 Find Comment
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff.outputs.has_pairs == 'true'
       uses: peter-evans/find-comment@v3
       id: find-comment
       with:
@@ -319,7 +337,7 @@ jobs:
         body-includes: End-to-end benchmark differences
 
     - name: ✏ Create or update comment
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff.outputs.has_pairs == 'true'
       uses: peter-evans/create-or-update-comment@v4
       with:
         comment-id: ${{ steps.find-comment.outputs.comment-id }}

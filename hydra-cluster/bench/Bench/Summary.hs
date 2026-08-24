@@ -251,7 +251,7 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
       , ""
       , "| Number of nodes | " <> show clusterSize <> " |"
       , "| -- | -- |"
-      , "| _Outcome_ | did not complete, no measurements |"
+      , "| _Outcome_ | " <> maybe "did not complete, no measurements" ("FAILED: " <>) runOutcome <> " |"
       , "      "
       ]
   | otherwise =
