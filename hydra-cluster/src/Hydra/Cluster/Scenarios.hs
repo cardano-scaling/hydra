@@ -1955,17 +1955,25 @@ waitsForChainInSync tracer workDir opts hydraScriptsTxId = do
           guard $ v ^? key "me" == Just (toJSON carol)
           guard $ isJust (v ^? key "hydraNodeVersion")
 
-        -- Carol observes the head getting closed while still catching up:
-        -- the Close was posted before Carol reconnected, so it is replayed
-        -- during chain sync (drift >> threshold at that point), which means
-        -- HeadIsClosed is always emitted BEFORE NodeSynced in this scenario.
-        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "HeadIsClosed"
-          guard $ v ^? key "headId" == Just (toJSON headId)
-
-        -- Carol API notifies the node is back on sync with the chain
-        waitMatch (20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeSynced"
+        -- Carol replays the Close during catch up, so she emits both
+        -- HeadIsClosed and NodeSynced from the same chain sync. Their order
+        -- is not fixed: NodeSynced fires on the first tick with drift below
+        -- the unsynced period, and the block holding the close tx can land
+        -- on either side of that crossing (Carol restarts right after the
+        -- close, leaving it well within the threshold of the tip).
+        let catchUpBudget = unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime
+            matchClosedOrSynced v = do
+              tag <- v ^? key "tag"
+              case tag of
+                "HeadIsClosed" -> do
+                  guard $ v ^? key "headId" == Just (toJSON headId)
+                  pure tag
+                "NodeSynced" -> pure tag
+                _ -> Nothing
+        firstMatched <- waitMatch catchUpBudget n3 matchClosedOrSynced
+        waitMatch catchUpBudget n3 $ \v -> do
+          tag <- matchClosedOrSynced v
+          guard $ tag /= firstMatched
  where
   hydraTracer = contramap FromHydraNode tracer
 
