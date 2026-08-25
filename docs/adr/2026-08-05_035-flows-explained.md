@@ -1,6 +1,12 @@
-# ADR-035 flows explained: deposit/increment and exit/decrement
+---
+slug: 35-flows
+title: |
+  35 (companion). ADR-035 flows explained: deposit/increment and exit/decrement
+authors: [v0d1ch]
+tags: [Draft]
+---
 
-Companion notes to `docs/adr/2026-08-05_035-decoupled-incremental-settlement.md`.
+Companion notes to [ADR-035](./2026-08-05_035-decoupled-incremental-settlement.md).
 Every step says who acts, what data they use, and where that data comes from.
 
 ## The vocabulary (read this first)
@@ -22,6 +28,11 @@ The two hashes to never mix up:
 h            = sha2_256(commits of ONE deposit)          -- deposit's own hash
 new combined = H("claim" <> old combined <> h)            -- covers ALL claimed deposits
 ```
+
+The two hash *functions* are also distinct, deliberately: `h` stays
+`sha2_256`, reusing today's `hashPreSerializedCommits` on the deposit datum
+unchanged, while the chain and queue hash `H` is `blake2b_256`, like the
+protocol's other new commitments.
 
 The combined hash starts at `H("claim" <> headId)` when the head opens.
 Each increment advances it by exactly one step. The head datum stores only
@@ -144,8 +155,11 @@ Each party validates `X` against its own records only. No arithmetic, no fold:
    observed sequence? Going backwards would un-absorb deposits: protocol
    violation, reject.
 3. Has every increment between the previous snapshot's value and `X` passed
-   the maturity buffer by my own clock? If the leader saw an increment before
-   I did, I wait until my own buffer expires. Delay, never divergence.
+   the maturity buffer by my own clock? If not, I reject the `ReqSn` with that
+   reason and the leader re-requests later; I do not sit on it silently. The
+   delay is bounded by the most conservative party's buffer and is always
+   visible. Leaders pin only positions matured past their own buffer plus a
+   grace margin, so rejections are rare. Delay, never divergence.
 
 Then every party deterministically builds the same snapshot:
 
@@ -180,16 +194,25 @@ In every case L2 never referenced the deposit, so there is nothing to undo.
 ### Step 1. Exit request (off-chain, an ordinary L2 transaction)
 
 The owner submits an L2 transaction that moves their outputs into the exit
-queue. Before accepting it, each node checks every exit output individually:
+queue. The transaction itself is ledger-valid like any other; its exit outputs
+carry a protocol-defined marker (a designated output-datum tag, fixed at
+specification time), which is what tells the snapshot logic to move them out of
+`utxo` and into the queue. Before accepting it, each node checks every exit
+output individually:
 
 - minimum ADA;
 - output fits `maxValSize`;
 - "a decrement paying just this one output fits L1 limits". Because a
   decrement can pay any batch size down to one, this per-output check is
-  complete: if the output passes, some decrement can always pay it.
+  complete under the L1 parameters in force right now: if the output passes,
+  some decrement can always pay it. A later L1 parameter change can still make
+  a queued entry unpayable and stall decrements behind it until fanout; the
+  ADR records this as an accepted limitation (security consideration 13), and
+  nodes also check against any announced-but-not-yet-enacted parameter update.
 
-When the snapshot confirms, the entries receive consecutive indices in
-confirmation order, leave `utxo` (and the accumulator), and join the queue.
+When the snapshot confirms, the entries receive consecutive indices
+deterministically (confirmation order of transactions, then output index
+within a transaction), leave `utxo` (and the accumulator), and join the queue.
 Exits are final; there is no cancel.
 
 ### Step 2. The queue commitment `Q_exit` (off-chain, recomputed per snapshot)
@@ -199,6 +222,11 @@ Each entry hashes to a leaf that binds output to position:
 ```
 leaf_i = H("exit" <> i <> output_i)
 ```
+
+The index `i` is encoded fixed-width (8-byte big-endian) and the output as its
+self-delimiting CBOR bytes, so the preimage parses only one way: no crafted
+output can shift bytes across the field boundary and pass off a different
+`(index, output)` pair as the same leaf.
 
 The queue commitment chains each leaf to the commitment of everything after
 it, with the empty tail seeded by the head's identity:
@@ -305,6 +333,12 @@ step. Most of the protocol does NOT fold.
 | close / contest validator | on-chain | nothing: both are constant-size | they only record the two endpoints (the snapshot's `absorbedDeposits` and the datum's `claimedDeposits`); the bridge between them is deferred to fanout |
 | fanout validator | on-chain | queue entries (same as decrement); and, for deposits, the hashes `h`, walking `absorbedDeposits` up to `claimedDeposits` | pay the unpaid queue, then bridge and rebuild the unabsorbed deposits verbatim |
 
+One note on splitting fanout across transactions: the accumulator's membership
+proofs chunk freely, any subset per transaction, but the two walks above are
+sequential, so between fanout chunks the closed datum carries a cursor, the
+chain value (and, for the queue, the index and remaining-tail commitment)
+where the previous chunk stopped, and the next chunk resumes from it.
+
 So, to the specific confusion:
 
 - For deposits, nobody ever folds over outputs. The only deposit fold is at
@@ -355,7 +389,8 @@ swap in a higher-numbered snapshot, which moves `absorbedDeposits` closer to
 `c3`, never further; `c3` itself stays frozen.
 
 Fanout does the reconciling, and it can be split across several transactions if
-the state is large. To pay the deposits the snapshot never absorbed, the poster
+the state is large (each chunk leaves a cursor in the datum for the next one to
+resume the walks from). To pay the deposits the snapshot never absorbed, the poster
 walks the combined hash from `c1` up to `c3`, supplying `h2` and `h3`:
 
 ```
