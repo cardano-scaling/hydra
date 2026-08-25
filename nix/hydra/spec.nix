@@ -200,6 +200,17 @@
       # above, so this adds no duplicate compilation.
       checks.spec = config.packages.spec;
 
+      # Validator error-code coverage ledger: every Hxx/Dxx code a validator can
+      # raise must be referenced by some test or carry a reviewed exclusion (see
+      # spec/check-error-codes.sh). Runs as its own check because it greps the
+      # validator and test trees, which the spec derivation's src (spec/ only)
+      # does not contain.
+      checks.error-codes = pkgs.runCommand "error-codes" { } ''
+        cd ${self}
+        bash spec/check-error-codes.sh
+        touch $out
+      '';
+
       # The MAlonzo extraction under hydra-agda/generated is committed and only regenerated manually
       # (hydra-agda/regenerate.sh), so a semantic edit to Reference.agda / OffChainReference.agda
       # would otherwise silently leave the committed oracle stale. Re-extract hermetically and fail

@@ -109,6 +109,12 @@ Two layers bind the extracted spec to the real implementation:
   deposit transaction id bound into the commit digest), BLS/KZG
   membership proofs against the canonical CRS, and the canonical-CRS datum
   binding (`InvalidCRSDatum`).
+  The differential and mutation layers only see the input families somebody
+  constructed, so `spec/check-error-codes.sh` (CI: `checks.error-codes`) keeps
+  the reject-path coverage honest: every error code a validator can raise must
+  be asserted by a test (via `toErrorCode`) or carry a reviewed exclusion in
+  its ledger, and
+  dead codes fail the build.
 - **Off-chain**:
   [`Hydra.OffChainAgreementSpec`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/OffChainAgreementSpec.hs)
   and `Hydra.OffChainLeaderSpec` (hydra-node) bind the extracted §6 handler

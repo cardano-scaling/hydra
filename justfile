@@ -130,6 +130,7 @@ lint PKG="all":
   rc=0
   nix fmt || rc=1
   python3 scripts/test_bench_e2e_diff.py || rc=1
+  bash spec/check-error-codes.sh || rc=1
   cabal build {{PKG}} \
     --builddir=dist-newstyle-lint \
     --ghc-options="-Werror \

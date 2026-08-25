@@ -226,6 +226,12 @@ changes.
   committed outputs — the proof's increment case consumes the deposit-identity
   binding, so weakening it fails the spec build.
 
+- CI now gates validator reject-path coverage: `checks.error-codes` verifies
+  that every error code the head and deposit validators can raise is either
+  referenced by a test or carries a reviewed exclusion in the ledger of
+  `spec/check-error-codes.sh`, that no code is dead, and that the Aiken and
+  Haskell deposit-error tables agree.
+
 - The head logic now enforces the specification's "no commit and decommit in
   flight at once" discipline on the message level: a `ReqDec` received while a
   deposit is pending waits for the deposit to resolve instead of starting a
