@@ -170,63 +170,6 @@ genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
 module Hydra.Chain.Direct.ScriptRegistrySpec
 spec :: Spec
 
-module Hydra.Chain.Direct.StateSpec
-spec :: Spec
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
-
--- | Given any Head protocol state and the transaction corresponding a
---   protocol transition we should be able to observe this transition
---   correctly even in presence of other valid Hydra Head protocol states
---   in the used lookup utxo.
-prop_observeAnyTx :: Property
-
--- | Given a UTxO with more than one entry, we can split it into two
---   non-empty UTxO.
-prop_splitUTxO :: UTxO -> Property
-prop_incrementObservesCorrectUTxO :: Property
-
--- | <a>checkIncrement</a> requires the claimed deposit to be its
---   transaction's first output, so <a>increment</a> resolves exactly that
---   output rather than any output of the deposit transaction. Matching by
---   transaction id alone would build a transaction that cannot validate.
-prop_incrementRequiresFirstDepositOutput :: Property
-
--- | <a>recoverTx</a> spends <tt>TxIn depositTxId (TxIx 0)</tt>, so
---   <a>recover</a> resolves exactly that output. Matching by transaction
---   id alone would read one output's datum and then build a transaction
---   spending a different one.
-prop_recoverRequiresFirstDepositOutput :: Property
-propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
-propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
-forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property
-
--- | Deposits ranging from trivially fitting (a few ada-only outputs) to
---   clearly oversized (&gt;100 distinct-policy tokens whose merged value
---   exceeds mainnet's 5000 byte maxValSize), so
---   <a>rejectOversizedDeposit</a> exercises both verdicts.
-genMixedDeposit :: Gen UTxO
-forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllIncrement' :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDecrement :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDecrement' :: Testable property => (UTxO -> UTxO -> Tx -> property) -> Property
-forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
-
--- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds
---   the full UTxO value to the head output so <tt>partialFanoutTx</tt> can
---   subtract distributed values without going negative. The evaluation
---   UTxO must match.
-forAllPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
-
--- | The spendable UTxO for the final partial fanout is the FanoutProgress
---   head output produced by the preceding partial fanout step, so we use
---   the 3rd element from the generator rather than 'getKnownUTxO
---   stClosed'.
-forAllFinalPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
-
 module Hydra.Chain.Direct.TimeHandleSpec
 spec :: Spec
 
@@ -850,6 +793,63 @@ specSigningKey :: Spec
 specVerificationKey :: Spec
 specSignature :: Spec
 specMultiSignature :: Spec
+
+module Hydra.Chain.Direct.StateSpec
+spec :: Spec
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
+
+-- | Given any Head protocol state and the transaction corresponding a
+--   protocol transition we should be able to observe this transition
+--   correctly even in presence of other valid Hydra Head protocol states
+--   in the used lookup utxo.
+prop_observeAnyTx :: Property
+
+-- | Given a UTxO with more than one entry, we can split it into two
+--   non-empty UTxO.
+prop_splitUTxO :: UTxO -> Property
+prop_incrementObservesCorrectUTxO :: Property
+
+-- | <a>checkIncrement</a> requires the claimed deposit to be its
+--   transaction's first output, so <a>increment</a> resolves exactly that
+--   output rather than any output of the deposit transaction. Matching by
+--   transaction id alone would build a transaction that cannot validate.
+prop_incrementRequiresFirstDepositOutput :: Property
+
+-- | <a>recoverTx</a> spends <tt>TxIn depositTxId (TxIx 0)</tt>, so
+--   <a>recover</a> resolves exactly that output. Matching by transaction
+--   id alone would read one output's datum and then build a transaction
+--   spending a different one.
+prop_recoverRequiresFirstDepositOutput :: Property
+propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
+propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
+forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | Deposits ranging from trivially fitting (a few ada-only outputs) to
+--   clearly oversized (&gt;100 distinct-policy tokens whose merged value
+--   exceeds mainnet's 5000 byte maxValSize), so
+--   <a>rejectOversizedDeposit</a> exercises both verdicts.
+genMixedDeposit :: Gen UTxO
+forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllIncrement' :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDecrement :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDecrement' :: Testable property => (UTxO -> UTxO -> Tx -> property) -> Property
+forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds
+--   the full UTxO value to the head output so <tt>partialFanoutTx</tt> can
+--   subtract distributed values without going negative. The evaluation
+--   UTxO must match.
+forAllPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | The spendable UTxO for the final partial fanout is the FanoutProgress
+--   head output produced by the preceding partial fanout step, so we use
+--   the 3rd element from the generator rather than 'getKnownUTxO
+--   stClosed'.
+forAllFinalPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
 
 module Hydra.BehaviorSpec
 spec :: Spec
