@@ -132,6 +132,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   forAllShrink,
+  ioProperty,
   label,
   oneof,
   tabulate,
@@ -140,6 +141,7 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Monadic (assert, assertWith, monadicIO, monitor)
+import Test.Util (utxoNoThunks)
 import Prelude qualified
 
 spec :: Spec
@@ -207,6 +209,23 @@ spec = parallel $ do
       forAllDeposit $ \utxo tx ->
         case observeDepositTx testNetworkId tx of
           Just DepositObservation{} -> property True
+          Nothing ->
+            False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
+
+    -- The observed deposit UTxO is a 'UTxO' ingress point (decoded from the plutus
+    -- datum, not through the forcing JSON/CBOR instances) and flows into 'localUTxO'
+    -- and snapshots, where 'forceNewEntries' trusts carried-over entries - so it must
+    -- come out of observation fully evaluated. Guards the explicit 'forceUTxO' at the
+    -- observation (without it the property holds only incidentally, through the
+    -- round-trip guard's re-serialization).
+    prop "observed deposit UTxO is fully evaluated" $
+      forAllDeposit $ \utxo tx ->
+        case observeDepositTx testNetworkId tx of
+          Just DepositObservation{deposited} ->
+            ioProperty $
+              utxoNoThunks deposited >>= \case
+                Nothing -> pure $ property True
+                Just ti -> pure $ False & counterexample ("Thunk in observed deposit UTxO: " <> show ti)
           Nothing ->
             False & counterexample ("observeDepositTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
