@@ -166,7 +166,14 @@ observeDepositTxOut network depositOut = do
   (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
-    depositedUTxO <- UTxO.fromList <$> traverse deserializeRoundTripping onChainDeposits
+    -- Force the decoded UTxO: this decode (plutus 'Data' via 'deserializeCommit') is an
+    -- ingress point for 'UTxO' that the forcing 'FromJSON'/'FromCBOR' instances do not
+    -- cover, and the observed set flows into 'localUTxO' and snapshots where
+    -- 'forceNewEntries' deliberately trusts carried-over entries. Today the round-trip
+    -- guard in 'deserializeRoundTripping' happens to force the entries deeply as a side
+    -- effect of re-serializing them; forcing explicitly here makes the ingress invariant
+    -- survive a refactor of that guard (and the observation test asserts it).
+    depositedUTxO <- forceUTxO . UTxO.fromList <$> traverse deserializeRoundTripping onChainDeposits
     -- TODO: This silently ignores deposits that deposit less ADA than what the
     -- min ADA for the deposit output would be. For example: a 1 ADA utxo can be
     -- deposited, but the deposit tx's output will require ~1.5 ADA because of

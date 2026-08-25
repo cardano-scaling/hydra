@@ -27,7 +27,7 @@ import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
@@ -2814,14 +2814,16 @@ spec =
 
       it "stores a fully evaluated snapshot UTxO when processing ReqSn" $ do
         -- Two outputs; the tx spends only the first. The second is carried over
-        -- unchanged: the accumulator delta never touches it, so only strict
-        -- construction in applyTransactions guarantees it is forced.
+        -- unchanged: 'forceNewEntries' deliberately trusts carried-over entries,
+        -- so the design invariant is that every UTxO ingress forces - the seed
+        -- models one (hence 'forceUTxO', as at the real ingress points) and the
+        -- application must force the transaction's own outputs.
         (vk, sk) <- generate genKeyPair
         txOut1 <- generate (genOutputFor vk)
         txOut2 <- generate (genOutputFor vk)
         txIn1 <- generate genTxIn
         txIn2 <- generate genTxIn
-        let u0 = UTxO.fromList [(txIn1, txOut1), (txIn2, txOut2)]
+        let u0 = forceUTxO $ UTxO.fromList [(txIn1, txOut1), (txIn2, txOut2)]
         tx <- case mkSimpleTx (txIn1, txOut1) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut1) (mkSecret sk) of
           Left err -> failure $ "cannot create tx: " <> show err
           Right tx' -> pure tx'
