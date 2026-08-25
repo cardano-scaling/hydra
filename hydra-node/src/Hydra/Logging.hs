@@ -119,6 +119,12 @@ withTracerOutputTo bufferingMode hdl namespace action = do
       pure es
     unless (null entries) $ do
       forM_ entries (write . Aeson.encode)
+      -- Flush once per drained batch. Batching is what amortises the syscalls
+      -- here; leaving the block buffer to decide when to write as well would
+      -- hold the first entries back until 64KB had accumulated, so a node
+      -- that is slow to start looks to 'docker logs' or to a supervisor like
+      -- one that never started at all.
+      hFlush hdl
       writeLogs queue closed
 
   -- The writer thread claims queued entries before writing them, so shutdown

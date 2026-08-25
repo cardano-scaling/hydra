@@ -178,6 +178,20 @@ changes.
   hydra-node versions refuse to open the database — there is no downgrade
   path.
 
+- `hydra-node` now traces the KZG trusted-setup warm-up it does at startup, as
+  `LoadingTrustedSetup` followed by `TrustedSetupLoaded`. The warm-up used to run
+  before the tracer existed, so on a host slow at decompressing BLS12-381 points
+  the node emitted nothing at all until it finished and was indistinguishable
+  from one that hung before starting. It still completes before any socket is
+  opened. A trusted setup that fails to load now raises a
+  `ConfigurationException` rather than calling `error`.
+
+- Fix `hydra-node` withholding log entries from whoever reads its stdout until
+  64KB had accumulated. Output is block-buffered and was only flushed when the
+  tracer shut down, so `docker logs` and process supervisors saw nothing from a
+  node that was running but not logging heavily. The writer now flushes each
+  batch it drains.
+
 ## [2.3.0] - 2026.07.15
 
 - Add **selective partial fanout**: distribute a chosen subset of a closed

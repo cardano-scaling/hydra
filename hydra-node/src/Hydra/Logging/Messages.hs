@@ -28,6 +28,11 @@ data HydraLog tx
   | NodeHydrated
   | ChainBackendStarted
   | NetworkStarted
+  | -- | Emitted before forcing the embedded KZG trusted setup, which is the
+    -- first compute-bound step of a node start and can take minutes on hosts
+    -- that decompress BLS points slowly.
+    LoadingTrustedSetup
+  | TrustedSetupLoaded {numG1Points :: Int}
   deriving stock (Generic)
 
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)

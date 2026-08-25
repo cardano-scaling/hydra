@@ -473,6 +473,7 @@ test-suite tests
     , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
+    , process
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-dynamic              >=3.4     && <3.5
