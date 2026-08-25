@@ -179,7 +179,9 @@ instance ToCBOR UTxO where
   encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
 
 instance FromCBOR UTxO where
-  fromCBOR = UTxO.fromShelleyUTxO shelleyBasedEra <$> fromCBOR
+  -- NOTE: Use the forcing conversion to uphold the invariant that any 'UTxO'
+  -- entering the head logic is thunk-free.
+  fromCBOR = Api.fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
 instance IsTx Tx where

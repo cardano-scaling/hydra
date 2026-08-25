@@ -7,6 +7,7 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Plutus (transSafeHash)
 import Cardano.Ledger.TxIn qualified as Ledger
+import Control.DeepSeq (deepseq)
 import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
@@ -20,6 +21,12 @@ mkTxIn (getTxId . getTxBody -> a) index =
 withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
 withWitness txIn =
   (txIn, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+
+-- | Force a 'TxIn' deeply. Both fields of 'TxIn' are lazy, so values built
+-- e.g. by JSON parsing can retain thunks; forcing the transaction id hash and
+-- the index is enough to reach normal form.
+forceTxIn :: TxIn -> TxIn
+forceTxIn txIn@(TxIn (TxId h) (TxIx ix)) = h `deepseq` ix `seq` txIn
 
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]

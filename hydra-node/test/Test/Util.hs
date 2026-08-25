@@ -5,6 +5,8 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
+import Cardano.Api qualified as CApi
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Monad.IOSim (
   Failure (FailureException),
@@ -19,10 +21,12 @@ import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
+import Hydra.Cardano.Api (CtxUTxO, TxOut, UTxO)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
+import NoThunks.Class (InspectHeap (..), ThunkInfo, allNoThunks, noThunks)
 import System.IO.Temp (writeSystemTempFile)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
@@ -155,3 +159,49 @@ captureTracer namespace = do
   traces <- newLabelledTVarIO "capture-tracer" []
   let tracer = traceInTVar traces namespace
   pure (tracer, readTVarIO traces)
+
+-- | Check a UTxO for thunks, descending via constructors so that GADT
+-- dictionary fields (e.g. the Eq/Show context stored inside
+-- 'TxOutValueShelleyBased') are not reported as false positives, as they
+-- would be by a whole-value 'InspectHeap' probe.
+utxoNoThunks :: UTxO -> IO (Maybe ThunkInfo)
+utxoNoThunks utxo =
+  allNoThunks $
+    concatMap
+      (\(i, o) -> [noThunks ["TxIn"] (InspectHeap i), txOutNoThunks o])
+      (UTxO.toList utxo)
+
+txOutNoThunks :: TxOut CtxUTxO -> IO (Maybe ThunkInfo)
+txOutNoThunks (CApi.TxOut addr val datum refScript) =
+  allNoThunks
+    [ noThunks ["address"] (InspectHeap addr)
+    , case val of
+        CApi.TxOutValueShelleyBased sbe v ->
+          allNoThunks
+            [ noThunks ["value.era"] (InspectHeap sbe)
+            , noThunks ["value"] (InspectHeap v)
+            ]
+    , noThunks ["datum"] (InspectHeap datum)
+    , case refScript of
+        CApi.ReferenceScriptNone -> pure Nothing
+        CApi.ReferenceScript w (CApi.ScriptInAnyLang lang script) ->
+          allNoThunks
+            [ noThunks ["refScript.era"] (InspectHeap w)
+            , scriptLanguageNoThunks lang
+            , scriptNoThunks script
+            ]
+    ]
+
+scriptLanguageNoThunks :: CApi.ScriptLanguage lang -> IO (Maybe ThunkInfo)
+scriptLanguageNoThunks = \case
+  CApi.SimpleScriptLanguage -> pure Nothing
+  CApi.PlutusScriptLanguage v -> noThunks ["refScript.lang"] (InspectHeap v)
+
+scriptNoThunks :: CApi.Script lang -> IO (Maybe ThunkInfo)
+scriptNoThunks = \case
+  CApi.SimpleScript ss -> noThunks ["refScript.simple"] (InspectHeap ss)
+  CApi.PlutusScript v ps ->
+    allNoThunks
+      [ noThunks ["refScript.version"] (InspectHeap v)
+      , noThunks ["refScript.plutus"] (InspectHeap ps)
+      ]
