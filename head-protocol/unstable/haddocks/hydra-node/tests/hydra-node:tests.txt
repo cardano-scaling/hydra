@@ -380,117 +380,11 @@ genUTCTime :: Gen UTCTime
 genSlotLength :: Gen SlotLength
 genSystemStart :: Gen SystemStart
 
-
--- | Unit tests of the protocol logic in <tt>HeadLogic</tt>. These are very
---   fine grained and specific to individual steps in the protocol. More
---   high-level of the protocol logic, especially between multiple parties
---   can be found in <a>BehaviorSpec</a>.
-module Hydra.HeadLogicSpec
-spec :: Spec
-prop_ignoresUnrelatedOnInitTx :: Property
-genClosedState :: Gen (NodeState SimpleTx)
-
--- | Create a network input about a received protocol message with default
---   ttl and <a>alice</a> as the sender.
-receiveMessage :: Message tx -> Input tx
-
--- | Create a network input about a received protocol message with default
---   ttl from given sender.
-receiveMessageFrom :: Party -> Message tx -> Input tx
-
--- | Create a chain effect with fixed chain state and slot.
-chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
-
--- | Create an observation chain input with chain state at given slot.
-observeTxAtSlot :: ChainSlot -> OnChainTx SimpleTx -> Input SimpleTx
-
--- | Create an observation chain input with fixed chain state and slot.
-observeTx :: OnChainTx SimpleTx -> Input SimpleTx
-connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
-inIdleState :: NodeState SimpleTx
-inUnsyncedIdleState :: NodeState SimpleTx
-inOpenState :: [Party] -> NodeState SimpleTx
-inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
-inClosedState :: [Party] -> NodeState SimpleTx
-inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
-
--- | A head mid partial-fanout (on-chain <a>FanoutProgress</a>) with the
---   given still-to-distribute set and <a>FanoutMode</a>.
---   <a>StateChanged</a> is a non-empty placeholder so the head datum is
---   treated as <tt>FanoutProgress</tt> (some outputs already distributed).
-inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
-
--- | Like <a>inFanoutProgressWith</a> but in <a>AutoDrain</a> mode, as if a
---   plain <a>Fanout</a> kicked off the (chunked) fanout.
-inAutoDrainProgress :: [Party] -> Set SimpleTxOut -> NodeState SimpleTx
-getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
-data StepState tx
-StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
-[$sel:nodeState:StepState] :: StepState tx -> NodeState tx
-[$sel:env:StepState] :: StepState tx -> Environment
-[$sel:ledger:StepState] :: StepState tx -> Ledger tx
-runHeadLogic :: Monad m => Environment -> Ledger tx -> NodeState tx -> StateT (StepState tx) m a -> m a
-
--- | Retrieves the latest <a>NodeState</a> from within <a>runHeadLogic</a>.
-getState :: MonadState (StepState tx) m => m (NodeState tx)
-
--- | Calls <a>update</a> and <a>aggregate</a> to drive the
---   <a>runHeadLogic</a> monad forward.
-step :: (MonadState (StepState tx) m, IsChainState tx, MonadTime m) => Input tx -> m (Outcome tx)
-hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
-
--- | The effects produced by an outcome (empty for
---   <a>Wait</a>/<a>Error</a>).
-effectsOf :: Outcome tx -> [Effect tx]
-hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
-hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
-nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
-
--- | Create a <a>TimeHandle</a> for a given slot and current wall-clock
---   time. * Assumes 1-second slots (as in the devnet). * SystemStart is
---   derived so that the given slot corresponds to the given time. *
---   EraHistory is constructed to have a horizon sufficiently far in the
---   future to accommodate time conversions.
-mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
-catchingUp :: IsTx tx => HeadState tx -> NodeState tx
-inSync :: IsTx tx => HeadState tx -> NodeState tx
-zeroChainPointTime :: ChainPointTime
-testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
-
-module Hydra.HeadLogicSnapshotSpec
-spec :: Spec
-prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_thereIsAlwaysALeader :: Property
-testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
-
-module Hydra.API.HTTPServerSpec
-spec :: Spec
-apiServerSpec :: Spec
-
--- | Create a <a>ResponseMatcher</a> or <a>MatchBody</a> from a JSON
---   serializable value (using their <a>IsString</a> instances).
-matchJSON :: (IsString s, ToJSON a) => a -> s
-
--- | Create a <a>MatchBody</a> that CBOR-decodes the response body and
---   compares it to an expected value.
-matchCBOR :: (Eq a, Show a, FromCBOR a) => a -> MatchBody
-
--- | Create a <a>MatchBody</a> that validates the returned JSON response
---   against a schema. NOTE: This raises impure exceptions, so only use it
---   in this test suite.
-matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
-
 module Hydra.Ledger.SimpleSpec
 spec :: Spec
 prop_validateCorrectTransactions :: Property
 shrinkSequence :: [SimpleTx] -> [[SimpleTx]]
 genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
-
-module Hydra.Logging.MonitoringSpec
-spec :: Spec
 
 module Hydra.LoggingSpec
 spec :: Spec
@@ -639,72 +533,14 @@ waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b)
 --   of the dependency on Hydra.Logging.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 
-module Hydra.NodeSpec
-spec :: Spec
-
--- | Add given list of inputs to the <a>InputQueue</a>. A preceding
---   <a>Tick</a> is enqueued to advance the chain slot and ensure the
---   <a>NodeState</a> is in sync. This is returning the node to allow for
---   chaining with <a>runToCompletion</a>.
-primeWith :: MonadSTM m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
-
--- | A preceding <a>Tick</a> is enqueued to advance the chain slot and
---   ensure the <a>NodeState</a> is in sync. This is returning the node to
---   allow for chaining with <a>runToCompletion</a>.
-primeWithTime :: MonadSTM m => HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
-
--- | Convert a <a>DraftHydraNode</a> to a <a>HydraNode</a> by providing
---   mock implementations.
-notConnect :: MonadThrow m => DraftHydraNode tx m -> m (HydraNode tx m)
-mockServer :: Monad m => Server tx m
-mockNetwork :: Monad m => Network m (Message tx)
-mockChain :: MonadThrow m => Chain tx m
-mockSink :: Monad m => EventSink a m
-mockEventStore :: forall a m. Monad m => [a] -> EventStore a m
-mockSource :: Monad m => [a] -> EventSource a m
-createRecordingSink :: IO (EventSink a IO, IO [a])
-createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
-
--- | Synthetic inputs that simulate a head opening. The head will be empty
---   though and this test hardness can not reliably simulate deposits. Use
---   <a>aValidTx</a> to create utxos out of thin air instead.
---   
---   Explanation why we can't just emualte OnDepositTx and OnIncrementTx
---   here: While the deposit will be seen as finalized, there is no
---   ConfirmedSnapshot here that could be adopted and thus the confirmed
---   utxo (legder state).
-inputsToOpenHead :: [Input SimpleTx]
-observationInput :: OnChainTx SimpleTx -> Input SimpleTx
-runToCompletion :: IsChainState tx => HydraNode tx IO -> IO ()
-
--- | Creates a full <a>HydraNode</a> with given parameters and primed
---   <a>Input</a>s. Note that this node is <a>notConnect</a>ed to any
---   components.
-testHydraNode :: (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) => Tracer m (HydraNodeLog SimpleTx) -> Secret (SigningKey HydraKey) -> [Party] -> ContestationPeriod -> [Input SimpleTx] -> m (HydraNode SimpleTx m)
-
--- | A lot shorter than the real world ttl which requires to be long to
---   overcome some longer chain observation delays, but would just make
---   tests longer.
-testTTL :: TTL
-recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
-recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
-messageRecorder :: IO (msg -> IO (), IO [msg])
-throwExceptionOnPostTx :: IsChainState tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
-
-module Hydra.Events.RotationSpec
-spec :: Spec
-newtype TrivialEvent
-TrivialEvent :: Word64 -> TrivialEvent
-newtype ChunkedEvents
-ChunkedEvents :: [[TrivialEvent]] -> ChunkedEvents
-trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
-mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
-instance GHC.Classes.Eq Hydra.Events.RotationSpec.TrivialEvent
-instance GHC.Show.Show Hydra.Events.RotationSpec.TrivialEvent
-instance GHC.Num.Num Hydra.Events.RotationSpec.TrivialEvent
-instance GHC.Show.Show Hydra.Events.RotationSpec.ChunkedEvents
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Events.RotationSpec.ChunkedEvents
-instance Hydra.Events.HasEventId Hydra.Events.RotationSpec.TrivialEvent
+-- | Check a UTxO for thunks, descending via constructors so that GADT
+--   dictionary fields (e.g. the Eq/Show context stored inside
+--   <tt>TxOutValueShelleyBased</tt>) are not reported as false positives,
+--   as they would be by a whole-value <a>InspectHeap</a> probe.
+utxoNoThunks :: UTxO -> IO (Maybe ThunkInfo)
+txOutNoThunks :: TxOut CtxUTxO -> IO (Maybe ThunkInfo)
+scriptLanguageNoThunks :: ScriptLanguage lang -> IO (Maybe ThunkInfo)
+scriptNoThunks :: Script lang -> IO (Maybe ThunkInfo)
 
 module Hydra.Node.InputQueueSpec
 spec :: Spec
@@ -793,6 +629,13 @@ propHasEnoughLovelace :: TxOut CtxUTxO -> Property
 -- | Check that the given <a>TxOut</a> fulfills several requirements and
 --   does not use unsupported features. See <a>genTxOut</a> for rationale.
 propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
+utxoIsThunkFree :: UTxO -> Property
+prop_applyTransactionsThunkFree :: Property
+prop_utxoFromTxThunkFree :: Property
+prop_adjustUTxOThunkFree :: Property
+prop_applyTxToThunkFree :: Property
+prop_jsonDecodeThunkFree :: Property
+prop_cborDecodeThunkFree :: Property
 
 -- | A realistic multi-era <a>EraHistory</a> mimicking mainnet/testnet
 --   where: - Byron era: 21600 slots<i>epoch, 20s</i>slot, runs for 208
@@ -809,6 +652,179 @@ multiEraHistory :: EraHistory
 --   cardano-api's <a>FromJSON</a> re-canonicalises, producing a different
 --   hash — the root cause of the replay crash-loop.
 genNonCanonicalHashableScriptData :: Gen HashableScriptData
+
+
+-- | Unit tests of the protocol logic in <tt>HeadLogic</tt>. These are very
+--   fine grained and specific to individual steps in the protocol. More
+--   high-level of the protocol logic, especially between multiple parties
+--   can be found in <a>BehaviorSpec</a>.
+module Hydra.HeadLogicSpec
+spec :: Spec
+prop_ignoresUnrelatedOnInitTx :: Property
+genClosedState :: Gen (NodeState SimpleTx)
+
+-- | Create a network input about a received protocol message with default
+--   ttl and <a>alice</a> as the sender.
+receiveMessage :: Message tx -> Input tx
+
+-- | Create a network input about a received protocol message with default
+--   ttl from given sender.
+receiveMessageFrom :: Party -> Message tx -> Input tx
+
+-- | Create a chain effect with fixed chain state and slot.
+chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
+
+-- | Create an observation chain input with chain state at given slot.
+observeTxAtSlot :: ChainSlot -> OnChainTx SimpleTx -> Input SimpleTx
+
+-- | Create an observation chain input with fixed chain state and slot.
+observeTx :: OnChainTx SimpleTx -> Input SimpleTx
+connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
+inIdleState :: NodeState SimpleTx
+inUnsyncedIdleState :: NodeState SimpleTx
+inOpenState :: [Party] -> NodeState SimpleTx
+inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
+inClosedState :: [Party] -> NodeState SimpleTx
+inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
+
+-- | A head mid partial-fanout (on-chain <a>FanoutProgress</a>) with the
+--   given still-to-distribute set and <a>FanoutMode</a>.
+--   <a>StateChanged</a> is a non-empty placeholder so the head datum is
+--   treated as <tt>FanoutProgress</tt> (some outputs already distributed).
+inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+
+-- | Like <a>inFanoutProgressWith</a> but in <a>AutoDrain</a> mode, as if a
+--   plain <a>Fanout</a> kicked off the (chunked) fanout.
+inAutoDrainProgress :: [Party] -> Set SimpleTxOut -> NodeState SimpleTx
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
+data StepState tx
+StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
+[$sel:nodeState:StepState] :: StepState tx -> NodeState tx
+[$sel:env:StepState] :: StepState tx -> Environment
+[$sel:ledger:StepState] :: StepState tx -> Ledger tx
+runHeadLogic :: Monad m => Environment -> Ledger tx -> NodeState tx -> StateT (StepState tx) m a -> m a
+
+-- | Retrieves the latest <a>NodeState</a> from within <a>runHeadLogic</a>.
+getState :: MonadState (StepState tx) m => m (NodeState tx)
+
+-- | Calls <a>update</a> and <a>aggregate</a> to drive the
+--   <a>runHeadLogic</a> monad forward.
+step :: (MonadState (StepState tx) m, IsChainState tx, MonadTime m) => Input tx -> m (Outcome tx)
+hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
+assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
+
+-- | The effects produced by an outcome (empty for
+--   <a>Wait</a>/<a>Error</a>).
+effectsOf :: Outcome tx -> [Effect tx]
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
+
+-- | Create a <a>TimeHandle</a> for a given slot and current wall-clock
+--   time. * Assumes 1-second slots (as in the devnet). * SystemStart is
+--   derived so that the given slot corresponds to the given time. *
+--   EraHistory is constructed to have a horizon sufficiently far in the
+--   future to accommodate time conversions.
+mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
+catchingUp :: IsTx tx => HeadState tx -> NodeState tx
+inSync :: IsTx tx => HeadState tx -> NodeState tx
+zeroChainPointTime :: ChainPointTime
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+module Hydra.NodeSpec
+spec :: Spec
+
+-- | Add given list of inputs to the <a>InputQueue</a>. A preceding
+--   <a>Tick</a> is enqueued to advance the chain slot and ensure the
+--   <a>NodeState</a> is in sync. This is returning the node to allow for
+--   chaining with <a>runToCompletion</a>.
+primeWith :: MonadSTM m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+
+-- | A preceding <a>Tick</a> is enqueued to advance the chain slot and
+--   ensure the <a>NodeState</a> is in sync. This is returning the node to
+--   allow for chaining with <a>runToCompletion</a>.
+primeWithTime :: MonadSTM m => HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+
+-- | Convert a <a>DraftHydraNode</a> to a <a>HydraNode</a> by providing
+--   mock implementations.
+notConnect :: MonadThrow m => DraftHydraNode tx m -> m (HydraNode tx m)
+mockServer :: Monad m => Server tx m
+mockNetwork :: Monad m => Network m (Message tx)
+mockChain :: MonadThrow m => Chain tx m
+mockSink :: Monad m => EventSink a m
+mockEventStore :: forall a m. Monad m => [a] -> EventStore a m
+mockSource :: Monad m => [a] -> EventSource a m
+createRecordingSink :: IO (EventSink a IO, IO [a])
+createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
+
+-- | Synthetic inputs that simulate a head opening. The head will be empty
+--   though and this test hardness can not reliably simulate deposits. Use
+--   <a>aValidTx</a> to create utxos out of thin air instead.
+--   
+--   Explanation why we can't just emualte OnDepositTx and OnIncrementTx
+--   here: While the deposit will be seen as finalized, there is no
+--   ConfirmedSnapshot here that could be adopted and thus the confirmed
+--   utxo (legder state).
+inputsToOpenHead :: [Input SimpleTx]
+observationInput :: OnChainTx SimpleTx -> Input SimpleTx
+runToCompletion :: IsChainState tx => HydraNode tx IO -> IO ()
+
+-- | Creates a full <a>HydraNode</a> with given parameters and primed
+--   <a>Input</a>s. Note that this node is <a>notConnect</a>ed to any
+--   components.
+testHydraNode :: (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m, MonadUnliftIO m) => Tracer m (HydraNodeLog SimpleTx) -> Secret (SigningKey HydraKey) -> [Party] -> ContestationPeriod -> [Input SimpleTx] -> m (HydraNode SimpleTx m)
+
+-- | A lot shorter than the real world ttl which requires to be long to
+--   overcome some longer chain observation delays, but would just make
+--   tests longer.
+testTTL :: TTL
+recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
+recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
+messageRecorder :: IO (msg -> IO (), IO [msg])
+throwExceptionOnPostTx :: IsChainState tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
+
+module Hydra.Events.RotationSpec
+spec :: Spec
+newtype TrivialEvent
+TrivialEvent :: Word64 -> TrivialEvent
+newtype ChunkedEvents
+ChunkedEvents :: [[TrivialEvent]] -> ChunkedEvents
+trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
+mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
+instance GHC.Classes.Eq Hydra.Events.RotationSpec.TrivialEvent
+instance GHC.Show.Show Hydra.Events.RotationSpec.TrivialEvent
+instance GHC.Num.Num Hydra.Events.RotationSpec.TrivialEvent
+instance GHC.Show.Show Hydra.Events.RotationSpec.ChunkedEvents
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Events.RotationSpec.ChunkedEvents
+instance Hydra.Events.HasEventId Hydra.Events.RotationSpec.TrivialEvent
+
+module Hydra.Logging.MonitoringSpec
+spec :: Spec
+
+module Hydra.HeadLogicSnapshotSpec
+spec :: Spec
+prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
+prop_thereIsAlwaysALeader :: Property
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+module Hydra.API.HTTPServerSpec
+spec :: Spec
+apiServerSpec :: Spec
+
+-- | Create a <a>ResponseMatcher</a> or <a>MatchBody</a> from a JSON
+--   serializable value (using their <a>IsString</a> instances).
+matchJSON :: (IsString s, ToJSON a) => a -> s
+
+-- | Create a <a>MatchBody</a> that CBOR-decodes the response body and
+--   compares it to an expected value.
+matchCBOR :: (Eq a, Show a, FromCBOR a) => a -> MatchBody
+
+-- | Create a <a>MatchBody</a> that validates the returned JSON response
+--   against a schema. NOTE: This raises impure exceptions, so only use it
+--   in this test suite.
+matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
 
 
 -- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
