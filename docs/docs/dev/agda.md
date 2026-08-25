@@ -28,8 +28,8 @@ Three groups of modules, one build:
 
 | Group | Modules | Role |
 | --- | --- | --- |
-| Rendered (the document) | `Introduction`, `Overview`, `Preliminaries`, `Setup`, `OnChain`, `OnChainCoverage`, `OffChain`, `Security`, `SecurityProofs` | The prose. Their ```` ```agda ```` fences are collected into the PDF's Agda appendix, which is restricted to the machine-checked theorem statements (`OnChainCoverage`, `SecurityProofs`, `Security`, `OffChain`); the datum/redeemer types, transition relations and validity bundles in `Preliminaries`/`Setup`/`OnChain` are typechecked but deliberately not rendered |
-| Typecheck-only | `Prelude`, `ReferenceBridge`, `RefReflection` | The abstract trust base and the bridge proofs; verified on every build, never rendered |
+| Rendered (the document) | `Introduction`, `Overview`, `Preliminaries`, `Setup`, `OnChain`, `OnChainCoverage`, `OffChain`, `Security`, `SecurityProofs`, `Solvency` | The prose. Their ```` ```agda ```` fences are collected into the PDF's Agda appendix, which is restricted to the machine-checked theorem statements (`OnChainCoverage`, `SecurityProofs`, `Security`, `OffChain`, `Solvency` - including the global solvency invariant, whose increment case consumes the deposit-identity binding); the datum/redeemer types, transition relations and validity bundles in `Preliminaries`/`Setup`/`OnChain` are typechecked but deliberately not rendered |
+| Typecheck-only | `Prelude`, `ReferenceBridge`, `RefReflection`, `SolvencyCounterModel` | The abstract trust base, the bridge proofs, and the pre-fix deposit-aliasing counter-model; verified on every build, never rendered |
 | Extractable | `Reference`, `OffChainReference` | Decidable checkers, self-contained over `Agda.Builtin` types so the extracted Haskell stays small |
 
 ## The trust story

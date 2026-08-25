@@ -219,7 +219,12 @@ changes.
   including the commit/decommit output-set hashes bound into the snapshot
   multisignature, the deposit-identity binding of the commit digest (a snapshot
   authorizes one deposit by transaction id, not any look-alike recording the
-  same UTxO) and the canonical CRS datum binding of the fanout paths.
+  same UTxO) and the canonical CRS datum binding of the fanout paths. A global
+  solvency invariant is machine-checked on top: the head output's value covers
+  the accumulator-committed UTxO set's L1-originating value across
+  init/increment/decrement/close/contest, and fanout can only distribute
+  committed outputs — the proof's increment case consumes the deposit-identity
+  binding, so weakening it fails the spec build.
 
 - The head logic now enforces the specification's "no commit and decommit in
   flight at once" discipline on the message level: a `ReqDec` received while a
