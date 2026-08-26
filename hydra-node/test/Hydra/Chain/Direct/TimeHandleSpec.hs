@@ -46,16 +46,15 @@ spec = do
     it "queries system start and era history only once" $ do
       systemStartQueries <- newIORef (0 :: Int)
       eraHistoryQueries <- newIORef (0 :: Int)
-      now <- getCurrentTime
       getTimeHandle <-
         newTimeHandleCache
-          (modifyIORef' systemStartQueries (+ 1) $> SystemStart now)
+          (modifyIORef' systemStartQueries (+ 1) $> SystemStart (posixSecondsToUTCTime 0))
           (modifyIORef' eraHistoryQueries (+ 1) $> eraHistoryWithoutHorizon)
-      replicateM_ 5 getTimeHandle
+      forM_ [0 .. 4] (getTimeHandle . SlotNo)
       readIORef systemStartQueries `shouldReturn` 1
       readIORef eraHistoryQueries `shouldReturn` 1
 
-    it "refreshes era history when the wall clock is past the horizon" $ do
+    it "refreshes era history when the demanded slot is past the horizon" $ do
       eraHistoryQueries <- newIORef (0 :: Int)
       getTimeHandle <-
         newTimeHandleCache
@@ -65,9 +64,9 @@ spec = do
               modifyIORef' eraHistoryQueries (+ 1)
               pure $ if n == 0 then eraHistoryWithHorizonAt 1 else eraHistoryWithoutHorizon
           )
-      TimeHandle{currentPointInTime} <- getTimeHandle
+      TimeHandle{slotToUTCTime} <- getTimeHandle 5
       readIORef eraHistoryQueries `shouldReturn` 2
-      currentPointInTime `shouldSatisfy` isRight
+      slotToUTCTime 5 `shouldBe` Right (posixSecondsToUTCTime 5)
 
     it "degrades gracefully when refreshing does not extend the horizon" $ do
       eraHistoryQueries <- newIORef (0 :: Int)
@@ -75,7 +74,7 @@ spec = do
         newTimeHandleCache
           (pure . SystemStart $ posixSecondsToUTCTime 0)
           (modifyIORef' eraHistoryQueries (+ 1) $> eraHistoryWithHorizonAt 1)
-      TimeHandle{currentPointInTime, slotToUTCTime} <- getTimeHandle
+      TimeHandle{currentPointInTime, slotToUTCTime} <- getTimeHandle 5
       readIORef eraHistoryQueries `shouldReturn` 2
       currentPointInTime `shouldSatisfy` isLeft
       slotToUTCTime 0 `shouldBe` Right (posixSecondsToUTCTime 0)

@@ -448,8 +448,8 @@ chainSyncHandler ::
   -- | Tracer for logging
   Tracer m CardanoChainLog ->
   ChainCallback Tx m ->
-  -- | Means to acquire a new 'TimeHandle'.
-  GetTimeHandle m ->
+  -- | Means to acquire a 'TimeHandle' able to convert the given slot.
+  (SlotNo -> GetTimeHandle m) ->
   -- | Contextual information about our chain connection.
   ChainContext ->
   LocalChainState m Tx ->
@@ -467,8 +467,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    timeHandle <- getTimeHandle
     let slotNo = fromMaybe 0 (chainPointToSlotNo point)
+    timeHandle <- getTimeHandle slotNo
     case slotToUTCTime timeHandle slotNo of
       Left reason ->
         throwIO TimeConversionException{slotNo, reason}
@@ -485,7 +485,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         , receivedTxIds = getTxId . getTxBody <$> receivedTxs
         }
 
-    timeHandle <- getTimeHandle
+    timeHandle <- getTimeHandle $ fromMaybe 0 (chainPointToSlotNo point)
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

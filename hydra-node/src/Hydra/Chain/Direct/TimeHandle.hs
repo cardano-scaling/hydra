@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (..), fromRelativeTime, toRelativeTime)
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Hydra.Cardano.Api (EraHistory (EraHistory))
 import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
 import Hydra.Chain.Backend (ChainBackend (..))
@@ -70,40 +70,30 @@ slotFromUTCTimeWith systemStart (EraHistory interpreter) utcTime =
  where
   relativeTime = toRelativeTime systemStart utcTime
 
--- | Create a cached variant of 'queryTimeHandle': system start is queried
--- once, era history is cached and only re-queried when the current wall-clock
--- time cannot be converted with it any more (its horizon was outrun, e.g.
--- after a hard fork or a long-lived cache). The current slot is derived from
--- the wall clock instead of the chain tip.
+-- | Create a cached variant of 'queryTimeHandle' for converting a given slot:
+-- system start is queried once, era history is cached and only re-queried
+-- when the demanded slot cannot be converted with it any more (its horizon
+-- was outrun, e.g. after a hard fork or a long-lived cache). Should a freshly
+-- queried era history still not cover the slot, the returned handle reports
+-- the conversion failure to its consumer.
 newTimeHandleCache ::
-  (MonadSTM m, MonadTime m) =>
+  MonadLabelledSTM m =>
   -- | How to query the system start (used once).
   m SystemStart ->
   -- | How to (re-)query the era history.
   m EraHistory ->
-  m (m TimeHandle)
+  m (SlotNo -> m TimeHandle)
 newTimeHandleCache querySystemStart' queryEraHistory' = do
   systemStart <- querySystemStart'
-  eraHistoryVar <- newTVarIO =<< queryEraHistory'
-  pure $ do
-    now <- getCurrentTime
+  eraHistoryVar <- newLabelledTVarIO "era-history-cache" =<< queryEraHistory'
+  pure $ \slot -> do
     eraHistory <- readTVarIO eraHistoryVar
-    case slotFromUTCTimeWith systemStart eraHistory now of
-      Right currentSlot -> pure $ mkTimeHandle currentSlot systemStart eraHistory
+    case slotToUTCTimeWith systemStart eraHistory slot of
+      Right _ -> pure $ mkTimeHandle slot systemStart eraHistory
       Left _ -> do
         refreshed <- queryEraHistory'
         atomically $ writeTVar eraHistoryVar refreshed
-        pure $ case slotFromUTCTimeWith systemStart refreshed now of
-          Right currentSlot -> mkTimeHandle currentSlot systemStart refreshed
-          -- The current time cannot be converted even with a fresh era
-          -- history (e.g. clock skew): slot conversions within the horizon
-          -- still work, but there is no current point in time.
-          Left err ->
-            TimeHandle
-              { currentPointInTime = Left err
-              , slotFromUTCTime = slotFromUTCTimeWith systemStart refreshed
-              , slotToUTCTime = slotToUTCTimeWith systemStart refreshed
-              }
+        pure $ mkTimeHandle slot systemStart refreshed
 
 -- | Query the chain for system start and era history before constructing a
 -- 'TimeHandle' using the slot at the tip of the network.
