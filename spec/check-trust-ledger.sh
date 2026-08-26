@@ -21,6 +21,14 @@
 #           `κ#-pair-inj` to drop its hypothesis and `hash` becomes injective on nothing, every ℍ
 #           equal, and the solvency theorem vacuous, all while still typechecking.
 #
+# It also forbids the escape hatches that are not postulates at all. Agda's own `--safe` would be the
+# obvious tool and is not available: `--safe` BANS postulates, and this specification is built on 63
+# of them by design (verified: adding the pragma to Prelude fails with "Cannot postulate +ᵛ-assoc
+# with safe flag"), and `--safe` is contagious through imports, so no module downstream of Prelude
+# could carry it either. The enumerated list below is what `--safe` would have bought us here: the
+# ledger says which assumptions are intended, this says that unintended ones cannot be smuggled in
+# as a termination pragma, a trust-me, or a relaxed OPTIONS line.
+#
 # Residual limit, stated rather than papered over: the model layer gates the postulate name SET, so it
 # catches a new axiom but not a strengthened type on an existing one. Their semantics live in the
 # spec's "What the formalisation assumes" appendix; the four that carry the solvency argument are the
@@ -177,6 +185,37 @@ out_of_reach=$(printf '%s\n' \
 all_bundles=$(grep -oE "^record [A-Za-z]+Valid" "$ONCHAIN" | awk '{print $2}' | sort -u)
 
 fail=0
+# ── unsafe escape hatches ────────────────────────────────────────────────────────────────────────
+# Everything here defeats the proofs without adding a postulate the ledger would notice: a
+# TERMINATING pragma asserts a loop terminates, primTrustMe manufactures any equality, REWRITE turns
+# an equation into a reduction rule, and the OPTIONS flags switch off termination, positivity or
+# coverage checking (or let unsolved metas through). The tree has none; keep it that way.
+UNSAFE_PATTERNS='
+TERMINATING
+NON_TERMINATING
+NON_COVERING
+INJECTIVE_FOR_INFERENCE
+primTrustMe
+primEraseEquality
+--rewriting
+--allow-unsolved-metas
+--allow-incomplete-matches
+--no-termination-check
+--no-positivity-check
+--type-in-type
+--omega-in-omega
+--injective-type-constructors
+'
+for pattern in $UNSAFE_PATTERNS; do
+  hits=$(grep -rn --include='*.agda' --include='*.lagda.typ' -Fe "$pattern" src |
+    grep -vE '^[^:]+:[0-9]+:[[:space:]]*--' || true)
+  if [ -n "$hits" ]; then
+    echo "check-trust-ledger: unsafe Agda escape hatch '$pattern' entered the specification:"
+    printf '%s\n' "$hits"
+    fail=1
+  fi
+done
+
 if [ "$actual_mocks" != "$expected_mocks" ]; then
   echo "check-trust-ledger: the injected Ops-mock set DRIFTED from the documented ledger (- expected, + actual):"
   diff <(echo "$expected_mocks") <(echo "$actual_mocks") || true
@@ -214,4 +253,5 @@ if [ "$fail" -ne 0 ]; then
 fi
 echo "check-trust-ledger: OK: bridge layer = $(echo "$expected_mocks" | wc -l) Ops mocks + $(echo "$expected_postulates" | wc -l) postulates;" \
      "model layer = $(echo "$expected_model" | wc -l) postulates + $(echo "$expected_assumptions" | wc -l) gated Assumptions signatures;" \
-     "solvency reaches $(echo "$expected_reach" | wc -l) of $(echo "$all_bundles" | wc -l) validity bundles."
+     "solvency reaches $(echo "$expected_reach" | wc -l) of $(echo "$all_bundles" | wc -l) validity bundles;" \
+     "no unsafe escape hatches."

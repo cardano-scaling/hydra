@@ -13,6 +13,10 @@
 #   1. the constructor is actually raised somewhere - a dead code fails the build:
 #      delete it instead (see the H15-H20/H40/H54 cleanup for precedent);
 #   2. the Aiken codes and their Haskell mirror (Hydra.Contract.DepositError) agree;
+#   2b. no RETIRED code is claimed again. Deleting a dead constructor leaves a hole in the numbering,
+#      and a later constructor dropping into that hole would silently inherit the old code's meaning
+#      everywhere the STRING is what gets matched: this ledger, the mutation corpus's expected-error
+#      assertions, and anything outside the repo that recorded it. Holes are cheap; reuse is not.
 #   3. the code appears in the ledger below with an accurate status:
 #        tested          - a test ASSERTS this code, i.e. some test source applies
 #                          `toErrorCode` to the constructor. That is the mutation
@@ -126,12 +130,24 @@ H71 MustNotSpendOtherScripts tested
 LEDGER
 )
 
+# Codes whose constructors have been deleted. Their numbers are burned: never reuse one.
+RETIRED="H15 H16 H17 H18 H19 H20 H40 H49 H50 H51 H52 H53 H54 H61 H66"
+
 fail=0
 
 # extracted (code, constructor) pairs, one "CODE NAME" per line
 head_actual=$(sed -nE 's/^[[:space:]]*([A-Za-z]+) -> "(H[0-9]+)".*/\2 \1/p' "$HEAD_ERRORS" | sort)
 dep_actual=$(sed -nE 's/^[[:space:]]*([A-Za-z]+) -> @"(D[0-9]+)".*/\2 \1/p' "$DEPOSIT_AK" | sort)
 mirror_actual=$(sed -nE 's/^[[:space:]]*([A-Za-z]+) -> "(D[0-9]+)".*/\2 \1/p' "$DEPOSIT_MIRROR" | sort)
+
+# 0. No retired code has been claimed again.
+for retired in $RETIRED; do
+  claimed=$( (echo "$head_actual"; echo "$dep_actual") | awk -v c="$retired" '$1 == c {print $2}')
+  if [ -n "$claimed" ]; then
+    echo "check-error-codes: $retired is RETIRED but claimed again by $claimed: pick an unused number."
+    fail=1
+  fi
+done
 
 # 1. Aiken <-> Haskell mirror agreement.
 if [ "$dep_actual" != "$mirror_actual" ]; then
