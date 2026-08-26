@@ -242,6 +242,22 @@ outputBalance :: Tx TopTx LedgerEra -> Value LedgerEra
 --   witness.
 prop_detectsMissingScript :: Property
 
+-- | Reference inputs carrying Plutus scripts must not produce a script
+--   integrity hash when the transaction executes no scripts (no redeemers,
+--   no datums). The ledger expects SNothing in that case and rejects the
+--   tx with PPViewHashesDontMatch otherwise.
+prop_noScriptIntegrityHashWithoutExecution :: Property
+hasReferenceScript :: BabbageTxOut ConwayEra -> Bool
+
+-- | Transactions that execute scripts while merely referencing unrelated
+--   ones must hash only the executed scripts' language views into the
+--   script integrity hash. The expected hash is recomputed here against an
+--   explicit PlutusV3-only language set: if the unrelated (V2) reference
+--   script's language view ever leaked into the hash, or the redeemers on
+--   the balanced transaction were not the ones hashed, the comparison
+--   fails.
+prop_unrelatedRefScriptDoesNotAffectIntegrityHash :: Property
+
 module Hydra.Chain.ScriptRegistrySpec
 spec :: Spec
 

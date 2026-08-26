@@ -1982,8 +1982,7 @@ ChangeError :: Coin -> Coin -> ChangeError
 --   change back.
 --   
 --   XXX: All call sites of this function use cardano-api types
-coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era, BabbageEraTxBody era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
-computeScriptIntegrityHash :: AlonzoEraScript era => Redeemers era -> TxDats era -> Set LangDepView -> StrictMaybe ScriptIntegrityHash
+coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
 findLargestUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 
 -- | Estimate cost of script executions on the transaction. This is only an

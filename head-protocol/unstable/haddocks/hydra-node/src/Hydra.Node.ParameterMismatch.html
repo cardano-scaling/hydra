@@ -13,7 +13,7 @@
 </span><span id="line-13"></span><span class="hs-comment">-- | Exception used to indicate command line options not matching the persisted</span><span>
 </span><span id="line-14"></span><span class="hs-comment">-- state.</span><span>
 </span><span id="line-15"></span><span class="hs-keyword">newtype</span><span> </span><span id="ParameterMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParameterMismatch"><span class="hs-identifier hs-var">ParameterMismatch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ParameterMismatch"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParameterMismatch"><span class="hs-identifier hs-var">ParameterMismatch</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#ParamMismatch"><span class="hs-identifier hs-type">ParamMismatch</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679814301"><span id="local-6989586621679814306"><span class="annot"><span class="annottext">ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679811836"><span id="local-6989586621679811841"><span class="annot"><span class="annottext">ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
 (ParameterMismatch -&gt; ParameterMismatch -&gt; Bool)
 -&gt; (ParameterMismatch -&gt; ParameterMismatch -&gt; Bool)
 -&gt; Eq ParameterMismatch
@@ -22,7 +22,7 @@ $c== :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
 == :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
 $c/= :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
 /= :: ParameterMismatch -&gt; ParameterMismatch -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679814312"><span id="local-6989586621679814319"><span id="local-6989586621679814323"><span class="annot"><span class="annottext">Int -&gt; ParameterMismatch -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679811847"><span id="local-6989586621679811854"><span id="local-6989586621679811858"><span class="annot"><span class="annottext">Int -&gt; ParameterMismatch -&gt; ShowS
 [ParameterMismatch] -&gt; ShowS
 ParameterMismatch -&gt; String
 (Int -&gt; ParameterMismatch -&gt; ShowS)
@@ -38,7 +38,7 @@ show :: ParameterMismatch -&gt; String
 $cshowList :: [ParameterMismatch] -&gt; ShowS
 showList :: [ParameterMismatch] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679814332"><span id="local-6989586621679814336"><span id="local-6989586621679814339"><span class="annot"><span class="annottext">Show ParameterMismatch
+</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679811867"><span id="local-6989586621679811871"><span id="local-6989586621679811874"><span class="annot"><span class="annottext">Show ParameterMismatch
 Typeable ParameterMismatch
 (Typeable ParameterMismatch, Show ParameterMismatch) =&gt;
 (ParameterMismatch -&gt; SomeException)
@@ -72,7 +72,7 @@ displayException :: ParameterMismatch -&gt; String
 </span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AconfiguredParties%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">configuredParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span class="hs-special">}</span><span>
 </span><span id="line-23"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SavedNetworkPartiesInconsistent"><span class="annot"><a href="Hydra.Node.ParameterMismatch.html#SavedNetworkPartiesInconsistent"><span class="hs-identifier hs-var">SavedNetworkPartiesInconsistent</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AnumberOfParties%3AContestationPeriodMismatch"><span class="annot"><span class="annottext">ParamMismatch -&gt; Int
 </span><a href="Hydra.Node.ParameterMismatch.html#%24sel%3AnumberOfParties%3AContestationPeriodMismatch"><span class="hs-identifier hs-var hs-var">numberOfParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-24"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679814354"><span id="local-6989586621679814356"><span class="annot"><span class="annottext">(forall x. ParamMismatch -&gt; Rep ParamMismatch x)
+</span><span id="line-24"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679811889"><span id="local-6989586621679811891"><span class="annot"><span class="annottext">(forall x. ParamMismatch -&gt; Rep ParamMismatch x)
 -&gt; (forall x. Rep ParamMismatch x -&gt; ParamMismatch)
 -&gt; Generic ParamMismatch
 forall x. Rep ParamMismatch x -&gt; ParamMismatch
@@ -83,7 +83,7 @@ $cfrom :: forall x. ParamMismatch -&gt; Rep ParamMismatch x
 from :: forall x. ParamMismatch -&gt; Rep ParamMismatch x
 $cto :: forall x. Rep ParamMismatch x -&gt; ParamMismatch
 to :: forall x. Rep ParamMismatch x -&gt; ParamMismatch
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679814360"><span id="local-6989586621679814373"><span class="annot"><span class="annottext">ParamMismatch -&gt; ParamMismatch -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679811895"><span id="local-6989586621679811908"><span class="annot"><span class="annottext">ParamMismatch -&gt; ParamMismatch -&gt; Bool
 (ParamMismatch -&gt; ParamMismatch -&gt; Bool)
 -&gt; (ParamMismatch -&gt; ParamMismatch -&gt; Bool) -&gt; Eq ParamMismatch
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -91,7 +91,7 @@ $c== :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
 == :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
 $c/= :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
 /= :: ParamMismatch -&gt; ParamMismatch -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679814377"><span id="local-6989586621679814394"><span id="local-6989586621679814397"><span class="annot"><span class="annottext">Int -&gt; ParamMismatch -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679811912"><span id="local-6989586621679811929"><span id="local-6989586621679811932"><span class="annot"><span class="annottext">Int -&gt; ParamMismatch -&gt; ShowS
 [ParamMismatch] -&gt; ShowS
 ParamMismatch -&gt; String
 (Int -&gt; ParamMismatch -&gt; ShowS)
@@ -107,7 +107,7 @@ show :: ParamMismatch -&gt; String
 $cshowList :: [ParamMismatch] -&gt; ShowS
 showList :: [ParamMismatch] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679814401"><span id="local-6989586621679814408"><span id="local-6989586621679814411"><span id="local-6989586621679814414"><span id="local-6989586621679814417"><span class="annot"><span class="annottext">[ParamMismatch] -&gt; Value
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679811936"><span id="local-6989586621679811943"><span id="local-6989586621679811946"><span id="local-6989586621679811949"><span id="local-6989586621679811952"><span class="annot"><span class="annottext">[ParamMismatch] -&gt; Value
 [ParamMismatch] -&gt; Encoding
 ParamMismatch -&gt; Bool
 ParamMismatch -&gt; Value
