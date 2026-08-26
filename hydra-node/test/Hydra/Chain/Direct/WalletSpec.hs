@@ -6,16 +6,20 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api qualified as CApi
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, pattern SpendingPurpose)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, hashScript, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, pattern SpendingPurpose)
+import Cardano.Ledger.Api.PParams (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (Tx, TxLevel (..), Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
+import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
@@ -61,6 +65,7 @@ import Hydra.Tx.Secret (mkSecret)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut)
 import Test.QuickCheck (
+  Discard (..),
   Property,
   checkCoverage,
   conjoin,
@@ -96,6 +101,7 @@ spec = parallel $ do
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
     prop "reports ErrMissingScript when script witness is missing" prop_detectsMissingScript
     prop "does not set script integrity hash when no scripts are executed" prop_noScriptIntegrityHashWithoutExecution
+    prop "unrelated reference scripts do not affect the script integrity hash" prop_unrelatedRefScriptDoesNotAffectIntegrityHash
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -483,16 +489,115 @@ prop_noScriptIntegrityHashWithoutExecution =
                   & witsTxL . datsTxWitsL .~ mempty
                   & witsTxL . scriptTxWitsL .~ mempty
           case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (Map.insert refIn refOut lookupUTxO) walletUTxO txWithRefInput of
+            Left ErrNoFuelUTxOFound -> property Discard
+            Left err@ErrNotEnoughFunds{} -> property Discard & counterexample (show err)
             Left err ->
-              property False & counterexample ("Error: " <> show err)
+              property False & counterexample ("Unexpected coverFee error: " <> show err)
             Right balancedTx ->
-              (balancedTx ^. bodyTxL . scriptIntegrityHashTxBodyL) === Ledger.SNothing
-                & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx balancedTx))
+              ( (balancedTx ^. bodyTxL . scriptIntegrityHashTxBodyL) === Ledger.SNothing
+                  & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx balancedTx))
+              )
+                .&&. counterexample
+                  "fixture no longer carries a reference script — property is vacuous"
+                  (hasReferenceScript refOut)
  where
   -- A UTxO carrying a Plutus V3 reference script that the tx does not execute
   genRefScriptUTxO = do
     refIn <- toLedgerTxIn <$> genTxIn
     out <- genTxOut
-    let Api.TxOut addr value _ _ = out
-    let refOut = Api.toLedgerTxOut $ Api.TxOut addr value Api.TxOutDatumNone (Api.mkScriptRef dummyValidatorScript)
+    let Api.TxOut addr value datum _ = out
+    let refOut = Api.toLedgerTxOut $ Api.TxOut addr value datum (Api.mkScriptRef dummyValidatorScript)
     pure (refIn, refOut)
+
+hasReferenceScript :: BabbageTxOut ConwayEra -> Bool
+hasReferenceScript out =
+  case out of
+    BabbageTxOut _ _ _ (Ledger.SJust _) -> True
+    _ -> False
+
+-- | Transactions that execute scripts while merely referencing unrelated ones
+-- must hash only the executed scripts' language views into the script
+-- integrity hash. The expected hash is recomputed here against an explicit
+-- PlutusV3-only language set: if the unrelated (V2) reference script's
+-- language view ever leaked into the hash, or the redeemers on the balanced
+-- transaction were not the ones hashed, the comparison fails.
+prop_unrelatedRefScriptDoesNotAffectIntegrityHash :: Property
+prop_unrelatedRefScriptDoesNotAffectIntegrityHash =
+  forAllBlind genTxExecutingScript $ \(tx, lookupUTxO) ->
+    forAllBlind (reasonablySized genUTxO `suchThat` (not . any isBootstrapOut)) $ \walletUTxO ->
+      forAllBlind genUnrelatedRefScriptUTxO $ \(refIn, refOut) -> do
+        let txWithRefInput = tx & bodyTxL . referenceInputsTxBodyL .~ Set.singleton refIn
+        case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (Map.insert refIn refOut lookupUTxO) walletUTxO txWithRefInput of
+          Left ErrNoFuelUTxOFound -> property Discard
+          Left err@ErrNotEnoughFunds{} -> property Discard & counterexample (show err)
+          Left err ->
+            property False & counterexample ("Unexpected coverFee error: " <> show err)
+          Right balancedTx ->
+            let expected =
+                  hashScriptIntegrity $
+                    ScriptIntegrity
+                      (balancedTx ^. witsTxL . rdmrsTxWitsL)
+                      (balancedTx ^. witsTxL . datsTxWitsL)
+                      (Set.singleton $ getLanguageView Fixture.pparams PlutusV3)
+             in ( (balancedTx ^. bodyTxL . scriptIntegrityHashTxBodyL) === Ledger.SJust expected
+                    & counterexample ("Balanced tx: \n" <> renderTx (fromLedgerTx balancedTx))
+                )
+                  .&&. counterexample
+                    "fixture no longer carries a reference script — property is vacuous"
+                    (hasReferenceScript refOut)
+ where
+  -- Byron-addressed outputs cannot be represented in a PlutusV3 script
+  -- context, so a Byron fee input would fail script evaluation for reasons
+  -- unrelated to this property.
+  isBootstrapOut :: BabbageTxOut ConwayEra -> Bool
+  isBootstrapOut (BabbageTxOut addr _ _ _) =
+    case addr of
+      Ledger.AddrBootstrap{} -> True
+      _ -> False
+
+  -- A transaction spending a UTxO locked by the always-succeeding dummy
+  -- validator, with script witness and redeemer attached so the script
+  -- actually executes. No datum: V3 spending scripts may go datum-less and
+  -- the dummy validator does not expect one.
+  genTxExecutingScript :: Gen (Tx TopTx LedgerEra, Map TxIn TxOut)
+  genTxExecutingScript = do
+    scriptTxIn <- toLedgerTxIn <$> genTxIn
+    redeemerData :: Data LedgerEra <- arbitrary
+    baseTx <- resize 0 genLedgerTx
+    let script = Api.toLedgerScript @_ @Api.Era dummyValidatorScript
+        scriptHash = hashScript @LedgerEra script
+        scriptTxOut =
+          Api.toLedgerTxOut $
+            Api.TxOut
+              (Api.mkScriptAddress Fixture.testNetworkId dummyValidatorScript)
+              (Api.lovelaceToValue (Coin 20_000_000))
+              Api.TxOutDatumNone
+              Api.ReferenceScriptNone
+        redeemers = Redeemers $ Map.singleton (SpendingPurpose (AsIx 0)) (redeemerData, ExUnits 0 0)
+        txExecutingScript =
+          baseTx
+            & bodyTxL . inputsTxBodyL .~ Set.singleton scriptTxIn
+            & bodyTxL . outputsTxBodyL .~ mempty
+            & witsTxL . rdmrsTxWitsL .~ redeemers
+            & witsTxL . datsTxWitsL .~ mempty
+            & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
+    pure (txExecutingScript, Map.singleton scriptTxIn scriptTxOut)
+
+  -- A UTxO carrying a PlutusV2-tagged reference script that the transaction
+  -- never executes. The distinct language is what makes this test
+  -- discriminating: a V3 reference script would produce the same
+  -- language-view set even if it wrongly leaked into the integrity hash.
+  genUnrelatedRefScriptUTxO :: Gen (TxIn, TxOut)
+  genUnrelatedRefScriptUTxO = do
+    refIn <- toLedgerTxIn <$> genTxIn
+    out <- genTxOut
+    let Api.TxOut addr value datum _ = out
+    let refOut = Api.toLedgerTxOut $ Api.TxOut addr value datum (Api.mkScriptRef unrelatedV2Script)
+    pure (refIn, refOut)
+
+  -- Merely carried and never executed or validated, so the bytes need not be
+  -- a runnable V2 program; only the language tag matters.
+  unrelatedV2Script :: CApi.PlutusScript CApi.PlutusScriptV2
+  unrelatedV2Script =
+    let Api.PlutusScriptSerialised bytes = dummyValidatorScript
+     in CApi.PlutusScriptSerialised bytes
