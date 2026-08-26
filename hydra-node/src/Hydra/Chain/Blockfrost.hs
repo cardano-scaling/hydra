@@ -36,7 +36,7 @@ import Hydra.Chain.Direct.Handlers (
   newLocalChainState,
  )
 import Hydra.Chain.Direct.State (ChainContext)
-import Hydra.Chain.Direct.TimeHandle (newTimeHandleCache, queryTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (newCachedTimeHandle, queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
@@ -165,12 +165,7 @@ withBlockfrostChain env tracer config ctx wallet chainStateHistory callback acti
       _ -> pure startFromPrefix
 
   let getTimeHandle = runBlockfrostBackendWith env queryTimeHandle
-  -- The chain-sync path only converts slots and never needs the chain tip, so
-  -- it uses cached time conversions instead of 3 API requests per block.
-  cachedTimeHandle <-
-    newTimeHandleCache
-      (runBlockfrostBackendWith env (querySystemStart CardanoClient.QueryTip))
-      (runBlockfrostBackendWith env (queryEraHistory CardanoClient.QueryTip))
+  cachedTimeHandle <- newCachedTimeHandle (runBlockfrostBackendWith env)
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   let chainHandle =

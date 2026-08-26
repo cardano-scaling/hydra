@@ -95,6 +95,19 @@ newTimeHandleCache querySystemStart' queryEraHistory' = do
         atomically $ writeTVar eraHistoryVar refreshed
         pure $ mkTimeHandle slot systemStart refreshed
 
+-- | Create cached time conversions for the chain-sync path using the given
+-- backend runner. That path only converts block slots and never needs the
+-- chain tip, so this replaces three chain queries per block with cached
+-- values; see 'newTimeHandleCache' for when the era history is re-queried.
+newCachedTimeHandle ::
+  ChainBackend backend =>
+  (forall a. backend a -> IO a) ->
+  IO (SlotNo -> IO TimeHandle)
+newCachedTimeHandle runInBackend =
+  newTimeHandleCache
+    (runInBackend $ querySystemStart QueryTip)
+    (runInBackend $ queryEraHistory QueryTip)
+
 -- | Query the chain for system start and era history before constructing a
 -- 'TimeHandle' using the slot at the tip of the network.
 queryTimeHandle :: (ChainBackend m, Monad m) => m TimeHandle
