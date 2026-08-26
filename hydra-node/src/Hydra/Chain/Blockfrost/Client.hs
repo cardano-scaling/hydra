@@ -118,6 +118,17 @@ maxRetries = 10
 blockfrostRetryPolicy :: MonadIO m => RetryPolicyM m
 blockfrostRetryPolicy = capDelay 60_000_000 (fullJitterBackoff 1_000_000) <> limitRetries maxRetries
 
+-- | Rate-limit retry policy for transaction submission: like
+-- 'blockfrostRetryPolicy', but gives up well before the upper validity bound
+-- of close/contest transactions (@now + min(contestationPeriod, maxGraceTime
+-- = 200s)@, set at construction and not refreshed on retry). Retrying past
+-- that point could only surface an expired-validity error instead of a timely
+-- rate-limit failure the caller can react to. The cumulative delay limit only
+-- kicks in once reached, so the worst case is ~120s plus one more (up to 60s)
+-- delay, still below 'maxGraceTime'.
+submissionRetryPolicy :: MonadIO m => RetryPolicyM m
+submissionRetryPolicy = limitRetriesByCumulativeDelay 120_000_000 blockfrostRetryPolicy
+
 -- | Policy for awaiting eventually-consistent query results (tx inclusion,
 -- indexer catch-up): full-jitter backoff capped at 10s per attempt, giving up
 -- once retries have accumulated ~5 minutes of waiting. Not to be confused
@@ -127,19 +138,17 @@ awaitPolicy =
   limitRetriesByCumulativeDelay (300 * 1_000_000) $
     capDelay 10_000_000 (fullJitterBackoff 1_000_000)
 
--- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
--- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
--- Retry-After header, so the delay is blind. Gives up by throwing
--- 'BlockfrostRateLimited'.
-runBlockfrostM ::
+-- | Like 'runBlockfrostM' but with a custom rate-limit retry policy.
+runBlockfrostMWith ::
   (MonadIO m, MonadThrow m) =>
+  RetryPolicyM m ->
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = do
+runBlockfrostMWith policy prj action = do
   res <-
     retrying
-      blockfrostRetryPolicy
+      policy
       (\_ -> pure . isRateLimited)
       (\_ -> liftIO $ Blockfrost.runBlockfrost prj action)
   case res of
@@ -151,6 +160,13 @@ runBlockfrostM prj action = do
   isRateLimited = \case
     Left Blockfrost.BlockfrostUsageLimitReached -> True
     _ -> False
+
+-- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
+-- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind. Gives up by throwing
+-- 'BlockfrostRateLimited'.
+runBlockfrostM :: (MonadIO m, MonadThrow m) => Blockfrost.Project -> BlockfrostClientT IO a -> m a
+runBlockfrostM = runBlockfrostMWith blockfrostRetryPolicy
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.

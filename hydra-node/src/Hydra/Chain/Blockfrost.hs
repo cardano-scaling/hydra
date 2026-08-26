@@ -25,7 +25,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), blockfrostRetryPolicy, isRetryable)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), blockfrostRetryPolicy, isRetryable, submissionRetryPolicy)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
@@ -384,7 +384,7 @@ blockfrostSubmissionClient tracer submit queue = bfClient
 submitViaBlockfrost :: MonadIO m => Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
 submitViaBlockfrost prj tx =
   liftIO $
-    (Right <$> Blockfrost.runBlockfrostM prj (Blockfrost.submitTransaction tx))
+    (Right <$> Blockfrost.runBlockfrostMWith submissionRetryPolicy prj (Blockfrost.submitTransaction tx))
       `catch` (\(e :: APIBlockfrostError) -> pure . Left $ show e)
       `catch` (\(e :: IOException) -> pure . Left $ show e)
 

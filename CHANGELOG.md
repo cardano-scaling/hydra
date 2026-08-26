@@ -18,7 +18,10 @@ changes.
   and caches genesis parameters for the lifetime of the chain connection: wallet
   operations, transaction posting, and script publishing no longer re-fetch
   `/genesis` per query. The Blockfrost chain follower and chain observer now fail
-  fast on undecodable transaction CBOR instead of retrying indefinitely
+  fast on undecodable transaction CBOR instead of retrying indefinitely, and
+  rate-limited transaction submissions give up after ~2 minutes so a close or
+  contest fails with a clear rate-limit error before its validity window
+  expires.
 
 - Fix closing large heads missing the close tx validity window
   (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when
@@ -90,9 +93,10 @@ changes.
   rejections were previously reported as success), and HTTP 429 is retried
   with capped exponential backoff. A full head lifecycle on preview drops from
   over an hour to minutes, and the Blockfrost lifecycle test runs in nightly
-  CI again. `--blockfrost-retry-timeout` now bounds transaction awaits in
-  seconds; the ineffective `--blockfrost-query-timeout` option and
-  `query-timeout` config key were removed.
+  CI again. Retry behavior is now built in, so the `--blockfrost-retry-timeout`
+  and ineffective `--blockfrost-query-timeout` options (`retry-timeout` and
+  `query-timeout` config keys) were removed: existing command lines and config
+  files still using them are rejected and must drop them.
 
 - Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
   UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
