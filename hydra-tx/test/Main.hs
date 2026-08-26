@@ -22,8 +22,8 @@ main =
     , testSpec "ContestationPeriod" Hydra.Tx.ContestationPeriodSpec.spec
     , testSpec "Contract" Hydra.Tx.Contract.ContractSpec.spec
     , testSpec "Evaluate" Hydra.Ledger.Cardano.EvaluateSpec.spec
-    , testSpec "HeadValidatorAgreement" Hydra.Tx.Contract.HeadValidatorAgreement.spec
     , testSpec "HeadId" Hydra.Tx.HeadIdSpec.spec
+    , testSpec "HeadValidatorAgreement" Hydra.Tx.Contract.HeadValidatorAgreement.spec
     , testSpec "IsTx" Hydra.Tx.IsTxSpec.spec
     , testSpec "KZGTrustedSetup" Hydra.Tx.KZGTrustedSetupSpec.spec
     , testSpec "Secret" Hydra.Tx.SecretSpec.spec

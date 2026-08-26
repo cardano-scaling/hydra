@@ -6,17 +6,23 @@
 -- The validator is a plain Haskell function (@Head.headValidator :: BuiltinByteString -> State -> Input ->
 -- ScriptContext -> Bool@; the leading argument is the canonical CRS datum hash). So we construct its
 -- inputs directly, run BOTH the validator and the Agda
--- reference (@Ref.checkClose@) on the SAME inputs, and assert @reference === validator@. The fields the
+-- reference on the SAME inputs, and assert @reference === validator@. The fields the
 -- reference models are generated independently (so e.g. the produced version is sometimes equal to the
 -- input version, sometimes not), which exercises BOTH the accept and the reject directions in one
--- property — unlike reusing the hydra mutation generators (a corpus that is
+-- property, unlike reusing the hydra mutation generators (a corpus that is
 -- validator-rejecting by construction, making @reference-reject ⇒ validator-reject@ vacuous).
 --
--- Crypto is satisfied by construction: this spike covers @CloseInitial@, the one close case with no
--- signature (it requires only the empty-accumulator BLS G1 generator), so no signing is needed.
+-- Coverage is every family the reference models, not one spike: close (all four 'CloseType's),
+-- increment, decrement, contest, full fanout, both partial-fanout arms, μHead minting and burning,
+-- and the νDeposit Claim and Recover arms, in the accept and the reject direction each, plus the
+-- shared conjuncts (participant signature, no-mint, value preservation, per-asset conservation,
+-- referenced-output-is-spent, parameter preservation).
 --
--- This is the close/CloseInitial spike that validates the whole approach; the other families/redeemers
--- follow the same pattern.
+-- Crypto is real wherever the family has a signature or a pairing: the close/contest fixtures sign
+-- with Ed25519 keys and the fan-out fixtures build genuine BLS12-381 accumulators and verify the
+-- membership pairing, so the bad-signature and bad-proof rejects exercise the actual crypto. The
+-- reference mocks exactly those conjuncts (it models the decidable ones), which is why the mocks
+-- below are @const True@ and the crypto rejects are asserted against the validator alone.
 module Hydra.Tx.Contract.HeadValidatorAgreement (spec) where
 
 import Hydra.Prelude
@@ -376,12 +382,24 @@ projectValuePreserved ctx = Ref.checkValuePreserved (adaOf hIn) (adaOf hOut) (no
     [] -> error "projection: no outputs"
 
 -- participant signature: tx signers vs the head-policy token names of the head input.
+--
+-- `q == 1`, not `q > 0`: a participation token is a unique token, and both the spec
+-- (`signedByParticipant`'s `quantityOf (headValue ctx) (cid , kh) ≡ 1ℤ`) and the validator
+-- (`findParticipationTokens`'s `n == 1`) say so. With `q > 0` the projection admitted a
+-- quantity-2 entry that neither of them counts, which is the sort of look-alike the deposit-binding
+-- bug taught us to take seriously.
+--
+-- Two conditions of the real `mustBeSignedByParticipant` are outside the reference's model (see
+-- 'Ref.checkParticipantSigned'): it requires exactly one signer, and it collects tokens from every
+-- input rather than the head value alone. Neither can hide a validator regression here, because in
+-- both cases the two sides DISAGREE and the property fails; they are not directions in which the
+-- reference silently accepts what the validator rejects.
 projectParticipant :: HS.State -> ScriptContext -> Bool
 projectParticipant st ctx = Ref.checkParticipantSigned (Ref.MkSignerIO signers pts)
  where
   cid = headIdOfState st
   signers = bytesToInteger . getPubKeyHash <$> txInfoSignatories (scriptContextTxInfo ctx)
-  pts = [bytesToInteger (unTokenName tn) | ((cs, tn), q) <- assetList (txOutValue (ownHeadInput ctx)), cs == cid, q > 0]
+  pts = [bytesToInteger (unTokenName tn) | ((cs, tn), q) <- assetList (txOutValue (ownHeadInput ctx)), cs == cid, q == 1]
 
 projectNoMint :: ScriptContext -> Bool
 projectNoMint ctx = Ref.checkNoMint (toInteger (length (mintEntries ctx)))
@@ -546,24 +564,12 @@ mkContext :: HS.OpenDatum -> Integer -> Integer -> Integer -> Integer -> Integer
 mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headInputOut]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOutputOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange =
               Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close HS.CloseInitial))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open od))))
@@ -576,6 +582,44 @@ mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax =
       headVal
       (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Closed (closedDatum closedVersion closedCpMs closedSnap contestersLen deadline)))))
       Nothing
+
+-- Every fixture's TxInfo differs from every other in only the handful of fields its family varies;
+-- the rest is ledger plumbing no validator arm reads. Spelling all sixteen out per fixture (eighteen
+-- times, nine of them byte-identical everywhere) buried those differences, so the builders below
+-- start from this and override. A field left out here is genuinely irrelevant to that fixture.
+baseTxInfo :: TxInfo
+baseTxInfo =
+  TxInfo
+    { txInfoInputs = []
+    , txInfoReferenceInputs = []
+    , txInfoOutputs = []
+    , txInfoFee = 0
+    , txInfoMint = emptyMintValue
+    , txInfoTxCerts = []
+    , txInfoWdrl = AMap.empty
+    , txInfoValidRange = Interval (LowerBound NegInf True) (UpperBound PosInf True)
+    , txInfoSignatories = []
+    , txInfoRedeemers = AMap.empty
+    , txInfoData = AMap.empty
+    , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
+    , txInfoVotes = AMap.empty
+    , txInfoProposalProcedures = []
+    , txInfoCurrentTreasuryAmount = Nothing
+    , txInfoTreasuryDonation = Nothing
+    }
+
+-- A head value whose participation token sits at quantity 2. Neither side counts it: the validator's
+-- findParticipationTokens keeps only `n == 1` entries, and the spec's `signedByParticipant` asks for
+-- `quantityOf (headValue ctx) (cid , kh) == 1`. Pins the projection to that, since with a `q > 0`
+-- filter the reference accepted a signer the validator rejects.
+headValDupPt :: Value
+headValDupPt = singleton adaSymbol adaToken 2_000_000 <> singleton headPolicy ptName 2
+
+mkContextDupPt :: ScriptContext
+mkContextDupPt = ctx{scriptContextTxInfo = (scriptContextTxInfo ctx){txInfoInputs = [TxInInfo ownRef headIn]}}
+ where
+  ctx = mkContext openDatum 0 100 0 0 1_200 1_100
+  headIn = TxOut headAddr headValDupPt (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open openDatum)))) Nothing
 
 -- ── the two oracles on the SAME inputs ───────────────────────────────────────────────────────────────
 
@@ -596,23 +640,11 @@ mkCloseValueContext :: Integer -> ScriptContext
 mkCloseValueContext headOutAda =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headInputOut]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOutputOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close HS.CloseInitial))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatum))))
@@ -637,7 +669,7 @@ closeValueRef headOutAda = projectValuePreserved (mkCloseValueContext headOutAda
 -- ── signed CloseUnused: a REAL Ed25519 signature over the exact validator message ──────────────────────
 -- CloseInitial needs no signature. CloseUnused does: the validator runs `verifySnapshotSignature` for real
 -- (it is NOT mocked on the validator side, only on the reference side). We hold the test key, so we produce
--- a genuine signature the real validator accepts — and a deliberately wrong one it must reject.
+-- a genuine signature the real validator accepts, and a deliberately wrong one it must reject.
 
 -- Our own snapshot signing key (deterministic; the "mocked" crypto is just key material we control).
 snapshotSK :: SignKeyDSIGN Ed25519DSIGN
@@ -666,17 +698,28 @@ emptyCommitOutputsHash = hashPreSerializedCommits []
 wrongOutputsHash :: HS.Hash
 wrongOutputsHash = hashTxOuts [pfDistributedOut]
 
+-- The exact bytes the validator's verifySnapshotSignature reconstructs, in its field order: head id,
+-- snapshot version, snapshot number, accumulator hash, decommit-outputs hash, commit-outputs hash.
+--
+-- One builder, not one transcription per family. Close, increment, decrement and contest all sign
+-- this same §6 message, and five independent copies of the layout were five chances to disagree with
+-- the validator (or with each other) in a way that only shows up as "the signature does not verify",
+-- which is exactly the symptom someone debugging a fixture is tempted to paper over.
+snapshotSignedMsg :: Integer -> Integer -> HS.Hash -> HS.Hash -> HS.Hash -> ByteString
+snapshotSignedMsg version snap accHash decHash comHash =
+  Builtins.fromBuiltin $
+    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData version)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData accHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData decHash)
+      <> Builtins.serialiseData (PlutusTx.toBuiltinData comHash)
+
 -- The exact bytes the validator reconstructs for CloseUnused: serialiseData of (headId, OPEN version,
 -- snapshotNumber', accumulatorHash). Signing this with snapshotSK makes verifySnapshotSignature accept.
 closeMsg :: Integer -> ByteString
 closeMsg snap =
-  Builtins.fromBuiltin $
-    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyAccHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
+  snapshotSignedMsg openVersionN snap emptyAccHash emptyDecommitOutputsHash emptyCommitOutputsHash
 
 closeSigFor :: Integer -> HS.Signature
 closeSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (closeMsg snap) snapshotSK))
@@ -717,24 +760,12 @@ mkContextU :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer -> In
 mkContextU redeemer cv ccp cs cl dl tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headInU]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOutU]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange =
               Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatumU))))
@@ -791,24 +822,12 @@ mkContextUsed :: HS.CloseRedeemer -> Integer -> Integer -> Integer -> Integer ->
 mkContextUsed redeemer cv ccp cs cl dl tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headInU]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOutU]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange =
               Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Close redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open openDatumUsed))))
@@ -838,14 +857,7 @@ usedRedeemerWrongHash cs =
  where
   -- the CloseUsed message at open version 1 signs the version slot v - 1 = 0 (= openVersionN).
   msg :: ByteString
-  msg =
-    Builtins.fromBuiltin $
-      Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
-        <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
-        <> Builtins.serialiseData (PlutusTx.toBuiltinData cs)
-        <> Builtins.serialiseData (PlutusTx.toBuiltinData usedWrongAccHash)
-        <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
-        <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
+  msg = snapshotSignedMsg openVersionN cs usedWrongAccHash emptyDecommitOutputsHash emptyCommitOutputsHash
 
 -- ── increment (Open→Open: version bump + value flow + a deposit script input + signature) ───────────────
 -- checkIncrement finds the head input by its STATE token (hasST), requires headIn ◇ Σdeposits == headOut,
@@ -889,13 +901,7 @@ incCommitOutputsHash =
 -- message the validator reconstructs: (headId, OPEN version, snapshotNumber, nextAccumulatorHash).
 incMsg :: Integer -> ByteString
 incMsg snap =
-  Builtins.fromBuiltin $
-    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData incNextAccHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData incCommitOutputsHash)
+  snapshotSignedMsg openVersionN snap incNextAccHash emptyDecommitOutputsHash incCommitOutputsHash
 
 incSigFor :: Integer -> HS.Signature
 incSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (incMsg snap) snapshotSK))
@@ -914,23 +920,11 @@ mkIncContextDep :: Datum -> HS.IncrementRedeemer -> Integer -> Integer -> Script
 mkIncContextDep depDatum redeemer nextV vPerturb =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn, TxInInfo depRef depIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Increment redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev))))
@@ -987,23 +981,12 @@ mkIncDemoContext :: MintValue -> [PubKeyHash] -> Value -> Value -> ScriptContext
 mkIncDemoContext mint signers hInVal hOutVal =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn, TxInInfo depRef depIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
           , txInfoMint = mint
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
           , txInfoSignatories = signers
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Increment (incRedeemer 3)))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev))))
@@ -1016,10 +999,20 @@ mkIncDemoContext mint signers hInVal hOutVal =
 incDemoVal :: ScriptContext -> Bool
 incDemoVal = Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3))
 
--- big-endian integer encoding of a builtin byte string (equal iff the bytes are equal): the encoding the
--- extracted participant/cid checkers compare on the Haskell side.
+-- Injective integer encoding of a builtin byte string: the encoding the extracted participant / cid /
+-- out-ref checkers compare on the Haskell side, where the Agda reference only ever tests it for
+-- equality. Big-endian digits over a length seed, because plain big-endian digits are NOT injective:
+-- they drop leading zero bytes, so "\NUL\SOH" and "\SOH" both encode to 1. Seeding the fold with the
+-- length puts each length in its own interval [len * 256^len, (len+1) * 256^len), which makes the
+-- whole map injective and keeps it non-negative (the reference's arguments are ℕ). The lengths in
+-- play are in fact fixed per kind (28-byte key-hashes and currency symbols, 32-byte tx-ids), but the
+-- participant check compares token names against key-hashes, and a head value carries the 11-byte
+-- ST name alongside the participation tokens, so the mixed-length case is real.
 bytesToInteger :: Builtins.BuiltinByteString -> Integer
-bytesToInteger = BS.foldl' (\acc w -> acc * 256 + toInteger w) 0 . Builtins.fromBuiltin
+bytesToInteger bs =
+  BS.foldl' (\acc w -> acc * 256 + toInteger w) (toInteger (BS.length raw)) raw
+ where
+  raw = Builtins.fromBuiltin bs
 
 -- no-mint attack: an increment that mints a head-policy token (any non-zero mint breaks mustNotMintOrBurn).
 incAttackMint :: MintValue
@@ -1038,12 +1031,26 @@ withSignatories :: [PubKeyHash] -> ScriptContext -> ScriptContext
 withSignatories ks ctx = ctx{scriptContextTxInfo = (scriptContextTxInfo ctx){txInfoSignatories = ks}}
 
 -- On-chain, a script 'error' ('traceError') is a validation FAILURE, indistinguishable from returning
--- False. The uncompiled validator instead throws, so normalise a verdict by reading a thrown error as
--- rejection (False), matching on-chain semantics and the reference's Bool model. Used where the
--- validator hard-errors instead of returning False (e.g. an increment claiming a deposit that is not a
--- tx input aborts with DepositInputNotFound while computing the commit-outputs hash).
+-- False. The uncompiled validator instead throws, so normalise a verdict by reading a thrown script
+-- error as rejection (False), matching on-chain semantics and the reference's Bool model. Used where
+-- the validator hard-errors instead of returning False (e.g. an increment claiming a deposit that is
+-- not a tx input aborts with DepositInputNotFound while computing the commit-outputs hash).
+--
+-- Only the script error, matched on the message @PlutusTx.Builtins.Internal.error@ that plutus-tx's
+-- uncompiled 'traceError' raises. Catching 'E.SomeException' here would also read a broken fixture as
+-- a validator rejection: an incomplete pattern, one of this module's own @error@ calls
+-- ("projection: no outputs"), or a bottom in the context builders would all silently become False,
+-- and every "BOTH oracles reject" property would then pass for the wrong reason.
 rejectingErrors :: Bool -> Bool
-rejectingErrors b = unsafePerformIO $ fromRight False <$> (E.try (E.evaluate b) :: IO (Either E.SomeException Bool))
+rejectingErrors b = unsafePerformIO $ do
+  verdict <- E.try (E.evaluate b)
+  case verdict of
+    Right v -> pure v
+    Left err@(E.ErrorCallWithLocation msg _)
+      | msg == plutusScriptError -> pure False
+      | otherwise -> E.throwIO err
+ where
+  plutusScriptError = "PlutusTx.Builtins.Internal.error"
 {-# NOINLINE rejectingErrors #-}
 
 -- per-asset attack: a balanced A→B token swap (the non-ada TOTAL is preserved, but one asset is not).
@@ -1069,11 +1076,12 @@ incPerAssetHeadOutSwap = incHeadVal <> depVal <> singleton headPolicy tokenB 1
 unspentDepRef :: TxOutRef
 unspentDepRef = TxOutRef (TxId "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") 0
 
--- deterministic injective encoding of an out-ref (txid bytes big-endian, then the index): equal iff the
--- out-refs are equal for index < 256 (all fixtures use index 0). The one encoding both checkRefSpent
--- arguments share.
+-- Injective encoding of an out-ref: the injective tx-id encoding shifted past the output index. The
+-- one encoding both 'Ref.checkRefSpent' arguments share. 2^16 rather than 256 so the shift cannot
+-- alias a neighbouring tx-id: a transaction cannot reach 65536 outputs within the ledger's tx-size
+-- limit, whereas 256 is a count real transactions can exceed.
 encodeTxOutRef :: TxOutRef -> Integer
-encodeTxOutRef (TxOutRef (TxId tid) ix) = bytesToInteger tid * 256 + ix
+encodeTxOutRef (TxOutRef (TxId tid) ix) = bytesToInteger tid * 65536 + ix
 
 incRedeemerUnspent :: Integer -> HS.IncrementRedeemer
 incRedeemerUnspent snap = HS.IncrementRedeemer{HS.signature = [incSigFor snap], HS.snapshotNumber = snap, HS.increment = unspentDepRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
@@ -1094,13 +1102,7 @@ decDecommitOut = TxOut (Address (PubKeyCredential signerKH) Nothing) (singleton 
 -- redeemer's (empty) commit-outputs hash. prevVersion = openVersionN, nextAccumulatorHash = incNextAccHash.
 decMsg :: Integer -> ByteString
 decMsg snap =
-  Builtins.fromBuiltin $
-    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData openVersionN)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData snap)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData incNextAccHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData (hashTxOuts [decDecommitOut]))
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
+  snapshotSignedMsg openVersionN snap incNextAccHash (hashTxOuts [decDecommitOut]) emptyCommitOutputsHash
 
 decSigFor :: Integer -> HS.Signature
 decSigFor snap = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (decMsg snap) snapshotSK))
@@ -1113,23 +1115,11 @@ mkDecContext :: HS.DecrementRedeemer -> Integer -> Integer -> ScriptContext
 mkDecContext redeemer nextV vPerturb =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut, decDecommitOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Decrement redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev))))
@@ -1175,13 +1165,7 @@ contestNext sPrime tfinPerturb =
 
 contestMsg :: Integer -> ByteString
 contestMsg sPrime =
-  Builtins.fromBuiltin $
-    Builtins.serialiseData (PlutusTx.toBuiltinData headPolicy)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData (0 :: Integer))
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData sPrime)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyAccHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyDecommitOutputsHash)
-      <> Builtins.serialiseData (PlutusTx.toBuiltinData emptyCommitOutputsHash)
+  snapshotSignedMsg 0 sPrime emptyAccHash emptyDecommitOutputsHash emptyCommitOutputsHash
 
 contestSigFor :: Integer -> HS.Signature
 contestSigFor sPrime = Builtins.toBuiltin (rawSerialiseSigDSIGN (signDSIGN () (contestMsg sPrime) snapshotSK))
@@ -1193,23 +1177,11 @@ mkContestContext :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Scrip
 mkContestContext redeemer sPrime tfinPerturb tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contestPrev))))
@@ -1253,23 +1225,11 @@ mkContestParamsContext :: HS.ClosedDatum -> ScriptContext
 mkContestParamsContext producedDatum =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 1_500)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest (contestRedeemer 1)))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contestPrev))))
@@ -1313,23 +1273,11 @@ mkContestUsedContext :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> S
 mkContestUsedContext redeemer sPrime tfinPerturb tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed contestUsedPrev))))
@@ -1397,23 +1345,11 @@ mkContest2Context :: HS.ContestRedeemer -> Integer -> Integer -> Integer -> Inte
 mkContest2Context redeemer cp sPrime tfinPerturb tMax =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime tMax)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (HS.Contest redeemer))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed (contest2Prev cp)))))
@@ -1472,23 +1408,12 @@ mkInitContext :: TxOutRef -> HS.OpenDatum -> Integer -> Integer -> Integer -> Sc
 mkInitContext inputSeedRef headDatum mintedCount stQty numPT =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo inputSeedRef seedIn]
-          , txInfoReferenceInputs = []
           , txInfoOutputs = [headOut]
-          , txInfoFee = 0
           , txInfoMint = initMint mintedCount
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData ())
     , scriptContextScriptInfo = MintingScript headPolicy
@@ -1532,23 +1457,10 @@ mkBurnContext :: [Integer] -> ScriptContext
 mkBurnContext qtys =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
-          { txInfoInputs = []
-          , txInfoReferenceInputs = []
-          , txInfoOutputs = []
-          , txInfoFee = 0
-          , txInfoMint = burnMint qtys
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
+        baseTxInfo
+          { txInfoMint = burnMint qtys
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLoN)) True) (UpperBound (Finite (POSIXTime 2_000)) True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData ())
     , scriptContextScriptInfo = MintingScript headPolicy
@@ -1610,23 +1522,10 @@ mkRecoverContext :: Integer -> Integer -> ScriptContext
 mkRecoverContext deadline validityLo =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo depositOwnRef depIn]
-          , txInfoReferenceInputs = []
-          , txInfoOutputs = []
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLo)) True) (UpperBound PosInf True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Deposit.redeemer (Deposit.Recover 0)
     , scriptContextScriptInfo = SpendingScript depositOwnRef (Just (depositDatum headPolicy deadline))
@@ -1677,23 +1576,11 @@ mkClaimContext :: HS.Input -> Integer -> Integer -> CurrencySymbol -> ScriptCont
 mkClaimContext headRedeemer deadline validityHi depHeadCid =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo depositOwnRef depIn, TxInInfo claimHeadInRef headIn]
-          , txInfoReferenceInputs = []
-          , txInfoOutputs = []
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound NegInf True) (UpperBound (Finite (POSIXTime validityHi)) True)
           , txInfoSignatories = [signerKH]
           , txInfoRedeemers = AMap.unsafeFromList [(Spending claimHeadInRef, Redeemer (PlutusTx.toBuiltinData headRedeemer))]
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Deposit.redeemer Deposit.Claim
     , scriptContextScriptInfo = SpendingScript depositOwnRef (Just (depositDatum depHeadCid deadline))
@@ -1703,7 +1590,7 @@ mkClaimContext headRedeemer deadline validityHi depHeadCid =
   headIn = TxOut headAddr (singleton adaSymbol adaToken 5_000_000 <> singleton headPolicy stName 1) (OutputDatum (Datum (PlutusTx.toBuiltinData (HS.Open incOpenPrev)))) Nothing
 
 -- Deterministic encoding of a head-id currency symbol as the big-endian integer of its bytes: equal iff the
--- symbols are equal (the cid-binding check needs nothing more — see the cidToNat note in ReferenceBridge).
+-- symbols are equal (the cid-binding check needs nothing more; see the cidToNat note in ReferenceBridge).
 cidToInteger :: CurrencySymbol -> Integer
 cidToInteger = bytesToInteger . unCurrencySymbol
 
@@ -1806,28 +1693,24 @@ mkFanoutContext = mkFanoutContextWith crsRefInput
 -- The same healthy full-fanout context with the CRS reference input as a knob (the padded-CRS
 -- reject swaps in 'paddedCrsRefInput'; everything else stays the healthy fixture).
 mkFanoutContextWith :: TxInInfo -> Integer -> Integer -> Integer -> ScriptContext
-mkFanoutContextWith crsIn burnedCount validityLo tfinal =
+mkFanoutContextWith = mkFanoutContextFor fanoutRedeemer
+
+-- ... and with the redeemer as a knob too, so a fixture that hands the validator one redeemer cannot
+-- record a different one in `scriptContextRedeemer`. Nothing in the fan-out arm reads that field
+-- today, so the bad-proof reject was still testing what it meant to; a validator that started
+-- reading it (as deposit.ak reads the head's redeemer) would have made this fixture quietly bogus.
+mkFanoutContextFor :: HS.Input -> TxInInfo -> Integer -> Integer -> Integer -> ScriptContext
+mkFanoutContextFor redeemer crsIn burnedCount validityLo tfinal =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
           , txInfoReferenceInputs = [crsIn]
-          , txInfoOutputs = []
-          , txInfoFee = 0
           , txInfoMint = fanoutMint burnedCount
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLo)) True) (UpperBound PosInf True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
-    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData fanoutRedeemer)
+    , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData redeemer)
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.Closed (fanoutClosedDatum tfinal)))))
     }
  where
@@ -1847,7 +1730,7 @@ fanoutVal burnedCount validityLo tfinal =
 
 -- A WRONG BLS membership proof: a G1 point ≠ the empty-accumulator commitment (g1Generator). For the
 -- empty head (m = 0) checkMembershipPairing reduces to `commitment == proof`, so feeding a mismatched
--- proof makes the REAL bls12_381 pairing check FAIL — exercising the BLS crypto in the reject direction
+-- proof makes the REAL bls12_381 pairing check FAIL, exercising the BLS crypto in the reject direction
 -- (the reference mocks this conjunct, so only the real validator sees it). 2·G ≠ G.
 fanoutBadProof :: Builtins.BuiltinBLS12_381_G1_Element
 fanoutBadProof = Builtins.bls12_381_G1_add g1Generator g1Generator
@@ -1857,8 +1740,10 @@ fanoutValBadProof burnedCount validityLo tfinal =
   Head.headValidator
     Head.canonicalCRSDatumHash
     (HS.Closed (fanoutClosedDatum tfinal))
-    (HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = fanoutBadProof, HS.crsRef = crsRefOut})
-    (mkFanoutContext burnedCount validityLo tfinal)
+    badRedeemer
+    (mkFanoutContextFor badRedeemer crsRefInput burnedCount validityLo tfinal)
+ where
+  badRedeemer = HS.Fanout{HS.numberOfFanoutOutputs = 0, HS.proof = fanoutBadProof, HS.crsRef = crsRefOut}
 
 -- The healthy fanout with a NON-CANONICAL CRS reference-input datum (see 'paddedCrsData'): the
 -- validator must reject with InvalidCRSDatum inside withCRSLookup, before any pairing. traceError
@@ -1876,8 +1761,8 @@ fanoutValPaddedCrs burnedCount validityLo tfinal =
 -- continuing FanoutProgress datum preserves the head parameters, value is conserved, and the membership
 -- pairing e(oldAcc, G2) == e(newAcc, P_S(τ)·G2) holds. We build a REAL 2-element accumulator and distribute
 -- one element: the accumulator is built directly over the on-chain element pre-image (hashTxOuts of the
--- distributed Plutus TxOut) — blake2b_224 is applied identically by the off-chain addElement and the
--- on-chain txOutsToSubsetScalars — so the proof (= the remaining accumulator's commitment) verifies against
+-- distributed Plutus TxOut): blake2b_224 is applied identically by the off-chain addElement and the
+-- on-chain txOutsToSubsetScalars, so the proof (= the remaining accumulator's commitment) verifies against
 -- the real CRS G2 powers of tau. We vary m (0 vs 1) and the lower validity bound and assert
 -- Ref.checkPartialFanout === checkPartialFanout. n = 1.
 
@@ -1968,23 +1853,12 @@ mkPartialContext :: HS.State -> Integer -> Integer -> Integer -> ScriptContext
 mkPartialContext inputState m validityLo tfinal =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
           , txInfoReferenceInputs = [pfCrsRefInput]
           , txInfoOutputs = [continuingOut, pfDistributedOut]
-          , txInfoFee = 0
-          , txInfoMint = emptyMintValue
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLo)) True) (UpperBound PosInf True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData (pfRedeemer m))
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData inputState)))
@@ -2033,7 +1907,7 @@ partialMidVal m validityLo tfinal =
 
 -- A WRONG KZG membership: the continuing FanoutProgress output claims the head did NOT shrink (its
 -- commitment = the OLD full-accumulator commitment), so e(oldAcc, G2) == e(newAcc, P_S(τ)·G2) fails
--- against the real CRS — exercising the KZG pairing in the reject direction. Value is unchanged, so
+-- against the real CRS, exercising the KZG pairing in the reject direction. Value is unchanged, so
 -- the ONLY failing check is the membership pairing. (Built explicitly: accumulatorCommitment is a
 -- duplicate field, so a record update would be ambiguous.)
 pfProgressOutBad :: Integer -> HS.FanoutProgressDatum
@@ -2100,23 +1974,13 @@ mkFinalPartialContext :: HS.Input -> Integer -> Integer -> Integer -> ScriptCont
 mkFinalPartialContext redeemer burnedCount validityLo tfinal =
   ScriptContext
     { scriptContextTxInfo =
-        TxInfo
+        baseTxInfo
           { txInfoInputs = [TxInInfo ownRef headIn]
           , txInfoReferenceInputs = [pfCrsRefInput]
           , txInfoOutputs = [fpfOutA, fpfOutB]
-          , txInfoFee = 0
           , txInfoMint = fanoutMint burnedCount
-          , txInfoTxCerts = []
-          , txInfoWdrl = AMap.empty
           , txInfoValidRange = Interval (LowerBound (Finite (POSIXTime validityLo)) True) (UpperBound PosInf True)
           , txInfoSignatories = [signerKH]
-          , txInfoRedeemers = AMap.empty
-          , txInfoData = AMap.empty
-          , txInfoId = TxId "44444444444444444444444444444444444444444444444444444444444444444444"
-          , txInfoVotes = AMap.empty
-          , txInfoProposalProcedures = []
-          , txInfoCurrentTreasuryAmount = Nothing
-          , txInfoTreasuryDonation = Nothing
           }
     , scriptContextRedeemer = Redeemer (PlutusTx.toBuiltinData redeemer)
     , scriptContextScriptInfo = SpendingScript ownRef (Just (Datum (PlutusTx.toBuiltinData (HS.FanoutProgress (fpfProgressDatum tfinal)))))
@@ -2164,14 +2028,14 @@ spec = parallel $ do
   -- Non-vacuity anchors: the agreement is not "both always reject". The validator genuinely ACCEPTS a
   -- well-formed CloseInitial and genuinely REJECTS one with a changed version, and the reference matches
   -- both. (Healthy: version'=0, cp'=100, snap'=0, contesters=0, deadline = tMax + cp.)
-  prop "anchor: healthy CloseInitial — BOTH oracles accept" $
+  prop "anchor: healthy CloseInitial: BOTH oracles accept" $
     let tMax = 1_100
         deadline = tMax + openCpMs
         ctx = mkContext openDatum 0 100 0 0 deadline tMax
      in validatorVerdict openDatum ctx === True
           .&&. referenceVerdict openDatum ctx === True
 
-  prop "anchor: changed version — BOTH oracles reject" $
+  prop "anchor: changed version: BOTH oracles reject" $
     let tMax = 1_100
         deadline = tMax + openCpMs
         ctx = mkContext openDatum 1 100 0 0 deadline tMax
@@ -2193,6 +2057,22 @@ spec = parallel $ do
   prop "close/participant: a participant signer is accepted by both" $
     let ctx = mkContext openDatum 0 100 0 0 1_200 1_100
      in projectParticipant (HS.Open openDatum) ctx === True .&&. validatorVerdict openDatum ctx === True
+  prop "close/participant: a quantity-2 participation token counts for NEITHER side" $
+    projectParticipant (HS.Open openDatum) mkContextDupPt === False
+      .&&. validatorVerdict openDatum mkContextDupPt === False
+
+  -- ── the shared hash-to-Integer encoding: the reference compares these for equality, so a
+  -- collision would make two distinct key-hashes / out-refs indistinguishable to the oracle. ──
+  prop "encoding: bytesToInteger separates byte strings that differ only in leading NULs" $
+    (bytesToInteger (Builtins.toBuiltin ("\NUL\SOH" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\SOH" :: ByteString)))
+      === False
+  prop "encoding: bytesToInteger separates the empty string from a NUL byte" $
+    (bytesToInteger (Builtins.toBuiltin ("" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\NUL" :: ByteString)))
+      === False
+  prop "encoding: encodeTxOutRef separates out-refs that differ only in the index" $
+    (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "aa") 1)) === False
+  prop "encoding: encodeTxOutRef separates out-refs that differ only in the tx-id" $
+    (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "ab") 0)) === False
 
   -- The INPUT open datum's version and contestation period are varied too (CloseInitial carries no
   -- signature, so nothing pins them).
@@ -2213,7 +2093,7 @@ spec = parallel $ do
   -- ── CloseUnused: the validator runs verifySnapshotSignature FOR REAL (signed with our test key) ──
   -- Anchor: a healthy CloseUnused (version preserved = 0, valid signature over the snapshot) is accepted by
   -- BOTH the real validator (signature verifies) and the reference.
-  prop "anchor: healthy CloseUnused — BOTH oracles accept (real signature verified)" $
+  prop "anchor: healthy CloseUnused: BOTH oracles accept (real signature verified)" $
     let cs = 3; tMax = 1_100; dl = tMax + openCpMs
      in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
           .&&. unusedRef 0 100 cs 0 dl tMax === True
@@ -2332,7 +2212,7 @@ spec = parallel $ do
      in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
 
   -- ── increment: version bump + value conservation + a deposit script input + real signature ──
-  prop "anchor: healthy increment — BOTH oracles accept (real signature verified)" $
+  prop "anchor: healthy increment: BOTH oracles accept (real signature verified)" $
     let cs = 3
      in incVal (incRedeemer cs) 1 0 === True .&&. incRef 1 0 === True
 
@@ -2396,7 +2276,7 @@ spec = parallel $ do
   -- whose datum does not decode as (CurrencySymbol, POSIXTime, [Commit]) hard-fails the validator
   -- with DepositDatumInvalid (a traceError, hence 'rejectingErrors'). This is the decode path the
   -- deposit-datum binding introduced; on-chain a script error is a rejection.
-  prop "increment: real validator REJECTS a deposit input whose datum does not decode — DepositDatumInvalid" $
+  prop "increment: real validator REJECTS a deposit input whose datum does not decode (DepositDatumInvalid)" $
     rejectingErrors
       ( Head.headValidator
           Head.canonicalCRSDatumHash
@@ -2408,7 +2288,7 @@ spec = parallel $ do
       .&&. incVal (incRedeemer 3) 1 0 === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
-  prop "anchor: healthy decrement — BOTH oracles accept (real signature verified)" $
+  prop "anchor: healthy decrement: BOTH oracles accept (real signature verified)" $
     let cs = 3 in decVal (decRedeemer cs) 1 0 === True .&&. decRef 1 0 === True
 
   prop "decrement: reference === real validator (valid sig; version bump + value decrease)" $
@@ -2442,7 +2322,7 @@ spec = parallel $ do
     let cs = 3 in decVal (decRedeemer cs) 1 0 === True
 
   -- ── contest: version preserved + snapshot increases + one contester + deadline + real signature ──
-  prop "anchor: healthy contest — BOTH oracles accept (real signature verified)" $
+  prop "anchor: healthy contest: BOTH oracles accept (real signature verified)" $
     let s' = 1; tMax = 1_500
      in contestVal (contestRedeemer s') s' 0 tMax === True .&&. contestRef s' 0 tMax === True
 
@@ -2521,7 +2401,7 @@ spec = parallel $ do
             contest2Ref cp s' tfinPerturb tMax === contest2Val (contest2Redeemer s') cp s' tfinPerturb tMax
 
   -- ── init (μHead): minted-token count + ST/PT placement in the head output ──
-  prop "anchor: healthy init — BOTH oracles accept (mint 2, ST 1, 1 PT)" $
+  prop "anchor: healthy init: BOTH oracles accept (mint 2, ST 1, 1 PT)" $
     initVal 2 1 1 === True .&&. initRef 2 1 1 === True
 
   prop "init: reference === real validator (minted count + ST quantity + unique-PT count)" $
@@ -2559,7 +2439,7 @@ spec = parallel $ do
     burnVal [1, -1] === False .&&. burnVal [-1, -1] === True
 
   -- ── νDeposit Recover: the real Aiken validator (compiled UPLC) vs Ref.checkRecover ──
-  prop "anchor: healthy recover — BOTH oracles accept (posted after the deadline)" $
+  prop "anchor: healthy recover: BOTH oracles accept (posted after the deadline)" $
     recoverVal 1_000 1_050 === True .&&. recoverRef 1_000 1_050 === True
 
   prop "recover: reference === real Aiken validator (after-deadline conjunct)" $
@@ -2574,7 +2454,7 @@ spec = parallel $ do
       .&&. depositAccepts mkRecoverTwoDepositsContext === False
 
   -- ── νDeposit Claim: the real Aiken validator (compiled UPLC) vs Ref.checkClaim ──
-  prop "anchor: healthy claim — BOTH oracles accept (before deadline + own-head increment)" $
+  prop "anchor: healthy claim: BOTH oracles accept (before deadline + own-head increment)" $
     claimVal claimIncrementInput 1_000 950 headPolicy === True
       .&&. claimRef claimIncrementInput 1_000 950 headPolicy === True
 
@@ -2598,7 +2478,7 @@ spec = parallel $ do
       .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
 
   -- ── full fanout (empty head): real BLS membership (empty subset) + burn count + deadline + value ──
-  prop "anchor: healthy empty-head fanout — BOTH oracles accept (real BLS pairing verified)" $
+  prop "anchor: healthy empty-head fanout: BOTH oracles accept (real BLS pairing verified)" $
     fanoutVal 2 1_050 1_000 === True .&&. fanoutRef 2 1_050 1_000 === True
 
   prop "fanout: reference === real validator (burned-token count + after-deadline)" $
@@ -2614,12 +2494,12 @@ spec = parallel $ do
   -- byte-different) setup must be rejected with InvalidCRSDatum inside withCRSLookup, BEFORE any
   -- pairing runs (a traceError, hence 'rejectingErrors'). Without this binding a substituted
   -- powers-of-tau setup would let an attacker forge membership proofs (permissionless fund theft).
-  prop "fanout: real validator REJECTS a padded (non-canonical) CRS ref-input datum — InvalidCRSDatum" $
+  prop "fanout: real validator REJECTS a padded (non-canonical) CRS ref-input datum (InvalidCRSDatum)" $
     rejectingErrors (fanoutValPaddedCrs 2 1_050 1_000) === False
       .&&. fanoutVal 2 1_050 1_000 === True
 
   -- ── partial fanout (real 2-element accumulator, distribute 1): membership + 0<m + after-deadline ──
-  prop "anchor: healthy partial fanout — BOTH oracles accept (real KZG membership verified)" $
+  prop "anchor: healthy partial fanout: BOTH oracles accept (real KZG membership verified)" $
     partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_050 1_000 === True
 
   prop "partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
