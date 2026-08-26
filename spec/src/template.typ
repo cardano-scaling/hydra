@@ -130,11 +130,17 @@
   set enum(indent: 1em, spacing: 0.9em)
   set terms(indent: 1em, spacing: 0.9em)
 
+  // One link treatment for every kind of cross-reference in the document
+  // (`link`, `ref`, `cite` and outline entries are distinct element types, so
+  // each needs its own show rule below; the styling itself lives here once).
+  let link-color = rgb("#1a4fb4")
+  let linked(it) = underline(text(fill: link-color, it))
+
   // Coloured, underlined hyperlinks (explicit `link()` calls only: `ref`/`cite`
   // are separate element types, styled by their own rules below).
-  show link: it => underline(text(fill: rgb("#1a4fb4"), it))
+  show link: it => linked(it)
   // Table-of-contents entries are not `link` elements, so colour them directly.
-  show outline.entry: set text(fill: rgb("#1a4fb4"))
+  show outline.entry: set text(fill: link-color)
 
   // Theorem figures: render left-aligned (override default centered caption look)
   // and use the shared "theorem" counter for the theorem-family kinds.
@@ -153,9 +159,9 @@
       "theorem", "definition", "invariant", "postulate", "example", "construction",
     ) {
       let sup = el.supplement
-      underline(text(fill: rgb("#1a4fb4"), link(it.target)[#sup #numbering(el.numbering, ..counter(figure.where(kind: el.kind)).at(el.location()))]))
+      linked(link(it.target)[#sup #numbering(el.numbering, ..counter(figure.where(kind: el.kind)).at(el.location()))])
     } else {
-      underline(text(fill: rgb("#1a4fb4"), it))
+      linked(it)
     }
   }
 

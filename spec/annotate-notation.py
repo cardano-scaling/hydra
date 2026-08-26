@@ -42,13 +42,13 @@ except ModuleNotFoundError:  # PyMuPDF < 1.24.3, which predates the rename
 DEFS = {
     # -- protocol objects ---------------------------------------------------
     "\U0001D702": (  # 𝜂 eta
-        "η — the accumulator commitment to the head's UTxO set (KZG, §3.4). "
+        "η — the accumulator commitment to the head's UTxO set (KZG). "
         "η# = hash(η) is the hash bound into the snapshot signature; η′ is "
         "the produced state's commitment; ηΔ the pending-delta commitment."
     ),
     "\U0001D709": (  # 𝜉 xi
         "ξ — the snapshot multisignature: an aggregate signature by all n "
-        "parties over cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ# (§3.2, §5.4–§5.7)."
+        "parties over cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#."
     ),
     "\U0001D6FF": (  # 𝛿 delta
         "δ# — hash of the snapshot's decommit output set "
@@ -64,7 +64,7 @@ DEFS = {
     "₳": (
         "𝒜ₒ — the ADA overhead: head-UTxO lovelace not belonging to any L2 "
         "UTxO (min-UTxO deposit), fixed at init, preserved by every "
-        "transition, released to the poster at fanout (§5.6)."
+        "transition, released to the poster at fanout."
     ),
     "\U0001D711": (  # 𝜑 phi
         "φ — a transaction output reference (tx id + output index): "
@@ -73,29 +73,28 @@ DEFS = {
     ),
     "\U0001D70B": (  # 𝜋 pi
         "π — the KZG membership witness: proves the distributed outputs are "
-        "members of the accumulator η (§3.4, §5.8)."
+        "members of the accumulator η."
     ),
     "\U0001D707": (  # 𝜇 mu
         "μ_head — the head's minting policy, parameterised by the seed "
-        "output reference; cid = hash(μ_head(seed)) (§5.1)."
+        "output reference; cid = hash(μ_head(seed))."
     ),
     "\U0001D708": (  # 𝜈 nu
         "ν — the validator scripts: ν_head the head state machine, "
-        "ν_deposit the deposit validator (§5)."
+        "ν_deposit the deposit validator."
     ),
     "𝖼𝗂𝖽": (
         "cid — the head's currency id, hash(μ_head(seed)): unique per head "
         "instance, names the ST/PT tokens, first component of the signed "
-        "snapshot message (§5.1)."
+        "snapshot message."
     ),
     "𝖲𝖳": (
         "ST — the state-thread token {cid ↦ 'HydraHeadV2' ↦ 1}: marks the "
-        "head output and ensures contract continuity (§5.1)."
+        "head output and ensures contract continuity."
     ),
     "𝖯𝖳": (
         "PT — a participation token {cid ↦ k# ↦ 1}, one per party (token "
-        "name = the party's key hash): authenticates head transactions "
-        "(§5.1)."
+        "name = the party's key hash): authenticates head transactions."
     ),
     # -- scalars ------------------------------------------------------------
     "\U0001D463": (  # 𝑣 v
@@ -125,24 +124,23 @@ DEFS = {
     ),
     "\U0001D436": (  # 𝐶 C
         "C — a deposit's commit list: the deposited output references with "
-        "their serialised outputs, recorded in the deposit datum (§5.2)."
+        "their serialised outputs, recorded in the deposit datum."
     ),
     "\U0001D49E": (  # 𝒞 script C
         "𝒞 — the contester set of a closed head: key hashes of parties "
-        "that contested; grows by exactly one per contest (§5.7)."
+        "that contested; grows by exactly one per contest."
     ),
     "Δ": (
         "Δ — the pending increment/decrement delta: ηΔ is the accumulator "
-        "commitment of the pending UTxOs a Used close/contest combines in "
-        "(§5.6)."
+        "commitment of the pending UTxOs a Used close/contest combines in."
     ),
     # -- operators ----------------------------------------------------------
     "∘": (
         "∘ — ledger transaction application: U ∘ tx applies tx to the UTxO "
-        "set U, yielding the updated set or ⊥ on conflict (§6)."
+        "set U, yielding the updated set or ⊥ on conflict."
     ),
     "‖": (
-        "‖ — byte-serialisation concatenation (§3.1): the signed snapshot "
+        "‖ — byte-serialisation concatenation: the signed snapshot "
         "message is cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#."
     ),
     "⊥": (
@@ -153,8 +151,21 @@ DEFS = {
 
 # Math-alphanumeric ranges whose same-size adjacency BLOCKS a match (a token
 # inside a longer math word, e.g. the s in closeTx or the st in contest).
-_LATIN_ITALIC = tuple(range(0x1D434, 0x1D468))  # A-Z, a-z math italic
-_SANS = tuple(range(0x1D5A0, 0x1D608))  # math sans A-Z a-z
+_LATIN_ITALIC = range(0x1D434, 0x1D468)  # A-Z, a-z math italic
+_SANS = range(0x1D5A0, 0x1D608)  # math sans A-Z a-z
+_GREEK_ITALIC = range(0x1D6FC, 0x1D71C)  # alpha-omega math italic
+
+# Per-token constants, computed once here instead of once per text line: whether
+# the token is sans (so only a sans neighbour blocks it) and whether it is
+# letter-like at all. Operators (compose, parallel, bottom, ada) legitimately
+# neighbour letters, so they are never blocked.
+_TOKEN_KIND = {
+    tok: (
+        ord(tok[0]) in _SANS,
+        ord(tok[0]) in _LATIN_ITALIC or ord(tok[0]) in _SANS or ord(tok[0]) in _GREEK_ITALIC,
+    )
+    for tok in DEFS
+}
 
 
 def _is_blocking(ch: str, size: float, tok_size: float, sans: bool) -> bool:
@@ -185,10 +196,7 @@ def main(src: str, dst: str) -> int:
         for chars in _line_chars(page):
             text = "".join(c for c, _, _, _ in chars)
             for tok, defn in DEFS.items():
-                sans = ord(tok[0]) in _SANS
-                # Only letter-like tokens can sit "inside" a longer math word;
-                # operators (∘ ‖ ⊥ ₳) legitimately neighbour letters.
-                blockable = ord(tok[0]) in _LATIN_ITALIC or sans or 0x1D6FC <= ord(tok[0]) <= 0x1D71B
+                sans, blockable = _TOKEN_KIND[tok]
                 start = 0
                 while (i := text.find(tok, start)) != -1:
                     start = i + len(tok)
@@ -212,11 +220,22 @@ def main(src: str, dst: str) -> int:
             annot.update()
             counts[tok] += 1
     total = sum(counts.values())
+    missing = [tok for tok, n in counts.items() if n == 0]
     for tok, n in counts.items():
         flag = "" if n else "   <- NO MATCHES (codepoint drift after a typst change?)"
         print(f"  {n:5d}  {tok}{flag}")
-    if total == 0:
-        print("annotate-notation: ERROR: no symbol matched at all", file=sys.stderr)
+    if missing:
+        # Every symbol in DEFS occurs in the prose, so a zero means its
+        # codepoints moved (a typst or macros.typ change) and its tooltips
+        # silently vanished. Gating on the total only caught the case where ALL
+        # of them drifted at once, which is the unlikely one.
+        print(
+            "annotate-notation: ERROR: no matches for "
+            + " ".join(missing)
+            + " - codepoints changed, or the symbol is no longer used in the "
+            "prose; update DEFS in this script.",
+            file=sys.stderr,
+        )
         return 1
     doc.save(dst)
     print(f"annotate-notation: stamped {total} tooltips over {len(DEFS)} symbols -> {dst}")

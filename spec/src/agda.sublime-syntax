@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 # Minimal Agda syntax grammar for Typst `raw` highlighting (syntect).
-# Covers comments, pragmas, strings, keywords and literals — enough for
+# Covers comments, pragmas, strings, keywords and literals: enough for
 # syntactic colouring of the spec's ```agda blocks (semantic/type-aware
 # highlighting would need an upstream Agda→Typst backend).
 name: Agda

@@ -184,6 +184,8 @@
 #let contesters = $cal(C)$
 
 // == Inputs ==
+#let stIncrement = $sans("increment")$
+#let stDecrement = $sans("decrement")$
 #let stClose = $sans("close")$
 #let stContest = $sans("contest")$
 #let stFanout = $sans("fanout")$

@@ -16,12 +16,13 @@
   "FanoutProgress": (2.6, 1.8),
 )
 
-// Display label for each state (the spec's state symbols).
+// Display label for each state. The symbols themselves come from macros.typ,
+// so restyling a state symbol updates the prose and these figures together.
 #let _fsm-disp = (
-  "Open": $sans("open")$,
-  "Closed": $sans("closed")$,
-  "Final": $sans("final")$,
-  "FanoutProgress": $sans("fanoutProgress")$,
+  "Open": stOpen,
+  "Closed": stClosed,
+  "Final": stFinal,
+  "FanoutProgress": stFanoutProgress,
 )
 
 // The authoritative head-protocol transitions. `from`/`rule`/`to` are checked
@@ -31,30 +32,23 @@
 // per-transaction prose); `redeemer` is the redeemer payload rendered under
 // the arrow. Both presentation-only (check-refs.sh checks from/rule/to).
 #let head-fsm-transitions = (
-  (from: "Open", rule: "increment", to: "Open", label: $sans("increment")$, bend: 130deg,
+  (from: "Open", rule: "increment", to: "Open", label: stIncrement, bend: 130deg,
    primed: (4, 5), redeemer: $xi, s, txOutRef_(sans("increment")), delta^(\#)$),
-  (from: "Open", rule: "decrement", to: "Open", label: $sans("decrement")$, bend: -130deg,
+  (from: "Open", rule: "decrement", to: "Open", label: stDecrement, bend: -130deg,
    primed: (4, 5), redeemer: $xi, s, m, kappa^(\#)$),
-  (from: "Open", rule: "close", to: "Closed", label: $sans("close")$, bend: 0deg,
+  (from: "Open", rule: "close", to: "Closed", label: stClose, bend: 0deg,
    primed: (4, 5, 6), redeemer: $sans("CloseType")$),
-  (from: "Closed", rule: "contest", to: "Closed", label: $sans("contest")$, bend: 130deg,
+  (from: "Closed", rule: "contest", to: "Closed", label: stContest, bend: 130deg,
    primed: (4, 5, 6, 7, 8), redeemer: $sans("ContestType")$),
-  (from: "Closed", rule: "fanout", to: "Final", label: $sans("fanout")$, bend: 25deg,
+  (from: "Closed", rule: "fanout", to: "Final", label: stFanout, bend: 25deg,
    primed: (), redeemer: $m, pi, sans("crsRef")$),
   (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 40deg,
    primed: (4,), redeemer: $m, sans("crsRef")$),
-  (from: "FanoutProgress", rule: "partialFanoutStep", to: "FanoutProgress", label: $sans("partialFanout")$, bend: 130deg,
+  (from: "FanoutProgress", rule: "partialFanoutStep", to: "FanoutProgress", label: stPartialFanout, bend: 130deg,
    primed: (4,), redeemer: $m, sans("crsRef")$),
-  (from: "FanoutProgress", rule: "finalPartialFanout", to: "Final", label: $sans("finalPartialFanout")$, bend: -20deg,
+  (from: "FanoutProgress", rule: "finalPartialFanout", to: "Final", label: stFinalPartialFanout, bend: -20deg,
    primed: (), redeemer: $m, pi, sans("crsRef")$),
 )
-
-// Source/target state symbol of a transition rule, single-sourced from the
-// Agda-checked `head-fsm-transitions`. Transaction diagrams label their head
-// in/out boxes via these, so a tx diagram cannot depict a state the Agda
-// relation `_⟶⟨_⟩_` disagrees with. (check-refs.sh validates the `tx-rule` map.)
-#let _rule-from(rule) = _fsm-disp.at(head-fsm-transitions.find(x => x.rule == rule).from)
-#let _rule-to(rule) = _fsm-disp.at(head-fsm-transitions.find(x => x.rule == rule).to)
 
 // Which tx diagram realises which `_⟶⟨_⟩_` rule (init/deposit/recover are not
 // head-state transitions and are absent here).
@@ -78,11 +72,16 @@
   "Final": (),
 )
 
+// A state's HeadDatum fields with the changed ones primed (`primes` = field
+// indices, see head-fsm-transitions). Shared by the inline transition arrows
+// and the tx figures' datum lines so the two cannot decorate differently.
+#let _primed-fields(st, primes) = state-fields.at(st).enumerate().map(
+  ((i, f)) => if i in primes { math.attach(f, tr: sym.prime) } else { f },
+)
+
 #let _state-tuple(st, primes: ()) = {
-  let fs = state-fields.at(st)
-  if fs.len() == 0 { _fsm-disp.at(st) } else {
-    let fs = fs.enumerate().map(((i, f)) => if i in primes { math.attach(f, tr: sym.prime) } else { f })
-    $(#_fsm-disp.at(st), #fs.join($\,$))$
+  if state-fields.at(st).len() == 0 { _fsm-disp.at(st) } else {
+    $(#_fsm-disp.at(st), #_primed-fields(st, primes).join($\,$))$
   }
 }
 
@@ -140,8 +139,8 @@
 // ===== Unified transaction diagrams =====
 // A transaction is drawn as [input UTxOs] → [tx box] → [output UTxOs] with ONE
 // data-driven renderer that reproduces the original figures' visual language:
-//   * UTxO boxes are rounded with a coloured title bar — blue for an INPUT
-//     (spent) UTxO, green for an OUTPUT (produced) one — an optional datum body
+//   * UTxO boxes are rounded with a coloured title bar (blue for an
+//     input/spent UTxO, green for an output/produced one), an optional datum body
 //     (split with the spending redeemer when both are given) and a value footer.
 //   * the transaction is a square-cornered box with a yellow title bar and a
 //     stack of rows: redeemer | output-ref, validity, signer set κ, mint.
@@ -154,7 +153,7 @@
 #let _hdr-tx = rgb("#f4dc82") // transaction title bar (yellow)
 #let _cell = rgb("#fcfdff") // box body
 
-// Standard box widths — every box of a given kind uses the SAME width so figures line up
+// Standard box widths: every box of a given kind uses the same width so figures line up
 // consistently (do not override these per-diagram).
 #let _w-utxo = 28mm // a plain UTxO box (o_seed, o_i, decommitted, recovered, …)
 #let _w-script = 42mm // a script UTxO box carrying a datum (νHead, νDeposit)
@@ -166,12 +165,20 @@
 // The rule's changed target fields (see head-fsm-transitions), primed in the
 // produced head box exactly as in the inline transition arrows.
 #let _primes(rule) = head-fsm-transitions.find(x => x.rule == rule).primed
+// A tx figure's redeemer band: the redeemer name over the payload carried by
+// the same head-fsm-transitions entry the inline arrow renders, so the two
+// cannot drift (they had: the increment figure said `ref` where the arrow said
+// txOutRef_increment). Close and contest pass their payload directly - their
+// FSM entry records the redeemer TYPE (CloseType/ContestType), which is what
+// the state machine branches on, while the figure shows the chosen variant's
+// fields.
+#let _rule-redeemer(rule, name) = {
+  let payload = head-fsm-transitions.find(x => x.rule == rule).redeemer
+  $#name \ #payload$
+}
 // The datum line of a state: the state symbol followed by its HeadDatum fields
 // (`primes` = field indices rendered with a prime, for produced states).
-#let _state-line(st, primes: ()) = {
-  let fs = state-fields.at(st).enumerate().map(((i, f)) => if i in primes { math.attach(f, tr: sym.prime) } else { f })
-  ((_fsm-disp.at(st),) + fs).join([, ])
-}
+#let _state-line(st, primes: ()) = ((_fsm-disp.at(st),) + _primed-fields(st, primes)).join([, ])
 
 // One full-width band of a box (title bar with `sep: false`, else a body row).
 #let _band(body, fill: _cell, sep: true) = block(
@@ -259,7 +266,7 @@
     node-stroke: none,
     node-inset: 0pt,
     spacing: (9mm, 5mm),
-    // shape: "rect" on every box — fletcher otherwise auto-switches near-square boxes to a
+    // shape: "rect" on every box: fletcher otherwise auto-switches near-square boxes to a
     // circle, whose larger bounding shape leaves the edges disconnected from the box.
     ..inputs.enumerate().map(((i, c)) => node((0, i), c, name: label("txin-" + str(i)), shape: "rect")),
     // optional dashed "wallet" box enclosing all inputs (the external UTxOs, as in the originals)
@@ -343,7 +350,7 @@
 #let incrementTx-diagram = tx-diagram(
   $mtxIncrement$,
   (
-    head-utxo(_from("increment"), redeemer: $sans("Increment") med xi, s, sans("ref"), delta^\#$, value: ${st, pt_sans("alice"), dots.h}$, kind: "in"),
+    head-utxo(_from("increment"), redeemer: _rule-redeemer("increment", $sans("Increment")$), value: ${st, pt_sans("alice"), dots.h}$, kind: "in"),
     script-utxo($nuDeposit$, datum: $cid, t_sans("rec"), C$, redeemer: $sans("Claim")$, value: [22 ada], kind: "in"),
   ),
   (head-utxo(_to("increment"), value: [${st, pt_sans("alice"), dots.h}$ + 22 ada], kind: "out", primes: _primes("increment")),),
@@ -361,7 +368,7 @@
     head-utxo(_to("decrement"), value: $valHead'$, kind: "out", primes: _primes("decrement")),
     utxo-box($U_omega$, datum: $o_1 dots.h o_k$, kind: "plain"),
   ),
-  redeemer: $sans("decrement") \ xi, s, m, kappa^\#$,
+  redeemer: _rule-redeemer("decrement", stDecrement),
   outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("min"), t_sans("max"))$,
   kappa: $kappa = {k_i^\#}$,
@@ -400,7 +407,7 @@
   $mtxFanout$,
   (head-utxo(_from("fanout"), value: $valHead$, kind: "in"),),
   (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
-  redeemer: $sans("fanout") \ m, pi, sans("crsRef")$,
+  redeemer: _rule-redeemer("fanout", stFanout),
   outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
   kappa: $kappa = {k_i^\#}$,
@@ -417,7 +424,7 @@
     utxo-box($dots.v$, kind: "plain"),
     utxo-box($o_m$, kind: "plain"),
   ),
-  redeemer: $sans("partialFanout") \ m, sans("crsRef")$,
+  redeemer: _rule-redeemer("partialFanoutStep", stPartialFanout),
   outref: $o_sans("head")$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
   kappa: $kappa = {k_i^\#}$,
@@ -430,7 +437,7 @@
   $mtxFinalPartialFanout$,
   (head-utxo(_from("finalPartialFanout"), value: $valHead$, kind: "in"),),
   (utxo-box($o_1$, kind: "plain"), utxo-box($dots.v$, kind: "plain"), utxo-box($o_m$, kind: "plain")),
-  redeemer: $sans("finalPartialFanout") \ m, pi, sans("crsRef")$,
+  redeemer: _rule-redeemer("finalPartialFanout", stFinalPartialFanout),
   outref: $o_1 dots.h o_m$,
   validity: $sans("validity") = (t_sans("final"), infinity)$,
   kappa: $kappa = {k_i^\#}$,
