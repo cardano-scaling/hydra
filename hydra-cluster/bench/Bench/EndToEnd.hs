@@ -44,6 +44,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (
   Tracer,
   Verbosity (Quiet),
+  defaultLogBuffering,
   traceWith,
   withTracerOutputTo,
  )
@@ -95,7 +96,7 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
   let BenchRunOptions{incrementalOps} = runOptions
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
+    withTracerOutputTo defaultLogBuffering hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
         let cardanoKeys =
@@ -154,7 +155,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand runOptio
   let BenchRunOptions{incrementalOps} = runOptions
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
+    withTracerOutputTo defaultLogBuffering hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer
