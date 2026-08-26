@@ -12,6 +12,9 @@
       cleanPkgs = inputs'.nixpkgs.legacyPackages;
 
       buildInputs = [
+        # NB the spec toolchain (typst + PyMuPDF) is NOT here: it lives in its
+        # own `nix develop .#spec` shell, defined next to the spec build in
+        # nix/hydra/spec.nix and used by `just spec`.
         # To compile hydra scripts
         pkgs.aiken
         pkgs.cabal-fmt

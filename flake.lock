@@ -2195,6 +2195,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-2511_2": {
+      "locked": {
+        "lastModified": 1782847189,
+        "narHash": "sha256-twXPFqFsrrY5r28Zh7Homgcp2gUMBgQ6WDS98Q/3xFI=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "b6018f87da91d19d0ab4cf979885689b469cdd41",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-25.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-lib": {
       "locked": {
         "lastModified": 1761765539,
@@ -2696,6 +2712,7 @@
           "nixpkgs"
         ],
         "nixpkgs-2411": "nixpkgs-2411_3",
+        "nixpkgs-2511": "nixpkgs-2511_2",
         "process-compose-flake": "process-compose-flake",
         "pumba": "pumba",
         "rust-accumulator": "rust-accumulator",
