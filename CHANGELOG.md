@@ -183,14 +183,19 @@ changes.
   before the tracer existed, so on a host slow at decompressing BLS12-381 points
   the node emitted nothing at all until it finished and was indistinguishable
   from one that hung before starting. It still completes before any socket is
-  opened. A trusted setup that fails to load now raises a
-  `ConfigurationException` rather than calling `error`.
+  opened, and now forces the G2 half as well, so a corrupt embedded setup raises
+  a `ConfigurationException` at startup instead of `error`-ing out of pure code
+  mid-session.
 
 - Fix `hydra-node` withholding log entries from whoever reads its stdout until
   64KB had accumulated. Output is block-buffered and was only flushed when the
   tracer shut down, so `docker logs` and process supervisors saw nothing from a
   node that was running but not logging heavily. The writer now flushes each
   batch it drains.
+  * A write failing no longer kills the log writer. GHC ignores `SIGPIPE`, so a
+    reader going away (`hydra-node | head`, a restarting log shipper) made the
+    next write throw; the writer is not linked to the node, so it died unnoticed
+    and every subsequent trace blocked once the queue filled.
 
 ## [2.3.0] - 2026.07.15
 

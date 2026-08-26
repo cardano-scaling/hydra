@@ -47,6 +47,7 @@
 -- so the 65 G2 points do not constrain the accumulator size.
 module Hydra.Contract.KZGTrustedSetup (
   KZGSetupError (..),
+  warmup,
   g1Points,
   g2Points,
   g1BuiltinPoints,
@@ -134,6 +135,31 @@ embeddedSetup = do
 
 decodeHexPoint :: Text -> Either String ByteString
 decodeHexPoint t = Base16.decode $ encodeUtf8 $ fromMaybe t (T.stripPrefix "0x" t)
+
+-- | Force the whole embedded trusted setup into memory, yielding the number of
+-- G1 points loaded.
+--
+-- Both halves are forced: the G1 CRS the off-chain commitment path consumes,
+-- and the G2 CRS behind 'canonicalG2Points', which the head validator binds.
+-- A caller gets a corrupt setup as a 'Left' here rather than as the 'error'
+-- those two would otherwise raise from pure code, mid-session.
+--
+-- The forcing lives in this module on purpose. 'g1Points' currently
+-- decompresses every point just to decide between 'Left' and 'Right', so any
+-- 'WHNF' happens to do the work — but that is a property of the
+-- representation, not a promise. Should either list become a lazy structure,
+-- this is the one place obliged to keep forcing, rather than a caller's
+-- 'length' silently degenerating into a spine walk.
+warmup :: Either KZGSetupError Int
+warmup = do
+  g1 <- g1Points
+  g2 <- g2Points
+  let !numG1 = countForced g1
+      !numG2 = countForced g2
+  numG2 `seq` Right numG1
+ where
+  countForced :: [a] -> Int
+  countForced = foldl' (\n x -> x `seq` n + 1) 0
 
 -- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony (monomial form).
 -- 4096 points; used off-chain to build accumulator commitments and membership proofs.

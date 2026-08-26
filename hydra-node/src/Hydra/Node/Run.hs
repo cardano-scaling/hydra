@@ -81,22 +81,12 @@ run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
-    -- Force all KZG G1 points into memory before opening any sockets.
-    -- initTx (and snapshot signing) call getAccumulatorHash, which on first
-    -- access parses ~300KB of JSON and BLS-decompresses 4096 curve points.
-    -- Doing it here means the API server only starts after the warm-up, so
-    -- clients cannot connect and time out waiting for HeadIsOpen while the
-    -- node is still initialising the cryptographic setup. The native Point1
-    -- CRS is what the rust FFI commitment path consumes.
-    --
-    -- This runs under the tracer rather than before it, as it is the first
-    -- compute-bound thing the node does and the only startup step with no
-    -- upper bound on how long it takes: a host that decompresses BLS points
-    -- slowly, an emulated aarch64 one for instance, sits here for minutes.
-    -- Without these two lines that is indistinguishable from a node that
-    -- hung before it started, because nothing has been logged yet.
+    -- Force the KZG trusted setup before opening any socket, so that the API
+    -- server only starts once it is in memory and clients cannot connect and
+    -- time out waiting for HeadIsOpen mid warm-up (see 'KZG.warmup'). Traced
+    -- because it is the one startup step with no bound on how long it takes.
     traceWith tracer' LoadingTrustedSetup
-    numG1Points <- either (throwIO . TrustedSetupException) (evaluate . length) KZG.g1Points
+    numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
     traceWith tracer' TrustedSetupLoaded{numG1Points}
     withMonitoring monitoringPort tracer' $ \tracer -> do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts

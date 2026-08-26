@@ -15,6 +15,7 @@ module Hydra.Logging (
   -- * Using it
   Verbosity (..),
   Envelope (..),
+  defaultLogBuffering,
   withTracer,
   withTracerOutputTo,
   showLogsOnFailure,
@@ -35,7 +36,8 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (wait)
+import Control.Exception (IOException)
+import Control.Monad.Class.MonadAsync (waitCatch)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (
   Tracer (..),
@@ -74,6 +76,11 @@ instance ToJSON a => ToJSON (Envelope a) where
 defaultQueueSize :: Natural
 defaultQueueSize = 500
 
+-- | Buffering used for log output. The writer batches whatever the queue holds
+-- and flushes each batch, so this bounds the syscalls rather than the latency.
+defaultLogBuffering :: BufferMode
+defaultLogBuffering = BlockBuffering (Just 64000)
+
 -- | Start logging thread and acquire a 'Tracer'. This tracer will dump all
 -- messages on @stdout@, one message per line, formatted as JSON. This tracer
 -- is wrapping 'msg' into an 'Envelope' with metadata.
@@ -84,7 +91,7 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet = ($ nullTracer)
-withTracer (Verbose namespace) = withTracerOutputTo (BlockBuffering (Just 64000)) stdout namespace
+withTracer (Verbose namespace) = withTracerOutputTo defaultLogBuffering stdout namespace
 
 -- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
 -- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
@@ -118,24 +125,33 @@ withTracerOutputTo bufferingMode hdl namespace action = do
         unless isClosed retry
       pure es
     unless (null entries) $ do
-      forM_ entries (write . Aeson.encode)
-      -- Flush once per drained batch. Batching is what amortises the syscalls
-      -- here; leaving the block buffer to decide when to write as well would
-      -- hold the first entries back until 64KB had accumulated, so a node
-      -- that is slow to start looks to 'docker logs' or to a supervisor like
-      -- one that never started at all.
-      hFlush hdl
+      -- Flush once per drained batch, so the block buffer does not hold the
+      -- first entries back until 64KB has accumulated.
+      --
+      -- Losing the batch must not take the node with it: GHC ignores SIGPIPE,
+      -- so a reader that goes away turns the next write into an IOException,
+      -- and this thread is not linked to its parent. Dying here would go
+      -- unnoticed until the queue filled, at which point every 'traceWith' in
+      -- the node blocks forever on a queue nobody drains.
+      liftIO $
+        (forM_ entries (write . Aeson.encode) >> hFlush hdl)
+          `catch` \(_ :: IOException) -> pure ()
       writeLogs queue closed
 
   -- The writer thread claims queued entries before writing them, so shutdown
-  -- must hand over to the writer rather than inspect the queue itself:
-  -- signal it to stop, wait for it to finish draining, then flush. The wait
-  -- is bounded so a stuck handle cannot block shutdown; the surrounding
-  -- 'withAsync' cancels the writer in that case.
+  -- must hand over to the writer rather than inspect the queue itself: signal
+  -- it to stop, wait for it to finish draining, then flush. The wait is
+  -- bounded, and the surrounding 'withAsync' cancels a writer that overran it,
+  -- but the final flush below is not bounded: a handle whose reader has
+  -- stalled can still hold up shutdown until an external signal arrives.
+  --
+  -- 'waitCatch' rather than 'wait': a writer that died would otherwise rethrow
+  -- here, inside a 'finally', and replace whatever actually terminated the
+  -- node.
   drainLogs closed writer = liftIO $ do
     atomically $ writeTVar closed True
-    void $ timeout drainGraceSeconds (wait writer)
-    hFlush hdl
+    void $ timeout drainGraceSeconds (waitCatch writer)
+    hFlush hdl `catch` \(_ :: IOException) -> pure ()
 
   drainGraceSeconds :: DiffTime
   drainGraceSeconds = 5

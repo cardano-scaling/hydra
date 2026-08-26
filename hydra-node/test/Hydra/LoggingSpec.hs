@@ -3,10 +3,12 @@ module Hydra.LoggingSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Exception (IOException)
 import Data.Aeson (object, (.=))
 import Data.Text.IO qualified as Text.IO
-import Hydra.Logging (traceWith, withTracerOutputTo)
+import Hydra.Logging (defaultLogBuffering, defaultQueueSize, traceWith, withTracerOutputTo)
 import System.FilePath ((</>))
+import System.IO (hClose)
 import System.Process (createPipe)
 
 spec :: Spec
@@ -23,18 +25,29 @@ spec = do
       captured <- readFileBS logFile
       toString (decodeUtf8 @Text captured) `shouldContain` "{\"foo\":42}"
 
-  -- The node logs through a block-buffered handle, so an entry only reaches
-  -- whoever is reading the other end once the writer flushes. Without an
-  -- explicit flush the first entries sit in the buffer until 64KB has
-  -- accumulated, which makes a node that is slow to start indistinguishable,
-  -- to 'docker logs' or to a supervisor, from one that never started at all.
-  -- A pipe is what such a reader actually gets, and unlike a file it cannot be
-  -- satisfied after the fact by the unconditional flush on tracer shutdown.
-  it "flushes entries without waiting for the buffer to fill" $ do
-    (readEnd, writeEnd) <- createPipe
-    withTracerOutputTo (BlockBuffering (Just 64000)) writeEnd "test" $ \tracer -> do
-      traceWith tracer (object ["foo" .= (42 :: Int)])
-      -- The writer thread is asynchronous, so this blocks until it has both
-      -- written and flushed the entry.
-      line <- failAfter 5 $ Text.IO.hGetLine readEnd
-      toString line `shouldContain` "{\"foo\":42}"
+  -- A pipe is what a log reader actually gets, and unlike a file it cannot be
+  -- satisfied after the fact by the flush on tracer shutdown.
+  it "flushes entries without waiting for the buffer to fill" $
+    withPipe $ \(readEnd, writeEnd) ->
+      withTracerOutputTo defaultLogBuffering writeEnd "test" $ \tracer -> do
+        traceWith tracer (object ["foo" .= (42 :: Int)])
+        -- The writer thread is asynchronous, so this blocks until it has both
+        -- written and flushed the entry.
+        line <- failAfter 5 $ Text.IO.hGetLine readEnd
+        toString line `shouldContain` "{\"foo\":42}"
+
+  it "keeps logging after the reader of its output has gone away" $
+    withPipe $ \(readEnd, writeEnd) ->
+      withTracerOutputTo defaultLogBuffering writeEnd "test" $ \tracer -> do
+        hClose readEnd
+        -- Writing to a pipe nobody reads raises an IOException, as GHC ignores
+        -- SIGPIPE. The writer has to survive that: were it to die, the queue
+        -- would fill and every subsequent 'traceWith' would block forever.
+        failAfter 5 $
+          forM_ [1 .. 2 * fromIntegral defaultQueueSize :: Int] $ \i ->
+            traceWith tracer (object ["foo" .= i])
+ where
+  withPipe :: ((Handle, Handle) -> IO a) -> IO a
+  withPipe = bracket createPipe $ \(readEnd, writeEnd) ->
+    forM_ [readEnd, writeEnd] $ \h ->
+      hClose h `catch` \(_ :: IOException) -> pure ()
