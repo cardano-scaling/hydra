@@ -1,3 +1,6 @@
+```
+module Hydra.Protocol.Overview where
+```
 
 #import "/template.typ": *
 #import "/macros.typ": *

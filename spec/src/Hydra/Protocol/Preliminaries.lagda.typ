@@ -1,3 +1,8 @@
+```
+module Hydra.Protocol.Preliminaries where
+
+open import Hydra.Protocol.Prelude
+```
 
 #import "/template.typ": *
 #import "/macros.typ": *
@@ -62,6 +67,11 @@ and $concat$ (both law-free primitives; the definition fixes the encoding shape,
 constrain the operands). Readers new to Agda may want @sec:reading-agda, which maps the idioms
 used from here on to their Haskell counterparts.
 
+```
+infixl 6 _‖_
+_‖_ : ∀ {A B : Set} → A → B → ℍ
+a ‖ b = concat (bytes a ∷ bytes b ∷ [])
+```
 
 == Public key multi-signature scheme <sec:multisig>
 // TODO: move/merge with protocol setup and make concrete
@@ -246,6 +256,40 @@ As a first step of the machine-checked formalisation, these definitions are
 captured directly in Agda, with the value, script and key types
 kept abstract for now.
 
+```
+record Output : Set where
+  field
+    value   : Value
+    address : ℍ            -- the validator script hash ν#
+    datum   : Data
+
+record OutputRef : Set where
+  field
+    txId  : ℍ
+    index : ℕ
+
+record Input : Set where
+  field
+    outputRef : OutputRef
+    resolved  : Output      -- the spent output (value/address/datum), as in Plutus 'TxInInfo'
+    redeemer  : Data
+
+record ValidityInterval : Set where
+  field
+    lo hi : ℕ              -- lower/upper validity bounds
+    lo≤hi : lo ≤ hi        -- the spec's constraint, enforced by the type
+
+record Context : Set where
+  field
+    ownHash  : ℍ            -- hash of the validator script being run (e.g. νHead)
+    depHash  : ℍ            -- hash of the νDeposit script (so deposit inputs can be summed, cf. §5.4)
+    inputs   : List Input   -- the transaction's resolved inputs (a set at the ledger level;
+                            -- modelled as a list so per-script value can be summed, cf. Plutus)
+    outputs  : List Output  -- a list of outputs
+    mint     : Value
+    validity : ValidityInterval
+    keys     : ℙ VKey       -- verification keys that signed the transaction
+```
 
 Informally, scripts are evaluated by the ledger when it applies a transaction to
 its current state to yield a new ledger state (besides checking the transaction
@@ -293,7 +337,7 @@ protocol's types (@sec:on-chain): `accUTxO`, `accVerify` and
 `accVerifyExclude` are abstract functions over UTxO-output sets, commitments
 and witnesses, and the security property above is captured by the specifying
 laws `accVerify-sound` (a verified membership witness attests a genuine
-subset) and `accVerify-complete` (any genuine subset has a verifying witness),
+subset) and `accVerify-self` (a set always verifies against its own commitment),
 which the fan-out safety and coverage theorems consume.
 
 The implementation uses KZG polynomial commitments~@KZG10 over the BLS12-381 elliptic curve.

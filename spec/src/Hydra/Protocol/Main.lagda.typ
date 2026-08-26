@@ -15,6 +15,30 @@
   body,
 )
 
+```
+module Hydra.Protocol.Main where
+
+import Hydra.Protocol.Prelude
+import Hydra.Protocol.Introduction
+import Hydra.Protocol.Overview
+import Hydra.Protocol.Preliminaries
+import Hydra.Protocol.Setup
+import Hydra.Protocol.OnChain
+import Hydra.Protocol.OffChain
+import Hydra.Protocol.Security
+-- The machine-checked §7 proof terms (rendered: the statements appear under §7 "Machine-checked
+-- results", included below after Security; the proof bodies are typechecked but hidden).
+import Hydra.Protocol.SecurityProofs
+-- Extractable decidable reference checker + the bridge proving it reflects the on-chain
+-- validity bundles (Tier 2 differential-testing; not rendered in the document).
+import Hydra.Protocol.Reference
+import Hydra.Protocol.ReferenceBridge
+-- Extractable decidable reference for the OFF-CHAIN HeadLogic figure (Tier 2 differential, off-chain
+-- side; typecheck-only here, extracted via regenerate.sh, not rendered in the document).
+import Hydra.Protocol.OffChainReference
+-- On-chain coverage / non-stuckness + safety invariants (rendered: included below after OnChain).
+import Hydra.Protocol.OnChainCoverage
+```
 
 #include "Introduction.lagda.typ"
 #include "Overview.lagda.typ"
@@ -119,7 +143,7 @@ The trust base, in five families:
 
 - *Ledger and crypto primitives* (the typecheck-only `Prelude`, postulates):
   `hash`, `bytes`/`concat`, the multisignature verifier `msVfy`, the `Value`
-  algebra (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` with commutative-monoid and order laws) and its
+  algebra (`_+ᵛ_`/`εᵛ` with the associativity and identity laws the proofs use) and its
   projections (`adaOf`, `nonAdaOf`, `quantityOf`, `stQty`, `headTokenCount`);
   the off-chain ledger `applyTxs` with its nil and compositionality laws (@sec:offchain).
 - *Accumulator laws* (@sec:on-chain): `accUTxO`/`accVerify`/`accVerifyExclude`
@@ -128,8 +152,10 @@ The trust base, in five families:
 - *On-chain search postulates* (@sec:on-chain): `burnedValue`, `burnedCount`,
   `mintedCount`, `μHead`, `signerKeyHash` - witnesses over the opaque value and
   key-set models - plus the context lookups the `Context` model does not expose:
-  `depositCommitsHashOf` (the increment's recomputed commit-set hash, from the
-  claimed deposit's datum) and `crsDatumHashAt`/`canonicalCRS#` (the CRS
+  `depositDatumCommitsHash` (the hash of the commit list decoded from the
+  claimed deposit's datum; the full commit digest `depositCommitsHashOf` is a
+  _definition_ over it, binding the deposit's transaction id) and
+  `crsDatumHashAt`/`canonicalCRS#` (the CRS
   reference-input datum hash and the canonical trusted-setup constant the
   fanout bundles bind it to).
 - *Security-model assumptions* (@sec:security): per-signature EUF-CMA

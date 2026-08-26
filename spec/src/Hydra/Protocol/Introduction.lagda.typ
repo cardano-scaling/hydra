@@ -1,3 +1,6 @@
+```
+module Hydra.Protocol.Introduction where
+```
 
 #import "/template.typ": *
 #import "/macros.typ": *

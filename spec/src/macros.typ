@@ -98,6 +98,7 @@
 #let Tcontest = $T_sans("contest")$
 #let tfinal = $t_sans("final")$
 #let Tdeposit = $T_sans("deposit")$
+#let Tactivate = $T_sans("activate")$
 
 #let txIpend = $i_sans("pend")$
 #let txIpendSet = $I_sans("pend")$
