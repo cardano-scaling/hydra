@@ -128,9 +128,9 @@ jobs:
     needs: tags
 
     strategy:
-      # One architecture failing should not cancel the others: the manifest job
-      # needs every leg, so a cancelled leg means no plain tags get published
-      # at all.
+      # One architecture failing should not cancel the others: a cancelled leg
+      # publishes nothing, so it would take an image that builds fine down with
+      # it.
       fail-fast: false
       matrix:
         include:
@@ -142,6 +142,10 @@ jobs:
         - { target: hydra-node, runner: ubuntu-24.04-arm, arch: arm64 }
 
     runs-on: ${{ matrix.runner }}
+    # Everything needed is in the binary caches, so this is a download rather
+    # than a build. Bound it anyway: a cache miss would otherwise compile
+    # hydra-node on a four-core runner against the six hour default.
+    timeout-minutes: 60
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -209,6 +213,7 @@ jobs:
         target: [ hydra-node, hydra-tui, hydraw, hydra-chain-observer ]
 
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - name: 🐳 Login to GitHub Container Registry
       uses: docker/login-action@v4
@@ -230,14 +235,27 @@ jobs:
         TARGET=${{ matrix.target }}
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
 
-        # Combine whichever architectures actually landed in the registry,
-        # rather than assuming the build matrix succeeded in full.
+        # Combine whichever architectures this run actually pushed, rather than
+        # assuming the build matrix succeeded in full.
         #
+        # An architecture counts only if the image under its tag carries this
+        # run's revision. '<label>-<arch>' is reused across runs whenever the
+        # label is 'unstable', so a leg that failed would otherwise leave the
+        # previous run's image in place and get it paired with this run's other
+        # architecture: one tag spanning two commits. Re-running a failed leg
+        # still works, as the legs that already succeeded carry this revision.
+        landed() {
+          local rev
+          rev=$(docker buildx imagetools inspect --format '{{json .Image}}' "$1" 2>/dev/null \
+                | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty') || rev=
+          [[ -n "${rev}" && "${rev}" = "${GITHUB_SHA}" ]]
+        }
+
         # amd64 is required: an arm64-only manifest under the plain tag makes
         # every amd64 client fail the pull with "no matching manifest", which
         # is worse than leaving the previous tag in place.
-        if ! docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}-amd64" >/dev/null 2>&1; then
-          echo "::error::no ${LABEL}-amd64 image for ${TARGET}, refusing to publish ${LABEL}"
+        if ! landed "${IMAGE_NAME}:${LABEL}-amd64"; then
+          echo "::error::no ${LABEL}-amd64 image from this run for ${TARGET}, refusing to publish ${LABEL}"
           exit 1
         fi
         SOURCES=( "${IMAGE_NAME}:${LABEL}-amd64" )
@@ -251,11 +269,11 @@ jobs:
         # outright on arm64, where a plain manifest still falls back to
         # emulation.
         PREFER_INDEX=false
-        if docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}-arm64" >/dev/null 2>&1; then
+        if landed "${IMAGE_NAME}:${LABEL}-arm64"; then
           SOURCES+=( "${IMAGE_NAME}:${LABEL}-arm64" )
           PREFER_INDEX=true
         elif [[ "${TARGET}" = hydra-node ]]; then
-          echo "::warning::no ${LABEL}-arm64 image for ${TARGET}, publishing ${LABEL} as amd64 only"
+          echo "::warning::no ${LABEL}-arm64 image from this run for ${TARGET}, publishing ${LABEL} as amd64 only"
         fi
 
         TAGS=( --tag "${IMAGE_NAME}:${LABEL}" )
