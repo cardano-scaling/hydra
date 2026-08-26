@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
   Hash,
+  NetworkId,
   SlotNo (..),
   Tx,
   deserialiseFromCBOR,
@@ -86,25 +87,19 @@ cachedGenesis = BlockfrostBackend $ do
 instance ChainBackend BlockfrostBackend where
   queryGenesisParameters = Blockfrost.toCardanoGenesisParameters <$> cachedGenesis
 
-  queryScriptRegistry txIds = do
-    networkId <- queryNetworkId
-    withProject $ \prj ->
-      Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry networkId txIds
+  queryScriptRegistry txIds = withNetworkId $ \networkId ->
+    Blockfrost.queryScriptRegistry networkId txIds
 
   queryNetworkId = Blockfrost.toCardanoNetworkId . Blockfrost._genesisNetworkMagic <$> cachedGenesis
 
   queryTip = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO addresses = do
-    networkId <- queryNetworkId
-    withProject $ \prj ->
-      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO networkId addresses
+  queryUTxO addresses = withNetworkId $ \networkId ->
+    Blockfrost.queryUTxO networkId addresses
 
-  queryUTxOByTxIn txins = do
-    networkId <- queryNetworkId
-    withProject $ \prj ->
-      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn networkId txins
+  queryUTxOByTxIn txins = withNetworkId $ \networkId ->
+    Blockfrost.queryUTxOByTxIn networkId txins
 
   queryEraHistory _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
@@ -117,18 +112,14 @@ instance ChainBackend BlockfrostBackend where
   queryStakePools _ = withProject $ \prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor _ vk = do
-    networkId <- queryNetworkId
-    withProject $ \prj ->
-      Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor networkId vk
+  queryUTxOFor _ vk = withNetworkId $ \networkId ->
+    Blockfrost.queryUTxOFor networkId vk
 
   submitTransaction tx = withProject $ \prj ->
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction tx vk = do
-    networkId <- queryNetworkId
-    withProject $ \prj ->
-      Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction networkId tx vk
+  awaitTransaction tx vk = withNetworkId $ \networkId ->
+    Blockfrost.awaitTransaction networkId tx vk
 
   getBlockTime = do
     Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <- cachedGenesis
@@ -138,6 +129,12 @@ withProject :: (Blockfrost.Project -> IO a) -> BlockfrostBackend a
 withProject f = BlockfrostBackend $ do
   BlockfrostEnv{project} <- ask
   liftIO $ f project
+
+-- | Run a Blockfrost client action that needs the (cached) network id.
+withNetworkId :: (NetworkId -> Blockfrost.BlockfrostClientT IO a) -> BlockfrostBackend a
+withNetworkId action = do
+  networkId <- queryNetworkId
+  withProject $ \prj -> Blockfrost.runBlockfrostM prj (action networkId)
 
 withBlockfrostChain ::
   BlockfrostEnv ->
