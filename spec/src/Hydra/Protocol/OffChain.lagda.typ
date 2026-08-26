@@ -288,9 +288,12 @@ $hats$, the new $eta$ resulting from canonically combining $U$ (see
 @sec:close-tx for details), and either $eta_(alpha)$ or
 $eta_(omega)$ derived from deposited $U_(alpha)$ or decommit transaction
 $tx_(omega)$ respectively. Note that $eta_(alpha)$ covers both $U_(alpha)$ and
-the deposit $txOutRef_alpha$ it comes from (see @sec:increment-tx), so the
-resulting signature authorizes that one deposit and no other recording the
-same UTxO. The signature is sent to all head members via
+the deposit it comes from, identified by the pending deposit transaction
+$tx_alpha$ (recorded in the snapshot as $macron(mc(S)).txOutRef_alpha$, and
+bound on-chain as $txId(txOutRef_(sans("deposit")))$, see @sec:increment-tx: a
+deposit is always the first output of its transaction, so its transaction
+identifies it). The resulting signature therefore authorizes that one deposit
+and no other recording the same UTxO. The signature is sent to all head members via
 message $(hpAS,hats,msSig_i)$. Finally, the local ledger state $hatmL$ and
 pending transaction set $hatmT$ get pruned by re-applying all locally pending
 transactions $hatmT$ to the just requested snapshot's UTxO set iteratively and
@@ -613,7 +616,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 $eta' <- accUTxO(U)$ \
                 $(eta')^(\#) <- hash(eta')$ \
                 $delta^(\#) <- hash(sans("outputs")(tx_omega))$ #text(size: 0.8em)[(the hash of the empty set if $tx_omega = bot$)] \
-                $kappa^(\#) <- hash(U_alpha)$ #text(size: 0.8em)[(the hash of the empty set if no deposit is claimed)] \
+                $kappa^(\#) <- hash(hash(U_alpha) || tx_alpha)$ #text(size: 0.8em)[(over the empty set and $bot$ if no deposit is claimed)] \
                 $msSig_i <- msSign(hydraSigningKey, (cid || v || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)))$ \
                 $hatSigma <- emptyset$ \
                 #kw("multicast") $(hpAS, hats, msSig_i)$ \
@@ -641,7 +644,9 @@ preventing inconsistency between the on-chain and off-chain state.
                   $msCSig <- msComb(hydraKeys^("setup"), hatSigma)$ \
                   $eta' <- accUTxO(hatmU)$ \
                   $(eta')^(\#) <- hash(eta')$ \
-                  #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#)), msCSig)$ \
+                  $delta^(\#) <- hash(U_omega)$ \
+                  $kappa^(\#) <- hash(hash(U_alpha) || tx_alpha)$ \
+                  #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), msCSig)$ \
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- msCSig$ \
                   $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
