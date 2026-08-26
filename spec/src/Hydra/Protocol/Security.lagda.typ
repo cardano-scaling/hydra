@@ -448,6 +448,15 @@ data _⟶ˢ_ : System → System → Set where
     → (∀ {U′} → applyTxs (U₀ sys) (confirmedTxs (lookup (localOf sys) i)) ≡ just U′
               → Applicable U′ Δ)                                                      -- Δ applies on top of confirmed (requireApplyTxs)
     → Δ ⊆ˡ lookup (seen sys) i                                                        -- Δ already observed (only-seen)
+    -- The digests an honest signer DERIVES from the snapshot it is about to sign, rather than
+    -- accepting from the request. κ# is the one with security content: binding the deposit
+    -- reference S̄.txOutRef_α alongside the recorded commit set is what stops a look-alike deposit
+    -- - same recorded UTxO, less value - being claimed under this signature (@sec:increment-tx; the
+    -- node's `commitOutputsHash`). Hashing the structured values directly takes the same liberty as
+    -- the on-chain `decommitOutputsHashOf`; what these premises pin is WHICH fields each digest is
+    -- a function of.
+    → Snapshot.comHash snap ≡ hash (hash (Snapshot.utxoInc snap) ‖ Snapshot.depRef snap)
+    → Snapshot.decHash snap ≡ hash (Snapshot.utxoDec snap)
     → sys ⟶ˢ record sys
         { localOf = localOf sys [ i ]≔ record (lookup (localOf sys) i) { seenNumber = Snapshot.number snap }
         ; sigs    = (i , snap) ∷ sigs sys }

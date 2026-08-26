@@ -75,7 +75,6 @@ Value = (CId × Token) ⇀ Quantity
 postulate
   εᵛ   : Value                  -- the empty/zero value
   _+ᵛ_ : Value → Value → Value  -- value addition (multiset union of assets)
-  _≤ᵛ_ : Value → Value → Set    -- "contained in" (the head value is preserved/grows)
   -- Lovelace (ada) projection: the ada quantity of a value. Additive, so it commutes with `_+ᵛ_`.
   -- This is the homomorphism the differential test exploits to check value conservation on the
   -- (extractable) lovelace component.
@@ -106,15 +105,12 @@ postulate
   -- placed there. These are ℕ projections, so the reference reflects them by plain `==` (no additional axiom).
   stQty          : Value → CId → ℕ
   headTokenCount : Value → CId → ℕ
-  -- The algebra the value-conservation predicates reason over: (Value, _+ᵛ_, εᵛ) is a commutative
-  -- monoid and _≤ᵛ_ a partial order compatible with addition. All hold of the pointwise signed
-  -- multi-asset map. NB quantities are ℤ (negative = burning), so `a ≤ᵛ a +ᵛ b` does NOT hold in
-  -- general (only when `b` is non-negative); that monotone-growth fact is therefore NOT a law here.
+  -- The algebra the value-conservation predicates reason over. Only the laws the proofs actually
+  -- consume are assumed: every postulate here carries proof weight, so the assumption inventory
+  -- measures what is really trusted. (An earlier version also postulated a `_≤ᵛ_` partial order with
+  -- reflexivity, transitivity, antisymmetry and monotonicity, plus commutativity and a left
+  -- identity, none of which any proof used. Re-add a law when a proof needs it - all hold of the
+  -- pointwise signed multi-asset map. NB quantities are ℤ, negative meaning burning, so a
+  -- monotone-growth law `a ≤ᵛ a +ᵛ b` would NOT hold in general.)
   +ᵛ-assoc     : ∀ a b c → ((a +ᵛ b) +ᵛ c) ≡ (a +ᵛ (b +ᵛ c))
-  +ᵛ-comm      : ∀ a b → (a +ᵛ b) ≡ (b +ᵛ a)
-  +ᵛ-identityˡ : ∀ a → (εᵛ +ᵛ a) ≡ a
   +ᵛ-identityʳ : ∀ a → (a +ᵛ εᵛ) ≡ a
-  ≤ᵛ-refl      : ∀ {a} → a ≤ᵛ a
-  ≤ᵛ-trans     : ∀ {a b c} → a ≤ᵛ b → b ≤ᵛ c → a ≤ᵛ c
-  ≤ᵛ-antisym   : ∀ {a b} → a ≤ᵛ b → b ≤ᵛ a → a ≡ b
-  +ᵛ-monoˡ     : ∀ {a b} (c : Value) → a ≤ᵛ b → (a +ᵛ c) ≤ᵛ (b +ᵛ c)

@@ -160,7 +160,6 @@ postulate
   -- soundness: a verified membership witness attests a genuine subset (no proving non-members)
   accVerify-sound : ∀ {U S π} → accVerify (accUTxO U) S π ≡ true → S ⊆ U
   -- completeness: any genuine subset has a membership witness that verifies
-  accVerify-complete : ∀ {U S} → S ⊆ U → ∃[ π ] (accVerify (accUTxO U) S π ≡ true)
   -- a set is always provably a member of its own commitment (the S ≔ U case of completeness; stated
   -- directly to avoid the set-theory `⊆`-reflexivity plumbing). Used by the coverage obligations.
   accVerify-self : ∀ U → ∃[ π ] (accVerify (accUTxO U) U π ≡ true)
@@ -219,11 +218,13 @@ depositValueAt ctx ref = inputValueAt ref (Context.inputs ctx)
 
 -- DERIVED (increment, all deposits): the total value of EVERY spent deposit input -- the value at the
 -- νDeposit script (`Context.depHash`) summed over the resolved inputs. This mirrors Plutus
--- `totalNonHeadInputValue` in `checkIncrement` (the sum over every non-head script input, which the
--- non-head SPENT inputs of an increment are exactly the claimed deposits), and is what the value
--- conservation must account for -- forbidding the multi-deposit siphon (an extra deposit whose value
--- is routed away would leave `headValueIn +ᵛ depositsValue ≠ headValue`). For a single-deposit
--- increment it coincides with `depositValueAt ctx ref` (the single-deposit value above).
+-- the νDeposit-governed spent inputs. `checkIncrement`'s own `mustPreserveValue` is stated over the
+-- single CLAIMED deposit (`claimedDepositValue`); summing every νDeposit input instead is what makes
+-- the multi-deposit siphon visible to value conservation here (an extra deposit whose value is routed
+-- away leaves `headValueIn +ᵛ depositsValue ≠ headValue`), and it coincides with
+-- `depositValueAt ctx ref` exactly when the claimed deposit is the only one -- which is what
+-- `IncrementValid.onlyClaimedDeposit` below requires, mirroring the validator's
+-- `mustNotSpendOtherScripts`.
 depositsValue : Context → Value
 depositsValue ctx = valueAtIn (Context.depHash ctx) (Context.inputs ctx)
 
@@ -418,8 +419,10 @@ state-machine shape, the version discipline, contester growth and deduplication,
 the deadline equations, close-initialises-to-$emptyset$, the head value in/out
 (derived: `headValue`/`headValueIn` sum the value at `ownHash` over the produced
 outputs / resolved inputs), the increment deposit value (derived: `depositsValue`
-sums the value at the $nuDeposit$ script `depHash` over _all_ spent inputs, as
-Plutus `totalNonHeadInputValue`), the decrement decommit value (derived:
+sums the value at the $nuDeposit$ script `depHash` over _all_ spent inputs,
+where Plutus `mustPreserveValue` uses the claimed deposit alone and rules the
+others out separately with `mustNotSpendOtherScripts`), the decrement decommit
+value (derived:
 `decommitValue` sums the `m` outputs after the head output, as Plutus
 `take m (tail outputs)`), and the participant signature: close, increment and
 decrement carry the structural `signedByParticipant cid ctx` (an existence witness
@@ -427,7 +430,7 @@ decrement carry the structural `signedByParticipant cid ctx` (an existence witne
 value), while contest carries the sharper `contesterSigned`/`contesterIsParticipant`
 pair about the appended contester, from which `signedByParticipant` is derived
 (`contest-participantSigned`); fanout and partial fanout have no such field. What
-remains abstracted: the value arithmetic laws (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ`) and the
+remains abstracted: the value arithmetic laws (`_+ᵛ_`/`εᵛ`) and the
 per-asset projection `quantityOf` on the opaque `Value`, crypto
 (`msVfy`/`snapshotSigOK`) and the accumulator operations
 (`accVerify`/`accVerifyExclude`/`accUTxO`), all via postulated laws, plus the
@@ -861,8 +864,17 @@ record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
     step               : d ⟶⟨ Increment ξ s ref δ# ⟩ d'
     mintEmpty          : noMint ctx
     sigOK              : snapshotSigOK hk cid v s (hash (ηOf d')) δ# (depositCommitsHashOf ctx ref) ξ
-    valueOK            : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL deposits (§5.4, Plutus `totalNonHeadInputValue`)
+    valueOK            : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL νDeposit inputs (§5.4)
     depositSpent       : depositSpentOK ctx ref            -- claimed deposit is spent (§5.4)
+    -- §5.4: the claimed deposit is the only νDeposit value the transaction spends (the validator's
+    -- `mustNotSpendOtherScripts`, error `MustNotSpendOtherScripts`). Without it `valueOK` alone
+    -- permits a second pending deposit to be spent alongside: `mustPreserveValue` is an equality, so
+    -- it stops that value entering the head, but not its being routed OUT to an address of the
+    -- transaction author's choosing - theft of a pending commit. Stated as a value equation because
+    -- it is the half the `Context` model can express: the validator's stronger claim (NO other
+    -- script input of any kind, νDeposit or not) needs a script/pub-key distinction on addresses
+    -- that `Output.address` does not carry, so that generalisation stays a hand-reviewed boundary.
+    onlyClaimedDeposit : depositsValue ctx ≡ depositValueAt ctx ref
     -- §5.4: the claimed deposit is output 0 of its transaction (Plutus `txOutRefIdx ref == 0`).
     -- κ# binds a deposit by its transaction id, so sibling outputs of the same transaction would
     -- otherwise be interchangeable under one signature.
@@ -1124,6 +1136,12 @@ closeAnyOK _                  _  = ⊤
 -- message (the implementation copies them from the redeemer; they are authenticated
 -- only through the signature). The Used case refers to the *previous* state version
 -- v-1 (a pending delta is applied in the snapshot); the others use the current v (spec §5.6).
+-- Modelling boundary at version 0: the Used cases verify at `v ∸ 1` on ℕ, which truncates to 0,
+-- while the validator builds its message with signed `version - 1` and so uses -1 there. The two
+-- agree for every v ≥ 1, and a Used close/contest at version 0 is not reachable (Used means a
+-- pending delta was applied, which bumps the version at least once), so no reachable transaction
+-- distinguishes them - but the model is strictly weaker at v = 0, and the signature conjunct is an
+-- injected `Ops` boundary, so neither the bridge nor the differential can observe the difference.
 closeSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → CloseType → Set
 closeSigOK _  _   _ _ closeInitial             = ⊤
 closeSigOK hk cid v s (closeAny ξ η# δ# κ#)    = snapshotSigOK hk cid v s η# δ# κ# ξ

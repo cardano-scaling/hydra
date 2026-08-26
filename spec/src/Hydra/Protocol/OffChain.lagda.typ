@@ -190,16 +190,20 @@ record Snapshot : Set where        -- the confirmed snapshot object S̄
     version : ℕ                    -- S̄.v
     number  : ℕ                    -- S̄.s
     txs     : List Data            -- S̄.T
-    utxo    : UTxO                 -- S̄.U
-    utxoInc : UTxO                 -- S̄.U_α (pending increment)
-    depRef  : Maybe Data           -- S̄.txOutRef_α (deposit tx-id the pending increment comes from;
-                                   -- bound into κ# so the signature authorizes that one deposit and
-                                   -- no other recording the same UTxO - node `Snapshot.depositTxId`)
-    utxoDec : UTxO                 -- S̄.U_ω (pending decrement)
+    utxo    : UTxO                 -- S̄.U (descriptive, see the note after this record)
+    utxoInc : UTxO                 -- S̄.U_α (pending increment; a κ# argument, see `signHonest`)
+    depRef  : Maybe Data           -- S̄.txOutRef_α: the deposit the pending increment comes from
+                                   -- (node `Snapshot.depositTxId`). An argument of κ# via the
+                                   -- `signHonest` digest premise (@sec:security), which is what
+                                   -- makes the signature authorize that one deposit and no other
+                                   -- recording the same UTxO.
+    utxoDec : UTxO                 -- S̄.U_ω (pending decrement; the δ# argument, see `signHonest`)
     etaHash : ℍ                    -- S̄.(η')# (accumulator-commitment hash; always present, like the node's HydraAccumulator)
     decHash : ℍ                    -- S̄.δ# (decommit-output-set hash, node `decommitOutputsHash`; signed 5th component)
     comHash : ℍ                    -- S̄.κ# (commit-output-set hash, node `commitOutputsHash`; signed 6th component)
-    sig     : Maybe AggSig         -- S̄.σ (aggregate multisignature; ⊥ until confirmed — the sole signing-status marker)
+    sig     : Maybe AggSig         -- S̄.σ, mirroring the §6 snapshot object (descriptive: the proofs
+                                   -- read signing status from the system's `sigs`/`aggSigOf`, never
+                                   -- from here, so this field marks nothing on its own)
 
 record LocalState : Set where      -- a party's local state (besides setup params)
   field
@@ -343,7 +347,7 @@ $cal(D)$. \
 $t$, parties update the status of deposits in $cal(D)$ accordingly using
 the configured deposit period $Tdeposit$:
 - $sans("Expired")$ when deadline passed (or too soon): $t > t_("deadline") - Tdeposit$
-- $sans("Active")$ when deposit settled enough: $t > t_("created") + Tdeposit$
+- $sans("Active")$ when deposit settled enough: $t > t_("created") + Tactivate$
 When deposits become $sans("Active")$ and no other deposit / decommit is
 pending, and the party is the next snapshot leader, it may request a new
 snapshot including the deposit transaction $tx_(alpha)$. \
@@ -355,14 +359,18 @@ the off-chain twin of the extracted reference's
 
 ```
 -- ── Chain observations (§6.4 `from chain`): the deposit lifecycle ────────────────────────────────
--- The §6 `tick` deposit-status transition for one deposit, as a function of the deposit period
--- T_deposit and the current time t (the off-chain twin of `OffChainReference.depositStatusRef`):
---   t > deadline − T_deposit ⇒ Expired;  else t > created + T_deposit ⇒ Active;  else unchanged.
-depositStatusAt : ℕ → ℕ → DepositObj → DepositStatus
-depositStatusAt Tdep t D =
+-- The §6 `tick` deposit-status transition for one deposit, as a function of the expiry period
+-- T_deposit, the activation period T_activate and the current time t (the off-chain twin of
+-- `OffChainReference.depositStatusRef`):
+--   t > deadline − T_deposit ⇒ Expired;  else t > created + T_activate ⇒ Active;  else Inactive.
+-- The two periods are distinct: the node keys expiry off `depositPeriod` and activation off
+-- `depositActivation`, which are separately configurable, so collapsing them into one would put
+-- the model's activation boundary an arbitrary distance from the real node's.
+depositStatusAt : ℕ → ℕ → ℕ → DepositObj → DepositStatus
+depositStatusAt Tdep Tact t D =
   if ⌊ (DepositObj.deadline D ∸ Tdep) <? t ⌋ then Expired
-  else if ⌊ (DepositObj.created D + Tdep) <? t ⌋ then Active
-  else DepositObj.status D
+  else if ⌊ (DepositObj.created D + Tact) <? t ⌋ then Active
+  else Inactive
 ```
 #dparagraph[$hpRS$.]#h(1em) Upon receiving request
 $(hpRS,v,s,underline(tx)_(sans("req")), tx_alpha, tx_omega)$#footnote[Snapshot
@@ -554,7 +562,9 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
             { deposits =
                 map (λ kD → proj₁ kD ,
                        record (proj₂ kD)
-                         { status = depositStatusAt (HeadParameters.depositPeriod (LocalState.params st)) t (proj₂ kD) })
+                         { status = depositStatusAt (HeadParameters.depositPeriod (LocalState.params st))
+                                                        (HeadParameters.depositActivation (LocalState.params st))
+                                                        t (proj₂ kD) })
                     (LocalState.deposits st) }
 
   -- §6 chain observations that bump the open-state version (increment/decrement). Increment adds the

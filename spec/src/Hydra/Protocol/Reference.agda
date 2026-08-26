@@ -102,7 +102,10 @@ if false then _ else b = b
 
 -- ── the decidable close checker ───────────────────────────────────────────────────────────
 -- Mirrors the decidable, unit-robust conjuncts of `closeValid` (OnChain.lagda.typ):
---   • version preserved (Open.v ≡ Closed.v) and contestation period preserved
+--   • version preserved (Open.v ≡ Closed.v), on the structural `_==ᵇ_` (versions are small), and
+--     the contestation period preserved, on the BUILTIN `_==_`: a ContestationPeriod is POSIXTime
+--     MILLISECONDS (60_000 at the one-minute default), and `_==ᵇ_` is unary `suc`/`zero` recursion,
+--     which MAlonzo compiles to that many Integer decrements per call
 --   • contesters initialised to [] (length 0)
 --   • closeInitial ⇒ Open.v ≡ 0 ∧ Closed.s ≡ 0   (the η ≡ accUTxO ∅ part is in `Ops`)
 --   • closeAny    ⇒ 0 < Closed.s
@@ -117,7 +120,7 @@ if false then _ else b = b
 closeRefᵇ : Ops → Openᶜ → Closedᶜ → CloseTagᶜ → Nat → Nat → Bool
 closeRefᵇ ops o c tag validityHi validityLo =
       (Openᶜ.versionO o ==ᵇ Closedᶜ.versionC c)
-   && (Openᶜ.cpO o ==ᵇ Closedᶜ.cpC c)
+   && (Openᶜ.cpO o == Closedᶜ.cpC c)
    && (Closedᶜ.contesterLenC c ==ᵇ zero)
    && initialOK tag
    && anyOK tag
@@ -397,8 +400,8 @@ participantSignedRefᵇ s = anySharedᵇ (SignerIOᶜ.signerCodesS s) (SignerIO�
 
 -- ══ per-asset value conservation (increment / decrement) ══════════════════════════════════════
 -- The finer companion to the `adaOf`/`nonAdaOf` TOTALS checked by `incRefᵇ`/`decRefᵇ`. Given each native
--- asset's (qIn, qDelta, qOut) — its quantity in the head input, the delta (deposit on increment /
--- decommit on decrement) and the head output — EVERY asset must conserve: qIn + qDelta == qOut. (For the
+-- asset's (qIn, qDelta, qOut), i.e. its quantity in the head input, the delta (deposit on increment
+-- / decommit on decrement) and the head output: every asset must conserve qIn + qDelta == qOut. (For the
 -- decrement direction the caller supplies (qOut, qDelta, qIn) so the same sum-check applies.) Catches a
 -- SELECTIVE single-token siphon that leaves the two scalar totals balanced. Each quantity is a
 -- (non-negative) per-asset amount (`quantityOfᴺ`); BUILTIN `_==_` per asset (amounts may be large).

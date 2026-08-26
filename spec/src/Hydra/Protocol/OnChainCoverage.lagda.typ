@@ -144,13 +144,15 @@ finalize-reachable-empty aft burn val crsOK =
   reach-empty-closed , fanout-empty-inhabited aft burn val crsOK
 ```
 
-#theorem(name: "Reachable heads can finalise")[
-  Any reachable `Closed` head committing to a known UTxO set $V$
+#theorem(name: "Closed heads can finalise")[
+  Any `Closed` head committing to a known UTxO set $V$
   ($eta = accUTxO(V)$) admits a valid full fan-out of $V$, provided the
   transaction actually distributes $V$; the membership witness is derived
   from the accumulator laws, so only the genuinely contextual antecedents
   (deadline, burn, value conservation, pays-out-$V$, the canonical CRS
-  reference resolved) remain. Likewise, a reachable `FanoutProgress` is
+  reference resolved) remain. Reachability is not among them: the witness
+  follows from the accumulator laws for any such datum, so `fanout-coverage`
+  does not take it as a hypothesis. Likewise, a reachable `FanoutProgress` is
   never stuck: its remaining accumulator is provably non-empty
   (`progress-nonEmpty`), which _derives_ the final batch's $0 < m$
   requirement rather than assuming it
@@ -158,8 +160,12 @@ finalize-reachable-empty aft burn val crsOK =
 ] <thm:coverage>
 
 ```agda
+-- No `Reachable` premise: the membership witness comes from `accVerify-self`, so the bundle is
+-- constructible from the contextual antecedents alone. Taking reachability and discarding it would
+-- state something weaker than what is proved while reading as though reachability were needed -
+-- contrast `progress-finalizable` below, which genuinely consumes its `Reachableᵛ` (via
+-- `progress-nonEmpty`) to derive the final batch's `0 < m`.
 fanout-coverage : ∀ {ctx cid hk n cp v s C tfin ada V crs}
-  → Reachable (Closed cid hk n cp v s (accUTxO V) C tfin ada)
   → distributedOuts ctx (setSize V) ≡ V
   → tfin < ValidityInterval.lo (Context.validity ctx)
   → burnAllTokensOK ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada)
@@ -169,7 +175,7 @@ fanout-coverage : ∀ {ctx cid hk n cp v s C tfin ada V crs}
 ```
 
 ```
-fanout-coverage {V = V} _ outsEq aft burn val crsOK =
+fanout-coverage {V = V} outsEq aft burn val crsOK =
   let (π , mem) = accVerify-self V
    in π , mkFanoutValid fanout burn
             (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem) aft val crsOK

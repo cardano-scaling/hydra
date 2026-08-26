@@ -2,8 +2,8 @@
 # Trust-ledger drift check (bridge layer).
 #
 # The machine-checked `spec ⇒ extracted-reference` bridge rests on a FIXED, enumerated trusted base:
-#   (a) injected `Ops` mocks — the const-`true` boundaries the reference delegates (crypto / accumulator /
-#       value-map conjuncts), and
+#   (a) the injected `Ops` boundaries: the fields of the mock records the reference delegates to
+#       (crypto / accumulator / value-map conjuncts), whatever they are bound to, and
 #   (b) extraction-faithfulness / encoding postulates (hash/out-ref encodings and the
 #       participant / no-mint faithfulness assumptions).
 #
@@ -36,18 +36,45 @@ cd "$(dirname "$0")"
 BR=src/Hydra/Protocol/ReferenceBridge.agda
 RR=src/Hydra/Protocol/RefReflection.agda
 
-# (a) Ops mocks: every `<field> = λ … → true` const-true binding (ANY field in a record, first or
-# not, single- OR multi-line; NOT record-pattern matches like `step =`, which don't bind `λ … → true`).
-# Newlines are flattened first so a multi-line record literal cannot hide a mock from the line-based grep.
-actual_mocks=$(tr '\n' ' ' < "$BR" | grep -oE '[a-zA-Z][a-zA-Z0-9]* = λ[^;{}]*→ true' | sed -E 's/ = λ.*//' | sort -u)
+# (a) Injected Ops boundaries: every field of every record VALUE the bridge builds.
+#
+# Keyed on `= record {` (an assignment whose right-hand side is a record literal), which is what
+# distinguishes the injected mocks from the record PATTERNS the `*Valid → ref` clauses destructure
+# on their left-hand side. Newlines are flattened first so a multi-line record literal cannot hide a
+# field from a line-based scan, and each field name is read as the first token of a `;`-separated
+# component, so a field whose value itself contains `=` (say `λ x → x == y`) cannot be mistaken for
+# one. Deliberately NOT keyed on the const-true spelling `= λ … → true`: it is the injection that
+# widens the trusted base, and `= const true`, `= alwaysTrue` or any other spelling injects just as
+# much. (Today all six happen to be written as const-true lambdas.)
+actual_mocks=$(tr '\n' ' ' < "$BR" |
+  grep -oE '= record[[:space:]]+\{[^}]*\}' |
+  sed -E 's/^= record[[:space:]]+\{//; s/\}$//' |
+  tr ';' '\n' |
+  awk 'NF {print $1}' |
+  sort -u)
 
-# (b) Postulated names, both single-line (`postulate name :`) and block (`postulate` then indented `name :`).
+# (b) Postulated names, single-line (`postulate name : T`) and block (`postulate` then indented
+# declarations). Every name of a declaration is emitted, not just the first: `postulate` permits
+# `one two : T`, which the previous per-line `print $1`/`print $2` silently dropped (both names in
+# the block form, the second onwards in the single-line form) - a hole big enough to add an
+# assumption through. Names may themselves contain unicode arrows (`noMint→ref`), so a declaration
+# is recognised by its first token not being an operator/binder, which is what distinguishes it
+# from a wrapped continuation line of the previous type signature.
 actual_postulates=$(awk '
-  /^[ ]*--/ {next}
-  /^postulate$/ {inblock=1; next}
-  /^postulate[ ]+[^ ]/ {print $2; inblock=0; next}
-  inblock && /^[ ]+[^ ]+ +:/ {print $1; next}
-  inblock && /^[^ ]/ {inblock=0}
+  function emit(decl) {
+    sub(/:.*/, "", decl)
+    n = split(decl, names, /[ \t]+/)
+    if (n == 0) return
+    first = names[1] != "" ? names[1] : names[2]
+    if (first ~ /^([-=<>]|→|⇒|∀|\(|\{|\[)/) return   # continuation of the previous signature
+    for (i = 1; i <= n; i++) if (names[i] != "") print names[i]
+  }
+  { line = $0; sub(/--.*/, "", line) }
+  line ~ /^[ \t]*$/ { next }
+  line ~ /^postulate[ \t]*$/ { inblock = 1; next }
+  line ~ /^postulate[ \t]+/ { sub(/^postulate[ \t]+/, "", line); emit(line); inblock = 0; next }
+  inblock && line ~ /^[ \t]+[^ \t].*:/ { emit(line); next }
+  inblock && line ~ /^[^ \t]/ { inblock = 0 }
 ' "$BR" "$RR" | sort -u)
 
 expected_mocks=$(printf '%s\n' \
@@ -72,4 +99,4 @@ if [ "$fail" -ne 0 ]; then
   echo "Update the trust-ledger table in this script's header comment and the EXPECTED_* lists."
   exit 1
 fi
-echo "check-trust-ledger: OK — the bridge-layer trusted base is the 6 documented Ops mocks + 7 documented postulates."
+echo "check-trust-ledger: OK: the bridge-layer trusted base is the 6 documented Ops mocks + 7 documented postulates."

@@ -7,7 +7,7 @@
 #  (1) every transition rule the prose cites as `<name>` rule is a real
 #      constructor of the Agda relation `_⟶⟨_⟩_`; and
 #  (2) the head state-machine DIAGRAM (data in diagrams.typ) has exactly the same
-#      (source, rule, target) transitions as that Agda relation — so the picture
+#      (source, rule, target) transitions as that Agda relation, so the picture
 #      cannot drift from the formal state machine.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -113,7 +113,7 @@ if [ -n "$badfence" ]; then
 fi
 
 if [ "$fail" -eq 0 ]; then
-  echo "check-refs: OK — cited rules exist, the head-state diagram matches the Agda"
+  echo "check-refs: OK: cited rules exist, the head-state diagram matches the Agda"
   echo "relation, state-fields KEYS match the HeadDatum constructors (names only, not"
   echo "the per-state field tuples), tx diagrams map to real rules, and"
   echo "every code fence is bare or \`\`\`agda."

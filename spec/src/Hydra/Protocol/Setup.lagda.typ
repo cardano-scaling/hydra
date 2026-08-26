@@ -55,5 +55,9 @@ record HeadParameters : Set where
     hydraVKeys         : List VKey  -- per-party Hydra verification keys k_H
     aggregateKey       : VKey       -- aggregate Hydra key k̃_H
     contestationPeriod : ℕ          -- T_contest
-    depositPeriod      : ℕ          -- T_deposit (the §6 deposit settling / expiry period)
+    depositPeriod      : ℕ          -- T_deposit (the §6 deposit expiry period)
+    depositActivation  : ℕ          -- T_activate: the settling period a deposit must age before it
+                                    -- becomes Active. Independent of T_deposit, which only bounds
+                                    -- expiry, and separately configurable in the node
+                                    -- (--deposit-activation vs --deposit-period).
 ```

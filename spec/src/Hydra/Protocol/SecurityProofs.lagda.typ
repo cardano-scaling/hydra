@@ -126,7 +126,7 @@ invariant sys (step {s} r tr) = invStep tr (invariant s r)
     -- Δ-seen premise (Δseen₀) + `sigSeen`/`confCert`. The signer's `seenNumber` is bumped, so the
     -- localOf-reading fields carry `lookup∘update` bookkeeping (the `.confirmed` they read is
     -- unchanged; only `seenNumber` moves).
-    invStep {a} (signHonest {i = i} {snap = snap₀} {Δ = Δ} hi₀ nf₀ (reqSn-sign vEq sEq) txsEq₀ appl₀ Δseen₀)
+    invStep {a} (signHonest {i = i} {snap = snap₀} {Δ = Δ} hi₀ nf₀ (reqSn-sign vEq sEq) txsEq₀ appl₀ Δseen₀ _ _)
             record { sigApp = sigApp ; sigDedup = sigDedup ; confApp = confApp
                    ; sigPos = sigPos ; confCert = confCert ; sigChain = sigChain
                    ; signNumBound = signNumBound ; sigSeen = sigSeen } = record
@@ -636,7 +636,7 @@ confCert-all sys (step {s} r tr) = cc tr (confCert-all s r)
                 ⊎ Certified a (LocalState.confirmed (lookup (localOf a) i)))
        → (∀ i → (confirmedNo (lookup (localOf b) i) ≡ 0 × confirmedTxs (lookup (localOf b) i) ≡ [])
                 ⊎ Certified b (LocalState.confirmed (lookup (localOf b) i)))
-    cc {a} (signHonest {i = signer} {snap = snap₀} _ _ _ _ _ _) ih i with signer FinP.≟ i
+    cc {a} (signHonest {i = signer} {snap = snap₀} _ _ _ _ _ _ _ _) ih i with signer FinP.≟ i
     ... | yes refl = subst (λ w → (confirmedNo w ≡ 0 × confirmedTxs w ≡ [])
                                    ⊎ Certified (record a { localOf = localOf a [ signer ]≔ st'ₕ ; sigs = (signer , snap₀) ∷ sigs a }) (LocalState.confirmed w))
                            (sym (lookup∘update signer (localOf a) st'ₕ)) (mono (ih signer))
@@ -1065,7 +1065,7 @@ noBothInFlightˢ sys (step {s} r tr) = nbStep tr (noBothInFlightˢ s r)
     nbStep : ∀ {a b} → a ⟶ˢ b
            → (∀ i → NoBothInFlight (lookup (localOf a) i))
            → ∀ i → NoBothInFlight (lookup (localOf b) i)
-    nbStep {a} (signHonest {i = j} _ _ _ _ _ _) ih i with j FinP.≟ i
+    nbStep {a} (signHonest {i = j} _ _ _ _ _ _ _ _) ih i with j FinP.≟ i
     ... | yes refl = subst NoBothInFlight (sym (lookup∘update j (localOf a) _)) (ih j)
     ... | no  j≢i  = subst NoBothInFlight (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) _)) (ih i)
     nbStep (signCorrupt _) ih i = ih i
@@ -1091,7 +1091,7 @@ versionDisciplineˢ sys (step {s} r tr) = vdStep tr (versionDisciplineˢ s r)
     vdStep : ∀ {a b} → a ⟶ˢ b
            → (∀ i → VersionDiscipline (lookup (localOf a) i))
            → ∀ i → VersionDiscipline (lookup (localOf b) i)
-    vdStep {a} (signHonest {i = j} _ _ _ _ _ _) ih i with j FinP.≟ i
+    vdStep {a} (signHonest {i = j} _ _ _ _ _ _ _ _) ih i with j FinP.≟ i
     ... | yes refl = subst VersionDiscipline (sym (lookup∘update j (localOf a) _)) (ih j)
     ... | no  j≢i  = subst VersionDiscipline (sym (lookup∘update′ (λ e → j≢i (sym e)) (localOf a) _)) (ih i)
     vdStep (signCorrupt _) ih i = ih i

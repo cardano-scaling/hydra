@@ -36,14 +36,16 @@ if false then _ else y = y
 
 -- The §6 `tick` deposit-status decision for one deposit object, as a pure function of times (all
 -- POSIXTime; Nat truncated subtraction, matching the on-chain Reference's time arithmetic):
---   on (tick, t):  if  t > deadline − T_deposit   then Expired
---                  else if t > created + T_deposit then Active
---                  else Inactive (unchanged)
+--   on (tick, t):  if  t > deadline − T_deposit     then Expired
+--                  else if t > created + T_activate then Active
+--                  else Inactive
+-- T_deposit (expiry) and T_activate (activation) are the node's `depositPeriod` and
+-- `depositActivation`, which are configured independently, so they are separate arguments here.
 -- (`_<_`/`_-_`/`_+_` are the `Agda.Builtin.Nat` Bool-valued / arithmetic builtins; `t > x` is `x < t`.)
-depositStatusRef : Nat → Nat → Nat → Nat → DepositStatusᶜ
-depositStatusRef created deadline tDeposit t =
+depositStatusRef : Nat → Nat → Nat → Nat → Nat → DepositStatusᶜ
+depositStatusRef created deadline tDeposit tActivation t =
   if (deadline - tDeposit) < t then expiredᶜ
-  else if (created + tDeposit) < t then activeᶜ
+  else if (created + tActivation) < t then activeᶜ
   else inactiveᶜ
 
 infixr 6 _&&_
@@ -120,7 +122,13 @@ modSuc : Nat → Nat → Nat   -- modSuc a b = a mod (suc b), via the Agda.Built
 modSuc a b = mod-helper 0 b a b
 
 -- Round-robin leader, matching the node's `isLeader` (HeadLogic.hs): for `suc m` parties and snapshot
--- number sn, the party at 0-based index i is the leader iff (sn - 1) mod (suc m) == i. Only meaningful
--- for sn ≥ 1; the differential against the REAL `isLeader` exercises that domain.
+-- number sn, the party at 0-based index i is the leader iff (sn - 1) mod (suc m) == i.
+--
+-- Written `(sn + m) mod (suc m)` rather than `(sn - 1) mod (suc m)` so it agrees with the node at
+-- EVERY sn, including 0. The node computes `(fromIntegral sn - 1) mod length parties` over signed
+-- Int, so at sn = 0 it asks for `(-1) mod n`, which Haskell returns as n - 1 = m; Agda's `_-_` on ℕ
+-- truncates to 0 instead, which would name party 0 and make the oracle confidently disagree with
+-- the implementation on a reachable input (a ReqSn can carry sn = 0). Adding m is the same residue
+-- as subtracting 1 for every sn ≥ 1, and yields m at sn = 0.
 leaderRef : Nat → Nat → Nat → Bool   -- (m where #parties = suc m, sn, party index i)
-leaderRef m sn i = modSuc (sn - 1) m == i
+leaderRef m sn i = modSuc (sn + m) m == i

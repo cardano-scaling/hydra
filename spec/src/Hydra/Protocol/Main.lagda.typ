@@ -143,7 +143,7 @@ The trust base, in five families:
 
 - *Ledger and crypto primitives* (the typecheck-only `Prelude`, postulates):
   `hash`, `bytes`/`concat`, the multisignature verifier `msVfy`, the `Value`
-  algebra (`_+ᵛ_`/`_≤ᵛ_`/`εᵛ` with commutative-monoid and order laws) and its
+  algebra (`_+ᵛ_`/`εᵛ` with the associativity and identity laws the proofs use) and its
   projections (`adaOf`, `nonAdaOf`, `quantityOf`, `stQty`, `headTokenCount`);
   the off-chain ledger `applyTxs` with its nil and compositionality laws (@sec:offchain).
 - *Accumulator laws* (@sec:on-chain): `accUTxO`/`accVerify`/`accVerifyExclude`

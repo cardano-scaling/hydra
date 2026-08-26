@@ -63,7 +63,7 @@ closeValid→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
   record { step = close ; deadlineOK = dl ; initialOK = (v≡0 , s≡0 , _) ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
-   (&&-intro (==ᵇ-refl cp)
+   (&&-intro (==-refl cp)
    (&&-intro refl
    (&&-intro (&&-intro (≡→==ᵇ v≡0) (≡→==ᵇ s≡0))
    (&&-intro refl
@@ -72,7 +72,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η# δ# κ#)
   record { step = close ; deadlineOK = dl ; anyOK = anyOK ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
-   (&&-intro (==ᵇ-refl cp)
+   (&&-intro (==-refl cp)
    (&&-intro refl
    (&&-intro refl
    (&&-intro (<→<ᵇ anyOK)
@@ -81,7 +81,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η# δ#
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η# δ# κ#)
   record { step = close ; deadlineOK = dl ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
-   (&&-intro (==ᵇ-refl cp)
+   (&&-intro (==-refl cp)
    (&&-intro refl
    (&&-intro refl
    (&&-intro refl
@@ -90,7 +90,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η# 
 closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η# δ# κ#)
   record { step = close ; deadlineOK = dl ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
-   (&&-intro (==ᵇ-refl cp)
+   (&&-intro (==-refl cp)
    (&&-intro refl
    (&&-intro refl
    (&&-intro refl
@@ -500,7 +500,7 @@ initSeedSpent→ref ctx seed cid hk n cp v η ada b = refSpent→ref ctx seed (I
 -- participant-signature checker at once. The other validators compose identically
 -- (each `*Valid` discharges its core `*Refᵇ` plus the pulled-out conjuncts via the lemmas above). This is
 -- the `spec-bundle ⇒ extracted-reference` half; it is joined to the `extracted-reference === real-validator`
--- differential (Hydra.Tx.Contract.HeadValidatorAgreement) at the SHARED extracted Reference module — the
+-- differential (Hydra.Tx.Contract.HeadValidatorAgreement) at the SHARED extracted Reference module: the
 -- single ANDed end-to-end property there checks that join across every validator family.
 closeChainInitial→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin
   → (b : closeValid ctx (Open cid hk n cp v η ada) (Closed cid hk n cp v s′ η′ C tfin ada) closeInitial)
