@@ -146,7 +146,16 @@ Consequently, the $mtxInit$ transaction
   - $Tcontest$ is the contestation period,
   - $v = 0$ is the initial snapshot version,
   - $eta = accUTxO(emptyset)$ is the accumulator commitment to the (empty) initial
-    UTxO set (its hash $eta^(\#) = hash(eta)$ is what later snapshot signatures attest to).
+    UTxO set (its hash $eta^(\#) = hash(eta)$ is what later snapshot signatures attest to),
+  - $adaO$ is the ADA overhead: the head-output lovelace that belongs to no
+    layer-two UTxO (the min-UTxO deposit), fixed here and preserved by every
+    subsequent transition (@sec:increment-tx–@sec:contest-tx).
+
+  The on-chain datum additionally carries the $seed$ output reference the policy
+  is parameterised by, which $muHead$'s datum check below binds ($seed = seed'$)
+  so that $cid = hash(muHead(seed))$ can be re-derived from the datum alone. The
+  Agda `Open` datum has no seed field, so that binding is one of the
+  hand-reviewed items listed at the end of this section.
 
 #block(inset: (left: 1em), {
   emph[Implementation note (datum representation).]
@@ -169,7 +178,10 @@ $sans("Burn")$ redeemer:
   + The seed output is spent in this transaction. This guarantees uniqueness of the policy $cid$ because the EUTxO ledger ensures that $seed$ cannot be spent twice in the same chain.
     $(seed, dot.c) in txInputs$
   + All minted tokens of this policy are of single quantity $forall {cid |-> dot.c |-> q} in txMint : q = 1$. (The policy counts only its own currency and enforces unit quantities indirectly, via the head-output checks below; $txMint$ entries of _other_ policies are not constrained by $muHead$ - they validate themselves.)
-  + Right number of tokens are minted $|txMint| = |hydraKeys| + 1$
+  + Right number of tokens of _this_ policy are minted
+    $|{cid |-> dot.c |-> q} in txMint| = |hydraKeys| + 1$
+    (one $st$ plus one $pt$ per member; as above, entries of other policies are
+    outside $muHead$'s count)
   + State token is sent to the head validator $st in valHead$
   + All participation tokens are sent to the head output alongside the state token $forall i in [1 dots.h |hydraKeys|] : pt_i in valHead$
   + The $datum_(sans("head"))$ contains own currency id $cid = cid'$ and the right seed reference $seed = seed'$
@@ -339,7 +351,7 @@ $txOutRef_(sans("deposit"))$ points to the claimed deposit and $delta^(\#)$ is
 the hash of the snapshot's decommit output set. The validator
 checks:
 + State is advanced from $datumHead tilde stOpen$ to
-  $datumHead' tilde stOpen$, parameters $cid, hydraKeys, Tcontest$
+  $datumHead' tilde stOpen$, parameters $cid, hydraKeys, nop, Tcontest$
   stay unchanged and the new state is governed again by $nuHead$:
   #transition-arrow("increment")
   (the `increment` rule of `_⟶⟨_⟩_`; the version is bumped, $v |-> v + 1$).
@@ -470,7 +482,7 @@ $cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)$ and
 recorded in the datum, rather than being separate redeemer fields.) The
 transaction checks:
 + State is advanced from $datumHead tilde stOpen$ to
-  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, Tcontest$
+  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, nop, Tcontest$
   stay unchanged and the new state is governed again by $nuHead$
   #transition-arrow("close")
   (the `close` rule of `_⟶⟨_⟩_`; the version is preserved, $v' = v$).
@@ -552,7 +564,7 @@ The state-machine validator $nuHead$ is spent with
 $redeemerHead = (sans("contest"), sans("ContestType"))$, where
 $sans("ContestType")$ is a hint how to verify the snapshot and checks:
 + State is advanced from $datumHead tilde stClosed$ to
-  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, Tcontest$
+  $datumHead' tilde stClosed$, parameters $cid, hydraKeys, nop, Tcontest$
   stay unchanged and the new state is governed again by $nuHead$
   #transition-arrow("contest")
   (the `contest` rule of `_⟶⟨_⟩_`; the version is preserved and the contester set

@@ -259,10 +259,14 @@ $(hpRS,v,s,underline(tx)_(sans("req")), tx_alpha, tx_omega)$#footnote[Snapshot
 requests with only transaction identifiers and output references are possible
 if all parties keep an index of previously seen transactions and their
 identifiers.] from party $party_j$, the receiving $party_i$ #kw("require")s that
-only a deposit or decommit may be pending, and that $v$ refers to the current
-open state version, $s$ is the next snapshot number and that party $party_j$ is
-responsible for leading its creation. Party $party_i$ may have to wait until
-the previous snapshot is confirmed ($macron(cal(S)).s = hat(s)$).
+only a deposit or decommit may be pending, that $s$ is the next snapshot number
+and that party $party_j$ is responsible for leading its creation. Party
+$party_i$ may have to #kw("wait") until the previous snapshot is confirmed
+($macron(cal(S)).s = hat(s)$) and until $v$ refers to the current open state
+version. The version check is a #kw("wait"), not a #kw("require"): a follower
+can receive the request for a bumped version before its own chain handler has
+observed the transaction that bumped it, so a mismatch parks the request until
+the versions agree instead of aborting the routine.
 Furthermore, the protocol validates the snapshot request by:
 + If a decommit is requested: verify the transaction is applicable to the
   last confirmed UTxO set and update the active utxo set with it
