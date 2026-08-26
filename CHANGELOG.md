@@ -223,7 +223,7 @@ changes.
   solvency invariant is machine-checked on top: the head output's value covers
   the accumulator-committed UTxO set's L1-originating value across
   init/increment/decrement/close/contest, and fanout can only distribute
-  committed outputs — the proof's increment case consumes the deposit-identity
+  committed outputs; the proof's increment case consumes the deposit-identity
   binding, so weakening it fails the spec build.
 
 - CI now gates validator reject-path coverage: `checks.error-codes` verifies

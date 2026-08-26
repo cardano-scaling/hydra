@@ -14,27 +14,39 @@
 #      delete it instead (see the H15-H20/H40/H54 cleanup for precedent);
 #   2. the Aiken codes and their Haskell mirror (Hydra.Contract.DepositError) agree;
 #   3. the code appears in the ledger below with an accurate status:
-#        tested          - some test source references the constructor (mutation
-#                          corpus, contract test or agreement layer); verified by grep
+#        tested          - a test ASSERTS this code, i.e. some test source applies
+#                          `toErrorCode` to the constructor. That is the mutation
+#                          framework's expected-error form, and the only one in use
+#                          (229 occurrences; no test names a code any other way).
 #        untested:<tag>  - a documented exclusion, printed as visible debt; if a test
-#                          starts referencing the constructor this FAILS so the row is
-#                          promoted to tested and the debt list stays accurate.
-# A new error code therefore cannot ship without either a test referencing it or an
+#                          starts asserting the code this FAILS so the row is promoted
+#                          to tested and the debt list stays accurate.
+# A new error code therefore cannot ship without either a test asserting it or an
 # explicit, reviewed exclusion here.
 #
-# Exclusion tags:
-#   catch-all         - a dispatcher/fallback arm, unreachable by a single mutation
-#   datum-plumbing    - malformed datum shapes the mutation corpus does not construct
-#   context-plumbing  - malformed script-context shapes (missing head input, missing
-#                       redeemer entry, ...)
-#   validity-plumbing - missing validity-bound arms (the finite/infinite bound cases
-#                       ARE tested where they guard protocol logic)
-#   crs-plumbing      - missing CRS reference-input/datum arms (the content binding is
-#                       tested: InvalidCRSDatum)
-#   variant-gap       - a genuine coverage gap worth a test; candidates for follow-up
+# The evidence has to be `toErrorCode <Name>` and not the bare constructor name,
+# because a bare-name grep counts prose. Both directions were wrong: H43 claimed
+# "tested" on the strength of a comment saying its check is *subsumed* by an earlier
+# one (i.e. the opposite of coverage), and a TODO or a prop description mentioning an
+# EXCLUDED code failed the check, demanding a promotion no test had earned.
 #
-# NB grep-based "tested" is a necessary condition, not proof the test is meaningful -
-# the ledger keeps the coverage question visible and reviewed, it does not answer it.
+# Exclusion tags:
+#   catch-all          - a dispatcher/fallback arm, unreachable by a single mutation
+#   datum-plumbing     - malformed datum shapes the mutation corpus does not construct
+#   context-plumbing   - malformed script-context shapes (missing head input, missing
+#                        redeemer entry, ...)
+#   validity-plumbing  - missing validity-bound arms (the finite/infinite bound cases
+#                        ARE tested where they guard protocol logic)
+#   crs-plumbing       - missing CRS reference-input/datum arms (the content binding is
+#                        tested: InvalidCRSDatum)
+#   variant-gap        - a genuine coverage gap worth a test; candidates for follow-up
+#   code-not-asserted  - a test does exercise the reject path, but nothing pins WHICH
+#                        code it raised, so the coverage cannot be attributed here
+#   unreachable        - an earlier conjunct subsumes this one, so no input can reach
+#                        it; a deletion candidate, kept visible rather than claimed
+#
+# NB even a strict "tested" is a necessary condition, not proof the test is meaningful.
+# The ledger keeps the coverage question visible and reviewed; it does not answer it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -90,7 +102,7 @@ H38 FailedContestUsed untested:variant-gap
 H39 FanoutUTxOHashMismatch tested
 H41 LowerBoundBeforeContestationDeadline tested
 H42 FanoutNoLowerBoundDefined untested:validity-plumbing
-H43 DepositNotSpent tested
+H43 DepositNotSpent untested:unreachable
 H44 DepositInputNotFound tested
 H45 HeadInputNotFound untested:context-plumbing
 H46 FailedCloseAny tested
@@ -106,7 +118,7 @@ H62 FinalPartialFanoutZeroOutputs tested
 H63 PartialFanoutZeroOutputs tested
 H64 PartialFanoutCannotBeLastBatch tested
 H65 ChangedHeadAdaOverhead tested
-H67 DepositDatumInvalid tested
+H67 DepositDatumInvalid untested:code-not-asserted
 H68 InvalidCRSDatum tested
 H69 DepositNotFirstOutput tested
 H70 DecrementZeroOutputs tested
@@ -146,7 +158,27 @@ if [ "$actual" != "$expected" ]; then
   fail=1
 fi
 
-# 4. Every code is raised somewhere; 5. ledger statuses are accurate.
+# 4. Exclusion tags come from the documented vocabulary above: a typo'd tag would
+# otherwise pass as a reviewed exclusion and drop the row out of the debt report.
+KNOWN_TAGS="catch-all datum-plumbing context-plumbing validity-plumbing crs-plumbing variant-gap code-not-asserted unreachable"
+while read -r code name status; do
+  case "$status" in
+    tested) ;;
+    untested:*)
+      tag=${status#untested:}
+      if ! printf '%s\n' $KNOWN_TAGS | grep -qxF -- "$tag"; then
+        echo "check-error-codes: $code $name has unknown exclusion tag '$tag' (known: $KNOWN_TAGS)."
+        fail=1
+      fi
+      ;;
+    *)
+      echo "check-error-codes: $code $name has unrecognised status '$status' (want 'tested' or 'untested:<tag>')."
+      fail=1
+      ;;
+  esac
+done <<< "$ledger"
+
+# 5. Every code is raised somewhere; 6. ledger statuses are accurate.
 untested_report=""
 while read -r code name status; do
   case "$code" in
@@ -163,14 +195,14 @@ while read -r code name status; do
       fi
       ;;
   esac
-  if grep -rqw --include='*.hs' "$name" "${TEST_DIRS[@]}"; then
+  if grep -rqE --include='*.hs' "toErrorCode[[:space:]]*\(?[[:space:]]*$name\b" "${TEST_DIRS[@]}"; then
     if [ "$status" != tested ]; then
-      echo "check-error-codes: $code $name is referenced by tests but the ledger says '$status': promote it to 'tested'."
+      echo "check-error-codes: $code $name is asserted by a test but the ledger says '$status': promote it to 'tested'."
       fail=1
     fi
   else
     if [ "$status" = tested ]; then
-      echo "check-error-codes: $code $name claims 'tested' but no test source references it: add a test or record an exclusion."
+      echo "check-error-codes: $code $name claims 'tested' but no test asserts it (no 'toErrorCode $name'): add a test or record an exclusion."
       fail=1
     fi
     untested_report+="  $code $name (${status#untested:})"$'\n'
@@ -183,5 +215,5 @@ fi
 
 total=$(echo "$ledger" | wc -l)
 untested=$(printf '%s' "$untested_report" | grep -c . || true)
-echo "check-error-codes: OK — $total codes, $((total - untested)) referenced by tests, $untested documented exclusions:"
+echo "check-error-codes: OK: $total codes, $((total - untested)) asserted by tests, $untested documented exclusions:"
 printf '%s' "$untested_report"

@@ -208,6 +208,17 @@ Certification enters through the derived `*-certified` step forms inside
 `Invariant` below, which consume a `Certified` certificate through the named
 `honest-certified` assumption instead of taking the honest facts on faith.
 
+Which transitions the relation reaches is a real limit on what the theorem
+says, and nothing about adding a transition to @sec:on-chain forces a step to
+be added here - the theorem would simply say less. So the correspondence is
+enumerated and gated rather than left to inspection: `check-trust-ledger.sh`
+fails unless every `*Valid` bundle declared in @sec:on-chain is either
+consumed by a step below or listed there with the reason it is out of reach.
+Six of the twelve are consumed; the batched fan-out arms are out because value
+leaves the head across several transactions, which the single-step shape does
+not express, and the νDeposit arms because they govern the deposit UTxO rather
+than the head output whose value this invariant tracks.
+
 ```agda
 data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set where
   s-init : ∀ {ctx seed cid n cp v η ada}
@@ -223,8 +234,6 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → Snapshot.etaHash snap ≡ hash η'                          -- unforgeability: η# is the signed one
     → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref  -- unforgeability: κ# is the signed one
     → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
-    → OC.depositsValue ctx ≡ OC.depositValueAt ctx ref         -- single claimed deposit (validator's
-                                                               -- mustNotSpendOtherScripts / deposit.ak D09)
     → OutputRef.txId ref ≢ noTxId                              -- a spent out-ref's tx id is real (ledger)
     → ObservedDeposit ctx (HonestFacts.shape hf)
     → IncCoherent U (HonestFacts.committed hf) (HonestFacts.shape hf)
@@ -309,10 +318,16 @@ decommitValue-take ctx m       | _ ∷ os = takeSumᵛ-take m os
 The invariant. The increment case is where the deposit-binding fix is
 consumed: the digest equality inverts (`κ#-pair-inj`) _only because_
 `depositCommitsHashOf` binds the transaction id, the first-output rule pins
-the claimed out-ref to the observed deposit output, and the
-single-claimed-deposit hypothesis equates the absorbed value with that one
+the claimed out-ref to the observed deposit output, and
+`IncrementValid.onlyClaimedDeposit` equates the absorbed value with that one
 deposit's. Under the pre-fix digest the chain from "the signature verifies"
-to "the head absorbed the recorded value" breaks at the first link. The
+to "the head absorbed the recorded value" breaks at the first link.
+
+All three of those are _fields of the validity bundle_ the step already
+takes, not hypotheses this relation grants itself. That is what makes the
+dependency load-bearing rather than asserted: drop the anti-siphon conjunct
+from `IncrementValid`, or weaken `depositCommitsHashOf` back to hashing the
+datum alone, and this proof stops typechecking. The
 decrement case consumes `decommitNonEmpty` and the pending-shape sum: an
 increment-shaped snapshot presented to a decrement forces the materialized
 output list to hash like the empty list, contradicting the at-least-one rule.
@@ -339,7 +354,7 @@ module Invariant {sys : System} (H : Assumptions sys) where
     OC.InitValid.etaEmpty iv ,
     sym (trans (cong (r₀ +ᵛ_) sumValue-∅) (+ᵛ-identityʳ r₀))
 
-  solvency {r₀ = r₀} (s-inc {ctx = ctx} {ref = ref} {U = U} {w = w} r b hf ηEq κEq chain single realId obs valCo)
+  solvency {r₀ = r₀} (s-inc {ctx = ctx} {ref = ref} {U = U} {w = w} r b hf ηEq κEq chain realId obs valCo)
     with HonestFacts.shape hf | solvency r
   ... | pendingCommit cHash depId incVal comCo _ _ | (_ , ih) =
     η#-inj (trans (sym ηEq) (HonestFacts.ηCoheres hf)) ,
@@ -351,7 +366,8 @@ module Invariant {sys : System} (H : Assumptions sys) where
     refIs : OutputRef.txId ref ≡ depId
     refIs = sym (κ#-pair-inj (trans (sym comCo) κEq))
     absorbed : OC.depositsValue ctx ≡ incVal
-    absorbed = trans single (obs ref refIs (OC.IncrementValid.depositFirstOutput b))
+    absorbed = trans (OC.IncrementValid.onlyClaimedDeposit b)
+                     (obs ref refIs (OC.IncrementValid.depositFirstOutput b))
     stepVal : OC.headValue ctx ≡ w +ᵛ incVal
     stepVal = trans (sym (OC.IncrementValid.valueOK b)) (cong₂ _+ᵛ_ chain absorbed)
   ... | pendingDecommit _ _ comCo | _ =
@@ -420,7 +436,6 @@ relation through a certificate, never through free-floating honest facts.
     → Snapshot.etaHash snap ≡ hash η'
     → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref
     → OC.headValueIn ctx ≡ w
-    → OC.depositsValue ctx ≡ OC.depositValueAt ctx ref
     → OutputRef.txId ref ≢ noTxId
     → ObservedDeposit ctx (HonestFacts.shape (honest-certified cert))
     → IncCoherent U (HonestFacts.committed (honest-certified cert))
@@ -443,8 +458,8 @@ relation through a certificate, never through free-floating honest facts.
 ```
 
 ```
-  s-inc-certified r b cert ηEq κEq chain single realId obs valCo =
-    s-inc r b (honest-certified cert) ηEq κEq chain single realId obs valCo
+  s-inc-certified r b cert ηEq κEq chain realId obs valCo =
+    s-inc r b (honest-certified cert) ηEq κEq chain realId obs valCo
 
   s-dec-certified r b cert ηEq δEq chain valCo =
     s-dec r b (honest-certified cert) ηEq δEq chain valCo
