@@ -84,6 +84,22 @@
         fileset = lib.fileset.unions [ ../../spec ../../hydra-agda ];
       };
 
+      # Just what check-error-codes.sh reads: the validators that raise the codes, the test trees it
+      # searches for `toErrorCode` assertions, and the script itself. Scoped for the same reason
+      # again; the check is only seconds long, but with `${self}` those seconds were spent on every
+      # commit to the repository rather than on the commits that could change the answer.
+      errorCodesSrc = lib.fileset.toSource {
+        root = ../..;
+        fileset = lib.fileset.unions [
+          ../../spec/check-error-codes.sh
+          ../../hydra-plutus/src
+          ../../hydra-plutus/validators
+          ../../hydra-plutus/test
+          ../../hydra-tx/test
+          ../../hydra-node/test
+        ];
+      };
+
       # The Agda typecheck + lints + Typst render, WITHOUT the notation-tooltip postprocess
       # (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal: consume
       # packages.spec, which adds the tooltips.
@@ -206,7 +222,7 @@
       # validator and test trees, which the spec derivation's src (spec/ only)
       # does not contain.
       checks.error-codes = pkgs.runCommand "error-codes" { } ''
-        cd ${self}
+        cd ${errorCodesSrc}
         bash spec/check-error-codes.sh
         touch $out
       '';
