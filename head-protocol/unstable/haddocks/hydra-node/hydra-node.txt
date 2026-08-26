@@ -1639,6 +1639,11 @@ Envelope :: UTCTime -> Int -> Text -> a -> Envelope a
 [$sel:namespace:Envelope] :: Envelope a -> Text
 [$sel:message:Envelope] :: Envelope a -> a
 
+-- | Buffering used for log output. The writer batches whatever the queue
+--   holds and flushes each batch, so this bounds the syscalls rather than
+--   the latency.
+defaultLogBuffering :: BufferMode
+
 -- | Start logging thread and acquire a <a>Tracer</a>. This tracer will
 --   dump all messages on <tt>stdout</tt>, one message per line, formatted
 --   as JSON. This tracer is wrapping <tt>msg</tt> into an <a>Envelope</a>
@@ -5917,6 +5922,12 @@ EnteringMainloop :: HydraLog tx
 NodeHydrated :: HydraLog tx
 ChainBackendStarted :: HydraLog tx
 NetworkStarted :: HydraLog tx
+
+-- | Emitted either side of forcing the embedded KZG trusted setup, the one
+--   startup step with no bound on how long it takes.
+LoadingTrustedSetup :: HydraLog tx
+TrustedSetupLoaded :: Int -> HydraLog tx
+[$sel:numG1Points:DirectChain] :: HydraLog tx -> Int
 instance GHC.Generics.Generic (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx) => GHC.Classes.Eq (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Show.Show (Hydra.Node.HydraNodeLog tx) => GHC.Show.Show (Hydra.Logging.Messages.HydraLog tx)
@@ -5955,6 +5966,7 @@ module Hydra.Node.Run
 data ConfigurationException
 ConfigurationException :: ProtocolParametersConversionError -> ConfigurationException
 InvalidOptionException :: InvalidOptions -> ConfigurationException
+TrustedSetupException :: KZGSetupError -> ConfigurationException
 run :: RunOptions -> IO ()
 getGlobalsForChain :: ChainConfig -> IO Globals
 data GlobalsTranslationException

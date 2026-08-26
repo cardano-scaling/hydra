@@ -357,6 +357,24 @@ InvalidG1Point :: Text -> KZGSetupError
 InvalidG2Point :: Text -> KZGSetupError
 [hexPoint] :: KZGSetupError -> Text
 
+-- | Force the whole embedded trusted setup into memory, yielding the
+--   number of G1 points loaded.
+--   
+--   Both halves are forced: the G1 CRS the off-chain commitment path
+--   consumes, and the G2 CRS behind <a>canonicalG2Points</a>, which the
+--   head validator binds. A caller gets a corrupt setup as a <a>Left</a>
+--   here rather than as the <a>error</a> those two would otherwise raise
+--   from pure code, mid-session.
+--   
+--   The forcing lives in this module on purpose. <a>g1Points</a> currently
+--   decompresses every point just to decide between <a>Left</a> and
+--   <a>Right</a>, so any <tt>WHNF</tt> happens to do the work — but that
+--   is a property of the representation, not a promise. Should either list
+--   become a lazy structure, this is the one place obliged to keep
+--   forcing, rather than a caller's <a>length</a> silently degenerating
+--   into a spine walk.
+warmup :: Either KZGSetupError Int
+
 -- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony
 --   (monomial form). 4096 points; used off-chain to build accumulator
 --   commitments and membership proofs.

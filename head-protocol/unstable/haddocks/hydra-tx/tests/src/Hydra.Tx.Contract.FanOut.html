@@ -1,4 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679472941"><span id="local-6989586621679472942"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679472943"><span id="local-6989586621679472944"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
 </span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-orphans #-}</span><span>
 </span><span id="line-3"></span><span>
 </span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Contract.FanOut</span><span> </span><span class="hs-keyword">where</span><span>
@@ -51,24 +51,24 @@ forall a. Gen a -&gt; Int -&gt; a
 </span><span id="line-46"></span><span id="healthyFanoutTx"><span class="annot"><span class="annottext">healthyFanoutTx :: (Tx, UTxO Era)
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutTx"><span class="hs-identifier hs-var hs-var">healthyFanoutTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473169"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473170"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473171"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679473172"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-49"></span><span>  </span><span id="local-6989586621679473170"><span class="annot"><span class="annottext">lookupUTxO :: UTxO Era
-</span><a href="#local-6989586621679473170"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-49"></span><span>  </span><span id="local-6989586621679473172"><span class="annot"><span class="annottext">lookupUTxO :: UTxO Era
+</span><a href="#local-6989586621679473172"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; UTxO Era
 forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473172"><span class="hs-identifier hs-var">headInput</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473173"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
+</span><a href="#local-6989586621679473174"><span class="hs-identifier hs-var">headInput</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473175"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
 </span><span id="line-51"></span><span>      </span><span class="annot"><span class="annottext">UTxO Era -&gt; UTxO Era -&gt; UTxO Era
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO Era
 </span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
 </span><a href="Hydra.Tx.Contract.FanOut.html#scriptRegistry"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
 </span><span id="line-52"></span><span>
-</span><span id="line-53"></span><span>  </span><span id="local-6989586621679473169"><span class="annot"><span class="annottext">tx :: Tx
-</span><a href="#local-6989586621679473169"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621679473171"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679473171"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">Tx -&gt; Either Text Tx -&gt; Tx
 forall b a. b -&gt; Either a b -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#fromRight"><span class="hs-identifier hs-var">fromRight</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Tx
@@ -107,28 +107,28 @@ forall a b. (a, b) -&gt; b
 </span><span id="line-60"></span><span>        </span><span class="annot"><span class="annottext">UTxO Era
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutUTxO"><span class="hs-identifier hs-var">healthyFanoutUTxO</span></a></span><span>
 </span><span id="line-61"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473172"><span class="hs-identifier hs-var">headInput</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473173"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473174"><span class="hs-identifier hs-var">headInput</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473175"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-62"></span><span>        </span><span class="annot"><span class="annottext">SlotNo
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span>
 </span><span id="line-63"></span><span>        </span><span class="annot"><span class="annottext">PlutusScript
-</span><a href="#local-6989586621679473181"><span class="hs-identifier hs-var">headTokenScript</span></a></span><span>
+</span><a href="#local-6989586621679473183"><span class="hs-identifier hs-var">headTokenScript</span></a></span><span>
 </span><span id="line-64"></span><span>
-</span><span id="line-65"></span><span>  </span><span id="local-6989586621679473172"><span class="annot"><span class="annottext">headInput :: TxIn
-</span><a href="#local-6989586621679473172"><span class="hs-identifier hs-var hs-var">headInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; Int -&gt; TxIn
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679473174"><span class="annot"><span class="annottext">headInput :: TxIn
+</span><a href="#local-6989586621679473174"><span class="hs-identifier hs-var hs-var">headInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; Int -&gt; TxIn
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="annot"><span class="annottext">Gen TxIn
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span>
 </span><span id="line-66"></span><span>
-</span><span id="line-67"></span><span>  </span><span id="local-6989586621679473181"><span class="annot"><span class="annottext">headTokenScript :: PlutusScript
-</span><a href="#local-6989586621679473181"><span class="hs-identifier hs-var hs-var">headTokenScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621679473183"><span class="annot"><span class="annottext">headTokenScript :: PlutusScript
+</span><a href="#local-6989586621679473183"><span class="hs-identifier hs-var hs-var">headTokenScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
 </span><span class="hs-identifier hs-var">mkHeadTokenScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
 </span><span class="hs-identifier hs-var">testSeedInput</span></span><span>
 </span><span id="line-68"></span><span>
-</span><span id="line-69"></span><span>  </span><span id="local-6989586621679473173"><span class="annot"><span class="annottext">headOutput :: TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473173"><span class="hs-identifier hs-var hs-var">headOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679473175"><span class="annot"><span class="annottext">headOutput :: TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473175"><span class="hs-identifier hs-var hs-var">headOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
 forall era ctx.
 IsMaryBasedEra era =&gt;
@@ -171,12 +171,12 @@ a -&gt; TxOutDatum ctx era
 </span><span id="line-82"></span><span>  </span><span class="annot"><span class="annottext">Mutation -&gt; (Tx, UTxO Era) -&gt; (Tx, UTxO Era)
 </span><span class="hs-identifier hs-var">applyMutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; Mutation
 </span><span class="hs-identifier hs-var">AppendOutput</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473200"><span class="hs-identifier hs-var">walletChangeOutput</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO Era)
+</span><a href="#local-6989586621679473202"><span class="hs-identifier hs-var">walletChangeOutput</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO Era)
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutTx"><span class="hs-identifier hs-var">healthyFanoutTx</span></a></span><span>
 </span><span id="line-83"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-84"></span><span>  </span><span class="annot"><a href="#local-6989586621679473200"><span class="hs-identifier hs-type">walletChangeOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679473200"><span class="annot"><span class="annottext">walletChangeOutput :: TxOut CtxTx
-</span><a href="#local-6989586621679473200"><span class="hs-identifier hs-var hs-var">walletChangeOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><a href="#local-6989586621679473202"><span class="hs-identifier hs-type">walletChangeOutput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679473202"><span class="annot"><span class="annottext">walletChangeOutput :: TxOut CtxTx
+</span><a href="#local-6989586621679473202"><span class="hs-identifier hs-var hs-var">walletChangeOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx
 forall ctx.
@@ -189,7 +189,7 @@ IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679473203"><span class="hs-identifier hs-var">walletVk</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473205"><span class="hs-identifier hs-var">walletVk</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-88"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Lovelace
 </span><span class="hs-number">2_000_000</span></span><span class="hs-special">)</span><span>
@@ -198,8 +198,8 @@ forall ctx. TxOutDatum ctx
 </span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
 </span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript
 </span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
-</span><span id="line-91"></span><span>  </span><span id="local-6989586621679473203"><span class="annot"><span class="annottext">walletVk :: VerificationKey PaymentKey
-</span><a href="#local-6989586621679473203"><span class="hs-identifier hs-var hs-var">walletVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621679473205"><span class="annot"><span class="annottext">walletVk :: VerificationKey PaymentKey
+</span><a href="#local-6989586621679473205"><span class="hs-identifier hs-var hs-var">walletVk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
 -&gt; Int -&gt; VerificationKey PaymentKey
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
@@ -220,11 +220,11 @@ forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Gen (UTxO Era)
 </span><span class="hs-identifier hs-var">genUTxOWithSimplifiedAddresses</span></span><span> </span><span class="annot"><span class="annottext">Gen (UTxO Era) -&gt; (UTxO Era -&gt; Bool) -&gt; Gen (UTxO Era)
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
-</span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679473208"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473208"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Int
+</span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679473210"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679473210"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Int
 forall era. UTxO era -&gt; Int
 </span><span class="hs-identifier hs-var">UTxO.size</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473208"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679473210"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
@@ -312,7 +312,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyContestationDeadline"><span class="hs-identifier hs-var">healthyContestationDeadline</span></a></span><span>
 </span><span id="line-122"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:ClosedDatum :: ContestationPeriod
 </span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621679473223"><span class="hs-identifier hs-var">healthyContestationPeriod</span></a></span><span>
+</span><a href="#local-6989586621679473225"><span class="hs-identifier hs-var">healthyContestationPeriod</span></a></span><span>
 </span><span id="line-123"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:depositPeriod:ClosedDatum :: DepositPeriod
 </span><span class="hs-identifier hs-var">depositPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositPeriod -&gt; DepositPeriod
 </span><span class="hs-identifier hs-var">DP.toChain</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
@@ -336,19 +336,19 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-130"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-131"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-132"></span><span>  </span><span id="local-6989586621679473234"><span class="annot"><span class="annottext">healthyContestationPeriodSeconds :: Integer
-</span><a href="#local-6989586621679473234"><span class="hs-identifier hs-var hs-var">healthyContestationPeriodSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span id="line-132"></span><span>  </span><span id="local-6989586621679473236"><span class="annot"><span class="annottext">healthyContestationPeriodSeconds :: Integer
+</span><a href="#local-6989586621679473236"><span class="hs-identifier hs-var hs-var">healthyContestationPeriodSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">10</span></span><span>
 </span><span id="line-133"></span><span>
-</span><span id="line-134"></span><span>  </span><span id="local-6989586621679473223"><span class="annot"><span class="annottext">healthyContestationPeriod :: ContestationPeriod
-</span><a href="#local-6989586621679473223"><span class="hs-identifier hs-var hs-var">healthyContestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ContestationPeriod
+</span><span id="line-134"></span><span>  </span><span id="local-6989586621679473225"><span class="annot"><span class="annottext">healthyContestationPeriod :: ContestationPeriod
+</span><a href="#local-6989586621679473225"><span class="hs-identifier hs-var hs-var">healthyContestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ContestationPeriod
 </span><span class="hs-identifier hs-var">OnChain.contestationPeriodFromDiffTime</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; ContestationPeriod)
 -&gt; NominalDiffTime -&gt; ContestationPeriod
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; NominalDiffTime
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679473234"><span class="hs-identifier hs-var">healthyContestationPeriodSeconds</span></a></span><span>
+</span><a href="#local-6989586621679473236"><span class="hs-identifier hs-var">healthyContestationPeriodSeconds</span></a></span><span>
 </span><span id="line-135"></span><span>
 </span><span id="line-136"></span><span class="annot"><a href="Hydra.Tx.Contract.FanOut.html#healthyParties"><span class="hs-identifier hs-type">healthyParties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span>
 </span><span id="line-137"></span><span id="healthyParties"><span class="annot"><span class="annottext">healthyParties :: [Party]
@@ -358,8 +358,8 @@ forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="annot"><span class="annottext">Gen Party
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473236"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679473236"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473236"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679473238"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679473238"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679473238"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">3</span></span><span class="hs-special">]</span><span>
 </span><span id="line-139"></span><span>  </span><span class="hs-special">]</span><span>
@@ -392,7 +392,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span id="line-157"></span><span>    </span><span class="hs-comment">-- A substituted powers-of-tau setup lets a crafted fanout forge membership</span><span>
 </span><span id="line-158"></span><span>    </span><span class="hs-comment">-- proofs and redirect funds, so the CRS datum content must be validated.</span><span>
 </span><span id="line-159"></span><span>    </span><span id="MutateFanoutNonCanonicalCRS"><span class="annot"><a href="Hydra.Tx.Contract.FanOut.html#MutateFanoutNonCanonicalCRS"><span class="hs-identifier hs-var">MutateFanoutNonCanonicalCRS</span></a></span></span><span>
-</span><span id="line-160"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473246"><span id="local-6989586621679473248"><span class="annot"><span class="annottext">(forall x. FanoutMutation -&gt; Rep FanoutMutation x)
+</span><span id="line-160"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473248"><span id="local-6989586621679473250"><span class="annot"><span class="annottext">(forall x. FanoutMutation -&gt; Rep FanoutMutation x)
 -&gt; (forall x. Rep FanoutMutation x -&gt; FanoutMutation)
 -&gt; Generic FanoutMutation
 forall x. Rep FanoutMutation x -&gt; FanoutMutation
@@ -403,7 +403,7 @@ $cfrom :: forall x. FanoutMutation -&gt; Rep FanoutMutation x
 from :: forall x. FanoutMutation -&gt; Rep FanoutMutation x
 $cto :: forall x. Rep FanoutMutation x -&gt; FanoutMutation
 to :: forall x. Rep FanoutMutation x -&gt; FanoutMutation
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473252"><span id="local-6989586621679473254"><span id="local-6989586621679473257"><span class="annot"><span class="annottext">Int -&gt; FanoutMutation -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473254"><span id="local-6989586621679473256"><span id="local-6989586621679473259"><span class="annot"><span class="annottext">Int -&gt; FanoutMutation -&gt; ShowS
 [FanoutMutation] -&gt; ShowS
 FanoutMutation -&gt; String
 (Int -&gt; FanoutMutation -&gt; ShowS)
@@ -418,7 +418,7 @@ $cshow :: FanoutMutation -&gt; String
 show :: FanoutMutation -&gt; String
 $cshowList :: [FanoutMutation] -&gt; ShowS
 showList :: [FanoutMutation] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473261"><span id="local-6989586621679473268"><span id="local-6989586621679473274"><span id="local-6989586621679473287"><span id="local-6989586621679473289"><span id="local-6989586621679473292"><span id="local-6989586621679473296"><span id="local-6989586621679473299"><span class="annot"><span class="annottext">Int -&gt; FanoutMutation
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473263"><span id="local-6989586621679473270"><span id="local-6989586621679473276"><span id="local-6989586621679473289"><span id="local-6989586621679473291"><span id="local-6989586621679473294"><span id="local-6989586621679473298"><span id="local-6989586621679473301"><span class="annot"><span class="annottext">Int -&gt; FanoutMutation
 FanoutMutation -&gt; Int
 FanoutMutation -&gt; [FanoutMutation]
 FanoutMutation -&gt; FanoutMutation
@@ -463,7 +463,7 @@ $cenumFromThenTo :: FanoutMutation
 -&gt; FanoutMutation -&gt; FanoutMutation -&gt; [FanoutMutation]
 enumFromThenTo :: FanoutMutation
 -&gt; FanoutMutation -&gt; FanoutMutation -&gt; [FanoutMutation]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473303"><span id="local-6989586621679473305"><span class="annot"><span class="annottext">FanoutMutation
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473305"><span id="local-6989586621679473307"><span class="annot"><span class="annottext">FanoutMutation
 FanoutMutation -&gt; FanoutMutation -&gt; Bounded FanoutMutation
 forall a. a -&gt; a -&gt; Bounded a
 $cminBound :: FanoutMutation
@@ -474,9 +474,9 @@ maxBound :: FanoutMutation
 </span><span id="line-161"></span><span>
 </span><span id="line-162"></span><span class="annot"><a href="Hydra.Tx.Contract.FanOut.html#genFanoutMutation"><span class="hs-identifier hs-type">genFanoutMutation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeMutation</span></span><span>
 </span><span id="line-163"></span><span id="genFanoutMutation"><span class="annot"><span class="annottext">genFanoutMutation :: (Tx, UTxO Era) -&gt; Gen SomeMutation
-</span><a href="Hydra.Tx.Contract.FanOut.html#genFanoutMutation"><span class="hs-identifier hs-var hs-var">genFanoutMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473308"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473308"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473309"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473309"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Contract.FanOut.html#genFanoutMutation"><span class="hs-identifier hs-var hs-var">genFanoutMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473310"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679473310"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473311"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679473311"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-164"></span><span>  </span><span class="annot"><span class="annottext">[Gen SomeMutation] -&gt; Gen SomeMutation
 forall a. HasCallStack =&gt; [Gen a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">oneof</span></span><span>
@@ -505,9 +505,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-167"></span><span>        </span><span id="local-6989586621679473314"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679473314"><span class="hs-identifier hs-var">lb</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Gen SlotNo
-</span><a href="#local-6989586621679473315"><span class="hs-identifier hs-var">genSlotBefore</span></a></span><span> </span><span class="annot"><span class="annottext">(SlotNo -&gt; Gen SlotNo) -&gt; SlotNo -&gt; Gen SlotNo
+</span><span id="line-167"></span><span>        </span><span id="local-6989586621679473316"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679473316"><span class="hs-identifier hs-var">lb</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Gen SlotNo
+</span><a href="#local-6989586621679473317"><span class="hs-identifier hs-var">genSlotBefore</span></a></span><span> </span><span class="annot"><span class="annottext">(SlotNo -&gt; Gen SlotNo) -&gt; SlotNo -&gt; Gen SlotNo
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
 </span><span class="hs-identifier hs-var">slotNoFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
@@ -520,7 +520,7 @@ forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo -&gt; TxValidityLowerBound
 </span><span class="hs-identifier hs-var">TxValidityLowerBound</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679473314"><span class="hs-identifier hs-var">lb</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound
+</span><a href="#local-6989586621679473316"><span class="hs-identifier hs-var">lb</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound
 </span><span class="hs-identifier hs-var">TxValidityNoUpperBound</span></span><span class="hs-special">)</span><span>
 </span><span id="line-169"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- Spec: All tokens are burnt |{cid 7&#8594; &#183; 7&#8594; &#8722;1} &#8712; mint| = m&#8242; + 1.</span><span>
 </span><span id="line-170"></span><span>      </span><span class="annot"><span class="annottext">[Text] -&gt; FanoutMutation -&gt; Mutation -&gt; SomeMutation
@@ -539,18 +539,18 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.FanOut.html#MutateThreadTokenQuantity"><span class="hs-identifier hs-var">MutateThreadTokenQuantity</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-171"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473319"><span class="annot"><span class="annottext">AssetId
-</span><a href="#local-6989586621679473319"><span class="hs-identifier hs-var">token</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><span id="line-171"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473321"><span class="annot"><span class="annottext">AssetId
+</span><a href="#local-6989586621679473321"><span class="hs-identifier hs-var">token</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)] -&gt; Gen (AssetId, Quantity)
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)]
-</span><a href="#local-6989586621679473320"><span class="hs-identifier hs-var">burntTokens</span></a></span><span>
+</span><a href="#local-6989586621679473322"><span class="hs-identifier hs-var">burntTokens</span></a></span><span>
 </span><span id="line-172"></span><span>        </span><span class="annot"><span class="annottext">Tx -&gt; Value -&gt; Gen Mutation
 </span><span class="hs-identifier hs-var">changeMintedTokens</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473308"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Item Value] -&gt; Value
+</span><a href="#local-6989586621679473310"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Item Value] -&gt; Value
 forall l. IsList l =&gt; [Item l] -&gt; l
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IsList.html#fromList"><span class="hs-identifier hs-var">fromList</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetId
-</span><a href="#local-6989586621679473319"><span class="hs-identifier hs-var">token</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><a href="#local-6989586621679473321"><span class="hs-identifier hs-var">token</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Quantity
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-173"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- Spec: The first m outputs are distributing funds according to &#951;. That is, the outputs exactly</span><span>
 </span><span id="line-174"></span><span>      </span><span class="hs-comment">-- correspond to the UTxO canonically combined U</span><span>
@@ -603,13 +603,13 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.FanOut.html#MutateFanoutOutputValue"><span class="hs-identifier hs-var">MutateFanoutOutputValue</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-180"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473323"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx]
-</span><a href="#local-6989586621679473323"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
+</span><span id="line-180"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473325"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx]
+</span><a href="#local-6989586621679473325"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473308"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-181"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473329"><span class="annot"><span class="annottext">noOfUtxoToOutputs :: Int
-</span><a href="#local-6989586621679473329"><span class="hs-identifier hs-var hs-var">noOfUtxoToOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO Era) -&gt; Int
+</span><a href="#local-6989586621679473310"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-181"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473331"><span class="annot"><span class="annottext">noOfUtxoToOutputs :: Int
+</span><a href="#local-6989586621679473331"><span class="hs-identifier hs-var hs-var">noOfUtxoToOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO Era) -&gt; Int
 forall t. StaticMap t =&gt; t -&gt; Int
 </span><span class="hs-identifier hs-var">size</span></span><span> </span><span class="annot"><span class="annottext">(Map TxIn (TxOut CtxUTxO Era) -&gt; Int)
 -&gt; Map TxIn (TxOut CtxUTxO Era) -&gt; Int
@@ -620,21 +620,21 @@ forall era. UTxO era -&gt; Map TxIn (TxOut CtxUTxO era)
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO Era, UTxO Era)
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutSnapshotUTxO"><span class="hs-identifier hs-var">healthyFanoutSnapshotUTxO</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-182"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473332"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473332"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473333"><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473333"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx)] -&gt; Gen (Int, TxOut CtxTx)
+</span><span id="line-182"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473334"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679473334"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473335"><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679473335"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx)] -&gt; Gen (Int, TxOut CtxTx)
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; [TxOut CtxTx] -&gt; [(Int, TxOut CtxTx)]
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473329"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679473331"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
-</span><a href="#local-6989586621679473323"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-183"></span><span>        </span><span id="local-6989586621679473334"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679473334"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
+</span><a href="#local-6989586621679473325"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-183"></span><span>        </span><span id="local-6989586621679473336"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679473336"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><span class="hs-identifier hs-var">genValue</span></span><span> </span><span class="annot"><span class="annottext">Gen Value -&gt; (Value -&gt; Bool) -&gt; Gen Value
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
 </span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Bool
@@ -642,7 +642,7 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473333"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473335"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-184"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -652,15 +652,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473332"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+</span><a href="#local-6989586621679473334"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 forall era ctx.
 IsMaryBasedEra era =&gt;
 (Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
 </span><span class="hs-identifier hs-var">modifyTxOutValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a b. a -&gt; b -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679473334"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473333"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473336"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679473335"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-185"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- Spec: The following n outputs are distributing funds according to &#951;&#8710;.</span><span>
 </span><span id="line-186"></span><span>      </span><span class="hs-comment">-- That is, the outputs exactly # correspond to the UTxO canonically combined U&#8710;</span><span>
 </span><span id="line-187"></span><span>      </span><span class="annot"><span class="annottext">[Text] -&gt; FanoutMutation -&gt; Mutation -&gt; SomeMutation
@@ -679,13 +679,13 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.FanOut.html#MutateDecommitOutputValue"><span class="hs-identifier hs-var">MutateDecommitOutputValue</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-188"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473339"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx]
-</span><a href="#local-6989586621679473339"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
+</span><span id="line-188"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473341"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx]
+</span><a href="#local-6989586621679473341"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473308"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-189"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473342"><span class="annot"><span class="annottext">noOfUtxoToOutputs :: Int
-</span><a href="#local-6989586621679473342"><span class="hs-identifier hs-var hs-var">noOfUtxoToOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO Era) -&gt; Int
+</span><a href="#local-6989586621679473310"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-189"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473344"><span class="annot"><span class="annottext">noOfUtxoToOutputs :: Int
+</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var hs-var">noOfUtxoToOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO Era) -&gt; Int
 forall t. StaticMap t =&gt; t -&gt; Int
 </span><span class="hs-identifier hs-var">size</span></span><span> </span><span class="annot"><span class="annottext">(Map TxIn (TxOut CtxUTxO Era) -&gt; Int)
 -&gt; Map TxIn (TxOut CtxUTxO Era) -&gt; Int
@@ -696,27 +696,27 @@ forall era. UTxO era -&gt; Map TxIn (TxOut CtxUTxO era)
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxO Era, UTxO Era)
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutSnapshotUTxO"><span class="hs-identifier hs-var">healthyFanoutSnapshotUTxO</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-190"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473343"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473343"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473344"><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx)] -&gt; Gen (Int, TxOut CtxTx)
+</span><span id="line-190"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473345"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679473345"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473346"><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679473346"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx)] -&gt; Gen (Int, TxOut CtxTx)
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; [TxOut CtxTx] -&gt; [(Int, TxOut CtxTx)]
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473342"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int
+</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
-</span><a href="#local-6989586621679473339"><span class="hs-identifier hs-var">outs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679473341"><span class="hs-identifier hs-var">outs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [TxOut CtxTx] -&gt; [TxOut CtxTx]
 forall a. Int -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#drop"><span class="hs-identifier hs-var">drop</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473342"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
-</span><a href="#local-6989586621679473339"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-191"></span><span>        </span><span id="local-6989586621679473347"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679473347"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
+</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var">noOfUtxoToOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx]
+</span><a href="#local-6989586621679473341"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>        </span><span id="local-6989586621679473349"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679473349"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><span class="hs-identifier hs-var">genValue</span></span><span> </span><span class="annot"><span class="annottext">Gen Value -&gt; (Value -&gt; Bool) -&gt; Gen Value
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
 </span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Bool
@@ -724,7 +724,7 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473346"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-192"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -734,15 +734,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473343"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+</span><a href="#local-6989586621679473345"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 forall era ctx.
 IsMaryBasedEra era =&gt;
 (Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
 </span><span class="hs-identifier hs-var">modifyTxOutValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a b. a -&gt; b -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679473347"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473344"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473349"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679473346"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-193"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; FanoutMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
@@ -761,8 +761,8 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-194"></span><span>        </span><span class="hs-comment">-- Changing headAdaOverhead in the input datum shifts the expected conservation</span><span>
 </span><span id="line-195"></span><span>        </span><span class="hs-comment">-- baseline, so the on-chain headInValue == outputs + overhead check fails.</span><span>
-</span><span id="line-196"></span><span>        </span><span id="local-6989586621679473349"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679473349"><span class="hs-identifier hs-var">wrongOverhead</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Integer
+</span><span id="line-196"></span><span>        </span><span id="local-6989586621679473351"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679473351"><span class="hs-identifier hs-var">wrongOverhead</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Integer
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen Integer -&gt; (Integer -&gt; Bool) -&gt; Gen Integer
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
@@ -778,7 +778,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">State -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeInputHeadDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; State -&gt; State
 </span><span class="hs-identifier hs-var">replaceHeadAdaOverhead</span></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679473349"><span class="hs-identifier hs-var">wrongOverhead</span></a></span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679473351"><span class="hs-identifier hs-var">wrongOverhead</span></a></span><span> </span><span class="annot"><span class="annottext">State
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutDatum"><span class="hs-identifier hs-var">healthyFanoutDatum</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-198"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- A CRS reference input at the correct address and reference script but carrying a</span><span>
 </span><span id="line-199"></span><span>      </span><span class="hs-comment">-- non-canonical SRS datum must be rejected. Validating only the CRS location and</span><span>
@@ -807,22 +807,22 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-209"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptRegistry</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:crsReference:ScriptRegistry :: ScriptRegistry -&gt; (TxIn, TxOut CtxUTxO Era)
-</span><span class="hs-identifier hs-var">crsReference</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473354"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473354"><span class="hs-identifier hs-var">legitCRSIn</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473355"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473355"><span class="hs-identifier hs-var">legitCRSOut</span></a></span></span><span class="hs-special">)</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><span class="hs-identifier hs-var">crsReference</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679473356"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679473356"><span class="hs-identifier hs-var">legitCRSIn</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679473357"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473357"><span class="hs-identifier hs-var">legitCRSOut</span></a></span></span><span class="hs-special">)</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
 </span><a href="Hydra.Tx.Contract.FanOut.html#scriptRegistry"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
-</span><span id="line-210"></span><span>        </span><span id="local-6989586621679473356"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473356"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn
+</span><span id="line-210"></span><span>        </span><span id="local-6989586621679473358"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679473358"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; (TxIn -&gt; Bool) -&gt; Gen TxIn
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
 </span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473354"><span class="hs-identifier hs-var">legitCRSIn</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-211"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679473357"><span class="hs-identifier hs-type">substitutedCRSOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
-</span><span id="line-212"></span><span>            </span><span id="local-6989586621679473357"><span class="annot"><span class="annottext">substitutedCRSOut :: TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473357"><span class="hs-identifier hs-var hs-var">substitutedCRSOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679473356"><span class="hs-identifier hs-var">legitCRSIn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-211"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679473359"><span class="hs-identifier hs-type">substitutedCRSOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
+</span><span id="line-212"></span><span>            </span><span id="local-6989586621679473359"><span class="annot"><span class="annottext">substitutedCRSOut :: TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473359"><span class="hs-identifier hs-var hs-var">substitutedCRSOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-213"></span><span>              </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value
 -&gt; TxOutDatum CtxUTxO Era
@@ -835,11 +835,11 @@ AddressInEra
 </span><span id="line-214"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; AddressInEra
 forall ctx. TxOut ctx -&gt; AddressInEra
 </span><span class="hs-identifier hs-var">txOutAddress</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473355"><span class="hs-identifier hs-var">legitCRSOut</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473357"><span class="hs-identifier hs-var">legitCRSOut</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-215"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473355"><span class="hs-identifier hs-var">legitCRSOut</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473357"><span class="hs-identifier hs-var">legitCRSOut</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-216"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; TxOutDatum CtxUTxO Era
 forall ctx. Int -&gt; TxOutDatum ctx
 </span><span class="hs-identifier hs-var">Accumulator.createCRSG2Datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
@@ -853,8 +853,8 @@ IsPlutusScriptLanguage lang =&gt;
 PlutusScript lang -&gt; ReferenceScript
 </span><span class="hs-identifier hs-var">mkScriptRef</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
 </span><span class="hs-identifier hs-var">CRS.validatorScript</span></span><span class="hs-special">)</span><span>
-</span><span id="line-218"></span><span>            </span><span id="local-6989586621679473364"><span class="annot"><span class="annottext">substitutedRedeemer :: Input
-</span><a href="#local-6989586621679473364"><span class="hs-identifier hs-var hs-var">substitutedRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-218"></span><span>            </span><span id="local-6989586621679473366"><span class="annot"><span class="annottext">substitutedRedeemer :: Input
+</span><a href="#local-6989586621679473366"><span class="hs-identifier hs-var hs-var">substitutedRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-219"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Head.Fanout</span></span><span>
 </span><span id="line-220"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:numberOfFanoutOutputs:Increment :: Integer
 </span><span class="hs-identifier hs-var">Head.numberOfFanoutOutputs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Integer
@@ -865,11 +865,11 @@ forall era. UTxO era -&gt; Int
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthyFanoutUTxO"><span class="hs-identifier hs-var">healthyFanoutUTxO</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-221"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:proof:Increment :: BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">Head.proof</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473368"><span class="hs-identifier hs-var">fanoutProof</span></a></span><span>
+</span><a href="#local-6989586621679473370"><span class="hs-identifier hs-var">fanoutProof</span></a></span><span>
 </span><span id="line-222"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:crsRef:Increment :: TxOutRef
 </span><span class="hs-identifier hs-var">Head.crsRef</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOutRef
 </span><span class="hs-identifier hs-var">toPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473356"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span><span>
+</span><a href="#local-6989586621679473358"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span><span>
 </span><span id="line-223"></span><span>                </span><span class="hs-special">}</span><span>
 </span><span id="line-224"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
@@ -881,11 +881,11 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">Changes</span></span><span>
 </span><span id="line-226"></span><span>            </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; Mutation
 </span><span class="hs-identifier hs-var">AddReferenceInput</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473356"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473357"><span class="hs-identifier hs-var">substitutedCRSOut</span></a></span><span>
+</span><a href="#local-6989586621679473358"><span class="hs-identifier hs-var">substitutedCRSIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473359"><span class="hs-identifier hs-var">substitutedCRSOut</span></a></span><span>
 </span><span id="line-227"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeHeadRedeemer</span></span><span> </span><span class="annot"><span class="annottext">Input
-</span><a href="#local-6989586621679473364"><span class="hs-identifier hs-var">substitutedRedeemer</span></a></span><span>
+</span><a href="#local-6989586621679473366"><span class="hs-identifier hs-var">substitutedRedeemer</span></a></span><span>
 </span><span id="line-228"></span><span>            </span><span class="hs-special">]</span><span>
 </span><span id="line-229"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; FanoutMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
@@ -903,11 +903,11 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.FanOut.html#FanoutAbsorbForeignDeposit"><span class="hs-identifier hs-var">FanoutAbsorbForeignDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-230"></span><span>        </span><span id="local-6989586621679473375"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473375"><span class="hs-identifier hs-var">extraIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn
+</span><span id="line-230"></span><span>        </span><span id="local-6989586621679473377"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679473377"><span class="hs-identifier hs-var">extraIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn
 </span><span class="hs-identifier hs-var">genTxIn</span></span><span>
-</span><span id="line-231"></span><span>        </span><span id="local-6989586621679473376"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473376"><span class="hs-identifier hs-var">extraDeposited</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; UTxO Era -&gt; UTxO Era
+</span><span id="line-231"></span><span>        </span><span id="local-6989586621679473378"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679473378"><span class="hs-identifier hs-var">extraDeposited</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; UTxO Era -&gt; UTxO Era
 forall era.
 (TxOut CtxUTxO era -&gt; TxOut CtxUTxO era) -&gt; UTxO era -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.map</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
@@ -916,26 +916,26 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Gen (UTxO Era)
 </span><span class="hs-identifier hs-var">genUTxOSized</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-232"></span><span>        </span><span id="local-6989586621679473377"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679473377"><span class="hs-identifier hs-var">attackerVk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
+</span><span id="line-232"></span><span>        </span><span id="local-6989586621679473379"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679473379"><span class="hs-identifier hs-var">attackerVk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
 </span><span class="hs-identifier hs-var">genVerificationKey</span></span><span>
 </span><span id="line-233"></span><span>        </span><span class="hs-keyword">let</span><span>
 </span><span id="line-234"></span><span>          </span><span class="hs-comment">-- Fanout has no upper bound by default; without a finite one</span><span>
 </span><span id="line-235"></span><span>          </span><span class="hs-comment">-- the deposit validator short-circuits before the later guards.</span><span>
-</span><span id="line-236"></span><span>          </span><span id="local-6989586621679473380"><span class="annot"><span class="annottext">upperSlot :: SlotNo
-</span><a href="#local-6989586621679473380"><span class="hs-identifier hs-var hs-var">upperSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><span id="line-236"></span><span>          </span><span id="local-6989586621679473382"><span class="annot"><span class="annottext">upperSlot :: SlotNo
+</span><a href="#local-6989586621679473382"><span class="hs-identifier hs-var hs-var">upperSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SlotNo
 </span><a href="Hydra.Tx.Contract.FanOut.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; SlotNo
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
 </span><span class="hs-number">1000</span></span><span>
-</span><span id="line-237"></span><span>          </span><span id="local-6989586621679473381"><span class="annot"><span class="annottext">upperUTC :: UTCTime
-</span><a href="#local-6989586621679473381"><span class="hs-identifier hs-var hs-var">upperUTC</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><span id="line-237"></span><span>          </span><span id="local-6989586621679473383"><span class="annot"><span class="annottext">upperUTC :: UTCTime
+</span><a href="#local-6989586621679473383"><span class="hs-identifier hs-var hs-var">upperUTC</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
 </span><span class="hs-identifier hs-var">slotNoToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
 </span><span class="hs-identifier hs-var">systemStart</span></span><span> </span><span class="annot"><span class="annottext">SlotLength
 </span><span class="hs-identifier hs-var">slotLength</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679473380"><span class="hs-identifier hs-var">upperSlot</span></a></span><span>
-</span><span id="line-238"></span><span>          </span><span id="local-6989586621679473387"><span class="annot"><span class="annottext">extraDeadline :: UTCTime
-</span><a href="#local-6989586621679473387"><span class="hs-identifier hs-var hs-var">extraDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
+</span><a href="#local-6989586621679473382"><span class="hs-identifier hs-var">upperSlot</span></a></span><span>
+</span><span id="line-238"></span><span>          </span><span id="local-6989586621679473389"><span class="annot"><span class="annottext">extraDeadline :: UTCTime
+</span><a href="#local-6989586621679473389"><span class="hs-identifier hs-var hs-var">extraDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier hs-var">addUTCTime</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">60</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
@@ -944,10 +944,10 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">24</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679473381"><span class="hs-identifier hs-var">upperUTC</span></a></span><span>
-</span><span id="line-239"></span><span>          </span><span class="annot"><a href="#local-6989586621679473390"><span class="hs-identifier hs-type">extraDepositOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
-</span><span id="line-240"></span><span>          </span><span id="local-6989586621679473390"><span class="annot"><span class="annottext">extraDepositOut :: TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473390"><span class="hs-identifier hs-var hs-var">extraDepositOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679473383"><span class="hs-identifier hs-var">upperUTC</span></a></span><span>
+</span><span id="line-239"></span><span>          </span><span class="annot"><a href="#local-6989586621679473392"><span class="hs-identifier hs-type">extraDepositOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span>
+</span><span id="line-240"></span><span>          </span><span id="local-6989586621679473392"><span class="annot"><span class="annottext">extraDepositOut :: TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473392"><span class="hs-identifier hs-var hs-var">extraDepositOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-241"></span><span>            </span><span class="annot"><span class="annottext">NetworkId -&gt; HeadId -&gt; UTxO Era -&gt; UTCTime -&gt; TxOut CtxUTxO Era
 forall ctx. NetworkId -&gt; HeadId -&gt; UTxO Era -&gt; UTCTime -&gt; TxOut ctx
 </span><span class="hs-identifier hs-var">mkDepositOutput</span></span><span>
@@ -957,12 +957,12 @@ forall ctx. NetworkId -&gt; HeadId -&gt; UTxO Era -&gt; UTCTime -&gt; TxOut ctx
 </span><span class="hs-identifier hs-var">mkHeadId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
 </span><span class="hs-identifier hs-var">testPolicyId</span></span><span class="hs-special">)</span><span>
 </span><span id="line-244"></span><span>              </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679473376"><span class="hs-identifier hs-var">extraDeposited</span></a></span><span>
+</span><a href="#local-6989586621679473378"><span class="hs-identifier hs-var">extraDeposited</span></a></span><span>
 </span><span id="line-245"></span><span>              </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679473387"><span class="hs-identifier hs-var">extraDeadline</span></a></span><span>
-</span><span id="line-246"></span><span>          </span><span class="annot"><a href="#local-6989586621679473391"><span class="hs-identifier hs-type">attackerOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
-</span><span id="line-247"></span><span>          </span><span id="local-6989586621679473391"><span class="annot"><span class="annottext">attackerOut :: TxOut CtxTx
-</span><a href="#local-6989586621679473391"><span class="hs-identifier hs-var hs-var">attackerOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679473389"><span class="hs-identifier hs-var">extraDeadline</span></a></span><span>
+</span><span id="line-246"></span><span>          </span><span class="annot"><a href="#local-6989586621679473393"><span class="hs-identifier hs-type">attackerOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span>
+</span><span id="line-247"></span><span>          </span><span id="local-6989586621679473393"><span class="annot"><span class="annottext">attackerOut :: TxOut CtxTx
+</span><a href="#local-6989586621679473393"><span class="hs-identifier hs-var hs-var">attackerOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-248"></span><span>            </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx
 forall ctx.
@@ -975,11 +975,11 @@ IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679473377"><span class="hs-identifier hs-var">attackerVk</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473379"><span class="hs-identifier hs-var">attackerVk</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-250"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473390"><span class="hs-identifier hs-var">extraDepositOut</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473392"><span class="hs-identifier hs-var">extraDepositOut</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-251"></span><span>              </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
 forall ctx. TxOutDatum ctx
 </span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span>
@@ -995,8 +995,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">Changes</span></span><span>
 </span><span id="line-255"></span><span>            </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; Maybe HashableScriptData -&gt; Mutation
 </span><span class="hs-identifier hs-var">AddInput</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679473375"><span class="hs-identifier hs-var">extraIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
-</span><a href="#local-6989586621679473390"><span class="hs-identifier hs-var">extraDepositOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe HashableScriptData
+</span><a href="#local-6989586621679473377"><span class="hs-identifier hs-var">extraIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679473392"><span class="hs-identifier hs-var">extraDepositOut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe HashableScriptData
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(HashableScriptData -&gt; Maybe HashableScriptData)
 -&gt; HashableScriptData -&gt; Maybe HashableScriptData
@@ -1007,19 +1007,19 @@ forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">Claim</span></span><span class="hs-special">)</span><span>
 </span><span id="line-256"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; Mutation
 </span><span class="hs-identifier hs-var">AppendOutput</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679473391"><span class="hs-identifier hs-var">attackerOut</span></a></span><span>
+</span><a href="#local-6989586621679473393"><span class="hs-identifier hs-var">attackerOut</span></a></span><span>
 </span><span id="line-257"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Mutation
 </span><span class="hs-identifier hs-var">AddScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
 </span><span class="hs-identifier hs-var">depositValidatorScript</span></span><span>
 </span><span id="line-258"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxValidityUpperBound -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeValidityUpperBound</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SlotNo -&gt; TxValidityUpperBound
 </span><span class="hs-identifier hs-var">TxValidityUpperBound</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679473380"><span class="hs-identifier hs-var">upperSlot</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473382"><span class="hs-identifier hs-var">upperSlot</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-259"></span><span>            </span><span class="hs-special">]</span><span>
 </span><span id="line-260"></span><span>    </span><span class="hs-special">]</span><span>
 </span><span id="line-261"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-262"></span><span>  </span><span id="local-6989586621679473320"><span class="annot"><span class="annottext">burntTokens :: [(AssetId, Quantity)]
-</span><a href="#local-6989586621679473320"><span class="hs-identifier hs-var hs-var">burntTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-262"></span><span>  </span><span id="local-6989586621679473322"><span class="annot"><span class="annottext">burntTokens :: [(AssetId, Quantity)]
+</span><a href="#local-6989586621679473322"><span class="hs-identifier hs-var hs-var">burntTokens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-263"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Value -&gt; [(AssetId, Quantity)]
 Value -&gt; [Item Value]
 forall l. IsList l =&gt; l -&gt; [Item l]
@@ -1047,28 +1047,28 @@ forall era. TxBody era -&gt; TxBodyContent ViewTx era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; TxBody Era
 </span><span class="hs-identifier hs-var">txBody</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679473308"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679473310"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-264"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [(AssetId, Quantity)]
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;expected minted value&quot;</span></span><span>
-</span><span id="line-265"></span><span>      </span><span id="local-6989586621679473401"><span class="annot"><span class="annottext">[(AssetId, Quantity)]
-</span><a href="#local-6989586621679473401"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)]
-</span><a href="#local-6989586621679473401"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-265"></span><span>      </span><span id="local-6989586621679473403"><span class="annot"><span class="annottext">[(AssetId, Quantity)]
+</span><a href="#local-6989586621679473403"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(AssetId, Quantity)]
+</span><a href="#local-6989586621679473403"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-266"></span><span>
-</span><span id="line-267"></span><span>  </span><span id="local-6989586621679473315"><span class="annot"><span class="annottext">genSlotBefore :: SlotNo -&gt; Gen SlotNo
-</span><a href="#local-6989586621679473315"><span class="hs-identifier hs-var hs-var">genSlotBefore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679473408"><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679473408"><span class="hs-identifier hs-var">slot</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><span id="line-267"></span><span>  </span><span id="local-6989586621679473317"><span class="annot"><span class="annottext">genSlotBefore :: SlotNo -&gt; Gen SlotNo
+</span><a href="#local-6989586621679473317"><span class="hs-identifier hs-var hs-var">genSlotBefore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SlotNo</span></span><span> </span><span id="local-6989586621679473410"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679473410"><span class="hs-identifier hs-var">slot</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo) -&gt; Gen Word64 -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64, Word64) -&gt; Gen Word64
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621679473408"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679473410"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-268"></span><span>
-</span><span id="line-269"></span><span>  </span><span id="local-6989586621679473368"><span class="annot"><span class="annottext">fanoutProof :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473368"><span class="hs-identifier hs-var hs-var">fanoutProof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-269"></span><span>  </span><span id="local-6989586621679473370"><span class="annot"><span class="annottext">fanoutProof :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679473370"><span class="hs-identifier hs-var hs-var">fanoutProof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-270"></span><span>    </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">bls12_381_G1_uncompress</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element)
 -&gt; BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element

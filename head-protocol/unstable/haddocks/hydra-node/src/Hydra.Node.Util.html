@@ -29,7 +29,7 @@
 </span><span id="line-29"></span><span class="hs-comment">-- | Thrown when a cardano key file could not be read as any of the accepted</span><span>
 </span><span id="line-30"></span><span class="hs-comment">-- text envelope formats.</span><span>
 </span><span id="line-31"></span><span class="hs-keyword">newtype</span><span> </span><span id="KeyFileError"><span class="annot"><a href="Hydra.Node.Util.html#KeyFileError"><span class="hs-identifier hs-var">KeyFileError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="KeyFileError"><span class="annot"><a href="Hydra.Node.Util.html#KeyFileError"><span class="hs-identifier hs-var">KeyFileError</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FileError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TextEnvelopeError</span></span><span class="hs-special">)</span><span>
-</span><span id="line-32"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679835900"><span id="local-6989586621679835907"><span id="local-6989586621679835911"><span class="annot"><span class="annottext">Int -&gt; KeyFileError -&gt; ShowS
+</span><span id="line-32"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679836352"><span id="local-6989586621679836359"><span id="local-6989586621679836363"><span class="annot"><span class="annottext">Int -&gt; KeyFileError -&gt; ShowS
 [KeyFileError] -&gt; ShowS
 KeyFileError -&gt; String
 (Int -&gt; KeyFileError -&gt; ShowS)
@@ -45,7 +45,7 @@ show :: KeyFileError -&gt; String
 $cshowList :: [KeyFileError] -&gt; ShowS
 showList :: [KeyFileError] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679835920"><span id="local-6989586621679835923"><span id="local-6989586621679835926"><span class="annot"><span class="annottext">Show KeyFileError
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679836372"><span id="local-6989586621679836375"><span id="local-6989586621679836378"><span class="annot"><span class="annottext">Show KeyFileError
 Typeable KeyFileError
 (Typeable KeyFileError, Show KeyFileError) =&gt;
 (KeyFileError -&gt; SomeException)
@@ -73,22 +73,22 @@ displayException :: KeyFileError -&gt; String
 </span><span id="line-38"></span><span class="hs-comment">-- the signing key wrapped in 'CardanoSigningKey' inside 'Secret'.</span><span>
 </span><span id="line-39"></span><span class="annot"><a href="Hydra.Node.Util.html#readKeyPair"><span class="hs-identifier hs-type">readKeyPair</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Secret</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoSigningKey</span></span><span class="hs-special">)</span><span>
 </span><span id="line-40"></span><span id="readKeyPair"><span class="annot"><span class="annottext">readKeyPair :: String -&gt; IO (VerificationKey PaymentKey, Secret CardanoSigningKey)
-</span><a href="Hydra.Node.Util.html#readKeyPair"><span class="hs-identifier hs-var hs-var">readKeyPair</span></a></span></span><span> </span><span id="local-6989586621679835932"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835932"><span class="hs-identifier hs-var">keyPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-41"></span><span>  </span><span id="local-6989586621679835933"><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679835933"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO CardanoSigningKey
+</span><a href="Hydra.Node.Util.html#readKeyPair"><span class="hs-identifier hs-var hs-var">readKeyPair</span></a></span></span><span> </span><span id="local-6989586621679836384"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679836384"><span class="hs-identifier hs-var">keyPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621679836385"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><a href="#local-6989586621679836385"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO CardanoSigningKey
 </span><a href="Hydra.Node.Util.html#readSigningKey"><span class="hs-identifier hs-var">readSigningKey</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835932"><span class="hs-identifier hs-var">keyPath</span></a></span><span>
+</span><a href="#local-6989586621679836384"><span class="hs-identifier hs-var">keyPath</span></a></span><span>
 </span><span id="line-42"></span><span>  </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, Secret CardanoSigningKey)
 -&gt; IO (VerificationKey PaymentKey, Secret CardanoSigningKey)
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CardanoSigningKey -&gt; VerificationKey PaymentKey
 </span><span class="hs-identifier hs-var">getCardanoPaymentVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679835933"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey -&gt; Secret CardanoSigningKey
+</span><a href="#local-6989586621679836385"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey -&gt; Secret CardanoSigningKey
 forall a. a -&gt; Secret a
 </span><span class="hs-identifier hs-var">mkSecret</span></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679835933"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679836385"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-43"></span><span>
 </span><span id="line-44"></span><span class="hs-comment">-- | Read a 'CardanoSigningKey' from a text envelope file, accepting both</span><span>
 </span><span id="line-45"></span><span class="hs-comment">-- normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.</span><span>
@@ -96,8 +96,8 @@ forall a. a -&gt; Secret a
 </span><span id="line-47"></span><span class="hs-comment">-- Throws 'KeyFileError' listing both accepted formats if neither matches.</span><span>
 </span><span id="line-48"></span><span class="annot"><a href="Hydra.Node.Util.html#readSigningKey"><span class="hs-identifier hs-type">readSigningKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoSigningKey</span></span><span>
 </span><span id="line-49"></span><span id="readSigningKey"><span class="annot"><span class="annottext">readSigningKey :: String -&gt; IO CardanoSigningKey
-</span><a href="Hydra.Node.Util.html#readSigningKey"><span class="hs-identifier hs-var hs-var">readSigningKey</span></a></span></span><span> </span><span id="local-6989586621679835935"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835935"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Node.Util.html#readSigningKey"><span class="hs-identifier hs-var hs-var">readSigningKey</span></a></span></span><span> </span><span id="local-6989586621679836387"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679836387"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-50"></span><span>  </span><span class="annot"><span class="annottext">[FromSomeType HasTextEnvelope CardanoSigningKey]
 -&gt; File Any 'In
 -&gt; IO (Either (FileError TextEnvelopeError) CardanoSigningKey)
@@ -132,7 +132,7 @@ forall a. AsType a -&gt; AsType (SigningKey a)
 forall content (direction :: FileDirection).
 String -&gt; File content direction
 </span><span class="hs-identifier hs-var">File</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835935"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679836387"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">IO (Either (FileError TextEnvelopeError) CardanoSigningKey)
 -&gt; (Either (FileError TextEnvelopeError) CardanoSigningKey
     -&gt; IO CardanoSigningKey)
@@ -164,8 +164,8 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-60"></span><span class="hs-comment">-- Throws 'KeyFileError' listing both accepted formats if neither matches.</span><span>
 </span><span id="line-61"></span><span class="annot"><a href="Hydra.Node.Util.html#readVerificationKey"><span class="hs-identifier hs-type">readVerificationKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span>
 </span><span id="line-62"></span><span id="readVerificationKey"><span class="annot"><span class="annottext">readVerificationKey :: String -&gt; IO (VerificationKey PaymentKey)
-</span><a href="Hydra.Node.Util.html#readVerificationKey"><span class="hs-identifier hs-var hs-var">readVerificationKey</span></a></span></span><span> </span><span id="local-6989586621679835943"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835943"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Node.Util.html#readVerificationKey"><span class="hs-identifier hs-var hs-var">readVerificationKey</span></a></span></span><span> </span><span id="local-6989586621679836395"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679836395"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-63"></span><span>  </span><span class="annot"><span class="annottext">[FromSomeType HasTextEnvelope (VerificationKey PaymentKey)]
 -&gt; File Any 'In
 -&gt; IO
@@ -207,7 +207,7 @@ VerificationKey keyroleA -&gt; VerificationKey keyroleB
 forall content (direction :: FileDirection).
 String -&gt; File content direction
 </span><span class="hs-identifier hs-var">File</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835943"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679836395"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">IO
   (Either (FileError TextEnvelopeError) (VerificationKey PaymentKey))
 -&gt; (Either
@@ -237,13 +237,13 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
 </span><span id="line-69"></span><span>
 </span><span id="line-70"></span><span class="hs-comment">-- XXX: Should accept a 'File' path</span><span>
-</span><span id="line-71"></span><span id="local-6989586621679835832"><span class="annot"><a href="Hydra.Node.Util.html#readFileTextEnvelopeThrow"><span class="hs-identifier hs-type">readFileTextEnvelopeThrow</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HasTextEnvelope</span></span><span> </span><span class="annot"><a href="#local-6989586621679835832"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-71"></span><span id="local-6989586621679836284"><span class="annot"><a href="Hydra.Node.Util.html#readFileTextEnvelopeThrow"><span class="hs-identifier hs-type">readFileTextEnvelopeThrow</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HasTextEnvelope</span></span><span> </span><span class="annot"><a href="#local-6989586621679836284"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-73"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-74"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679835832"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679836284"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-75"></span><span id="readFileTextEnvelopeThrow"><span class="annot"><span class="annottext">readFileTextEnvelopeThrow :: forall a. HasTextEnvelope a =&gt; String -&gt; IO a
-</span><a href="Hydra.Node.Util.html#readFileTextEnvelopeThrow"><span class="hs-identifier hs-var hs-var">readFileTextEnvelopeThrow</span></a></span></span><span> </span><span id="local-6989586621679835957"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835957"><span class="hs-identifier hs-var">fileContents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Node.Util.html#readFileTextEnvelopeThrow"><span class="hs-identifier hs-var hs-var">readFileTextEnvelopeThrow</span></a></span></span><span> </span><span id="local-6989586621679836409"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679836409"><span class="hs-identifier hs-var">fileContents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">(FileError TextEnvelopeError -&gt; IO a)
 -&gt; (a -&gt; IO a) -&gt; Either (FileError TextEnvelopeError) a -&gt; IO a
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
@@ -271,15 +271,15 @@ File content 'In -&gt; IO (Either (FileError TextEnvelopeError) a)
 forall content (direction :: FileDirection).
 String -&gt; File content direction
 </span><span class="hs-identifier hs-var">File</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679835957"><span class="hs-identifier hs-var">fileContents</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679836409"><span class="hs-identifier hs-var">fileContents</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>
 </span><span id="line-78"></span><span class="annot"><span class="hs-comment">-- | Filter and return any non-ADA assets as 'Left' if they are present in the 'UTxO' value.</span></span><span>
 </span><span id="line-79"></span><span class="annot"><a href="Hydra.Node.Util.html#checkNonADAAssetsUTxO"><span class="hs-identifier hs-type">checkNonADAAssetsUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span><span id="checkNonADAAssetsUTxO"><span class="annot"><span class="annottext">checkNonADAAssetsUTxO :: UTxO -&gt; Either Value ()
-</span><a href="Hydra.Node.Util.html#checkNonADAAssetsUTxO"><span class="hs-identifier hs-var hs-var">checkNonADAAssetsUTxO</span></a></span></span><span> </span><span id="local-6989586621679835961"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679835961"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-81"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679835962"><span class="annot"><span class="annottext">nonADA :: Value
-</span><a href="#local-6989586621679835962"><span class="hs-identifier hs-var hs-var">nonADA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(AssetId -&gt; Bool) -&gt; Value -&gt; Value
+</span><a href="Hydra.Node.Util.html#checkNonADAAssetsUTxO"><span class="hs-identifier hs-var hs-var">checkNonADAAssetsUTxO</span></a></span></span><span> </span><span id="local-6989586621679836413"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679836413"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679836414"><span class="annot"><span class="annottext">nonADA :: Value
+</span><a href="#local-6989586621679836414"><span class="hs-identifier hs-var hs-var">nonADA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(AssetId -&gt; Bool) -&gt; Value -&gt; Value
 </span><span class="hs-identifier hs-var">filterValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AssetId -&gt; AssetId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">AssetId
@@ -288,9 +288,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Value
 forall era. UTxO era -&gt; Value
 </span><span class="hs-identifier hs-var">totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679835961"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679836413"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-82"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679835962"><span class="hs-identifier hs-var">nonADA</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Bool
+</span><a href="#local-6989586621679836414"><span class="hs-identifier hs-var">nonADA</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Value
 forall a. Monoid a =&gt; a
@@ -301,5 +301,5 @@ forall a b. b -&gt; Either a b
 </span><span id="line-84"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either Value ()
 forall a b. a -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679835962"><span class="hs-identifier hs-var">nonADA</span></a></span><span>
+</span><a href="#local-6989586621679836414"><span class="hs-identifier hs-var">nonADA</span></a></span><span>
 </span><span id="line-85"></span></pre></body></html>
