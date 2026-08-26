@@ -227,6 +227,10 @@ data DecrementMutation
   | -- | Ensures deposit-period does not change between head input datum and head output
     --  datum.
     ChangeDepositPeriodInOutput
+  | -- | Deterministically perturb the head output's LOVELACE. 'ChangeHeadValue' picks arbitrary
+    -- assets and may leave the lovelace component alone, so this pins the component the extracted
+    -- reference's decrement value check reads (@adaOut + adaDelta == adaIn@).
+    ChangeHeadLovelace
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -351,6 +355,9 @@ genDecrementMutation (tx, _utxo) =
               : removeDecommitOutputs
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
         <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadLovelace <$> do
+        extraLovelace <- lovelaceToValue . Coin <$> choose (1, 10_000_000)
+        pure $ ChangeOutput 0 (modifyTxOutValue (<> extraLovelace) headTxOut)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
