@@ -10,10 +10,66 @@ changes.
 
 ## [UNRELEASED]
 
+- Reduce chain queries on the chain-sync path: building time conversions no
+  longer queries the chain three times per block. System start is queried once,
+  era history is cached and only re-queried when its horizon has been outrun. For
+  the Blockfrost backend this removes 3 HTTP requests per block, roughly 75% of
+  steady-state API usage. The Blockfrost backend also reads the project file once
+  and caches genesis parameters for the lifetime of the chain connection: wallet
+  operations, transaction posting, and script publishing no longer re-fetch
+  `/genesis` per query. The Blockfrost chain follower and chain observer now fail
+  fast on undecodable transaction CBOR instead of retrying indefinitely, and
+  rate-limited transaction submissions give up after ~2 minutes so a close or
+  contest fails with a clear rate-limit error before its validity window
+  expires.
+
+- Fix closing large heads missing the close tx validity window
+  (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when
+  constructed instead of accumulating lazy conversion thunks that were all
+  paid at close time (over a second on a 1000-UTxO head after 4000 txs).
+  [#2837](https://github.com/cardano-scaling/hydra/pull/2837)
+  * UTxO deserialization (JSON and CBOR, e.g. persisted state loaded on node
+    restart) now also yields forced values, including the transaction inputs
+    which JSON parsing previously left holding thunks.
+
 - Add an opt-in binary CBOR encoding to the client API (WebSocket
   `?encoding=cbor` query param, HTTP `Accept`/`Content-Type: application/cbor`
   headers), keeping JSON as the default.
   [#2543](https://github.com/cardano-scaling/hydra/issues/2543)
+
+- Snapshots now carry the `depositTxId` of the deposit they commit and bind it
+  into the signature alongside the committed outputs, so an increment can only
+  claim the exact deposit the parties approved rather than any other one
+  recording the same UTxO. Snapshot JSON gains an optional `depositTxId`.
+  * The deposit validator additionally requires the head's increment redeemer to
+    name the deposit being claimed (`D09`), and the head validator requires the
+    claimed deposit to be the first output of its transaction (`H69`).
+  * A recover transaction now spends a single deposit (`D10`). The recovered
+    outputs are the transaction's first `n`, shared by every deposit input, so
+    two deposits recording the same UTxO were both satisfied by one set of them.
+  * `hydra-node` no longer observes a deposit that is not its transaction's first
+    output, nor one whose recorded commits cannot be reproduced from the observed
+    UTxO. Deposits it drafts are always observable; one built elsewhere that is
+    not stays recoverable only by a transaction reproducing its outputs exactly.
+
+- A snapshot now settles a commit or a decommit, never both, and a decommit must
+  materialize at least one output. Close and fan out carry a single incremental
+  action, so a snapshot with both could not be closed; and the decrement
+  validator requires an output, so an empty decommit could not settle. Requests
+  for either are rejected, and a leader with both pending sends the commit first.
+
+- **Breaking**: script hashes change for the head validator, head minting policy
+  and deposit validator, and so does the snapshot signature payload. Earlier
+  nodes and published scripts are not compatible. Close and fan out any open
+  heads before upgrading — a node that upgrades while a head is open can no
+  longer interact with it, and a snapshot signed before this change fails
+  verification. In particular, a head carrying a pending commit across the
+  upgrade can neither increment (the confirmed snapshot names no deposit) nor
+  close (its signatures cover the old message), so it has to be drained first.
+  Persisted history from earlier versions still replays: snapshot JSON decodes a
+  missing `depositTxId` as absent, and the CBOR codec keeps a decoder for the
+  layout written before the field existed, so upgrading a node whose heads are
+  already closed is unaffected.
 
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
@@ -37,9 +93,10 @@ changes.
   rejections were previously reported as success), and HTTP 429 is retried
   with capped exponential backoff. A full head lifecycle on preview drops from
   over an hour to minutes, and the Blockfrost lifecycle test runs in nightly
-  CI again. `--blockfrost-retry-timeout` now bounds transaction awaits in
-  seconds; the ineffective `--blockfrost-query-timeout` option and
-  `query-timeout` config key were removed.
+  CI again. Retry behavior is now built in, so the `--blockfrost-retry-timeout`
+  and ineffective `--blockfrost-query-timeout` options (`retry-timeout` and
+  `query-timeout` config keys) were removed: existing command lines and config
+  files still using them are rejected and must drop them.
 
 - Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
   UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
@@ -130,6 +187,25 @@ changes.
   aborts startup and leaves the database untouched. After migration, older
   hydra-node versions refuse to open the database — there is no downgrade
   path.
+
+- `hydra-node` now traces the KZG trusted-setup warm-up it does at startup, as
+  `LoadingTrustedSetup` followed by `TrustedSetupLoaded`. The warm-up used to run
+  before the tracer existed, so on a host slow at decompressing BLS12-381 points
+  the node emitted nothing at all until it finished and was indistinguishable
+  from one that hung before starting. It still completes before any socket is
+  opened, and now forces the G2 half as well, so a corrupt embedded setup raises
+  a `ConfigurationException` at startup instead of `error`-ing out of pure code
+  mid-session.
+
+- Fix `hydra-node` withholding log entries from whoever reads its stdout until
+  64KB had accumulated. Output is block-buffered and was only flushed when the
+  tracer shut down, so `docker logs` and process supervisors saw nothing from a
+  node that was running but not logging heavily. The writer now flushes each
+  batch it drains.
+  * A write failing no longer kills the log writer. GHC ignores `SIGPIPE`, so a
+    reader going away (`hydra-node | head`, a restarting log shipper) made the
+    next write throw; the writer is not linked to the node, so it died unnoticed
+    and every subsequent trace blocked once the queue filled.
 
 ## [2.3.0] - 2026.07.15
 

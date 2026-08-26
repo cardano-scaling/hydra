@@ -62,6 +62,7 @@ data ConfigurationException
   = -- XXX: this is not used
     ConfigurationException ProtocolParametersConversionError
   | InvalidOptionException InvalidOptions
+  | TrustedSetupException KZG.KZGSetupError
   deriving stock (Show)
 
 instance Exception ConfigurationException where
@@ -72,20 +73,21 @@ instance Exception ConfigurationException where
       "Number of loaded cardano and hydra keys needs to match"
     ConfigurationException err ->
       "Incorrect protocol parameters configuration provided: " <> show err
+    TrustedSetupException err ->
+      "Embedded KZG trusted setup could not be loaded: " <> show err
 
 run :: RunOptions -> IO ()
 run opts = do
-  -- Force all KZG G1 points into memory before opening any sockets.
-  -- initTx (and snapshot signing) call getAccumulatorHash, which on first
-  -- access parses ~300KB of JSON and BLS-decompresses 4096 curve points.
-  -- Doing it here means the API server only starts after the warm-up, so
-  -- clients cannot connect and time out waiting for HeadIsOpen while the
-  -- node is still initialising the cryptographic setup. The native Point1
-  -- CRS is what the rust FFI commitment path consumes.
-  void $ evaluate $ either (error . show) length KZG.g1Points
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
+    -- Force the KZG trusted setup before opening any socket, so that the API
+    -- server only starts once it is in memory and clients cannot connect and
+    -- time out waiting for HeadIsOpen mid warm-up (see 'KZG.warmup'). Traced
+    -- because it is the one startup step with no bound on how long it takes.
+    traceWith tracer' LoadingTrustedSetup
+    numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
+    traceWith tracer' TrustedSetupLoaded{numG1Points}
     withMonitoring monitoringPort tracer' $ \tracer -> do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger

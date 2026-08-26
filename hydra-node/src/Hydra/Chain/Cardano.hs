@@ -14,7 +14,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost (BlockfrostBackend, runBlockfrostBackend, withBlockfrostChain)
+import Hydra.Chain.Blockfrost (BlockfrostBackend, newBlockfrostEnv, runBlockfrostBackendWith, withBlockfrostChain)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
@@ -48,9 +48,10 @@ withCardanoChain tracer cfg party chainStateHistory callback action =
       ctx <- runDirectBackend directOptions $ loadChainContext cfg party
       withDirectChain directOptions tracer cfg ctx wallet chainStateHistory callback action
     Blockfrost blockfrostOptions -> do
-      wallet <- mkTinyWallet @BlockfrostBackend (runBlockfrostBackend blockfrostOptions) tracer cfg
-      ctx <- runBlockfrostBackend blockfrostOptions $ loadChainContext cfg party
-      withBlockfrostChain blockfrostOptions tracer cfg ctx wallet chainStateHistory callback action
+      env <- newBlockfrostEnv blockfrostOptions
+      wallet <- mkTinyWallet @BlockfrostBackend (runBlockfrostBackendWith env) tracer cfg
+      ctx <- runBlockfrostBackendWith env $ loadChainContext cfg party
+      withBlockfrostChain env tracer cfg ctx wallet chainStateHistory callback action
  where
   CardanoChainConfig{chainBackendOptions} = cfg
 

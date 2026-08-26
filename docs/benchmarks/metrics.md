@@ -21,7 +21,15 @@ when comparing them:
 
 The absolute numbers produced by the cloud CI runners are noisy. Treat them as
 relative signals (how a value moves as the code changes), not as absolute
-hardware figures.
+hardware figures. Even relative signals need care: GitHub's runner fleet mixes
+CPU models with a large performance spread, so the PR comparison workflow
+measures the PR and its merge-base interleaved on each runner and aggregates
+same-machine pair deltas (see "PR comparison methodology" in
+`hydra-cluster/README.md`). The diff comment omits the open-loop
+confirmation-latency rows (they restate throughput) and P99 everywhere
+(confirmations arrive in per-snapshot bursts, so the top percentile is a
+handful of atoms); a failed run carries an explicit `Outcome` row instead of
+silently missing numbers.
 
 ## End-to-end benchmark results
 
@@ -51,6 +59,17 @@ PR-versus-master comparison table is produced by `scripts/bench-e2e-diff.py`.
 | Number of Invalid txs | Transactions the node rejected as invalid | count of transactions that reached an `invalidAt` (`numberOfInvalidTxs`) |
 | Fanout outputs | UTxO entries fanned out when the head closed | member count of the final `finalizedUTxO`; reported as 0 if fanout did not finalize within the time budget (`numberOfFanoutOutputs`) |
 | Incremental commit / decommit: count, avg (ms), max (ms) | On-chain incremental (de)commit finalisation latency | per event, `finalisedAt - startedAt`; the run's count, mean, and maximum |
+| Alloc MB per confirmed tx / per snapshot | GHC heap allocation summed over nodes, per unit of work | delta of `hydra_rts_allocated_bytes` across the tx-processing window (`rtsAggregates`); only when nodes run with `+RTS -T` |
+| Mutator CPU s per 1k txs | Node CPU time outside GC, summed over nodes | delta of `hydra_rts_mutator_cpu_seconds`, per 1000 confirmed txs |
+| Max live MB (max node) | Peak live heap of the largest node | `hydra_rts_max_live_bytes` (peak since node start, not windowed) |
+
+The work counters exist because wall-clock numbers from shared runners never
+fully settle: bytes allocated per unit of work is nearly machine-independent
+and directly catches the extra-copying/serialization class of regression.
+Reports also carry an `end-to-end-benchmarks.json` twin with raw series;
+`scripts/bench-e2e-diff.py` derives percentiles and _Sustained TPS (slope)_
+(least-squares over the middle 80% by cumulative count) from it with one
+implementation for both compared sides.
 
 A note on the latency statistics: the percentiles are computed over every
 confirmed transaction in the run, not per snapshot. Because confirmations arrive
@@ -102,3 +121,9 @@ metrics above, these are live counters suitable for production dashboards.
 | `hydra_head_peers_connected` | gauge | number of currently connected peers |
 | `hydra_chain_drift_seconds` | gauge | how far behind the chain the node is, updated on each observed block |
 | `hydra_chain_last_block_timestamp_seconds` | gauge | wall-clock time the node last observed a block; alert on `time() - hydra_chain_last_block_timestamp_seconds` to catch a stalled backend, which freezes the drift gauge rather than growing it |
+
+When the node runs with `+RTS -T`, the endpoint additionally serves GHC RTS
+work counters, refreshed at scrape time (absent otherwise, so the output is
+unchanged without `-T`): `hydra_rts_allocated_bytes`,
+`hydra_rts_mutator_cpu_seconds`, `hydra_rts_gc_cpu_seconds`,
+`hydra_rts_max_live_bytes` and `hydra_rts_major_gcs`.

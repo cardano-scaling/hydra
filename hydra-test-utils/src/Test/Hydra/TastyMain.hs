@@ -20,7 +20,7 @@ module Test.Hydra.TastyMain (
 import Hydra.Prelude
 
 import System.Environment qualified as Env
-import Test.Tasty (TestName, TestTree, defaultMainWithIngredients, localOption, testGroup)
+import Test.Tasty (TestName, TestTree, Timeout (..), adjustOption, defaultMainWithIngredients, localOption, mkTimeout, testGroup)
 import Test.Tasty.Hspec (TreatPendingAs (TreatPendingAsSuccess), testSpec, testSpecs)
 import Test.Tasty.Ingredients (Ingredient, composeReporters)
 import Test.Tasty.Ingredients.Rerun (rerunningTests)
@@ -34,7 +34,19 @@ import Test.Tasty.Runners.Html (htmlRunner)
 hydraTestTree :: TestName -> [IO TestTree] -> IO TestTree
 hydraTestTree groupName trees = do
   resolved <- sequence trees
-  pure $ localOption TreatPendingAsSuccess (testGroup groupName resolved)
+  pure $
+    localOption TreatPendingAsSuccess $
+      adjustOption defaultTimeout $
+        testGroup groupName resolved
+ where
+  -- Default per-test timeout as a backstop, so a hung test fails with its
+  -- name instead of stalling the suite into the CI job's 60-minute kill.
+  -- Only replaces the absent default: a command-line '--timeout' and any
+  -- deeper 'localOption'/'adjustOption' still win. Sized well above every
+  -- legitimate test duration (the longest budgeted test is 'failAfter 600').
+  defaultTimeout = \case
+    NoTimeout -> mkTimeout (15 * 60 * 1000000)
+    t -> t
 
 -- | The tasty ingredients used by every Hydra test-suite. Bundles
 -- @tasty-rerun@ (pass @--rerun@ to re-run only the previously-failed

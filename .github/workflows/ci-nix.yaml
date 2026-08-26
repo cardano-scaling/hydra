@@ -24,6 +24,11 @@ jobs:
     name: "Build & test"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      # Scale test wait budgets for the slow shared runners; only failure
+      # latency is affected, passing waits return as soon as their condition
+      # holds. See scaleWaitTime in hydra-cluster's HydraNode module.
+      HYDRA_TEST_WAIT_MULTIPLIER: 3
     strategy:
       matrix:
         package:
@@ -80,13 +85,18 @@ jobs:
         check-name: tests / ${{ matrix.package }} (${{ matrix.os }})
         artifact-name: junit-${{ matrix.package }}-${{ matrix.os }}
 
-    # NOTE: This depends on the path used in hydra-cluster e2e tests
+    # NOTE: Failed tests keep their temp dir (see withTempDir), so only
+    # failures produce files here. The glob deliberately matches any temp dir
+    # with a logs/ subdirectory rather than specific withTempDir templates;
+    # template renames silently broke a template-coupled glob before. The
+    # artifact name is matrix-keyed because upload-artifact@v4 requires
+    # unique names within a run.
     - name: 💾 Upload logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: hydra-cluster-e2e-test-logs
-        path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
+        name: test-logs-${{ matrix.package }}-${{ matrix.os }}
+        path: /tmp/nix-shell.*/*/logs/*
         if-no-files-found: ignore
 
   benchmarks:
@@ -113,7 +123,9 @@ jobs:
             # Skip the incremental-ops dimension in CI: per-cycle ~90s adds up
             # across cells and the cost is known/bounded. Local runs can still
             # opt in via `--incremental-modes False,True`.
-            options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s --incremental-modes False'
+            # Fixed seed (cell i uses seed+i) so the matrix benchmarks the
+            # same workloads on every run and pages are comparable over time.
+            options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s --incremental-modes False --seed 2755'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -162,14 +174,25 @@ jobs:
     - name: ⚙ Prepare comment body
       id: comment-body
       run: |
-        # Drop first 5 header lines and demote headlines one level. Concatenate
-        # tx costs, the existing single end-to-end run, and the matrix
-        # scenarios so reviewers see every benchmark output in one PR comment.
-        cat \
-          <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') \
-          <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') \
-          <(cat artifact/scenarios.md | sed '1,5d;s/^#/##/') \
-          | grep -v '^:::' > comment-body.md
+        # Drop first 5 header lines and demote headlines one level. Every
+        # benchmark output lands in one PR comment, each report inside its own
+        # collapsed <details> section so the comment stays short to scroll.
+        # The blank line after <summary> is required for the markdown inside
+        # to render.
+        section() {
+          echo "<details>"
+          echo "<summary><b>$1</b></summary>"
+          echo ""
+          sed '1,5d;s/^#/##/' "$2" | grep -v '^:::'
+          echo ""
+          echo "</details>"
+          echo ""
+        }
+        {
+          section "Transaction costs" artifact/transaction-cost.md
+          section "End-to-end benchmark results" artifact/end-to-end-benchmarks.md
+          section "Scenario benchmark results" artifact/scenarios.md
+        } > comment-body.md
 
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v3

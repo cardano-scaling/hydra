@@ -55,6 +55,13 @@ data RequirementFailure tx
   | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
   | ReqSnDecommitNotSettled
   | ReqSnCommitNotSettled
+  | -- | A snapshot may settle a commit or a decommit, never both: close and
+    -- fanout carry a single incremental action, so a snapshot with both would
+    -- leave the head unclosable.
+    ReqSnBothCommitAndDecommit {depositTxId :: TxIdType tx, decommitTxId :: TxIdType tx}
+  | -- | A decommit that materializes no output cannot be settled: the decrement
+    -- validator requires at least one decommit output.
+    ReqSnDecommitNoOutputs {decommitTxId :: TxIdType tx}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
@@ -80,14 +87,19 @@ data SideLoadRequirementFailure tx
   | SideLoadSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SideLoadSvNumberInvalid {requestedSv :: SnapshotVersion, lastSeenSv :: SnapshotVersion}
   | SideLoadUTxOToCommitInvalid {requestedSc :: Maybe (UTxOType tx), lastSeenSc :: Maybe (UTxOType tx)}
+  | -- | The side-loaded snapshot commits the same UTxO as the confirmed one, but
+    -- from a different deposit. Since the deposit is what identifies a pending
+    -- commit, this is a distinct disagreement from 'SideLoadUTxOToCommitInvalid',
+    -- whose payload would show two identical UTxO sets here.
+    SideLoadDepositTxIdInvalid {requestedDeposit :: Maybe (TxIdType tx), lastSeenDeposit :: Maybe (TxIdType tx)}
   | SideLoadUTxOToDecommitInvalid {requestedSd :: Maybe (UTxOType tx), lastSeenSd :: Maybe (UTxOType tx)}
   | SideLoadInvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   deriving stock (Generic)
 
-deriving stock instance Eq (UTxOType tx) => Eq (SideLoadRequirementFailure tx)
-deriving stock instance Show (UTxOType tx) => Show (SideLoadRequirementFailure tx)
-deriving anyclass instance ToJSON (UTxOType tx) => ToJSON (SideLoadRequirementFailure tx)
-deriving anyclass instance FromJSON (UTxOType tx) => FromJSON (SideLoadRequirementFailure tx)
+deriving stock instance (Eq (UTxOType tx), Eq (TxIdType tx)) => Eq (SideLoadRequirementFailure tx)
+deriving stock instance (Show (UTxOType tx), Show (TxIdType tx)) => Show (SideLoadRequirementFailure tx)
+deriving anyclass instance (ToJSON (UTxOType tx), ToJSON (TxIdType tx)) => ToJSON (SideLoadRequirementFailure tx)
+deriving anyclass instance (FromJSON (UTxOType tx), FromJSON (TxIdType tx)) => FromJSON (SideLoadRequirementFailure tx)
 
 instance IsTx tx => ToCBOR (SideLoadRequirementFailure tx) where
   toCBOR = genericToCBOR

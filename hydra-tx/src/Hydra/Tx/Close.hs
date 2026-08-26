@@ -21,6 +21,7 @@ import Hydra.Tx (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  commitOutputsHash,
   fromChainSnapshotNumber,
   getSnapshot,
   headIdToCurrencySymbol,
@@ -101,7 +102,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       ConfirmedSnapshot{signatures} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
             decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
-            commitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
+            commitHash = toBuiltin $ commitOutputsHash snapshot
             sig = toPlutusSignatures signatures
          in case incrementalAction of
               NoThing ->
@@ -114,7 +115,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, version} = getSnapshot confirmedSnapshot
+  snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, version} = getSnapshot confirmedSnapshot
 
   -- Lovelace in the head UTxO not attributable to any L2 UTxO value (the
   -- min-UTxO overhead). Computed once at Close and propagated unchanged through

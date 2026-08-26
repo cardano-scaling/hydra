@@ -49,6 +49,7 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -60,6 +61,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (
   verificationKeyToOnChainId,
  )
+import HydraNode (scaledFailAfter)
 import System.FilePath ((</>))
 import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -119,6 +121,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
+                    , depositTxId = Nothing
                     , version = snapshotVersion
                     , accumulator
                     }
@@ -246,7 +249,12 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet (Direct directOpts) aliceExternalVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod dperiod [alice]
+            -- The first contest below must be built, evaluated and submitted
+            -- before the contestation deadline; the 10s 'cperiod' lost that
+            -- race on loaded CI runners, failing wallet-side evaluation.
+            -- Nothing here waits for the deadline to pass, so a generous
+            -- period costs no wall-clock time.
+            let headParameters = HeadParameters (UnsafeContestationPeriod 60) dperiod [alice]
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -268,6 +276,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = utxoToDecommit
+                    , depositTxId = Nothing
                     , version = 0
                     , accumulator
                     }
@@ -293,6 +302,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , confirmed = []
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
+                    , depositTxId = Nothing
                     , version = 1
                     , accumulator
                     }
@@ -378,7 +388,7 @@ observesInTimeSatisfying directChainTest = observesInTimeSatisfying' directChain
 
 observesInTimeSatisfying' :: CardanoChainTest tx IO -> NominalDiffTime -> (OnChainTx tx -> IO a) -> IO a
 observesInTimeSatisfying' CardanoChainTest{waitCallback} waitTime check =
-  failAfter waitTime go
+  scaledFailAfter waitTime go
  where
   go = do
     e <- waitCallback
@@ -389,7 +399,9 @@ observesInTimeSatisfying' CardanoChainTest{waitCallback} waitTime check =
         go
 
 waitMatch :: CardanoChainTest tx IO -> (ChainEvent tx -> Maybe b) -> IO b
-waitMatch CardanoChainTest{waitCallback} match = go
+waitMatch CardanoChainTest{waitCallback} match =
+  -- Bounded so a missed observation fails the test instead of hanging it.
+  scaledFailAfter 60 go
  where
   go = do
     a <- waitCallback

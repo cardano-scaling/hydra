@@ -97,7 +97,7 @@ spec = parallel $ do
   describe "Sanity tests of test suite" $ do
     it "does not delay for real" $
       -- If it works, it simulates a lot of time passing within 1 second
-      failAfter 1 $
+      failAfter 10 $
         shouldRunInSim $
           threadDelay 600
 

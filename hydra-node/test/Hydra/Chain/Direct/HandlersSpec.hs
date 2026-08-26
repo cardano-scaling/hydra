@@ -132,7 +132,7 @@ spec = do
         chainContext <- pickBlind arbitrary
         chainState <- pickBlind arbitrary
 
-        (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (pure timeHandle)
+        (handler, getEvents) <- run $ recordEventsHandler chainContext chainState (const $ pure timeHandle)
 
         run $ onRollForward handler header txs
 
@@ -160,7 +160,7 @@ spec = do
               chainSyncHandler
                 nullTracer
                 chainSyncCallback
-                (pure timeHandle)
+                (const $ pure timeHandle)
                 chainContext
                 localChainState
         run $
@@ -185,7 +185,7 @@ spec = do
           recordEventsHandler
             ctx
             ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing}
-            (pure timeHandle)
+            (const $ pure timeHandle)
 
       run $ onRollForward handler header txs
 
@@ -235,7 +235,7 @@ spec = do
             chainSyncHandler
               nullTracer
               callback
-              (pure timeHandle)
+              (const $ pure timeHandle)
               ctx
               localChainState
       run $ onRollForward handler header txs
@@ -267,7 +267,7 @@ spec = do
             chainSyncHandler
               nullTracer
               callback
-              (pure timeHandle)
+              (const $ pure timeHandle)
               ctx
               localChainState
       run $ onRollForward handler header txs
@@ -289,7 +289,7 @@ spec = do
             chainSyncHandler
               nullTracer
               callback
-              (pure timeHandle)
+              (const $ pure timeHandle)
               chainContext
               localChainState
 
@@ -316,7 +316,7 @@ spec = do
             chainSyncHandler
               nullTracer
               (\_ -> pure ())
-              (pure timeHandle)
+              (const $ pure timeHandle)
               chainContext
               localChainState
       run $ forM_ blocks $ \(TestBlock header txs) -> onRollForward handler header txs
@@ -331,7 +331,7 @@ spec = do
             chainSyncHandler
               nullTracer
               (\_ -> pure ())
-              (pure timeHandle)
+              (const $ pure timeHandle)
               chainContext
               resumedLocalChainState
 
@@ -667,7 +667,7 @@ genFailingReport = do
   pure $ Map.insert failIdx (Left ScriptErrorExecutionUnitsOverflow) passing
 
 -- | Create a chain sync handler which records events as they are called back.
-recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler :: ChainContext -> ChainStateAt -> (SlotNo -> GetTimeHandle IO) -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 recordEventsHandler ctx cs getTimeHandle = do
   eventsVar <- newLabelledTVarIO "events-recorded" []
   localChainState <- newLocalChainState (initHistory cs)

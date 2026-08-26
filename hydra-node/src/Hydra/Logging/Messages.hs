@@ -28,6 +28,10 @@ data HydraLog tx
   | NodeHydrated
   | ChainBackendStarted
   | NetworkStarted
+  | -- | Emitted either side of forcing the embedded KZG trusted setup, the one
+    -- startup step with no bound on how long it takes.
+    LoadingTrustedSetup
+  | TrustedSetupLoaded {numG1Points :: Int}
   deriving stock (Generic)
 
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)

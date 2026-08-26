@@ -123,7 +123,7 @@ data DepositObservation = DepositObservation
 -- deadline and deposited utxo in the datum.
 --
 -- This includes checking whether
--- - the first output is a deposit output
+-- - the transaction's first output is the deposit output
 -- - all of deposited value is contained in the deposit tx output,
 -- - the deposit script output actually contains the deposited value,
 -- - an upper validity bound has been set (used as creation slot).
@@ -132,7 +132,14 @@ observeDepositTx ::
   Tx ->
   Maybe DepositObservation
 observeDepositTx networkId tx = do
-  (_, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  (TxIn _ depositIx, depositOut) <- findTxOutByAddress (depositAddress networkId) tx
+  -- A deposit is identified by its transaction id alone, which only works
+  -- because it is that transaction's first output: 'depositTx' builds it there,
+  -- 'recoverTx' spends @TxIn depositTxId (TxIx 0)@, and the increment validator
+  -- requires it. Observing one at any other index would let parties sign a
+  -- snapshot committing a deposit that can then neither be claimed nor
+  -- recovered.
+  guard $ depositIx == TxIx 0
   (headId, deposited, deadline) <- observeDepositTxOut network (toCtxUTxOTxOut depositOut)
   created <- getUpperBound
   pure
@@ -159,15 +166,43 @@ observeDepositTxOut network depositOut = do
   (headCurrencySymbol, deadline, onChainDeposits) <- fromScriptData dat
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
-    depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
+    -- Force the decoded UTxO: this decode (plutus 'Data' via 'deserializeCommit') is an
+    -- ingress point for 'UTxO' that the forcing 'FromJSON'/'FromCBOR' instances do not
+    -- cover, and the observed set flows into 'localUTxO' and snapshots where
+    -- 'forceNewEntries' deliberately trusts carried-over entries. Today the round-trip
+    -- guard in 'deserializeRoundTripping' happens to force the entries deeply as a side
+    -- effect of re-serializing them; forcing explicitly here makes the ingress invariant
+    -- survive a refactor of that guard (and the observation test asserts it).
+    depositedUTxO <- forceUTxO . UTxO.fromList <$> traverse deserializeRoundTripping onChainDeposits
     -- TODO: This silently ignores deposits that deposit less ADA than what the
     -- min ADA for the deposit output would be. For example: a 1 ADA utxo can be
     -- deposited, but the deposit tx's output will require ~1.5 ADA because of
     -- the inline datum on it. Dropping this or changing to a >= here will not
     -- work because the increment redeemer of the head validator requires an
     -- exact balance (right now).
+    -- 'UTxO.fromList' is keyed by 'TxIn', so commits repeating an input collapse
+    -- into one entry. Each such commit round-trips fine on its own and the value
+    -- guard below can be satisfied against the collapsed total, but the validators
+    -- hash the datum's list as it stands — two copies of the same bytes — so
+    -- nothing derived from this UTxO could ever match, leaving the deposit neither
+    -- claimable nor recoverable.
+    guard $ length onChainDeposits == UTxO.size depositedUTxO
     guard $ depositValue == UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)
  where
   depositValue = txOutValue depositOut
+
+  -- The validators hash the datum's 'preSerializedOutput' bytes as they stand,
+  -- while the off-chain representation cannot express everything those bytes can:
+  -- 'fromPlutusTxOut' drops a reference script, for instance. A deposit whose
+  -- commits do not survive the round trip would still be observed and committed by
+  -- a snapshot, but every hash recomputed from the off-chain UTxO would differ from
+  -- the datum's — leaving it neither claimable by an increment nor recoverable,
+  -- since 'recoverTx' rebuilds its outputs through the same lossy path. Refuse to
+  -- observe such a deposit; the funds stay recoverable by a transaction that
+  -- reproduces the original outputs exactly.
+  deserializeRoundTripping commit = do
+    (i, o) <- Commit.deserializeCommit network commit
+    guard $ Commit.serializeCommit (i, o) == Just commit
+    pure (i, o)

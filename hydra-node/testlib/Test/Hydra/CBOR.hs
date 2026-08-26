@@ -10,7 +10,7 @@ import Codec.CBOR.Write (toLazyByteString)
 import Data.Typeable (typeRep)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath (takeDirectory)
-import Test.QuickCheck (Property, resize, (===))
+import Test.QuickCheck (Property, forAll, resize, withMaxSuccess, (===))
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
 
 -- | Test that a value can be roundtripped through its CBOR encoding.
@@ -28,9 +28,19 @@ roundtripCBOR ::
   (Arbitrary a, ToCBOR a, FromCBOR a, Eq a, Show a) =>
   Proxy a ->
   Spec
-roundtripCBOR p =
+roundtripCBOR p = do
   prop ("roundtrips CBOR encoding: " <> show (typeRep p)) $
-    prop_canRoundtripCBOREncoding @a
+    -- Small samples exercise the codecs (tags, field order) just as well as
+    -- large ones, and generation cost is dominated by expensive embedded
+    -- structures (full transactions, KZG accumulators): unsized, the
+    -- Snapshot roundtrip alone took ~24 minutes of CI time.
+    forAll (resize 5 (arbitrary @a)) prop_canRoundtripCBOREncoding
+  -- Nightly keeps coverage of size-dependent encodings (e.g. CBOR
+  -- length-boundary widths) that small samples cannot reach.
+  around_ onlyNightly $
+    prop ("roundtrips CBOR encoding (large samples): " <> show (typeRep p) <> " @nightly") $
+      withMaxSuccess 20 $
+        prop_canRoundtripCBOREncoding @a
 
 -- | Golden test locking a persisted CBOR format. The golden file holds the
 -- raw CBOR of a list of samples. When the file is missing it is created from

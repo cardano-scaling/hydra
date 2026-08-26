@@ -73,6 +73,10 @@ sequenceDiagram
 
 Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one.
 
+A deposit is identified throughout by the transaction id of the `depositTx`, which is only unambiguous because the deposit output is that transaction's *first* output. The `hydra-node` drafts deposits that way, `recoverTx` spends `TxIn depositTxId (TxIx 0)`, and the increment validator requires it. A deposit output anywhere else is not observed at all.
+
+Note that the draft returned by `POST /commit` is signed and submitted by the client. A wallet that reorders its outputs moves the deposit off index 0, and the `hydra-node` then never records it as pending, so `DELETE /commits/<tx-id>` fails with `NoMatchingDeposit`. Such funds are only recoverable by a hand-built transaction reproducing the recorded outputs.
+
 :::info
 Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
 :::

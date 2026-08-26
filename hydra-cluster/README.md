@@ -204,9 +204,9 @@ hydra-node processes (Linux only).
 The benchmark can be run in several modes:
 
 * `single`: Runs one or more pre-existing _dataset_ files in sequence and collects their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over well-known datasets and is what CI uses to compare a PR against master.
-* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it.
+* `datasets`: Generates a dataset from options (UTxO shape, cluster size, number of txs), saves it, and runs it. `--seed` makes generation reproducible.
 * `generate`: Generates and saves a dataset file without running it. `--seed` makes generation reproducible and `--title` names the scenario in reports (scenarios are paired by title when diffing two reports). Feed the resulting file to `single`.
-* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page.
+* `matrix`: Runs a scenario matrix over cluster sizes, UTxO shapes and incremental-ops modes, and writes a `scenarios.md` comparison page. With `--seed N`, cell i generates from seed N+i, so the matrix is reproducible across runs (CI pins this).
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 
 ## Load modes and reported metrics
@@ -250,14 +250,40 @@ Reported metrics:
   processes (Linux only); guards against memory regressions under load.
 * Confirmation time average and percentiles: see load modes above.
 
-The CI workflow `.github/workflows/bench-e2e-diff.yaml` generates three
-scenarios per PR (3-node sustained load, 1-node `Plateau 1000` large-UTxO
-load, 3-node closed-loop latency) once, then benchmarks this branch and master
-on separate, isolated runners in parallel, posting the per-metric differences
-as a PR comment via `scripts/bench-e2e-diff.py`. Both sides consume the same
-generated dataset artifact so the workload is identical; the isolation stops
-one side's ~30-minute run from degrading the runner the other is measured on
-(which otherwise biased every comparison toward the side measured first). A new
-summary metric only shows a difference once it exists on master too, and must
-be registered in that script's `METRICS` table.
+## PR comparison methodology
+
+The CI workflow `.github/workflows/bench-e2e-diff.yaml` compares each PR
+against its merge-base (not master HEAD, so re-runs keep their baseline and
+other people's merges cannot appear as PR deltas):
+
+* One job generates the three scenarios (3-node sustained load, 1-node
+  `Plateau 1000` large-UTxO load, 3-node closed-loop latency) once, with
+  fixed seeds, consumed by every benchmark job.
+* Four benchmark jobs run in parallel; each measures BOTH sides back to back
+  on its own runner (orders alternated), after prefetching both nix closures.
+  GitHub's hosted fleet mixes CPU models with a large single-thread spread:
+  unpaired cross-machine comparisons see double-digit CV on open-loop TPS
+  even for identical code, while machine identity cancels inside a
+  same-machine pair.
+* `scripts/bench-e2e-diff.py` reports the median of the per-pair percent
+  deltas and colors a row only beyond that metric's noise threshold with
+  directional agreement across pairs. This is a calibrated heuristic, not a
+  significance test, and nothing fails CI on it; strong regressions on the
+  headline rates emit a `::warning` annotation.
+* Nodes are spawned with `+RTS -N2 -T` (via `HYDRA_NODE_RTS_FLAGS`, guarded
+  by a probe so both sides always get identical settings), the bench client
+  itself runs with `+RTS -N2` (passed on the command line so both sides'
+  clients get it), and the cluster runs on tmpfs, keeping scheduler
+  oversubscription and network-disk fsync latency out of the measurements. The `-T` counters feed the alloc/CPU
+  rows, the machine-insensitive signal to trust when wall clock wobbles.
+* `workflow_dispatch` takes `head_ref`/`base_ref` to compare arbitrary refs;
+  an empty `base_ref` makes it an A/A null run of `head_ref`, in which any
+  colored row is a false positive. To recalibrate thresholds, download the
+  `bench-results-*` artifacts of accumulated A/A runs into one directory per
+  run; `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested
+  per-metric values to land in the script. Draft PRs are skipped unless the
+  PR carries the `bench` label (applies from the next push).
+
+A new summary metric only shows a difference once both sides emit it, and
+must be registered in the script's `METRICS` table.
 

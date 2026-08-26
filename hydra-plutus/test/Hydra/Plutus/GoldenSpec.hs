@@ -32,13 +32,30 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (Data (..), TxId (..), TxOutRef (..), serialiseCompiledCode, toData)
 import PlutusTx.Builtins (toBuiltin)
-import System.Process.Typed (runProcess_, shell)
+import System.Environment (getEnvironment)
+import System.Process.Typed (runProcess_, setEnv, shell)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden.Advanced (goldenTest)
 import Test.Tasty.HUnit (assertFailure, testCase, (@?=))
 
 aikenBuildCommand :: String
 aikenBuildCommand = "aiken build -t compact"
+
+-- | Run the aiken build with its package cache pointed at HYDRA_AIKEN_CACHE
+-- when set. The nix test shell pins the stdlib dependency there, keeping the
+-- build off the network. Aiken only reads the cache, so pointing straight at
+-- the store path is fine; what must carry writable permission bits is the
+-- zip CONTENT, since aiken recreates the recorded modes when extracting into
+-- build/packages (see the aikenCache derivation).
+runAikenBuild :: IO ()
+runAikenBuild =
+  lookupEnv "HYDRA_AIKEN_CACHE" >>= \case
+    Nothing -> runProcess_ $ shell aikenBuildCommand
+    Just cacheDir -> do
+      env <- getEnvironment
+      runProcess_ $
+        setEnv (("XDG_CACHE_HOME", cacheDir) : filter ((/= "XDG_CACHE_HOME") . fst) env) $
+          shell aikenBuildCommand
 
 tests :: TestTree
 tests =
@@ -47,10 +64,10 @@ tests =
     [ testCase "Plutus blueprint is up-to-date" $ do
         -- Running aiken -t compact should not change plutus.json
         existing <- readFileBS "plutus.json"
-        runProcess_ $ shell aikenBuildCommand
-        actual <- readFileBS "plutus.json"
-        -- Undo any changes made by aiken
-        writeFileBS "plutus.json" existing
+        -- Undo any changes made by aiken, also when the build itself fails.
+        actual <-
+          (runAikenBuild >> readFileBS "plutus.json")
+            `finally` writeFileBS "plutus.json" existing
         when (actual /= existing) $
           assertFailure $
             "Plutus blueprint in plutus.json is not up-to-date. Run "
@@ -73,6 +90,27 @@ tests =
         case toData incrementInput of
           Constr n _ -> n @?= 0
           _ -> assertFailure "Increment redeemer did not serialise to a Constr"
+    , testCase "Increment redeemer carries the claimed deposit at field index 2 (deposit.ak invariant)" $ do
+        -- deposit.ak decodes the claimed deposit positionally out of the inner
+        -- 'IncrementRedeemer':
+        --   expect [_signature, _snapshot_number, claimed, ..] = un_constr_data(..).2nd
+        -- Reordering the record's fields would silently make it compare the wrong
+        -- field against its own output reference, so pin the position here.
+        let someRef = TxOutRef (TxId . toBuiltin $ BS.replicate 32 7) 3
+            incrementInput =
+              HeadState.Increment
+                HeadState.IncrementRedeemer
+                  { HeadState.signature = []
+                  , HeadState.snapshotNumber = 0
+                  , HeadState.increment = someRef
+                  , HeadState.decommitOutputsHash = toBuiltin (BS.replicate 32 0)
+                  }
+        case toData incrementInput of
+          Constr _ [Constr _ fields] ->
+            case fields !!? 2 of
+              Just claimed -> claimed @?= toData someRef
+              Nothing -> assertFailure "IncrementRedeemer has fewer than three fields"
+          _ -> assertFailure "Increment did not serialise to a Constr wrapping a Constr"
     , testCase "Deposit redeemer constructor indices match deposit.ak" $ do
         -- deposit.ak redefines the deposit 'Redeemer' type structurally and
         -- matches on its constructors. If these indices ever drift, deposit

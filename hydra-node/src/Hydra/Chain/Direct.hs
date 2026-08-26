@@ -59,7 +59,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollForward,
  )
 import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (newCachedTimeHandle, queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
@@ -170,6 +170,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
 
   traceWith tracer $ StartingChainDecision startingDecision'
   let getTimeHandle = runDirectBackend opts queryTimeHandle
+  cachedTimeHandle <- newCachedTimeHandle (runDirectBackend opts)
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
@@ -181,7 +182,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
           localChainState
           (submitTx queue)
 
-  let handler = chainSyncHandler tracer callback getTimeHandle ctx localChainState
+  let handler = chainSyncHandler tracer callback cachedTimeHandle ctx localChainState
   res <-
     raceLabelled
       ( "direct-chain-connection"

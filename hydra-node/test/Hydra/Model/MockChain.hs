@@ -195,7 +195,7 @@ mockChainAndNetwork tr seedKeys = do
                 chainSyncHandler
                   tr
                   (enqueue . ChainInput)
-                  getTimeHandle
+                  (const getTimeHandle)
                   ctx
                   localChainState
             }

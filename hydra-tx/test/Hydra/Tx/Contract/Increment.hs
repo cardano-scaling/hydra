@@ -13,6 +13,7 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Commit (Commit, serializeCommit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))
+import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -98,8 +99,13 @@ healthyIncrementTx =
     UTxO.singleton healthyDepositInput $
       mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
 
+-- | The deposit is the first output of its transaction, as built by
+-- 'Hydra.Tx.Deposit.depositTx' and required by 'checkIncrement'.
 healthyDepositInput :: TxIn
-healthyDepositInput = arbitrary `generateWith` 123
+healthyDepositInput = TxIn healthyDepositTxId (TxIx 0)
+
+healthyDepositTxId :: TxId
+healthyDepositTxId = arbitrary `generateWith` 123
 
 healthyDeposited :: UTxO
 healthyDeposited = genUTxOSized 3 `generateWith` 42
@@ -140,6 +146,7 @@ healthySnapshot =
     , utxo = healthyUTxO
     , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
+    , depositTxId = Just healthyDepositTxId
     , accumulator = healthyAccumulator
     }
 
@@ -198,9 +205,33 @@ data IncrementMutation
     -- deposit input, so a missing claim ref hard-fails with 'DepositInputNotFound'
     -- (this now precedes and subsumes the 'DepositNotSpent' check).
     IncrementDifferentClaimRedeemer
-  | -- | Add a second v_deposit input alongside an attacker-controlled
-    -- output that redirects its value away from the head's continuation.
+  | -- | SECURITY: claim a look-alike deposit instead of the approved one. The
+    -- substitute is created by a different transaction but carries a
+    -- byte-identical datum and the same value, so it hashes the same and
+    -- preserves the head value; only the deposit's identity differs. The signed
+    -- snapshot binds that identity, so signature verification must fail.
+    IncrementClaimLookAlikeDeposit
+  | -- | SECURITY: claim a sibling output of the approved deposit's own
+    -- transaction, carrying a copied datum. The signed message binds the deposit
+    -- by transaction id, which the sibling shares, so the signature still
+    -- verifies and only the output index tells the two apart.
+    IncrementClaimSiblingDepositOutput
+  | -- | SECURITY: add a second v_deposit input alongside an attacker-controlled
+    -- output that redirects its value away from the head's continuation. The head
+    -- grows by exactly the claimed deposit, so 'mustPreserveValue' is satisfied
+    -- and only the deposit-side claim binding stands between the attacker and
+    -- another user's pending deposit.
     IncrementAddExtraDepositInput
+  | -- | Push a second v_deposit input's value into the head output instead of
+    -- routing it away. The head grows by exactly the claimed deposit, so this
+    -- over-funding is what the head value equality rejects.
+    IncrementAbsorbExtraDepositInput
+  | -- | SECURITY: add an input from an unrelated, always-succeeding script and
+    -- absorb its value into the head. Not a deposit, so the deposit validator
+    -- cannot reject it, and 'mustPreserveValue' expects only the claimed deposit
+    -- so the head value check passes. Over-funding the head this way would leave
+    -- (partial) fanout's strict conservation permanently unsatisfiable.
+    IncrementAddForeignScriptInput
   | -- | Minting or burning of tokens should not be possible in increment.
     MutateTokenMintingOrBurning
   deriving stock (Generic, Show, Enum, Bounded)
@@ -275,7 +306,37 @@ genIncrementMutation (tx, utxo) =
               , increment = toPlutusTxOutRef invalidDepositRef
               , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
-    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
+    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) IncrementClaimLookAlikeDeposit <$> do
+        lookAlikeIn <- genTxIn `suchThat` (\(TxIn tid _) -> tid /= healthyDepositTxId)
+        pure $
+          Changes
+            [ RemoveInput depositIn
+            , AddInput lookAlikeIn depositOut (Just $ toScriptData Claim)
+            , ChangeHeadRedeemer $
+                Head.Increment
+                  Head.IncrementRedeemer
+                    { signature = toPlutusSignatures healthySignature
+                    , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+                    , increment = toPlutusTxOutRef lookAlikeIn
+                    , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
+                    }
+            ]
+    , SomeMutation (pure $ toErrorCode DepositNotFirstOutput) IncrementClaimSiblingDepositOutput <$> do
+        let siblingIn = TxIn healthyDepositTxId (TxIx 1)
+        pure $
+          Changes
+            [ RemoveInput depositIn
+            , AddInput siblingIn depositOut (Just $ toScriptData Claim)
+            , ChangeHeadRedeemer $
+                Head.Increment
+                  Head.IncrementRedeemer
+                    { signature = toPlutusSignatures healthySignature
+                    , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
+                    , increment = toPlutusTxOutRef siblingIn
+                    , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
+                    }
+            ]
+    , SomeMutation [toErrorCode DepositNotClaimedByHead, toErrorCode MustNotSpendOtherScripts] IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
         attackerVk <- genVerificationKey
@@ -292,6 +353,46 @@ genIncrementMutation (tx, utxo) =
         pure $
           Changes
             [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AppendOutput attackerOut
+            ]
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAbsorbExtraDepositInput <$> do
+        -- SECURITY: unlike 'IncrementAddExtraDepositInput', the extra deposit's
+        -- value is pushed into the head output. 'mustPreserveValue' grows the head
+        -- by exactly the claimed deposit and is an equality, so this over-funding
+        -- is what it rejects — the head must never hold value no snapshot credits,
+        -- or (partial) fanout's strict conservation becomes unsatisfiable forever.
+        extraIn <- genTxIn `suchThat` (/= depositIn)
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        let extraDepositOut :: TxOut CtxUTxO
+            extraDepositOut =
+              mkDepositOutput testNetworkId (mkHeadId testPolicyId) extraDeposited healthyDeadline
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , ChangeOutput 0 (headTxOut & modifyTxOutValue (<> txOutValue extraDepositOut))
+            ]
+    , SomeMutation (pure $ toErrorCode MustNotSpendOtherScripts) IncrementAddForeignScriptInput <$> do
+        foreignIn <- genTxIn `suchThat` (/= depositIn)
+        value <- genValue
+        attackerVk <- genVerificationKey
+        let foreignOut :: TxOut CtxUTxO
+            foreignOut =
+              TxOut
+                (mkScriptAddress testNetworkId dummyValidatorScript)
+                value
+                TxOutDatumNone
+                ReferenceScriptNone
+            attackerOut :: TxOut CtxTx
+            attackerOut =
+              TxOut
+                (mkVkAddress testNetworkId attackerVk)
+                value
+                TxOutDatumNone
+                ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput foreignIn foreignOut (Just $ toScriptData ())
+            , AddScript dummyValidatorScript
             , AppendOutput attackerOut
             ]
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning

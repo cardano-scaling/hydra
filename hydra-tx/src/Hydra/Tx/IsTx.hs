@@ -88,6 +88,11 @@ class
   -- | Hash a utxo set to be able to sign (off-chain) and verify it (on-chain).
   hashUTxO :: UTxOType tx -> ByteString
 
+  -- | Raw bytes identifying a transaction, as bound into snapshot signatures.
+  -- Must match what the on-chain code reads out of a 'TxOutRef', see
+  -- 'Hydra.Tx.Snapshot.getSignableRepresentation'.
+  txIdBytes :: TxIdType tx -> ByteString
+
   txSpendingUTxO :: UTxOType tx -> tx
 
   -- | Get the UTxO produced by given transaction.
@@ -174,7 +179,9 @@ instance ToCBOR UTxO where
   encodedSizeExpr sz _ = encodedSizeExpr sz (Proxy @(Ledger.UTxO LedgerEra))
 
 instance FromCBOR UTxO where
-  fromCBOR = UTxO.fromShelleyUTxO shelleyBasedEra <$> fromCBOR
+  -- NOTE: Use the forcing conversion to uphold the invariant that any 'UTxO'
+  -- entering the head logic is thunk-free.
+  fromCBOR = Api.fromLedgerUTxO <$> fromCBOR
   label _ = label (Proxy @(Ledger.UTxO LedgerEra))
 
 instance IsTx Tx where
@@ -188,6 +195,9 @@ instance IsTx Tx where
 
   -- NOTE: See note from `Util.hashTxOuts`.
   hashUTxO = fromBuiltin . Util.hashTxOuts . mapMaybe toPlutusTxOut . UTxO.txOutputs
+
+  -- NOTE: Same 32 bytes as the on-chain 'getTxId' of a 'TxOutRef'.
+  txIdBytes = serialiseToRawBytes
 
   txSpendingUTxO = Api.txSpendingUTxO
 

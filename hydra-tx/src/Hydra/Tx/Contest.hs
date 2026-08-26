@@ -17,7 +17,7 @@ import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, commitOutputsHash, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -69,7 +69,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, accumulator, utxoToCommit, utxoToDecommit} = snapshot
+  Snapshot{number, version, accumulator, utxoToDecommit} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -92,7 +92,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
 
-  commitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
+  commitHash = toBuiltin $ commitOutputsHash snapshot
 
   contestRedeemer =
     if version == openVersion

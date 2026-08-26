@@ -468,10 +468,12 @@ test-suite tests
     , network
     , network-simple-wss
     , network-udp
+    , nothunks                        ^>=0.3.1
     , ouroboros-consensus
     , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
+    , process
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-dynamic              >=3.4     && <3.5
@@ -480,7 +482,6 @@ test-suite tests
     , req
     , resourcet
     , retry
-    , silently
     , sop-extras
     , sqlite-simple
     , stm

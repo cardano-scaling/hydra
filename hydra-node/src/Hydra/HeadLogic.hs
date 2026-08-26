@@ -76,7 +76,7 @@ import Hydra.HeadLogic.State (
   setChainState,
   snapshotInFlight,
  )
-import Hydra.Ledger (Ledger (..), applyTransactions, reapplyTransactions)
+import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions, reapplyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
@@ -258,17 +258,18 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause
             ( NetworkEffect $
-                ReqSn
-                  version
-                  nextSn
-                  (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs')
-                  decommitTx
-                  ( selectNextDeposit
-                      pendingDeposits
-                      currentDepositTxId
-                      decommitTx
-                      (getSnapshot confirmedSnapshot).utxoToCommit
-                  )
+                let (nextDecommitTx, nextDeposit) =
+                      selectNextIncrementalAction
+                        pendingDeposits
+                        currentDepositTxId
+                        decommitTx
+                        (getSnapshot confirmedSnapshot).utxoToCommit
+                 in ReqSn
+                      version
+                      nextSn
+                      (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs')
+                      nextDecommitTx
+                      nextDeposit
             )
       else outcome
 
@@ -338,7 +339,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       -- message permanently (Error outcomes are not re-enqueued), leaving the
       -- head stuck until the deposit expires.
       waitOnSnapshotVersion $
-        -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
         -- Require any pending utxo to decommit to be consistent
         requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
           -- Wait for the deposit and require any pending commit to be consistent
@@ -358,18 +358,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                     prevSnapshot = getSnapshot confirmedSnapshot
                     accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
                  in requireValidAccumulatorSize accumulator $ do
-                      -- NOTE: Deep-force the snapshot UTxO (via the same
-                      -- 'hashUTxO' the close tx needs) before storing it in the
-                      -- snapshot: applying transactions leaves the map values
-                      -- as chains of unevaluated thunks, and the first thing to
-                      -- force them would otherwise be the close tx
-                      -- construction, inside the close tx validity window
-                      -- (bounded by the contestation period). At e.g. 1000 UTxO
-                      -- after 4000 txs that forcing costs over a second, enough
-                      -- to miss the validity window on short contestation
-                      -- periods. Forcing here pays the cost incrementally per
-                      -- snapshot, off the time-critical path.
-                      let !_forcedUTxO = hashUTxO nextUTxO
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here
                       let nextSnapshot =
@@ -381,6 +369,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               , utxo = nextUTxO
                               , utxoToCommit = mUtxoToCommit
                               , utxoToDecommit = mUtxoToDecommit
+                              , -- Bound into the signature so the increment can only
+                                -- claim this very deposit, see 'Hydra.Tx.Snapshot'.
+                                depositTxId = mDepositTxId
                               , accumulator
                               }
 
@@ -445,7 +436,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                 -- commit unless the previous commit is settled.
                 if sv == confVersion && isJust confUTxOToCommit
                   then
-                    if confUTxOToCommit == Just deposited
+                    -- NOTE: identity, not just content. Two deposits can record
+                    -- the same UTxO, and only the one bound into the confirmed
+                    -- snapshot is the pending commit being settled.
+                    if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
                       then cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
                       else Error $ RequireFailed ReqSnCommitNotSettled
                   else do
@@ -455,9 +449,24 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   requireApplicableDecommitTx cont =
     case mDecommitTx of
       Nothing -> cont (confirmedUTxO, Nothing)
+      -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
+      --
+      -- A snapshot settling both a commit and a decommit cannot be closed:
+      -- close and fanout express a single incremental action
+      -- ('setIncrementalActionMaybe'). The leader never proposes both (see
+      -- 'selectNextIncrementalAction'), so this rejects a request that does
+      -- anyway rather than confirming an unclosable snapshot.
+      Just decommitTx
+        | Just depositTxId <- mDepositTxId ->
+            Error $ RequireFailed ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId decommitTx}
+      -- 'Hydra.Contract.Head.checkDecrement' requires at least one decommit
+      -- output, so a decommit materializing none could never settle on-chain and
+      -- would be re-proposed by every later snapshot.
+      Just decommitTx
+        | utxoFromTx decommitTx == mempty ->
+            Error $ RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId decommitTx}
       Just decommitTx ->
         -- Spec:
-        -- require tx𝜔 = ⊥ ∨ 𝑈𝛼 = ∅
         -- require 𝑣 = 𝑣 ̂ ∧ 𝑠 = 𝑠 ̂ + 1 ∧ leader(𝑠) = 𝑗
         -- wait 𝑠 ̂ = 𝒮.𝑠
         if sv == confVersion && isJust confUTxOToDecommit
@@ -532,6 +541,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   confUTxOToCommit = case confirmedSnapshot of
     InitialSnapshot{} -> Nothing
     ConfirmedSnapshot{snapshot = Snapshot{utxoToCommit}} -> utxoToCommit
+
+  confDepositTxId = case confirmedSnapshot of
+    InitialSnapshot{} -> Nothing
+    ConfirmedSnapshot{snapshot = Snapshot{depositTxId}} -> depositTxId
 
   confUTxOToDecommit = case confirmedSnapshot of
     InitialSnapshot{} -> Nothing
@@ -655,20 +668,21 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 
   maybeRequestNextSnapshot previous outcome = do
     let nextSn = previous.number + 1
-        nextDeposit = selectNextDeposit pendingDeposits currentDepositTxId decommitTx previous.utxoToCommit
+        (nextDecommitTx, nextDeposit) =
+          selectNextIncrementalAction pendingDeposits currentDepositTxId decommitTx previous.utxoToCommit
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) decommitTx nextDeposit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) nextDecommitTx nextDeposit)
       else outcome
 
-  maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    -- NOTE: gate on both 'currentDepositTxId' and 'snapshot.utxoToCommit'.
-    -- 'DepositActivated' can set 'currentDepositTxId' during the ack flow of a
-    -- non-commit snapshot, so we'd otherwise post an Increment for a snapshot
-    -- that has no 'utxoToCommit'.
-    case (currentDepositTxId, utxoToCommit) of
+  maybePostIncrementTx snapshot@Snapshot{utxoToCommit, depositTxId = signedDepositTxId} signatures outcome =
+    -- NOTE: use the snapshot's own deposit and not 'currentDepositTxId'. The
+    -- latter can be set by a 'DepositActivated' during the ack flow of an
+    -- unrelated snapshot, and only the deposit bound into the signed snapshot
+    -- can be claimed by an increment on-chain.
+    case (signedDepositTxId, utxoToCommit) of
       (Just depositTxId, Just _) ->
         case Map.lookup depositTxId pendingDeposits of
           Just Deposit{deposited} ->
@@ -774,7 +788,8 @@ onOpenClientDecommit ::
 onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight $
     checkValidDecommitTx $
-      cause (NetworkEffect ReqDec{transaction = decommitTx})
+      requireDecommitOutputs headId localUTxO decommitTx $
+        cause (NetworkEffect ReqDec{transaction = decommitTx})
  where
   checkNoDecommitInFlight continue =
     case mExistingDecommitTx of
@@ -830,12 +845,13 @@ onOpenNetworkReqDec ::
 onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
-    -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
-    -- Spec: txω ← tx
-    newState DecommitRecorded{headId, decommitTx}
-      -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-      --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-      <> maybeRequestSnapshot
+    requireDecommitOutputs headId localUTxO decommitTx $
+      -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
+      -- Spec: txω ← tx
+      newState DecommitRecorded{headId, decommitTx}
+        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+        <> maybeRequestSnapshot
  where
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
@@ -1125,15 +1141,15 @@ maybeRepostIncrementTx ::
   HeadId ->
   HeadParameters ->
   PendingDeposits tx ->
-  Maybe (TxIdType tx) ->
   ConfirmedSnapshot tx ->
   Outcome tx
-maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
-  -- NOTE: gate on 'utxoToCommit = Just _' alongside the deposit txid lookup
-  -- in case 'DepositActivated' set 'currentDepositTxId' after a non-commit
-  -- snapshot was confirmed.
-  case (mDepositTxId, confirmedSnapshot) of
-    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _}, signatures}) ->
+maybeRepostIncrementTx headSeed headId parameters pendingDeposits confirmedSnapshot =
+  -- NOTE: the deposit comes from the confirmed snapshot itself, not from
+  -- 'currentDepositTxId'. Only the deposit bound into the signed snapshot can be
+  -- claimed on-chain, and 'DepositActivated' can set 'currentDepositTxId' to an
+  -- unrelated deposit after that snapshot was confirmed.
+  case confirmedSnapshot of
+    ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId}, signatures} ->
       case Map.lookup depositTxId pendingDeposits of
         Just Deposit{} ->
           cause
@@ -1297,6 +1313,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     { version = lastSeenSv
     , number = lastSeenSn
     , utxoToCommit = lastSeenSc
+    , depositTxId = lastSeenDeposit
     , utxoToDecommit = lastSeenSd
     } = getSnapshot currentConfirmedSnapshot
 
@@ -1304,6 +1321,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     { version = requestedSv
     , number = requestedSn
     , utxoToCommit = requestedSc
+    , depositTxId = requestedDeposit
     , utxoToDecommit = requestedSd
     } = getSnapshot requestedConfirmedSnapshot
 
@@ -1326,6 +1344,9 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   requireVerifiedL1Snapshot cont
     | requestedSv /= lastSeenSv = sideLoadFailed SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
     | requestedSc /= lastSeenSc = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    -- The pending commit is L1-relevant state, and since the binding change it is
+    -- the deposit that identifies it, not the committed content.
+    | requestedDeposit /= lastSeenDeposit = sideLoadFailed SideLoadDepositTxIdInvalid{requestedDeposit, lastSeenDeposit}
     | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 
@@ -1864,13 +1885,18 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
 --   in the map of pending deposits.
 --
 --   * If 'currentDeposit' is 'Nothing', returns 'Nothing'.
---   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits',
---     returns the original 'currentDeposit'.
+--   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits'
+--     and not 'Expired', returns the original 'currentDeposit'.
 --   * Otherwise, returns 'Nothing'.
 --
 --   This is typically used to confirm that a local deposit that is to be
 --   requested in 'ReqSn' is indeed still pending and has not been processed or
 --   removed.
+--
+--   Expired deposits are dropped rather than carried: requesting one makes every
+--   receiving party hard-error with 'RequestedDepositExpired', so a deposit that
+--   somehow became unclaimable would stall snapshots for the whole head instead of
+--   just being abandoned by its depositor.
 setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
 setExistingDeposit pendingDeposits currentDeposit = do
   case currentDeposit of
@@ -1878,7 +1904,9 @@ setExistingDeposit pendingDeposits currentDeposit = do
     Just depositTxId ->
       case Map.lookup depositTxId pendingDeposits of
         Nothing -> Nothing
-        Just _ -> currentDeposit
+        Just Deposit{status}
+          | status == Expired -> Nothing
+          | otherwise -> currentDeposit
 
 -- | Find the oldest non-empty active deposit, if any. Deposits are selected
 -- in FIFO order by their 'created' timestamp. This mirrors the selection
@@ -1910,6 +1938,56 @@ selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoT
     <|> case (mDecommitTx, mConfirmedUtxoToCommit) of
       (Nothing, Nothing) -> nextActiveDepositId pendingDeposits
       _ -> Nothing
+
+-- | Reject a decommit that materializes no output.
+-- 'Hydra.Contract.Head.checkDecrement' requires at least one, so such a decommit
+-- can never settle on-chain, and recording it would block every later snapshot
+-- (which cannot carry a different one).
+--
+-- Belongs after the applicability check at every call site: a transaction that
+-- does not apply is reported with the ledger's own, more precise reason.
+requireDecommitOutputs ::
+  IsTx tx =>
+  HeadId ->
+  UTxOType tx ->
+  tx ->
+  Outcome tx ->
+  Outcome tx
+requireDecommitOutputs headId localUTxO decommitTx continue
+  | utxoFromTx decommitTx == mempty =
+      newState
+        DecommitInvalid
+          { headId
+          , decommitTx
+          , decommitInvalidReason =
+              ServerOutput.DecommitTxInvalid
+                { localUTxO
+                , validationError = ValidationError "decommit transaction has no outputs"
+                }
+          }
+  | otherwise = continue
+
+-- | The incremental action to put in the next 'ReqSn': a commit or a decommit,
+-- never both. A snapshot carrying both cannot be closed, since close and fanout
+-- express a single incremental action ('setIncrementalActionMaybe').
+--
+-- A commit wins: its deposit expires on-chain, while a decommit only waits. This
+-- cannot starve the decommit, because 'selectNextDeposit' refuses to start a
+-- *new* commit while a decommit is pending — only one already in flight can win,
+-- and that one stops being selected once it settles and leaves 'pendingDeposits'.
+selectNextIncrementalAction ::
+  IsTx tx =>
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  -- | Pending decommit tx
+  Maybe tx ->
+  -- | utxoToCommit of the last relevant confirmed snapshot
+  Maybe (UTxOType tx) ->
+  (Maybe tx, Maybe (TxIdType tx))
+selectNextIncrementalAction pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit =
+  case selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit of
+    Just depositTxId -> (Nothing, Just depositTxId)
+    Nothing -> (mDecommitTx, Nothing)
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
@@ -2099,8 +2177,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         , parameters
         , coordinatedHeadState =
           CoordinatedHeadState
-            { currentDepositTxId
-            , confirmedSnapshot
+            { confirmedSnapshot
             , decommitTx
             }
         }
@@ -2108,7 +2185,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     ) ->
       newState ChainRolledBack{chainState = rolledBackChainState}
         <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-        <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) currentDepositTxId confirmedSnapshot
+        <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) confirmedSnapshot
         <> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot
   -- FanoutProgress + Rollback: re-post the next fanout step so the fanout
   -- resumes rather than stalling (the in-flight fanout tx may have been rolled

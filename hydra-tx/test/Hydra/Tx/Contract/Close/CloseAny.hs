@@ -17,7 +17,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), mkHeadId, registryUTxO)
+import Hydra.Tx (Snapshot (..), commitOutputsHash, mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
@@ -88,6 +88,7 @@ healthyCloseAnySnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Nothing
+    , depositTxId = Nothing
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing Nothing
     }
 
@@ -101,7 +102,7 @@ healthyCloseAnyDecommitOutputsHash =
 
 healthyCloseAnyCommitOutputsHash :: Head.Hash
 healthyCloseAnyCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyCloseAnySnapshot))
+  toBuiltin $ commitOutputsHash healthyCloseAnySnapshot
 
 healthyCloseAnyOpenDatum :: Head.State
 healthyCloseAnyOpenDatum =

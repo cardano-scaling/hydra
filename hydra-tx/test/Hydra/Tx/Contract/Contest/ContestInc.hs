@@ -33,7 +33,7 @@ import Hydra.Tx.Crypto (MultiSignature, aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, commitOutputsHash)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Fixture (dperiod, slotLength, systemStart, testNetworkId, testPolicyId)
@@ -52,6 +52,12 @@ import Test.QuickCheck.Instances ()
 healthyDepositedUTxO :: UTxO
 healthyDepositedUTxO = genUTxOSized 3 `generateWith` 42
 
+-- | Identity of the deposit the pending commit originates from, bound into the
+-- snapshot signature. No deposit input is spent by a contest transaction, so the
+-- exact id does not matter here as long as signing and verification agree.
+healthyDepositTxId :: TxId
+healthyDepositTxId = arbitrary `generateWith` 42
+
 healthyContestIncSnapshotNumber :: SnapshotNumber
 healthyContestIncSnapshotNumber = 4
 
@@ -65,6 +71,7 @@ healthyContestIncSnapshot =
     , confirmed = []
     , utxoToCommit = Just healthyDepositedUTxO
     , utxoToDecommit = Nothing
+    , depositTxId = Just healthyDepositTxId
     , version = healthyCloseSnapshotVersion
     , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead (Just healthyDepositedUTxO) Nothing
     }
@@ -79,7 +86,7 @@ healthyContestIncDecommitOutputsHash =
 
 healthyContestIncCommitOutputsHash :: Head.Hash
 healthyContestIncCommitOutputsHash =
-  toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToCommit healthyContestIncSnapshot))
+  toBuiltin $ commitOutputsHash healthyContestIncSnapshot
 
 -- | ClosedDatum whose accumulatorCommitment was derived from a commit-type snapshot.
 healthyContestIncClosedState :: Head.State
