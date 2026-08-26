@@ -1,0 +1,31 @@
+Copyright 2026 Input Output Global Ltd.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+------------------------------------------------------------------------------
+Third-party components
+------------------------------------------------------------------------------
+
+generated/MAlonzo/RTE.hs
+generated/MAlonzo/RTE/Float.hs
+
+  The MAlonzo runtime, copied verbatim (apart from a prepended
+  {-# OPTIONS_GHC -w #-}) from the Agda distribution by `agda --compile`; see
+  regenerate.sh. These two files are part of Agda, not of this project, and are
+  licensed under the MIT licence (SPDX: MIT) by the Agda authors:
+
+      https://github.com/agda/agda/blob/master/LICENSE
+
+  The remaining files under generated/ are MAlonzo output compiled from this
+  repository's own Agda sources in spec/, and are covered by the Apache-2.0
+  licence above.

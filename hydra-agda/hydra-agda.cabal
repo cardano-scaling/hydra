@@ -1,0 +1,75 @@
+cabal-version: 3.0
+name:          hydra-agda
+version:       2.3.0
+synopsis:
+  Agda-extracted decidable reference checkers for the Hydra on-chain validator and off-chain head logic.
+
+description:
+  The on-chain validity conditions and the off-chain handler decisions are
+  specified in Agda (spec/). The decidable cores
+  (`spec/src/Hydra/Protocol/Reference.agda` and
+  `spec/src/Hydra/Protocol/OffChainReference.agda`) are extracted to Haskell
+  via MAlonzo and exposed here through thin shims ('Hydra.Agda.Reference' and
+  'Hydra.Agda.OffChainReference'). They are used as second oracles in the
+  hydra-tx and hydra-node agreement tests, so the real Plutus validator and
+  the real HeadLogic handlers are checked to agree with the spec.
+
+  The 'generated/' tree is MAlonzo output: do not edit it by hand, run
+  'regenerate.sh' (which re-extracts from the Agda) to refresh it. The shims
+  bind the extraction by the stable names the Agda sources fix with
+  'COMPILE GHC ... as ...', never by MAlonzo's mangled names, whose
+  definition-order suffixes any additive edit to the Agda would renumber.
+
+author:        IOG
+copyright:     2026 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+build-type:    Simple
+
+library
+  default-language: GHC2021
+  hs-source-dirs:   src generated
+  ghc-options:      -Wall
+  exposed-modules:
+    Hydra.Agda.OffChainReference
+    Hydra.Agda.Reference
+
+  -- The generated MAlonzo modules are self-silencing: regenerate.sh stamps
+  -- every generated file with {-# OPTIONS_GHC -w #-}, so -Wall above lints
+  -- only the hand-written shims in src/.
+  other-modules:
+    MAlonzo.Code.Agda.Builtin.Bool
+    MAlonzo.Code.Agda.Builtin.List
+    MAlonzo.Code.Agda.Builtin.Nat
+    MAlonzo.Code.Agda.Primitive
+    MAlonzo.Code.Hydra.Protocol.OffChainReference
+    MAlonzo.Code.Hydra.Protocol.Reference
+    MAlonzo.RTE
+    MAlonzo.RTE.Float
+
+  build-depends:
+    , base
+    , text
+
+-- Pins every name the Agda extraction surface exports to observable behaviour. Most of the
+-- checkers share a Haskell type, so a shim binding pointed at the wrong one still compiles; the agreement tests
+-- in hydra-tx / hydra-node cannot tell that apart from a genuine agreement. This suite also gives
+-- the package a weeder root, so its exports are reachable independently of those consumers.
+test-suite tests
+  default-language: GHC2021
+  ghc-options:      -Wall -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:   test
+  main-is:          Main.hs
+  type:             exitcode-stdio-1.0
+  other-modules:
+    Hydra.Agda.OffChainReferenceSpec
+    Hydra.Agda.ReferenceSpec
+
+  build-depends:
+    , base
+    , hspec
+    , hydra-agda
+    , hydra-test-utils

@@ -30,23 +30,18 @@
         modules = [
           # Strip debugging symbols from exes (smaller closures)
           {
-            packages = {
-              hydra-cardano-api.writeHieFiles = true;
-              hydra-chain-observer.writeHieFiles = true;
-              hydra-cluster.writeHieFiles = true;
-              hydra-node.writeHieFiles = true;
-              hydra-plutus.writeHieFiles = true;
-              hydra-plutus-extras.writeHieFiles = true;
-              hydra-prelude.writeHieFiles = true;
-              hydra-test-utils.writeHieFiles = true;
-              hydra-tx.writeHieFiles = true;
-              hydra-tui.writeHieFiles = true;
-              hydraw.writeHieFiles = true;
-              head-state-viewer.writeHieFiles = true;
-              hydra-node.dontStrip = false;
-              hydra-tui.dontStrip = false;
-              hydraw.dontStrip = false;
-            };
+            # weeder (nix/coding-standards.nix) reads the `hie` output of every component of
+            # every local package, so the set of packages writing HIE files has to track
+            # localHaskellPackageNames exactly. Derived from it rather than repeated: a package
+            # in that list and missing here fails weeder's *evaluation* with nothing but
+            # "attribute 'hie' missing".
+            packages = pkgs.lib.recursiveUpdate
+              (pkgs.lib.genAttrs localHaskellPackageNames (_: { writeHieFiles = true; }))
+              {
+                hydra-node.dontStrip = false;
+                hydra-tui.dontStrip = false;
+                hydraw.dontStrip = false;
+              };
           }
           # Use different static libs on darwin
           # TODO: Always use these?

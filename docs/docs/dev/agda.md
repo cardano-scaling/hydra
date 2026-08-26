@@ -74,12 +74,24 @@ accept and reject directions.
 `Reference.agda` and `OffChainReference.agda` are compiled by Agda's MAlonzo
 backend into
 [`hydra-agda/generated/`](https://github.com/cardano-scaling/hydra/tree/master/hydra-agda),
-which is committed. Hand-written shims (`Hydra.Agda.Reference`,
-`Hydra.Agda.OffChainReference`) pin the mangled MAlonzo names to stable,
-documented Haskell names, so a stale pin is a loud compile error. Regeneration
-is manual (`hydra-agda/regenerate.sh`); freshness is CI-enforced: the
-`hydra-agda-generated` flake check re-extracts hermetically and fails on any
-diff against the committed tree.
+which is committed. The Agda sources fix the name of every export with
+`COMPILE GHC … as …` (their "extraction surface" sections), and the
+hand-written shims (`Hydra.Agda.Reference`, `Hydra.Agda.OffChainReference`)
+bind those names, adding the documentation. MAlonzo's own mangled names carry a
+definition-order index that any additive edit renumbers, so binding them would
+make the shims need hand-editing after unrelated changes, and would let two
+checkers of the same Haskell type be swapped silently.
+
+Regeneration is manual (`hydra-agda/regenerate.sh`, inside `nix develop .#spec`)
+and CI-enforced from two sides: the `hydra-agda-generated` flake check runs that
+same script hermetically and fails on any diff against the committed tree, and
+`hydra-agda`'s own test-suite pins each exported name to observable behaviour,
+which no type-level check can do for checkers that share a type.
+
+`regenerate.sh` also compares what it generated against the `other-modules` list
+in `hydra-agda.cabal`'s library stanza, which is maintained by hand. Without that,
+a regeneration that added or dropped a module would pass the drift check and
+surface much later as a confusing "module not found" during the build.
 
 ## The agreement tests
 

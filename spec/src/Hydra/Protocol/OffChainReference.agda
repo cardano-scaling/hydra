@@ -57,9 +57,16 @@ false && _ = false
 
 -- The §6 reqSn signing-eligibility check (`require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j`), as a pure
 -- decision over the version/number inputs with the leader test resolved to a Bool by the caller
--- (the leader function needs the party set, supplied Haskell-side). Mirrors the node's
--- `onOpenNetworkReqSn` `requireReqSn` (sv == version, sn == seenSn + 1, isLeader). `_==_` is the
+-- (the leader function needs the party set, supplied Haskell-side). `_==_` is the
 -- `Agda.Builtin.Nat` Bool equality.
+--
+-- `true` means the party goes on to sign, which is what the differential compares. It does NOT say
+-- which outcome a `false` produces: the node splits these three conjuncts across two outcome kinds.
+-- `requireReqSn` errors out on the number (`ReqSnNumberInvalid`) and on the leader
+-- (`ReqSnNotLeader`), but the version conjunct is `waitOnSnapshotVersion`, a WAIT: a follower can see
+-- a ReqSn for the bumped version before its own chain handler has processed the increment/decrement
+-- that bumps it, and an error would drop the message permanently (see the NOTE in HeadLogic.hs). The
+-- spec figure writes all three as `require`; the wait is a deliberate implementation refinement.
 signEligibleRef : Nat → Nat → Nat → Nat → Bool → Bool
 signEligibleRef v vHat s sHat leaderOk = (v == vHat) && ((s == suc sHat) && leaderOk)
 
@@ -162,3 +169,19 @@ modSuc a b = mod-helper 0 b a b
 -- as subtracting 1 for every sn ≥ 1, and yields m at sn = 0.
 leaderRef : Nat → Nat → Nat → Bool   -- (m where #parties = suc m, sn, party index i)
 leaderRef m sn i = modSuc (sn + m) m == i
+
+-- ══ extraction surface: the stable Haskell names ═══════════════════════════════════════════════
+-- See `Reference.agda`'s section of the same name: MAlonzo's mangled names carry a definition-order
+-- index that any additive edit above renumbers, so the shim binds these fixed names instead. Every
+-- decision here is already FFI-translatable (Nat/Bool/List/DepositStatusᶜ), hence no wrappers.
+
+{-# COMPILE GHC depositStatusRef        as hsDepositStatusRef        #-}
+{-# COMPILE GHC signEligibleRef         as hsSignEligibleRef         #-}
+{-# COMPILE GHC reqDecEligibleRef       as hsReqDecEligibleRef       #-}
+{-# COMPILE GHC reqSnNotBothRef         as hsReqSnNotBothRef         #-}
+{-# COMPILE GHC reqSnDecommitOutputsRef as hsReqSnDecommitOutputsRef #-}
+{-# COMPILE GHC reqSnDepositSettledRef  as hsReqSnDepositSettledRef  #-}
+{-# COMPILE GHC notAlreadySignedRef     as hsNotAlreadySignedRef     #-}
+{-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}
+{-# COMPILE GHC contestEligibleRef      as hsContestEligibleRef      #-}
+{-# COMPILE GHC leaderRef               as hsLeaderRef               #-}
