@@ -9,7 +9,7 @@
 "ommit" = "ommit"
 # Cardano.Ledger.Compactible module name
 "Compactible" = "Compactible"
-# 2[nd] ordinal suffix macro in spec/src/macros.tex
+# 2[nd] ordinal suffix, and the [snd] projection macro in spec/src/macros.typ
 "nd" = "nd"
 # GHC.Type[Lits] module name
 "Lits" = "Lits"
