@@ -85,8 +85,9 @@ jobs:
 
         # Determine whether we are building a tag and if yes, set the label
         # name to be the tag name, and the version to be the tag. Ref names go
-        # through the environment rather than ${{ }} interpolation, so that one
-        # containing shell metacharacters cannot inject into this script.
+        # through the environment rather than workflow expression interpolation,
+        # so that one containing shell metacharacters cannot inject into this
+        # script.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
         [[ "${BUILDING_TAG}" = true ]] && \
           IMAGE_LABEL=${GITHUB_REF_NAME} && \
@@ -227,8 +228,9 @@ jobs:
         LABEL: ${{ needs.tags.outputs.label }}
         LATEST: ${{ needs.tags.outputs.latest }}
         IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
-        # Via the environment rather than ${{ }} interpolation, so that a ref
-        # name containing shell metacharacters cannot inject into this script.
+        # Via the environment rather than workflow expression interpolation, so
+        # that a ref name containing shell metacharacters cannot inject into
+        # this script.
         DISPATCH_REF: ${{ github.event.inputs.ref_name }}
       run: |
 
