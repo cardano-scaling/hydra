@@ -91,6 +91,13 @@ _: {
         ANNOTATE_NOTATION = "skip";
         buildPhase = ''
           export HOME=$TMPDIR
+          # Never trust a _build/ that arrived with the sources. build.sh short-circuits when the PDF
+          # is newer than every input, which is a developer convenience with no place in a hermetic
+          # build: nix normalises every mtime to the epoch, so a committed PDF is never "older" than
+          # the sources, and the only thing standing between a stray committed _build/ and a check
+          # that installs that PDF without typechecking anything is the recorded-mode comparison.
+          # That is too thin a thread for the gate the whole formalisation hangs from.
+          rm -rf _build
           bash build.sh
         '';
         installPhase = ''
