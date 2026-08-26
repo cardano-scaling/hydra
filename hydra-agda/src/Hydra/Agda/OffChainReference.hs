@@ -22,6 +22,7 @@ module Hydra.Agda.OffChainReference (
   reqSnDepositSettledRef,
 
   -- * reqDec / ackSn / contest guards
+  HsPendingCommit (..),
   reqDecEligibleRef,
   notAlreadySignedRef,
   allSignedRef,
@@ -31,7 +32,7 @@ module Hydra.Agda.OffChainReference (
   leaderRef,
 ) where
 
-import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..))
+import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..), HsPendingCommit (..))
 import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 
 -- | Extracted decidable deposit-status decision of the §6 @tick@ handler: given a deposit's
@@ -59,9 +60,16 @@ depositStatusRef = M.hsDepositStatusRef
 signEligibleRef :: Integer -> Integer -> Integer -> Integer -> Bool -> Bool
 signEligibleRef = M.hsSignEligibleRef
 
--- | Extracted reqDec eligibility (§6 @wait U_α = ∅ ∧ tx_ω = ⊥@): given whether a commit and a decommit
--- are in flight, decides whether a new decommit may start.
-reqDecEligibleRef :: Bool -> Bool -> Bool
+-- | Extracted reqDec eligibility (§6 @wait U_α = ∅ ∧ tx_ω = ⊥@): given the state of the head's
+-- recorded pending commit and whether a decommit is in flight, decides whether a new decommit may
+-- start.
+--
+-- The commit argument is 'HsPendingCommit' rather than a @Bool@ on purpose. Which commits hold a
+-- decommit back is a protocol question, so the reference answers it: only a registered, unexpired
+-- deposit does. A @Bool@ would have moved that decision into whatever projects the node state, and
+-- the node clears its @currentDepositTxId@ on neither expiry nor recovery, so the obvious projection
+-- ("is the field set") blocks decommits on commits that can never settle.
+reqDecEligibleRef :: HsPendingCommit -> Bool -> Bool
 reqDecEligibleRef = M.hsReqDecEligibleRef
 
 -- | Extracted reqSn incremental-action exclusivity (§6 @require tx_ω = ⊥ ∨ tx_α = ⊥@, the node's

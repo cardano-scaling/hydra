@@ -88,6 +88,11 @@ same script hermetically and fails on any diff against the committed tree, and
 `hydra-agda`'s own test-suite pins each exported name to observable behaviour,
 which no type-level check can do for checkers that share a type.
 
+`regenerate.sh` also compares what it generated against the `other-modules` list
+in `hydra-agda.cabal`'s library stanza, which is maintained by hand. Without that,
+a regeneration that added or dropped a module would pass the drift check and
+surface much later as a confusing "module not found" during the build.
+
 ## The agreement tests
 
 Two layers bind the extracted spec to the real implementation:

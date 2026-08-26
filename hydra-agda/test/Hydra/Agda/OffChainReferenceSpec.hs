@@ -11,6 +11,7 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
+  HsPendingCommit (..),
   allSignedRef,
   contestEligibleRef,
   depositStatusRef,
@@ -56,11 +57,20 @@ spec = do
 
   describe "reqDecEligibleRef" $ do
     it "starts a decommit when nothing is in flight" $
-      reqDecEligibleRef False False `shouldBe` True
-    it "waits behind a commit in flight" $
-      reqDecEligibleRef True False `shouldBe` False
+      reqDecEligibleRef NoCommitP False `shouldBe` True
+    it "waits behind a pending commit" $
+      reqDecEligibleRef CommitPendingP False `shouldBe` False
     it "waits behind a decommit in flight" $
-      reqDecEligibleRef False True `shouldBe` False
+      reqDecEligibleRef NoCommitP True `shouldBe` False
+    -- The two commit states that must NOT hold a decommit back: an expired deposit is unclaimable
+    -- and a recovered one is gone, and the node clears its recorded id on neither, so treating
+    -- either as in flight blocks every later decommit on something no increment can settle.
+    it "does not wait behind an expired commit" $
+      reqDecEligibleRef CommitExpiredP False `shouldBe` True
+    it "does not wait behind a commit that is already gone" $
+      reqDecEligibleRef CommitGoneP False `shouldBe` True
+    it "still waits behind a decommit whatever the commit state" $
+      reqDecEligibleRef CommitExpiredP True `shouldBe` False
 
   describe "reqSnNotBothRef" $ do
     it "admits a commit alone" $ reqSnNotBothRef True False `shouldBe` True

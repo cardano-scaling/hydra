@@ -37,9 +37,30 @@ agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$out" \
 # tree differ from a fresh extraction and failed the drift gate for no semantic reason.
 find "$out" -name '*.hs' -print0 | while IFS= read -r -d '' f; do
   chmod u+w "$f" # stdlib runtime files are copied read-only from the nix store
-  if ! head -1 "$f" | grep -q -- '-w'; then
+  if ! head -1 "$f" | grep -qxF -- '{-# OPTIONS_GHC -w #-}'; then
     { printf '{-# OPTIONS_GHC -w #-}\n'; cat "$f"; } > "$f.stamped"
     mv -f "$f.stamped" "$f"
   fi
 done
-echo "Regenerated $out/MAlonzo"
+# The cabal library lists the generated modules by hand, so a regeneration that adds or drops one
+# would otherwise pass the drift check and surface later as a confusing "module not found" during the
+# build. Compare the two here, where the answer is obvious. Scoped to the library stanza: the
+# test-suite has an other-modules block of its own.
+generated_modules=$(
+  cd "$out" && find . -name '*.hs' | sed 's|^\./||; s|\.hs$||; s|/|.|g' | sort
+)
+listed_modules=$(
+  awk '/^library$/ {inlib = 1}
+       inlib && /^[a-z]/ && !/^library$/ && !/^ / {inlib = 0}
+       inlib && /^  other-modules:/ {inmods = 1; next}
+       inmods && /^    [A-Za-z]/ {print $1; next}
+       inmods {inmods = 0}' "$here/hydra-agda.cabal" | sort
+)
+if [ "$generated_modules" != "$listed_modules" ]; then
+  echo "regenerate.sh: hydra-agda.cabal's library other-modules do not match $out (- cabal, + generated):"
+  diff <(printf '%s\n' "$listed_modules") <(printf '%s\n' "$generated_modules") || true
+  echo "Update the other-modules list in hydra-agda/hydra-agda.cabal."
+  exit 1
+fi
+
+echo "Regenerated $out/MAlonzo ($(printf '%s\n' "$generated_modules" | wc -l) modules, matching hydra-agda.cabal)"

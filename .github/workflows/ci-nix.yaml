@@ -102,6 +102,9 @@ jobs:
   spec:
     name: "Formal specification"
     runs-on: ubuntu-latest
+    # Agda typechecking is the long pole here and a non-terminating definition would otherwise sit
+    # until the runner's own limit; `build-test` uses the same bound.
+    timeout-minutes: 60
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -117,9 +120,19 @@ jobs:
     # committed MAlonzo extraction under hydra-agda/generated is not stale.
     - name: 📖 Build specification & check Agda extraction
       run: |
+        nix build --out-link result-spec \
+          .#checks.x86_64-linux.spec
         nix build --no-link \
-          .#checks.x86_64-linux.spec \
           .#checks.x86_64-linux.hydra-agda-generated
+
+    # The rendered PDF is the artefact a specification review actually wants to read, and the job
+    # has just built it either way.
+    - name: 📎 Upload the rendered specification
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-spec
+        path: result-spec/hydra-spec.pdf
+        if-no-files-found: error
 
   benchmarks:
     name: "Benchmarks"
