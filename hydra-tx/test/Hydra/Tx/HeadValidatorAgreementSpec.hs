@@ -1,12 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Function-level agreement between the Agda-extracted reference checker and the REAL Plutus
--- validator, with NO transactions, NO ledger evaluation, and NO mutation generators.
+-- | Function-level agreement between the Agda-extracted reference checker and the REAL on-chain
+-- validators, with NO transaction bodies and NO mutation generators.
 --
--- The validator is a plain Haskell function (@Head.headValidator :: BuiltinByteString -> State -> Input ->
--- ScriptContext -> Bool@; the leading argument is the canonical CRS datum hash). So we construct its
--- inputs directly, run BOTH the validator and the Agda
--- reference on the SAME inputs, and assert @reference === validator@. The fields the
+-- νHead is a plain Haskell function (@Head.headValidator :: BuiltinByteString -> State -> Input ->
+-- ScriptContext -> Bool@; the leading argument is the canonical CRS datum hash), so we construct its
+-- inputs directly, run BOTH it and the Agda reference on the SAME inputs, and assert
+-- @reference === validator@. νDeposit is Aiken, so there is no Haskell function to call: those arms
+-- deserialise the compiled validator and evaluate it as UPLC against a real cost model
+-- (@evaluateScriptCounting@, see 'depositEvalContext'). Script evaluation, then, but still no
+-- transaction building and no ledger rules. The fields the
 -- reference models are generated independently (so e.g. the produced version is sometimes equal to the
 -- input version, sometimes not), which exercises BOTH the accept and the reject directions in one
 -- property, unlike reusing the hydra mutation generators (a corpus that is
@@ -23,7 +26,7 @@
 -- membership pairing, so the bad-signature and bad-proof rejects exercise the actual crypto. The
 -- reference mocks exactly those conjuncts (it models the decidable ones), which is why the mocks
 -- below are @const True@ and the crypto rejects are asserted against the validator alone.
-module Hydra.Tx.Contract.HeadValidatorAgreement (spec) where
+module Hydra.Tx.HeadValidatorAgreementSpec (spec) where
 
 import Hydra.Prelude
 
@@ -98,7 +101,7 @@ import PlutusTx.Builtins qualified as Builtins
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Hydra.Ledger.Cardano.Fixtures (plutusV3CostModel)
 import Test.Hydra.Prelude
-import Test.QuickCheck (choose, elements, forAll, (.&&.), (===))
+import Test.QuickCheck (Testable, choose, conjoin, counterexample, elements, forAll, property, withMaxSuccess, (.&&.), (===))
 
 -- ── fixed, well-formed scaffolding (held healthy; only the modeled fields below are varied) ──────────
 
@@ -2023,593 +2026,629 @@ finalPartialValBadProof m burnedCount validityLo tfinal =
 
 -- ── the agreement property ───────────────────────────────────────────────────────────────────────────
 
+-- | A fixed assertion, not a property: most checks here pin one constructed context, so running the
+-- same input a hundred times only misreports the result as "100 tests passed". They stay as
+-- @===@/@.&&.@ expressions rather than 'shouldBe' because those compose (a single check often asserts
+-- both oracles at once), which 'shouldBe' does not.
+fact :: Testable p => String -> p -> Spec
+fact desc = it desc . property . withMaxSuccess 1
+
 spec :: Spec
 spec = parallel $ do
-  -- Non-vacuity anchors: the agreement is not "both always reject". The validator genuinely ACCEPTS a
-  -- well-formed CloseInitial and genuinely REJECTS one with a changed version, and the reference matches
-  -- both. (Healthy: version'=0, cp'=100, snap'=0, contesters=0, deadline = tMax + cp.)
-  prop "anchor: healthy CloseInitial: BOTH oracles accept" $
-    let tMax = 1_100
-        deadline = tMax + openCpMs
-        ctx = mkContext openDatum 0 100 0 0 deadline tMax
-     in validatorVerdict openDatum ctx === True
-          .&&. referenceVerdict openDatum ctx === True
+  describe "close/CloseInitial anchors" $ do
+    -- Non-vacuity anchors: the agreement is not "both always reject". The validator genuinely ACCEPTS a
+    -- well-formed CloseInitial and genuinely REJECTS one with a changed version, and the reference matches
+    -- both. (Healthy: version'=0, cp'=100, snap'=0, contesters=0, deadline = tMax + cp.)
+    fact "anchor: healthy CloseInitial: BOTH oracles accept" $
+      let tMax = 1_100
+          deadline = tMax + openCpMs
+          ctx = mkContext openDatum 0 100 0 0 deadline tMax
+       in validatorVerdict openDatum ctx === True
+            .&&. referenceVerdict openDatum ctx === True
 
-  prop "anchor: changed version: BOTH oracles reject" $
-    let tMax = 1_100
-        deadline = tMax + openCpMs
-        ctx = mkContext openDatum 1 100 0 0 deadline tMax
-     in validatorVerdict openDatum ctx === False
-          .&&. referenceVerdict openDatum ctx === False
+    fact "anchor: changed version: BOTH oracles reject" $
+      let tMax = 1_100
+          deadline = tMax + openCpMs
+          ctx = mkContext openDatum 1 100 0 0 deadline tMax
+       in validatorVerdict openDatum ctx === False
+            .&&. referenceVerdict openDatum ctx === False
 
   -- ── close mustPreserveHeadValue (C3.4: bridged from closeValid.valuePreserved + tested here) ──
-  prop "close/value: a siphoned head output is REJECTED by both checkValuePreserved and the real validator" $
-    closeValueRef 1_500_000 === False
-      .&&. closeValueVal 1_500_000 === False
-  prop "close/value: the value-preserving close is accepted by both" $
-    closeValueRef 2_000_000 === True
-      .&&. closeValueVal 2_000_000 === True
+  describe "close mustPreserveHeadValue" $ do
+    fact "close/value: a siphoned head output is REJECTED by both checkValuePreserved and the real validator" $
+      closeValueRef 1_500_000 === False
+        .&&. closeValueVal 1_500_000 === False
+    fact "close/value: the value-preserving close is accepted by both" $
+      closeValueRef 2_000_000 === True
+        .&&. closeValueVal 2_000_000 === True
 
   -- ── close participant signature (bridged from closeValid.participantSigned + tested here) ──
-  prop "close/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
-    let ctx = withSignatories [nonParticipantKH] (mkContext openDatum 0 100 0 0 1_200 1_100)
-     in projectParticipant (HS.Open openDatum) ctx === False .&&. validatorVerdict openDatum ctx === False
-  prop "close/participant: a participant signer is accepted by both" $
-    let ctx = mkContext openDatum 0 100 0 0 1_200 1_100
-     in projectParticipant (HS.Open openDatum) ctx === True .&&. validatorVerdict openDatum ctx === True
-  prop "close/participant: a quantity-2 participation token counts for NEITHER side" $
-    projectParticipant (HS.Open openDatum) mkContextDupPt === False
-      .&&. validatorVerdict openDatum mkContextDupPt === False
+  describe "close participant signature" $ do
+    fact "close/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+      let ctx = withSignatories [nonParticipantKH] (mkContext openDatum 0 100 0 0 1_200 1_100)
+       in projectParticipant (HS.Open openDatum) ctx === False .&&. validatorVerdict openDatum ctx === False
+    fact "close/participant: a participant signer is accepted by both" $
+      let ctx = mkContext openDatum 0 100 0 0 1_200 1_100
+       in projectParticipant (HS.Open openDatum) ctx === True .&&. validatorVerdict openDatum ctx === True
+    fact "close/participant: a quantity-2 participation token counts for NEITHER side" $
+      projectParticipant (HS.Open openDatum) mkContextDupPt === False
+        .&&. validatorVerdict openDatum mkContextDupPt === False
 
   -- ── the shared hash-to-Integer encoding: the reference compares these for equality, so a
   -- collision would make two distinct key-hashes / out-refs indistinguishable to the oracle. ──
-  prop "encoding: bytesToInteger separates byte strings that differ only in leading NULs" $
-    (bytesToInteger (Builtins.toBuiltin ("\NUL\SOH" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\SOH" :: ByteString)))
-      === False
-  prop "encoding: bytesToInteger separates the empty string from a NUL byte" $
-    (bytesToInteger (Builtins.toBuiltin ("" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\NUL" :: ByteString)))
-      === False
-  prop "encoding: encodeTxOutRef separates out-refs that differ only in the index" $
-    (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "aa") 1)) === False
-  prop "encoding: encodeTxOutRef separates out-refs that differ only in the tx-id" $
-    (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "ab") 0)) === False
-
   -- The INPUT open datum's version and contestation period are varied too (CloseInitial carries no
   -- signature, so nothing pins them).
-  prop "close/CloseInitial: extracted Agda reference === real validator (function-level, no tx, no mutation)" $
-    forAll (elements [0, 1]) $ \inV ->
-      forAll (elements [100, 86_400_000]) $ \inCp ->
-        forAll (choose (0, 2)) $ \closedVersion ->
-          forAll (elements [50, inCp, 200]) $ \closedCpMs ->
-            forAll (choose (0, 1)) $ \closedSnap ->
-              forAll (choose (0, 1)) $ \contestersLen ->
-                forAll (elements [1_050, 1_100, 2_000]) $ \tMax ->
-                  forAll (elements [0, 1]) $ \deadlineExtra ->
-                    let od = openDatumAt inV inCp
-                        deadline = tMax + inCp + deadlineExtra
-                        ctx = mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax
-                     in referenceVerdict od ctx === validatorVerdict od ctx
+  describe "the shared hash-to-Integer encoding" $ do
+    prop "encoding: bytesToInteger separates byte strings that differ only in leading NULs" $
+      (bytesToInteger (Builtins.toBuiltin ("\NUL\SOH" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\SOH" :: ByteString)))
+        === False
+    prop "encoding: bytesToInteger separates the empty string from a NUL byte" $
+      (bytesToInteger (Builtins.toBuiltin ("" :: ByteString)) == bytesToInteger (Builtins.toBuiltin ("\NUL" :: ByteString)))
+        === False
+    fact "encoding: encodeTxOutRef separates out-refs that differ only in the index" $
+      (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "aa") 1)) === False
+    fact "encoding: encodeTxOutRef separates out-refs that differ only in the tx-id" $
+      (encodeTxOutRef (TxOutRef (TxId "aa") 0) == encodeTxOutRef (TxOutRef (TxId "ab") 0)) === False
+
+    prop "close/CloseInitial: extracted Agda reference === real validator (function-level, no tx, no mutation)" $
+      forAll (elements [0, 1]) $ \inV ->
+        forAll (elements [100, 86_400_000]) $ \inCp ->
+          forAll (choose (0, 2)) $ \closedVersion ->
+            forAll (elements [50, inCp, 200]) $ \closedCpMs ->
+              forAll (choose (0, 1)) $ \closedSnap ->
+                forAll (choose (0, 1)) $ \contestersLen ->
+                  forAll (elements [1_050, 1_100, 2_000]) $ \tMax ->
+                    forAll (elements [0, 1]) $ \deadlineExtra ->
+                      let od = openDatumAt inV inCp
+                          deadline = tMax + inCp + deadlineExtra
+                          ctx = mkContext od closedVersion closedCpMs closedSnap contestersLen deadline tMax
+                       in referenceVerdict od ctx === validatorVerdict od ctx
 
   -- ── CloseUnused: the validator runs verifySnapshotSignature FOR REAL (signed with our test key) ──
   -- Anchor: a healthy CloseUnused (version preserved = 0, valid signature over the snapshot) is accepted by
   -- BOTH the real validator (signature verifies) and the reference.
-  prop "anchor: healthy CloseUnused: BOTH oracles accept (real signature verified)" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
-          .&&. unusedRef 0 100 cs 0 dl tMax === True
-
   -- Agreement on the decidable conjuncts WITH a valid signature: reference === validator across the
   -- generated fields (the signature is valid, so crypto is not the deciding factor).
-  prop "close/CloseUnused: reference === real validator (valid sig; decidable conjuncts)" $
-    forAll (choose (0, 1)) $ \cv ->
-      forAll (elements [50, 100]) $ \ccp ->
-        forAll (choose (1, 3)) $ \cs ->
-          forAll (choose (0, 1)) $ \cl ->
-            forAll (elements [1_050, 2_000]) $ \tMax ->
-              forAll (elements [0, 1]) $ \dExtra ->
-                let dl = tMax + openCpMs + dExtra
-                 in unusedRef cv ccp cs cl dl tMax === unusedVal (unusedRedeemer cs) cv ccp cs cl dl tMax
-
   -- Crypto non-vacuity (what the Agda CANNOT prove): the REAL validator rejects a CloseUnused whose
   -- signature is over the WRONG snapshot number, even though everything else is healthy. This genuinely
   -- exercises verifySnapshotSignature against the real validator (the reference mocks it, so this is a
   -- validator-only assertion).
-  prop "close/CloseUnused: real validator REJECTS a bad-snapshot signature" $
-    let cs = 3
-        tMax = 1_100
-        dl = tMax + openCpMs
-        badRedeemer = HS.CloseUnused{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in unusedVal badRedeemer 0 100 cs 0 dl tMax === False
-
-  prop "close/CloseUnused: the healthy (correctly-signed) version of that tx IS accepted" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
-
   -- The exact attack the commit/decommit-output-set binding closes: the signature is VALID (over the
   -- original, empty hashes) but the redeemer redirects decommitOutputsHash (resp. commitOutputsHash).
   -- The validator rebuilds the signed message from the redeemer's hashes, so it no longer matches what
   -- the parties signed and verifySnapshotSignature rejects. Distinct from the bad-signature props above
   -- (there the signature is wrong for the carried message; here the message is redirected under a
   -- genuinely valid signature).
-  prop "close/CloseUnused: real validator REJECTS a tampered decommit/commit-outputs hash under a VALID signature" $
-    let cs = 3
-        tMax = 1_100
-        dl = tMax + openCpMs
-        tamperDec = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = wrongOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-        tamperCom = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = wrongOutputsHash}
-     in unusedVal tamperDec 0 100 cs 0 dl tMax === False
-          .&&. unusedVal tamperCom 0 100 cs 0 dl tMax === False
-          .&&. unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
+  describe "CloseUnused" $ do
+    fact "anchor: healthy CloseUnused: BOTH oracles accept (real signature verified)" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
+            .&&. unusedRef 0 100 cs 0 dl tMax === True
+
+    prop "close/CloseUnused: reference === real validator (valid sig; decidable conjuncts)" $
+      forAll (choose (0, 1)) $ \cv ->
+        forAll (elements [50, 100]) $ \ccp ->
+          forAll (choose (1, 3)) $ \cs ->
+            forAll (choose (0, 1)) $ \cl ->
+              forAll (elements [1_050, 2_000]) $ \tMax ->
+                forAll (elements [0, 1]) $ \dExtra ->
+                  let dl = tMax + openCpMs + dExtra
+                   in unusedRef cv ccp cs cl dl tMax === unusedVal (unusedRedeemer cs) cv ccp cs cl dl tMax
+
+    fact "close/CloseUnused: real validator REJECTS a bad-snapshot signature" $
+      let cs = 3
+          tMax = 1_100
+          dl = tMax + openCpMs
+          badRedeemer = HS.CloseUnused{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in unusedVal badRedeemer 0 100 cs 0 dl tMax === False
+
+    fact "close/CloseUnused: the healthy (correctly-signed) version of that tx IS accepted" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
+
+    fact "close/CloseUnused: real validator REJECTS a tampered decommit/commit-outputs hash under a VALID signature" $
+      let cs = 3
+          tMax = 1_100
+          dl = tMax + openCpMs
+          tamperDec = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = wrongOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+          tamperCom = HS.CloseUnused{HS.signature = [closeSigFor cs], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = wrongOutputsHash}
+       in unusedVal tamperDec 0 100 cs 0 dl tMax === False
+            .&&. unusedVal tamperCom 0 100 cs 0 dl tMax === False
+            .&&. unusedVal (unusedRedeemer cs) 0 100 cs 0 dl tMax === True
 
   -- ── CloseAny: signature over the CURRENT version PLUS snapshot number > 0 (the anyOK conjunct) ──
-  prop "anchor: healthy CloseAny, BOTH oracles accept (real signature verified, snapshot > 0)" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
-          .&&. anyRef 0 100 cs 0 dl tMax === True
-
   -- Agreement across a grid that INCLUDES snapshot number 0: there the signature still verifies (it is
   -- over the same snapshot-0 message) but the validator's `snapshotNumber' > 0` and the reference's
   -- anyOK both reject, so the tag-specific conjunct is exercised in both directions.
-  prop "close/CloseAny: reference === real validator (valid sig; includes snapshot 0)" $
-    forAll (choose (0, 1)) $ \cv ->
-      forAll (elements [50, 100]) $ \ccp ->
-        forAll (choose (0, 3)) $ \cs ->
-          forAll (choose (0, 1)) $ \cl ->
-            forAll (elements [1_050, 2_000]) $ \tMax ->
-              forAll (elements [0, 1]) $ \dExtra ->
-                let dl = tMax + openCpMs + dExtra
-                 in anyRef cv ccp cs cl dl tMax === anyVal (anyRedeemer cs) cv ccp cs cl dl tMax
+  describe "CloseAny" $ do
+    fact "anchor: healthy CloseAny, BOTH oracles accept (real signature verified, snapshot > 0)" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
+            .&&. anyRef 0 100 cs 0 dl tMax === True
 
-  prop "close/CloseAny: snapshot number 0, BOTH oracles reject" $
-    let tMax = 1_100; dl = tMax + openCpMs
-     in anyVal (anyRedeemer 0) 0 100 0 0 dl tMax === False
-          .&&. anyRef 0 100 0 0 dl tMax === False
+    prop "close/CloseAny: reference === real validator (valid sig; includes snapshot 0)" $
+      forAll (choose (0, 1)) $ \cv ->
+        forAll (elements [50, 100]) $ \ccp ->
+          forAll (choose (0, 3)) $ \cs ->
+            forAll (choose (0, 1)) $ \cl ->
+              forAll (elements [1_050, 2_000]) $ \tMax ->
+                forAll (elements [0, 1]) $ \dExtra ->
+                  let dl = tMax + openCpMs + dExtra
+                   in anyRef cv ccp cs cl dl tMax === anyVal (anyRedeemer cs) cv ccp cs cl dl tMax
 
-  prop "close/CloseAny: real validator REJECTS a bad-snapshot signature" $
-    let cs = 3
-        tMax = 1_100
-        dl = tMax + openCpMs
-        badRedeemer = HS.CloseAny{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in anyVal badRedeemer 0 100 cs 0 dl tMax === False
+    fact "close/CloseAny: snapshot number 0, BOTH oracles reject" $
+      let tMax = 1_100; dl = tMax + openCpMs
+       in anyVal (anyRedeemer 0) 0 100 0 0 dl tMax === False
+            .&&. anyRef 0 100 0 0 dl tMax === False
 
-  prop "close/CloseAny: the healthy (correctly-signed) version of that tx IS accepted" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
+    fact "close/CloseAny: real validator REJECTS a bad-snapshot signature" $
+      let cs = 3
+          tMax = 1_100
+          dl = tMax + openCpMs
+          badRedeemer = HS.CloseAny{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in anyVal badRedeemer 0 100 cs 0 dl tMax === False
+
+    fact "close/CloseAny: the healthy (correctly-signed) version of that tx IS accepted" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in anyVal (anyRedeemer cs) 0 100 cs 0 dl tMax === True
 
   -- ── CloseUsed: signature over version - 1 (open version 1 here, so the message is at version 0) ──
-  prop "anchor: healthy CloseUsed, BOTH oracles accept (real signature at version - 1 verified)" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
-          .&&. usedRef usedOpenVersionN 100 cs 0 dl tMax === True
-
   -- Agreement on the decidable conjuncts WITH a valid signature: cv spans 0/1/2, so the
   -- version-preservation boundary (accept only at cv = 1) is crossed in both directions.
-  prop "close/CloseUsed: reference === real validator (valid sig; decidable conjuncts)" $
-    forAll (choose (0, 2)) $ \cv ->
-      forAll (elements [50, 100]) $ \ccp ->
-        forAll (choose (1, 3)) $ \cs ->
-          forAll (choose (0, 1)) $ \cl ->
-            forAll (elements [1_050, 2_000]) $ \tMax ->
-              forAll (elements [0, 1]) $ \dExtra ->
-                let dl = tMax + openCpMs + dExtra
-                 in usedRef cv ccp cs cl dl tMax === usedVal (usedRedeemer cs) cv ccp cs cl dl tMax
-
-  prop "close/CloseUsed: real validator REJECTS a bad-snapshot signature" $
-    let cs = 3
-        tMax = 1_100
-        dl = tMax + openCpMs
-        badRedeemer = HS.CloseUsed{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in usedVal badRedeemer usedOpenVersionN 100 cs 0 dl tMax === False
-
   -- The hash-vs-datum coupling in isolation: the signature over the WRONG hash verifies, so the reject
   -- comes from mustBindAccumulatorCommitment alone (the reference mocks the accumulator conjunct).
-  prop "close/CloseUsed: real validator REJECTS a redeemer hash that does not match the datum commitment" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in usedVal (usedRedeemerWrongHash cs) usedOpenVersionN 100 cs 0 dl tMax === False
+  describe "CloseUsed" $ do
+    fact "anchor: healthy CloseUsed, BOTH oracles accept (real signature at version - 1 verified)" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
+            .&&. usedRef usedOpenVersionN 100 cs 0 dl tMax === True
 
-  prop "close/CloseUsed: the healthy (correctly-signed) version of that tx IS accepted" $
-    let cs = 3; tMax = 1_100; dl = tMax + openCpMs
-     in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
+    prop "close/CloseUsed: reference === real validator (valid sig; decidable conjuncts)" $
+      forAll (choose (0, 2)) $ \cv ->
+        forAll (elements [50, 100]) $ \ccp ->
+          forAll (choose (1, 3)) $ \cs ->
+            forAll (choose (0, 1)) $ \cl ->
+              forAll (elements [1_050, 2_000]) $ \tMax ->
+                forAll (elements [0, 1]) $ \dExtra ->
+                  let dl = tMax + openCpMs + dExtra
+                   in usedRef cv ccp cs cl dl tMax === usedVal (usedRedeemer cs) cv ccp cs cl dl tMax
+
+    fact "close/CloseUsed: real validator REJECTS a bad-snapshot signature" $
+      let cs = 3
+          tMax = 1_100
+          dl = tMax + openCpMs
+          badRedeemer = HS.CloseUsed{HS.signature = [closeSigFor (cs + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in usedVal badRedeemer usedOpenVersionN 100 cs 0 dl tMax === False
+
+    fact "close/CloseUsed: real validator REJECTS a redeemer hash that does not match the datum commitment" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in usedVal (usedRedeemerWrongHash cs) usedOpenVersionN 100 cs 0 dl tMax === False
+
+    fact "close/CloseUsed: the healthy (correctly-signed) version of that tx IS accepted" $
+      let cs = 3; tMax = 1_100; dl = tMax + openCpMs
+       in usedVal (usedRedeemer cs) usedOpenVersionN 100 cs 0 dl tMax === True
 
   -- ── increment: version bump + value conservation + a deposit script input + real signature ──
-  prop "anchor: healthy increment: BOTH oracles accept (real signature verified)" $
-    let cs = 3
-     in incVal (incRedeemer cs) 1 0 === True .&&. incRef 1 0 === True
-
-  prop "increment: reference === real validator (valid sig; version bump + value conservation)" $
-    forAll (choose (0, 2)) $ \nextV ->
-      forAll (elements [0, 1_000]) $ \vPerturb ->
-        let cs = 3
-         in incRef nextV vPerturb === incVal (incRedeemer cs) nextV vPerturb
-
-  prop "increment: real validator REJECTS a bad snapshot signature" $
-    let cs = 3
-        badRedeemer = HS.IncrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.increment = depRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
-     in incVal badRedeemer 1 0 === False
-
-  prop "increment: the healthy (correctly-signed) version of that tx IS accepted" $
-    let cs = 3 in incVal (incRedeemer cs) 1 0 === True
-
   -- The first-output rule: the commit digest binds the deposit by transaction id, so a sibling output
   -- of the same transaction must not be claimable. The claimed ref shares depRef's transaction id, so
   -- the recomputed digest (and with it the signature) stays valid, isolating this conjunct.
-  prop "increment/first-output: a claimed deposit at output index 1 is rejected by both (valid signature)" $
-    projectInc (HS.Open incOpenPrev) (HS.Increment incIdx1Redeemer) mkIncIdx1Context === False
-      .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Increment incIdx1Redeemer) mkIncIdx1Context === False
+  describe "increment" $ do
+    fact "anchor: healthy increment: BOTH oracles accept (real signature verified)" $
+      let cs = 3
+       in incVal (incRedeemer cs) 1 0 === True .&&. incRef 1 0 === True
+
+    prop "increment: reference === real validator (valid sig; version bump + value conservation)" $
+      forAll (choose (0, 2)) $ \nextV ->
+        forAll (elements [0, 1_000]) $ \vPerturb ->
+          let cs = 3
+           in incRef nextV vPerturb === incVal (incRedeemer cs) nextV vPerturb
+
+    fact "increment: real validator REJECTS a bad snapshot signature" $
+      let cs = 3
+          badRedeemer = HS.IncrementRedeemer{HS.signature = [incSigFor (cs + 1)], HS.snapshotNumber = cs, HS.increment = depRef, HS.decommitOutputsHash = emptyDecommitOutputsHash}
+       in incVal badRedeemer 1 0 === False
+
+    fact "increment: the healthy (correctly-signed) version of that tx IS accepted" $
+      let cs = 3 in incVal (incRedeemer cs) 1 0 === True
+
+    fact "increment/first-output: a claimed deposit at output index 1 is rejected by both (valid signature)" $
+      projectInc (HS.Open incOpenPrev) (HS.Increment incIdx1Redeemer) mkIncIdx1Context === False
+        .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Increment incIdx1Redeemer) mkIncIdx1Context === False
 
   -- ── increment conjunct demos (extracted checker + real validator both catch a single-conjunct attack) ──
-  prop "increment/no-mint: a minting increment is REJECTED by both checkNoMint and the real validator" $
-    let ctx = mkIncDemoContext incAttackMint [signerKH] incHeadVal incHealthyHeadOut
-     in projectNoMint ctx === False .&&. incDemoVal ctx === False
-  prop "increment/no-mint: the healthy (no-mint) increment is accepted by both" $
-    let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
-     in projectNoMint ctx === True .&&. incDemoVal ctx === True
-
-  prop "increment/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
-    let ctx = mkIncDemoContext emptyMintValue [nonParticipantKH] incHeadVal incHealthyHeadOut
-     in projectParticipant (HS.Open incOpenPrev) ctx === False .&&. incDemoVal ctx === False
-  prop "increment/participant: a participant signer is accepted by both" $
-    let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
-     in projectParticipant (HS.Open incOpenPrev) ctx === True .&&. incDemoVal ctx === True
-
   -- a balanced A→B swap keeps the non-ada TOTAL (3 in, 3 out), so the scalar-total checkInc accepts it,
   -- but per-asset conservation (and the validator's Value ==) does not.
-  prop "increment/per-asset: a balanced token swap passes the non-ada TOTAL but is REJECTED by checkPerAsset and the real validator" $
-    let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutSwap
-     in projectInc (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3)) ctx === True
-          .&&. projectPerAssetInc ctx === False
-          .&&. incDemoVal ctx === False
-  prop "increment/per-asset: the healthy (no swap) increment is accepted by both checkPerAsset and the real validator" $
-    let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy
-     in projectPerAssetInc ctx === True .&&. incDemoVal ctx === True
-
-  prop "increment/ref-spent: a claimed deposit that is NOT a tx input is REJECTED by both checkRefSpent and the real validator" $
-    let ctx = mkIncContext (incRedeemerUnspent 3) 1 0
-     in projectRefSpent (HS.Increment (incRedeemerUnspent 3)) ctx === False
-          .&&. rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False
-  prop "increment/ref-spent: the healthy (spent-deposit) claim is accepted by both" $
-    let ctx = mkIncContext (incRedeemer 3) 1 0
-     in projectRefSpent (HS.Increment (incRedeemer 3)) ctx === True
-          .&&. incVal (incRedeemer 3) 1 0 === True
-
   -- The commit-outputs hash is RECOMPUTED from the claimed deposit's own datum, so a deposit input
   -- whose datum does not decode as (CurrencySymbol, POSIXTime, [Commit]) hard-fails the validator
   -- with DepositDatumInvalid (a traceError, hence 'rejectingErrors'). This is the decode path the
   -- deposit-datum binding introduced; on-chain a script error is a rejection.
-  prop "increment: real validator REJECTS a deposit input whose datum does not decode (DepositDatumInvalid)" $
-    rejectingErrors
-      ( Head.headValidator
-          Head.canonicalCRSDatumHash
-          (HS.Open incOpenPrev)
-          (HS.Increment (incRedeemer 3))
-          (mkIncContextDep (Datum (PlutusTx.toBuiltinData (42 :: Integer))) (incRedeemer 3) 1 0)
-      )
-      === False
-      .&&. incVal (incRedeemer 3) 1 0 === True
+  describe "increment conjunct demos" $ do
+    fact "increment/no-mint: a minting increment is REJECTED by both checkNoMint and the real validator" $
+      let ctx = mkIncDemoContext incAttackMint [signerKH] incHeadVal incHealthyHeadOut
+       in projectNoMint ctx === False .&&. incDemoVal ctx === False
+    fact "increment/no-mint: the healthy (no-mint) increment is accepted by both" $
+      let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
+       in projectNoMint ctx === True .&&. incDemoVal ctx === True
+
+    fact "increment/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+      let ctx = mkIncDemoContext emptyMintValue [nonParticipantKH] incHeadVal incHealthyHeadOut
+       in projectParticipant (HS.Open incOpenPrev) ctx === False .&&. incDemoVal ctx === False
+    fact "increment/participant: a participant signer is accepted by both" $
+      let ctx = mkIncDemoContext emptyMintValue [signerKH] incHeadVal incHealthyHeadOut
+       in projectParticipant (HS.Open incOpenPrev) ctx === True .&&. incDemoVal ctx === True
+
+    fact "increment/per-asset: a balanced token swap passes the non-ada TOTAL but is REJECTED by checkPerAsset and the real validator" $
+      let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutSwap
+       in projectInc (HS.Open incOpenPrev) (HS.Increment (incRedeemer 3)) ctx === True
+            .&&. projectPerAssetInc ctx === False
+            .&&. incDemoVal ctx === False
+    fact "increment/per-asset: the healthy (no swap) increment is accepted by both checkPerAsset and the real validator" $
+      let ctx = mkIncDemoContext emptyMintValue [signerKH] incPerAssetHeadIn incPerAssetHeadOutHealthy
+       in projectPerAssetInc ctx === True .&&. incDemoVal ctx === True
+
+    fact "increment/ref-spent: a claimed deposit that is NOT a tx input is REJECTED by both checkRefSpent and the real validator" $
+      let ctx = mkIncContext (incRedeemerUnspent 3) 1 0
+       in projectRefSpent (HS.Increment (incRedeemerUnspent 3)) ctx === False
+            .&&. rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False
+    fact "increment/ref-spent: the healthy (spent-deposit) claim is accepted by both" $
+      let ctx = mkIncContext (incRedeemer 3) 1 0
+       in projectRefSpent (HS.Increment (incRedeemer 3)) ctx === True
+            .&&. incVal (incRedeemer 3) 1 0 === True
+
+    fact "increment: real validator REJECTS a deposit input whose datum does not decode (DepositDatumInvalid)" $
+      rejectingErrors
+        ( Head.headValidator
+            Head.canonicalCRSDatumHash
+            (HS.Open incOpenPrev)
+            (HS.Increment (incRedeemer 3))
+            (mkIncContextDep (Datum (PlutusTx.toBuiltinData (42 :: Integer))) (incRedeemer 3) 1 0)
+        )
+        === False
+        .&&. incVal (incRedeemer 3) 1 0 === True
 
   -- ── decrement: version bump + value shrinks by decommit outputs + real signature ──
-  prop "anchor: healthy decrement: BOTH oracles accept (real signature verified)" $
-    let cs = 3 in decVal (decRedeemer cs) 1 0 === True .&&. decRef 1 0 === True
-
-  prop "decrement: reference === real validator (valid sig; version bump + value decrease)" $
-    forAll (choose (0, 2)) $ \nextV ->
-      forAll (elements [0, 1_000]) $ \vPerturb ->
-        let cs = 3
-         in decRef nextV vPerturb === decVal (decRedeemer cs) nextV vPerturb
-
-  prop "decrement: real validator REJECTS a bad snapshot signature" $
-    let cs = 3
-        badRedeemer = HS.DecrementRedeemer{HS.signature = [decSigFor (cs + 1)], HS.snapshotNumber = cs, HS.numberOfDecommitOutputs = 1, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in decVal badRedeemer 1 0 === False
-
-  prop "decrement/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
-    let ctx = withSignatories [nonParticipantKH] (mkDecContext (decRedeemer 3) 1 0)
-     in projectParticipant (HS.Open incOpenPrev) ctx === False
-          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === False
-  prop "decrement/participant: a participant signer is accepted by both" $
-    let ctx = mkDecContext (decRedeemer 3) 1 0
-     in projectParticipant (HS.Open incOpenPrev) ctx === True
-          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === True
-
   -- The materialized-outputs rule: with m = 0 the positional decommit list is empty, which is exactly
   -- the shape whose recomputed decommit digest an increment snapshot's signature would also cover.
-  prop "decrement/decommit-outputs: a decrement materializing no outputs is rejected by both" $
-    let redeemer0 = (decRedeemer 3){HS.numberOfDecommitOutputs = 0}
-     in projectDec (HS.Open incOpenPrev) (HS.Decrement redeemer0) (mkDecContext redeemer0 1 0) === False
-          .&&. decVal redeemer0 1 0 === False
+  describe "decrement" $ do
+    fact "anchor: healthy decrement: BOTH oracles accept (real signature verified)" $
+      let cs = 3 in decVal (decRedeemer cs) 1 0 === True .&&. decRef 1 0 === True
 
-  prop "decrement: the healthy (correctly-signed) version of that tx IS accepted" $
-    let cs = 3 in decVal (decRedeemer cs) 1 0 === True
+    prop "decrement: reference === real validator (valid sig; version bump + value decrease)" $
+      forAll (choose (0, 2)) $ \nextV ->
+        forAll (elements [0, 1_000]) $ \vPerturb ->
+          let cs = 3
+           in decRef nextV vPerturb === decVal (decRedeemer cs) nextV vPerturb
+
+    fact "decrement: real validator REJECTS a bad snapshot signature" $
+      let cs = 3
+          badRedeemer = HS.DecrementRedeemer{HS.signature = [decSigFor (cs + 1)], HS.snapshotNumber = cs, HS.numberOfDecommitOutputs = 1, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in decVal badRedeemer 1 0 === False
+
+    fact "decrement/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+      let ctx = withSignatories [nonParticipantKH] (mkDecContext (decRedeemer 3) 1 0)
+       in projectParticipant (HS.Open incOpenPrev) ctx === False
+            .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === False
+    fact "decrement/participant: a participant signer is accepted by both" $
+      let ctx = mkDecContext (decRedeemer 3) 1 0
+       in projectParticipant (HS.Open incOpenPrev) ctx === True
+            .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Open incOpenPrev) (HS.Decrement (decRedeemer 3)) ctx === True
+
+    fact "decrement/decommit-outputs: a decrement materializing no outputs is rejected by both" $
+      let redeemer0 = (decRedeemer 3){HS.numberOfDecommitOutputs = 0}
+       in projectDec (HS.Open incOpenPrev) (HS.Decrement redeemer0) (mkDecContext redeemer0 1 0) === False
+            .&&. decVal redeemer0 1 0 === False
+
+    fact "decrement: the healthy (correctly-signed) version of that tx IS accepted" $
+      let cs = 3 in decVal (decRedeemer cs) 1 0 === True
 
   -- ── contest: version preserved + snapshot increases + one contester + deadline + real signature ──
-  prop "anchor: healthy contest: BOTH oracles accept (real signature verified)" $
-    let s' = 1; tMax = 1_500
-     in contestVal (contestRedeemer s') s' 0 tMax === True .&&. contestRef s' 0 tMax === True
+  describe "contest" $ do
+    fact "anchor: healthy contest: BOTH oracles accept (real signature verified)" $
+      let s' = 1; tMax = 1_500
+       in contestVal (contestRedeemer s') s' 0 tMax === True .&&. contestRef s' 0 tMax === True
 
-  prop "contest: reference === real validator (valid sig; snapshot increase + deadline + within-period)" $
-    forAll (choose (0, 2)) $ \s' ->
-      forAll (elements [0, 100]) $ \tfinPerturb ->
-        forAll (elements [1_500, 2_500]) $ \tMax ->
-          contestRef s' tfinPerturb tMax === contestVal (contestRedeemer s') s' tfinPerturb tMax
+    prop "contest: reference === real validator (valid sig; snapshot increase + deadline + within-period)" $
+      forAll (choose (0, 2)) $ \s' ->
+        forAll (elements [0, 100]) $ \tfinPerturb ->
+          forAll (elements [1_500, 2_500]) $ \tMax ->
+            contestRef s' tfinPerturb tMax === contestVal (contestRedeemer s') s' tfinPerturb tMax
 
-  prop "contest: real validator REJECTS a bad snapshot signature" $
-    let s' = 1
-        tMax = 1_500
-        badRedeemer = HS.ContestUnused{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in contestVal badRedeemer s' 0 tMax === False
+    fact "contest: real validator REJECTS a bad snapshot signature" $
+      let s' = 1
+          tMax = 1_500
+          badRedeemer = HS.ContestUnused{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in contestVal badRedeemer s' 0 tMax === False
 
-  prop "contest: the healthy (correctly-signed) version of that tx IS accepted" $
-    let s' = 1; tMax = 1_500 in contestVal (contestRedeemer s') s' 0 tMax === True
+    fact "contest: the healthy (correctly-signed) version of that tx IS accepted" $
+      let s' = 1; tMax = 1_500 in contestVal (contestRedeemer s') s' 0 tMax === True
 
   -- ── contest mustNotChangeParameters (C3.3: bridged from the contest transition + tested here) ──
-  prop "contest/params: a changed head id is REJECTED by both checkContestParams and the real validator" $
-    projectContestParams (HS.Closed contestPrev) (mkContestParamsContext contestNextBadHeadId) === False
-      .&&. contestParamsVal contestNextBadHeadId === False
-  prop "contest/params: the parameter-preserving contest is accepted by both" $
-    projectContestParams (HS.Closed contestPrev) (mkContestParamsContext (contestNext 1 0)) === True
-      .&&. contestParamsVal (contestNext 1 0) === True
+  describe "contest mustNotChangeParameters" $ do
+    fact "contest/params: a changed head id is REJECTED by both checkContestParams and the real validator" $
+      projectContestParams (HS.Closed contestPrev) (mkContestParamsContext contestNextBadHeadId) === False
+        .&&. contestParamsVal contestNextBadHeadId === False
+    fact "contest/params: the parameter-preserving contest is accepted by both" $
+      projectContestParams (HS.Closed contestPrev) (mkContestParamsContext (contestNext 1 0)) === True
+        .&&. contestParamsVal (contestNext 1 0) === True
 
   -- ── contest participant signature (derived spec-side via contest-participantSigned + tested here;
   -- the swapped signer also breaks the validator's contester derivation, which only strengthens the reject) ──
-  prop "contest/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
-    let ctx = withSignatories [nonParticipantKH] (mkContestContext (contestRedeemer 1) 1 0 1_500)
-     in projectParticipant (HS.Closed contestPrev) ctx === False
-          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === False
-  prop "contest/participant: a participant signer is accepted by both" $
-    let ctx = mkContestContext (contestRedeemer 1) 1 0 1_500
-     in projectParticipant (HS.Closed contestPrev) ctx === True
-          .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === True
+  describe "contest participant signature" $ do
+    fact "contest/participant: a non-participant signer is REJECTED by both checkParticipantSigned and the real validator" $
+      let ctx = withSignatories [nonParticipantKH] (mkContestContext (contestRedeemer 1) 1 0 1_500)
+       in projectParticipant (HS.Closed contestPrev) ctx === False
+            .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === False
+    fact "contest/participant: a participant signer is accepted by both" $
+      let ctx = mkContestContext (contestRedeemer 1) 1 0 1_500
+       in projectParticipant (HS.Closed contestPrev) ctx === True
+            .&&. Head.headValidator Head.canonicalCRSDatumHash (HS.Closed contestPrev) (HS.Contest (contestRedeemer 1)) ctx === True
 
   -- ── ContestUsed: the contest signature is over version - 1 (closed version 1 here) ──
-  prop "anchor: healthy ContestUsed, BOTH oracles accept (real signature at version - 1 verified)" $
-    let s' = 1; tMax = 1_500
-     in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True .&&. contestUsedRef s' 0 tMax === True
+  describe "ContestUsed" $ do
+    fact "anchor: healthy ContestUsed, BOTH oracles accept (real signature at version - 1 verified)" $
+      let s' = 1; tMax = 1_500
+       in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True .&&. contestUsedRef s' 0 tMax === True
 
-  prop "contest/ContestUsed: reference === real validator (valid sig; snapshot increase + deadline + within-period)" $
-    forAll (choose (0, 2)) $ \s' ->
-      forAll (elements [0, 100]) $ \tfinPerturb ->
-        forAll (elements [1_500, 2_500]) $ \tMax ->
-          contestUsedRef s' tfinPerturb tMax === contestUsedVal (contestUsedRedeemer s') s' tfinPerturb tMax
+    prop "contest/ContestUsed: reference === real validator (valid sig; snapshot increase + deadline + within-period)" $
+      forAll (choose (0, 2)) $ \s' ->
+        forAll (elements [0, 100]) $ \tfinPerturb ->
+          forAll (elements [1_500, 2_500]) $ \tMax ->
+            contestUsedRef s' tfinPerturb tMax === contestUsedVal (contestUsedRedeemer s') s' tfinPerturb tMax
 
-  prop "contest/ContestUsed: real validator REJECTS a bad snapshot signature" $
-    let s' = 1
-        tMax = 1_500
-        badRedeemer = HS.ContestUsed{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
-     in contestUsedVal badRedeemer s' 0 tMax === False
+    fact "contest/ContestUsed: real validator REJECTS a bad snapshot signature" $
+      let s' = 1
+          tMax = 1_500
+          badRedeemer = HS.ContestUsed{HS.signature = [contestSigFor (s' + 1)], HS.accumulatorHash = emptyAccHash, HS.decommitOutputsHash = emptyDecommitOutputsHash, HS.commitOutputsHash = emptyCommitOutputsHash}
+       in contestUsedVal badRedeemer s' 0 tMax === False
 
-  prop "contest/ContestUsed: the healthy (correctly-signed) version of that tx IS accepted" $
-    let s' = 1; tMax = 1_500 in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True
+    fact "contest/ContestUsed: the healthy (correctly-signed) version of that tx IS accepted" $
+      let s' = 1; tMax = 1_500 in contestUsedVal (contestUsedRedeemer s') s' 0 tMax === True
 
   -- ── contest deadline-push (n = 2, 1 contester): the produced deadline MUST be tfinal + cp ──
-  prop "anchor: n = 2 contest with a pushed deadline, BOTH oracles accept (2-of-2 signature verified)" $
-    let s' = 1; tMax = 1_500
-     in contest2Val (contest2Redeemer s') openCpMs s' openCpMs tMax === True
-          .&&. contest2Ref openCpMs s' openCpMs tMax === True
-
-  prop "contest/deadline-push (n=2): a NON-pushed deadline is rejected by both (mustPushDeadline)" $
-    let s' = 1; tMax = 1_500
-     in contest2Val (contest2Redeemer s') openCpMs s' 0 tMax === False
-          .&&. contest2Ref openCpMs s' 0 tMax === False
-
   -- the INPUT datum's contestation period is varied too (Task-3 axis; the deadline perturbation is in
   -- units of cp, so the push boundary is crossed at every period).
-  prop "contest/deadline-push (n=2): reference === real validator (deadline-update rule both directions)" $
-    forAll (elements [100, 86_400_000]) $ \cp ->
-      forAll (choose (0, 2)) $ \s' ->
-        forAll (elements [0, cp, 2 * cp]) $ \tfinPerturb ->
-          forAll (elements [1_500, 2_500]) $ \tMax ->
-            contest2Ref cp s' tfinPerturb tMax === contest2Val (contest2Redeemer s') cp s' tfinPerturb tMax
+  describe "contest deadline-push" $ do
+    fact "anchor: n = 2 contest with a pushed deadline, BOTH oracles accept (2-of-2 signature verified)" $
+      let s' = 1; tMax = 1_500
+       in contest2Val (contest2Redeemer s') openCpMs s' openCpMs tMax === True
+            .&&. contest2Ref openCpMs s' openCpMs tMax === True
+
+    fact "contest/deadline-push (n=2): a NON-pushed deadline is rejected by both (mustPushDeadline)" $
+      let s' = 1; tMax = 1_500
+       in contest2Val (contest2Redeemer s') openCpMs s' 0 tMax === False
+            .&&. contest2Ref openCpMs s' 0 tMax === False
+
+    prop "contest/deadline-push (n=2): reference === real validator (deadline-update rule both directions)" $
+      forAll (elements [100, 86_400_000]) $ \cp ->
+        forAll (choose (0, 2)) $ \s' ->
+          forAll (elements [0, cp, 2 * cp]) $ \tfinPerturb ->
+            forAll (elements [1_500, 2_500]) $ \tMax ->
+              contest2Ref cp s' tfinPerturb tMax === contest2Val (contest2Redeemer s') cp s' tfinPerturb tMax
 
   -- ── init (μHead): minted-token count + ST/PT placement in the head output ──
-  prop "anchor: healthy init: BOTH oracles accept (mint 2, ST 1, 1 PT)" $
-    initVal 2 1 1 === True .&&. initRef 2 1 1 === True
-
-  prop "init: reference === real validator (minted count + ST quantity + unique-PT count)" $
-    forAll (choose (1, 3)) $ \mintedCount ->
-      forAll (choose (0, 2)) $ \stQty ->
-        forAll (choose (0, 2)) $ \numPT ->
-          initRef mintedCount stQty numPT === initVal mintedCount stQty numPT
-
   -- Non-vacuity for the conjuncts the reference MOCKS (OpsInit = const True): the REAL validator still
   -- enforces them. seedInputIsConsumed fails when the consumed input is not the seed.
-  prop "init: real validator REJECTS when the seed input is not consumed" $
-    let wrongRef = TxOutRef (TxId "88888888888888888888888888888888888888888888888888888888888888888888") 0
-     in Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext wrongRef initOpenDatum 2 1 1) === False
+  describe "init" $ do
+    fact "anchor: healthy init: BOTH oracles accept (mint 2, ST 1, 1 PT)" $
+      initVal 2 1 1 === True .&&. initRef 2 1 1 === True
 
-  prop "init: the healthy (seed-consumed) version of that tx IS accepted" $
-    Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
+    prop "init: reference === real validator (minted count + ST quantity + unique-PT count)" $
+      forAll (choose (1, 3)) $ \mintedCount ->
+        forAll (choose (0, 2)) $ \stQty ->
+          forAll (choose (0, 2)) $ \numPT ->
+            initRef mintedCount stQty numPT === initVal mintedCount stQty numPT
+
+    fact "init: real validator REJECTS when the seed input is not consumed" $
+      let wrongRef = TxOutRef (TxId "88888888888888888888888888888888888888888888888888888888888888888888") 0
+       in Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext wrongRef initOpenDatum 2 1 1) === False
+
+    fact "init: the healthy (seed-consumed) version of that tx IS accepted" $
+      Tokens.validateTokensMinting headScriptHash initSeedRef (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
 
   -- ── init datum head-id binding (C3.2: bridged from the spec's cid identity + tested here) ──
-  prop "init/datum: a head output datum naming a different head id is REJECTED by both checkInitHeadId and the real policy" $
-    projectInitHeadId (mkInitContext initSeedRef initOpenDatumBadHeadId 2 1 1) === False
-      .&&. initHeadIdVal initOpenDatumBadHeadId === False
-  prop "init/datum: the head-id-binding datum is accepted by both" $
-    projectInitHeadId (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
-      .&&. initHeadIdVal initOpenDatum === True
+  describe "init datum head-id binding" $ do
+    fact "init/datum: a head output datum naming a different head id is REJECTED by both checkInitHeadId and the real policy" $
+      projectInitHeadId (mkInitContext initSeedRef initOpenDatumBadHeadId 2 1 1) === False
+        .&&. initHeadIdVal initOpenDatumBadHeadId === False
+    fact "init/datum: the head-id-binding datum is accepted by both" $
+      projectInitHeadId (mkInitContext initSeedRef initOpenDatum 2 1 1) === True
+        .&&. initHeadIdVal initOpenDatum === True
 
   -- ── μHead Burn arm: burn-only mint field ──
-  prop "anchor: healthy burn: BOTH oracles accept (all head-policy entries negative)" $
-    burnVal [-1, -1] === True .&&. burnRef [-1, -1] === True
+  describe "μHead Burn arm" $ do
+    fact "anchor: healthy burn: BOTH oracles accept (all head-policy entries negative)" $
+      burnVal [-1, -1] === True .&&. burnRef [-1, -1] === True
 
-  prop "burn: reference === real validator (burn-only mint field, incl. the no-head-entries case)" $
-    forAll (elements [[], [-1], [1], [-1, -1], [-1, 1], [1, -1], [-2, -1], [2, 1], [-1, 2]]) $ \qtys ->
-      burnRef qtys === burnVal qtys
+    prop "burn: reference === real validator (burn-only mint field, incl. the no-head-entries case)" $
+      forAll (elements [[], [-1], [1], [-1, -1], [-1, 1], [1, -1], [-2, -1], [2, 1], [-1, 2]]) $ \qtys ->
+        burnRef qtys === burnVal qtys
 
-  prop "burn: real validator REJECTS a mint alongside a burn (healthy burn-only accepts)" $
-    burnVal [1, -1] === False .&&. burnVal [-1, -1] === True
+    fact "burn: real validator REJECTS a mint alongside a burn (healthy burn-only accepts)" $
+      burnVal [1, -1] === False .&&. burnVal [-1, -1] === True
 
   -- ── νDeposit Recover: the real Aiken validator (compiled UPLC) vs Ref.checkRecover ──
-  prop "anchor: healthy recover: BOTH oracles accept (posted after the deadline)" $
-    recoverVal 1_000 1_050 === True .&&. recoverRef 1_000 1_050 === True
-
-  prop "recover: reference === real Aiken validator (after-deadline conjunct)" $
-    forAll (elements [950, 1_000, 1_050]) $ \validityLo ->
-      let deadline = 1_000
-       in recoverRef deadline validityLo === recoverVal deadline validityLo
-
   -- The single-deposit rule: the recovered outputs are positional and shared by every deposit input,
   -- so a second spent deposit would be double-satisfied by the same output set.
-  prop "recover/single-deposit: spending two deposits in one recover is rejected by both" $
-    projectRecover mkRecoverTwoDepositsContext === False
-      .&&. depositAccepts mkRecoverTwoDepositsContext === False
+  describe "νDeposit Recover" $ do
+    fact "anchor: healthy recover: BOTH oracles accept (posted after the deadline)" $
+      recoverVal 1_000 1_050 === True .&&. recoverRef 1_000 1_050 === True
+
+    prop "recover: reference === real Aiken validator (after-deadline conjunct)" $
+      forAll (elements [950, 1_000, 1_050]) $ \validityLo ->
+        let deadline = 1_000
+         in recoverRef deadline validityLo === recoverVal deadline validityLo
+
+    fact "recover/single-deposit: spending two deposits in one recover is rejected by both" $
+      projectRecover mkRecoverTwoDepositsContext === False
+        .&&. depositAccepts mkRecoverTwoDepositsContext === False
 
   -- ── νDeposit Claim: the real Aiken validator (compiled UPLC) vs Ref.checkClaim ──
-  prop "anchor: healthy claim: BOTH oracles accept (before deadline + own-head increment)" $
-    claimVal claimIncrementInput 1_000 950 headPolicy === True
-      .&&. claimRef claimIncrementInput 1_000 950 headPolicy === True
-
-  prop "claim: reference === real Aiken validator (before-deadline + own-head binding + Increment coupling)" $
-    forAll (elements [950, 1_000, 1_050]) $ \validityHi ->
-      forAll (elements [headPolicy, otherHeadCid]) $ \depHeadCid ->
-        forAll (elements [claimIncrementInput, claimOtherDepositInput, claimDecrementInput]) $ \headRedeemer ->
-          let deadline = 1_000
-           in claimRef headRedeemer deadline validityHi depHeadCid
-                === claimVal headRedeemer deadline validityHi depHeadCid
-
-  prop "claim: real Aiken validator REJECTS a non-Increment head redeemer (healthy Increment accepts)" $
-    claimVal claimDecrementInput 1_000 950 headPolicy === False
-      .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
-
   -- The ref-coupling rule: the head's Increment redeemer must claim the very deposit being spent,
   -- else a legitimate increment could carry extra deposit inputs no snapshot credits.
-  prop "claim/ref-coupling: an Increment claiming a different deposit is rejected by both (healthy accepts)" $
-    claimRef claimOtherDepositInput 1_000 950 headPolicy === False
-      .&&. claimVal claimOtherDepositInput 1_000 950 headPolicy === False
-      .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
+  describe "νDeposit Claim" $ do
+    fact "anchor: healthy claim: BOTH oracles accept (before deadline + own-head increment)" $
+      claimVal claimIncrementInput 1_000 950 headPolicy === True
+        .&&. claimRef claimIncrementInput 1_000 950 headPolicy === True
+
+    prop "claim: reference === real Aiken validator (before-deadline + own-head binding + Increment coupling)" $
+      forAll (elements [950, 1_000, 1_050]) $ \validityHi ->
+        forAll (elements [headPolicy, otherHeadCid]) $ \depHeadCid ->
+          forAll (elements [claimIncrementInput, claimOtherDepositInput, claimDecrementInput]) $ \headRedeemer ->
+            let deadline = 1_000
+             in claimRef headRedeemer deadline validityHi depHeadCid
+                  === claimVal headRedeemer deadline validityHi depHeadCid
+
+    fact "claim: real Aiken validator REJECTS a non-Increment head redeemer (healthy Increment accepts)" $
+      claimVal claimDecrementInput 1_000 950 headPolicy === False
+        .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
+
+    fact "claim/ref-coupling: an Increment claiming a different deposit is rejected by both (healthy accepts)" $
+      claimRef claimOtherDepositInput 1_000 950 headPolicy === False
+        .&&. claimVal claimOtherDepositInput 1_000 950 headPolicy === False
+        .&&. claimVal claimIncrementInput 1_000 950 headPolicy === True
 
   -- ── full fanout (empty head): real BLS membership (empty subset) + burn count + deadline + value ──
-  prop "anchor: healthy empty-head fanout: BOTH oracles accept (real BLS pairing verified)" $
-    fanoutVal 2 1_050 1_000 === True .&&. fanoutRef 2 1_050 1_000 === True
-
-  prop "fanout: reference === real validator (burned-token count + after-deadline)" $
-    forAll (choose (1, 3)) $ \burnedCount ->
-      forAll (elements [950, 1_000, 1_050]) $ \validityLo ->
-        let tfinal = 1_000
-         in fanoutRef burnedCount validityLo tfinal === fanoutVal burnedCount validityLo tfinal
-
-  prop "fanout: real validator REJECTS a wrong BLS membership proof (healthy accepts, bad proof rejects)" $
-    fanoutVal 2 1_050 1_000 === True .&&. fanoutValBadProof 2 1_050 1_000 === False
-
   -- The canonical-CRS datum binding: a CRS reference input carrying a padded (same-τ prefix but
   -- byte-different) setup must be rejected with InvalidCRSDatum inside withCRSLookup, BEFORE any
   -- pairing runs (a traceError, hence 'rejectingErrors'). Without this binding a substituted
   -- powers-of-tau setup would let an attacker forge membership proofs (permissionless fund theft).
-  prop "fanout: real validator REJECTS a padded (non-canonical) CRS ref-input datum (InvalidCRSDatum)" $
-    rejectingErrors (fanoutValPaddedCrs 2 1_050 1_000) === False
-      .&&. fanoutVal 2 1_050 1_000 === True
+  describe "full fanout" $ do
+    fact "anchor: healthy empty-head fanout: BOTH oracles accept (real BLS pairing verified)" $
+      fanoutVal 2 1_050 1_000 === True .&&. fanoutRef 2 1_050 1_000 === True
+
+    prop "fanout: reference === real validator (burned-token count + after-deadline)" $
+      forAll (choose (1, 3)) $ \burnedCount ->
+        forAll (elements [950, 1_000, 1_050]) $ \validityLo ->
+          let tfinal = 1_000
+           in fanoutRef burnedCount validityLo tfinal === fanoutVal burnedCount validityLo tfinal
+
+    fact "fanout: real validator REJECTS a wrong BLS membership proof (healthy accepts, bad proof rejects)" $
+      fanoutVal 2 1_050 1_000 === True .&&. fanoutValBadProof 2 1_050 1_000 === False
+
+    fact "fanout: real validator REJECTS a padded (non-canonical) CRS ref-input datum (InvalidCRSDatum)" $
+      rejectingErrors (fanoutValPaddedCrs 2 1_050 1_000) === False
+        .&&. fanoutVal 2 1_050 1_000 === True
 
   -- ── partial fanout (real 2-element accumulator, distribute 1): membership + 0<m + after-deadline ──
-  prop "anchor: healthy partial fanout: BOTH oracles accept (real KZG membership verified)" $
-    partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_050 1_000 === True
+  describe "partial fanout" $ do
+    fact "anchor: healthy partial fanout: BOTH oracles accept (real KZG membership verified)" $
+      partialVal 1 1_050 1_000 === True .&&. partialRef 1 1_050 1_000 === True
 
-  prop "partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
-    forAll (elements [0, 1]) $ \m ->
-      forAll (elements [950, 1_050]) $ \validityLo ->
-        let tfinal = 1_000
-         in partialRef m validityLo tfinal === partialVal m validityLo tfinal
+    prop "partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
+      forAll (elements [0, 1]) $ \m ->
+        forAll (elements [950, 1_050]) $ \validityLo ->
+          let tfinal = 1_000
+           in partialRef m validityLo tfinal === partialVal m validityLo tfinal
 
-  prop "partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
-    partialVal 1 1_050 1_000 === True .&&. partialValBadProof 1 1_050 1_000 === False
+    fact "partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
+      partialVal 1 1_050 1_000 === True .&&. partialValBadProof 1 1_050 1_000 === False
 
   -- ── mid-chain partial fanout ((FanoutProgress, PartialFanout): the same checkPartialFanout arm,
   -- driven from a FanoutProgress input datum) ──
-  prop "anchor: healthy mid-chain partial fanout: BOTH oracles accept (real KZG membership verified)" $
-    partialMidVal 1 1_050 1_000 === True .&&. partialMidRef 1 1_050 1_000 === True
+  describe "mid-chain partial fanout" $ do
+    fact "anchor: healthy mid-chain partial fanout: BOTH oracles accept (real KZG membership verified)" $
+      partialMidVal 1 1_050 1_000 === True .&&. partialMidRef 1 1_050 1_000 === True
 
-  prop "mid-chain partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
-    forAll (elements [0, 1]) $ \m ->
-      forAll (elements [950, 1_050]) $ \validityLo ->
-        let tfinal = 1_000
-         in partialMidRef m validityLo tfinal === partialMidVal m validityLo tfinal
-
-  prop "mid-chain partial fanout: a before-deadline batch is REJECTED by both" $
-    partialMidRef 1 950 1_000 === False .&&. partialMidVal 1 950 1_000 === False
-
-  -- ── final partial fanout ((FanoutProgress, FinalPartialFanout): burn n+1, last batch, real KZG) ──
-  prop "anchor: healthy final partial fanout: BOTH oracles accept (last-batch KZG verified, n+1 burned)" $
-    finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialRef 2 2 1_050 1_000 === True
-
-  prop "final partial fanout: reference === real validator (output count + burned count + after-deadline)" $
-    forAll (choose (0, 2)) $ \m ->
-      forAll (choose (1, 3)) $ \burnedCount ->
+    prop "mid-chain partial fanout: reference === real validator (mustHaveOutputs 0<m + after-deadline)" $
+      forAll (elements [0, 1]) $ \m ->
         forAll (elements [950, 1_050]) $ \validityLo ->
           let tfinal = 1_000
-           in finalPartialRef m burnedCount validityLo tfinal === finalPartialVal m burnedCount validityLo tfinal
+           in partialMidRef m validityLo tfinal === partialMidVal m validityLo tfinal
 
-  prop "final partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
-    finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialValBadProof 2 2 1_050 1_000 === False
+    fact "mid-chain partial fanout: a before-deadline batch is REJECTED by both" $
+      partialMidRef 1 950 1_000 === False .&&. partialMidVal 1 950 1_000 === False
 
-  prop "final partial fanout: real validator REJECTS a before-deadline final batch" $
-    finalPartialVal 2 2 950 1_000 === False
+  -- ── final partial fanout ((FanoutProgress, FinalPartialFanout): burn n+1, last batch, real KZG) ──
+  describe "final partial fanout" $ do
+    fact "anchor: healthy final partial fanout: BOTH oracles accept (last-batch KZG verified, n+1 burned)" $
+      finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialRef 2 2 1_050 1_000 === True
+
+    prop "final partial fanout: reference === real validator (output count + burned count + after-deadline)" $
+      forAll (choose (0, 2)) $ \m ->
+        forAll (choose (1, 3)) $ \burnedCount ->
+          forAll (elements [950, 1_050]) $ \validityLo ->
+            let tfinal = 1_000
+             in finalPartialRef m burnedCount validityLo tfinal === finalPartialVal m burnedCount validityLo tfinal
+
+    fact "final partial fanout: real validator REJECTS a wrong KZG membership proof (healthy accepts, bad proof rejects)" $
+      finalPartialVal 2 2 1_050 1_000 === True .&&. finalPartialValBadProof 2 2 1_050 1_000 === False
+
+    fact "final partial fanout: real validator REJECTS a before-deadline final batch" $
+      finalPartialVal 2 2 950 1_000 === False
 
   -- ── C3.5: the JOIN as one checked artifact ──
   -- The bridge proves spec-bundle ⇒ extracted-reference (Agda). This single property checks the other half,
   -- extracted-reference === real-validator, on the SAME inputs across EVERY validator family (one accept +
   -- one reject each), so the end-to-end spec ⇒ validator chain (modulo the documented postulates) is a
   -- single named, checked artifact rather than per-family scattered tests.
-  prop "end-to-end (join): the bridged reference === the real validator across every family (accept + reject)" $
-    let dl = 1_200
-        tMax = 1_100
-        closeCtxAccept = mkContext openDatum 0 100 0 0 dl tMax
-        closeCtxReject = mkContext openDatum 1 100 0 0 dl tMax
-     in -- close (CloseInitial): healthy accept + changed-version reject
-        (referenceVerdict openDatum closeCtxAccept === validatorVerdict openDatum closeCtxAccept)
-          .&&. (referenceVerdict openDatum closeCtxReject === validatorVerdict openDatum closeCtxReject)
-          -- increment: version-bump accept + no-bump reject
-          .&&. (incRef 1 0 === incVal (incRedeemer 3) 1 0)
-          .&&. (incRef 0 0 === incVal (incRedeemer 3) 0 0)
-          -- decrement: accept + value-perturbation reject
-          .&&. (decRef 1 0 === decVal (decRedeemer 3) 1 0)
-          .&&. (decRef 1 1_000 === decVal (decRedeemer 3) 1 1_000)
-          -- contest: accept + too-old-snapshot reject
-          .&&. (contestRef 1 0 1_500 === contestVal (contestRedeemer 1) 1 0 1_500)
-          .&&. (contestRef 0 0 1_500 === contestVal (contestRedeemer 0) 0 0 1_500)
-          -- close (CloseAny): snapshot > 0 accept + snapshot-0 reject
-          .&&. (anyRef 0 100 3 0 dl tMax === anyVal (anyRedeemer 3) 0 100 3 0 dl tMax)
-          .&&. (anyRef 0 100 0 0 dl tMax === anyVal (anyRedeemer 0) 0 100 0 0 dl tMax)
-          -- close (CloseUsed, signature at version - 1): version-preserved accept + changed-version reject
-          .&&. (usedRef usedOpenVersionN 100 3 0 dl tMax === usedVal (usedRedeemer 3) usedOpenVersionN 100 3 0 dl tMax)
-          .&&. (usedRef 0 100 3 0 dl tMax === usedVal (usedRedeemer 3) 0 100 3 0 dl tMax)
-          -- contest (ContestUsed, signature at version - 1): accept + too-old-snapshot reject
-          .&&. (contestUsedRef 1 0 1_500 === contestUsedVal (contestUsedRedeemer 1) 1 0 1_500)
-          .&&. (contestUsedRef 0 0 1_500 === contestUsedVal (contestUsedRedeemer 0) 0 0 1_500)
-          -- contest deadline-push (n = 2): pushed-deadline accept + non-pushed reject
-          .&&. (contest2Ref openCpMs 1 openCpMs 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 openCpMs 1_500)
-          .&&. (contest2Ref openCpMs 1 0 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 0 1_500)
-          -- init (μHead): healthy accept + wrong-mint-count reject
-          .&&. (initRef 2 1 1 === initVal 2 1 1)
-          .&&. (initRef 3 1 1 === initVal 3 1 1)
-          -- burn (μHead Burn arm): burn-only accept + mint-alongside-burn reject
-          .&&. (burnRef [-1, -1] === burnVal [-1, -1])
-          .&&. (burnRef [1, -1] === burnVal [1, -1])
-          -- recover (νDeposit, real Aiken UPLC): after-deadline accept + not-after reject
-          .&&. (recoverRef 1_000 1_050 === recoverVal 1_000 1_050)
-          .&&. (recoverRef 1_000 950 === recoverVal 1_000 950)
-          -- claim (νDeposit, real Aiken UPLC): before-deadline accept + own-head-mismatch reject
-          .&&. (claimRef claimIncrementInput 1_000 950 headPolicy === claimVal claimIncrementInput 1_000 950 headPolicy)
-          .&&. (claimRef claimDecrementInput 1_000 950 headPolicy === claimVal claimDecrementInput 1_000 950 headPolicy)
-          .&&. (claimRef claimIncrementInput 1_000 950 otherHeadCid === claimVal claimIncrementInput 1_000 950 otherHeadCid)
-          -- full fanout (real BLS): burn-count accept + wrong-count reject
-          .&&. (fanoutRef 2 1_050 1_000 === fanoutVal 2 1_050 1_000)
-          .&&. (fanoutRef 3 1_050 1_000 === fanoutVal 3 1_050 1_000)
-          -- partial fanout (real KZG): 0<m accept + m=0 reject
-          .&&. (partialRef 1 1_050 1_000 === partialVal 1 1_050 1_000)
-          .&&. (partialRef 0 1_050 1_000 === partialVal 0 1_050 1_000)
-          -- mid-chain partial fanout (FanoutProgress input): 0<m accept + m=0 reject
-          .&&. (partialMidRef 1 1_050 1_000 === partialMidVal 1 1_050 1_000)
-          .&&. (partialMidRef 0 1_050 1_000 === partialMidVal 0 1_050 1_000)
-          -- final partial fanout (real KZG last batch): accept + wrong-burn-count reject
-          .&&. (finalPartialRef 2 2 1_050 1_000 === finalPartialVal 2 2 1_050 1_000)
-          .&&. (finalPartialRef 2 3 1_050 1_000 === finalPartialVal 2 3 1_050 1_000)
-          -- the C3 pulled-out conjuncts (value preservation, contest params, init head-id)
-          .&&. (closeValueVal 2_000_000 === True)
-          .&&. (closeValueVal 1_500_000 === False)
-          .&&. (contestParamsVal (contestNext 1 0) === True)
-          .&&. (contestParamsVal contestNextBadHeadId === False)
-          .&&. (initHeadIdVal initOpenDatum === True)
-          .&&. (initHeadIdVal initOpenDatumBadHeadId === False)
-          -- the ref-spent conjunct (increment claimedDepositIsSpent): spent accept + unspent reject
-          .&&. (projectRefSpent (HS.Increment (incRedeemer 3)) (mkIncContext (incRedeemer 3) 1 0) === True)
-          .&&. (incVal (incRedeemer 3) 1 0 === True)
-          .&&. (projectRefSpent (HS.Increment (incRedeemerUnspent 3)) (mkIncContext (incRedeemerUnspent 3) 1 0) === False)
-          .&&. (rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False)
+  describe "the join as one checked artifact" $ do
+    fact "end-to-end (join): the bridged reference === the real validator across every family (accept + reject)" $
+      let dl = 1_200
+          tMax = 1_100
+          closeCtxAccept = mkContext openDatum 0 100 0 0 dl tMax
+          closeCtxReject = mkContext openDatum 1 100 0 0 dl tMax
+       in -- One conjoin with a label per family, not a single .&&. chain: a failing chain says only
+          -- that something disagreed, while these name the family whose oracles parted company.
+          conjoin
+            [ counterexample "close (CloseInitial)" $
+                (referenceVerdict openDatum closeCtxAccept === validatorVerdict openDatum closeCtxAccept)
+                  .&&. (referenceVerdict openDatum closeCtxReject === validatorVerdict openDatum closeCtxReject)
+            , counterexample "increment: version-bump accept + no-bump reject" $
+                (incRef 1 0 === incVal (incRedeemer 3) 1 0)
+                  .&&. (incRef 0 0 === incVal (incRedeemer 3) 0 0)
+            , counterexample "decrement: accept + value-perturbation reject" $
+                (decRef 1 0 === decVal (decRedeemer 3) 1 0)
+                  .&&. (decRef 1 1_000 === decVal (decRedeemer 3) 1 1_000)
+            , counterexample "contest: accept + too-old-snapshot reject" $
+                (contestRef 1 0 1_500 === contestVal (contestRedeemer 1) 1 0 1_500)
+                  .&&. (contestRef 0 0 1_500 === contestVal (contestRedeemer 0) 0 0 1_500)
+            , counterexample "close (CloseAny): snapshot > 0 accept + snapshot-0 reject" $
+                (anyRef 0 100 3 0 dl tMax === anyVal (anyRedeemer 3) 0 100 3 0 dl tMax)
+                  .&&. (anyRef 0 100 0 0 dl tMax === anyVal (anyRedeemer 0) 0 100 0 0 dl tMax)
+            , counterexample "close (CloseUsed, signature at version - 1): version-preserved accept + changed-version reject" $
+                (usedRef usedOpenVersionN 100 3 0 dl tMax === usedVal (usedRedeemer 3) usedOpenVersionN 100 3 0 dl tMax)
+                  .&&. (usedRef 0 100 3 0 dl tMax === usedVal (usedRedeemer 3) 0 100 3 0 dl tMax)
+            , counterexample "contest (ContestUsed, signature at version - 1): accept + too-old-snapshot reject" $
+                (contestUsedRef 1 0 1_500 === contestUsedVal (contestUsedRedeemer 1) 1 0 1_500)
+                  .&&. (contestUsedRef 0 0 1_500 === contestUsedVal (contestUsedRedeemer 0) 0 0 1_500)
+            , counterexample "contest deadline-push (n = 2): pushed-deadline accept + non-pushed reject" $
+                (contest2Ref openCpMs 1 openCpMs 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 openCpMs 1_500)
+                  .&&. (contest2Ref openCpMs 1 0 1_500 === contest2Val (contest2Redeemer 1) openCpMs 1 0 1_500)
+            , counterexample "init (μHead): healthy accept + wrong-mint-count reject" $
+                (initRef 2 1 1 === initVal 2 1 1)
+                  .&&. (initRef 3 1 1 === initVal 3 1 1)
+            , counterexample "burn (μHead Burn arm): burn-only accept + mint-alongside-burn reject" $
+                (burnRef [-1, -1] === burnVal [-1, -1])
+                  .&&. (burnRef [1, -1] === burnVal [1, -1])
+            , counterexample "recover (νDeposit, real Aiken UPLC): after-deadline accept + not-after reject" $
+                (recoverRef 1_000 1_050 === recoverVal 1_000 1_050)
+                  .&&. (recoverRef 1_000 950 === recoverVal 1_000 950)
+            , counterexample "claim (νDeposit, real Aiken UPLC): before-deadline accept + own-head-mismatch reject" $
+                (claimRef claimIncrementInput 1_000 950 headPolicy === claimVal claimIncrementInput 1_000 950 headPolicy)
+                  .&&. (claimRef claimDecrementInput 1_000 950 headPolicy === claimVal claimDecrementInput 1_000 950 headPolicy)
+                  .&&. (claimRef claimIncrementInput 1_000 950 otherHeadCid === claimVal claimIncrementInput 1_000 950 otherHeadCid)
+            , counterexample "full fanout (real BLS): burn-count accept + wrong-count reject" $
+                (fanoutRef 2 1_050 1_000 === fanoutVal 2 1_050 1_000)
+                  .&&. (fanoutRef 3 1_050 1_000 === fanoutVal 3 1_050 1_000)
+            , counterexample "partial fanout (real KZG): 0<m accept + m=0 reject" $
+                (partialRef 1 1_050 1_000 === partialVal 1 1_050 1_000)
+                  .&&. (partialRef 0 1_050 1_000 === partialVal 0 1_050 1_000)
+            , counterexample "mid-chain partial fanout (FanoutProgress input): 0<m accept + m=0 reject" $
+                (partialMidRef 1 1_050 1_000 === partialMidVal 1 1_050 1_000)
+                  .&&. (partialMidRef 0 1_050 1_000 === partialMidVal 0 1_050 1_000)
+            , counterexample "final partial fanout (real KZG last batch): accept + wrong-burn-count reject" $
+                (finalPartialRef 2 2 1_050 1_000 === finalPartialVal 2 2 1_050 1_000)
+                  .&&. (finalPartialRef 2 3 1_050 1_000 === finalPartialVal 2 3 1_050 1_000)
+            , counterexample "the C3 pulled-out conjuncts (value preservation, contest params, init head-id)" $
+                (closeValueVal 2_000_000 === True)
+                  .&&. (closeValueVal 1_500_000 === False)
+                  .&&. (contestParamsVal (contestNext 1 0) === True)
+                  .&&. (contestParamsVal contestNextBadHeadId === False)
+                  .&&. (initHeadIdVal initOpenDatum === True)
+                  .&&. (initHeadIdVal initOpenDatumBadHeadId === False)
+            , counterexample "the ref-spent conjunct (increment claimedDepositIsSpent): spent accept + unspent reject" $
+                (projectRefSpent (HS.Increment (incRedeemer 3)) (mkIncContext (incRedeemer 3) 1 0) === True)
+                  .&&. (incVal (incRedeemer 3) 1 0 === True)
+                  .&&. (projectRefSpent (HS.Increment (incRedeemerUnspent 3)) (mkIncContext (incRedeemerUnspent 3) 1 0) === False)
+                  .&&. (rejectingErrors (incVal (incRedeemerUnspent 3) 1 0) === False)
+            ]

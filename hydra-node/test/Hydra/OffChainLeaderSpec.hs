@@ -19,7 +19,7 @@ import Hydra.HeadLogic (isLeader)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Snapshot (SnapshotNumber)
 import Test.Hydra.Tx.Fixture (alice, bob, carol)
-import Test.QuickCheck (NonNegative (..), elements, forAll, (===))
+import Test.QuickCheck (NonNegative (..), choose, conjoin, counterexample, elements, forAll, (===))
 
 spec :: Spec
 spec =
@@ -27,6 +27,8 @@ spec =
     -- A 3-party head; @leaderRef@ takes @m@ where #parties = @suc m@, so @m = 2@ here.
     let parties = [alice, bob, carol]
         params = HeadParameters{contestationPeriod = 60, depositPeriod = 60, parties}
+    -- the fixture set is three parties, so head sizes 1..3: enough to cover the degenerate
+    -- modulus (n = 1, every snapshot elects the only party) and two distinct wraparound points
     it "sn 1 elects party 0 (alice)" $
       leaderRef 2 1 0 `shouldBe` True
     it "sn 2 elects party 1 (bob)" $
@@ -46,3 +48,18 @@ spec =
     prop "leaderRef agrees with the real isLeader for every party index, including sn = 0" $
       \(NonNegative sn) -> forAll (elements (zip [0 :: Integer ..] parties)) $ \(i, party) ->
         leaderRef 2 sn i === isLeader params party (fromInteger sn :: SnapshotNumber)
+
+    -- ...and for every head SIZE, not just three parties. `leaderRef` is
+    -- `(sn + m) mod (suc m)`, so the modulus itself varies with n: n = 1 is the degenerate case
+    -- where every snapshot elects the only party, and the wraparound point moves with n.
+    prop "leaderRef agrees with the real isLeader for every head size and party index" $
+      \(NonNegative sn) ->
+        forAll (choose (1, length parties)) $ \n ->
+          let someParties = take n parties
+              someParams = HeadParameters{contestationPeriod = 60, depositPeriod = 60, parties = someParties}
+              m = fromIntegral (n - 1) :: Integer
+           in conjoin
+                [ counterexample ("n=" <> show n <> " i=" <> show i) $
+                  leaderRef m sn i === isLeader someParams party (fromInteger sn :: SnapshotNumber)
+                | (i, party) <- zip [0 :: Integer ..] someParties
+                ]

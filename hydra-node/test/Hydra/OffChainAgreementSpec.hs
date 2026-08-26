@@ -13,10 +13,12 @@
 --     to the real @isLeader@ in 'Hydra.OffChainLeaderSpec'), so the composed decision is fully Agda-derived.
 --
 --   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
---     ('DecommitRecorded'). A pending deposit (commit in flight, @currentDepositTxId@ set) makes the
---     node WAIT ('WaitOnUnresolvedCommit') at ttl > 0; an in-flight decommit makes it WAIT at ttl > 0
---     ('WaitOnNotApplicableDecommitTx' with 'DecommitAlreadyInFlight'); both are non-accept, matching
---     the reference's single Bool.
+--     ('DecommitRecorded'). A PENDING deposit makes the node WAIT ('WaitOnUnresolvedCommit') at
+--     ttl > 0, and so does an in-flight decommit ('WaitOnNotApplicableDecommitTx' with
+--     'DecommitAlreadyInFlight'); both are non-accept. The commit axis is the reference's
+--     'HsPendingCommit', not a Bool, so this test cannot decide which commits count: an expired or
+--     already-recovered deposit is a state the node reaches (it clears @currentDepositTxId@ on
+--     neither) and the reference is what says those do not block.
 --
 --   * @reqSnNotBothRef@ / @reqSnDecommitOutputsRef@ / @reqSnDepositSettledRef@ vs
 --     @onOpenNetworkReqSn@'s incremental-action guards: a request carrying both a deposit and a
@@ -63,6 +65,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
+  HsPendingCommit (..),
   allSignedRef,
   contestEligibleRef,
   depositStatusRef,
@@ -97,12 +100,13 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defau
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, aggregate, sign)
+import Hydra.Tx.IsTx (TxIdType, UTxOType)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
-import Test.QuickCheck (choose, elements, forAll, sublistOf, (===))
+import Test.QuickCheck (choose, conjoin, counterexample, elements, forAll, sublistOf, (===))
 
 threeParties :: [Party]
 threeParties = [alice, bob, carol]
@@ -176,25 +180,56 @@ requestedDecommit = SimpleTx 1 mempty (utxoRef 1)
 inFlightDecommit :: SimpleTx
 inFlightDecommit = SimpleTx 2 mempty (utxoRef 2)
 
--- Open state on the reqDec decision's domain: a pending deposit (U_α ≠ ∅) and/or an in-flight
--- decommit (tx_ω ≠ ⊥).
-reqDecState :: Bool -> Bool -> NodeState SimpleTx
-reqDecState commitInFlight decommitInFlight =
-  inOpenState' threeParties $
+-- Open state on the reqDec decision's domain: a recorded pending commit in each of the states the
+-- reference distinguishes, and/or an in-flight decommit (tx_ω ≠ ⊥).
+--
+-- The commit axis is 'HsPendingCommit' and not a Bool, and the whole point is that this function has
+-- no say in which of its cases blocks a decommit: it only has to build the state each case names,
+-- and 'reqDecEligibleRef' decides. Recording a deposit id whose deposit has expired, or is no longer
+-- registered, are both states the node reaches and clears the id in neither.
+reqDecState :: HsPendingCommit -> Bool -> NodeState SimpleTx
+reqDecState commit decommitInFlight =
+  (inOpenState' threeParties headState){pendingDeposits = registry}
+ where
+  headState =
     CoordinatedHeadState
       { localUTxO = mempty
       , allTxs = mempty
       , localTxs = mempty
       , confirmedSnapshot = InitialSnapshot testHeadId
       , seenSnapshot = NoSeenSnapshot
-      , currentDepositTxId = if commitInFlight then Just 7 else Nothing
+      , currentDepositTxId = case commit of
+          NoCommitP -> Nothing
+          _ -> Just reqDecDepositTxId
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
       }
+  registry = case commit of
+    NoCommitP -> mempty
+    -- recorded but unregistered: what 'DepositRecovered' leaves behind
+    CommitGoneP -> mempty
+    CommitPendingP -> Map.singleton reqDecDepositTxId (mkReqDecDeposit Active)
+    CommitExpiredP -> Map.singleton reqDecDepositTxId (mkReqDecDeposit Expired)
 
-reqDecOutcome :: Bool -> Bool -> Outcome SimpleTx
-reqDecOutcome commitInFlight decommitInFlight =
-  update aliceEnv simpleLedger time0 (reqDecState commitInFlight decommitInFlight) $
+reqDecDepositTxId :: TxIdType SimpleTx
+reqDecDepositTxId = 7
+
+reqDecDepositedUTxO :: UTxOType SimpleTx
+reqDecDepositedUTxO = utxoRef 9
+
+mkReqDecDeposit :: DepositStatus -> Deposit SimpleTx
+mkReqDecDeposit status =
+  Deposit
+    { headId = testHeadId
+    , deposited = reqDecDepositedUTxO
+    , created = time0
+    , deadline = addUTCTime 3600 time0
+    , status
+    }
+
+reqDecOutcome :: HsPendingCommit -> Bool -> Outcome SimpleTx
+reqDecOutcome commit decommitInFlight =
+  update aliceEnv simpleLedger time0 (reqDecState commit decommitInFlight) $
     receiveMessageFrom bob ReqDec{transaction = requestedDecommit}
 
 reqDecAccepts :: Outcome SimpleTx -> Bool
@@ -452,19 +487,33 @@ spec = parallel $ do
 
   describe "reqDec eligibility: extracted reqDecEligibleRef vs the real onOpenNetworkReqDec" $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
-      reqDecEligibleRef False False `shouldBe` True
-      reqDecAccepts (reqDecOutcome False False) `shouldBe` True
+      reqDecEligibleRef NoCommitP False `shouldBe` True
+      reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
     it "a pending deposit (commit in flight) makes the real node WAIT (WaitOnUnresolvedCommit)" $
-      reqDecOutcome True False `assertWait` WaitOnUnresolvedCommit{commitUTxO = mempty}
+      reqDecOutcome CommitPendingP False
+        `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
-      reqDecOutcome False True
+      reqDecOutcome NoCommitP True
         `assertWait` WaitOnNotApplicableDecommitTx
           { notApplicableReason = DecommitAlreadyInFlight{otherDecommitTxId = 2}
           }
-    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit?, decommit?)" $
-      \commitInFlight decommitInFlight ->
-        reqDecEligibleRef commitInFlight decommitInFlight
-          === reqDecAccepts (reqDecOutcome commitInFlight decommitInFlight)
+    -- The two cases that gave this differential its point: the reference says an expired or
+    -- already-recovered commit does not block, and the node has to agree. A node that blocked on
+    -- either would disagree here instead of being sanctioned by an oracle taking a Bool it chose.
+    it "an expired commit blocks neither the reference nor the real node" $ do
+      reqDecEligibleRef CommitExpiredP False `shouldBe` True
+      reqDecAccepts (reqDecOutcome CommitExpiredP False) `shouldBe` True
+    it "a commit that is already gone blocks neither" $ do
+      reqDecEligibleRef CommitGoneP False `shouldBe` True
+      reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
+    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+      \decommitInFlight ->
+        conjoin
+          [ counterexample (show commit) $
+            reqDecEligibleRef commit decommitInFlight
+              === reqDecAccepts (reqDecOutcome commit decommitInFlight)
+          | commit <- [NoCommitP, CommitPendingP, CommitExpiredP, CommitGoneP]
+          ]
 
   describe "reqSn incremental-action guards: extracted reqSn*Ref vs the real onOpenNetworkReqSn" $ do
     it "anchor: a deposit-only and a decommit-only request are both signed by the real node" $ do
