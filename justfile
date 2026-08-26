@@ -176,9 +176,11 @@ bench-e2e DATASET:
     --command bench-e2e single "{{DATASET}}" --output-directory "$outdir"
   echo "Results in: $outdir"
 
-# Needs agda + typst (both in the nix dev shell); mirrors `nix build .#spec` but
-# runs in place for fast iteration.
+# Render spec/_build/hydra-spec.pdf in place; mirrors `nix build .#spec` but
+# reuses the working tree for fast iteration, and re-renders only when a source
+# is newer than the PDF (see spec/build.sh).
 #
-# Agda typechecks the literate-Typst sources, then Typst renders spec/_build/hydra-spec.pdf.
+# The spec toolchain lives in its own dev shell (nix/hydra/spec.nix) so that it
+# is not in every developer's default shell, hence the explicit `nix develop`.
 spec:
-  spec/build.sh
+  nix develop .#spec --command spec/build.sh

@@ -28,7 +28,14 @@ Needs PyMuPDF.
 
 import sys
 
-import fitz  # PyMuPDF
+# PyMuPDF's canonical module name is `pymupdf`; `fitz` is the legacy alias, and not
+# every platform build of the package ships it (the default pin's 1.26.6 has it on
+# linux but not on aarch64-darwin). Import the canonical name and fall back, so the
+# stage runs on every platform and on either nixpkgs pin.
+try:
+    import pymupdf as fitz
+except ModuleNotFoundError:  # PyMuPDF < 1.24.3, which predates the rename
+    import fitz
 
 # token -> tooltip text (plain unicode; PDF /Contents cannot render math).
 # Tokens use the codepoints typst actually emits (math italic / math sans).

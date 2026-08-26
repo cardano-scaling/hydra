@@ -28,6 +28,23 @@ ENTRY="$SRC/Hydra/Protocol/Main.lagda.typ"
 # versions by the wrapped typst's TYPST_PACKAGE_CACHE_PATH (see nix/hydra/spec.nix),
 # so no --package-cache-path / in-repo vendoring is needed.
 mkdir -p "$(dirname "$PDF")"
+
+# Skip the work when the PDF is already newer than every input: `typst compile`
+# has no up-to-date check of its own and the tooltip stage re-stamps the whole
+# document, so an unchanged `just spec` otherwise pays the full cost (the
+# Shakefile this replaced tracked dependencies). The recorded mode matters as
+# well as the timestamps: a PDF left behind by an ANNOTATE_NOTATION=skip run is
+# NOT up to date for a run that wants tooltips, and vice versa.
+#
+# Never fires in the nix build, which starts from an empty _build.
+MODE_STAMP="$(dirname "$PDF")/.build-mode"
+MODE="annotate=${ANNOTATE_NOTATION:-full}"
+if [ -f "$PDF" ] &&
+  [ "$(cat "$MODE_STAMP" 2>/dev/null || true)" = "$MODE" ] &&
+  [ -z "$(find "$SRC" build.sh annotate-notation.py -newer "$PDF" -print -quit 2>/dev/null)" ]; then
+  echo "Up to date: $PDF ($MODE); touch a source or rm the PDF to force a rebuild"
+  exit 0
+fi
 # Build via a temp file and rename into place ATOMICALLY: typst
 # truncate-and-writes its output, and a PDF viewer auto-reloading on change
 # (okular etc.) can catch a torn mid-write file and sit on a broken parse.
@@ -60,4 +77,5 @@ else
   mv -f "$TMP.annotated" "$TMP"
 fi
 mv -f "$TMP" "$PDF"
+printf '%s\n' "$MODE" > "$MODE_STAMP"
 echo "Wrote $PDF"
