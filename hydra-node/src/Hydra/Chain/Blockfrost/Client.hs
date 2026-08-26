@@ -59,12 +59,12 @@ import Cardano.Ledger.Plutus.CostModels (CostModels, mkCostModel, mkCostModels)
 import Cardano.Ledger.Shelley.API (ProtVer (..))
 import Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import Control.Lens ((.~), (^.))
+import Control.Retry (RetryPolicyM, capDelay, fullJitterBackoff, limitRetries, limitRetriesByCumulativeDelay, retrying)
 import Data.List qualified as List
 import Data.SOP.NonEmpty (nonEmptyFromList)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
-import Hydra.Options (BlockfrostOptions (..))
 import Hydra.Tx (ScriptRegistry, newScriptRegistry, txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -88,6 +88,8 @@ data APIBlockfrostError
   | MissingBlockNo BlockHash
   | MissingBlockSlot (Maybe Slot)
   | BlockfrostRateLimited
+  | MissingNextBlockHash BlockHash
+  | NotEnoughBlockConfirmations BlockHash
   deriving stock (Show)
   deriving anyclass (Exception)
 
@@ -95,40 +97,76 @@ isRetryable :: APIBlockfrostError -> Bool
 isRetryable = \case
   BlockfrostError _ -> True
   BlockfrostClientError _ -> False
-  DecodeError _ -> True
+  -- Deterministic: the same CBOR fails the same way on every retry, and both
+  -- poll loops retry without limit, so this must crash rather than spin.
+  DecodeError _ -> False
   MissingBlockNo _ -> True
   MissingBlockSlot _ -> True
   BlockfrostRateLimited -> True
+  -- next block not yet available/confirmed: poll again
+  MissingNextBlockHash _ -> True
+  NotEnoughBlockConfirmations _ -> True
 
--- | Run a Blockfrost client action, retrying with capped exponential backoff
--- when rate limited (HTTP 429). blockfrost-client does not expose the
--- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
--- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
-runBlockfrostM ::
+-- * Retry logic
+
+-- | Maximum number of retries for transient Blockfrost errors.
+maxRetries :: Int
+maxRetries = 10
+
+-- | Retry policy for transient Blockfrost errors: full-jitter exponential
+-- backoff with 1s base, capped at 60s, at most 'maxRetries' retries.
+blockfrostRetryPolicy :: MonadIO m => RetryPolicyM m
+blockfrostRetryPolicy = capDelay 60_000_000 (fullJitterBackoff 1_000_000) <> limitRetries maxRetries
+
+-- | Rate-limit retry policy for transaction submission: like
+-- 'blockfrostRetryPolicy', but gives up well before the upper validity bound
+-- of close/contest transactions (@now + min(contestationPeriod, maxGraceTime
+-- = 200s)@, set at construction and not refreshed on retry). Retrying past
+-- that point could only surface an expired-validity error instead of a timely
+-- rate-limit failure the caller can react to. The cumulative delay limit only
+-- kicks in once reached, so the worst case is ~120s plus one more (up to 60s)
+-- delay, still below 'maxGraceTime'.
+submissionRetryPolicy :: MonadIO m => RetryPolicyM m
+submissionRetryPolicy = limitRetriesByCumulativeDelay 120_000_000 blockfrostRetryPolicy
+
+-- | Policy for awaiting eventually-consistent query results (tx inclusion,
+-- indexer catch-up): full-jitter backoff capped at 10s per attempt, giving up
+-- once retries have accumulated ~5 minutes of waiting. Not to be confused
+-- with 'blockfrostRetryPolicy', which handles HTTP 429 inside every request.
+awaitPolicy :: MonadIO m => RetryPolicyM m
+awaitPolicy =
+  limitRetriesByCumulativeDelay (300 * 1_000_000) $
+    capDelay 10_000_000 (fullJitterBackoff 1_000_000)
+
+-- | Like 'runBlockfrostM' but with a custom rate-limit retry policy.
+runBlockfrostMWith ::
   (MonadIO m, MonadThrow m) =>
+  RetryPolicyM m ->
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostM prj action = go 0
+runBlockfrostMWith policy prj action = do
+  res <-
+    retrying
+      policy
+      (\_ -> pure . isRateLimited)
+      (\_ -> liftIO $ Blockfrost.runBlockfrost prj action)
+  case res of
+    Right val -> pure val
+    Left Blockfrost.BlockfrostUsageLimitReached -> throwIO BlockfrostRateLimited
+    Left err -> throwIO $ BlockfrostError (show err)
  where
-  go attempt = do
-    result <- liftIO $ Blockfrost.runBlockfrost prj action
-    case result of
-      Right val -> pure val
-      Left Blockfrost.BlockfrostUsageLimitReached
-        | attempt < maxRateLimitRetries -> do
-            liftIO $ threadDelay (rateLimitBackoff attempt)
-            go (attempt + 1)
-        | otherwise -> throwIO BlockfrostRateLimited
-      Left err -> throwIO $ BlockfrostError (show err)
+  isRateLimited :: Either Blockfrost.BlockfrostError b -> Bool
+  isRateLimited = \case
+    Left Blockfrost.BlockfrostUsageLimitReached -> True
+    _ -> False
 
--- | Delay before the n-th rate-limit retry.
-rateLimitBackoff :: Int -> DiffTime
-rateLimitBackoff attempt = min 60 (2 ^ attempt)
-
--- | How often to retry a rate-limited request before giving up.
-maxRateLimitRetries :: Int
-maxRateLimitRetries = 6
+-- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
+-- using 'blockfrostRetryPolicy'. blockfrost-client does not expose the
+-- Retry-After header, so the delay is blind. Gives up by throwing
+-- 'BlockfrostRateLimited'.
+runBlockfrostM :: (MonadIO m, MonadThrow m) => Blockfrost.Project -> BlockfrostClientT IO a -> m a
+runBlockfrostM = runBlockfrostMWith blockfrostRetryPolicy
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.
@@ -138,17 +176,11 @@ maxRateLimitRetries = 6
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  BlockfrostOptions ->
+  NetworkId ->
   [TxId] ->
   BlockfrostClientT IO ScriptRegistry
-queryScriptRegistry opts txIds = do
-  Blockfrost.Genesis
-    { _genesisNetworkMagic
-    , _genesisSystemStart
-    } <-
-    queryGenesisParameters
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
-  utxo <- queryUTxOByTxIn opts networkId candidates
+queryScriptRegistry networkId txIds = do
+  utxo <- queryUTxOByTxIn networkId candidates
   case newScriptRegistry utxo of
     Left e -> liftIO $ throwIO e
     Right sr -> pure sr
@@ -354,6 +386,10 @@ toCardanoNetworkId magic =
     then Mainnet
     else Testnet (NetworkMagic (fromInteger magic))
 
+toCardanoSystemStart :: Blockfrost.Genesis -> SystemStart
+toCardanoSystemStart Blockfrost.Genesis{_genesisSystemStart} =
+  SystemStart $ posixSecondsToUTCTime _genesisSystemStart
+
 data BlockfrostConversion
   = BlockfrostConversion
   { a0 :: NonNegativeInterval
@@ -460,23 +496,21 @@ queryEraHistory = do
       } = boundStart /= 0 && boundEnd /= 0
 
 -- | Query the Blockfrost API to get the 'UTxO' for 'TxIn' and convert to cardano 'UTxO'.
--- FIXME: make blockfrost wait times configurable.
-queryUTxOByTxIn :: BlockfrostOptions -> NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
-queryUTxOByTxIn BlockfrostOptions{retryTimeout} networkId =
-  foldMapM (\(TxIn txid _) -> go retryTimeout (serialiseToRawBytesHexText txid))
+-- Awaits the tx being indexed by Blockfrost (eventual consistency), retrying
+-- with 'awaitPolicy' before giving up with 'FailedUTxOForHash'.
+queryUTxOByTxIn :: NetworkId -> [TxIn] -> BlockfrostClientT IO UTxO
+queryUTxOByTxIn networkId =
+  foldMapM (\(TxIn txid _) -> awaitTxUtxos (serialiseToRawBytesHexText txid))
  where
-  go 0 txHash = liftIO $ throwIO $ BlockfrostClientError $ FailedUTxOForHash txHash
-  go n txHash = do
-    res <- Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash)
-    case res of
-      Left _e -> liftIO (threadDelay 1) >> go (n - 1) txHash
-      Right Blockfrost.TransactionUtxos{_transactionUtxosInputs, _transactionUtxosOutputs} ->
-        foldMapM
-          ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
-              let txIn = toCardanoTxIn txHash _utxoOutputOutputIndex
-               in toCardanoUTxO networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
-          )
-          _transactionUtxosOutputs
+  awaitTxUtxos txHash = do
+    Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <-
+      awaitOrThrow rightToMaybe (FailedUTxOForHash txHash) (Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash))
+    foldMapM
+      ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
+          let txIn = toCardanoTxIn txHash _utxoOutputOutputIndex
+           in toCardanoUTxO networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
+      )
+      _transactionUtxosOutputs
 
 queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
 queryScript scriptHashTxt = do
@@ -521,13 +555,8 @@ queryUTxO networkId addresses = do
     )
     utxoWithAddresses
 
-queryUTxOFor :: VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-queryUTxOFor vk = do
-  Blockfrost.Genesis
-    { _genesisNetworkMagic = networkMagic
-    } <-
-    queryGenesisParameters
-  let networkId = toCardanoNetworkId networkMagic
+queryUTxOFor :: NetworkId -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+queryUTxOFor networkId vk =
   case mkVkAddress networkId vk of
     ShelleyAddressInEra addr ->
       queryUTxO networkId [addr]
@@ -537,11 +566,6 @@ queryUTxOFor vk = do
 -- | Query the Blockfrost API for 'Genesis'
 queryGenesisParameters :: BlockfrostClientT IO Blockfrost.Genesis
 queryGenesisParameters = Blockfrost.getLedgerGenesis
-
-querySystemStart :: BlockfrostClientT IO SystemStart
-querySystemStart = do
-  Blockfrost.Genesis{_genesisSystemStart} <- queryGenesisParameters
-  pure $ SystemStart $ posixSecondsToUTCTime _genesisSystemStart
 
 -- | Query the Blockfrost API for 'Genesis' and convert to cardano 'ChainPoint'.
 queryTip :: BlockfrostClientT IO ChainPoint
@@ -573,16 +597,28 @@ queryStakePools = do
   stakePools' <- Blockfrost.listPools
   pure $ Set.fromList (toCardanoPoolId <$> stakePools')
 
-awaitTransaction :: BlockfrostOptions -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
-awaitTransaction cfg tx vk = do
-  Blockfrost.Genesis{_genesisNetworkMagic} <- queryGenesisParameters
-  let networkId = toCardanoNetworkId _genesisNetworkMagic
-  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] tx cfg
+awaitTransaction :: NetworkId -> Tx -> VerificationKey PaymentKey -> BlockfrostClientT IO UTxO
+awaitTransaction networkId tx vk = do
+  awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] tx
 
--- | Await inclusion of the given transaction and then wait until the
--- address query reflects its outputs at the given addresses. Return
--- those outputs (empty if the transaction pays nothing to them, in
--- which case only inclusion is awaited).
+-- | Run an action with 'awaitPolicy' until the projection yields a result,
+-- throwing the given 'BlockfrostException' once retries are exhausted.
+-- Blockfrost is eventually consistent, so queries can lag recently submitted
+-- transactions.
+awaitOrThrow ::
+  (a -> Maybe b) ->
+  BlockfrostException ->
+  BlockfrostClientT IO a ->
+  BlockfrostClientT IO b
+awaitOrThrow project err action =
+  retrying awaitPolicy (\_ -> pure . isNothing . project) (const action)
+    >>= maybe (liftIO . throwIO $ BlockfrostClientError err) pure
+    . project
+
+-- | Wait for the transaction to be included and return its outputs paying to
+-- the given addresses, awaiting until an address query reflects them. An empty
+-- result is not a failure: the tx pays nothing to those addresses, and only
+-- inclusion is awaited.
 awaitUTxO ::
   -- | Network id
   NetworkId ->
@@ -590,11 +626,10 @@ awaitUTxO ::
   [Address ShelleyAddr] ->
   -- | Transaction to await
   Tx ->
-  BlockfrostOptions ->
   BlockfrostClientT IO UTxO
-awaitUTxO networkId addresses tx BlockfrostOptions{retryTimeout} = do
-  awaitIncluded retryTimeout
-  unless (UTxO.null wantedUTxO) $ awaitVisible retryTimeout
+awaitUTxO networkId addresses tx = do
+  awaitIncluded
+  unless (UTxO.null wantedUTxO) awaitVisible
   pure wantedUTxO
  where
   txid = txId tx
@@ -607,20 +642,15 @@ awaitUTxO networkId addresses tx BlockfrostOptions{retryTimeout} = do
       )
       (utxoFromTx tx)
 
-  awaitIncluded 0 = liftIO $ throwIO $ BlockfrostClientError (TimeoutOnUTxO txid)
-  awaitIncluded n = do
-    res <- Blockfrost.tryError $ Blockfrost.getTx (Blockfrost.TxHash $ serialiseToRawBytesHexText txid)
-    case res of
-      Left _e -> liftIO (threadDelay 1) >> awaitIncluded (n - 1)
-      Right _ -> pure ()
+  awaitIncluded = do
+    void $ awaitOrThrow rightToMaybe (TimeoutOnUTxO txid) (Blockfrost.tryError $ Blockfrost.getTx (Blockfrost.TxHash $ serialiseToRawBytesHexText txid))
 
   -- NOTE: The address endpoint lags the tx endpoint, so inclusion alone does
   -- not guarantee the next address query reflects this tx. Wait until it does,
   -- since callers build follow-up transactions from what they query next.
-  awaitVisible 0 = liftIO $ throwIO $ BlockfrostClientError (TimeoutOnUTxO txid)
-  awaitVisible n = do
-    res <- Blockfrost.tryError $ queryUTxO networkId addresses
-    case res of
-      Right utxo'
-        | UTxO.inputSet wantedUTxO `Set.isSubsetOf` UTxO.inputSet utxo' -> pure ()
-      _ -> liftIO (threadDelay 1) >> awaitVisible (n - 1)
+  awaitVisible =
+    void $ awaitOrThrow visible (TimeoutOnUTxO txid) (Blockfrost.tryError $ queryUTxO networkId addresses)
+   where
+    visible = \case
+      Right utxo' | UTxO.inputSet wantedUTxO `Set.isSubsetOf` UTxO.inputSet utxo' -> Just ()
+      _ -> Nothing

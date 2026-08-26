@@ -4,9 +4,6 @@ module Hydra.Blockfrost.ChainObserver where
 
 import Hydra.Prelude
 
-import Blockfrost.Client (
-  BlockfrostClientT,
- )
 import Blockfrost.Client qualified as Blockfrost
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -16,20 +13,18 @@ import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
   ChainPoint (..),
-  HasTypeProxy (..),
   Hash,
   NetworkId (..),
   NetworkMagic (..),
-  SerialiseAsCBOR (..),
   SlotNo (..),
-  Tx,
   UTxO,
   serialiseToRawBytes,
  )
 import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.Chain.Blockfrost.Client (maxRateLimitRetries, rateLimitBackoff)
+import Hydra.Chain.Blockfrost (toTx)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable, runBlockfrostM)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -42,38 +37,6 @@ import Hydra.ChainObserver.VersionRegistry (KnownVersion)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Observe (HeadObservation (..))
-
-data APIBlockfrostError
-  = BlockfrostError Text
-  | DecodeError Text
-  | NotEnoughBlockConfirmations Blockfrost.BlockHash
-  | MissingBlockNo Blockfrost.BlockHash
-  | MissingNextBlockHash Blockfrost.BlockHash
-  | BlockfrostRateLimited
-  deriving stock (Show)
-  deriving anyclass (Exception)
-
--- | Run a Blockfrost client action, retrying with capped exponential backoff
--- when rate limited (HTTP 429). blockfrost-client does not expose the
--- Retry-After header, so the delay is blind: 1s, 2s, 4s ... capped at 60s.
--- Gives up after 'maxRateLimitRetries' and throws 'BlockfrostRateLimited'.
-runBlockfrostM ::
-  (MonadIO m, MonadThrow m) =>
-  Blockfrost.Project ->
-  BlockfrostClientT IO a ->
-  m a
-runBlockfrostM prj action = go 0
- where
-  go attempt = do
-    result <- liftIO $ Blockfrost.runBlockfrost prj action
-    case result of
-      Right val -> pure val
-      Left Blockfrost.BlockfrostUsageLimitReached
-        | attempt < maxRateLimitRetries -> do
-            liftIO $ threadDelay (rateLimitBackoff attempt)
-            go (attempt + 1)
-        | otherwise -> throwIO BlockfrostRateLimited
-      Left err -> throwIO $ BlockfrostError (show err)
 
 blockfrostClient ::
   Tracer IO ChainObserverLog ->
@@ -111,11 +74,15 @@ blockfrostClient tracer knownVersions projectPath blockConfirmations = do
           let blockHash = fromChainPoint chainPoint genesisBlockHash
 
           stateTVar <- newLabelledTVarIO "blockfrost-client-state" (blockHash, mempty)
-          void $
-            retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-              loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
-                `catch` \(ex :: APIBlockfrostError) ->
-                  pure $ Left ex
+          either throwIO pure
+            =<< retrying
+              (retryPolicy blockTime)
+              shouldRetry
+              ( \_ -> do
+                  loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
+                    `catch` \(ex :: APIBlockfrostError) ->
+                      pure $ Left ex
+              )
       }
  where
   shouldRetry :: MonadIO m => RetryStatus -> Either APIBlockfrostError b -> m Bool
@@ -203,14 +170,6 @@ rollForward tracer prj knownVersions networkId observerHandler blockConfirmation
 
 -- * Helpers
 
-isRetryable :: APIBlockfrostError -> Bool
-isRetryable (BlockfrostError _) = True
-isRetryable (DecodeError _) = False
-isRetryable (NotEnoughBlockConfirmations _) = True
-isRetryable (MissingBlockNo _) = True
-isRetryable (MissingNextBlockHash _) = True
-isRetryable BlockfrostRateLimited = True
-
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
   ChainPoint slotNo headerHash
@@ -225,15 +184,6 @@ fromNetworkMagic :: Integer -> NetworkId
 fromNetworkMagic = \case
   0 -> Mainnet
   magicNbr -> Testnet (NetworkMagic (fromInteger magicNbr))
-
-toTx :: MonadThrow m => Blockfrost.TransactionCBOR -> m Tx
-toTx (Blockfrost.TransactionCBOR txCbor) =
-  case decodeBase16 txCbor of
-    Left decodeErr -> throwIO . DecodeError $ "Bad Base16 Tx CBOR: " <> decodeErr
-    Right bytes ->
-      case deserialiseFromCBOR (proxyToAsType (Proxy @Tx)) bytes of
-        Left deserializeErr -> throwIO . DecodeError $ "Bad Tx CBOR: " <> show deserializeErr
-        Right tx -> pure tx
 
 fromChainPoint :: ChainPoint -> Text -> Blockfrost.BlockHash
 fromChainPoint chainPoint genesisBlockHash = case chainPoint of
