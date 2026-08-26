@@ -471,6 +471,20 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
 
   -- on (reqDec, tx): the §6 `wait U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥` guard (no commit/decommit in flight,
   -- and tx applies), all three de-abstracted as premises; then `L̂ ← L̂ ∘ tx ∖ outputs(tx)` and tx_ω ← tx.
+  --
+  -- NB this rule reads `U_α = ∅` as "no deposit tx-id is recorded at all", which is the clean case and
+  -- a SUFFICIENT condition, not a characterisation. The implementation additionally proceeds when a
+  -- tx-id IS recorded but names nothing the head can still settle, because tx_α is cleared on neither
+  -- expiry nor recovery: an Expired deposit stays in 𝒟 so it can still be recovered, and a recovered
+  -- one only leaves 𝒟. Treating either as a commit in flight would block every later decommit on
+  -- something no increment can ever settle. `Hydra.Protocol.OffChainReference.reqDecEligibleRef` models
+  -- that refinement (its `PendingCommitᶜ` separates the four cases) and the off-chain differential
+  -- binds it to the node.
+  --
+  -- Consequence worth stating plainly: `NoBothInFlight` below is therefore STRONGER than what the
+  -- implementation guarantees, since a recorded-but-unsettleable tx_α can coexist with a pending tx_ω.
+  -- Restating it over settleable commits means weakening a §7 safety invariant and adding a freshness
+  -- premise to `deposit-add`, which is deliberately left as its own change rather than folded in here.
   reqDec-pending : ∀ {st tx L'}
     → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
     → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)

@@ -7,7 +7,9 @@
 --
 -- Decisions covered (off-chain differential), one decidable function per handler guard: the
 -- deposit-status transition of the §6 `tick` handler (`depositStatusRef`), the reqSn
--- signing-eligibility and reqDec eligibility checks (`signEligibleRef`/`reqDecEligibleRef`), the
+-- signing-eligibility and reqDec eligibility checks (`signEligibleRef`/`reqDecEligibleRef`, the
+-- latter over the four-case `PendingCommitᶜ` rather than a Bool, so WHICH commits block a decommit
+-- is decided here and not by whoever projects the node state), the
 -- reqSn incremental-action guards (`reqSnNotBothRef`/`reqSnDecommitOutputsRef`/
 -- `reqSnDepositSettledRef`), the ackSn no-double-sign and all-signed guards
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
@@ -75,9 +77,37 @@ elemᵇ : Nat → List Nat → Bool
 elemᵇ _ []       = false
 elemᵇ x (y ∷ ys) = (x == y) || elemᵇ x ys
 
--- reqDec eligibility (the §6 `wait U_α = ∅ ∧ tx_ω = ⊥`): neither a commit nor a decommit in flight.
-reqDecEligibleRef : Bool → Bool → Bool   -- (commitInFlight, decommitInFlight)
-reqDecEligibleRef commit decommit = not commit && not decommit
+-- The state of the head's recorded pending commit: the node's `currentDepositTxId` together with
+-- the status of the deposit it names. Four cases rather than one Bool, because the difference
+-- between them is exactly what decides whether a commit holds a decommit back, and a Bool leaves
+-- that decision to whoever computes it.
+data PendingCommitᶜ : Set where
+  noCommitᶜ      : PendingCommitᶜ   -- no deposit id is recorded
+  commitPendingᶜ : PendingCommitᶜ   -- recorded, and the deposit is Inactive or Active
+  commitExpiredᶜ : PendingCommitᶜ   -- recorded, and the deposit has Expired
+  commitGoneᶜ    : PendingCommitᶜ   -- recorded, but no such deposit is registered (recovered)
+{-# FOREIGN GHC data HsPendingCommit = NoCommitP | CommitPendingP | CommitExpiredP | CommitGoneP
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC PendingCommitᶜ = data HsPendingCommit (NoCommitP | CommitPendingP | CommitExpiredP | CommitGoneP) #-}
+
+-- Whether a recorded pending commit is one the head can still settle, which is the `U_α ≠ ∅` a
+-- decommit has to wait behind. Only a registered, unexpired deposit is: an expired one is
+-- unclaimable and a recovered one is gone, and neither is reachable by any later increment.
+--
+-- This distinction is load-bearing rather than pedantic. The node clears `currentDepositTxId` on
+-- neither expiry nor recovery (`DepositExpired` keeps the deposit so it can still be recovered,
+-- `DepositRecovered` only drops the map entry), so a decision that read that field alone would
+-- block every later decommit on a commit that can never settle.
+commitBlocksᵇ : PendingCommitᶜ → Bool
+commitBlocksᵇ commitPendingᶜ = true
+commitBlocksᵇ noCommitᶜ      = false
+commitBlocksᵇ commitExpiredᶜ = false
+commitBlocksᵇ commitGoneᶜ    = false
+
+-- reqDec eligibility (the §6 `wait U_α = ∅ ∧ tx_ω = ⊥`): neither a settleable commit nor a decommit
+-- in flight.
+reqDecEligibleRef : PendingCommitᶜ → Bool → Bool   -- (pending commit, decommitInFlight)
+reqDecEligibleRef commit decommit = not (commitBlocksᵇ commit) && not decommit
 
 -- reqSn incremental-action exclusivity (the §6 `require tx_ω = ⊥ ∨ tx_α = ⊥`, node
 -- `ReqSnBothCommitAndDecommit`): a snapshot request may carry a commit (deposit) or a decommit,
