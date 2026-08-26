@@ -205,6 +205,14 @@ changes.
     reader going away (`hydra-node | head`, a restarting log shipper) made the
     next write throw; the writer is not linked to the node, so it died unnoticed
     and every subsequent trace blocked once the queue filled.
+- The head logic now enforces the specification's "no commit and decommit in
+  flight at once" discipline on the message level: a `ReqDec` received while a
+  deposit is pending waits for the deposit to resolve instead of starting a
+  decommit; once its TTL is exhausted it is rejected with the new
+  `DepositInFlight` `DecommitInvalidReason` so clients know to recover the
+  deposit first. This complements the `ReqSn`-level rejection of a snapshot
+  carrying both (`ReqSnBothCommitAndDecommit`) and mirrors the machine-checked
+  `NoBothInFlight` invariant of the formal specification.
 
 ## [2.3.0] - 2026.07.15
 
