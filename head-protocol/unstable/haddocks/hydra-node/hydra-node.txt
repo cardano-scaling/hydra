@@ -3323,6 +3323,14 @@ DecommitTxInvalid :: UTxOType tx -> ValidationError -> DecommitInvalidReason tx
 DecommitAlreadyInFlight :: TxIdType tx -> DecommitInvalidReason tx
 [$sel:otherDecommitTxId:DecommitTxInvalid] :: DecommitInvalidReason tx -> TxIdType tx
 
+-- | A deposit (commit) is in flight: the decommit cannot be recorded until
+--   it finalises or is recovered. Clients may need to recover the deposit
+--   before another decommit is possible (<tt>currentDepositTxId</tt>
+--   clears on <a>CommitFinalized</a> and <tt>DepositRecovered</tt>).
+DepositInFlight :: TxIdType tx -> UTxOType tx -> DecommitInvalidReason tx
+[$sel:depositTxId:DecommitTxInvalid] :: DecommitInvalidReason tx -> TxIdType tx
+[$sel:commitUTxO:DecommitTxInvalid] :: DecommitInvalidReason tx -> UTxOType tx
+
 -- | Union of all messages the hydra-node sends to clients. Only used for
 --   decoding on the client side; the server encodes and sends the
 --   individual types directly (their encodings are the same as the
@@ -4089,7 +4097,25 @@ requireDecommitOutputs :: IsTx tx => HeadId -> UTxOType tx -> tx -> Outcome tx -
 --   with the relevant utxo - Issue a <a>ReqSn</a> since all parties need
 --   to agree in order for decommit to be taken out of a Head. - Check if
 --   we are the leader
-onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -> OpenState tx -> tx -> Outcome tx
+onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -> PendingDeposits tx -> OpenState tx -> tx -> Outcome tx
+
+-- | The pending deposit that a local
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> still refers to,
+--   if any: the deposit must be registered in
+--   <a>$sel:pendingDeposits:NodeInSync</a> and not <a>Expired</a>.
+--   
+--   Being registered and unexpired is what makes a recorded deposit id
+--   something the head may still act on, and nothing else should be
+--   treated as a commit in flight. Neither of the two ways a deposit stops
+--   being pending clears
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a>:
+--   <a>DepositExpired</a> deliberately keeps the deposit in the map so it
+--   can still be recovered, and <a>DepositRecovered</a> only deletes the
+--   map entry. So a caller that reads
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> on its own can end
+--   up waiting on a deposit that is unclaimable, or already gone, and that
+--   wait never resolves.
+existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
 determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 
 -- | Process the chain (and time) advancing in any head state.

@@ -248,6 +248,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/configuration.md\n"
     }
   },
+  "docs/dev/agda": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/agda.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/agda.md\n"
+    }
+  },
   "docs/dev/architecture/event-sourcing": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/event-sourcing.md\n",

@@ -1,0 +1,20 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Hydra.Tx.HeadValidatorAgreementSpec</title><link href="linuwial.css" rel="stylesheet" type="text/css" title="Linuwial" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=PT+Sans:400,400i,700" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { processClass: "mathjax", ignoreClass: ".*" } });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><span class="caption">hydra-tx</span><ul class="links" id="page-menu"><li><a href="src/Hydra.Tx.HeadValidatorAgreementSpec.html">Source</a></li><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul></div><div id="content"><div id="module-header"><table class="info"><tr><th>Safe Haskell</th><td>Safe-Inferred</td></tr><tr><th>Language</th><td>GHC2021</td></tr></table><p class="caption">Hydra.Tx.HeadValidatorAgreementSpec</p></div><div id="description"><p class="caption">Description</p><div class="doc"><p>Function-level agreement between the Agda-extracted reference checker and the REAL on-chain
+ validators, with NO transaction bodies and NO mutation generators.</p><p>&#957;Head is a plain Haskell function (<code>Head.headValidator :: BuiltinByteString -&gt; State -&gt; Input -&gt;
+ ScriptContext -&gt; Bool</code>; the leading argument is the canonical CRS datum hash), so we construct its
+ inputs directly, run BOTH it and the Agda reference on the SAME inputs, and assert
+ <code>reference === validator</code>. &#957;Deposit is Aiken, so there is no Haskell function to call: those arms
+ deserialise the compiled validator and evaluate it as UPLC against a real cost model
+ (<code>evaluateScriptCounting</code>, see <code>depositEvalContext</code>). Script evaluation, then, but still no
+ transaction building and no ledger rules. The fields the
+ reference models are generated independently (so e.g. the produced version is sometimes equal to the
+ input version, sometimes not), which exercises BOTH the accept and the reject directions in one
+ property, unlike reusing the hydra mutation generators (a corpus that is
+ validator-rejecting by construction, making <code>reference-reject &#8658; validator-reject</code> vacuous).</p><p>Coverage is every family the reference models, not one spike: close (all four <code>CloseType</code>s),
+ increment, decrement, contest, full fanout, both partial-fanout arms, &#956;Head minting and burning,
+ and the &#957;Deposit Claim and Recover arms, in the accept and the reject direction each, plus the
+ shared conjuncts (participant signature, no-mint, value preservation, per-asset conservation,
+ referenced-output-is-spent, parameter preservation).</p><p>Crypto is real wherever the family has a signature or a pairing: the close/contest fixtures sign
+ with Ed25519 keys and the fan-out fixtures build genuine BLS12-381 accumulators and verify the
+ membership pairing, so the bad-signature and bad-proof rejects exercise the actual crypto. The
+ reference mocks exactly those conjuncts (it models the decidable ones), which is why the mocks
+ below are <code>const True</code> and the crypto rejects are asserted against the validator alone.</p></div></div><div id="interface"><h1>Documentation</h1><div class="top"><p class="src"><a id="v:spec" class="def">spec</a> :: Spec <a href="src/Hydra.Tx.HeadValidatorAgreementSpec.html#spec" class="link">Source</a> <a href="#v:spec" class="selflink">#</a></p></div></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.29.2</p></div></body></html>

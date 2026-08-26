@@ -404,6 +404,26 @@ aConfigurationException :: Selector ConfigurationException
 module Hydra.Node.UtilSpec
 spec :: Spec
 
+
+-- | Off-chain differential (real-node binding): the Agda-extracted
+--   round-robin leader <a>leaderRef</a> (the §6 figure's
+--   <tt>leader(s)</tt>) checked against the REAL <a>isLeader</a>. This is
+--   the off-chain counterpart of the on-chain validator differentials: the
+--   extracted decision is pinned not just to a Haskell transcription of
+--   the figure but to the function the node actually runs, closing the
+--   figure↔Agda↔Haskell loop for leader selection.
+--   
+--   Domain note: snapshot numbers in the protocol start at 1, but the
+--   property covers <tt>sn = 0</tt> too. <tt>leaderRef</tt> works over
+--   Nat, whose truncated subtraction would make <tt>0 - 1</tt> zero where
+--   <tt>isLeader</tt>'s <a>Int</a> arithmetic gives <tt>-1 <a>mod</a> n =
+--   n-1</tt>; the extracted checker adds <tt>m</tt> instead of subtracting
+--   1 (the same residue for every <tt>sn &gt;= 1</tt>, and <tt>n-1</tt> at
+--   zero) precisely so the oracle cannot disagree with the node anywhere -
+--   including on an <tt>sn = 0</tt> a peer could put in a <tt>ReqSn</tt>.
+module Hydra.OffChainLeaderSpec
+spec :: Spec
+
 module Hydra.OptionsSpec
 
 -- | Default options as parsed by the publish command parser.
@@ -642,6 +662,25 @@ connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
 inIdleState :: NodeState SimpleTx
 inUnsyncedIdleState :: NodeState SimpleTx
 inOpenState :: [Party] -> NodeState SimpleTx
+
+-- | The decommit the reqDec pending-commit tests request. No inputs, so it
+--   applies to any <a>CoordinatedHeadState</a> and the outcome turns
+--   purely on the pending-commit guard.
+reqDecDecommitTx :: SimpleTx
+reqDecDepositTxId :: TxIdType SimpleTx
+
+-- | The UTxO the registered deposit records, so the tests can assert the
+--   reported <a>WaitReason</a> instead of the <tt>mempty</tt> that a
+--   failed lookup would yield whether or not the guard is right.
+reqDecDepositedUTxO :: UTxOType SimpleTx
+
+-- | An open state whose
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> is set, with the
+--   deposit registered at the given status. <a>Nothing</a> registers no
+--   deposit at all, modelling one that has already been recovered:
+--   <a>DepositRecovered</a> deletes the map entry but leaves
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> pointing at it.
+reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
 inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
 inClosedState :: [Party] -> NodeState SimpleTx
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
@@ -691,6 +730,88 @@ catchingUp :: IsTx tx => HeadState tx -> NodeState tx
 inSync :: IsTx tx => HeadState tx -> NodeState tx
 zeroChainPointTime :: ChainPointTime
 testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+
+-- | Off-chain differential (real-node bindings): the Agda-extracted §6
+--   handler decisions (<a>Hydra.Agda.OffChainReference</a>) checked
+--   against the REAL <a>update</a> outcomes, not against transcriptions of
+--   the figure. This extends <a>OffChainLeaderSpec</a> (which binds
+--   <tt>leaderRef</tt> to the real <tt>isLeader</tt>) to three more
+--   decisions, closing the figure↔Agda↔Haskell loop:
+--   
+--   <ul>
+--   <li><tt>signEligibleRef</tt> vs <tt>onOpenNetworkReqSn</tt>: we drive
+--   <a>update</a> with a <tt>ReqSn</tt> over an open state with version v̂
+--   and a settled snapshot ŝ (confirmed = seen, nothing in flight) and
+--   binarise the outcome: ACCEPT iff the node reaches the signing
+--   continuation (<a>SnapshotRequested</a> + an <tt>AckSn</tt> effect).
+--   The node splits the figure's single <tt>require</tt> into an Error
+--   (number: <a>ReqSnNumberInvalid</a>, leader: <a>ReqSnNotLeader</a>) and
+--   a Wait (version: <a>WaitOnSnapshotVersion</a>, so a follower behind on
+--   the version bump does not drop the message); Error and Wait both map
+--   to non-accept. The reference's leader input is resolved by the
+--   EXTRACTED <tt>leaderRef</tt> (itself bound to the real
+--   <tt>isLeader</tt> in <a>OffChainLeaderSpec</a>), so the composed
+--   decision is fully Agda-derived.</li>
+--   <li><tt>reqDecEligibleRef</tt> vs <tt>onOpenNetworkReqDec</tt>: ACCEPT
+--   iff the node records the decommit (<a>DecommitRecorded</a>). A PENDING
+--   deposit makes the node WAIT (<a>WaitOnUnresolvedCommit</a>) at ttl
+--   &gt; 0, and so does an in-flight decommit
+--   (<a>WaitOnNotApplicableDecommitTx</a> with
+--   <a>DecommitAlreadyInFlight</a>); both are non-accept. The commit axis
+--   is the reference's <a>HsPendingCommit</a>, not a Bool, so this test
+--   cannot decide which commits count: an expired or already-recovered
+--   deposit is a state the node reaches (it clears
+--   <tt>currentDepositTxId</tt> on neither) and the reference is what says
+--   those do not block.</li>
+--   <li><tt>reqSnNotBothRef</tt> <i> <tt>reqSnDecommitOutputsRef</tt> </i>
+--   <tt>reqSnDepositSettledRef</tt> vs <tt>onOpenNetworkReqSn</tt>'s
+--   incremental-action guards: a request carrying both a deposit and a
+--   decommit is <a>ReqSnBothCommitAndDecommit</a>; a decommit producing no
+--   outputs is <a>ReqSnDecommitNoOutputs</a>; and settling a same-version
+--   pending commit requires the request to name the deposit bound into the
+--   confirmed snapshot by tx-id (<a>ReqSnCommitNotSettled</a> otherwise) -
+--   the look-alike-deposit case, where content matches and only identity
+--   differs.</li>
+--   <li><tt>depositStatusRef</tt> vs the deposit-status transition the
+--   node applies on a chain <a>Tick</a> (<tt>onOpenChainTick</tt> via
+--   <tt>determineNextDepositStatus</tt>): starting from a fresh Inactive
+--   deposit, one tick at time t yields <a>DepositExpired</a> <i>
+--   <a>DepositActivated</a> </i> no status event, mapping to ExpiredS <i>
+--   ActiveS </i> InactiveS.</li>
+--   <li><tt>notAlreadySignedRef</tt> vs <tt>onOpenNetworkAckSn</tt>'s
+--   <tt>requireNotSignedYet</tt>: over a directly constructed in-flight
+--   <a>SeenSnapshot</a> whose signatories map holds REAL signatures, an
+--   <tt>AckSn</tt> from a sender already in the map is the node's
+--   <a>SnapshotAlreadySigned</a>; a fresh sender is not.</li>
+--   <li><tt>allSignedRef</tt> vs the round completion of
+--   <tt>onOpenNetworkAckSn</tt>: a fresh sender's ack CONFIRMS (the node
+--   aggregates the real signatures in order and verifies the real
+--   multisignature before emitting <a>SnapshotConfirmed</a>) exactly when
+--   it completes the n-of-n signer set; the composed decision is
+--   <tt>notAlreadySignedRef ∧ allSignedRef (sender ∷ Σ̂)</tt>.</li>
+--   <li><tt>contestEligibleRef</tt> vs <tt>onOpenChainCloseTx</tt>:
+--   observing a close of snapshot s_c while our confirmed snapshot is S̄.s
+--   posts a <a>ContestTx</a> exactly when S̄.s &gt; s_c.</li>
+--   </ul>
+--   
+--   Domain note (deposit status): the extracted decision uses Nat
+--   truncated subtraction for <tt>deadline − T_deposit</tt> whereas the
+--   node subtracts over <a>UTCTime</a>; the two agree whenever
+--   <tt>deadline ≥ T_deposit</tt>, which the protocol guarantees (an
+--   observed deposit deadline sits a full deposit period after creation).
+--   The property therefore quantifies over that domain, with all times as
+--   whole POSIX seconds (exact in both representations).
+--   
+--   Scope note (ackSn): the extracted guards model the COUNTING decisions
+--   (who signed, n-of-n); the collected signatures themselves are held
+--   healthy, exactly as the on-chain reference holds crypto conjuncts
+--   healthy. The real node additionally verifies the aggregate
+--   multisignature at confirmation; a corrupt collected signature makes it
+--   reject (<a>InvalidMultisignature</a>) where the counting reference
+--   alone would accept, demonstrated as a validator-only rejection below.
+module Hydra.OffChainAgreementSpec
+spec :: Spec
 
 module Hydra.NodeSpec
 spec :: Spec

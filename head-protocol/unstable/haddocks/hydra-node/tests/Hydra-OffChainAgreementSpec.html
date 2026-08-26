@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Hydra.OffChainAgreementSpec</title><link href="linuwial.css" rel="stylesheet" type="text/css" title="Linuwial" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=PT+Sans:400,400i,700" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { processClass: "mathjax", ignoreClass: ".*" } });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><span class="caption">hydra-node</span><ul class="links" id="page-menu"><li><a href="src/Hydra.OffChainAgreementSpec.html">Source</a></li><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul></div><div id="content"><div id="module-header"><table class="info"><tr><th>Safe Haskell</th><td>Safe-Inferred</td></tr><tr><th>Language</th><td>GHC2021</td></tr></table><p class="caption">Hydra.OffChainAgreementSpec</p></div><div id="description"><p class="caption">Description</p><div class="doc"><p>Off-chain differential (real-node bindings): the Agda-extracted &#167;6 handler decisions
+ (<a href="Hydra-Agda-OffChainReference.html">Hydra.Agda.OffChainReference</a>) checked against the REAL <code>update</code> outcomes, not
+ against transcriptions of the figure. This extends <code><a href="Hydra.html#v:OffChainLeaderSpec" title="Hydra">OffChainLeaderSpec</a></code> (which binds
+ <code>leaderRef</code> to the real <code>isLeader</code>) to three more decisions, closing the figure&#8596;Agda&#8596;Haskell loop:</p><ul><li><code>signEligibleRef</code> vs <code>onOpenNetworkReqSn</code>: we drive <code>update</code> with a <code>ReqSn</code> over an open state
+     with version v&#770; and a settled snapshot &#349; (confirmed = seen, nothing in flight) and binarise the
+     outcome: ACCEPT iff the node reaches the signing continuation (<code>SnapshotRequested</code> + an <code>AckSn</code>
+     effect). The node splits the figure's single <code>require</code> into an Error (number:
+     <code>ReqSnNumberInvalid</code>, leader: <code>ReqSnNotLeader</code>) and a Wait (version: <code>WaitOnSnapshotVersion</code>,
+     so a follower behind on the version bump does not drop the message); Error and Wait both map to
+     non-accept. The reference's leader input is resolved by the EXTRACTED <code>leaderRef</code> (itself bound
+     to the real <code>isLeader</code> in <code><a href="Hydra.html#v:OffChainLeaderSpec" title="Hydra">OffChainLeaderSpec</a></code>), so the composed decision is fully Agda-derived.</li><li><code>reqDecEligibleRef</code> vs <code>onOpenNetworkReqDec</code>: ACCEPT iff the node records the decommit
+     (<code>DecommitRecorded</code>). A PENDING deposit makes the node WAIT (<code>WaitOnUnresolvedCommit</code>) at
+     ttl &gt; 0, and so does an in-flight decommit (<code>WaitOnNotApplicableDecommitTx</code> with
+     <code>DecommitAlreadyInFlight</code>); both are non-accept. The commit axis is the reference's
+     <code>HsPendingCommit</code>, not a Bool, so this test cannot decide which commits count: an expired or
+     already-recovered deposit is a state the node reaches (it clears <code>currentDepositTxId</code> on
+     neither) and the reference is what says those do not block.</li><li><code>reqSnNotBothRef</code> <em> <code>reqSnDecommitOutputsRef</code> </em> <code>reqSnDepositSettledRef</code> vs
+     <code>onOpenNetworkReqSn</code>'s incremental-action guards: a request carrying both a deposit and a
+     decommit is <code>ReqSnBothCommitAndDecommit</code>; a decommit producing no outputs is
+     <code>ReqSnDecommitNoOutputs</code>; and settling a same-version pending commit requires the request to
+     name the deposit bound into the confirmed snapshot by tx-id (<code>ReqSnCommitNotSettled</code>
+     otherwise) - the look-alike-deposit case, where content matches and only identity differs.</li><li><code>depositStatusRef</code> vs the deposit-status transition the node applies on a chain <code>Tick</code>
+     (<code>onOpenChainTick</code> via <code>determineNextDepositStatus</code>): starting from a fresh Inactive deposit,
+     one tick at time t yields <code>DepositExpired</code> <em> <code>DepositActivated</code> </em> no status event, mapping to
+     ExpiredS <em> ActiveS </em> InactiveS.</li><li><code>notAlreadySignedRef</code> vs <code>onOpenNetworkAckSn</code>'s <code>requireNotSignedYet</code>: over a directly
+     constructed in-flight <code>SeenSnapshot</code> whose signatories map holds REAL signatures, an <code>AckSn</code>
+     from a sender already in the map is the node's <code>SnapshotAlreadySigned</code>; a fresh sender is not.</li><li><code>allSignedRef</code> vs the round completion of <code>onOpenNetworkAckSn</code>: a fresh sender's ack CONFIRMS
+     (the node aggregates the real signatures in order and verifies the real multisignature before
+     emitting <code>SnapshotConfirmed</code>) exactly when it completes the n-of-n signer set; the composed
+     decision is <code>notAlreadySignedRef &#8743; allSignedRef (sender &#8759; &#931;&#770;)</code>.</li><li><code>contestEligibleRef</code> vs <code>onOpenChainCloseTx</code>: observing a close of snapshot s_c while our
+     confirmed snapshot is S&#772;.s posts a <code>ContestTx</code> exactly when S&#772;.s &gt; s_c.</li></ul><p>Domain note (deposit status): the extracted decision uses Nat truncated subtraction for
+ <code>deadline &#8722; T_deposit</code> whereas the node subtracts over <code><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/Data-Time-Clock.html#t:UTCTime" title="Data.Time.Clock">UTCTime</a></code>; the two agree whenever
+ <code>deadline &#8805; T_deposit</code>, which the protocol guarantees (an observed deposit deadline sits a full
+ deposit period after creation). The property therefore quantifies over that domain, with all times
+ as whole POSIX seconds (exact in both representations).</p><p>Scope note (ackSn): the extracted guards model the COUNTING decisions (who signed, n-of-n); the
+ collected signatures themselves are held healthy, exactly as the on-chain reference holds crypto
+ conjuncts healthy. The real node additionally verifies the aggregate multisignature at
+ confirmation; a corrupt collected signature makes it reject (<code>InvalidMultisignature</code>) where the
+ counting reference alone would accept, demonstrated as a validator-only rejection below.</p></div></div><div id="interface"><h1>Documentation</h1><div class="top"><p class="src"><a id="v:spec" class="def">spec</a> :: Spec <a href="src/Hydra.OffChainAgreementSpec.html#spec" class="link">Source</a> <a href="#v:spec" class="selflink">#</a></p></div></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.29.2</p></div></body></html>

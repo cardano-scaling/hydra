@@ -816,6 +816,13 @@ MutateTokenMintingOrBurning :: DecrementMutation
 -- | Ensures deposit-period does not change between head input datum and
 --   head output datum.
 ChangeDepositPeriodInOutput :: DecrementMutation
+
+-- | Deterministically perturb the head output's LOVELACE.
+--   <a>ChangeHeadValue</a> picks arbitrary assets and may leave the
+--   lovelace component alone, so this pins the component the extracted
+--   reference's decrement value check reads (<tt>adaOut + adaDelta ==
+--   adaIn</tt>).
+ChangeHeadLovelace :: DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Remove a random asset and quantity from headOutput by adding another
@@ -1279,6 +1286,47 @@ prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_verifySnapshotSignatures :: Property
 
 module Hydra.Tx.HeadIdSpec
+spec :: Spec
+
+
+-- | Function-level agreement between the Agda-extracted reference checker
+--   and the REAL on-chain validators, with NO transaction bodies and NO
+--   mutation generators.
+--   
+--   νHead is a plain Haskell function (<tt>Head.headValidator ::
+--   BuiltinByteString -&gt; State -&gt; Input -&gt; ScriptContext -&gt;
+--   Bool</tt>; the leading argument is the canonical CRS datum hash), so
+--   we construct its inputs directly, run BOTH it and the Agda reference
+--   on the SAME inputs, and assert <tt>reference === validator</tt>.
+--   νDeposit is Aiken, so there is no Haskell function to call: those arms
+--   deserialise the compiled validator and evaluate it as UPLC against a
+--   real cost model (<tt>evaluateScriptCounting</tt>, see
+--   <a>depositEvalContext</a>). Script evaluation, then, but still no
+--   transaction building and no ledger rules. The fields the reference
+--   models are generated independently (so e.g. the produced version is
+--   sometimes equal to the input version, sometimes not), which exercises
+--   BOTH the accept and the reject directions in one property, unlike
+--   reusing the hydra mutation generators (a corpus that is
+--   validator-rejecting by construction, making <tt>reference-reject ⇒
+--   validator-reject</tt> vacuous).
+--   
+--   Coverage is every family the reference models, not one spike: close
+--   (all four <tt>CloseType</tt>s), increment, decrement, contest, full
+--   fanout, both partial-fanout arms, μHead minting and burning, and the
+--   νDeposit Claim and Recover arms, in the accept and the reject
+--   direction each, plus the shared conjuncts (participant signature,
+--   no-mint, value preservation, per-asset conservation,
+--   referenced-output-is-spent, parameter preservation).
+--   
+--   Crypto is real wherever the family has a signature or a pairing: the
+--   close/contest fixtures sign with Ed25519 keys and the fan-out fixtures
+--   build genuine BLS12-381 accumulators and verify the membership
+--   pairing, so the bad-signature and bad-proof rejects exercise the
+--   actual crypto. The reference mocks exactly those conjuncts (it models
+--   the decidable ones), which is why the mocks below are <tt>const
+--   True</tt> and the crypto rejects are asserted against the validator
+--   alone.
+module Hydra.Tx.HeadValidatorAgreementSpec
 spec :: Spec
 
 module Hydra.Tx.IsTxSpec

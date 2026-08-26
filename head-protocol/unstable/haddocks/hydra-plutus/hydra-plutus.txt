@@ -190,12 +190,6 @@ NotPayingToHead :: HeadError
 SignatureVerificationFailed :: HeadError
 MustNotChangeVersion :: HeadError
 BurntTokenNumberMismatch :: HeadError
-ReimbursedOutputsDontMatch :: HeadError
-STNotSpent :: HeadError
-IncorrectUtxoHash :: HeadError
-MissingCommits :: HeadError
-NotAllValueCollected :: HeadError
-IncorrectVersion :: HeadError
 VersionNotIncremented :: HeadError
 HasBoundedValidityCheckFailed :: HeadError
 IncorrectClosedContestationDeadline :: HeadError
@@ -218,8 +212,6 @@ FailedContestUsed :: HeadError
 FanoutUTxOHashMismatch :: HeadError
 LowerBoundBeforeContestationDeadline :: HeadError
 FanoutNoLowerBoundDefined :: HeadError
-FanoutUTxOToCommitHashMismatch :: HeadError
-FanoutUTxOToDecommitHashMismatch :: HeadError
 DepositNotSpent :: HeadError
 DepositInputNotFound :: HeadError
 HeadInputNotFound :: HeadError
