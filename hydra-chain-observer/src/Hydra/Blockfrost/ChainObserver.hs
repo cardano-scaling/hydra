@@ -24,7 +24,7 @@ import Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
 import Hydra.Chain.Blockfrost (toTx)
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), runBlockfrostM)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable, runBlockfrostM)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -74,11 +74,15 @@ blockfrostClient tracer knownVersions projectPath blockConfirmations = do
           let blockHash = fromChainPoint chainPoint genesisBlockHash
 
           stateTVar <- newLabelledTVarIO "blockfrost-client-state" (blockHash, mempty)
-          void $
-            retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-              loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
-                `catch` \(ex :: APIBlockfrostError) ->
-                  pure $ Left ex
+          either throwIO pure
+            =<< retrying
+              (retryPolicy blockTime)
+              shouldRetry
+              ( \_ -> do
+                  loop tracer prj knownVersions networkId blockTime observerHandler blockConfirmations stateTVar
+                    `catch` \(ex :: APIBlockfrostError) ->
+                      pure $ Left ex
+              )
       }
  where
   shouldRetry :: MonadIO m => RetryStatus -> Either APIBlockfrostError b -> m Bool
@@ -165,19 +169,6 @@ rollForward tracer prj knownVersions networkId observerHandler blockConfirmation
   pure (nextBlockHash, adjustedUTxO)
 
 -- * Helpers
-
-isRetryable :: APIBlockfrostError -> Bool
-isRetryable (BlockfrostError _) = True
-isRetryable (BlockfrostClientError _) = False
--- NOTE: Deliberately different from the hydra-node predicate: the observer's
--- poll loop retries without limit, so an undecodable block must crash rather
--- than spin.
-isRetryable (DecodeError _) = False
-isRetryable (MissingBlockNo _) = True
-isRetryable (MissingBlockSlot _) = True
-isRetryable (NotEnoughBlockConfirmations _) = True
-isRetryable (MissingNextBlockHash _) = True
-isRetryable BlockfrostRateLimited = True
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =

@@ -260,11 +260,15 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
       stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
       pure (blockTime, stateTVar)
 
-  void $
-    retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
-      pollForNewBlocks blockTime stateTVar
-        `catch` \(ex :: APIBlockfrostError) ->
-          pure $ Left ex
+  either throwIO pure
+    =<< retrying
+      (retryPolicy blockTime)
+      shouldRetry
+      ( \_ -> do
+          pollForNewBlocks blockTime stateTVar
+            `catch` \(ex :: APIBlockfrostError) ->
+              pure $ Left ex
+      )
  where
   shouldRetry :: x -> Either APIBlockfrostError a -> m Bool
   shouldRetry _ = \case

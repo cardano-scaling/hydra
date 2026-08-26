@@ -20,8 +20,8 @@ retry = limitRetries 3
 spec :: Spec
 spec = do
   describe "isRetryable" $ do
-    it "treats DecodeError as retryable" $ do
-      isRetryable (DecodeError "some decode error") `shouldBe` True
+    it "treats DecodeError as non-retryable" $ do
+      isRetryable (DecodeError "some decode error") `shouldBe` False
 
     it "treats BlockfrostError as retryable" $ do
       isRetryable (BlockfrostError "some API error") `shouldBe` True
