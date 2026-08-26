@@ -830,6 +830,56 @@ spec =
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
+        -- Spec §6.4 reqDec: wait U_α = ∅. A decommit must wait while a commit
+        -- (deposit) is pending, otherwise a later snapshot would carry both. This
+        -- is the missing symmetric counterpart to the guard on 'DepositActivated'.
+        --
+        -- "Pending" is what 'existingDeposit' decides: registered and unexpired. The
+        -- two states that are NOT pending yet still leave 'currentDepositTxId' set
+        -- each get a case below, because blocking on either waits on something that
+        -- can never settle.
+        it "waits on a ReqDec while a pending commit (deposit) is in flight" $ do
+          let s0 = reqDecStateWith threeParties (Just Active)
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+            `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+
+        -- Once ttl is exhausted the pending-deposit wait turns into a rejection
+        -- (DepositInFlight) so the client learns it must recover the deposit,
+        -- rather than the ReqDec being silently dropped.
+        it "rejects a ReqDec with DepositInFlight once ttl is exhausted while a pending commit is in flight" $ do
+          let s0 = reqDecStateWith threeParties (Just Active)
+              reqDecEvent = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec{transaction = reqDecDecommitTx}}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 reqDecEvent `hasStateChangedSatisfying` \case
+            DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}} ->
+              invalidTx == reqDecDecommitTx
+                && depositTxId == reqDecDepositTxId
+                && commitUTxO == reqDecDepositedUTxO
+            _ -> False
+
+        -- An expired deposit must NOT hold a decommit back. 'DepositExpired' deliberately keeps the
+        -- deposit in the map so it can still be recovered, and clears nothing, so a guard reading
+        -- 'currentDepositTxId' directly blocked every later decommit on a commit that can never
+        -- settle: the wait never resolves and the ttl rejection repeats for every request.
+        it "records a ReqDec when the recorded deposit has expired" $ do
+          let s0 = reqDecStateWith threeParties (Just Expired)
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+            `hasStateChangedSatisfying` \case
+              DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
+              _ -> False
+
+        -- Nor may a deposit that has already been recovered: 'DepositRecovered' deletes the map
+        -- entry and also leaves 'currentDepositTxId' set.
+        it "records a ReqDec when the recorded deposit was already recovered" $ do
+          let s0 = reqDecStateWith threeParties Nothing
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+            `hasStateChangedSatisfying` \case
+              DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
+              _ -> False
+
         it "wait for second decommit when another one is in flight" $
           do
             let decommitTx1 = SimpleTx 1 mempty (utxoRef 1)
@@ -3214,6 +3264,48 @@ inOpenState parties =
  where
   u0 = mempty
   confirmedSnapshot = InitialSnapshot @SimpleTx testHeadId
+
+-- | The decommit the reqDec pending-commit tests request. No inputs, so it applies to any
+-- 'localUTxO' and the outcome turns purely on the pending-commit guard.
+reqDecDecommitTx :: SimpleTx
+reqDecDecommitTx = SimpleTx 1 mempty (utxoRef 1)
+
+reqDecDepositTxId :: TxIdType SimpleTx
+reqDecDepositTxId = 7
+
+-- | The UTxO the registered deposit records, so the tests can assert the reported 'commitUTxO'
+-- instead of the @mempty@ that a failed lookup would yield whether or not the guard is right.
+reqDecDepositedUTxO :: UTxOType SimpleTx
+reqDecDepositedUTxO = utxoRef 42
+
+-- | An open state whose 'currentDepositTxId' is set, with the deposit registered at the given
+-- status. 'Nothing' registers no deposit at all, modelling one that has already been recovered:
+-- 'DepositRecovered' deletes the map entry but leaves 'currentDepositTxId' pointing at it.
+reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
+reqDecStateWith parties mStatus =
+  (inOpenState' parties headState)
+    { pendingDeposits = maybe mempty (Map.singleton reqDecDepositTxId . mkDeposit) mStatus
+    }
+ where
+  headState =
+    CoordinatedHeadState
+      { localUTxO = mempty
+      , allTxs = mempty
+      , localTxs = mempty
+      , confirmedSnapshot = InitialSnapshot testHeadId
+      , seenSnapshot = NoSeenSnapshot
+      , currentDepositTxId = Just reqDecDepositTxId
+      , decommitTx = Nothing
+      , version = 0
+      }
+  mkDeposit status =
+    Deposit
+      { headId = testHeadId
+      , deposited = reqDecDepositedUTxO
+      , created = initialChainTime
+      , deadline = addUTCTime 3600 initialChainTime
+      , status
+      }
 
 inOpenState' ::
   [Party] ->

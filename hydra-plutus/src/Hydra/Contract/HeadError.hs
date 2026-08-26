@@ -20,12 +20,6 @@ data HeadError
   | SignatureVerificationFailed
   | MustNotChangeVersion
   | BurntTokenNumberMismatch
-  | ReimbursedOutputsDontMatch
-  | STNotSpent
-  | IncorrectUtxoHash
-  | MissingCommits
-  | NotAllValueCollected
-  | IncorrectVersion
   | VersionNotIncremented
   | HasBoundedValidityCheckFailed
   | IncorrectClosedContestationDeadline
@@ -48,8 +42,6 @@ data HeadError
   | FanoutUTxOHashMismatch
   | LowerBoundBeforeContestationDeadline
   | FanoutNoLowerBoundDefined
-  | FanoutUTxOToCommitHashMismatch
-  | FanoutUTxOToDecommitHashMismatch
   | DepositNotSpent
   | DepositInputNotFound
   | HeadInputNotFound
@@ -87,15 +79,7 @@ instance ToErrorCode HeadError where
     NotPayingToHead -> "H11"
     SignatureVerificationFailed -> "H12"
     MustNotChangeVersion -> "H13"
-    -- Abort
     BurntTokenNumberMismatch -> "H14"
-    ReimbursedOutputsDontMatch -> "H15"
-    -- Collect
-    STNotSpent -> "H16"
-    IncorrectUtxoHash -> "H17"
-    MissingCommits -> "H18"
-    NotAllValueCollected -> "H19"
-    IncorrectVersion -> "H20"
     -- Decrement
     VersionNotIncremented -> "H21"
     -- Close
@@ -119,7 +103,6 @@ instance ToErrorCode HeadError where
     FailedContestUsed -> "H38"
     -- Fanout
     FanoutUTxOHashMismatch -> "H39"
-    FanoutUTxOToDecommitHashMismatch -> "H40"
     LowerBoundBeforeContestationDeadline -> "H41"
     FanoutNoLowerBoundDefined -> "H42"
     DepositNotSpent -> "H43"
@@ -128,7 +111,6 @@ instance ToErrorCode HeadError where
     FailedCloseAny -> "H46"
     FailedCloseUnused -> "H47"
     FailedCloseUsed -> "H48"
-    FanoutUTxOToCommitHashMismatch -> "H54"
     MissingCRSDatum -> "H55"
     MissingCRSRefInput -> "H56"
     -- PartialFanout

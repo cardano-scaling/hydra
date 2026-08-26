@@ -1,6 +1,11 @@
 roots = [
   "^Main.main$",
   "^Paths_.*",
+  # hydra-agda/generated is MAlonzo output (see hydra-agda/regenerate.sh). The extractor emits
+  # every definition of every module it touches, so most are unreachable by construction; which
+  # ones is the extractor's business, not ours. The hand-written shims in hydra-agda/src are
+  # still weeded.
+  "^MAlonzo\\.",
   "traceDebug$",
   "spy$",
   "spy'$",

@@ -130,6 +130,7 @@ lint PKG="all":
   rc=0
   nix fmt || rc=1
   python3 scripts/test_bench_e2e_diff.py || rc=1
+  bash spec/check-error-codes.sh || rc=1
   cabal build {{PKG}} \
     --builddir=dist-newstyle-lint \
     --ghc-options="-Werror \
@@ -175,3 +176,13 @@ bench-e2e DATASET:
   nix develop .#hydra-cluster-bench \
     --command bench-e2e single "{{DATASET}}" --output-directory "$outdir"
   echo "Results in: $outdir"
+
+# Typecheck the literate-Agda sources and render spec/_build/hydra-spec.pdf in
+# place; mirrors `nix build .#spec` but reuses the working tree for fast
+# iteration, and re-runs only when a source is newer than the PDF (see
+# spec/build.sh).
+#
+# The spec toolchain lives in its own dev shell (nix/hydra/spec.nix) so that it
+# is not in every developer's default shell, hence the explicit `nix develop`.
+spec:
+  nix develop .#spec --command spec/build.sh
