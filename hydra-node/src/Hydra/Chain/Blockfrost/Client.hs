@@ -503,20 +503,14 @@ queryUTxOByTxIn networkId =
   foldMapM (\(TxIn txid _) -> awaitTxUtxos (serialiseToRawBytesHexText txid))
  where
   awaitTxUtxos txHash = do
-    res <-
-      retrying
-        awaitPolicy
-        (\_ -> pure . isLeft)
-        (\_ -> Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash))
-    case res of
-      Left _ -> liftIO $ throwIO $ BlockfrostClientError $ FailedUTxOForHash txHash
-      Right Blockfrost.TransactionUtxos{_transactionUtxosOutputs} ->
-        foldMapM
-          ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
-              let txIn = toCardanoTxIn txHash _utxoOutputOutputIndex
-               in toCardanoUTxO networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
-          )
-          _transactionUtxosOutputs
+    Blockfrost.TransactionUtxos{_transactionUtxosOutputs} <-
+      awaitOrThrow rightToMaybe (FailedUTxOForHash txHash) (Blockfrost.tryError $ Blockfrost.getTxUtxos (Blockfrost.TxHash txHash))
+    foldMapM
+      ( \Blockfrost.UtxoOutput{_utxoOutputOutputIndex, _utxoOutputAddress, _utxoOutputAmount, _utxoOutputDataHash, _utxoOutputInlineDatum, _utxoOutputReferenceScriptHash} ->
+          let txIn = toCardanoTxIn txHash _utxoOutputOutputIndex
+           in toCardanoUTxO networkId txIn _utxoOutputAddress _utxoOutputReferenceScriptHash _utxoOutputDataHash _utxoOutputAmount _utxoOutputInlineDatum
+      )
+      _transactionUtxosOutputs
 
 queryScript :: Text -> BlockfrostClientT IO (Maybe PlutusScript)
 queryScript scriptHashTxt = do
@@ -607,6 +601,24 @@ awaitTransaction :: NetworkId -> Tx -> VerificationKey PaymentKey -> BlockfrostC
 awaitTransaction networkId tx vk = do
   awaitUTxO networkId [makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vk) NoStakeAddress] tx
 
+-- | Run an action with 'awaitPolicy' until the projection yields a result,
+-- throwing the given 'BlockfrostException' once retries are exhausted.
+-- Blockfrost is eventually consistent, so queries can lag recently submitted
+-- transactions.
+awaitOrThrow ::
+  (a -> Maybe b) ->
+  BlockfrostException ->
+  BlockfrostClientT IO a ->
+  BlockfrostClientT IO b
+awaitOrThrow project err action =
+  retrying awaitPolicy (\_ -> pure . isNothing . project) (const action)
+    >>= maybe (liftIO . throwIO $ BlockfrostClientError err) pure
+    . project
+
+-- | Wait for the transaction to be included and return its outputs paying to
+-- the given addresses, awaiting until an address query reflects them. An empty
+-- result is not a failure: the tx pays nothing to those addresses, and only
+-- inclusion is awaited.
 awaitUTxO ::
   -- | Network id
   NetworkId ->
@@ -631,30 +643,14 @@ awaitUTxO networkId addresses tx = do
       (utxoFromTx tx)
 
   awaitIncluded = do
-    res <-
-      retrying
-        awaitPolicy
-        (\_ -> pure . isLeft)
-        (\_ -> Blockfrost.tryError $ Blockfrost.getTx (Blockfrost.TxHash $ serialiseToRawBytesHexText txid))
-    when (isLeft res) $
-      liftIO $
-        throwIO $
-          BlockfrostClientError (TimeoutOnUTxO txid)
+    void $ awaitOrThrow rightToMaybe (TimeoutOnUTxO txid) (Blockfrost.tryError $ Blockfrost.getTx (Blockfrost.TxHash $ serialiseToRawBytesHexText txid))
 
   -- NOTE: The address endpoint lags the tx endpoint, so inclusion alone does
   -- not guarantee the next address query reflects this tx. Wait until it does,
   -- since callers build follow-up transactions from what they query next.
-  awaitVisible = do
-    res <-
-      retrying
-        awaitPolicy
-        (\_ -> pure . not . visible)
-        (\_ -> Blockfrost.tryError $ queryUTxO networkId addresses)
-    unless (visible res) $
-      liftIO $
-        throwIO $
-          BlockfrostClientError (TimeoutOnUTxO txid)
+  awaitVisible =
+    void $ awaitOrThrow visible (TimeoutOnUTxO txid) (Blockfrost.tryError $ queryUTxO networkId addresses)
    where
     visible = \case
-      Right utxo' -> UTxO.inputSet wantedUTxO `Set.isSubsetOf` UTxO.inputSet utxo'
-      Left _ -> False
+      Right utxo' | UTxO.inputSet wantedUTxO `Set.isSubsetOf` UTxO.inputSet utxo' -> Just ()
+      _ -> Nothing
