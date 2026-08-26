@@ -29,6 +29,15 @@ import Hydra.Protocol.Security
 -- The machine-checked §7 proof terms (rendered: the statements appear under §7 "Machine-checked
 -- results", included below after Security; the proof bodies are typechecked but hidden).
 import Hydra.Protocol.SecurityProofs
+-- The global solvency invariant (rendered: included below after SecurityProofs): the head
+-- output's value covers the accumulator-committed UTxO set, proved over the head's on-chain
+-- transitions with the fanout payoff. Its increment case consumes the deposit-binding
+-- hardening, so weakening that binding fails this build.
+import Hydra.Protocol.Solvency
+-- Counter-model of the pre-fix commit digest (typecheck-only, not rendered): the
+-- deposit-aliasing attack is derivable against the datum-only digest and blocked by the
+-- id-binding one, kept checkable as regression documentation.
+import Hydra.Protocol.SolvencyCounterModel
 -- Extractable decidable reference checker + the bridge proving it reflects the on-chain
 -- validity bundles (Tier 2 differential-testing; not rendered in the document).
 import Hydra.Protocol.Reference
@@ -49,6 +58,7 @@ import Hydra.Protocol.OnChainCoverage
 #include "OffChain.lagda.typ"
 #include "Security.lagda.typ"
 #include "SecurityProofs.lagda.typ"
+#include "Solvency.lagda.typ"
 
 #pagebreak()
 
@@ -60,11 +70,12 @@ readable, the rendered Agda is collected here rather than shown inline; each blo
 section it supports, in document order, and the body links here in place. The appendix is
 deliberately restricted to the _machine-checked theorem statements_ (the coverage, safety,
 value-conservation and security results of @sec:onchain-theorems, @sec:offchain-theorems and
-@sec:security-theorems) together with the property types they inhabit. Everything else — the
+@sec:security-theorems, and the solvency invariant of @sec:solvency) together with the property
+types they inhabit. Everything else — the
 datum/redeemer types, the transition relations, the validity bundles, the helper definitions, every
 `postulate`, and all proof bodies — is typechecked as part of the build but not rendered, as are the
-typecheck-only modules `Prelude`, `Reference`, `ReferenceBridge`, `RefReflection` and
-`OffChainReference`. @sec:assumption-inventory lists what the formalisation takes on trust.
+typecheck-only modules `Prelude`, `Reference`, `ReferenceBridge`, `RefReflection`,
+`OffChainReference` and `SolvencyCounterModel`. @sec:assumption-inventory lists what the formalisation takes on trust.
 
 == Reading the Agda (for Haskell programmers) <sec:reading-agda>
 
@@ -166,6 +177,20 @@ The trust base, in five families:
   accumulator-commitment hypothesis of `reflects`, the `ξ ≡ aggSigOf` hypothesis
   of the `*-certified` family). The `ContestBound` module hypotheses of
   @sec:onchain-theorems are of the same kind.
+- *Solvency layer* (@sec:solvency): the L1-originating set-value fold
+  `sumValue` with its empty-set law and the two no-deposit digest constants
+  (postulates, the latter an encoding of the same family as the bridge's
+  `refCodeOf`); the `Assumptions` record - digest injectivity at the signed
+  shapes (`κ#`/`η#`/`δ#`), an information-theoretic idealization of
+  second-preimage resistance whose computational reading is the standard
+  reduction, plus `honest-certified`, the ≥1-honest-signer argument as a
+  named, consumed assumption; and the per-step hypotheses of `SolventReach`
+  (L1 continuity and observed-deposit resolution owned by the ledger,
+  settled-delta value coherence owned by the L2 ledger rules over
+  L1-originating assets, assuming burn-free traffic between settlements -
+  L2-minted tokens sit outside the accounting and cannot cross the L1
+  boundary). The `+ᵛ-cancelʳ` cancellation law joins the Prelude Value
+  algebra family above.
 - *Bridge layer* (typecheck-only `ReferenceBridge`/`RefReflection`): 6 injected
   const-true mocks (crypto/accumulator/hash conjuncts the differential covers
   against the real validator) and 7 encoding/faithfulness postulates, enumerated

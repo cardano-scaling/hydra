@@ -113,4 +113,8 @@ postulate
   -- pointwise signed multi-asset map. NB quantities are ℤ, negative meaning burning, so a
   -- monotone-growth law `a ≤ᵛ a +ᵛ b` would NOT hold in general.)
   +ᵛ-assoc     : ∀ a b c → ((a +ᵛ b) +ᵛ c) ≡ (a +ᵛ (b +ᵛ c))
+  -- Cancellation: pointwise addition of ℤ quantities is cancellative. Needed to reason
+  -- "backwards" through value-conservation equations (the solvency induction's decrement
+  -- case); same trust family as the monoid laws above.
+  +ᵛ-cancelʳ   : ∀ {a b} c → (a +ᵛ c) ≡ (b +ᵛ c) → a ≡ b
   +ᵛ-identityʳ : ∀ a → (a +ᵛ εᵛ) ≡ a

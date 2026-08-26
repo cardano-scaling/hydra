@@ -28,8 +28,8 @@ Three groups of modules, one build:
 
 | Group | Modules | Role |
 | --- | --- | --- |
-| Rendered (the document) | `Introduction`, `Overview`, `Preliminaries`, `Setup`, `OnChain`, `OnChainCoverage`, `OffChain`, `Security`, `SecurityProofs` | The prose. Their ```` ```agda ```` fences are collected into the PDF's Agda appendix, which is restricted to the machine-checked theorem statements (`OnChainCoverage`, `SecurityProofs`, `Security`, `OffChain`); the datum/redeemer types, transition relations and validity bundles in `Preliminaries`/`Setup`/`OnChain` are typechecked but deliberately not rendered |
-| Typecheck-only | `Prelude`, `ReferenceBridge`, `RefReflection` | The abstract trust base and the bridge proofs; verified on every build, never rendered |
+| Rendered (the document) | `Introduction`, `Overview`, `Preliminaries`, `Setup`, `OnChain`, `OnChainCoverage`, `OffChain`, `Security`, `SecurityProofs`, `Solvency` | The prose. Their ```` ```agda ```` fences are collected into the PDF's Agda appendix, which is restricted to the machine-checked theorem statements (`OnChainCoverage`, `SecurityProofs`, `Security`, `OffChain`, `Solvency` - including the global solvency invariant, whose increment case consumes the deposit-identity binding); the datum/redeemer types, transition relations and validity bundles in `Preliminaries`/`Setup`/`OnChain` are typechecked but deliberately not rendered |
+| Typecheck-only | `Prelude`, `ReferenceBridge`, `RefReflection`, `SolvencyCounterModel` | The abstract trust base, the bridge proofs, and the pre-fix deposit-aliasing counter-model; verified on every build, never rendered |
 | Extractable | `Reference`, `OffChainReference` | Decidable checkers, self-contained over `Agda.Builtin` types so the extracted Haskell stays small |
 
 ## The trust story
@@ -53,13 +53,31 @@ Three tiers, from strongest to weakest guarantee:
    else is proved.
 
 3. **Differentially tested.** Where the abstract model meets the real code,
-   the bridge's trusted base is *fixed and machine-enforced*: exactly 6
-   injected const-true mocks (crypto/accumulator conjuncts the tests cover
-   against the real primitives instead) and 7 encoding/faithfulness
-   postulates, enumerated in
-   [`spec/check-trust-ledger.sh`](https://github.com/cardano-scaling/hydra/blob/master/spec/check-trust-ledger.sh).
-   That script fails the spec build if a mock or postulate is added or removed
-   without updating the ledger, so the trusted base cannot grow silently.
+   the trusted base is *fixed and machine-enforced* by
+   [`spec/check-trust-ledger.sh`](https://github.com/cardano-scaling/hydra/blob/master/spec/check-trust-ledger.sh),
+   which fails the spec build on any drift. It gates three things:
+
+   - the **bridge** layer: exactly 6 injected const-true mocks (crypto and
+     accumulator conjuncts the tests cover against the real primitives instead)
+     and 7 encoding/faithfulness postulates;
+   - the **model** layer: every postulate of the model modules as a name set, so
+     a new axiom cannot enter quietly either, plus the 4 `Assumptions` fields the
+     solvency theorem is parameterised over by *full signature*. Signatures for
+     those four because they are where a strengthening rather than an addition
+     does the damage: relax `κ#-pair-inj` to drop its hypothesis and `hash`
+     becomes injective on nothing, every hash equal, and the theorem vacuous,
+     all while still type-checking;
+   - the **escape hatches** that are not postulates at all: `TERMINATING` and
+     friends, `primTrustMe`, `REWRITE`, and the `OPTIONS` flags that switch off
+     termination, positivity or coverage checking. Agda's own `--safe` would be
+     the obvious tool and is unavailable, because `--safe` *bans postulates* and
+     this specification rests on 63 of them by design (and `--safe` is contagious
+     through imports, so nothing downstream of `Prelude` could carry it). The
+     enumerated list buys the same protection.
+
+   It also gates which on-chain transitions the solvency argument reaches: every
+   `*Valid` bundle must be consumed by a step or listed with the reason it is
+   out of reach, so a new transition cannot narrow the theorem silently.
 
 The bridge direction is *completeness*: `ReferenceBridge.agda` proves that a
 spec-valid transaction makes the extracted checker accept, so a
@@ -109,6 +127,14 @@ Two layers bind the extracted spec to the real implementation:
   deposit transaction id bound into the commit digest), BLS/KZG
   membership proofs against the canonical CRS, and the canonical-CRS datum
   binding (`InvalidCRSDatum`).
+  The differential and mutation layers only see the input families somebody
+  constructed, so `spec/check-error-codes.sh` (CI: `checks.error-codes`) keeps
+  the reject-path coverage honest: every error code a validator can raise must
+  be asserted by a test (via `toErrorCode`) or carry a reviewed exclusion in
+  its ledger, and dead codes fail the build. Deleting a dead constructor leaves a
+  hole in the numbering, and the ledger's `RETIRED` list keeps that hole: the code
+  *string* is what the mutation corpus and anything outside the repo match on, so
+  a later constructor dropping into a retired number would inherit its meaning.
 - **Off-chain**:
   [`Hydra.OffChainAgreementSpec`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/OffChainAgreementSpec.hs)
   and `Hydra.OffChainLeaderSpec` (hydra-node) bind the extracted §6 handler
@@ -126,6 +152,9 @@ Two layers bind the extracted spec to the real implementation:
 | Change a head-logic handler | Update the §6 arm (+ figure) in `OffChain.lagda.typ`, mirror in `OffChainReference.agda`, bind in the hydra-node agreement tests |
 | Change the datum shape | `HeadDatum` in `OnChain.lagda.typ` + `state-fields` in `diagrams.typ`; `check-refs.sh` catches constructor drift |
 | Add a mock/postulate to the bridge | The build fails until `check-trust-ledger.sh`'s ledger is updated, which is the point |
+| Add a postulate to the model | Same script, model layer: add the name to its list (and if it is an `Assumptions` field, its full signature) |
+| Reach for `TERMINATING`/`primTrustMe` | Don't; the same script rejects them by name. If a definition genuinely needs one, that is a design discussion, not a pragma |
+| Add a validator error code | Pick an unused number (`RETIRED` ones are burned), assert it from a test via `toErrorCode`, or record a reviewed exclusion in `check-error-codes.sh` |
 
 CI gates: `checks.spec` (Agda typecheck, reference/diagram lints, trust-ledger
 drift check, PDF render) and `checks.hydra-agda-generated` (extraction

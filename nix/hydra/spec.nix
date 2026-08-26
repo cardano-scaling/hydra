@@ -84,6 +84,22 @@
         fileset = lib.fileset.unions [ ../../spec ../../hydra-agda ];
       };
 
+      # Just what check-error-codes.sh reads: the validators that raise the codes, the test trees it
+      # searches for `toErrorCode` assertions, and the script itself. Scoped for the same reason
+      # again; the check is only seconds long, but with `${self}` those seconds were spent on every
+      # commit to the repository rather than on the commits that could change the answer.
+      errorCodesSrc = lib.fileset.toSource {
+        root = ../..;
+        fileset = lib.fileset.unions [
+          ../../spec/check-error-codes.sh
+          ../../hydra-plutus/src
+          ../../hydra-plutus/validators
+          ../../hydra-plutus/test
+          ../../hydra-tx/test
+          ../../hydra-node/test
+        ];
+      };
+
       # The Agda typecheck + lints + Typst render, WITHOUT the notation-tooltip postprocess
       # (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal: consume
       # packages.spec, which adds the tooltips.
@@ -199,6 +215,17 @@
       # .#checks) and selfci all build the flake checks. Reuses the derivation
       # above, so this adds no duplicate compilation.
       checks.spec = config.packages.spec;
+
+      # Validator error-code coverage ledger: every Hxx/Dxx code a validator can
+      # raise must be referenced by some test or carry a reviewed exclusion (see
+      # spec/check-error-codes.sh). Runs as its own check because it greps the
+      # validator and test trees, which the spec derivation's src (spec/ only)
+      # does not contain.
+      checks.error-codes = pkgs.runCommand "error-codes" { } ''
+        cd ${errorCodesSrc}
+        bash spec/check-error-codes.sh
+        touch $out
+      '';
 
       # The MAlonzo extraction under hydra-agda/generated is committed and only regenerated manually
       # (hydra-agda/regenerate.sh), so a semantic edit to Reference.agda / OffChainReference.agda
