@@ -1,20 +1,38 @@
 -- | Clean Haskell surface over the MAlonzo-extracted decidable reference checkers
--- (@spec\/src\/Hydra\/Protocol\/Reference.agda@). The mangled MAlonzo names below are
--- pinned to the committed @generated/@ tree; if they change, regeneration updates both this
--- shim and @generated/@ together (see @regenerate.sh@) and a stale name is a loud compile error.
+-- (@spec\/src\/Hydra\/Protocol\/Reference.agda@).
+--
+-- Every binding below names an export the Agda source fixes with @COMPILE GHC … as …@ (its
+-- "extraction surface" section), not a mangled MAlonzo name. MAlonzo appends a definition-order
+-- index to the names it mangles, so any additive edit to the Agda renumbers them: binding those
+-- would make this shim need hand-editing after unrelated changes, and would let two checkers of the
+-- same type be silently swapped. A stable name that disappears is a compile error here instead.
+--
+-- The @Ops@ records that inject the crypto\/value conjuncts the decidable layer does not model stay
+-- on the Agda side; each checker takes the injected decision as a plain function argument, which the
+-- differential tests supply as @const True@.
+--
+-- Domain: every 'Integer' below stands for an Agda ℕ, and callers must pass non-negative values. This
+-- is not a soundness caveat that can be ignored; MAlonzo compiles ℕ to 'Integer' with no check, and
+-- the two families of arithmetic in the reference fail differently on a negative:
+--
+-- * the builtin operations accept it silently. @_+_@, @_*_@, @_==_@ and @_\<_@ are the raw 'Integer'
+--   operations, and @_-_@ is @max 0 . subtract@, so a negative input yields an answer the ℕ-level
+--   proofs in @ReferenceBridge.agda@ never sanctioned.
+-- * the structural operations do not terminate. @_==ᵇ_@ and @_≤ᵇ_@ are compiled to a recursion that
+--   subtracts one until it matches the literal @0@, which a negative argument never reaches.
+--
+-- Every field the projections fill is non-negative by construction (token quantities, output counts,
+-- list lengths, POSIXTime bounds of a real transaction), so this is a note on the boundary rather
+-- than a live defect.
 module Hydra.Agda.Reference (
   -- * close
   HsCloseTag (..),
   HsOpen (..),
   HsClosed (..),
-  Ops,
-  mkOps,
   checkClose,
 
   -- * increment / decrement
   HsIncIO (..),
-  OpsInc,
-  mkOpsInc,
   checkInc,
   checkDec,
   HsAssetIO (..),
@@ -22,26 +40,18 @@ module Hydra.Agda.Reference (
 
   -- * contest
   HsContestIO (..),
-  OpsContest,
-  mkOpsContest,
   checkContest,
 
   -- * fanout / finalPartialFanout
   HsFanout (..),
-  OpsFanout,
-  mkOpsFanout,
   checkFanout,
 
   -- * deposit recover (νDeposit)
   HsRecoverIO (..),
-  OpsRecover,
-  mkOpsRecover,
   checkRecover,
 
   -- * init (μHead minting policy: token count)
   HsMintIO (..),
-  OpsInit,
-  mkOpsInit,
   checkInit,
 
   -- * deposit claim (νDeposit)
@@ -91,37 +101,31 @@ import MAlonzo.Code.Hydra.Protocol.Reference (
  )
 import MAlonzo.Code.Hydra.Protocol.Reference qualified as M
 
--- | The injected (mock) crypto\/value boundary — the Agda @Ops@ record. The function decides
--- the conjuncts the decidable layer does not model; the differential tests supply @const True@.
-type Ops = M.T_Ops_52
-
-mkOps :: (HsOpen -> HsClosed -> HsCloseTag -> Bool) -> Ops
-mkOps = M.C_Ops'46'constructor_125
-
 -- | Extracted decidable close-validity checker. Mirrors the decidable conjuncts of @closeValid@
--- (version\/cp preserved, contesters empty, initial\/any snapshot rules, and the recorded
--- contestation deadline @tfinal == validityHi + cp@, and the bounded validity range @hi - lo \<= cp@);
--- proved to reflect them in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The two trailing
--- 'Integer' arguments are the tx upper and lower validity bounds (POSIXTime ms). The crypto\/value\/
--- accumulator conjuncts remain delegated to the injected (mock) @Ops@.
-checkClose :: Ops -> HsOpen -> HsClosed -> HsCloseTag -> Integer -> Integer -> Bool
-checkClose = M.d_closeRef'7495'_98
-
--- | Injected boundary for increment\/decrement.
-type OpsInc = M.T_OpsInc_164
-
-mkOpsInc :: (HsIncIO -> Bool) -> OpsInc
-mkOpsInc = M.C_OpsInc'46'constructor_3071
+-- (version\/cp preserved, contesters empty, initial\/any snapshot rules, the recorded contestation
+-- deadline @tfinal == validityHi + cp@, and the bounded validity range @hi - lo \<= cp@); proved to
+-- reflect them in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The two trailing 'Integer'
+-- arguments are the tx upper and lower validity bounds (POSIXTime ms). The first argument is the
+-- injected crypto\/value\/accumulator decision.
+checkClose ::
+  (HsOpen -> HsClosed -> HsCloseTag -> Bool) ->
+  HsOpen ->
+  HsClosed ->
+  HsCloseTag ->
+  Integer ->
+  Integer ->
+  Bool
+checkClose = M.hsCheckClose
 
 -- | Decidable increment checker: the produced version is @suc@ the input version
 -- (@VersionNotIncremented@), the claimed deposit is output 0 of its transaction (@depositIdxI == 0@,
 -- the validator's @DepositNotFirstOutput@ guard: the commit digest binds a deposit by transaction id,
 -- so sibling outputs would otherwise be interchangeable under one signature) and the head value grows
 -- by the deposit on both the lovelace component (@adaIn + adaDelta == adaOut@) and the total non-ada
--- token quantity (@nonAdaIn + nonAdaDelta == nonAdaOut@) — the validator's @mustPreserveValue@, which
--- also catches a native-token siphon that an ada-only check would miss. Crypto delegated to @OpsInc@.
-checkInc :: OpsInc -> HsIncIO -> Bool
-checkInc = M.d_incRef'7495'_170
+-- token quantity (@nonAdaIn + nonAdaDelta == nonAdaOut@), the validator's @mustPreserveValue@, which
+-- also catches a native-token siphon that an ada-only check would miss. Crypto is injected.
+checkInc :: (HsIncIO -> Bool) -> HsIncIO -> Bool
+checkInc = M.hsCheckInc
 
 -- | Decidable decrement checker: the produced version is @suc@ the input version, at least one
 -- decommit output is materialized (@numDecOutsI >= 1@, counted on @take m (tail outputs)@, which
@@ -129,9 +133,9 @@ checkInc = M.d_incRef'7495'_170
 -- that adopts its accumulator while no deposit is spent) and the head value shrinks by the decommit on
 -- both the lovelace component (@adaOut + adaDelta == adaIn@) and the total non-ada token quantity
 -- (@nonAdaOut + nonAdaDelta == nonAdaIn@): head output + decommitted outputs == head input, the
--- validator's @mustDecreaseValue@. Crypto delegated to @OpsInc@.
-checkDec :: OpsInc -> HsIncIO -> Bool
-checkDec = M.d_decRef'7495'_176
+-- validator's @mustDecreaseValue@. Crypto is injected.
+checkDec :: (HsIncIO -> Bool) -> HsIncIO -> Bool
+checkDec = M.hsCheckDec
 
 -- | Per-asset value-conservation checker (the finer companion to 'checkInc'\/'checkDec', which check
 -- only the @adaOf@\/@nonAdaOf@ totals). Each 'HsAssetIO' is one native asset's @(qIn, qDelta, qOut)@;
@@ -139,41 +143,25 @@ checkDec = M.d_decRef'7495'_176
 -- reflect @incrementValueOK@ per asset via @quantityOfᴺ-+ᵛ@ (@incPerAsset→ref@). Catches a selective
 -- single-token siphon that leaves the two scalar totals balanced.
 checkPerAsset :: [HsAssetIO] -> Bool
-checkPerAsset = M.d_perAssetConserved'7495'_422
-
--- | Injected boundary for contest.
-type OpsContest = M.T_OpsContest_230
-
-mkOpsContest :: (HsContestIO -> Bool) -> OpsContest
-mkOpsContest = M.C_OpsContest'46'constructor_3763
+checkPerAsset = M.hsCheckPerAsset
 
 -- | Decidable contest checker: version preserved, snapshot strictly increases
--- (@TooOldSnapshot@), exactly one contester appended, AND posted before the contestation deadline
--- (@validityHi \<= tfinal@, the validator's @mustBeWithinContestationPeriod@); proved to reflect
--- @contestValid@ in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The trailing two 'Integer'
--- fields of 'HsContestIO' are the input contestation deadline and the contest tx's upper validity
--- bound (POSIXTime ms), and the conditional deadline-UPDATE rule (@tfinal' == if all-contested then
--- tfinal else tfinal+cp@, the last three 'HsContestIO' fields: tfinal', n, cp). Crypto\/value delegated.
-checkContest :: OpsContest -> HsContestIO -> Bool
-checkContest = M.d_contestRef'7495'_236
-
--- | Injected boundary for fanout\/finalPartialFanout.
-type OpsFanout = M.T_OpsFanout_266
-
-mkOpsFanout :: (HsFanout -> Bool) -> OpsFanout
-mkOpsFanout = M.C_OpsFanout'46'constructor_4017
+-- (@TooOldSnapshot@), exactly one contester appended, posted before the contestation deadline
+-- (@validityHiK \<= tfinalK@, the validator's @mustBeWithinContestationPeriod@), and the conditional
+-- deadline-UPDATE rule (@tfinalOutK == if contesterLenOut == numPartiesK then tfinalK else tfinalK +
+-- cpK@, the validator's @makeContestationDeadline@). Proved to reflect @contestValid@ in
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The 'HsContestIO' fields are, in order:
+-- @versionIn@, @versionOut@, @snapIn@, @snapOut@, @contesterLenIn@, @contesterLenOut@, @tfinalK@,
+-- @validityHiK@, @tfinalOutK@, @numPartiesK@, @cpK@ (the last five POSIXTime ms except @numPartiesK@).
+-- Crypto\/value is injected.
+checkContest :: (HsContestIO -> Bool) -> HsContestIO -> Bool
+checkContest = M.hsCheckContest
 
 -- | Decidable fanout checker: all @n+1@ head tokens burned (@burnedCount == n+1@) AND posted after the
--- contestation deadline (@tfinal \< lo@). No @0 \< m@ guard — the full fanout permits @m == 0@ to finalise
--- an empty head. Accumulator\/value conservation delegated to @OpsFanout@.
-checkFanout :: OpsFanout -> HsFanout -> Bool
-checkFanout = M.d_fanoutRef'7495'_272
-
--- | Injected boundary for deposit recover (the recovered-outputs serialisation-hash equality).
-type OpsRecover = M.T_OpsRecover_294
-
-mkOpsRecover :: (HsRecoverIO -> Bool) -> OpsRecover
-mkOpsRecover = M.C_OpsRecover'46'constructor_4131
+-- contestation deadline (@tfinal \< lo@). No @0 \< m@ guard, since the full fanout permits @m == 0@ to
+-- finalise an empty head. Accumulator\/value conservation is injected.
+checkFanout :: (HsFanout -> Bool) -> HsFanout -> Bool
+checkFanout = M.hsCheckFanout
 
 -- | Decidable deposit-recover checker (@deposit.ak@ Recover arm): the recover tx is posted strictly
 -- after the recover deadline (@tRecover \< validityLo@, i.e. txValidityMin > t_recover, the
@@ -181,27 +169,20 @@ mkOpsRecover = M.C_OpsRecover'46'constructor_4131
 -- (@depositCountR == 1@, deposit.ak's @single_deposit@: the recovered outputs are positional and
 -- shared by every deposit input, so two deposits whose commit list hashes alike would both accept one
 -- output set, freeing the second's value); proved to reflect @recoverValid@ in
--- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The recovered-outputs hash equality is
--- delegated to the injected (mock) @OpsRecover@.
-checkRecover :: OpsRecover -> HsRecoverIO -> Bool
-checkRecover = M.d_recoverRef'7495'_300
-
--- | Injected boundary for init: the seed-spent and datum-binding μHead checks (token PLACEMENT is
--- checked by 'checkInit' itself, not delegated here).
-type OpsInit = M.T_OpsInit_326
-
-mkOpsInit :: (HsMintIO -> Bool) -> OpsInit
-mkOpsInit = M.C_OpsInit'46'constructor_4269
+-- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. The recovered-outputs hash equality is the
+-- injected decision.
+checkRecover :: (HsRecoverIO -> Bool) -> HsRecoverIO -> Bool
+checkRecover = M.hsCheckRecover
 
 -- | Decidable init token COUNT + PLACEMENT checker (μHead @validateTokensMinting@): the transaction
 -- MINTS exactly @n + 1@ tokens of the head policy (@checkNumberOfTokens@) AND those tokens are PLACED in
--- the head output — the ST is present (@stQty == 1@) and the head output carries exactly @n + 1@
+-- the head output, i.e. the ST is present (@stQty == 1@) and the head output carries exactly @n + 1@
 -- head-policy tokens (@headTokenCount == n + 1@). The four 'HsMintIO' fields are @n@, the minted count,
 -- the head-output ST quantity, and the head-output head-policy token count. Proved to reflect @initValid@
--- in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. Seed-spent and datum binding stay delegated to
--- @OpsInit@.
-checkInit :: OpsInit -> HsMintIO -> Bool
-checkInit = M.d_initRef'7495'_332
+-- in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. Seed-spent and datum binding are the injected
+-- decision.
+checkInit :: (HsMintIO -> Bool) -> HsMintIO -> Bool
+checkInit = M.hsCheckInit
 
 -- | Decidable deposit-claim checker (@deposit.ak@ Claim arm): the increment tx collecting the deposit
 -- is posted BEFORE the recover deadline (@validityHi \<= tRecover@, i.e. txValidityMax <= t_recover,
@@ -211,40 +192,50 @@ checkInit = M.d_initRef'7495'_332
 -- @Increment@ constructor index 0 (deposit.ak's @is_head_increment@), and that redeemer claims this
 -- very deposit (@claimedRefCode == ownRefCode@, the ref half of @expect_increment_redeemer@;
 -- otherwise a legitimate increment could carry additional deposit inputs whose value enters the head
--- without any snapshot crediting it; the refs are passed as integer encodings). No injected boundary;
+-- without any snapshot crediting it; the refs are passed as integer encodings). No injected decision;
 -- proved to reflect the joint @claimTxValid@ in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
 checkClaim :: HsClaimIO -> Bool
-checkClaim = M.d_claimRef'7495'_370
+checkClaim = M.hsCheckClaim
 
--- | Decidable, fully-extractable participant-signature checker (the §5.4–5.7
+-- | Decidable, fully-extractable participant-signature checker (the §5.4-5.7
 -- @mustBeSignedByParticipant@, shared by close\/contest\/increment\/decrement): SOME transaction
--- signer holds a participation token in the head value. 'HsSignerIO' carries two @[Integer]@ lists —
--- the tx signers' key-hashes (txInfoSignatories) and the head value's PT token-names (a PT's name IS a
--- key-hash) — both with the same hash→Integer encoding; the check is that they OVERLAP. No injected
--- boundary: a non-participant signer (the validator's @SignerIsNotAParticipant@) makes the lists
+-- signer holds a participation token. 'HsSignerIO' carries two @[Integer]@ lists, the tx signers'
+-- key-hashes (txInfoSignatories) and the head value's PT token-names (a PT's name IS a key-hash),
+-- both under the same hash-to-Integer encoding; the check is that they OVERLAP. No injected
+-- decision: a non-participant signer (the validator's @SignerIsNotAParticipant@) makes the lists
 -- disjoint and the reference reject. Proved to reflect @signedByParticipant@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
+--
+-- Two conditions the real @mustBeSignedByParticipant@ adds are outside this model, so a caller must
+-- not read a 'True' here as "the validator accepts". Both make the reference STRICTER or the
+-- validator stricter in a way that shows up as a differential disagreement, never as a silent pass:
+--
+-- * arity: the validator requires EXACTLY one signer (@NoSigners@ \/ @TooManySigners@), while
+--   @signedByParticipant@ is an existential over the signer list.
+-- * scope: the validator collects participation tokens from ALL transaction inputs, while the spec
+--   reads them off the head value alone, which is stricter (a PT parked on an unrelated input
+--   satisfies the validator but not this reference).
 checkParticipantSigned :: HsSignerIO -> Bool
-checkParticipantSigned = M.d_participantSignedRef'7495'_402
+checkParticipantSigned = M.hsCheckParticipantSigned
 
--- | Decidable, fully-extractable no-mint\/no-burn checker (the §5.4–5.7 @mustNotMintOrBurn@, shared by
+-- | Decidable, fully-extractable no-mint\/no-burn checker (the §5.4-5.7 @mustNotMintOrBurn@, shared by
 -- close\/contest\/increment\/decrement): the tx mints and burns nothing. The differential supplies the
 -- number of non-zero asset entries in @txInfoMint@; the mint is empty exactly when that count is 0. No
--- injected boundary: a minting\/burning mutation (the validator's @MintingOrBurningIsForbidden@) makes the
+-- injected decision: a minting\/burning mutation (the validator's @MintingOrBurningIsForbidden@) makes the
 -- count positive and the reference rejects. Proved to reflect @noMint@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkNoMint :: Integer -> Bool
-checkNoMint = M.d_noMintRef'7495'_428
+checkNoMint = M.hsCheckNoMint
 
 -- | Decidable, fully-extractable "referenced output is spent" checker (the increment
 -- @claimedDepositIsSpent@ and the μHead @seedInputIsConsumed@): a referenced out-ref is among the tx's
 -- spent inputs. The differential supplies the referenced out-ref and the list of the tx's input out-refs,
--- both under one deterministic Integer encoding, and checks membership. No injected boundary: spending a
+-- both under one deterministic Integer encoding, and checks membership. No injected decision: spending a
 -- different deposit \/ dropping the seed (the validator's @DepositNotSpent@ \/ @SeedNotSpent@) makes the ref
 -- absent and the reference rejects. Proved to reflect @depositSpentOK@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ (a postulated extraction-faithfulness boundary).
 checkRefSpent :: Integer -> [Integer] -> Bool
-checkRefSpent = M.d_refSpent'7495'_432
+checkRefSpent = M.hsCheckRefSpent
 
 -- | Decidable non-final partial-fanout checker (νHead @checkPartialFanout@, the intermediate
 -- FanoutProgress→FanoutProgress batch): at least one output is distributed (@0 \< m@, the
@@ -254,46 +245,46 @@ checkRefSpent = M.d_refSpent'7495'_432
 -- shared 'checkNoMint'. Proved to reflect @partialFanoutValid@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@.
 checkPartialFanout :: Integer -> Integer -> Integer -> Bool
-checkPartialFanout = M.d_partialFanoutRef'7495'_438
+checkPartialFanout = M.hsCheckPartialFanout
 
 -- | Decidable, fully-extractable value-preservation checker (the close \/ contest
 -- @mustPreserveHeadValue@, the exact @==@ on the head value): the ada total AND the non-ada total are
 -- unchanged from the head input to the head output. The four 'Integer' arguments are
 -- @(adaIn, adaOut, nonAdaIn, nonAdaOut)@; the check is @adaIn == adaOut && nonAdaIn == nonAdaOut@. No
--- injected boundary: a value siphon (the validator's @HeadValueIsNotPreserved@) makes a total differ and
+-- injected decision: a value siphon (the validator's @HeadValueIsNotPreserved@) makes a total differ and
 -- the reference rejects. Proved to reflect the @valuePreserved@ conjunct of @closeValid@\/@contestValid@ in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong adaOf@\/@cong nonAdaOf@ + @==-sound@ (no new
 -- postulate).
 checkValuePreserved :: Integer -> Integer -> Integer -> Integer -> Bool
-checkValuePreserved = M.d_valuePreserved'7495'_446
+checkValuePreserved = M.hsCheckValuePreserved
 
 -- | Decidable, fully-extractable contest parameter-preservation checker (the scalar half of contest
 -- @mustNotChangeParameters@): the produced datum keeps the same head id and contestation period. The four
 -- 'Integer' arguments are @(headIdIn, headIdOut, cpIn, cpOut)@ (head ids as their deterministic Integer
--- encoding); the check is @headIdIn == headIdOut && cpIn == cpOut@. No injected boundary: re-pointing the
+-- encoding); the check is @headIdIn == headIdOut && cpIn == cpOut@. No injected decision: re-pointing the
 -- head id or changing the period (the validator's @ChangedParameters@) makes a pair differ and the
 -- reference rejects. Proved to reflect the contest transition's parameter preservation in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via @cong cidToNat@ + @==-sound@ (no new postulate;
 -- the @parties@-list half stays a documented boundary, as the spec abstracts parties into a count).
 checkContestParams :: Integer -> Integer -> Integer -> Integer -> Bool
-checkContestParams = M.d_contestParams'7495'_456
+checkContestParams = M.hsCheckContestParams
 
 -- | Decidable, fully-extractable init datum head-id binding (the decidable half of the μHead
 -- @checkDatum@): the head output datum declares its own minting policy as its head id
 -- (@datumHeadId == currency@). The two 'Integer' arguments are the head-id and currency Integer
--- encodings. No injected boundary: a datum naming a different head id (the validator's @WrongDatum@) makes
+-- encodings. No injected decision: a datum naming a different head id (the validator's @WrongDatum@) makes
 -- the pair differ and the reference rejects. Proved to reflect the init datum binding in
 -- @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@ via the existing @cidToNat@ encoding (no new
 -- postulate). The @seed == seedInput@ half and the @cid = hash(seed)@ binding stay documented boundaries.
 checkInitHeadId :: Integer -> Integer -> Bool
-checkInitHeadId = M.d_initHeadId'7495'_466
+checkInitHeadId = M.hsCheckInitHeadId
 
 -- | Decidable, fully-extractable μHead Burn-arm checker (@validateTokensBurning@): every head-policy
--- entry of the mint field is negative — no positive entry exists and at least one negative one does
+-- entry of the mint field is negative, i.e. no positive entry exists and at least one negative one does
 -- (the real policy rejects a mint field without head-policy entries). The two 'HsBurnIO' fields are
--- the counts of the positive and negative head-policy mint entries. No injected boundary. Proved to
+-- the counts of the positive and negative head-policy mint entries. No injected decision. Proved to
 -- reflect @burnValid@ in @spec\/src\/Hydra\/Protocol\/ReferenceBridge.agda@. Zero-quantity mint
 -- entries are outside the domain (not representable in canonical ledger values). WHICH burns are
 -- legitimate is νHead's concern (the fan-out family's burn count); μHead only guarantees burn-only.
 checkBurn :: HsBurnIO -> Bool
-checkBurn = M.d_burnRef'7495'_484
+checkBurn = M.hsCheckBurn

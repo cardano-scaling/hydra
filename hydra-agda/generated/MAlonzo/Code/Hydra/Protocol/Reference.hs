@@ -23,17 +23,23 @@ import qualified MAlonzo.Code.Agda.Builtin.List
 import qualified MAlonzo.Code.Agda.Builtin.Nat
 
 data HsCloseTag = CloseInitialT | CloseAnyT | CloseUnusedT | CloseUsedT
-data HsOpen = MkOpen Integer Integer
+   deriving (Eq, Show)
+data HsOpen = MkOpen Integer Integer deriving (Eq, Show)
 data HsClosed = MkClosed Integer Integer Integer Integer Integer
+   deriving (Eq, Show)
 data HsIncIO = MkIncIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer
+   deriving (Eq, Show)
 data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer
+   deriving (Eq, Show)
 data HsFanout = MkFanout Integer Integer Integer Integer Integer
-data HsRecoverIO = MkRecoverIO Integer Integer Integer
-data HsMintIO = MkMintIO Integer Integer Integer Integer
+   deriving (Eq, Show)
+data HsRecoverIO = MkRecoverIO Integer Integer Integer deriving (Eq, Show)
+data HsMintIO = MkMintIO Integer Integer Integer Integer deriving (Eq, Show)
 data HsClaimIO = MkClaimIO Integer Integer Integer Integer Integer Integer Integer
-data HsSignerIO = MkSignerIO [Integer] [Integer]
-data HsAssetIO = MkAssetIO Integer Integer Integer
-data HsBurnIO = MkBurnIO Integer Integer
+   deriving (Eq, Show)
+data HsSignerIO = MkSignerIO [Integer] [Integer] deriving (Eq, Show)
+data HsAssetIO = MkAssetIO Integer Integer Integer deriving (Eq, Show)
+data HsBurnIO = MkBurnIO Integer Integer deriving (Eq, Show)
 -- Hydra.Protocol.Reference.CloseTagᶜ
 d_CloseTag'7580'_6 = ()
 type T_CloseTag'7580'_6 = HsCloseTag
@@ -788,6 +794,8 @@ d_ownRefCodeC_366 v0
       C_mkClaimIO'7580'_368 v1 v2 v3 v4 v5 v6 v7 -> coe v7
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.claimRefᵇ
+hsCheckClaim :: T_ClaimIO'7580'_338 -> Bool
+hsCheckClaim = coe d_claimRef'7495'_370
 d_claimRef'7495'_370 :: T_ClaimIO'7580'_338 -> Bool
 d_claimRef'7495'_370 v0
   = coe
@@ -853,6 +861,8 @@ d_ptCodesS_398 v0
       C_mkSignerIO'7580'_400 v1 v2 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.participantSignedRefᵇ
+hsCheckParticipantSigned :: T_SignerIO'7580'_390 -> Bool
+hsCheckParticipantSigned = coe d_participantSignedRef'7495'_402
 d_participantSignedRef'7495'_402 :: T_SignerIO'7580'_390 -> Bool
 d_participantSignedRef'7495'_402 v0
   = coe
@@ -888,6 +898,10 @@ d_qOutA_418 v0
       C_mkAssetIO'7580'_420 v1 v2 v3 -> coe v3
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.perAssetConservedᵇ
+hsCheckPerAsset ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () T_AssetIO'7580'_406 ->
+  Bool
+hsCheckPerAsset = coe d_perAssetConserved'7495'_422
 d_perAssetConserved'7495'_422 :: [T_AssetIO'7580'_406] -> Bool
 d_perAssetConserved'7495'_422 v0
   = case coe v0 of
@@ -902,13 +916,21 @@ d_perAssetConserved'7495'_422 v0
              (coe d_perAssetConserved'7495'_422 (coe v2))
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.noMintRefᵇ
+hsCheckNoMint :: Integer -> Bool
+hsCheckNoMint = coe d_noMintRef'7495'_428
 d_noMintRef'7495'_428 :: Integer -> Bool
 d_noMintRef'7495'_428 v0
   = coe d__'61''61''7495'__66 (coe v0) (coe (0 :: Integer))
 -- Hydra.Protocol.Reference.refSpentᵇ
+hsCheckRefSpent ::
+  Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsCheckRefSpent = coe d_refSpent'7495'_432
 d_refSpent'7495'_432 :: Integer -> [Integer] -> Bool
 d_refSpent'7495'_432 v0 v1 = coe d_elem'7495'_374 (coe v0) (coe v1)
 -- Hydra.Protocol.Reference.partialFanoutRefᵇ
+hsCheckPartialFanout :: Integer -> Integer -> Integer -> Bool
+hsCheckPartialFanout = coe d_partialFanoutRef'7495'_438
 d_partialFanoutRef'7495'_438 ::
   Integer -> Integer -> Integer -> Bool
 d_partialFanoutRef'7495'_438 v0 v1 v2
@@ -917,6 +939,9 @@ d_partialFanoutRef'7495'_438 v0 v1 v2
       (coe d__'60''7495'__78 (coe (0 :: Integer)) (coe v0))
       (coe ltInt (coe v1) (coe v2))
 -- Hydra.Protocol.Reference.valuePreservedᵇ
+hsCheckValuePreserved ::
+  Integer -> Integer -> Integer -> Integer -> Bool
+hsCheckValuePreserved = coe d_valuePreserved'7495'_446
 d_valuePreserved'7495'_446 ::
   Integer -> Integer -> Integer -> Integer -> Bool
 d_valuePreserved'7495'_446 v0 v1 v2 v3
@@ -924,6 +949,9 @@ d_valuePreserved'7495'_446 v0 v1 v2 v3
       d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
       (coe eqInt (coe v2) (coe v3))
 -- Hydra.Protocol.Reference.contestParamsᵇ
+hsCheckContestParams ::
+  Integer -> Integer -> Integer -> Integer -> Bool
+hsCheckContestParams = coe d_contestParams'7495'_456
 d_contestParams'7495'_456 ::
   Integer -> Integer -> Integer -> Integer -> Bool
 d_contestParams'7495'_456 v0 v1 v2 v3
@@ -931,6 +959,8 @@ d_contestParams'7495'_456 v0 v1 v2 v3
       d__'38''38'__58 (coe eqInt (coe v0) (coe v1))
       (coe eqInt (coe v2) (coe v3))
 -- Hydra.Protocol.Reference.initHeadIdᵇ
+hsCheckInitHeadId :: Integer -> Integer -> Bool
+hsCheckInitHeadId = coe d_initHeadId'7495'_466
 d_initHeadId'7495'_466 :: Integer -> Integer -> Bool
 d_initHeadId'7495'_466 v0 v1 = coe eqInt (coe v0) (coe v1)
 -- Hydra.Protocol.Reference.BurnIOᶜ
@@ -957,9 +987,84 @@ d_burnedCountB_480 v0
       C_mkBurnIO'7580'_482 v1 v2 -> coe v2
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.Reference.burnRefᵇ
+hsCheckBurn :: T_BurnIO'7580'_472 -> Bool
+hsCheckBurn = coe d_burnRef'7495'_484
 d_burnRef'7495'_484 :: T_BurnIO'7580'_472 -> Bool
 d_burnRef'7495'_484 v0
   = coe
       d__'38''38'__58
       (coe eqInt (coe d_mintedCountB_478 (coe v0)) (coe (0 :: Integer)))
       (coe ltInt (coe (0 :: Integer)) (coe d_burnedCountB_480 (coe v0)))
+-- Hydra.Protocol.Reference.closeRefᴴ
+hsCheckClose ::
+  (T_Open'7580'_16 ->
+   T_Closed'7580'_28 -> T_CloseTag'7580'_6 -> Bool) ->
+  T_Open'7580'_16 ->
+  T_Closed'7580'_28 ->
+  T_CloseTag'7580'_6 -> Integer -> Integer -> Bool
+hsCheckClose = coe d_closeRef'7476'_488
+d_closeRef'7476'_488 ::
+  (T_Open'7580'_16 ->
+   T_Closed'7580'_28 -> T_CloseTag'7580'_6 -> Bool) ->
+  T_Open'7580'_16 ->
+  T_Closed'7580'_28 ->
+  T_CloseTag'7580'_6 -> Integer -> Integer -> Bool
+d_closeRef'7476'_488 v0
+  = coe d_closeRef'7495'_98 (coe C_Ops'46'constructor_125 (coe v0))
+-- Hydra.Protocol.Reference.incRefᴴ
+hsCheckInc ::
+  (T_IncIO'7580'_120 -> Bool) -> T_IncIO'7580'_120 -> Bool
+hsCheckInc = coe d_incRef'7476'_492
+d_incRef'7476'_492 ::
+  (T_IncIO'7580'_120 -> Bool) -> T_IncIO'7580'_120 -> Bool
+d_incRef'7476'_492 v0
+  = coe
+      d_incRef'7495'_170 (coe C_OpsInc'46'constructor_3071 (coe v0))
+-- Hydra.Protocol.Reference.decRefᴴ
+hsCheckDec ::
+  (T_IncIO'7580'_120 -> Bool) -> T_IncIO'7580'_120 -> Bool
+hsCheckDec = coe d_decRef'7476'_496
+d_decRef'7476'_496 ::
+  (T_IncIO'7580'_120 -> Bool) -> T_IncIO'7580'_120 -> Bool
+d_decRef'7476'_496 v0
+  = coe
+      d_decRef'7495'_176 (coe C_OpsInc'46'constructor_3071 (coe v0))
+-- Hydra.Protocol.Reference.contestRefᴴ
+hsCheckContest ::
+  (T_ContestIO'7580'_182 -> Bool) -> T_ContestIO'7580'_182 -> Bool
+hsCheckContest = coe d_contestRef'7476'_500
+d_contestRef'7476'_500 ::
+  (T_ContestIO'7580'_182 -> Bool) -> T_ContestIO'7580'_182 -> Bool
+d_contestRef'7476'_500 v0
+  = coe
+      d_contestRef'7495'_236
+      (coe C_OpsContest'46'constructor_3763 (coe v0))
+-- Hydra.Protocol.Reference.fanoutRefᴴ
+hsCheckFanout ::
+  (T_Fanout'7580'_242 -> Bool) -> T_Fanout'7580'_242 -> Bool
+hsCheckFanout = coe d_fanoutRef'7476'_504
+d_fanoutRef'7476'_504 ::
+  (T_Fanout'7580'_242 -> Bool) -> T_Fanout'7580'_242 -> Bool
+d_fanoutRef'7476'_504 v0
+  = coe
+      d_fanoutRef'7495'_272
+      (coe C_OpsFanout'46'constructor_4017 (coe v0))
+-- Hydra.Protocol.Reference.recoverRefᴴ
+hsCheckRecover ::
+  (T_RecoverIO'7580'_278 -> Bool) -> T_RecoverIO'7580'_278 -> Bool
+hsCheckRecover = coe d_recoverRef'7476'_508
+d_recoverRef'7476'_508 ::
+  (T_RecoverIO'7580'_278 -> Bool) -> T_RecoverIO'7580'_278 -> Bool
+d_recoverRef'7476'_508 v0
+  = coe
+      d_recoverRef'7495'_300
+      (coe C_OpsRecover'46'constructor_4131 (coe v0))
+-- Hydra.Protocol.Reference.initRefᴴ
+hsCheckInit ::
+  (T_MintIO'7580'_306 -> Bool) -> T_MintIO'7580'_306 -> Bool
+hsCheckInit = coe d_initRef'7476'_512
+d_initRef'7476'_512 ::
+  (T_MintIO'7580'_306 -> Bool) -> T_MintIO'7580'_306 -> Bool
+d_initRef'7476'_512 v0
+  = coe
+      d_initRef'7495'_332 (coe C_OpsInit'46'constructor_4269 (coe v0))

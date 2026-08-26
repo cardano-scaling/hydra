@@ -76,6 +76,14 @@
         fileset = ../../spec;
       };
 
+      # The two trees `hydra-agda/regenerate.sh` reads and writes, under one root because the script
+      # locates the Agda sources relative to itself (`$here/../spec`). Scoped for the same reason as
+      # specSrc: with `${self}` any commit anywhere invalidated the extraction drift check below.
+      extractionSrc = lib.fileset.toSource {
+        root = ../..;
+        fileset = lib.fileset.unions [ ../../spec ../../hydra-agda ];
+      };
+
       # The Agda typecheck + lints + Typst render, WITHOUT the notation-tooltip postprocess
       # (ANNOTATE_NOTATION=skip, see build.sh stage 3). Internal: consume
       # packages.spec, which adds the tooltips.
@@ -192,35 +200,30 @@
       # above, so this adds no duplicate compilation.
       checks.spec = config.packages.spec;
 
-      # The MAlonzo extraction under hydra-agda/generated is committed and only
-      # regenerated manually (hydra-agda/regenerate.sh), so a semantic edit to
-      # Reference.agda / OffChainReference.agda would otherwise silently leave the
-      # committed oracle stale. Regenerate hermetically, replicating regenerate.sh
-      # (same agda invocation and OPTIONS_GHC stamping), and fail on any drift.
-      checks.hydra-agda-generated = pkgs.stdenv.mkDerivation {
-        name = "hydra-agda-generated";
-        nativeBuildInputs = [ config.packages.spec-agda ];
-        src = "${self}/spec";
-        buildPhase = ''
-          export HOME=$TMPDIR
-          agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$TMPDIR/generated" \
-            src/Hydra/Protocol/Reference.agda
-          agda --compile --no-main --ghc-dont-call-ghc --compile-dir="$TMPDIR/generated" \
-            src/Hydra/Protocol/OffChainReference.agda
-          # Same `-w` stamping as regenerate.sh (see the rationale there).
-          find "$TMPDIR/generated" -name '*.hs' -print0 | while IFS= read -r -d "" f; do
-            chmod u+w "$f"
-            if ! head -1 "$f" | grep -q -- '-w'; then
-              printf '{-# OPTIONS_GHC -w #-}\n%s' "$(cat "$f")" > "$f"
-            fi
-          done
-          diff -ru ${self}/hydra-agda/generated/MAlonzo "$TMPDIR/generated/MAlonzo" || {
-            echo "hydra-agda/generated is out of date with spec/src/Hydra/Protocol/*.agda:"
-            echo "run hydra-agda/regenerate.sh and commit the result."
-            exit 1
-          }
-        '';
-        installPhase = "touch $out";
-      };
+      # The MAlonzo extraction under hydra-agda/generated is committed and only regenerated manually
+      # (hydra-agda/regenerate.sh), so a semantic edit to Reference.agda / OffChainReference.agda
+      # would otherwise silently leave the committed oracle stale. Re-extract hermetically and fail
+      # on any drift.
+      #
+      # This runs the very script a developer runs, rather than a second copy of its agda invocation
+      # and `-w` stamping: a check that reimplements what it checks can only catch drift in the
+      # inputs, never in the procedure, and the two copies did drift (the stamping differed in
+      # whether it kept each file's trailing newline).
+      checks.hydra-agda-generated = pkgs.runCommand "hydra-agda-generated"
+        {
+          nativeBuildInputs = [ config.packages.spec-agda ];
+        } ''
+        export HOME=$TMPDIR
+        # agda writes interface files next to the sources, so work on a writable copy.
+        cp -r ${extractionSrc} repo
+        chmod -R u+w repo
+        bash repo/hydra-agda/regenerate.sh "$TMPDIR/fresh"
+        diff -ru repo/hydra-agda/generated/MAlonzo "$TMPDIR/fresh/MAlonzo" || {
+          echo "hydra-agda/generated is out of date with spec/src/Hydra/Protocol/*.agda:"
+          echo "run hydra-agda/regenerate.sh and commit the result."
+          exit 1
+        }
+        touch $out
+      '';
     };
 }

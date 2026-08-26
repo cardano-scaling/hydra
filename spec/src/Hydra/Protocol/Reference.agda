@@ -30,7 +30,8 @@ open import Agda.Builtin.List
 -- Close redeemer selector (the CloseType union, payload-free at this layer).
 data CloseTagᶜ : Set where
   closeInitialᶜ closeAnyᶜ closeUnusedᶜ closeUsedᶜ : CloseTagᶜ
-{-# FOREIGN GHC data HsCloseTag = CloseInitialT | CloseAnyT | CloseUnusedT | CloseUsedT #-}
+{-# FOREIGN GHC data HsCloseTag = CloseInitialT | CloseAnyT | CloseUnusedT | CloseUsedT
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC CloseTagᶜ = data HsCloseTag (CloseInitialT | CloseAnyT | CloseUnusedT | CloseUsedT) #-}
 
 -- The fields of the input (Open) datum the decidable close checks read.
@@ -39,7 +40,7 @@ record Openᶜ : Set where
   field
     versionO : Nat
     cpO      : Nat
-{-# FOREIGN GHC data HsOpen = MkOpen Integer Integer #-}
+{-# FOREIGN GHC data HsOpen = MkOpen Integer Integer deriving (Eq, Show) #-}
 {-# COMPILE GHC Openᶜ = data HsOpen (MkOpen) #-}
 
 -- The fields of the produced (Closed) datum the decidable close checks read.
@@ -51,7 +52,8 @@ record Closedᶜ : Set where
     snapshotC     : Nat
     contesterLenC : Nat
     tfinalC       : Nat   -- the recorded contestation deadline (POSIXTime ms)
-{-# FOREIGN GHC data HsClosed = MkClosed Integer Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsClosed = MkClosed Integer Integer Integer Integer Integer
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC Closedᶜ = data HsClosed (MkClosed) #-}
 
 -- Injected operations: the conjuncts the decidable layer does not model - crypto/value/
@@ -157,7 +159,8 @@ record IncIOᶜ : Set where
     nonAdaOut  : Nat   -- total non-ada token quantity of the head output (`nonAdaOf headValue`)
     depositIdxI : Nat  -- increment only: output index of the claimed deposit out-ref (`txOutRefIdx`; must be 0)
     numDecOutsI : Nat  -- decrement only: count of MATERIALIZED decommit outputs (`take m (tail outputs)`; must be ≥ 1)
-{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsIncIO = MkIncIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC IncIOᶜ = data HsIncIO (MkIncIO) #-}
 
 record OpsInc : Set where
@@ -217,7 +220,8 @@ record ContestIOᶜ : Set where
     tfinalOutK      : Nat   -- the PRODUCED datum's recorded deadline tfinal' (POSIXTime ms)
     numPartiesK     : Nat   -- n: the number of parties (from the head datum)
     cpK             : Nat   -- the contestation period T (added when not all parties have contested)
-{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsContestIO = MkContestIO Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer Integer
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC ContestIOᶜ = data HsContestIO (MkContestIO) #-}
 
 record OpsContest : Set where
@@ -259,7 +263,8 @@ record Fanoutᶜ : Set where
     numPartiesF  : Nat   -- n (from the head datum)
     tfinalF      : Nat   -- the recorded contestation deadline (POSIXTime ms)
     validityLoF  : Nat   -- the fanout tx's lower validity bound (POSIXTime ms)
-{-# FOREIGN GHC data HsFanout = MkFanout Integer Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsFanout = MkFanout Integer Integer Integer Integer Integer
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC Fanoutᶜ = data HsFanout (MkFanout) #-}
 
 record OpsFanout : Set where
@@ -285,7 +290,7 @@ record RecoverIOᶜ : Set where
     tRecoverR     : Nat   -- the deposit datum's recover deadline (POSIXTime ms)
     validityLoR   : Nat   -- the recover tx's lower validity bound (POSIXTime ms)
     depositCountR : Nat   -- number of νDeposit-governed inputs (deposit.ak `single_deposit`; must be 1)
-{-# FOREIGN GHC data HsRecoverIO = MkRecoverIO Integer Integer Integer #-}
+{-# FOREIGN GHC data HsRecoverIO = MkRecoverIO Integer Integer Integer deriving (Eq, Show) #-}
 {-# COMPILE GHC RecoverIOᶜ = data HsRecoverIO (MkRecoverIO) #-}
 
 record OpsRecover : Set where
@@ -319,7 +324,7 @@ record MintIOᶜ : Set where
     mintedCountM    : Nat   -- the head policy's total minted token quantity
     stQtyM          : Nat   -- quantity of the ST in the head output (should be 1)
     headTokenCountM : Nat   -- number of head-policy tokens in the head output (should be n+1)
-{-# FOREIGN GHC data HsMintIO = MkMintIO Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsMintIO = MkMintIO Integer Integer Integer Integer deriving (Eq, Show) #-}
 {-# COMPILE GHC MintIOᶜ = data HsMintIO (MkMintIO) #-}
 
 record OpsInit : Set where
@@ -356,7 +361,8 @@ record ClaimIOᶜ : Set where
     headRedeemerIdxC : Nat   -- constructor index of the redeemer spending the head input
     claimedRefCodeC  : Nat   -- out-ref the head's Increment redeemer claims, encoded as an Integer
     ownRefCodeC      : Nat   -- out-ref of the deposit input being validated, encoded as an Integer
-{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer Integer Integer Integer Integer Integer #-}
+{-# FOREIGN GHC data HsClaimIO = MkClaimIO Integer Integer Integer Integer Integer Integer Integer
+                   deriving (Eq, Show) #-}
 {-# COMPILE GHC ClaimIOᶜ = data HsClaimIO (MkClaimIO) #-}
 
 -- The claims-this-deposit coupling (`claimedRefCodeC == ownRefCodeC`, §5.2, the second half of
@@ -392,7 +398,7 @@ record SignerIOᶜ : Set where
   field
     signerCodesS : List Nat   -- Integer-encoded key-hashes of the tx signers (txInfoSignatories)
     ptCodesS     : List Nat   -- Integer-encoded names of the participation tokens in the head value
-{-# FOREIGN GHC data HsSignerIO = MkSignerIO [Integer] [Integer] #-}
+{-# FOREIGN GHC data HsSignerIO = MkSignerIO [Integer] [Integer] deriving (Eq, Show) #-}
 {-# COMPILE GHC SignerIOᶜ = data HsSignerIO (MkSignerIO) #-}
 
 participantSignedRefᵇ : SignerIOᶜ → Bool
@@ -405,14 +411,13 @@ participantSignedRefᵇ s = anySharedᵇ (SignerIOᶜ.signerCodesS s) (SignerIO�
 -- decrement direction the caller supplies (qOut, qDelta, qIn) so the same sum-check applies.) Catches a
 -- SELECTIVE single-token siphon that leaves the two scalar totals balanced. Each quantity is a
 -- (non-negative) per-asset amount (`quantityOfᴺ`); BUILTIN `_==_` per asset (amounts may be large).
--- Defined last so MAlonzo appends fresh names without drifting the earlier mangled names in the shim.
 record AssetIOᶜ : Set where
   constructor mkAssetIOᶜ
   field
     qInA    : Nat
     qDeltaA : Nat
     qOutA   : Nat
-{-# FOREIGN GHC data HsAssetIO = MkAssetIO Integer Integer Integer #-}
+{-# FOREIGN GHC data HsAssetIO = MkAssetIO Integer Integer Integer deriving (Eq, Show) #-}
 {-# COMPILE GHC AssetIOᶜ = data HsAssetIO (MkAssetIO) #-}
 
 perAssetConservedᵇ : List AssetIOᶜ → Bool
@@ -425,7 +430,7 @@ perAssetConservedᵇ (a ∷ as) =
 -- checkDecrement): the tx mints AND burns nothing (`isZero minted && isZero burned`). The differential
 -- supplies the number of NON-ZERO asset entries in `txInfoMint`; that value is empty exactly when the
 -- count is 0. Structural `_==ᵇ_` (an entry count is small). No injected Ops: a minting/burning mutation
--- makes the count positive and the reference rejects. Appended last so MAlonzo does not drift earlier names.
+-- makes the count positive and the reference rejects.
 noMintRefᵇ : Nat → Bool
 noMintRefᵇ k = k ==ᵇ zero
 
@@ -456,7 +461,7 @@ partialFanoutRefᵇ m tfinal lo = (zero <ᵇ m) && (tfinal < lo)
 -- validator's `mustPreserveHeadValue` EXACT `==`): the ada AND the non-ada totals are unchanged in→out.
 -- BUILTIN `_==_` (ada/token totals can be lovelace-scale, far too large for the structural `_==ᵇ_`).
 -- Bridged from the `valuePreserved` field via `cong adaOf`/`cong nonAdaOf` + `==-sound` (no injectivity,
--- no new postulate). Appended last so MAlonzo extends with a fresh mangled name without drifting the others.
+-- no new postulate).
 valuePreservedᵇ : Nat → Nat → Nat → Nat → Bool
 valuePreservedᵇ adaIn adaOut nonAdaIn nonAdaOut = (adaIn == adaOut) && (nonAdaIn == nonAdaOut)
 
@@ -467,7 +472,7 @@ valuePreservedᵇ adaIn adaOut nonAdaIn nonAdaOut = (adaIn == adaOut) && (nonAda
 -- `Closed` reuses the same `cid`/`cp` binders, so the bridge is `refl`-based (`cong cidToNat` + `==-sound`,
 -- no injectivity, no new postulate beyond the existing `cidToNat` encoding). The `parties` half stays a
 -- documented boundary: the spec abstracts the party LIST into a count `n`, so a same-count party swap is
--- below this model's granularity. Appended last to avoid MAlonzo name drift.
+-- below this model's granularity.
 contestParamsᵇ : Nat → Nat → Nat → Nat → Bool
 contestParamsᵇ cidIn cidOut cpIn cpOut = (cidIn == cidOut) && (cpIn == cpOut)
 
@@ -477,7 +482,7 @@ contestParamsᵇ cidIn cidOut cpIn cpOut = (cidIn == cidOut) && (cpIn == cpOut)
 -- `Open` datum's head id and the policy currency are the SAME `cid` (= hash(μHead seed)), so the bridge is
 -- `refl`-discharged via the existing `cidToNat` encoding (no injectivity, no new postulate). The other
 -- `checkDatum` half (`seed == seedInput`) is NOT modelled (the Agda `Open` has no `headSeed` field), and the
--- `cid = hash(μHead seed)` binding stays the injected (hash) boundary. Appended last to avoid name drift.
+-- `cid = hash(μHead seed)` binding stays the injected (hash) boundary.
 initHeadIdᵇ : Nat → Nat → Bool
 initHeadIdᵇ datumHeadId currency = datumHeadId == currency
 
@@ -489,14 +494,66 @@ initHeadIdᵇ datumHeadId currency = datumHeadId == currency
 -- zero-quantity entries are not representable in canonical ledger values, a documented domain note).
 -- Fully extractable (no injected Ops). WHICH burns are legitimate is νHead's concern (the fan-out
 -- family's n+1 burn count); μHead only guarantees a burn-only mint field. BUILTIN `_==_`/`_<_`.
--- Appended last to avoid MAlonzo name drift.
 record BurnIOᶜ : Set where
   constructor mkBurnIOᶜ
   field
     mintedCountB : Nat   -- head-policy mint entries with positive quantity
     burnedCountB : Nat   -- head-policy mint entries with negative quantity (counted positively)
-{-# FOREIGN GHC data HsBurnIO = MkBurnIO Integer Integer #-}
+{-# FOREIGN GHC data HsBurnIO = MkBurnIO Integer Integer deriving (Eq, Show) #-}
 {-# COMPILE GHC BurnIOᶜ = data HsBurnIO (MkBurnIO) #-}
 
 burnRefᵇ : BurnIOᶜ → Bool
 burnRefᵇ b = (BurnIOᶜ.mintedCountB b == 0) && (0 < BurnIOᶜ.burnedCountB b)
+
+-- ══ extraction surface: the stable Haskell names ═══════════════════════════════════════════════
+-- MAlonzo mangles every Agda name and appends a definition-order index (`closeRefᵇ` becomes
+-- `d_closeRef'7495'_98`), so any *additive* edit above renumbers everything after it. A shim that
+-- imports the mangled names therefore needs hand-editing after an unrelated change, and, worse, two
+-- checkers of the same Haskell type can be silently swapped while still compiling.
+--
+-- `COMPILE GHC … as …` names the exported binding in *this* source instead. The names below are the
+-- contract with `Hydra.Agda.Reference`; the indices are an implementation detail of the extractor.
+--
+-- `as` accepts only functions whose argument types are all FFI-translatable, so the seven checkers
+-- taking an injected-`Ops` record are re-exposed with the mock as a plain function argument. The
+-- records stay an Agda-side convenience and never cross the boundary.
+
+closeRefᴴ : (Openᶜ → Closedᶜ → CloseTagᶜ → Bool)
+          → Openᶜ → Closedᶜ → CloseTagᶜ → Nat → Nat → Bool
+closeRefᴴ mock = closeRefᵇ (record { closeCryptoOK = mock })
+
+incRefᴴ : (IncIOᶜ → Bool) → IncIOᶜ → Bool
+incRefᴴ mock = incRefᵇ (record { incCryptoOK = mock })
+
+decRefᴴ : (IncIOᶜ → Bool) → IncIOᶜ → Bool
+decRefᴴ mock = decRefᵇ (record { incCryptoOK = mock })
+
+contestRefᴴ : (ContestIOᶜ → Bool) → ContestIOᶜ → Bool
+contestRefᴴ mock = contestRefᵇ (record { contestCryptoOK = mock })
+
+fanoutRefᴴ : (Fanoutᶜ → Bool) → Fanoutᶜ → Bool
+fanoutRefᴴ mock = fanoutRefᵇ (record { fanoutCryptoOK = mock })
+
+recoverRefᴴ : (RecoverIOᶜ → Bool) → RecoverIOᶜ → Bool
+recoverRefᴴ mock = recoverRefᵇ (record { recoverHashOK = mock })
+
+initRefᴴ : (MintIOᶜ → Bool) → MintIOᶜ → Bool
+initRefᴴ mock = initRefᵇ (record { initPlacementOK = mock })
+
+{-# COMPILE GHC closeRefᴴ            as hsCheckClose            #-}
+{-# COMPILE GHC incRefᴴ              as hsCheckInc              #-}
+{-# COMPILE GHC decRefᴴ              as hsCheckDec              #-}
+{-# COMPILE GHC contestRefᴴ          as hsCheckContest          #-}
+{-# COMPILE GHC fanoutRefᴴ           as hsCheckFanout           #-}
+{-# COMPILE GHC recoverRefᴴ          as hsCheckRecover          #-}
+{-# COMPILE GHC initRefᴴ             as hsCheckInit             #-}
+{-# COMPILE GHC claimRefᵇ            as hsCheckClaim            #-}
+{-# COMPILE GHC participantSignedRefᵇ as hsCheckParticipantSigned #-}
+{-# COMPILE GHC perAssetConservedᵇ   as hsCheckPerAsset         #-}
+{-# COMPILE GHC noMintRefᵇ           as hsCheckNoMint           #-}
+{-# COMPILE GHC refSpentᵇ            as hsCheckRefSpent         #-}
+{-# COMPILE GHC partialFanoutRefᵇ    as hsCheckPartialFanout    #-}
+{-# COMPILE GHC valuePreservedᵇ      as hsCheckValuePreserved   #-}
+{-# COMPILE GHC contestParamsᵇ       as hsCheckContestParams    #-}
+{-# COMPILE GHC initHeadIdᵇ          as hsCheckInitHeadId       #-}
+{-# COMPILE GHC burnRefᵇ             as hsCheckBurn             #-}
