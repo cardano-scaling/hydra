@@ -28,10 +28,14 @@ Needs PyMuPDF.
 
 import sys
 
-# PyMuPDF's canonical module name is `pymupdf`; `fitz` is the legacy alias, and not
-# every platform build of the package ships it (the default pin's 1.26.6 has it on
-# linux but not on aarch64-darwin). Import the canonical name and fall back, so the
-# stage runs on every platform and on either nixpkgs pin.
+# PyMuPDF's canonical module name is `pymupdf`; `fitz` is the legacy alias kept for
+# releases before 1.24.3. Prefer the canonical name and fall back, so the stage does
+# not depend on which of the two a given pin's version still provides.
+#
+# NB the aarch64-darwin failures this import once got blamed for were not a missing
+# alias: nixpkgs builds both names on every platform it supports (pymupdf's own
+# install check imports both). The stage was running under an interpreter other than
+# the one nix supplies, which nix/hydra/spec.nix now pins by absolute path.
 try:
     import pymupdf as fitz
 except ModuleNotFoundError:  # PyMuPDF < 1.24.3, which predates the rename

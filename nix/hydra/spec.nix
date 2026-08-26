@@ -131,8 +131,26 @@ _: {
         ];
         meta = { };
         dontUnpack = true;
+        # Call the interpreter by its absolute store path rather than resolving `python3` on PATH.
+        # That environment is this derivation's ONLY input, yet on the aarch64-darwin builders the
+        # stage died with `No module named 'pymupdf'` AND `No module named 'fitz'`, which cannot be
+        # the environment: the buildPhase running at all means the env built, the env cannot build
+        # unless pymupdf did, and pymupdf's own install check imports both names (doInstallCheck is
+        # on for darwin too). So the name resolved to some other interpreter, which the darwin
+        # sandbox's system paths make possible and an absolute path makes impossible.
+        #
+        # The import probe stays as a guard: this stage has now failed twice on a platform we cannot
+        # build locally, and it turns "ModuleNotFoundError" into a report naming the interpreter and
+        # its search path, which is the difference between diagnosing the next occurrence and
+        # guessing at it again.
         buildPhase = ''
-          python3 ${specSrc}/annotate-notation.py \
+          python3=${config.packages.spec-python}/bin/python3
+          "$python3" -c 'import pymupdf' || {
+            echo "annotate stage: $python3 cannot import pymupdf; it reports:"
+            "$python3" -c 'import sys; print("executable:", sys.executable); print("path:", sys.path)'
+            exit 1
+          }
+          "$python3" ${specSrc}/annotate-notation.py \
             ${spec-rendered}/hydra-spec.pdf hydra-spec.pdf
         '';
         installPhase = ''
