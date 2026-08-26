@@ -141,7 +141,7 @@ genFailingReport :: Gen EvaluationReport
 
 -- | Create a chain sync handler which records events as they are called
 --   back.
-recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler :: ChainContext -> ChainStateAt -> (SlotNo -> GetTimeHandle IO) -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 
 -- | A block used for testing. This is a simpler version of the cardano-api
 --   <tt>Block</tt> and can be de-/constructed easily.
