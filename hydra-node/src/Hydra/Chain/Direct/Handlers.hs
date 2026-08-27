@@ -102,6 +102,7 @@ import Hydra.Tx (
   UTxOType,
   headSeedToTxIn,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
@@ -214,7 +215,7 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               ctx
               spendableUTxO
               seedTxIn
-              (rightToMaybe (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot))
+              (preferredFanoutTx (UTxO.size fullUTxO) (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot))
               utxoForProof
               fullUTxO
               (UTxO.size fullUTxO - 1)
@@ -228,7 +229,7 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               ctx
               spendableUTxO
               seedTxIn
-              (rightToMaybe (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot))
+              (preferredFanoutTx (UTxO.size utxoToDistribute) (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot))
               (utxoToDistribute <> presettledUTxO)
               utxoToDistribute
               (UTxO.size utxoToDistribute - 1)
@@ -606,6 +607,28 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
 
+-- | Most outputs a fanout transaction can distribute. Verifying @n@ outputs
+-- needs @n + 1@ CRS points, and the head validator rejects a subset larger than
+-- the deployed CRS (see 'Hydra.Contract.CRS.checkMembershipPairing'), so bigger
+-- chunks are not just unlikely to fit - they can never be valid. Building one
+-- rebuilds the head's accumulators for nothing.
+--
+-- 'Accumulator.defaultItems' is also what @publish-scripts@ puts in the CRS
+-- output, so this matches what is deployed. If it ever does not, the search
+-- still finds the right chunk: too high and the extra candidates fail script
+-- evaluation, too low and the execution budget was the tighter limit anyway.
+maxVerifiableChunk :: Int
+maxVerifiableChunk = Accumulator.defaultItems - 1
+
+-- | The single transaction to try before falling back to chunked partial
+-- fanouts, given how many outputs it distributes. 'Nothing' above
+-- 'maxVerifiableChunk', where it could only be rejected: building it means a
+-- membership proof over the whole set, discarded on every step.
+preferredFanoutTx :: Int -> Either err Tx -> Maybe Tx
+preferredFanoutTx numOutputs preferred
+  | numOutputs > maxVerifiableChunk = Nothing
+  | otherwise = rightToMaybe preferred
+
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
 -- 'tryTx' returns 'Just'. Assumes the predicate is monotone: if size @n@ fits,
 -- all sizes @< n@ also fit. Uses upper-mid so the search terminates correctly
@@ -692,6 +715,7 @@ findFittingFanoutTx ::
   --   is always a strict subset of the head's remaining UTxO, so even
   --   distributing all of it leaves the unselected remainder in the accumulator
   --   and 'mustNotBeLastBatch' holds.
+  --   The search caps this at 'maxVerifiableChunk' regardless.
   Int ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
@@ -705,7 +729,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
    where
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
-  findFallback = findLargestFitting tryChunk maxChunkSize
+  findFallback = findLargestFitting tryChunk (min maxChunkSize maxVerifiableChunk)
    where
     tryChunk n = buildTx n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 
