@@ -206,8 +206,9 @@ To perform a release of the next `<version>`:
 6. Create a GitHub release page containing:
    * The released changes (formatted) and giving credit where credit is due
    * Built Hydra (and `cardano-node`) binaries to the release using the naming scheme:
-     `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux` or
-     `aarch64-darwin` (the same for `cardano-node` instead of `hydra`)
+     `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux`,
+     `aarch64-linux` or `aarch64-darwin` (the same for `cardano-node` instead
+     of `hydra`)
    * The just published `hydra-scripts-tx-id` from step 1.
 
 [smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml

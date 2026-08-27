@@ -15,6 +15,13 @@ docker pull ghcr.io/cardano-scaling/hydra-node
 docker run --rm ghcr.io/cardano-scaling/hydra-node --help
 ```
 
+The `hydra-node` image is published for `linux/amd64` and `linux/arm64`, so the
+above pulls the image native to your machine. The `hydra-tui`, `hydraw` and
+`hydra-chain-observer` images are published for `linux/amd64` only. Running
+those on an arm64 host needs emulation, which Docker Desktop sets up for you but
+a plain Linux install does not, unless `qemu-user-static` binfmt handlers are
+registered.
+
 ### Dependencies
 
 There is **one** run-time dependency of `hydra-node`:
@@ -25,7 +32,7 @@ You can ignore this if you are using the Docker image.
 
 ### Prebuilt binaries
 
-We provide statically linked binaries of `hydra-node` and `hydra-tui` for x86_64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [GitHub releases](https://github.com/cardano-scaling/hydra/releases).
+We provide binaries of `hydra-node` and `hydra-tui` for x86_64 Linux, aarch64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [GitHub releases](https://github.com/cardano-scaling/hydra/releases). The x86_64 Linux ones are statically linked; the aarch64 Linux ones are not, as there is no musl cross build for that platform yet.
 
 :::info
 Recent versions of MacOS block unverified binaries to protect your system.
