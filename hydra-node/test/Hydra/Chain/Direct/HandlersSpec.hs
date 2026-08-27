@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   getChainPoint,
   toLedgerTx,
+  txOuts',
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
@@ -54,6 +55,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialChainState,
   initialize,
+  partialFanout,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
@@ -70,6 +72,7 @@ import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
   genClosedStateForFanout,
+  genClosedStateForFanoutOfSize,
   genDepositTx,
   genDepositTxWith,
   genHydraContext,
@@ -616,6 +619,59 @@ spec = do
             _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
             assert True
 
+    it "does not scale the number of candidate transactions with the head size" $ do
+      (smallBuilds, smallChunk) <- searchForChunk 100
+      (largeBuilds, largeChunk) <- searchForChunk 400
+      let report =
+            "head of 100: "
+              <> show smallBuilds
+              <> " candidates built for a chunk of "
+              <> show smallChunk
+              <> "\nhead of 400: "
+              <> show largeBuilds
+              <> " candidates built for a chunk of "
+              <> show largeChunk
+      -- No chunk can distribute more outputs than the deployed CRS verifies, so
+      -- the range worth searching is fixed and the work spent finding the chunk
+      -- must not grow with what is left in the head. Each candidate counted here
+      -- is a transaction that was constructed, which rebuilds the head's
+      -- accumulators, so the count is the cost.
+      unless (smallBuilds == largeBuilds) $ expectationFailure report
+
+    it "picks the largest chunk that fits" $ do
+      (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) <-
+        generate (genClosedStateForFanoutOfSize 3 100)
+      counter <- newIORef (0 :: Int)
+      tx <-
+        findFittingFanoutTx
+          nullTracer
+          (countingWallet counter)
+          cctx
+          spendableUTxO
+          seedTxIn
+          Nothing
+          u0
+          u0
+          (UTxO.size u0)
+          deadlineSlot
+      let chunk = chunkSizeOf tx
+          fitsChunk n =
+            case partialFanout cctx spendableUTxO seedTxIn n u0 u0 deadlineSlot of
+              Left _ -> pure False
+              Right candidate ->
+                fitsTx
+                  nullTracer
+                  (pure . withinSizeLimits)
+                  (\t u -> pure (evaluateTx t u))
+                  (spendableUTxO <> getKnownUTxO cctx)
+                  candidate
+      chosenFits <- fitsChunk chunk
+      oneMoreFits <- fitsChunk (chunk + 1)
+      unless chosenFits $
+        expectationFailure ("chunk of " <> show chunk <> " was chosen but does not fit")
+      when oneMoreFits $
+        expectationFailure ("chunk of " <> show chunk <> " was chosen but " <> show (chunk + 1) <> " also fits")
+
   describe "rejectOversizedDeposit" $ do
     prop "rejects deposit whose merged head value exceeds max value size" $
       -- 130 outputs, each with a token under a distinct policy id, accumulate
@@ -680,6 +736,63 @@ recordEventsHandler ctx cs getTimeHandle = do
   recordEvents :: TVar IO [ChainEvent Tx] -> ChainEvent Tx -> IO ()
   recordEvents var event = do
     atomically $ modifyTVar var (event :)
+
+-- | Whether a transaction is within the protocol's maximum transaction size,
+-- measured the same way the real wallet measures it.
+withinSizeLimits :: Tx -> Bool
+withinSizeLimits tx =
+  fromIntegral (BS.length (serialiseToCBOR tx)) < maxTxSize
+
+-- | Number of outputs a fanout transaction distributes. Output 0 is the
+-- continuing head output; the rest are the chunk.
+chunkSizeOf :: Tx -> Int
+chunkSizeOf tx = length (txOuts' tx) - 1
+
+-- | A wallet that answers 'findFittingFanoutTx' truthfully - real script
+-- evaluation, real size limit - while counting the candidate transactions it is
+-- asked about.
+--
+-- The count is exact: the chunk search reaches the outside world only through
+-- these two fields, and 'fitsTx' calls 'isTxWithinSizeLimits' once per
+-- constructed candidate before anything else, so one increment is one candidate
+-- built. Building a candidate rebuilds the head's accumulators, which is what
+-- makes the count worth bounding.
+countingWallet :: IORef Int -> TinyWallet IO
+countingWallet counter =
+  TinyWallet
+    { getUTxO = pure mempty
+    , getSeedInput = pure Nothing
+    , sign = id
+    , coverFee = \_ tx -> pure (Right tx)
+    , evaluateScriptCosts = \tx utxo -> pure (evaluateTx tx utxo)
+    , isTxWithinSizeLimits = \tx -> do
+        modifyIORef' counter (+ 1)
+        pure (withinSizeLimits tx)
+    , getPParams = pure defaultPParams
+    , reset = pure ()
+    , update = \_ _ -> pure ()
+    }
+
+-- | Run the chunk search against a closed head of the given size, returning how
+-- many candidate transactions were built and how large a chunk was chosen.
+searchForChunk :: Int -> IO (Int, Int)
+searchForChunk headSize = do
+  (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) <-
+    generate (genClosedStateForFanoutOfSize 3 headSize)
+  counter <- newIORef 0
+  tx <-
+    findFittingFanoutTx
+      nullTracer
+      (countingWallet counter)
+      cctx
+      spendableUTxO
+      seedTxIn
+      Nothing
+      u0
+      u0
+      (UTxO.size u0)
+      deadlineSlot
+  (,chunkSizeOf tx) <$> readIORef counter
 
 -- | A block used for testing. This is a simpler version of the cardano-api
 -- 'Block' and can be de-/constructed easily.

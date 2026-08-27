@@ -511,9 +511,21 @@ genFinalPartialFanoutTx numParties = do
 genClosedStateForFanout ::
   Int ->
   Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO)
-genClosedStateForFanout numParties = do
+genClosedStateForFanout numParties =
+  choose (11, 18 :: Int) >>= genClosedStateForFanoutOfSize numParties
+
+-- | Like 'genClosedStateForFanout' but with a caller-chosen snapshot UTxO size,
+-- for tests that need a head large enough to exercise how the chunk size is
+-- searched for. Sizes well above what one fanout step can distribute are the
+-- interesting ones there, and those never arise from 'genClosedStateForFanout'.
+genClosedStateForFanoutOfSize ::
+  Int ->
+  -- | Number of UTxOs in the snapshot. At least 2, so the first step can
+  -- distribute one and still leave one behind.
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO)
+genClosedStateForFanoutOfSize numParties n = do
   ctx <- genHydraContextFor numParties
-  n <- choose (11, 18 :: Int)
   u0 <- genUTxOAdaOnlyOfSize n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
