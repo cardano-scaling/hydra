@@ -5,6 +5,7 @@
 _: {
   perSystem = _: {
     _module.args.localHaskellPackageNames = [
+      "hydra-agda"
       "hydra-cardano-api"
       "hydra-chain-observer"
       "hydra-cluster"

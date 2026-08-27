@@ -20,5 +20,10 @@ _: {
         haskellType = "haskell.nix";
       };
 
+      # The MAlonzo-extracted Haskell under hydra-agda/generated is machine-generated
+      # (regenerate.sh) and must not be reformatted/linted; treefmt would fight the
+      # extractor. Exclude it globally (covers fourmolu, hlint, typos).
+      treefmt.settings.global.excludes = [ "hydra-agda/generated/**" ];
+
     };
 }

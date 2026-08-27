@@ -9,25 +9,18 @@ import Hydra.Prelude
 import Cardano.Api.Ledger (ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.Alonzo.PParams (LangDepView)
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
-  plutusScriptLanguage,
  )
-import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), ScriptIntegrityHash, hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity, mkScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
-  TxDats,
-  datsTxWitsL,
-  unRedeemersL,
-  unTxDatsL,
  )
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
-  BabbageEraTxBody,
   ConwayEra,
   PParams,
   TransactionScriptFailure (..),
@@ -41,16 +34,12 @@ import Cardano.Ledger.Api (
   inputsTxBodyL,
   outputsTxBodyL,
   rdmrsTxWitsL,
-  referenceInputsTxBodyL,
   scriptIntegrityHashTxBodyL,
-  scriptTxWitsL,
   witsTxL,
   pattern SpendingPurpose,
  )
-import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (getLanguageView)
+import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded, getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
-import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (TxLevel (..), ppMaxTxSizeL)
@@ -66,7 +55,6 @@ import Control.Lens (view, (%~), (.~), (^.))
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -267,7 +255,6 @@ coverFee_ ::
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
-  , BabbageEraTxBody era
   ) =>
   PParams era ->
   SystemStart ->
@@ -289,6 +276,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
 
   let utxo = lookupUTxO <> walletUTxO
+      ledgerUTxO = Ledger.UTxO utxo
 
   -- First, adjust redeemer indices for the fee input (keeping original execution units)
   let redeemersWithAdjustedIndices =
@@ -308,16 +296,20 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let adjustedRedeemers =
         applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
-  -- Compute script integrity hash from adjusted redeemers
-  let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
-      langs =
-        [ getLanguageView pparams l
-        | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
-        , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
-        ]
-      langViews = Set.fromList langs
-      txDats = wits ^. datsTxWitsL
-      scriptIntegrityHash = computeScriptIntegrityHash adjustedRedeemers txDats langViews
+  -- Compute the script integrity hash exactly like the ledger's UTXOW rule:
+  -- only scripts the transaction actually needs contribute their language
+  -- view, so a reference script merely carried by a reference input is
+  -- ignored. NOTE: mkScriptIntegrity reads redeemers and datums off the given
+  -- transaction, so it must see the adjusted redeemers (with estimated
+  -- ExUnits), not the estimation placeholders.
+  let txWithAdjustedRedeemers = txForEstimation & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
+      scriptIntegrityHash =
+        hashScriptIntegrity
+          <$> mkScriptIntegrity
+            pparams
+            txWithAdjustedRedeemers
+            (getScriptsProvided ledgerUTxO txWithAdjustedRedeemers)
+            (getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO (txWithAdjustedRedeemers ^. bodyTxL))
   let
     unbalancedBody =
       body
@@ -331,7 +323,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx 0
+  let fee = calcMinFeeTx ledgerUTxO pparams costingTx 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -424,17 +416,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         newIdx <- Map.lookup txIn finalInputIndex
         pure $ SpendingPurpose (AsIx newIdx)
     adjustPurpose other = other
-
-computeScriptIntegrityHash ::
-  AlonzoEraScript era =>
-  Redeemers era ->
-  TxDats era ->
-  Set.Set LangDepView ->
-  StrictMaybe ScriptIntegrityHash
-computeScriptIntegrityHash redeemers txDats langViews =
-  if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
-    then SNothing
-    else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =

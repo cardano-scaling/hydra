@@ -839,10 +839,11 @@ onOpenNetworkReqDec ::
   Ledger tx ->
   TTL ->
   ChainSlot ->
+  PendingDeposits tx ->
   OpenState tx ->
   tx ->
   Outcome tx
-onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
+onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
     requireDecommitOutputs headId localUTxO decommitTx $
@@ -853,37 +854,62 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
         <> maybeRequestSnapshot
  where
-  waitOnApplicableDecommit cont =
-    case mExistingDecommitTx of
-      Nothing ->
-        case applyTransactions currentSlot localUTxO [decommitTx] of
-          Right _ -> cont
-          Left (_, validationError)
+  -- Spec: wait 𝑈𝛼 = ∅. A pending commit (deposit) must settle before a
+  -- decommit can be recorded, otherwise a later snapshot would carry both (see
+  -- the symmetric guard on 'DepositActivated', which blocks a deposit while a
+  -- decommit is pending). While ttl remains we wait, so the decommit proceeds
+  -- once the increment finalises and clears 'currentDepositTxId'; once ttl is
+  -- exhausted we reject with 'DepositInFlight' (mirroring the branches below) so
+  -- the client can act (e.g. recover the deposit) instead of the request being
+  -- silently dropped.
+  --
+  -- Via 'existingDeposit', not 'currentDepositTxId' on its own: that field is not
+  -- cleared when a deposit expires or is recovered, so reading it directly would
+  -- block every later decommit on a deposit that can never settle, and the wait
+  -- would never resolve. Only a registered, unexpired deposit holds a decommit back.
+  waitOnApplicableDecommit cont
+    | Just (depositTxId, deposit) <- existingDeposit pendingDeposits currentDepositTxId =
+        let commitUTxO = deposit.deposited
+         in if ttl > 0
+              then wait $ WaitOnUnresolvedCommit{commitUTxO}
+              else
+                newState
+                  DecommitInvalid
+                    { headId
+                    , decommitTx
+                    , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
+                    }
+    | otherwise =
+        case mExistingDecommitTx of
+          Nothing ->
+            case applyTransactions currentSlot localUTxO [decommitTx] of
+              Right _ -> cont
+              Left (_, validationError)
+                | ttl > 0 ->
+                    wait $
+                      WaitOnNotApplicableDecommitTx
+                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                | otherwise ->
+                    newState
+                      DecommitInvalid
+                        { headId
+                        , decommitTx
+                        , decommitInvalidReason =
+                            ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                        }
+          Just existingDecommitTx
             | ttl > 0 ->
                 wait $
                   WaitOnNotApplicableDecommitTx
-                    ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
             | otherwise ->
                 newState
                   DecommitInvalid
                     { headId
                     , decommitTx
                     , decommitInvalidReason =
-                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
+                        DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
                     }
-      Just existingDecommitTx
-        | ttl > 0 ->
-            wait $
-              WaitOnNotApplicableDecommitTx
-                DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-        | otherwise ->
-            newState
-              DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason =
-                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-                }
 
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
@@ -905,6 +931,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     , localUTxO
     , version
     , seenSnapshot
+    , currentDepositTxId
     } = coordinatedHeadState
 
   OpenState
@@ -1207,7 +1234,7 @@ onOpenClientClose ::
   OpenState tx ->
   Outcome tx
 onOpenClientClose st =
-  -- Spec: η ← combine(̅S.𝑈)
+  -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
   --       ξ ← ̅S.σ
   --       postTx (close, ̅S.v, ̅S.s, η, ξ)
   cause
@@ -1249,10 +1276,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
     if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
       then
         outcome
-          -- XXX: As we use 'version' in the contest here, this is implies
-          -- that our last 'confirmedSnapshot' must match version or
-          -- version-1. Assert this fact?
-          -- Spec: η ← combine(̅S.𝑈)
+          -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
           <> cause
@@ -1375,10 +1399,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
   if
     | -- Spec: if ̅S.s > sc
       number (getSnapshot confirmedSnapshot) > snapshotNumber ->
-        -- XXX: As we use 'version' in the contest here, this is implies
-        -- that our last 'confirmedSnapshot' must match version or
-        -- version-1. Assert this fact?
-        -- Spec: η ← combine(̅S.𝑈)
+        -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
         --       ξ ← ̅S.σ
         --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
@@ -1881,6 +1902,26 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
   nodeOutOfSync = chainTime `plus` threshold < now
   newSyncStatus = if nodeOutOfSync then CatchingUp else InSync
 
+-- | The pending deposit that a local 'currentDepositTxId' still refers to, if any: the deposit must
+--   be registered in 'pendingDeposits' and not 'Expired'.
+--
+--   Being registered and unexpired is what makes a recorded deposit id something the head may still
+--   act on, and nothing else should be treated as a commit in flight. Neither of the two ways a
+--   deposit stops being pending clears 'currentDepositTxId': 'DepositExpired' deliberately keeps the
+--   deposit in the map so it can still be recovered, and 'DepositRecovered' only deletes the map
+--   entry. So a caller that reads 'currentDepositTxId' on its own can end up waiting on a deposit
+--   that is unclaimable, or already gone, and that wait never resolves.
+existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
+existingDeposit pendingDeposits currentDeposit =
+  case currentDeposit of
+    Nothing -> Nothing
+    Just depositTxId ->
+      case Map.lookup depositTxId pendingDeposits of
+        Nothing -> Nothing
+        Just deposit
+          | deposit.status == Expired -> Nothing
+          | otherwise -> Just (depositTxId, deposit)
+
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.
 --
@@ -1898,15 +1939,7 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
 --   somehow became unclaimable would stall snapshots for the whole head instead of
 --   just being abandoned by its depositor.
 setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
-setExistingDeposit pendingDeposits currentDeposit = do
-  case currentDeposit of
-    Nothing -> Nothing
-    Just depositTxId ->
-      case Map.lookup depositTxId pendingDeposits of
-        Nothing -> Nothing
-        Just Deposit{status}
-          | status == Expired -> Nothing
-          | otherwise -> currentDeposit
+setExistingDeposit pendingDeposits = fmap fst . existingDeposit pendingDeposits
 
 -- | Find the oldest non-empty active deposit, if any. Deposits are selected
 -- in FIFO order by their 'created' timestamp. This mirrors the selection
@@ -2245,8 +2278,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
-  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
+    onOpenNetworkReqDec env ledger ttl currentSlot (depositsForHead ourHeadId pendingDeposits) openState transaction
   _ ->
     Error $ UnhandledInput ev st
 

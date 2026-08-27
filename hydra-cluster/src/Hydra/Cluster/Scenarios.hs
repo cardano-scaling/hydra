@@ -1948,32 +1948,43 @@ waitsForChainInSync tracer workDir opts hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
-        -- The node reports that it is in the Open state when restarting.
-        waitMatch nodeStartupBudget n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "Greetings"
-          guard $ v ^? key "headStatus" == Just (toJSON Open)
-          guard $ v ^? key "me" == Just (toJSON carol)
-          guard $ isJust (v ^? key "hydraNodeVersion")
-
-        -- Carol replays the Close during catch up, so she emits both
-        -- HeadIsClosed and NodeSynced from the same chain sync. Their order
-        -- is not fixed: NodeSynced fires on the first tick with drift below
-        -- the unsynced period, and the block holding the close tx can land
-        -- on either side of that crossing (Carol restarts right after the
-        -- close, leaving it well within the threshold of the tip).
-        let catchUpBudget = unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime
-            matchClosedOrSynced v = do
+        -- Carol replays the Close during catch up, emitting NodeUnsynced,
+        -- NodeSynced and HeadIsClosed from the same chain sync, while the
+        -- Greetings is generated when the API client connects. Their order is
+        -- not fixed: on a local devnet the catch-up can finish before the
+        -- test client connects, delivering all three as history ahead of the
+        -- Greetings, whereas on a slow run the Greetings comes first and the
+        -- events arrive live; NodeSynced and HeadIsClosed can also swap, as
+        -- the block holding the close tx can land on either side of the
+        -- drift crossing. Since waitMatch consumes the message stream, a
+        -- single scan collecting them in any order covers all interleavings.
+        -- Only NodeSynced is order-constrained: it must come after
+        -- NodeUnsynced, so the replayed pre-restart NodeSynced does not
+        -- count.
+        let catchUpBudget =
+              nodeStartupBudget + unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime
+            matchCatchUpProgress seen v = do
               tag <- v ^? key "tag"
+              guard $ tag `notElem` seen
               case tag of
+                "Greetings" -> do
+                  guard $ v ^? key "me" == Just (toJSON carol)
+                  guard $ isJust (v ^? key "hydraNodeVersion")
+                  pure tag
                 "HeadIsClosed" -> do
                   guard $ v ^? key "headId" == Just (toJSON headId)
                   pure tag
-                "NodeSynced" -> pure tag
+                "NodeUnsynced" -> pure tag
+                "NodeSynced" -> do
+                  guard $ "NodeUnsynced" `elem` seen
+                  pure tag
                 _ -> Nothing
-        firstMatched <- waitMatch catchUpBudget n3 matchClosedOrSynced
-        waitMatch catchUpBudget n3 $ \v -> do
-          tag <- matchClosedOrSynced v
-          guard $ tag /= firstMatched
+            collectCatchUpProgress seen
+              | length seen == 4 = pure ()
+              | otherwise = do
+                  tag <- waitMatch catchUpBudget n3 (matchCatchUpProgress seen)
+                  collectCatchUpProgress (tag : seen)
+        collectCatchUpProgress []
  where
   hydraTracer = contramap FromHydraNode tracer
 

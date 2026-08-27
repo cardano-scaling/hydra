@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- Fixed the internal wallet setting a script integrity hash on transactions
+  that execute no scripts: reference inputs carrying Plutus scripts had their
+  language views hashed even when nothing runs, so the ledger rejected such
+  transactions with `PPViewHashesDontMatch (SJust _, expected SNothing)`. Like
+  the ledger, `coverFee` now only considers scripts the transaction actually
+  needs, which also corrects the hash for transactions that execute scripts
+  while referencing unrelated ones.
+  [#2836](https://github.com/cardano-scaling/hydra/pull/2836)
+
 - Reduce chain queries on the chain-sync path: building time conversions no
   longer queries the chain three times per block. System start is queried once,
   era history is cached and only re-queried when its horizon has been outrun. For
@@ -206,6 +215,41 @@ changes.
     reader going away (`hydra-node | head`, a restarting log shipper) made the
     next write throw; the writer is not linked to the node, so it died unnoticed
     and every subsequent trace blocked once the queue filled.
+- The formal specification (`spec/`) was migrated from LaTeX to literate Agda +
+  Typst: the same sources are type-checked by Agda (definitions, validity
+  bundles and security proofs are machine-checked, including consistency,
+  soundness/completeness and the on-chain safety invariants) and rendered to
+  the PDF by Typst. A decidable core is extracted to Haskell via MAlonzo (the
+  new `hydra-agda` package) and differentially tested against the real Plutus
+  validator (`hydra-tx` `HeadValidatorAgreement`) and the real head logic
+  handlers (`hydra-node` `OffChainAgreementSpec`/`OffChainLeaderSpec`). CI
+  gates the spec build (`checks.spec`, including reference/diagram and
+  trust-ledger drift checks) and the extraction freshness
+  (`checks.hydra-agda-generated`). The spec models the current protocol,
+  including the commit/decommit output-set hashes bound into the snapshot
+  multisignature, the deposit-identity binding of the commit digest (a snapshot
+  authorizes one deposit by transaction id, not any look-alike recording the
+  same UTxO) and the canonical CRS datum binding of the fanout paths. A global
+  solvency invariant is machine-checked on top: the head output's value covers
+  the accumulator-committed UTxO set's L1-originating value across
+  init/increment/decrement/close/contest, and fanout can only distribute
+  committed outputs; the proof's increment case consumes the deposit-identity
+  binding, so weakening it fails the spec build.
+
+- CI now gates validator reject-path coverage: `checks.error-codes` verifies
+  that every error code the head and deposit validators can raise is either
+  referenced by a test or carries a reviewed exclusion in the ledger of
+  `spec/check-error-codes.sh`, that no code is dead, and that the Aiken and
+  Haskell deposit-error tables agree.
+
+- The head logic now enforces the specification's "no commit and decommit in
+  flight at once" discipline on the message level: a `ReqDec` received while a
+  deposit is pending waits for the deposit to resolve instead of starting a
+  decommit; once its TTL is exhausted it is rejected with the new
+  `DepositInFlight` `DecommitInvalidReason` so clients know to recover the
+  deposit first. This complements the `ReqSn`-level rejection of a snapshot
+  carrying both (`ReqSnBothCommitAndDecommit`) and mirrors the machine-checked
+  `NoBothInFlight` invariant of the formal specification.
 
 ## [2.3.0] - 2026.07.15
 
