@@ -24,6 +24,18 @@ changes.
   a result.
   [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
 
+- Speed up posting a partial fanout step: the chunk size search was bounded by
+  the size of the set being distributed, so a 4000-output head built twelve
+  candidate transactions per step — the first ones carrying over a thousand
+  outputs — and rebuilt the head's accumulators for every one of them. The
+  search is now bounded by what the deployed CRS can verify, the whole-set
+  transaction is only attempted when it could fit, and the accumulator
+  verification happens once per step and is reused across candidates. Five
+  candidates per step regardless of head size (was `ceil(log2 n) + 1`), and the
+  search drops from 1.3s to 0.35s on a 4000-output head. The chunk chosen is
+  unchanged.
+  [#2848](https://github.com/cardano-scaling/hydra/issues/2848)
+
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their
   language views hashed even when nothing runs, so the ledger rejected such
