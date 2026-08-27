@@ -80,7 +80,8 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   increment,
   initialize,
-  partialFanout,
+  partialFanoutFromPlan,
+  preparePartialFanout,
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
@@ -685,7 +686,7 @@ fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
 -- fits, minimising the number of fanout steps.
 --
 -- Error mapping:
---   * 'StaleChainState' from 'partialFanout' → 'StalePartialFanoutTx' (race
+--   * 'StaleChainState' from 'preparePartialFanout' → 'StalePartialFanoutTx' (race
 --     condition; HeadLogic silently ignores it and the chain observation loop
 --     triggers the correct next step).
 --   * Any other 'PartialFanoutError' → 'FailedToConstructPartialFanoutTx'
@@ -729,12 +730,19 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
    where
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
-  findFallback = findLargestFitting tryChunk (min maxChunkSize maxVerifiableChunk)
+  -- Reading the head output and verifying its accumulator does not depend on the
+  -- chunk size, so it happens once here rather than per candidate.
+  findFallback = do
+    plan <- orThrow $ preparePartialFanout ctx spendableUTxO seedTxIn proofUTxO fullUTxO
+    findLargestFitting (tryChunk plan) (min maxChunkSize maxVerifiableChunk)
    where
-    tryChunk n = buildTx n >>= \tx -> bool Nothing (Just tx) <$> fits tx
+    tryChunk plan n = buildTx plan n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 
-  buildTx n =
-    either handleErr pure $ partialFanout ctx spendableUTxO seedTxIn n proofUTxO fullUTxO deadlineSlot
+  buildTx plan n =
+    orThrow $ partialFanoutFromPlan ctx plan n deadlineSlot
+
+  orThrow :: Either PartialFanoutError a -> m a
+  orThrow = either handleErr pure
    where
     handleErr err = do
       traceWith tracer PartialFanoutFailed{reason = show err}
