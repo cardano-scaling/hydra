@@ -115,7 +115,7 @@ changes.
   the other fees. See the updated "Ledger parameters" documentation.
 
 - Publish `hydra-node` docker images for `linux/arm64` alongside `linux/amd64`.
-  Its published tags are manifest lists, so an arm64 host pulls a native image
+  Its release tags are manifest lists, so an arm64 host pulls a native image
   instead of falling back to emulation. That fallback has not been usable since
   2.2.0: under Rosetta on Apple Silicon the node spends the KZG trusted-setup
   warm-up pegged at 100% CPU and never reaches its first log line (measured:
@@ -123,6 +123,11 @@ changes.
   respectively). The arm64 image ships the natively linked binary and its
   runtime closure, as there is no musl cross build for aarch64-linux yet.
   `hydra-tui`, `hydraw` and `hydra-chain-observer` remain `linux/amd64` only.
+
+- The `latest` docker tag now only moves when the release being built is the
+  highest release tag, so a hotfix on an older line no longer takes `latest`
+  backwards. The workflow previously checked out no history, which made every
+  release look like the newest one.
 
 - The `POST /commit` endpoint now rejects deposits that could never be claimed:
   a dry-run increment transaction is checked against the layer 1 maximum

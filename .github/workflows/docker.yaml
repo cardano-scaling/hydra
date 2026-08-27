@@ -1,25 +1,29 @@
-# This workflow builds docker images on 'master' and for all release tags. The
-# 'latest' docker tag on the registry will always point to the latest pushed
-# version, likely the one built from 'master', so referring to the versioned
-# images is suggested.
+# This workflow builds docker images on 'master' and for all release tags.
 #
-# Images are built once per architecture, each on a runner of that architecture
-# because nix does not cross-build them, and pushed under an arch-suffixed tag.
-# A final job, one leg per target, combines those into a manifest list under the
-# plain tag, so a client pulls the image native to its machine. Only hydra-node
-# is built for aarch64-linux; the other targets entrypoint a *-static package,
-# which only the x86_64 musl cross build provides, so their plain tag stays a
-# plain amd64 manifest rather than becoming a single-entry manifest list.
+# A release is also tagged 'latest' when it is the highest release tag in the
+# repository, so a hotfix on an older line does not take ':latest' backwards.
+# Referring to the versioned images is still suggested.
 #
-# Every stage after the tag computation is isolated per target and per
-# architecture, so that one flaky leg cannot hold back the images that did
-# build. Within a target, amd64 is required and arm64 is additive.
+# hydra-node is additionally built for aarch64-linux, on an arm runner of its
+# own: the x86_64 images come from the musl cross build and there is no
+# equivalent for aarch64-linux yet (cardano-scaling/hydra#2370). A last job
+# combines the two into a manifest list under the tags clients pull, which is
+# what makes 'docker pull' serve an arm64 host its native image.
+#
+# Adding an architecture must not be able to break what already shipped, so the
+# amd64 legs publish their tags themselves, exactly as they did before this
+# workflow knew about architectures. The arm64 leg publishes only a scratch tag
+# naming the run, and the last job folds it in afterwards. If it never lands,
+# that job fails on the missing tag and hydra-node stays amd64-only.
 name: Docker
 
-# Limit concurrent runs of this workflow within a single PR
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # This workflow has no pull_request trigger, so this only ever groups master
+  # pushes, release tags and manual dispatches. Never cancel a release: the
+  # manifest job is what turns hydra-node's tags into an index, and a cancelled
+  # run leaves them amd64-only.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 on:
   push:
@@ -46,25 +50,26 @@ jobs:
     permissions: {}
 
     outputs:
-      label: ${{ steps.compute.outputs.label }}
       version: ${{ steps.compute.outputs.version }}
-      latest: ${{ steps.compute.outputs.latest }}
+      tags: ${{ steps.compute.outputs.tags }}
 
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.inputs.ref_name || '' }}
-        # All history and tags, as the 'latest' decision below compares this
-        # tag against every other release tag. A shallow checkout only fetches
-        # the tag being built, which would make every build look like latest.
-        # Both inputs are needed: checkout passes --no-tags unless fetch-tags
-        # is set, see the manual re-fetch in binaries.yaml.
+        # All history, as the 'latest' decision below compares this tag
+        # against every other release tag. Tags themselves come from the
+        # force-fetch in that step, as in binaries.yaml.
         fetch-depth: 0
-        fetch-tags: true
 
     - name: 🏷️ Compute tags
       id: compute
+      env:
+        # Ref names go through the environment rather than workflow expression
+        # interpolation, so that one containing shell metacharacters cannot
+        # inject into this script.
+        DISPATCH_REF: ${{ github.event.inputs.ref_name }}
       run: |
 
         # Compute tags. We want the following behaviour:
@@ -84,28 +89,49 @@ jobs:
         VERSION=${GITHUB_SHA}
 
         # Determine whether we are building a tag and if yes, set the label
-        # name to be the tag name, and the version to be the tag. Ref names go
-        # through the environment rather than workflow expression interpolation,
-        # so that one containing shell metacharacters cannot inject into this
-        # script.
+        # name to be the tag name, and the version to be the tag.
         BUILDING_TAG=${{github.ref_type == 'tag'}}
         [[ "${BUILDING_TAG}" = true ]] && \
           IMAGE_LABEL=${GITHUB_REF_NAME} && \
           VERSION=${GITHUB_REF_NAME}
 
-        # If we're running on master, tag it as "unstable" and
-        # and leave the version as the git commit.
-        [[ ${GITHUB_REF_NAME} = "master" ]] && \
-          IMAGE_LABEL=unstable
+        # The extra tag a manual dispatch gets. Docker tags are
+        # [A-Za-z0-9_][A-Za-z0-9._-]{0,127} and our branch names routinely
+        # contain '/', which docker rejects outright. The 'workflow_dispatch-'
+        # prefix covers the leading-character rule.
+        DISPATCH_TAG=
+        if [[ "${GITHUB_EVENT_NAME}" = workflow_dispatch ]]; then
+          DISPATCH_TAG=workflow_dispatch-${DISPATCH_REF//[^A-Za-z0-9_.-]/-}
+          DISPATCH_TAG=${DISPATCH_TAG:0:128}
+        fi
 
-        # Decide whether this build is also the 'latest' tag.
-        LATEST=false
+        # Every tag this build publishes, the plain label first. Computed once
+        # here so that the amd64 build and the manifest replacing hydra-node's
+        # tags cannot disagree about what to call the image.
+        IMAGE_TAGS=( "${IMAGE_LABEL}" )
+        [[ -n "${DISPATCH_TAG}" ]] && \
+          IMAGE_TAGS+=( "${DISPATCH_TAG}" )
+
+        # Add 'latest' when this is the highest release tag.
         if [[ "${BUILDING_TAG}" = true ]]; then
+          # NOTE: As in binaries.yaml, the tags fetched by checkout are not
+          # effective and have to be refetched with --force.
+          git fetch --tags --force
+
           # Build a sorted list of tags . We have to grep-exclude some tags
           # that we don't want to include; i.e. ones that don't point to our
           # actual releases. The '|| true' keeps an empty match from aborting
-          # the step under 'bash -e'.
+          # the step under 'bash -e'; emptiness itself is caught right below.
           git tag -l | grep -P '^\d+\.\d+\.\d+$' >tags.txt || true
+
+          # We are building a release tag, so at minimum that tag has to be in
+          # the list. An empty one means the fetch did not take, and answering
+          # 'not latest' would leave ':latest' on the previous release with a
+          # green check.
+          if [[ ! -s tags.txt ]]; then
+            echo "::error::no release tags found, cannot decide whether ${GITHUB_REF_NAME} is latest"
+            exit 1
+          fi
 
           # Get the largest one (sort -V sorts as versions).
           sort -V tags.txt | tail -n1 >latest.txt
@@ -117,21 +143,19 @@ jobs:
           # Note: This will also print the diff if it fails, which is useful
           # for debugging.
           if (diff mine.txt latest.txt); then
-            LATEST=true
+            IMAGE_TAGS+=( latest )
           fi
         fi
 
-        echo "label=${IMAGE_LABEL}" >>$GITHUB_OUTPUT
         echo "version=${VERSION}" >>$GITHUB_OUTPUT
-        echo "latest=${LATEST}" >>$GITHUB_OUTPUT
+        echo "tags=${IMAGE_TAGS[*]}" >>$GITHUB_OUTPUT
 
   docker:
     needs: tags
 
     strategy:
-      # One architecture failing should not cancel the others: a cancelled leg
-      # publishes nothing, so it would take an image that builds fine down with
-      # it.
+      # The arm64 leg failing must not cancel the amd64 ones, as those publish
+      # the tags clients pull.
       fail-fast: false
       matrix:
         include:
@@ -143,10 +167,11 @@ jobs:
         - { target: hydra-node, runner: ubuntu-24.04-arm, arch: arm64 }
 
     runs-on: ${{ matrix.runner }}
-    # Everything needed is in the binary caches, so this is a download rather
-    # than a build. Bound it anyway: a cache miss would otherwise compile
-    # hydra-node on a four-core runner against the six hour default.
-    timeout-minutes: 60
+    # Expected to be a download rather than a build, as ci.iog.io populates
+    # cache.iog.io for both systems, though nothing orders that against this
+    # workflow. amd64 keeps the six hour default; the arm leg is bounded
+    # tighter, as a miss there compiles hydra-node on a four-core runner.
+    timeout-minutes: ${{ matrix.arch == 'arm64' && 120 || 360 }}
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -167,51 +192,67 @@ jobs:
 
     - name: 🔨 🏷️ Build and tag image
       env:
-        LABEL: ${{ needs.tags.outputs.label }}
         VERSION: ${{ needs.tags.outputs.version }}
+        TAGS: ${{ needs.tags.outputs.tags }}
       run: |
 
         IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${{matrix.target}}
-        IMAGE_REF="${IMAGE_NAME}:${LABEL}-${{matrix.arch}}"
-        echo "IMAGE_REF=${IMAGE_REF}" >> $GITHUB_ENV
+        echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
         nix build .#docker-${{ matrix.target }}
         docker load < result
 
+        read -ra IMAGE_TAGS <<< "${TAGS}"
+
+        # A tag naming this run rather than the release, so the manifest job
+        # combines what this run built and not whatever ':unstable' points at
+        # by the time it gets there. Not scoped to the attempt, so re-running
+        # one failed leg still finds what the other pushed.
+        SCRATCH="${IMAGE_NAME}:build-${GITHUB_RUN_ID}-${{matrix.arch}}"
+
         # Use 'FROM' instruction to use docker build with --label, as
-        # well as setting the tag directly. The tag carries the architecture;
-        # the manifest job below is what publishes the tag clients pull.
+        # well as setting the tag directly.
         echo "FROM ${{matrix.target}}" | docker build \
           --label org.opencontainers.image.source=https://github.com/cardano-scaling/hydra \
           --label org.opencontainers.image.licenses=Apache-2.0 \
           --label org.opencontainers.image.created=$(date -Is) \
           --label org.opencontainers.image.revision=${GITHUB_SHA} \
           --label "org.opencontainers.image.version=${VERSION}" \
-          --tag "${IMAGE_REF}" -
+          --tag "${SCRATCH}" -
 
-        docker inspect "${IMAGE_REF}"
+        # amd64 also carries the tags clients pull, exactly as it did before
+        # this workflow knew about architectures. arm64 carries none of them:
+        # it is an addition to hydra-node, and a plain tag holding an
+        # arm64-only image would make every amd64 client fail the pull.
+        if [[ "${{matrix.arch}}" = amd64 ]]; then
+          for tag in "${IMAGE_TAGS[@]}"; do
+            docker tag "${SCRATCH}" "${IMAGE_NAME}:${tag}"
+          done
+        fi
+
+        docker inspect "${SCRATCH}"
         docker images
+
+        # hydra-node is the only target the manifest job combines, so it is the
+        # only one whose scratch tag has any business reaching the registry.
+        [[ "${{matrix.target}}" = hydra-node ]] || \
+          docker rmi "${SCRATCH}"
 
     - name: 📤 Push to registry
       run: |
-        docker push "${IMAGE_REF}"
+        docker push -a "${IMAGE_NAME}"
 
-  # Publish the tags clients actually pull, each a manifest list over whatever
-  # architectures the build job produced for that target.
+  # Turn hydra-node's tags into a manifest list, so that pulling one on an arm64
+  # host serves the native image rather than the amd64 one. It is the only
+  # target built for more than one architecture; the rest published their tags
+  # from the build job and are already done.
   manifest:
     needs: [ tags, docker ]
 
-    # Run even when a build leg failed: previously every target published
-    # independently via 'docker push -a', and a flaky arm64 runner must not
-    # keep the plain tags of the targets that did build from being created.
-    # The tags job is the one hard requirement, as it names the images.
+    # Run even when a build leg failed. The amd64 images have published their
+    # own tags already, and this only upgrades hydra-node's: if the arm64 leg
+    # did not land, 'imagetools create' fails on the missing scratch tag and
+    # hydra-node stays amd64-only, which is what it was before.
     if: ${{ !cancelled() && needs.tags.result == 'success' }}
-
-    strategy:
-      # Likewise per target: one target's manifest failing should not stop the
-      # other three from being published.
-      fail-fast: false
-      matrix:
-        target: [ hydra-node, hydra-tui, hydraw, hydra-chain-observer ]
 
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -225,70 +266,20 @@ jobs:
 
     - name: 🧩 Combine the per-architecture images
       env:
-        LABEL: ${{ needs.tags.outputs.label }}
-        LATEST: ${{ needs.tags.outputs.latest }}
-        IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
-        # Via the environment rather than workflow expression interpolation, so
-        # that a ref name containing shell metacharacters cannot inject into
-        # this script.
-        DISPATCH_REF: ${{ github.event.inputs.ref_name }}
+        TAGS: ${{ needs.tags.outputs.tags }}
       run: |
 
-        TARGET=${{ matrix.target }}
-        IMAGE_NAME=ghcr.io/${{github.repository_owner}}/${TARGET}
+        IMAGE_NAME=ghcr.io/${{github.repository_owner}}/hydra-node
+        BUILD=${IMAGE_NAME}:build-${GITHUB_RUN_ID}
 
-        # Combine whichever architectures this run actually pushed, rather than
-        # assuming the build matrix succeeded in full.
-        #
-        # An architecture counts only if the image under its tag carries this
-        # run's revision. '<label>-<arch>' is reused across runs whenever the
-        # label is 'unstable', so a leg that failed would otherwise leave the
-        # previous run's image in place and get it paired with this run's other
-        # architecture: one tag spanning two commits. Re-running a failed leg
-        # still works, as the legs that already succeeded carry this revision.
-        landed() {
-          local rev
-          rev=$(docker buildx imagetools inspect --format '{{json .Image}}' "$1" 2>/dev/null \
-                | jq -r '.config.Labels["org.opencontainers.image.revision"] // empty') || rev=
-          [[ -n "${rev}" && "${rev}" = "${GITHUB_SHA}" ]]
-        }
+        # The same tags the amd64 leg already published, replaced by an index
+        # over both architectures.
+        read -ra IMAGE_TAGS <<< "${TAGS}"
+        ARGS=()
+        for tag in "${IMAGE_TAGS[@]}"; do
+          ARGS+=( --tag "${IMAGE_NAME}:${tag}" )
+        done
 
-        # amd64 is required: an arm64-only manifest under the plain tag makes
-        # every amd64 client fail the pull with "no matching manifest", which
-        # is worse than leaving the previous tag in place.
-        if ! landed "${IMAGE_NAME}:${LABEL}-amd64"; then
-          echo "::error::no ${LABEL}-amd64 image from this run for ${TARGET}, refusing to publish ${LABEL}"
-          exit 1
-        fi
-        SOURCES=( "${IMAGE_NAME}:${LABEL}-amd64" )
+        docker buildx imagetools create "${ARGS[@]}" "${BUILD}-amd64" "${BUILD}-arm64"
 
-        # hydra-node is the only target built for more than one architecture,
-        # and its arm64 leg is additive: if it did not land we still publish
-        # the amd64 image, as before this workflow knew about arm64 at all.
-        #
-        # The single-architecture case asks for a carbon copy rather than an
-        # index: an index listing only linux/amd64 makes docker refuse the pull
-        # outright on arm64, where a plain manifest still falls back to
-        # emulation.
-        PREFER_INDEX=false
-        if landed "${IMAGE_NAME}:${LABEL}-arm64"; then
-          SOURCES+=( "${IMAGE_NAME}:${LABEL}-arm64" )
-          PREFER_INDEX=true
-        elif [[ "${TARGET}" = hydra-node ]]; then
-          echo "::warning::no ${LABEL}-arm64 image from this run for ${TARGET}, publishing ${LABEL} as amd64 only"
-        fi
-
-        TAGS=( --tag "${IMAGE_NAME}:${LABEL}" )
-
-        # Tag the build as 'latest' if it's the latest tag.
-        [[ "${LATEST}" = true ]] && \
-          TAGS+=( --tag "${IMAGE_NAME}:latest" )
-
-        # Also tag with ref name when manually dispatched
-        [[ "${IS_DISPATCH}" = true ]] && \
-          TAGS+=( --tag "${IMAGE_NAME}:workflow_dispatch-${DISPATCH_REF}" )
-
-        docker buildx imagetools create \
-          --prefer-index=${PREFER_INDEX} "${TAGS[@]}" "${SOURCES[@]}"
-
-        docker buildx imagetools inspect "${IMAGE_NAME}:${LABEL}"
+        docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAGS[0]}"

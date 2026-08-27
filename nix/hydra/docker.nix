@@ -55,6 +55,9 @@
           };
           config = {
             Entrypoint = [ "${self'.packages.hydra-node}/bin/hydra-node" ];
+            # As above, and needed on every system here rather than just
+            # aarch64: this image never had a static entrypoint to hide behind.
+            Env = [ "LANG=C.UTF-8" ];
           };
         };
       } // lib.optionalAttrs hasStatic {
