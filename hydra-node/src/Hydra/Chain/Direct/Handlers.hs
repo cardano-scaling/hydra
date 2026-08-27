@@ -733,7 +733,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
   -- Reading the head output and verifying its accumulator does not depend on the
   -- chunk size, so it happens once here rather than per candidate.
   findFallback = do
-    plan <- orThrow $ preparePartialFanout ctx spendableUTxO seedTxIn proofUTxO fullUTxO
+    plan <- orThrow $ preparePartialFanout spendableUTxO seedTxIn proofUTxO fullUTxO
     findLargestFitting (tryChunk plan) (min maxChunkSize maxVerifiableChunk)
    where
     tryChunk plan n = buildTx plan n >>= \tx -> bool Nothing (Just tx) <$> fits tx

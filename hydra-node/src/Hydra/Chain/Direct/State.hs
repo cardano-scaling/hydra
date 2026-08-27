@@ -657,7 +657,6 @@ data PartialFanoutPlan = PartialFanoutPlan
 -- Handles both the first step (Closed → FanoutProgress) and intermediate steps
 -- (FanoutProgress → FanoutProgress) by detecting the current datum type.
 preparePartialFanout ::
-  ChainContext ->
   -- | Spendable UTxO containing head output
   UTxO ->
   -- | Seed TxIn
@@ -670,7 +669,7 @@ preparePartialFanout ::
   -- | Remaining UTxOs to distribute
   UTxO ->
   Either PartialFanoutError PartialFanoutPlan
-preparePartialFanout ctx spendableUTxO seedTxIn proofUTxO remainingUTxO = do
+preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -735,7 +734,7 @@ partialFanout ::
   SlotNo ->
   Either PartialFanoutError Tx
 partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
-  plan <- preparePartialFanout ctx spendableUTxO seedTxIn proofUTxO remainingUTxO
+  plan <- preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO
   partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo
 
 -- | Construct the final partial fanout transaction that distributes all remaining
