@@ -36,9 +36,13 @@ spec = describe "mkSmokeTiming" $ do
   it "gives close and contest transactions several blocks to be included" $ do
     -- They are built with this upper bound and are not resubmitted if they
     -- expire first, so the contestation period cannot be cut arbitrarily.
+    -- At 10 * blockTime this still yields maxGraceTime, the same window
+    -- 'mkTestTiming' gives, so nothing here is more likely to expire than
+    -- before. Below that it starts shrinking, and takes the derived
+    -- unsyncedPeriod and Blockfrost's submission retry budget with it.
     let Timing{contestationPeriod} = mkSmokeTiming publicBlockTime
     min maxGraceTime (CP.toNominalDiffTime contestationPeriod)
-      `shouldSatisfy` (>= 4 * publicBlockTime)
+      `shouldBe` maxGraceTime
  where
   -- Mirrors 'Hydra.HeadLogic.determineNextDepositStatus' against the bounds
   -- 'Hydra.Chain.Direct.Handlers.draftDepositTx' and
@@ -46,7 +50,11 @@ spec = describe "mkSmokeTiming" $ do
   activeWindow Timing{depositPeriod, depositActivation} =
     DP.toNominalDiffTime depositPeriod - graceTime
    where
-    graceTime = max 10 . min maxGraceTime $ deadlineOffset / 2
+    -- NOTE: Handlers.hs reads @maxGraceTime `min` untilDeadline / 2@; a
+    -- backticked function is infixl 9 and @/@ is infixl 7, so the division
+    -- applies to the @min@, not to @untilDeadline@ alone. Mirrored as written,
+    -- not as it reads.
+    graceTime = max 10 $ min maxGraceTime deadlineOffset / 2
 
     deadlineOffset =
       DP.toNominalDiffTime depositActivation + 2 * DP.toNominalDiffTime depositPeriod

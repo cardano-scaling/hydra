@@ -197,26 +197,14 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
           void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx
           Blockfrost.awaitUTxO networkId [receivingAddress] signedTx
 
--- | Select enough entries to cover the given amount, largest first so the fewest
--- inputs are spent. NOTE: Selecting across entries rather than requiring a
--- single large enough one matters once a caller asks for more than one payout
--- at a time: the faucet's own change and the funds actors return to it are
--- individually smaller than such a sum, and would otherwise stop being usable.
 findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
-findUTxO utxo lovelace' =
-  case select mempty 0 (sortOn (Down . lovelaceOf . snd) (UTxO.toList utxo)) of
-    Nothing -> liftIO $ throwIO FaucetHasNotEnoughFunds{faucetUTxO = utxo}
-    Just selected -> pure $ UTxO.fromList selected
- where
-  select acc total = \case
-    rest
-      | total >= lovelace' -> Just acc
-      | otherwise -> case rest of
-          [] -> Nothing
-          (o : os) -> select (o : acc) (total + lovelaceOf (snd o)) os
-
-  lovelaceOf :: TxOut CtxUTxO -> Lovelace
-  lovelaceOf = selectLovelace . txOutValue
+findUTxO utxo lovelace' = do
+  let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') utxo
+  when (isNothing foundUTxO) $
+    liftIO $
+      throwIO $
+        FaucetHasNotEnoughFunds{faucetUTxO = utxo}
+  pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::

@@ -109,40 +109,41 @@ mkTestTiming' numDeposits blockTime =
 
 -- | Timing for the smoke test run by the @hydra-cluster@ executable against a
 -- public network, where a block takes ~20s and the run is dominated by waiting
--- out 'depositActivation' and the contestation period rather than by anything
--- the scenario asserts. Both waits are shaped by @maxGraceTime = 200@ in
--- 'Hydra.Chain.Direct.Handlers'.
+-- out 'depositActivation' rather than by anything the scenario asserts.
 --
 -- A deposit becomes active at @created + depositActivation@, where @created@ is
--- the deposit tx's upper validity bound, itself a grace time ahead of the chain
--- tip. The grace time is not ours to set, so 'depositActivation' is the whole
--- lever: at one block time the wait drops from @200 + 400@ to @200 + 20@.
+-- the deposit tx's upper validity bound, set a grace time ahead of the chain
+-- tip by 'Hydra.Chain.Direct.Handlers.draftDepositTx'. That grace time is
+-- @maxGraceTime \`min\` untilDeadline / 2@, and a backticked function binds
+-- tighter than @\/@, so it is @min 200 untilDeadline / 2@: a flat 100s for any
+-- deadline more than 200s out, not the @min 200 (untilDeadline \/ 2)@ it reads
+-- as. So the wait is @100 + depositActivation@, and only the second term is
+-- ours: at one block time it drops from 100 + 400 to 100 + 20.
 --
--- The contestation deadline is @closeTxUpperBound + contestationPeriod@, and
--- the close tx's upper bound is @now + min contestationPeriod maxGraceTime@, so
--- closing costs @min cp 200 + cp@. Both terms fall together below 200s; the
--- price is that the close and increment transactions get a @cp@-long window to
--- be included (five blocks here), and there is no resubmit on expiry.
+-- 'contestationPeriod' is cut to the point where the close transaction's
+-- validity window stops changing, and no further. The contestation deadline is
+-- @closeTxUpperBound + contestationPeriod@ with the close tx bounded at
+-- @now + min contestationPeriod maxGraceTime@, so at @10 * blockTime@ = 200s
+-- the wait halves from 600s to 400s while that @min@ still yields 200s, exactly
+-- as it does at 'mkTestTiming'\'s 400s. Going below 200s would start shortening
+-- the window every close, contest and increment has to be included in, with no
+-- resubmit on expiry, and would drag two things with it: the derived
+-- @unsyncedPeriod@ (half the contestation period, against a Blockfrost follower
+-- that only observes blocks with a successor and so lags a block gap by
+-- construction) and 'Hydra.Chain.Blockfrost.Client.submissionRetryPolicy',
+-- whose ~180s worst case is documented against a 200s window.
 --
--- 'unsyncedPeriod' is deliberately left at the node's default of @cp \/ 2@.
--- Drift is only sampled when a block arrives ('handleOutOfSync' runs from the
--- @Tick@ input, which 'Hydra.Chain.Direct.Handlers.onRollForward' is the sole
--- source of), so it measures block processing lag rather than the gap between
--- blocks, and it must stay under @min cp maxGraceTime@ anyway: a node acting
--- while drifted further than that builds close transactions whose validity
--- bound is already in the past.
---
--- 'depositPeriod' deliberately keeps its 'mkTestTiming' value. It is not on the
--- critical path -- it sets how long a deposit stays active, not how long
--- anything waits -- and shortening it only eats that window, which is
--- @depositPeriod - graceTime@ with @graceTime@ up to @maxGraceTime@. At or
--- below 200s a deposit would expire the moment it activates and the increment
--- could never be posted. 'Test.Hydra.Cluster.UtilSpec' guards this.
+-- 'depositPeriod' keeps its 'mkTestTiming' value. It is not on the critical
+-- path -- it sets how long a deposit stays active, not how long anything waits
+-- -- and shortening it only eats that window, which is
+-- @depositPeriod - graceTime@. NOTE: This assumes block times around 20s; the
+-- window closes entirely below ~5s, where 'depositPeriod' falls to the flat
+-- 100s grace time. 'Test.Hydra.Cluster.UtilSpec' guards the value used here.
 mkSmokeTiming :: BlockTime -> Timing
 mkSmokeTiming blockTime =
   Timing
     { blockTime
-    , contestationPeriod = truncate $ max 1 (5 * blockTime)
+    , contestationPeriod = truncate $ max 1 (10 * blockTime)
     , depositPeriod = truncatedDepositPeriod $ max 1 (20 * blockTime)
     , depositActivation = truncatedDepositPeriod $ max 1 blockTime
     }
