@@ -81,29 +81,70 @@ seedFromFaucetWithMinting ::
   Tracer IO FaucetLog ->
   Maybe PlutusScript ->
   IO UTxO
-seedFromFaucetWithMinting opts receivingVerificationKey val tracer mintingScript = do
+seedFromFaucetWithMinting opts receivingVerificationKey val tracer mintingScript =
+  seedManyFromFaucetWithMinting opts [(receivingVerificationKey, val)] tracer mintingScript >>= \case
+    [utxo] -> pure utxo
+    utxos -> failure $ "seedFromFaucetWithMinting: expected one seeded UTxO, got " <> show (length utxos)
+
+-- | Like 'seedFromFaucet' but pays every recipient from a single faucet
+-- transaction. A scenario needing more than one funded key then waits for one
+-- confirmation instead of one per key, which is a block time each on a public
+-- network.
+seedManyFromFaucet ::
+  ChainBackendOptions ->
+  -- | Recipients of the funds and the value each is to receive.
+  [(VerificationKey PaymentKey, Value)] ->
+  Tracer IO FaucetLog ->
+  -- | The seeded UTxO of each recipient, in the order given.
+  IO [UTxO]
+seedManyFromFaucet opts recipients tracer =
+  seedManyFromFaucetWithMinting opts recipients tracer Nothing
+
+seedManyFromFaucetWithMinting ::
+  ChainBackendOptions ->
+  -- | Recipients of the funds and the value each is to receive.
+  [(VerificationKey PaymentKey, Value)] ->
+  Tracer IO FaucetLog ->
+  Maybe PlutusScript ->
+  -- | The seeded UTxO of each recipient, in the order given.
+  IO [UTxO]
+seedManyFromFaucetWithMinting _ [] _ _ = pure []
+seedManyFromFaucetWithMinting opts recipients tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
   seedTx <- retryOnExceptions tracer opts $ submitSeedTx faucetVk faucetSk networkId
-  producedUTxO <- runBackend opts $ awaitTransaction seedTx receivingVerificationKey
-  pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
+  -- NOTE: The direct backend's 'awaitTransaction' yields all of the tx's
+  -- outputs while the Blockfrost one yields only those paying to the given key,
+  -- so ask per recipient and filter. Only the first call waits for the
+  -- transaction, the rest are already satisfied by it.
+  forM recipients $ \(vk, val) -> do
+    seeded <-
+      UTxO.filter (== toCtxUTxOTxOut (theOutput networkId vk val))
+        <$> runBackend opts (awaitTransaction seedTx vk)
+    -- An empty result means the output we asked for is not the one that landed
+    -- (a value normalised on the way out, say). Say so here rather than let the
+    -- caller trip over an empty UTxO much later.
+    when (UTxO.null seeded) $
+      failure $
+        "seedManyFromFaucet: no output of " <> show val <> " for " <> show vk <> " in " <> show (getTxId $ getTxBody seedTx)
+    pure seeded
  where
   submitSeedTx faucetVk faucetSk networkId = do
-    faucetUTxO <- findFaucetUTxO networkId opts (selectLovelace val)
+    faucetUTxO <- findFaucetUTxO networkId opts (sum $ selectLovelace . snd <$> recipients)
     let changeAddress = mkVkAddress networkId faucetVk
+    let outputs = uncurry (theOutput networkId) <$> recipients
 
-    runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] mintingScript) >>= \case
+    runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) outputs mintingScript) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
         let signedTx = sign faucetSk (getTxBody tx)
         runBackend opts $ submitTransaction signedTx
         pure signedTx
 
-  receivingAddress = buildAddress receivingVerificationKey
-
-  theOutput networkId =
+  theOutput :: NetworkId -> VerificationKey PaymentKey -> Value -> TxOut CtxTx
+  theOutput networkId vk val =
     TxOut
-      (shelleyAddressInEra shelleyBasedEra (receivingAddress networkId))
+      (shelleyAddressInEra shelleyBasedEra (buildAddress vk networkId))
       val
       TxOutDatumNone
       ReferenceScriptNone
@@ -156,14 +197,26 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
           void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx
           Blockfrost.awaitUTxO networkId [receivingAddress] signedTx
 
+-- | Select enough entries to cover the given amount, largest first so the fewest
+-- inputs are spent. NOTE: Selecting across entries rather than requiring a
+-- single large enough one matters once a caller asks for more than one payout
+-- at a time: the faucet's own change and the funds actors return to it are
+-- individually smaller than such a sum, and would otherwise stop being usable.
 findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
-findUTxO utxo lovelace' = do
-  let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') utxo
-  when (isNothing foundUTxO) $
-    liftIO $
-      throwIO $
-        FaucetHasNotEnoughFunds{faucetUTxO = utxo}
-  pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
+findUTxO utxo lovelace' =
+  case select mempty 0 (sortOn (Down . lovelaceOf . snd) (UTxO.toList utxo)) of
+    Nothing -> liftIO $ throwIO FaucetHasNotEnoughFunds{faucetUTxO = utxo}
+    Just selected -> pure $ UTxO.fromList selected
+ where
+  select acc total = \case
+    rest
+      | total >= lovelace' -> Just acc
+      | otherwise -> case rest of
+          [] -> Nothing
+          (o : os) -> select (o : acc) (total + lovelaceOf (snd o)) os
+
+  lovelaceOf :: TxOut CtxUTxO -> Lovelace
+  lovelaceOf = selectLovelace . txOutValue
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::

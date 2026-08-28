@@ -52,7 +52,19 @@ Smoke tests can also run using _Blockfrost_ in which case there is no need to
 start `cardano-node`.
 
 The Hydra nodes can reference pre-existing contracts living at some well-known
-transaction or can post a new transaction to use those contracts.
+transaction or can post a new transaction to use those contracts. On testnets,
+`--publish-hydra-scripts` caches the tx ids in
+`<state-directory>/.hydra-scripts-tx-ids` and reuses them on the next run if the
+scripts they point at still match the ones compiled in; a script change
+republishes. Mainnet always publishes, since that check cannot tell a changed
+script from a transient query failure.
+
+On testnets the scenario also runs with shorter periods than the end-to-end
+tests use (see `mkSmokeTiming`): most of its wall clock would otherwise be spent
+waiting out `depositActivation` and the contestation period. Mainnet keeps the
+end-to-end timings -- it runs once per release, so there is nothing to gain, and
+a shorter contestation period only narrows the window its close transaction has
+to be included.
 
 :warning: do not provide actual funds to this faucet address as the
 signing key is publicly available. Shall you want to run the smoke

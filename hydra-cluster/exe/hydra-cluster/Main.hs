@@ -14,11 +14,12 @@ import CardanoNode (
  )
 import Hydra.Cardano.Api (TxId, serialiseToRawBytesHexText)
 import Hydra.Chain.Backend (blockfrostProjectPath)
-import Hydra.Cluster.Faucet (publishHydraScriptsAs)
+import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Util (mkSmokeTiming, mkTestTiming)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -42,16 +43,16 @@ run options =
           if network `notElem` blockfrostNetworks
             then withRunningCardanoNode tracer workDir network $ \_ opts -> do
               waitForFullySynchronized fromCardanoNode (Direct opts)
-              publishOrReuseHydraScripts tracer (Direct opts)
-                >>= singlePartyHeadFullLifeCycle tracer workDir (Direct opts)
+              resolveHydraScripts tracer workDir (isMainnet network) (Direct opts)
+                >>= singlePartyHeadFullLifeCycle tracer workDir (smokeTiming network) (Direct opts)
             else do
               bfProjectPath <- findFileStartingAtDirectory 3 blockfrostProjectPath
               let opts = Blockfrost defaultBlockfrostOptions{projectPath = bfProjectPath}
-              publishOrReuseHydraScripts tracer opts
-                >>= singlePartyHeadFullLifeCycle tracer workDir opts
+              resolveHydraScripts tracer workDir (isMainnet network) opts
+                >>= singlePartyHeadFullLifeCycle tracer workDir (smokeTiming network) opts
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \_ opts -> do
-            txId <- publishOrReuseHydraScripts tracer (Direct opts)
+            txId <- resolveHydraScripts tracer workDir False (Direct opts)
             let hydraScriptsTxId = intercalate "," $ toString . serialiseToRawBytesHexText <$> txId
             let envPath = workDir </> ".env"
             writeFile envPath $ "HYDRA_SCRIPTS_TX_ID=" <> hydraScriptsTxId
@@ -84,16 +85,44 @@ run options =
     Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action
     Just sd -> action sd
 
-  publishOrReuseHydraScripts :: Tracer IO EndToEndLog -> ChainBackendOptions -> IO [TxId]
-  publishOrReuseHydraScripts tracer opts =
+  -- The testnet smoke runs are dominated by protocol waits, so shorten those.
+  -- Mainnet keeps the end-to-end timings: it runs once per release, so there is
+  -- nothing to gain there, and a shorter contestation period would only narrow
+  -- the window its close transaction has to be included -- on a head holding
+  -- real funds, with no resubmit on expiry.
+  smokeTiming network
+    | isMainnet network = mkTestTiming
+    | otherwise = mkSmokeTiming
+
+  -- NOTE: On testnets 'Publish' does not mean "publish unconditionally":
+  -- scripts already published from the same work directory are validated
+  -- against the chain by 'Faucet.publishOrReuseHydraScripts' and reused, which
+  -- saves a transaction and its confirmation; a script change invalidates them.
+  -- Mainnet always publishes: that validation cannot tell a changed script from
+  -- a transient query failure, and guessing wrong there spends real funds.
+  resolveHydraScripts :: Tracer IO EndToEndLog -> FilePath -> Bool -> ChainBackendOptions -> IO [TxId]
+  resolveHydraScripts tracer workDir mainnet opts =
     case publishHydraScripts of
       Publish -> do
-        hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
+        hydraScriptsTxId <-
+          if mainnet
+            then Faucet.publishHydraScriptsAs opts Faucet
+            else Faucet.publishOrReuseHydraScripts opts Faucet workDir
         traceWith tracer $ PublishedHydraScriptsAt{hydraScriptsTxId}
         pure hydraScriptsTxId
       Reuse hydraScriptsTxId -> do
         traceWith tracer $ UsingHydraScriptsAt{hydraScriptsTxId}
         pure hydraScriptsTxId
+
+  -- NOTE: Matching the testnets rather than the mainnets, so that a network
+  -- added to 'KnownNetwork' later defaults to the careful side here.
+  isMainnet = \case
+    Preview -> False
+    Preproduction -> False
+    BlockfrostPreview -> False
+    BlockfrostPreprod -> False
+    Mainnet -> True
+    BlockfrostMainnet -> True
 
 hydraClusterOptions :: ParserInfo Options
 hydraClusterOptions =
