@@ -26,6 +26,7 @@ import Hydra.Tx.Accumulator (
   defaultItems,
   getAccumulatorCommitment,
   getAccumulatorHash,
+  removeOutputs,
   requiredCRSPointCount,
   unHydraAccumulator,
  )
@@ -91,6 +92,38 @@ spec = parallel $ do
                 nextU = UTxO.fromList [(txIn3, txOut)]
                 delta = applyUTxODelta @Tx (buildFromUTxO @Tx accU) prevU nextU
              in unHydraAccumulator delta === unHydraAccumulator (buildFromUTxO @Tx nextU)
+
+    prop "removeOutputs equals a fresh build over what is left" $
+      forAll (resize 20 genUTxOWithSimplifiedAddresses) $ \base ->
+        forAll (sublistOf (UTxO.toList base)) $ \removed ->
+          let rest = UTxO.difference base (UTxO.fromList removed)
+              pruned = removeOutputs @Tx (buildFromUTxO @Tx base) (UTxO.fromList removed)
+              fresh = buildFromUTxO @Tx rest
+           in (unHydraAccumulator pruned === unHydraAccumulator fresh)
+                .&&. (getAccumulatorHash pruned === getAccumulatorHash fresh)
+
+    prop "removeOutputs decrements duplicated outputs correctly" $
+      forAll arbitrary $ \(txIn1, txIn2) ->
+        txIn1 /= txIn2 ==>
+          forAll (genTxOutAdaOnly =<< arbitrary) $ \txOut ->
+            -- Two inputs carrying byte-identical outputs collapse to one
+            -- element with count 2; distributing one of them must decrement.
+            let base = UTxO.fromList [(txIn1, txOut), (txIn2, txOut)]
+                pruned = removeOutputs @Tx (buildFromUTxO @Tx base) (UTxO.fromList [(txIn1, txOut)])
+             in unHydraAccumulator pruned === unHydraAccumulator (buildFromUTxO @Tx (UTxO.fromList [(txIn2, txOut)]))
+
+    prop "removeOutputs ignores which TxIn holds the output" $
+      forAll arbitrary $ \(txIn1, txIn2) ->
+        txIn1 /= txIn2 ==>
+          forAll ((,) <$> (genTxOutAdaOnly =<< arbitrary) <*> (genTxOutAdaOnly =<< arbitrary)) $ \(txOut1, txOut2) ->
+            txOut1 /= txOut2 ==>
+              -- Partial fanout matches a client selection by output content,
+              -- not by TxIn, so the same output can arrive under a TxIn that
+              -- holds a different one in the set the accumulator was built from.
+              let base = UTxO.fromList [(txIn1, txOut1), (txIn2, txOut2)]
+                  crossPaired = UTxO.fromList [(txIn1, txOut2)]
+                  pruned = removeOutputs @Tx (buildFromUTxO @Tx base) crossPaired
+               in unHydraAccumulator pruned === unHydraAccumulator (buildFromUTxO @Tx (UTxO.fromList [(txIn1, txOut1)]))
 
     prop "accumulator hash is the blake2b of the commitment in the datum" $
       -- Off-chain mirror of the on-chain mustMatchAccumulatorCommitmentHash

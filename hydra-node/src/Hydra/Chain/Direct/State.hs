@@ -639,16 +639,12 @@ data PartialFanoutPlan = PartialFanoutPlan
   { headUTxO :: (TxIn, TxOut CtxUTxO)
   , progressDatum :: Head.FanoutProgressDatum
   , fullAccumulator :: HydraAccumulator
-  -- ^ Accumulator over 'proofUTxO', already verified against the on-chain
-  -- commitment.
-  , proofUTxO :: UTxO
+  -- ^ Accumulator over the proof UTxO, already verified against the on-chain
+  -- commitment. Pre-settled elements (committed to by the accumulator but never
+  -- distributed, e.g. a decommit paid out before close) are in here and stay in
+  -- the remaining accumulator, because a step only removes what it distributes.
   , orderedRemaining :: [(TxIn, TxOut CtxUTxO)]
   -- ^ 'remainingUTxO' in the order chunks are taken from.
-  , presettled :: UTxO
-  -- ^ Elements in 'proofUTxO' but not in the remaining set: committed to by the
-  -- accumulator yet never distributed (e.g. a decommit paid out before close).
-  -- They must stay in the remaining accumulator so the on-chain split identity
-  -- @A = P_K * A'@ holds at every step.
   }
 
 -- | Read the head output and verify the on-chain accumulator, yielding a plan
@@ -664,7 +660,10 @@ preparePartialFanout ::
   -- | UTxO used to verify the on-chain accumulator commitment. For the first fanout
   -- step this is utxoForProof (the snapshot's full set, including any decommit UTxOs
   -- that may already have been removed from the head by a DecrementTx). For subsequent
-  -- FanoutProgress steps it equals remainingUTxO.
+  -- FanoutProgress steps it is the not-yet-distributed set plus any pre-settled
+  -- elements, which the remaining set only equals when the whole of it is being
+  -- distributed: a user selection is a sub-multiset of it, matched by output
+  -- content rather than by 'TxIn'.
   UTxO ->
   -- | Remaining UTxOs to distribute
   UTxO ->
@@ -684,16 +683,16 @@ preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO = do
       { headUTxO
       , progressDatum
       , fullAccumulator
-      , proofUTxO
       , orderedRemaining = UTxO.toList remainingUTxO
-      , presettled = UTxO.difference proofUTxO remainingUTxO
       }
 
 -- | Construct a partial fanout transaction distributing the first 'chunkSize'
 -- UTxOs of the plan's remaining set; the rest become the new remaining set.
 --
--- The remaining accumulator is derived from the plan's verified one by removing
--- what this transaction distributes, rather than rebuilt from scratch.
+-- The remaining accumulator is the plan's verified one minus the outputs this
+-- transaction distributes, rather than rebuilt from scratch. Removing exactly
+-- the distributed outputs is what the on-chain split identity @A = P_K * A'@
+-- checks, so it holds by construction whenever those outputs are in @A@.
 partialFanoutFromPlan ::
   ChainContext ->
   PartialFanoutPlan ->
@@ -705,11 +704,10 @@ partialFanoutFromPlan ::
 partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo = do
   let utxoToDistribute = UTxO.fromList (take chunkSize orderedRemaining)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
-  let rest = UTxO.fromList (drop chunkSize orderedRemaining) <> presettled
-      remainingAccumulator = Accumulator.applyUTxODelta @Tx fullAccumulator proofUTxO rest
+  let remainingAccumulator = Accumulator.removeOutputs @Tx fullAccumulator utxoToDistribute
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
-  PartialFanoutPlan{headUTxO, progressDatum, fullAccumulator, proofUTxO, orderedRemaining, presettled} = plan
+  PartialFanoutPlan{headUTxO, progressDatum, fullAccumulator, orderedRemaining} = plan
 
   ChainContext{scriptRegistry} = ctx
 
@@ -761,12 +759,14 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO de
   progressDatum <- case headState of
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
+  -- The accumulator verified against the datum here is the one the membership
+  -- proof is built against, rather than a second build over the same set.
+  fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
       utxoToDistribute
-      presettledUTxO
+      fullAccumulator
       headUTxO
       deadlineSlotNo
       headTokenScript

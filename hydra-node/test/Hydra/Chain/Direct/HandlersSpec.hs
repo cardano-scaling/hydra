@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   SerialiseAsCBOR (serialiseToCBOR),
   SlotNo (..),
   Tx,
+  TxIn,
   UTxO,
   fromLedgerTx,
   getChainPoint,
@@ -43,6 +44,7 @@ import Hydra.Chain.Direct.Handlers (
   getLatest,
   history,
   newLocalChainState,
+  preferredFanoutTx,
   rejectOversizedDeposit,
  )
 import Hydra.Chain.Direct.State (
@@ -62,6 +64,7 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), mkSimpleBlueprintTx)
+import Hydra.Tx.Accumulator (deployedFanoutBatchSize)
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
 import System.IO.Error (ioeGetErrorString, userError)
@@ -90,6 +93,7 @@ import Test.QuickCheck (
   Positive (..),
   choose,
   chooseEnum,
+  conjoin,
   counterexample,
   cover,
   elements,
@@ -101,6 +105,7 @@ import Test.QuickCheck (
   oneof,
   property,
   suchThat,
+  withMaxSuccess,
   (===),
  )
 import Test.QuickCheck.Monadic (
@@ -532,21 +537,24 @@ spec = do
             -- A freshly generated UTxO won't match the commitment in the closed-head
             -- datum → partialFanout returns Left StaleChainState → StalePartialFanoutTx
             mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 5
-            let wallet =
-                  TinyWallet
-                    { getUTxO = pure mempty
-                    , getSeedInput = pure Nothing
-                    , sign = id
-                    , coverFee = \_ tx -> pure (Right tx)
-                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
-                    , isTxWithinSizeLimits = \_ -> pure True
-                    , getPParams = pure defaultPParams
-                    , reset = pure ()
-                    , update = \_ _ -> pure ()
-                    }
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
+              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
+
+    prop "throws FailedToConstructPartialFanoutTx when no chunk size is in range" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, _u0) ->
+          monadicIO $ do
+            -- A head with one UTxO left whose preferred tx did not fit: the
+            -- search range is empty, so there is no chunk to post and the
+            -- caller needs the terminal error to revert the head. Reporting
+            -- 'StalePartialFanoutTx' instead - which the accumulator of this
+            -- mismatched UTxO would produce - has HeadLogic ignore it, leaving
+            -- the head wedged in FanoutProgress.
+            mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 1
+            run $
+              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
+                `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
       forAll (genUTxOAdaOnlyOfSize 3) $ \fullUTxO -> monadicIO $ do
@@ -554,20 +562,8 @@ spec = do
         seedTxIn <- run $ generate genTxIn
         -- Empty spendableUTxO → CannotFindHeadOutput on every chunk size, which is
         -- a structural error (not a race condition) → FailedToConstructPartialFanoutTx
-        let wallet =
-              TinyWallet
-                { getUTxO = pure mempty
-                , getSeedInput = pure Nothing
-                , sign = id
-                , coverFee = \_ tx -> pure (Right tx)
-                , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
-                , isTxWithinSizeLimits = \_ -> pure True
-                , getPParams = pure defaultPParams
-                , reset = pure ()
-                , update = \_ _ -> pure ()
-                }
         run $
-          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn Nothing fullUTxO fullUTxO (UTxO.size fullUTxO - 1) 1
+          findFittingFanoutTx nullTracer permissiveWallet ctx mempty seedTxIn Nothing fullUTxO fullUTxO (UTxO.size fullUTxO - 1) 1
             `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
@@ -619,58 +615,92 @@ spec = do
             _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
             assert True
 
-    it "does not scale the number of candidate transactions with the head size" $ do
-      (smallBuilds, smallChunk) <- searchForChunk 100
-      (largeBuilds, largeChunk) <- searchForChunk 400
-      let report =
-            "head of 100: "
-              <> show smallBuilds
-              <> " candidates built for a chunk of "
-              <> show smallChunk
-              <> "\nhead of 400: "
-              <> show largeBuilds
-              <> " candidates built for a chunk of "
-              <> show largeChunk
-      -- No chunk can distribute more outputs than the deployed CRS verifies, so
-      -- the range worth searching is fixed and the work spent finding the chunk
-      -- must not grow with what is left in the head. Each candidate counted here
-      -- is a transaction that was constructed, which rebuilds the head's
-      -- accumulators, so the count is the cost.
-      unless (smallBuilds == largeBuilds) $ expectationFailure report
+    -- These two run the real chunk search over large heads, so each case costs
+    -- real Plutus evaluations. 'withMaxSuccess 1' keeps that to one draw while
+    -- still reporting a replayable seed, which 'generate' inside an 'it' would
+    -- not.
+    prop "does not scale the number of candidate transactions with the head size" $
+      withMaxSuccess 1 $
+        forAllBlind (genClosedStateForFanoutOfSize 3 100) $ \small ->
+          forAllBlind (genClosedStateForFanoutOfSize 3 400) $ \large ->
+            monadicIO $ do
+              (smallBuilds, smallTx) <- run $ searchForChunk small
+              (largeBuilds, largeTx) <- run $ searchForChunk large
+              let (smallChunk, largeChunk) = (chunkSizeOf smallTx, chunkSizeOf largeTx)
+              monitor $
+                counterexample $
+                  "head of 100: "
+                    <> show smallBuilds
+                    <> " candidates built for a chunk of "
+                    <> show smallChunk
+                    <> "\nhead of 400: "
+                    <> show largeBuilds
+                    <> " candidates built for a chunk of "
+                    <> show largeChunk
+              -- No chunk can distribute more outputs than the deployed CRS
+              -- verifies, so the range worth searching is fixed and the work
+              -- spent finding the chunk must not grow with what is left in the
+              -- head. Each candidate counted here is a transaction that was
+              -- constructed, which rebuilds the head's accumulators, so the
+              -- count is the cost.
+              --
+              -- A bound, not equality of the two counts: a binary search over
+              -- the capped range takes one probe fewer when the answer happens
+              -- to be a midpoint, and the two heads are drawn independently, so
+              -- they can legitimately differ by one. That the chunk itself does
+              -- not degenerate is pinned by "picks the largest chunk that fits".
+              assert (smallBuilds <= maxChunkSearchBuilds && largeBuilds <= maxChunkSearchBuilds)
 
-    it "picks the largest chunk that fits" $ do
-      (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) <-
-        generate (genClosedStateForFanoutOfSize 3 100)
-      counter <- newIORef (0 :: Int)
-      tx <-
-        findFittingFanoutTx
-          nullTracer
-          (countingWallet counter)
-          cctx
-          spendableUTxO
-          seedTxIn
-          Nothing
-          u0
-          u0
-          (UTxO.size u0)
-          deadlineSlot
-      let chunk = chunkSizeOf tx
-          fitsChunk n =
-            case partialFanout cctx spendableUTxO seedTxIn n u0 u0 deadlineSlot of
-              Left _ -> pure False
-              Right candidate ->
-                fitsTx
-                  nullTracer
-                  (pure . withinSizeLimits)
-                  (\t u -> pure (evaluateTx t u))
-                  (spendableUTxO <> getKnownUTxO cctx)
-                  candidate
-      chosenFits <- fitsChunk chunk
-      oneMoreFits <- fitsChunk (chunk + 1)
-      unless chosenFits $
-        expectationFailure ("chunk of " <> show chunk <> " was chosen but does not fit")
-      when oneMoreFits $
-        expectationFailure ("chunk of " <> show chunk <> " was chosen but " <> show (chunk + 1) <> " also fits")
+    prop "picks the largest chunk that fits" $
+      withMaxSuccess 1 $
+        forAllBlind (genClosedStateForFanoutOfSize 3 100) $
+          \closedState@(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) ->
+            monadicIO $ do
+              (_, tx) <- run $ searchForChunk closedState
+              let chunk = chunkSizeOf tx
+              monitor $ counterexample ("chunk chosen: " <> show chunk)
+              monitor $ counterexample ("one more: " <> describeCandidate cctx spendableUTxO seedTxIn (chunk + 1) u0 deadlineSlot)
+              -- The transaction the search hands back, not a rebuild of it: a
+              -- rebuild re-runs the same code on the same inputs and cannot
+              -- disagree, whereas this catches a search that returns a candidate
+              -- other than the last one it accepted.
+              chosenFits <- run $ fitsUnderRealLimits cctx spendableUTxO tx
+              assert chosenFits
+              -- What "largest" means, and the only genuinely independent half:
+              -- one more output is built and checked, and must not fit. For an
+              -- ada-only head the execution budget is what it runs into, well
+              -- before the size limit or the CRS cap.
+              -- A construction failure is not evidence that one more does not
+              -- fit, it is a regression in its own right, so it fails the test
+              -- rather than satisfying it.
+              oneMore <-
+                run $
+                  case partialFanout cctx spendableUTxO seedTxIn (chunk + 1) u0 u0 deadlineSlot of
+                    Left err -> pure (Left (show err :: Text))
+                    Right candidate -> Right <$> fitsUnderRealLimits cctx spendableUTxO candidate
+              case oneMore of
+                Left err -> do
+                  monitor $ counterexample ("one more could not be built at all: " <> toString err)
+                  assert False
+                Right oneMoreFits -> assert (not oneMoreFits)
+              -- No chunk above the cap is ever attempted, whatever binds first.
+              assert (chunk >= 1 && chunk <= deployedFanoutBatchSize)
+
+  describe "preferredFanoutTx" $ do
+    -- The whole point of the gate is that the preferred transaction is never
+    -- forced above the cap: building it means a membership proof over the whole
+    -- head, discarded on every step. A bottom is the only way to observe that.
+    it "does not force a preferred tx it will not use" $
+      preferredFanoutTx (deployedFanoutBatchSize + 1) (Right (error "preferred tx was forced") :: Either () Tx)
+        `shouldSatisfy` isNothing
+
+    prop "passes the preferred tx through at the cap and rejects above it" $
+      forAllBlind (arbitrary :: Gen Tx) $ \tx ->
+        conjoin
+          [ preferredFanoutTx deployedFanoutBatchSize (Right tx :: Either () Tx) === Just tx
+          , preferredFanoutTx (deployedFanoutBatchSize + 1) (Right tx :: Either () Tx) === Nothing
+          , preferredFanoutTx deployedFanoutBatchSize (Left () :: Either () Tx) === Nothing
+          ]
 
   describe "rejectOversizedDeposit" $ do
     prop "rejects deposit whose merged head value exceeds max value size" $
@@ -738,10 +768,11 @@ recordEventsHandler ctx cs getTimeHandle = do
     atomically $ modifyTVar var (event :)
 
 -- | Whether a transaction is within the protocol's maximum transaction size,
--- measured the same way the real wallet measures it.
+-- measured the same way the real wallet measures it: 'Hydra.Chain.Direct.Wallet'
+-- accepts a transaction of exactly the maximum size, so this is @<=@, not @<@.
 withinSizeLimits :: Tx -> Bool
 withinSizeLimits tx =
-  fromIntegral (BS.length (serialiseToCBOR tx)) < maxTxSize
+  fromIntegral (BS.length (serialiseToCBOR tx)) <= maxTxSize
 
 -- | Number of outputs a fanout transaction distributes. Output 0 is the
 -- continuing head output; the rest are the chunk.
@@ -773,12 +804,10 @@ countingWallet counter =
     , update = \_ _ -> pure ()
     }
 
--- | Run the chunk search against a closed head of the given size, returning how
--- many candidate transactions were built and how large a chunk was chosen.
-searchForChunk :: Int -> IO (Int, Int)
-searchForChunk headSize = do
-  (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) <-
-    generate (genClosedStateForFanoutOfSize 3 headSize)
+-- | Run the chunk search against a closed head, returning how many candidate
+-- transactions were built and the one the search settled on.
+searchForChunk :: (ChainContext, ClosedState, UTxO, SlotNo, UTxO) -> IO (Int, Tx)
+searchForChunk (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) = do
   counter <- newIORef 0
   tx <-
     findFittingFanoutTx
@@ -792,7 +821,62 @@ searchForChunk headSize = do
       u0
       (UTxO.size u0)
       deadlineSlot
-  (,chunkSizeOf tx) <$> readIORef counter
+  (,tx) <$> readIORef counter
+
+-- | Whether a transaction passes the size limit and script execution budget the
+-- chunk search is held to.
+fitsUnderRealLimits :: ChainContext -> UTxO -> Tx -> IO Bool
+fitsUnderRealLimits cctx spendableUTxO =
+  fitsTx
+    nullTracer
+    (pure . withinSizeLimits)
+    (\t u -> pure (evaluateTx t u))
+    (spendableUTxO <> getKnownUTxO cctx)
+
+-- | Most candidates a capped binary search can build: the range is
+-- @[1..deployedFanoutBatchSize]@ and each probe halves it, so this counts the
+-- halvings. Notably it does not depend on the head size.
+maxChunkSearchBuilds :: Int
+maxChunkSearchBuilds = length (takeWhile (<= deployedFanoutBatchSize) (iterate (* 2) 1))
+
+-- | Why a chunk of the given size is or is not a usable fanout candidate,
+-- naming the limit it runs into. Only ever rendered into a counterexample.
+describeCandidate :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> String
+describeCandidate cctx spendableUTxO seedTxIn n u0 deadlineSlot
+  | n > deployedFanoutBatchSize = "chunk of " <> show n <> " is above the CRS cap"
+  | otherwise =
+      case partialFanout cctx spendableUTxO seedTxIn n u0 u0 deadlineSlot of
+        Left err -> "chunk of " <> show n <> " could not be built: " <> show err
+        Right candidate ->
+          "chunk of "
+            <> show n
+            <> ": "
+            <> show (BS.length (serialiseToCBOR candidate))
+            <> " bytes of "
+            <> show maxTxSize
+            <> ", script evaluation "
+            <> (if evaluates candidate then "succeeded" else "failed")
+ where
+  evaluates candidate =
+    case evaluateTx candidate (spendableUTxO <> getKnownUTxO cctx) of
+      Right report -> all isRight (Map.elems report)
+      Left _ -> False
+
+-- | A wallet that accepts every transaction, for tests that only care about
+-- which error the chunk search reports.
+permissiveWallet :: TinyWallet IO
+permissiveWallet =
+  TinyWallet
+    { getUTxO = pure mempty
+    , getSeedInput = pure Nothing
+    , sign = id
+    , coverFee = \_ tx -> pure (Right tx)
+    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+    , isTxWithinSizeLimits = \_ -> pure True
+    , getPParams = pure defaultPParams
+    , reset = pure ()
+    , update = \_ _ -> pure ()
+    }
 
 -- | A block used for testing. This is a simpler version of the cardano-api
 -- 'Block' and can be de-/constructed easily.

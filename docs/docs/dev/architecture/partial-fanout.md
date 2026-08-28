@@ -8,9 +8,11 @@ until the head is empty.
 
 There are two ways to drive it:
 
-- a plain `Fanout` builds the single full transaction and checks whether it would
-  fit; when it would not, the head is drained automatically over as many steps as
-  it takes
+- a plain `Fanout` distributes the whole set in one transaction where that can be
+  valid at all, and otherwise drains the head automatically over as many steps as
+  it takes. A head holding more outputs than the deployed CRS can verify (see
+  [How much fits in one step](#how-much-fits-in-one-step)) takes the second path
+  without building the single transaction, which could only be rejected
 - a `PartialFanout` names the subset to distribute next, so a client decides what
   leaves the head first and in which order
 
@@ -162,9 +164,12 @@ needs to know. The chain layer runs a binary search
 ([`findFittingFanoutTx`](pathname:///haddocks/hydra-node/Hydra-Chain-Direct-Handlers.html#v:findFittingFanoutTx))
 for the largest number of outputs whose transaction still fits the layer 1 size
 limit and script execution budget, so a large selection is drained over as many
-steps as needed. The search is local: candidate transactions are built and
-evaluated against those limits in the node, and only the winning one is submitted.
-Nothing is submitted speculatively and rejected by the chain.
+steps as needed. The search never looks above what the deployed CRS can verify,
+since no larger subset could be valid however cheap its transaction turns out to
+be, which is what keeps the number of candidates independent of how much is left
+in the head. The search is local: candidate transactions are built and evaluated
+against those limits in the node, and only the winning one is submitted. Nothing
+is submitted speculatively and rejected by the chain.
 
 The last transaction cannot be an ordinary partial step: it must be the _final_
 fanout, which distributes the rest and burns the head tokens. The node handles
@@ -203,9 +208,10 @@ Two separate limits bound a single fanout transaction:
   benchmarks for the measured chunk sizes
 - the length of the deployed CRS. Verifying a subset of `N` outputs needs `N + 1`
   G2 points, and the CRS output currently carries 30 of them (`defaultItems`), so
-  no step can distribute more than **29** outputs regardless of budget. Raising
-  this means re-publishing the CRS output with more points, up to the 65 G2 points
-  the trusted setup provides
+  no step can distribute more than **29** outputs regardless of budget. The head
+  validator is compiled against the hash of that CRS and rejects any other one, so
+  raising this means re-publishing the CRS output with more points _and_
+  recompiling the scripts, up to the 65 G2 points the trusted setup provides
 
 ### UTxO sizing
 

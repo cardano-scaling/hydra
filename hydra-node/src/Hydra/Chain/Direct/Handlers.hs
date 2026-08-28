@@ -209,6 +209,9 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+            -- The union is also what 'Hydra.Tx.Fanout.fanoutTx' counts in its
+            -- redeemer and proves membership for, so its size is the exact
+            -- gate for 'preferredFanoutTx'.
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
             findFittingFanoutTx
               tracer
@@ -240,11 +243,25 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             -- Non-final partial fanout: no preferred tx, always chunk from the
             -- user-selected set. The whole selection may be distributed in one
-            -- tx (size, not size-1): the selection is always a strict subset of
-            -- the head's remaining UTxO (HeadLogic routes a full selection to
-            -- the final/auto path instead), so the unselected remainder stays in
-            -- the accumulator and 'mustNotBeLastBatch' is satisfied regardless of
-            -- chunk size.
+            -- tx (size, not size-1): normally the selection is a strict subset
+            -- of the head's remaining UTxO, so the unselected remainder stays in
+            -- the accumulator and 'mustNotBeLastBatch' is satisfied regardless
+            -- of chunk size.
+            --
+            -- Only the first selection is checked against that:
+            -- 'Hydra.HeadLogic.onClosedClientPartialFanout' routes a full one to
+            -- the auto-drain path, but 'onPartialFanoutClientPartialFanout' has
+            -- no such guard, so a later selection naming the whole remainder
+            -- before any chunk has landed reaches here as a full set. Candidates
+            -- are evaluated locally and only the winner is submitted, so nothing
+            -- is rejected on chain either way. What happens next depends on the
+            -- head: with nothing pre-settled the top candidate leaves an empty
+            -- accumulator, fails 'mustNotBeLastBatch' under local evaluation,
+            -- and the search settles one lower. With a pre-settled set it does
+            -- not fail, the whole remainder goes out in one step, and the head
+            -- is then left in FanoutProgress with nothing to distribute and no
+            -- way to burn its tokens. That is a pre-existing gap in HeadLogic,
+            -- not something this bound can fix.
             findFittingFanoutTx
               tracer
               wallet
@@ -608,26 +625,14 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
 
--- | Most outputs a fanout transaction can distribute. Verifying @n@ outputs
--- needs @n + 1@ CRS points, and the head validator rejects a subset larger than
--- the deployed CRS (see 'Hydra.Contract.CRS.checkMembershipPairing'), so bigger
--- chunks are not just unlikely to fit - they can never be valid. Building one
--- rebuilds the head's accumulators for nothing.
---
--- 'Accumulator.defaultItems' is also what @publish-scripts@ puts in the CRS
--- output, so this matches what is deployed. If it ever does not, the search
--- still finds the right chunk: too high and the extra candidates fail script
--- evaluation, too low and the execution budget was the tighter limit anyway.
-maxVerifiableChunk :: Int
-maxVerifiableChunk = Accumulator.defaultItems - 1
-
 -- | The single transaction to try before falling back to chunked partial
 -- fanouts, given how many outputs it distributes. 'Nothing' above
--- 'maxVerifiableChunk', where it could only be rejected: building it means a
--- membership proof over the whole set, discarded on every step.
+-- 'Accumulator.deployedFanoutBatchSize', where it could only be rejected:
+-- building it means a membership proof over the whole set, discarded on every
+-- step.
 preferredFanoutTx :: Int -> Either err Tx -> Maybe Tx
 preferredFanoutTx numOutputs preferred
-  | numOutputs > maxVerifiableChunk = Nothing
+  | numOutputs > Accumulator.deployedFanoutBatchSize = Nothing
   | otherwise = rightToMaybe preferred
 
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
@@ -713,10 +718,12 @@ findFittingFanoutTx ::
   --   final/full fanout fallback this is @size - 1@ (the preferred tx handles
   --   the full set; a partial fanout must leave at least one output). For an
   --   explicit non-final partial fanout this is the full @size@: the selection
-  --   is always a strict subset of the head's remaining UTxO, so even
+  --   is normally a strict subset of the head's remaining UTxO, so even
   --   distributing all of it leaves the unselected remainder in the accumulator
-  --   and 'mustNotBeLastBatch' holds.
-  --   The search caps this at 'maxVerifiableChunk' regardless.
+  --   and 'mustNotBeLastBatch' holds (see the caller for the one case where it
+  --   does not, which costs a rejected candidate but not the answer).
+  --   The search caps this at 'Accumulator.deployedFanoutBatchSize' regardless:
+  --   no larger subset can be verified, however cheap its transaction is.
   Int ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
@@ -731,11 +738,22 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
   -- Reading the head output and verifying its accumulator does not depend on the
-  -- chunk size, so it happens once here rather than per candidate.
-  findFallback = do
-    plan <- orThrow $ preparePartialFanout spendableUTxO seedTxIn proofUTxO fullUTxO
-    findLargestFitting (tryChunk plan) (min maxChunkSize maxVerifiableChunk)
+  -- chunk size, so it happens once here rather than per candidate. There is
+  -- nothing to prepare when no chunk size is in range: preparing anyway would
+  -- turn a stale chain state into 'StalePartialFanoutTx', which HeadLogic
+  -- ignores, where there is in fact no chunk to post and the caller should hear
+  -- the terminal 'FailedToConstructPartialFanoutTx'. Note that HeadLogic only
+  -- reverts the head on that error while nothing has been distributed yet, so
+  -- this restores the revert on the 'FanoutTx' path and, on the
+  -- 'FinalPartialFanoutTx' path, only the client error.
+  findFallback
+    | searchRange < 1 = pure (Left ())
+    | otherwise = do
+        plan <- orThrow $ preparePartialFanout spendableUTxO seedTxIn proofUTxO fullUTxO
+        findLargestFitting (tryChunk plan) searchRange
    where
+    searchRange = min maxChunkSize Accumulator.deployedFanoutBatchSize
+
     tryChunk plan n = buildTx plan n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 
   buildTx plan n =

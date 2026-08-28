@@ -48,6 +48,11 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
       defaultTxBodyContent
         & addTxIns [(headInput, headWitness fanoutProof)]
         & addTxInsReference [headScriptRef, crsScriptRef] mempty
+        -- Three ascending groups rather than one pass over 'allToFanout': the
+        -- order outputs appear in is part of the transaction, and while the
+        -- on-chain checks are order-independent, observers are not. Each group
+        -- drops what the groups before it already emitted, so the whole list is
+        -- a permutation of 'allToFanout' whatever the inputs.
         & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
         & burnTokens headTokenScript Burn headTokens
         & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
@@ -67,18 +72,23 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
   accumulator =
     Accumulator.buildFromUTxO @Tx utxoForProof
 
+  -- Everything this transaction distributes. The on-chain check reads the
+  -- membership proof against the first 'numberOfFanoutOutputs' outputs, so the
+  -- count, the proof and the outputs all have to describe the same set; taking
+  -- all three from here is what keeps them from drifting.
+  allToFanout = utxo <> fold utxoToCommit <> fold utxoToDecommit
+
   headRedeemer proof =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral (UTxO.size utxo + maybe 0 UTxO.size utxoToCommit + maybe 0 UTxO.size utxoToDecommit)
+        { numberOfFanoutOutputs = fromIntegral (UTxO.size allToFanout)
         , proof = proof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
   computeFanoutProof = do
-    let subsetUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
-        crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
-    proofBytes <- Accumulator.createMembershipProofFromUTxO @Tx subsetUTxO accumulator crs
+    let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
+    proofBytes <- Accumulator.createMembershipProofFromUTxO @Tx allToFanout accumulator crs
     pure $ bls12_381_G1_uncompress $ toBuiltin proofBytes
 
   headTokens =
@@ -87,15 +97,25 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
   orderedTxOutsToFanout =
     fromCtxUTxOTxOut <$> UTxO.txOutputs utxo
 
+  -- Emitting a group whole would repeat an output an earlier group already
+  -- carried, and the validator reads its membership proof against the first
+  -- 'numberOfFanoutOutputs' outputs, so a repeat inside that prefix is rejected
+  -- as 'FanoutUTxOHashMismatch'. The sets are TxIn-disjoint everywhere a
+  -- snapshot is built, so this subtracts nothing in practice; it is what makes
+  -- the emitted count equal 'UTxO.size allToFanout' by construction rather than
+  -- by that invariant holding.
   orderedTxOutsToCommit =
     case utxoToCommit of
       Nothing -> []
-      Just commitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs commitUTxO
+      Just commitUTxO ->
+        fromCtxUTxOTxOut <$> UTxO.txOutputs (commitUTxO `UTxO.difference` utxo)
 
   orderedTxOutsToDecommit =
     case utxoToDecommit of
       Nothing -> []
-      Just decommitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs decommitUTxO
+      Just decommitUTxO ->
+        fromCtxUTxOTxOut
+          <$> UTxO.txOutputs (decommitUTxO `UTxO.difference` (utxo <> fold utxoToCommit))
 
 -- | Create a partial fanout transaction that distributes a subset of UTxOs
 -- and produces a 'FanoutProgress' head output with an updated accumulator.
@@ -183,11 +203,13 @@ finalPartialFanoutTx ::
   ScriptRegistry ->
   -- | All remaining UTxOs to distribute in this final fanout
   UTxO ->
-  -- | Pre-settled UTxOs: elements committed to by the accumulator but already
-  -- paid out on-chain (e.g. via a DecrementTx before close). They are NOT
-  -- distributed here but must be included in the accumulator to satisfy the
-  -- on-chain KZG identity: A_current = P_distribute * commitment(presettled).
-  UTxO ->
+  -- | Accumulator the head output's datum commits to: the UTxOs distributed
+  -- here plus any pre-settled ones, elements the accumulator holds but that
+  -- were already paid out on-chain (e.g. via a DecrementTx before close). The
+  -- membership proof is against this, so the caller passing the accumulator it
+  -- already verified against the datum is what makes the on-chain identity
+  -- @A_current = P_distribute * commitment(presettled)@ hold.
+  HydraAccumulator ->
   -- | Head state-machine output to spend
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -195,7 +217,7 @@ finalPartialFanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Either Text Tx
-finalPartialFanoutTx scriptRegistry utxoToDistribute presettledUTxO (headInput, headOutput) deadlineSlotNo headTokenScript = do
+finalPartialFanoutTx scriptRegistry utxoToDistribute remainingAccumulator (headInput, headOutput) deadlineSlotNo headTokenScript = do
   fanoutProof <- computeFanoutProof
   pure $
     unsafeBuildTransaction $
@@ -225,10 +247,6 @@ finalPartialFanoutTx scriptRegistry utxoToDistribute presettledUTxO (headInput, 
         , proof = proof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
-
-  -- Accumulator for all elements the current FanoutProgressDatum commits to:
-  -- the UTxOs being distributed now PLUS any pre-settled ones already paid out.
-  remainingAccumulator = Accumulator.buildFromUTxO @Tx (utxoToDistribute <> presettledUTxO)
 
   computeFanoutProof = do
     let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount remainingAccumulator

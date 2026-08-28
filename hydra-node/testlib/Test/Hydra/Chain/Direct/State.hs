@@ -672,10 +672,19 @@ genClosedStateWithDuplicateTxOuts numParties = do
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
+--
+-- Starts at 'Accumulator.deployedFanoutBatchSize' rather than at @size - 1@:
+-- every larger chunk fails 'Hydra.Contract.CRS.checkMembershipPairing' whatever
+-- its cost, so probing them is one wasted transaction build (and one full
+-- accumulator rebuild) each. No current caller reaches heads that large, so the
+-- cap does nothing today; it is here so that pointing this at a bigger
+-- generator does not silently cost hundreds of doomed builds.
 findFittingPartialChunk :: UTxO -> ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> (Int, Tx)
 findFittingPartialChunk evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-  go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
+  go [largestWorthTrying, largestWorthTrying - 1 .. 1]
  where
+  largestWorthTrying = min (UTxO.size u0 - 1) Accumulator.deployedFanoutBatchSize
+
   go [] = error "findFittingPartialChunk: no fitting chunk size found"
   go (n : rest) =
     let tx = unsafePartialFanout cctx spendableUTxO seedTxIn n u0 deadlineSlotNo

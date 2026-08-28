@@ -47,7 +47,7 @@ healthyFanoutTx =
   (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton headInput headOutput
+    UTxO.singleton healthyHeadInput healthyHeadOutput
       <> registryUTxO scriptRegistry
 
   tx =
@@ -58,21 +58,76 @@ healthyFanoutTx =
         Nothing
         (Just $ snd healthyFanoutSnapshotUTxO)
         healthyFanoutUTxO
-        (headInput, headOutput)
+        (healthyHeadInput, healthyHeadOutput)
         healthySlotNo
-        headTokenScript
+        healthyHeadTokenScript
 
-  headInput = generateWith arbitrary 42
+healthyHeadInput :: TxIn
+healthyHeadInput = generateWith arbitrary 42
 
-  headTokenScript = mkHeadTokenScript testSeedInput
+healthyHeadTokenScript :: PlutusScript
+healthyHeadTokenScript = mkHeadTokenScript testSeedInput
+
+healthyHeadOutput :: TxOut CtxUTxO
+healthyHeadOutput =
+  modifyTxOutValue (<> UTxO.totalValue healthyFanoutUTxO) $
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyFanoutDatum)
+
+-- | A fanout whose snapshot set and decommit set share a 'TxIn', chosen so the
+-- shared entry sorts /before/ the decommit set's own entry.
+--
+-- Unreachable through the node: the three sets a fanout draws from are pairwise
+-- 'TxIn'-disjoint everywhere they are built (see
+-- 'Hydra.HeadLogic.onOpenNetworkReqSn'). It is here because the outputs are
+-- emitted as ascending groups while the redeemer's count and the membership
+-- proof describe their union, and the validator checks the proof against the
+-- first @numberOfFanoutOutputs@ outputs. Overlap makes that prefix reach into
+-- the second group, and it fails with 'FanoutUTxOHashMismatch' whenever a
+-- consumed entry is one an earlier group already emitted. Emitting each group
+-- minus what precedes it makes the emitted list a permutation of the union for
+-- any inputs, so the prefix is the proven set by construction.
+fanoutTxWithOverlappingSets :: (Tx, UTxO)
+fanoutTxWithOverlappingSets =
+  (tx, UTxO.singleton healthyHeadInput headOutput <> registryUTxO scriptRegistry)
+ where
+  -- Shared entry first, so it is the one the prefix reaches for. Taking the
+  -- decommit set's own entry from further up the ordering is what distinguishes
+  -- this from 'healthyFanoutSnapshotUTxO', whose non-shared entry is the
+  -- smallest of all and therefore always consumed before any duplicate.
+  (shared, ownToFanout, ownToDecommit) =
+    case UTxO.toList healthyFanoutUTxO of
+      a : _ : c : d : _ -> (a, c, d)
+      _ -> error "FanOut overlapping fixture: healthyFanoutUTxO has too few entries"
+
+  utxo = UTxO.fromList [shared, ownToFanout]
+
+  decommitUTxO = UTxO.fromList [shared, ownToDecommit]
+
+  utxoForProof = utxo <> decommitUTxO
 
   headOutput =
-    modifyTxOutValue (<> UTxO.totalValue healthyFanoutUTxO) $
+    modifyTxOutValue (<> UTxO.totalValue utxoForProof) $
       mkHeadOutput @CtxUTxO
         testNetworkId
         testPolicyId
         (verificationKeyToOnChainId <$> healthyParticipants)
-        (mkTxOutDatumInline healthyFanoutDatum)
+        (mkTxOutDatumInline (mkFanoutDatum (Accumulator.buildFromUTxO @Tx utxoForProof)))
+
+  tx =
+    fromRight (error "FanOut overlapping fixture: proof creation failed") $
+      fanoutTx
+        scriptRegistry
+        utxo
+        Nothing
+        (Just decommitUTxO)
+        utxoForProof
+        (healthyHeadInput, headOutput)
+        healthySlotNo
+        healthyHeadTokenScript
 
 -- | Variant of 'healthyFanoutTx' with a trailing wallet change output appended,
 -- simulating a wallet-balanced transaction. The validator must still accept this
@@ -112,7 +167,12 @@ crsSize :: Int
 crsSize = Accumulator.requiredCRSPointCount healthyFanoutSnapshotAccumulator
 
 healthyFanoutDatum :: Head.State
-healthyFanoutDatum =
+healthyFanoutDatum = mkFanoutDatum healthyFanoutSnapshotAccumulator
+
+-- | A closed-head datum committing to the given accumulator. Everything except
+-- the commitment is the healthy fixture's.
+mkFanoutDatum :: Accumulator.HydraAccumulator -> Head.State
+mkFanoutDatum accumulator =
   Head.Closed
     Head.ClosedDatum
       { snapshotNumber = 1
@@ -125,7 +185,7 @@ healthyFanoutDatum =
       , contesters = []
       , version = 0
       , accumulatorCommitment =
-          Accumulator.getAccumulatorCommitment healthyFanoutSnapshotAccumulator
+          Accumulator.getAccumulatorCommitment accumulator
       , headAdaOverhead = 0
       }
  where

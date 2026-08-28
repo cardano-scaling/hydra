@@ -20,11 +20,13 @@ import Hydra.Cardano.Api (
   TxIx (..),
   TxOut,
   UTxO,
+  fromScriptData,
   getTxBody,
   getTxId,
   hashScript,
   scriptPolicyId,
   toPlutusCurrencySymbol,
+  txOutScriptData,
   txOutValue,
   txOuts',
   utxoFromTx,
@@ -54,11 +56,13 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), txInToHeadSeed)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Observe (
@@ -78,6 +82,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import PlutusLedgerApi.V3 qualified as Plutus
+import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Chain.Direct.State (
   ChainTransition,
@@ -121,6 +126,7 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (
+  Discard (..),
   Property,
   Testable (property),
   checkCoverage,
@@ -334,6 +340,33 @@ spec = parallel $ do
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
           partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo
             `shouldSatisfy` isRight
+    prop "remaining accumulator equals a fresh build over what is left" $
+      forAll (genClosedStateForFanout maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
+          forAll (choose (1, UTxO.size u0 - 1)) $ \chunkSize ->
+            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize u0 u0 deadlineSlotNo
+    prop "remaining accumulator equals a fresh build with pre-settled elements" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          forAll (choose (1, UTxO.size u0 - 1)) $ \chunkSize ->
+            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize (u0 <> decommitUTxO) u0 deadlineSlotNo
+    -- HeadLogic validates a client selection by output content and explicitly
+    -- ignores TxIns ('Hydra.HeadLogic.isSubMultisetOf'), so the same TxIn can
+    -- carry a different TxOut in the selection than in the set the accumulator
+    -- was built from. A TxIn-keyed difference then reads the wrong element.
+    prop "selection holding outputs under other TxIns: accumulator still rebuilds" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          onCrossPairedSelection u0 $ \selection ->
+            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) selection deadlineSlotNo
+    prop "selection holding outputs under other TxIns: batch tx evaluates on-chain" $
+      forAll (genClosedStateForFanout maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
+          onCrossPairedSelection u0 $ \selection ->
+            let evalUTxO = spendableUTxO <> getKnownUTxO ctx
+             in case partialFanout ctx spendableUTxO seedTxIn 1 u0 selection deadlineSlotNo of
+                  Left err -> counterexample ("partialFanout failed: " <> show err) False
+                  Right tx -> propTransactionEvaluates (tx, evalUTxO)
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
@@ -600,6 +633,67 @@ propIsValid forAllTx =
   prop "validates within maxTxExecutionUnits" $
     forAllTx $
       \utxo tx -> propTransactionEvaluates (tx, utxo)
+
+-- | The commitment a partial fanout puts in the continuing head output must be
+-- one over everything the step leaves behind: what it did not distribute, plus
+-- the pre-settled elements the accumulator commits to but never pays out.
+--
+-- The on-chain check is @A = P_K * A'@ against the @A@ in the head datum, so
+-- the two ways of arriving at @A'@ - removing the distributed outputs from the
+-- verified @A@, or building afresh over the rest - have to agree. This pins
+-- them at the call site; 'Hydra.Tx.AccumulatorSpec' only pins the underlying
+-- accumulator operations in isolation.
+propRemainingAccumulatorRebuilds ::
+  ChainContext ->
+  UTxO ->
+  TxIn ->
+  Int ->
+  -- | UTxO the on-chain accumulator commits to
+  UTxO ->
+  -- | UTxO to distribute from
+  UTxO ->
+  SlotNo ->
+  Property
+propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo =
+  case partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo of
+    Left err -> counterexample ("partialFanout failed: " <> show err) False
+    Right tx ->
+      case fanoutProgressCommitment tx of
+        Nothing ->
+          counterexample ("no FanoutProgress datum in the continuing output of:\n" <> renderTx tx) False
+        Just actual -> actual === expected
+ where
+  -- Removed by output content, the way the accumulator is keyed, and not with a
+  -- TxIn-keyed 'UTxO.difference': a selection may name an output under a TxIn
+  -- the proof set does not hold at all, in which case a TxIn-keyed expectation
+  -- would demand the accumulator be left untouched.
+  distributed = UTxO.txOutputs (UTxO.fromList (take chunkSize (UTxO.toList remainingUTxO)))
+
+  rest = HL.removeDistributedOutputs distributed proofUTxO
+
+  expected = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx rest)
+
+-- | The accumulator commitment in the continuing head output of a partial
+-- fanout transaction. Output 0 is the head output; the chunk follows.
+fanoutProgressCommitment :: Tx -> Maybe BuiltinBLS12_381_G1_Element
+fanoutProgressCommitment tx = do
+  headOutput <- listToMaybe (txOuts' tx)
+  scriptData <- txOutScriptData headOutput
+  fromScriptData scriptData >>= \case
+    Head.FanoutProgress d -> Just d.accumulatorCommitment
+    _ -> Nothing
+
+-- | Run the action on a selection naming the first two outputs of the given set
+-- under each other's 'TxIn'. The head still holds both outputs, so HeadLogic
+-- accepts this as a selection, but no 'TxIn' in it resolves to the output it
+-- carries.
+onCrossPairedSelection :: Testable property => UTxO -> (UTxO -> property) -> Property
+onCrossPairedSelection utxo action =
+  case UTxO.toList utxo of
+    (i1, o1) : (i2, o2) : _ ->
+      -- Two outputs generated with the same value would make the swap a no-op.
+      o1 /= o2 ==> action (UTxO.fromList [(i1, o2), (i2, o1)])
+    _ -> property Discard
 
 -- * Generators
 
