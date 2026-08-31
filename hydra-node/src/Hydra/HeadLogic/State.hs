@@ -6,6 +6,7 @@ module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
 
+import Cardano.Binary (Decoder)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
@@ -164,11 +165,58 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
+-- | Tag of the current on-disk\/wire layout, which carries 'finalizedCommit'
+-- and 'finalizedDecommit'. The fields are a bare concatenation with no length
+-- prefix, so a layout change is only decodable when the tag distinguishes it:
+-- 'coordinatedHeadStateCBORTagV1' names the layout written before those fields
+-- existed and is still accepted, letting a node replay an event log from an
+-- earlier version.
+coordinatedHeadStateCBORTag :: Text
+coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
+
+-- | Tag of the layout without 'finalizedCommit'\/'finalizedDecommit'. Decoded,
+-- never written.
+coordinatedHeadStateCBORTagV1 :: Text
+coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
+
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR = genericToCBOR
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit} =
+    toCBOR coordinatedHeadStateCBORTag
+      <> toCBOR localUTxO
+      <> toCBOR localTxs
+      <> toCBOR allTxs
+      <> toCBOR confirmedSnapshot
+      <> toCBOR seenSnapshot
+      <> toCBOR currentDepositTxId
+      <> toCBOR decommitTx
+      <> toCBOR version
+      <> toCBOR finalizedCommit
+      <> toCBOR finalizedDecommit
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == coordinatedHeadStateCBORTag -> decode True
+        | tag == coordinatedHeadStateCBORTagV1 -> decode False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
+   where
+    decode :: Bool -> Decoder s (CoordinatedHeadState tx)
+    decode hasFinalized = do
+      localUTxO <- fromCBOR
+      localTxs <- fromCBOR
+      allTxs <- fromCBOR
+      confirmedSnapshot <- fromCBOR
+      seenSnapshot <- fromCBOR
+      currentDepositTxId <- fromCBOR
+      decommitTx <- fromCBOR
+      version <- fromCBOR
+      -- A state from before these fields existed retains no finalized
+      -- commit/decommit: rollback re-posting is unavailable for increments and
+      -- decrements finalized before the upgrade, like it was at the time.
+      finalizedCommit <- if hasFinalized then fromCBOR else pure Nothing
+      finalizedDecommit <- if hasFinalized then fromCBOR else pure Nothing
+      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit}
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
