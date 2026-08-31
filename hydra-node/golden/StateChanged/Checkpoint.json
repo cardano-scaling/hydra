@@ -7,6 +7,32 @@
                     "currentSlot": 1,
                     "drift": 0
                 },
+                "depositHistory": [
+                    [
+                        0,
+                        {
+                            "0001000000010001000001000101010101000101000100000001010001000000": {
+                                "created": "1864-05-08T22:41:14.973758656225Z",
+                                "deadline": "1864-05-08T04:31:53.726828864033Z",
+                                "deposited": {
+                                    "0100000101000101000101000001000101000100010001000101010101000001#65": {
+                                        "address": "addr_test1yztevqk2292eca5lgd0vz6z250a5yveh4lechz59zgh8n8xu7lmg8zkfyj6m6u2u7ghj5umkc34wthmr4hh7d7x495zs7wpu4e",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 969750
+                                        }
+                                    }
+                                },
+                                "headId": "01010100010001000100000000010001",
+                                "status": "Active"
+                            }
+                        }
+                    ]
+                ],
                 "headState": {
                     "contents": {
                         "chainState": {

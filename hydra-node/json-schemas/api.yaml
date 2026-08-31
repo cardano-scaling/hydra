@@ -3812,6 +3812,8 @@ components:
         - currentDepositTxId
         - decommitTx
         - version
+        - finalizedCommit
+        - finalizedDecommit
       properties:
         localUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
@@ -3839,6 +3841,14 @@ components:
             - $ref: "api.yaml#/components/schemas/Transaction"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        finalizedCommit:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/FinalizedCommit"
+        finalizedDecommit:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/FinalizedDecommit"
 
     Deposit:
       type: object
@@ -3860,6 +3870,59 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    DepositHistory:
+      type: array
+      minItems: 1
+      description: |
+        Slot-indexed versions of the pending deposits, newest first, used to
+        restore the deposit view when a rollback occurs. Each entry is a pair
+        of the chain slot and the pending deposits as of that slot.
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        items:
+          anyOf:
+            - $ref: "api.yaml#/components/schemas/ChainSlot"
+            - type: object
+              propertyNames:
+                $ref: "api.yaml#/components/schemas/TxId"
+              items:
+                $ref: "api.yaml#/components/schemas/Deposit"
+
+    FinalizedCommit:
+      type: object
+      additionalProperties: false
+      description: |
+        Retained when an increment settles on-chain so the IncrementTx can be
+        re-posted if a rollback later erases it.
+      required:
+        - depositTxId
+        - incrementingSnapshot
+        - observedAtSlot
+      properties:
+        depositTxId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        incrementingSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        observedAtSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+
+    FinalizedDecommit:
+      type: object
+      additionalProperties: false
+      description: |
+        Retained when a decrement settles on-chain so the DecrementTx can be
+        re-posted if a rollback later erases it.
+      required:
+        - decrementingSnapshot
+        - observedAtSlot
+      properties:
+        decrementingSnapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        observedAtSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
 
     ChainPointTime:
       type: object
@@ -3885,6 +3948,7 @@ components:
             - tag
             - headState
             - pendingDeposits
+            - depositHistory
             - chainPointTime
           properties:
             tag:
@@ -3898,6 +3962,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
+            depositHistory:
+              $ref: "api.yaml#/components/schemas/DepositHistory"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
         - title: NodeCatchingUp
@@ -3907,6 +3973,7 @@ components:
             - tag
             - headState
             - pendingDeposits
+            - depositHistory
             - chainPointTime
           properties:
             tag:
@@ -3920,6 +3987,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
+            depositHistory:
+              $ref: "api.yaml#/components/schemas/DepositHistory"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
 

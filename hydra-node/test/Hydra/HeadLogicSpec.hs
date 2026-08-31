@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, initialDepositHistory)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -125,6 +125,8 @@ spec =
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
+              , finalizedCommit = Nothing
+              , finalizedDecommit = Nothing
               }
 
       it "reports if a requested tx is expired" $ do
@@ -1641,8 +1643,10 @@ spec =
                 _ -> expectationFailure "Expected ConfirmedSnapshot"
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
-          -- Step 5: Chain rollback (erases the IncrementTx observation)
-          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now}
+          -- Step 5: Chain rollback (erases the IncrementTx observation, but not
+          -- the deposit observed at slot 1 — otherwise the deposit would stop
+          -- being tracked and the recover observation below could not exist)
+          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 1, chainTime = now}
           s5 <- runHeadLogic aliceEnv' ledger s4 $ do
             step rollbackInput
             getState
@@ -1877,6 +1881,7 @@ spec =
             depositTxId' = 42 :: Integer
             depositedUTxO = utxoRef 42
 
+            mkDepositObserved :: UTCTime -> OnChainTx SimpleTx
             mkDepositObserved now =
               OnDepositTx
                 { headId = testHeadId
@@ -1921,6 +1926,7 @@ spec =
             -- observed at slot 1, activated by a tick, committed by snapshot 1
             -- and the increment observed at slot 3 (version bumped to 1, the
             -- deposit dropped from 'pendingDeposits').
+            afterCommitFinalized :: UTCTime -> IO (NodeState SimpleTx)
             afterCommitFinalized now =
               runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
                 step (observeTxAtSlot 1 (mkDepositObserved now))
@@ -1967,6 +1973,7 @@ spec =
             -- Drive the head to just after 'DecommitFinalized': the decommit is
             -- requested, snapshotted and the decrement observed at slot 3
             -- (version bumped to 1, 'decommitTx' cleared).
+            afterDecommitFinalized :: IO (NodeState SimpleTx)
             afterDecommitFinalized =
               runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
                 step . receiveMessage $ ReqDec{transaction = decommitTx'}
@@ -1975,6 +1982,7 @@ spec =
                 step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
                 getState
 
+            rollbackTo :: ChainSlot -> UTCTime -> Input SimpleTx
             rollbackTo slot now =
               ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
 
@@ -1990,15 +1998,23 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
           Map.member depositTxId' s.pendingDeposits `shouldBe` False
 
-          -- Rollback past the increment observation (slot 3): the increment is
-          -- erased from chain and must be re-posted from the signed snapshot.
-          let outcome = update soloAliceEnv ledger now s (rollbackTo 0 now)
+          -- Rollback past the increment observation (slot 3) but not past the
+          -- deposit (slot 1): the increment is erased from chain and must be
+          -- re-posted from the signed snapshot.
+          let outcome = update soloAliceEnv ledger now s (rollbackTo 2 now)
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
                 Snapshot{number, depositTxId = snapDep} ->
                   number == 1 && snapDep == Just depositTxId' && dep == depositTxId'
             _ -> False
+
+          -- The deposit is tracked again: its consuming increment is no longer
+          -- on chain, so it must at least be observable (e.g. by OnRecoverTx).
+          s' <- runHeadLogic soloAliceEnv ledger s $ do
+            step (rollbackTo 2 now)
+            getState
+          Map.member depositTxId' s'.pendingDeposits `shouldBe` True
 
         it "does not re-post IncrementTx when the rollback does not reach the finalized increment" $ do
           -- Rolling back TO the increment's slot means the increment is still
@@ -2025,7 +2041,7 @@ spec =
 
           -- Rollback past the increment: only snapshot 1 is signed to claim
           -- the deposit, so the re-posted increment must carry snapshot 1.
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 0 now)
+          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -2041,8 +2057,8 @@ spec =
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           (s1, reqTxOutcome) <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (rollbackTo 0 now)
-            step $ observeTxAtSlot 2 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step (rollbackTo 2 now)
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
             s <- getState
             outcome <- step . receiveMessage $ ReqTx (aValidTx 5)
             pure (s, outcome)
@@ -2071,8 +2087,11 @@ spec =
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (rollbackTo 0 now)
+            step (rollbackTo 2 now)
             getState
+          -- The deposit resurfaced (its increment was rolled back) ...
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` True
+          -- ... but recovering it must still be refused
           let outcome = update soloAliceEnv ledger now s1 (ClientInput (Recover depositTxId'))
           case outcome of
             -- Rejecting the command outright is fine
@@ -2090,10 +2109,31 @@ spec =
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           outcome <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (rollbackTo 0 now)
+            step (rollbackTo 2 now)
             step . receiveMessage $ ReqTx (aValidTx 5)
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId = dep} -> isNothing dep
+            _ -> False
+
+          -- Sharper variant: confirm snapshot 2 first, so 'confirmedSnapshot'
+          -- no longer carries the commit and cannot block selection by itself.
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step . receiveMessage $ ReqSn 1 2 [] Nothing Nothing
+            step . receiveMessage $ AckSn (sign aliceSk postIncrementSnapshot) 2
+            step (rollbackTo 2 now)
+            getState
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` True
+
+          -- Not proposed on a new transaction ...
+          let reqTxOutcome = update soloAliceEnv ledger now s1 (receiveMessage $ ReqTx (aValidTx 5))
+          reqTxOutcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = dep} -> dep == Just depositTxId'
+            _ -> False
+
+          -- ... nor by the tick-driven snapshot request for active deposits
+          let tickOutcome = update soloAliceEnv ledger now s1 (ChainInput Tick{chainTime = addUTCTime 120 now, chainPoint = 3})
+          tickOutcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = dep} -> dep == Just depositTxId'
             _ -> False
 
         it "tracks a deposit again when a rollback erases its recover transaction" $ do
@@ -3215,6 +3255,8 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
+                          , finalizedCommit = Nothing
+                          , finalizedDecommit = Nothing
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -3346,6 +3388,8 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
+                          , finalizedCommit = Nothing
+                          , finalizedDecommit = Nothing
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -3441,12 +3485,15 @@ spec =
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
                               , version = 0
+                              , finalizedCommit = Nothing
+                              , finalizedDecommit = Nothing
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
                         , headSeed = testHeadSeed
                         }
                 , pendingDeposits = mempty
+                , depositHistory = initialDepositHistory
                 , chainPointTime =
                     ChainPointTime
                       { currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
@@ -3488,12 +3535,15 @@ spec =
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
                             , version = 0
+                            , finalizedCommit = Nothing
+                            , finalizedDecommit = Nothing
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                       , headId = testHeadId
                       , headSeed = testHeadSeed
                       }
               , pendingDeposits = mempty
+              , depositHistory = initialDepositHistory
               , chainPointTime =
                   ChainPointTime
                     { currentSlot = ChainSlot 1
@@ -3660,6 +3710,8 @@ inOpenState parties =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
  where
   u0 = mempty
@@ -3697,6 +3749,8 @@ reqDecStateWith parties mStatus =
       , currentDepositTxId = Just reqDecDepositTxId
       , decommitTx = Nothing
       , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
   mkDeposit status =
     Deposit
@@ -3908,10 +3962,10 @@ mkTimeHandleAt slotNo now =
   eraHistory = eraHistoryWithHorizonAt horizonSlot
 
 catchingUp :: IsTx tx => HeadState tx -> NodeState tx
-catchingUp headState = NodeCatchingUp{headState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime}
+catchingUp headState = NodeCatchingUp{headState, pendingDeposits = mempty, depositHistory = initialDepositHistory, chainPointTime = zeroChainPointTime}
 
 inSync :: IsTx tx => HeadState tx -> NodeState tx
-inSync headState = NodeInSync{headState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime}
+inSync headState = NodeInSync{headState, pendingDeposits = mempty, depositHistory = initialDepositHistory, chainPointTime = zeroChainPointTime}
 
 zeroChainPointTime :: ChainPointTime
 zeroChainPointTime =
