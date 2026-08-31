@@ -53,11 +53,11 @@ import Hydra.API.ServerOutput (
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), NetworkMagic (..))
 import Hydra.Cardano.Api.Gen ()
 import Hydra.Chain (ChainEvent, OnChainTx, PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainSlot)
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (FanoutMode, HeadState, SeenSnapshot)
+import Hydra.HeadLogic.State (CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -67,7 +67,7 @@ import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus)
+import Hydra.Node.State (ChainPointTime, Deposit, DepositHistory (..), DepositStatus, NodeState (..), SyncedStatus, nodeCatchingUpCBORTag, nodeInSyncCBORTag, nodeInSyncCBORTagV1)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -222,6 +222,56 @@ spec = parallel $ do
                 <> toCBOR utxoToCommit
                 <> toCBOR utxoToDecommit
       decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
+
+  -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
+  -- between two released layouts, same situation as 'Snapshot' above.
+  describe "CoordinatedHeadState layouts" $ do
+    let chs = generateWith (resize 3 arbitrary) 42 :: CoordinatedHeadState Tx
+        CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} = chs
+
+    it "writes the current layout under a tag of its own" $
+      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' coordinatedHeadStateCBORTag)
+
+    it "decodes the layout written before finalizedCommit/finalizedDecommit existed" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR coordinatedHeadStateCBORTagV1
+                <> toCBOR localUTxO
+                <> toCBOR localTxs
+                <> toCBOR allTxs
+                <> toCBOR confirmedSnapshot
+                <> toCBOR seenSnapshot
+                <> toCBOR currentDepositTxId
+                <> toCBOR decommitTx
+                <> toCBOR version
+      decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
+
+  -- 'NodeState' gained 'depositHistory' between two released layouts, same
+  -- situation as 'Snapshot' above. The legacy layout seeds the history from
+  -- the current view, mirroring the 'FromJSON' instance.
+  describe "NodeState layouts" $ do
+    let nodeState = generateWith (resize 3 arbitrary) 42 :: NodeState Tx
+
+    it "writes the current layout under a tag of its own" $
+      serialize' nodeState `shouldSatisfy` \bytes ->
+        BS.isPrefixOf (serialize' nodeInSyncCBORTag) bytes
+          || BS.isPrefixOf (serialize' nodeCatchingUpCBORTag) bytes
+
+    it "decodes the layout written before depositHistory existed" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR nodeInSyncCBORTagV1
+                <> toCBOR (headState nodeState)
+                <> toCBOR (pendingDeposits nodeState)
+                <> toCBOR (chainPointTime nodeState)
+      decodeFull' legacy
+        `shouldBe` Right
+          NodeInSync
+            { headState = headState nodeState
+            , pendingDeposits = pendingDeposits nodeState
+            , depositHistory = DepositHistory ((ChainSlot 0, pendingDeposits nodeState) :| [])
+            , chainPointTime = chainPointTime nodeState
+            }
 
   describe "protocol types" $ do
     roundtripCBOR $ Proxy @(Snapshot Tx)

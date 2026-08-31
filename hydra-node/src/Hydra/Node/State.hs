@@ -4,6 +4,7 @@ module Hydra.Node.State where
 
 import Hydra.Prelude
 
+import Cardano.Binary (Decoder)
 import Data.Aeson (withObject, (.!=), (.:), (.:?))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -53,10 +54,16 @@ currentDeposits (DepositHistory ((_, deposits) :| _)) = deposits
 -- is bounded by 'maxDepositHistorySize': rollbacks deeper than the deposit
 -- deadline cannot lead to a valid re-post anyway, so dropping the tail loses
 -- nothing actionable.
+--
+-- 'rollbackDepositHistory' relies on the history slots being strictly
+-- descending, so a push at a slot not younger than the newest entry (deposit
+-- status changes are recorded at tick slots while observations are recorded at
+-- their block slot, so slots may repeat or arrive slightly out of order)
+-- collapses into the newest entry rather than breaking that order.
 pushDeposits :: ChainSlot -> PendingDeposits tx -> DepositHistory tx -> DepositHistory tx
-pushDeposits slot deposits (DepositHistory (newest@(newestSlot, _) :| older))
-  | newestSlot == slot = DepositHistory ((slot, deposits) :| older)
-  | otherwise = DepositHistory ((slot, deposits) :| take (maxDepositHistorySize - 1) (newest : older))
+pushDeposits slot deposits (DepositHistory history@((newestSlot, _) :| older))
+  | slot <= newestSlot = DepositHistory ((newestSlot, deposits) :| older)
+  | otherwise = DepositHistory ((slot, deposits) :| take (maxDepositHistorySize - 1) (toList history))
 
 -- | Rewind the history to the given slot: drop all versions recorded after it.
 -- The oldest version is always kept as last resort.
@@ -69,6 +76,13 @@ rollbackDepositHistory slot (DepositHistory history) =
 -- | Upper bound on retained deposit history versions. Deposit lifecycles only
 -- push a handful of versions each, so this covers rollbacks far deeper than
 -- any deposit deadline while keeping memory and checkpoint size bounded.
+--
+-- Trade-off: in-memory versions share structure, but serialization (state
+-- checkpoints, API messages carrying 'NodeState') copies each version in
+-- full, so with many concurrent deposits this bound dominates the serialized
+-- size. Pruning by slot age (versions older than the deposit deadline horizon
+-- can never lead to a valid re-post) would bound the history by what is
+-- actionable instead and is a possible refinement.
 maxDepositHistorySize :: Int
 maxDepositHistorySize = 1000
 
@@ -160,11 +174,54 @@ instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx) wher
       "NodeCatchingUp" -> pure NodeCatchingUp{headState, pendingDeposits, depositHistory, chainPointTime}
       _ -> fail $ "unknown NodeState tag: " <> show tag
 
+-- | Tags of the current on-disk\/wire layout, which carries 'depositHistory'.
+-- The fields are a bare concatenation with no length prefix, so a layout
+-- change is only decodable when the tag distinguishes it: the V1 tags name the
+-- layout written before the field existed and are still accepted, seeding the
+-- history from the legacy current view like the 'FromJSON' instance above.
+nodeInSyncCBORTag, nodeCatchingUpCBORTag :: Text
+nodeInSyncCBORTag = "NodeInSync2"
+nodeCatchingUpCBORTag = "NodeCatchingUp2"
+
+-- | Tags of the layout without 'depositHistory'. Decoded, never written.
+nodeInSyncCBORTagV1, nodeCatchingUpCBORTagV1 :: Text
+nodeInSyncCBORTagV1 = "NodeInSync"
+nodeCatchingUpCBORTagV1 = "NodeCatchingUp"
+
 instance IsChainState tx => ToCBOR (NodeState tx) where
-  toCBOR = genericToCBOR
+  toCBOR nodeState =
+    toCBOR tag
+      <> toCBOR (headState nodeState)
+      <> toCBOR (pendingDeposits nodeState)
+      <> toCBOR (depositHistory nodeState)
+      <> toCBOR (chainPointTime nodeState)
+   where
+    tag = case nodeState of
+      NodeInSync{} -> nodeInSyncCBORTag
+      NodeCatchingUp{} -> nodeCatchingUpCBORTag
 
 instance IsChainState tx => FromCBOR (NodeState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == nodeInSyncCBORTag -> decode NodeInSync True
+        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp True
+        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync False
+        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
+   where
+    decode ::
+      (HeadState tx -> PendingDeposits tx -> DepositHistory tx -> ChainPointTime -> NodeState tx) ->
+      Bool ->
+      Decoder s (NodeState tx)
+    decode mkNodeState hasDepositHistory = do
+      headState <- fromCBOR
+      pendingDeposits <- fromCBOR
+      depositHistory <-
+        if hasDepositHistory
+          then fromCBOR
+          else pure $ DepositHistory ((ChainSlot 0, pendingDeposits) :| [])
+      mkNodeState headState pendingDeposits depositHistory <$> fromCBOR
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
