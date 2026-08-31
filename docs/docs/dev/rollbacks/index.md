@@ -38,9 +38,21 @@ The consequences of a rollback on the head's state vary depending on when the ro
 
 ## How do we handle them?
 
+The guiding principle is that layer 2 state never rolls back: snapshots and their signatures are irrevocable, so the node instead makes sure layer 1 eventually converges with what layer 2 already agreed on. Only layer 1 derived state is rewound.
+
+For deposits and incremental commits/decommits while the head is open, this works as follows:
+
+- The node keeps a slot-indexed history of the pending deposits. On a rollback it rewinds this view to the rolled-back slot: a deposit whose deposit transaction was rolled back stops being tracked (until re-observed on the new chain), and a deposit whose consuming transaction (increment or recover) was rolled back becomes tracked again.
+
+- When an increment or decrement transaction settles on-chain (`CommitFinalized`/`DecommitFinalized`), the node retains the signed snapshot that authorized it, together with the slot the settlement was observed at. If a later rollback reaches past that slot, the settling transaction was erased from the chain and the node re-posts it from the retained snapshot. This also covers the case where newer snapshots were confirmed in the meantime (see [#2741](https://github.com/cardano-scaling/hydra/issues/2741)).
+
+- A deposit whose finalized increment was rolled back is *only* eligible for that re-post: it cannot be recovered (its funds are already accounted for in the head, so an on-chain recover would corrupt the layer 2 ledger) and it is never proposed for a new snapshot (the already-signed snapshot claims it).
+
+If the settling transaction is re-observed on the new chain — whether it survived the fork, was re-included from the mempool, or was re-posted by any party — the corresponding state transition applies idempotently and the head continues as normal.
+
 :::warning
 
-🛠 Hydra currently handles rollbacks gracefully in simpler cases, such as scenario 1 above. However, rollbacks of transactions while the head is open (deposits, decommits, or the `Init` itself) can lead to a head becoming stale due to desynchronization among nodes, and the head will need to be closed.
+🛠 Some rollback scenarios while the head is open remain out of scope of this mechanism: a rollback spanning more than one finalized increment, an increment that can no longer be re-posted because the deposit deadline passed (the deposit period must be sized to cover worst-case rollback depth plus re-posting time), or a rollback of the `Init` itself. These can lead to a head becoming stale, and the head will need to be closed.
 :::
 
 Rollback handling has been partially deactivated in Hydra per [ADR-23](/adr/23). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/cardano-scaling/hydra/issues/185).

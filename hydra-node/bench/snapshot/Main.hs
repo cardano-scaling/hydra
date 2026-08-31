@@ -34,7 +34,7 @@ import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Network.Message (Message (AckSn, ReqSn))
 import Hydra.Node (mkNetworkInput)
-import Hydra.Node.State (ChainPointTime (..), NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), initialDepositHistory)
 import Hydra.Tx (HeadParameters (..), Snapshot (..), txId)
 import Hydra.Tx.Accumulator (buildFromSnapshotUTxOs, getAccumulatorHash)
 import Hydra.Tx.Crypto (Signature, sign)
@@ -91,12 +91,15 @@ benchCell n m = do
                         , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
+                        , finalizedCommit = Nothing
+                        , finalizedDecommit = Nothing
                         }
                   , chainState = initialChainState
                   , headId = testHeadId
                   , headSeed = testHeadSeed
                   }
           , pendingDeposits = mempty
+          , depositHistory = initialDepositHistory
           , chainPointTime =
               ChainPointTime
                 { currentSlot = ChainSlot 1
