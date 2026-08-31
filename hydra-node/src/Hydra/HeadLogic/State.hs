@@ -8,7 +8,7 @@ import Hydra.Prelude
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -154,6 +154,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
+  , finalizedCommit :: Maybe (FinalizedCommit tx)
+  , finalizedDecommit :: Maybe (FinalizedDecommit tx)
   }
   deriving stock (Generic)
 
@@ -388,4 +390,45 @@ instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
   toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
+  fromCBOR = genericFromCBOR
+
+-- | Retained when an increment settles ('CommitFinalized') so the IncrementTx
+-- can be re-posted if a rollback later erases it. The signed snapshot must be
+-- kept here because 'confirmedSnapshot' may advance past it, and only this
+-- snapshot can claim the deposit on-chain. Kept until overwritten by the next
+-- finalized commit; 'observedAtSlot' makes stale entries inert (re-post only
+-- when a rollback reaches strictly before it).
+data FinalizedCommit tx = FinalizedCommit
+  { depositTxId :: TxIdType tx
+  , incrementingSnapshot :: ConfirmedSnapshot tx
+  , observedAtSlot :: ChainSlot
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FinalizedCommit tx)
+deriving stock instance IsTx tx => Show (FinalizedCommit tx)
+deriving anyclass instance IsTx tx => ToJSON (FinalizedCommit tx)
+deriving anyclass instance IsTx tx => FromJSON (FinalizedCommit tx)
+
+instance IsTx tx => ToCBOR (FinalizedCommit tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FinalizedCommit tx) where
+  fromCBOR = genericFromCBOR
+
+data FinalizedDecommit tx = FinalizedDecommit
+  { decrementingSnapshot :: ConfirmedSnapshot tx
+  , observedAtSlot :: ChainSlot
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FinalizedDecommit tx)
+deriving stock instance IsTx tx => Show (FinalizedDecommit tx)
+deriving anyclass instance IsTx tx => ToJSON (FinalizedDecommit tx)
+deriving anyclass instance IsTx tx => FromJSON (FinalizedDecommit tx)
+
+instance IsTx tx => ToCBOR (FinalizedDecommit tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FinalizedDecommit tx) where
   fromCBOR = genericFromCBOR

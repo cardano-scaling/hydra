@@ -67,6 +67,11 @@ data RequirementFailure tx
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | NoMatchingDeposit
+  | -- | The deposit is claimed by a signed snapshot whose increment settled
+    -- on-chain but was rolled back: its funds are already accounted for in the
+    -- head, so recovering them on-chain would corrupt the L2 ledger. The
+    -- increment is re-posted instead, see #2741.
+    RecoverBlockedByFinalizedCommit {depositTxId :: TxIdType tx}
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
   | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}

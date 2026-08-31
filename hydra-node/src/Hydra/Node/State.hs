@@ -4,9 +4,10 @@ module Hydra.Node.State where
 
 import Hydra.Prelude
 
+import Data.Aeson (withObject, (.!=), (.:), (.:?))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
   HeadId,
@@ -14,6 +15,84 @@ import Hydra.Tx (
  )
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+
+-- | Slot-indexed versions of the pending deposits, newest first. Deposits are
+-- L1-derived state, so a rollback rewinds this history to restore the view at
+-- the rolled-back slot: a deposit whose consuming transaction (increment or
+-- recover) was rolled back resurfaces, and one whose deposit transaction was
+-- rolled back disappears. Forward re-observation of the new chain then
+-- converges the view again. Only L1-derived state may rewind like this; L2
+-- state (snapshots, signatures) never rolls back.
+--
+-- The head entry is the current view and must equal 'pendingDeposits' of the
+-- surrounding 'NodeState' — maintain both only via 'modifyDeposits' and
+-- 'rollbackDeposits'.
+newtype DepositHistory tx = DepositHistory (NonEmpty (ChainSlot, PendingDeposits tx))
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (DepositHistory tx)
+deriving stock instance IsTx tx => Show (DepositHistory tx)
+deriving anyclass instance IsTx tx => ToJSON (DepositHistory tx)
+deriving anyclass instance IsTx tx => FromJSON (DepositHistory tx)
+
+instance IsTx tx => ToCBOR (DepositHistory tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (DepositHistory tx) where
+  fromCBOR = genericFromCBOR
+
+initialDepositHistory :: IsTx tx => DepositHistory tx
+initialDepositHistory = DepositHistory ((ChainSlot 0, mempty) :| [])
+
+-- | The current view of the deposit history.
+currentDeposits :: DepositHistory tx -> PendingDeposits tx
+currentDeposits (DepositHistory ((_, deposits) :| _)) = deposits
+
+-- | Record a new version of the pending deposits at the given slot. Multiple
+-- versions at the same slot collapse into the latest one. The history length
+-- is bounded by 'maxDepositHistorySize': rollbacks deeper than the deposit
+-- deadline cannot lead to a valid re-post anyway, so dropping the tail loses
+-- nothing actionable.
+pushDeposits :: ChainSlot -> PendingDeposits tx -> DepositHistory tx -> DepositHistory tx
+pushDeposits slot deposits (DepositHistory (newest@(newestSlot, _) :| older))
+  | newestSlot == slot = DepositHistory ((slot, deposits) :| older)
+  | otherwise = DepositHistory ((slot, deposits) :| take (maxDepositHistorySize - 1) (newest : older))
+
+-- | Rewind the history to the given slot: drop all versions recorded after it.
+-- The oldest version is always kept as last resort.
+rollbackDepositHistory :: ChainSlot -> DepositHistory tx -> DepositHistory tx
+rollbackDepositHistory slot (DepositHistory history) =
+  case dropWhile (\(s, _) -> s > slot) (toList history) of
+    [] -> DepositHistory (last history :| [])
+    (h : rest) -> DepositHistory (h :| rest)
+
+-- | Upper bound on retained deposit history versions. Deposit lifecycles only
+-- push a handful of versions each, so this covers rollbacks far deeper than
+-- any deposit deadline while keeping memory and checkpoint size bounded.
+maxDepositHistorySize :: Int
+maxDepositHistorySize = 1000
+
+-- | Apply a change to the pending deposits at the given slot, recording the
+-- new version in 'depositHistory' so a rollback can restore the previous ones.
+modifyDeposits :: ChainSlot -> (PendingDeposits tx -> PendingDeposits tx) -> NodeState tx -> NodeState tx
+modifyDeposits slot f nodeState =
+  nodeState
+    { pendingDeposits = deposits
+    , depositHistory = pushDeposits slot deposits (depositHistory nodeState)
+    }
+ where
+  deposits = f (pendingDeposits nodeState)
+
+-- | Rewind the pending deposits to their state at the given (rolled back)
+-- slot, see 'DepositHistory'.
+rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
+rollbackDeposits slot nodeState =
+  nodeState
+    { pendingDeposits = currentDeposits history
+    , depositHistory = history
+    }
+ where
+  history = rollbackDepositHistory slot (depositHistory nodeState)
 
 data ChainPointTime = ChainPointTime
   { currentSlot :: ChainSlot
@@ -38,9 +117,12 @@ data NodeState tx
     NodeInSync
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
-      -- ^ Pending deposits as observed on chain.
+      -- ^ Pending deposits as observed on chain: the current view of
+      -- 'depositHistory'. Only change via 'modifyDeposits'/'rollbackDeposits'.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
+      , depositHistory :: DepositHistory tx
+      -- ^ Past versions of 'pendingDeposits' to restore on rollback.
       , chainPointTime :: ChainPointTime
       }
   | -- | Node is catching up on its view of the chain and should behave
@@ -48,9 +130,12 @@ data NodeState tx
     NodeCatchingUp
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
-      -- ^ Pending deposits as observed on chain.
+      -- ^ Pending deposits as observed on chain: the current view of
+      -- 'depositHistory'. Only change via 'modifyDeposits'/'rollbackDeposits'.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
+      , depositHistory :: DepositHistory tx
+      -- ^ Past versions of 'pendingDeposits' to restore on rollback.
       , chainPointTime :: ChainPointTime
       }
   deriving stock (Generic)
@@ -58,7 +143,22 @@ data NodeState tx
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
+
+-- | Manual instance: 'depositHistory' was added after 'NodeState' shipped, so
+-- checkpoints persisted by older versions lack the key. Seed the history from
+-- the legacy current view in that case, which reproduces the old (rollback
+-- unaware) behavior for deposits recorded before the upgrade.
+instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx) where
+  parseJSON = withObject "NodeState" $ \o -> do
+    tag :: Text <- o .: "tag"
+    headState <- o .: "headState"
+    pendingDeposits <- o .: "pendingDeposits"
+    depositHistory <- o .:? "depositHistory" .!= DepositHistory ((ChainSlot 0, pendingDeposits) :| [])
+    chainPointTime <- o .: "chainPointTime"
+    case tag of
+      "NodeInSync" -> pure NodeInSync{headState, pendingDeposits, depositHistory, chainPointTime}
+      "NodeCatchingUp" -> pure NodeCatchingUp{headState, pendingDeposits, depositHistory, chainPointTime}
+      _ -> fail $ "unknown NodeState tag: " <> show tag
 
 instance IsChainState tx => ToCBOR (NodeState tx) where
   toCBOR = genericToCBOR
@@ -71,6 +171,7 @@ initNodeState chainState =
   NodeCatchingUp
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
+    , depositHistory = initialDepositHistory
     , chainPointTime = initialChainPointTime chainState
     }
 
