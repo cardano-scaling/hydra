@@ -72,6 +72,12 @@ data RequirementFailure tx
     -- head, so recovering them on-chain would corrupt the L2 ledger. The
     -- increment is re-posted instead, see #2741.
     RecoverBlockedByFinalizedCommit {depositTxId :: TxIdType tx}
+  | -- | The requested deposit is claimed by an already signed snapshot whose
+    -- increment settled on-chain but was rolled back (which is the only way it
+    -- resurfaces in the pending deposits): signing a second snapshot claiming
+    -- it would double claim the deposit. Only re-posting the increment settles
+    -- it, see #2741.
+    ReqSnDepositBlockedByFinalizedCommit {depositTxId :: TxIdType tx}
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
   | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}

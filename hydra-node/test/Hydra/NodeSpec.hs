@@ -13,7 +13,7 @@ import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateS
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Events (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
@@ -37,7 +37,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), DepositHistory (..), NodeState (..), PendingDeposits, currentDeposits, initialDepositHistory, pushDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -48,6 +48,7 @@ import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
+import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -60,11 +61,28 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
+  describe "DepositHistory" $ do
+    -- 'rollbackDepositHistory' drops entries with 'dropWhile', which is only
+    -- correct on strictly descending slots; pushes must maintain that even
+    -- when their slots arrive out of order (deposit status changes are
+    -- recorded at tick slots, observations at their block slot).
+    prop "pushDeposits keeps history slots strictly descending" $
+      \(pushes :: [(ChainSlot, PendingDeposits SimpleTx)]) ->
+        let DepositHistory entries =
+              foldl' (\h (slot, deposits) -> pushDeposits slot deposits h) (initialDepositHistory @SimpleTx) pushes
+         in isStrictlyMonotonic (reverse $ fst <$> toList entries)
+
+    prop "pushDeposits makes the pushed deposits the current view" $
+      \(pushes :: [(ChainSlot, PendingDeposits SimpleTx)]) (slot :: ChainSlot) (deposits :: PendingDeposits SimpleTx) ->
+        let history =
+              foldl' (\h (s, d) -> pushDeposits s d h) (initialDepositHistory @SimpleTx) pushes
+         in currentDeposits (pushDeposits slot deposits history) == deposits
   -- Set up a hydrate function with fixtures curried
   let setupHydrate ::
         ( ( EventStore (StateEvent SimpleTx) IO ->

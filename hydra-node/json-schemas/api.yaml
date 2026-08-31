@@ -3882,14 +3882,13 @@ components:
         type: array
         minItems: 2
         maxItems: 2
-        items:
-          anyOf:
-            - $ref: "api.yaml#/components/schemas/ChainSlot"
-            - type: object
-              propertyNames:
-                $ref: "api.yaml#/components/schemas/TxId"
-              items:
-                $ref: "api.yaml#/components/schemas/Deposit"
+        prefixItems:
+          - $ref: "api.yaml#/components/schemas/ChainSlot"
+          - type: object
+            propertyNames:
+              $ref: "api.yaml#/components/schemas/TxId"
+            additionalProperties:
+              $ref: "api.yaml#/components/schemas/Deposit"
 
     FinalizedCommit:
       type: object
