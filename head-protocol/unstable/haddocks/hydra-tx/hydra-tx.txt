@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx
-@version 2.3.0
+@version 2.4.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
