@@ -242,7 +242,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "full head life-cycle" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            singlePartyHeadFullLifeCycle tracer tmpDir
+            singlePartyHeadFullLifeCycle tracer tmpDir mkTestTiming
       it "can close with long deadline" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $

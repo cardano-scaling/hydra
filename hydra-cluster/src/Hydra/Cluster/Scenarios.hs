@@ -51,7 +51,7 @@ import Hydra.Cardano.Api (
   Coin (..),
   Era,
   File (File),
-  Key (SigningKey),
+  Key (SigningKey, VerificationKey),
   KeyWitnessInCtx (..),
   LedgerProtocolParameters (..),
   PaymentKey,
@@ -104,10 +104,10 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
+import Hydra.Cluster.Util (BlockTime, Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
@@ -115,7 +115,6 @@ import Hydra.Network qualified as Network
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, txId)
-import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
 import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Secret (Secret, mkSecret)
@@ -519,35 +518,44 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
 
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
--- `hydra-cluster` executable.
+-- `hydra-cluster` executable, which passes 'mkSmokeTiming' rather than
+-- 'mkTestTiming' on the networks where the protocol waits dominate.
 singlePartyHeadFullLifeCycle ::
   Tracer IO EndToEndLog ->
   FilePath ->
+  -- | How to derive the timing parameters from the chain's block time.
+  (BlockTime -> Timing) ->
   ChainBackendOptions ->
   [TxId] ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir opts hydraScriptsTxId =
+singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer opts Alice) $ do
-    refuelIfNeeded tracer opts Alice 55_000_000
-    -- Start hydra-node on chain tip
-    tip <- runBackend opts queryTip
     blockTime <- runBackend opts getBlockTime
     networkId <- runBackend opts queryNetworkId
-    let timing = mkTestTiming blockTime
-    let Timing{depositPeriod = timingDepositPeriod, depositActivation = timingDepositActivation} = timing
-    contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
-    aliceChainConfig <-
-      chainConfigFor' Alice workDir opts hydraScriptsTxId [] contestationPeriod timingDepositPeriod timingDepositActivation
-        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
-          . setNetworkId networkId
+    let timing = mkTiming blockTime
+
+    -- NOTE: Take the tip before funding, so the funding transaction is
+    -- guaranteed to land after it. The node is started at this point and only
+    -- leaves 'CatchingUp' on a chain tick, which is emitted on roll forward
+    -- alone -- pinned to the bare tip it would sit there until the next block.
+    tip <- runBackend opts queryTip
 
     (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
     let aliceAddress = mkVkAddress networkId aliceCardanoVk
 
-    -- Prepare deposit payload
+    -- Prepare deposit payload. Alice's fuel and the wallet's deposit come from
+    -- one faucet transaction, so this costs a single confirmation.
     (walletVk, walletSk) <- generate genKeyPair
     let depositAmount = 10_000_000
-    depositUTxO <- seedFromFaucet opts walletVk (lovelaceToValue depositAmount) (contramap FromFaucet tracer)
+    depositUTxO <-
+      refuelAndSeed tracer opts Alice 55_000_000 [(walletVk, lovelaceToValue depositAmount)] >>= \case
+        [utxo] -> pure utxo
+        utxos -> failure $ "expected exactly one seeded deposit UTxO, got " <> show (length utxos)
+
+    aliceChainConfig <-
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
+        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+          . setNetworkId networkId
     let changeAddress = mkVkAddress @Era networkId walletVk
     let (i, o) = List.head $ UTxO.toList depositUTxO
     let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
@@ -2106,14 +2114,33 @@ refuelIfNeeded ::
   Actor ->
   Coin ->
   IO ()
-refuelIfNeeded tracer opts actor amount = do
+refuelIfNeeded tracer opts actor amount =
+  void $ refuelAndSeed tracer opts actor amount []
+
+-- | Like 'refuelIfNeeded', but seeds further keys from the same faucet
+-- transaction and returns their UTxO. Each faucet transaction costs an on-chain
+-- confirmation, a block time on a public network, so a scenario needing several
+-- funded keys is better off asking for them together.
+refuelAndSeed ::
+  Tracer IO EndToEndLog ->
+  ChainBackendOptions ->
+  Actor ->
+  -- | Amount the actor is to hold before the scenario starts.
+  Coin ->
+  -- | Further keys to seed, and the value each is to receive.
+  [(VerificationKey PaymentKey, CAPI.Value)] ->
+  -- | The seeded UTxO of each further key, in the order given.
+  IO [UTxO]
+refuelAndSeed tracer opts actor amount seeds = do
   (actorVk, _) <- keysFor actor
   existingUtxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
-  let currentBalance = selectLovelace $ balance @Tx existingUtxo
-  when (currentBalance < amount) $ do
-    utxo <- seedFromFaucet opts actorVk (lovelaceToValue amount) (contramap FromFaucet tracer)
+  let refuel = [(actorVk, lovelaceToValue amount) | selectLovelace (balance @Tx existingUtxo) < amount]
+  seeded <- seedManyFromFaucet opts (refuel <> seeds) (contramap FromFaucet tracer)
+  let (refueled, seededUTxO) = splitAt (length refuel) seeded
+  forM_ refueled $ \utxo ->
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
+  pure seededUTxO
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::

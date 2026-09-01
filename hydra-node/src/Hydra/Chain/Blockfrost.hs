@@ -170,6 +170,7 @@ withBlockfrostChain env tracer config ctx wallet chainStateHistory callback acti
           getTimeHandle
           wallet
           ctx
+          depositPeriod
           localChainState
           (submitTx queue)
 
@@ -187,7 +188,7 @@ withBlockfrostChain env tracer config ctx wallet chainStateHistory callback acti
     Right a -> pure a
  where
   BlockfrostEnv{project} = env
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, depositPeriod} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()
   submitTx queue tx = do

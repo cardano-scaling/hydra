@@ -179,6 +179,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
           getTimeHandle
           wallet
           ctx
+          depositPeriod
           localChainState
           (submitTx queue)
 
@@ -197,7 +198,7 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
     Right a -> pure a
  where
   DirectOptions{networkId, nodeSocket} = opts
-  CardanoChainConfig{startChainFrom} = config
+  CardanoChainConfig{startChainFrom, depositPeriod} = config
 
   connectInfo networkId' nodeSocket' =
     LocalNodeConnectInfo

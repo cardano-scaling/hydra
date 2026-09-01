@@ -68,13 +68,14 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
-import Hydra.Node.Environment (Environment (Environment, participants, party))
+import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
@@ -147,7 +148,7 @@ mockChainAndNetwork tr seedKeys = do
   connectNode nodes chain queue draftNode = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let DraftHydraNode{env} = draftNode
-        Environment{party = ownParty} = env
+        Environment{party = ownParty, depositPeriod} = env
     let vkey = fst $ findOwnCardanoKey ownParty seedKeys
     let ctx =
           ChainContext
@@ -182,6 +183,7 @@ mockChainAndNetwork tr seedKeys = do
           createMockChain
             tr
             ctx
+            depositPeriod
             submitTx
             getTimeHandle
             seedInput
@@ -389,12 +391,13 @@ createMockChain ::
   (MonadTimer m, MonadThrow (STM m)) =>
   Tracer m CardanoChainLog ->
   ChainContext ->
+  DepositPeriod ->
   SubmitTx m ->
   m TimeHandle ->
   TxIn ->
   LocalChainState m Tx ->
   Chain Tx m
-createMockChain tracer ctx submitTx timeHandle seedInput chainState =
+createMockChain tracer ctx depositPeriod submitTx timeHandle seedInput chainState =
   -- NOTE: The wallet basically does nothing
   let wallet =
         TinyWallet
@@ -413,6 +416,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
         timeHandle
         wallet
         ctx
+        depositPeriod
         chainState
         submitTx
 

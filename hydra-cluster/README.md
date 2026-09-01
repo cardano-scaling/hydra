@@ -54,6 +54,12 @@ start `cardano-node`.
 The Hydra nodes can reference pre-existing contracts living at some well-known
 transaction or can post a new transaction to use those contracts.
 
+The scenario runs with a shorter `deposit-activation` and contestation period
+than the end-to-end tests use (see `mkSmokeTiming`): most of its wall clock would
+otherwise be spent waiting those out. The contestation period stops at the point
+where the validity window of close, contest and increment transactions would
+start shrinking, so nothing is more likely to expire than before.
+
 :warning: do not provide actual funds to this faucet address as the
 signing key is publicly available. Shall you want to run the smoke
 test with actual funds, you shall override these file to use a secret

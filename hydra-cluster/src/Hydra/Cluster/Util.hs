@@ -107,6 +107,45 @@ mkTestTiming' numDeposits blockTime =
  where
   depositPeriod = truncatedDepositPeriod $ fromIntegral numDeposits * 20 * blockTime
 
+-- | Timing for the smoke test run by the @hydra-cluster@ executable against a
+-- public network, where a block takes ~20s and the run is dominated by waiting
+-- out 'depositActivation' rather than by anything the scenario asserts.
+--
+-- A deposit becomes active at @created + depositActivation@, where @created@ is
+-- the deposit tx's upper validity bound, set a grace time ahead of the chain
+-- tip by 'Hydra.Chain.Direct.Handlers.draftDepositTx'. That grace time caps at
+-- @min maxGraceTime (depositPeriod / 2)@, 200s here, so the wait is
+-- @200 + depositActivation@ and only the second term is ours: at one block
+-- time it drops from 200 + 400 to 200 + 20.
+--
+-- 'contestationPeriod' is cut to the point where the close transaction's
+-- validity window stops changing, and no further. The contestation deadline is
+-- @closeTxUpperBound + contestationPeriod@ with the close tx bounded at
+-- @now + min contestationPeriod maxGraceTime@, so at @10 * blockTime@ = 200s
+-- the wait halves from 600s to 400s while that @min@ still yields 200s, exactly
+-- as it does at 'mkTestTiming'\'s 400s. Going below 200s would start shortening
+-- the window every close, contest and increment has to be included in, with no
+-- resubmit on expiry, and would drag two things with it: the derived
+-- @unsyncedPeriod@ (half the contestation period, against a Blockfrost follower
+-- that only observes blocks with a successor and so lags a block gap by
+-- construction) and 'Hydra.Chain.Blockfrost.Client.submissionRetryPolicy',
+-- whose ~180s worst case is documented against a 200s window.
+--
+-- 'depositPeriod' keeps its 'mkTestTiming' value. It is not on the critical
+-- path -- it sets how long a deposit stays active, not how long anything waits
+-- -- and shortening it only shrinks windows: the grace time is capped at half
+-- of it, so both the deposit tx's validity and the active window
+-- @depositPeriod - graceTime@ fall with it. 'Test.Hydra.Cluster.UtilSpec'
+-- guards the value used here.
+mkSmokeTiming :: BlockTime -> Timing
+mkSmokeTiming blockTime =
+  Timing
+    { blockTime
+    , contestationPeriod = truncate $ max 1 (10 * blockTime)
+    , depositPeriod = truncatedDepositPeriod $ max 1 (20 * blockTime)
+    , depositActivation = truncatedDepositPeriod $ max 1 blockTime
+    }
+
 -- | Get a timeout until a deposit should have happened given a 'Timing'. A
 -- deposit becomes active after 'depositActivation' and then needs about one
 -- 'depositPeriod' to be picked up and incremented, so both are accounted for

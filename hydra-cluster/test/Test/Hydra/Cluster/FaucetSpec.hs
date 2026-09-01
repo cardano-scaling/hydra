@@ -30,13 +30,28 @@ setupDevnet action =
 spec :: Spec
 spec =
   around setupDevnet $ do
-    describe "seedFromFaucet" $
+    describe "seedFromFaucet" $ do
       it "should work concurrently when called multiple times with the same amount of lovelace" $ \(tracer, opts) -> do
         utxos <- replicateConcurrently 10 $ do
           vk <- generate genVerificationKey
           seedFromFaucet opts vk (lovelaceToValue 1_000_000) tracer
         -- 10 unique outputs
         UTxO.size (fold utxos) `shouldBe` 10
+
+      it "sweeps small faucet outputs into the change" $ \(tracer, opts) -> do
+        (faucetVk, _) <- keysFor Faucet
+        -- Litter the faucet with outputs below the amount asked for next; on a
+        -- long-lived network these accumulate from 'returnFundsToFaucet' and
+        -- would otherwise never be spent again.
+        forM_ [Alice, Bob, Carol] $ \actor -> do
+          (vk, _) <- keysFor actor
+          void $ seedFromFaucet opts vk (lovelaceToValue 2_000_000) tracer
+          returnFundsToFaucet tracer opts actor
+        littered <- runBackend opts $ queryUTxOFor QueryTip faucetVk
+        vk <- generate genVerificationKey
+        void $ seedFromFaucet opts vk (lovelaceToValue 5_000_000) tracer
+        swept <- runBackend opts $ queryUTxOFor QueryTip faucetVk
+        UTxO.size swept `shouldSatisfy` (< UTxO.size littered)
 
     describe "returnFundsToFaucet" $ do
       it "does nothing if nothing to return" $ \(tracer, opts) -> do
@@ -55,8 +70,9 @@ spec =
               finalFaucetFunds <- runBackend opts $ queryUTxOFor QueryTip faucetVk
               UTxO.totalValue remaining `shouldBe` mempty
 
-              -- check the faucet has one utxo extra in the end
-              UTxO.size finalFaucetFunds `shouldBe` UTxO.size initialFaucetFunds + 1
+              -- check the faucet has at most one utxo extra in the end; the
+              -- seeding sweeps previously returned outputs into its change
+              UTxO.size finalFaucetFunds `shouldSatisfy` (<= UTxO.size initialFaucetFunds + 1)
 
               let initialFaucetValue = selectLovelace (UTxO.totalValue initialFaucetFunds)
               let finalFaucetValue = selectLovelace (UTxO.totalValue finalFaucetFunds)

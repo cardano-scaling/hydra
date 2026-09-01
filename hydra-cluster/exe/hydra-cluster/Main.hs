@@ -19,6 +19,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Util (mkSmokeTiming)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -43,12 +44,12 @@ run options =
             then withRunningCardanoNode tracer workDir network $ \_ opts -> do
               waitForFullySynchronized fromCardanoNode (Direct opts)
               publishOrReuseHydraScripts tracer (Direct opts)
-                >>= singlePartyHeadFullLifeCycle tracer workDir (Direct opts)
+                >>= singlePartyHeadFullLifeCycle tracer workDir mkSmokeTiming (Direct opts)
             else do
               bfProjectPath <- findFileStartingAtDirectory 3 blockfrostProjectPath
               let opts = Blockfrost defaultBlockfrostOptions{projectPath = bfProjectPath}
               publishOrReuseHydraScripts tracer opts
-                >>= singlePartyHeadFullLifeCycle tracer workDir opts
+                >>= singlePartyHeadFullLifeCycle tracer workDir mkSmokeTiming opts
         Nothing -> do
           withCardanoNodeDevnet fromCardanoNode workDir $ \_ opts -> do
             txId <- publishOrReuseHydraScripts tracer (Direct opts)
