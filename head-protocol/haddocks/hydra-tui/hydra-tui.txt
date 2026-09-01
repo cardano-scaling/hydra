@@ -4,7 +4,7 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 2.3.0
+@version 2.4.0
 
 module Hydra.TUI.Config
 data Theme
@@ -51,6 +51,20 @@ module Hydra.TUI.Forms
 --   '#index' suffix.
 renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
 utxoRadioField :: forall s e n. (s ~ (TxIn, TxOut CtxUTxO), n ~ Text) => Map TxIn (TxOut CtxUTxO) -> Maybe (Form s e n)
+
+-- | Build a multi-select (checkbox) form over a UTxO set: each entry can
+--   be toggled with Space, and the form state records which are selected.
+--   Used for selective partial fanout, where the user picks one or more
+--   UTxOs to fan out in a single <tt>PartialFanout</tt>. Returns
+--   <a>Nothing</a> for an empty UTxO set.
+utxoCheckboxField :: forall e n. n ~ Text => Map TxIn (TxOut CtxUTxO) -> Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
+
+-- | Like <a>utxoCheckboxField</a> but carries over a previous selection:
+--   any TxIn still present keeps its ticked state, new entries default to
+--   unticked, and entries no longer in the set are dropped. Used to
+--   rebuild the open fanout modal when a <tt>HeadPartiallyFannedOut</tt>
+--   step shrinks the remaining UTxO.
+utxoCheckboxFieldWith :: forall e n. n ~ Text => Maybe (Map TxIn (TxOut CtxUTxO, Bool)) -> Map TxIn (TxOut CtxUTxO) -> Maybe (Form (Map TxIn (TxOut CtxUTxO, Bool)) e n)
 
 -- | Build a radio form for selecting one pending deposit (by <a>TxId</a>)
 --   to recover. The form yields just the <a>TxId</a> — the full UTxO
@@ -179,28 +193,60 @@ drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget n
 --   tabs so the wording matches.
 drawFanoutPossibleMessage :: Widget n
 
+-- | Status message shown while a fanout is in progress, reporting how many
+--   UTxO are still to be fanned out. The wording follows the node-reported
+--   <a>FanoutProgressMode</a>: while auto-draining we just report
+--   progress; when the node awaits the next selection we prompt for [P].
+--   Shared between the Main and Funds tabs so the wording and count match.
+drawFanningOutMessage :: FanoutProgressMode -> UTxO -> Widget n
+
 -- | Status message shown when the head has been finalized, including the
 --   total ADA value of the distributed UTxO. Shared between the Main and
 --   Funds tabs so the wording matches.
 drawHeadFinalizedMessage :: UTxO -> Widget n
 
+module Hydra.TUI.RenderMessage
+
+-- | A fully-rendered API message, ready to be turned into a
+--   <a>LogMessage</a>. The three representations are kept separate so the
+--   TUI can show a short summary in lists, a structured detail view, and
+--   the raw JSON when the user toggles the detail pane.
+data RenderedMessage
+RenderedMessage :: Severity -> UTCTime -> Text -> Text -> Text -> RenderedMessage
+[$sel:rmSeverity:RenderedMessage] :: RenderedMessage -> Severity
+[$sel:rmTime:RenderedMessage] :: RenderedMessage -> UTCTime
+[$sel:rmSummary:RenderedMessage] :: RenderedMessage -> Text
+[$sel:rmDetail:RenderedMessage] :: RenderedMessage -> Text
+[$sel:rmRawJson:RenderedMessage] :: RenderedMessage -> Text
+
+-- | Render any API message into its three representations: summary,
+--   detail, raw JSON.
+renderMessage :: UTCTime -> ApiMessage Tx -> RenderedMessage
+
+-- | Convert a <a>RenderedMessage</a> to a <a>LogMessage</a>.
+toLogMessage :: RenderedMessage -> LogMessage
+
 module Hydra.TUI.Options
 data Options
-Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Maybe FilePath -> Options
+Options :: Host -> Either FilePath SocketPath -> NetworkId -> FilePath -> Maybe FilePath -> ApiEncoding -> Options
 [hydraNodeHost] :: Options -> Host
 [cardanoConnection] :: Options -> Either FilePath SocketPath
 [cardanoNetworkId] :: Options -> NetworkId
 
 -- | User key used by the tui client to commit
-[cardanoSigningKey] :: Options -> FilePath
+[fundsSigningKey] :: Options -> FilePath
 
 -- | Optional verification key of the hydra-node's internal wallet, used
 --   only to display the node's available fuel. Never used for committing.
 [fuelVerificationKey] :: Options -> Maybe FilePath
+
+-- | Which wire encoding to use on the WebSocket connection to the node.
+[apiEncoding] :: Options -> ApiEncoding
 parseOptions :: Parser Options
 parsecardanoConnection :: Parser (Either FilePath SocketPath)
 parseNodeHost :: Parser Host
-parseCardanoSigningKey :: Parser FilePath
+parseFundsSigningKey :: Parser FilePath
+parseApiEncoding :: Parser ApiEncoding
 parseFuelVerificationKey :: Parser (Maybe FilePath)
 instance GHC.Show.Show Hydra.TUI.Options.Options
 instance GHC.Classes.Eq Hydra.TUI.Options.Options
@@ -209,15 +255,8 @@ module Hydra.Client
 data HydraEvent tx
 ClientConnected :: HydraEvent tx
 ClientDisconnected :: HydraEvent tx
-Update :: AllPossibleAPIMessages tx -> HydraEvent tx
+Update :: ApiMessage tx -> HydraEvent tx
 Tick :: UTCTime -> HydraEvent tx
-
--- | All possible messages that expect to receive from the hydra-node.
-data AllPossibleAPIMessages tx
-ApiTimedServerOutput :: TimedServerOutput tx -> AllPossibleAPIMessages tx
-ApiClientMessage :: ClientMessage tx -> AllPossibleAPIMessages tx
-ApiGreetings :: Greetings tx -> AllPossibleAPIMessages tx
-ApiInvalidInput :: InvalidInput -> AllPossibleAPIMessages tx
 
 -- | Handle to interact with Hydra node
 data Client tx m
@@ -240,8 +279,6 @@ type ClientComponent tx m a = ClientCallback tx m -> (Client tx m -> m a) -> m a
 withClient :: forall tx a. IsChainState tx => Options -> ClientComponent tx IO a
 data ClientError
 ClientJSONDecodeError :: String -> ByteString -> ClientError
-instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Client.AllPossibleAPIMessages tx)
-instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Client.AllPossibleAPIMessages tx)
 instance GHC.Generics.Generic (Hydra.Client.HydraEvent tx)
 instance GHC.Exception.Type.Exception Hydra.Client.ClientError
 instance GHC.Generics.Generic Hydra.Client.ClientError
@@ -249,28 +286,6 @@ instance GHC.Show.Show Hydra.Client.ClientError
 instance GHC.Classes.Eq Hydra.Client.ClientError
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Client.HydraEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Client.HydraEvent tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Client.AllPossibleAPIMessages tx)
-
-module Hydra.TUI.RenderMessage
-
--- | A fully-rendered API message, ready to be turned into a
---   <a>LogMessage</a>. The three representations are kept separate so the
---   TUI can show a short summary in lists, a structured detail view, and
---   the raw JSON when the user toggles the detail pane.
-data RenderedMessage
-RenderedMessage :: Severity -> UTCTime -> Text -> Text -> Text -> RenderedMessage
-[$sel:rmSeverity:RenderedMessage] :: RenderedMessage -> Severity
-[$sel:rmTime:RenderedMessage] :: RenderedMessage -> UTCTime
-[$sel:rmSummary:RenderedMessage] :: RenderedMessage -> Text
-[$sel:rmDetail:RenderedMessage] :: RenderedMessage -> Text
-[$sel:rmRawJson:RenderedMessage] :: RenderedMessage -> Text
-
--- | Render any API message into its three representations: summary,
---   detail, raw JSON.
-renderMessage :: UTCTime -> AllPossibleAPIMessages Tx -> RenderedMessage
-
--- | Convert a <a>RenderedMessage</a> to a <a>LogMessage</a>.
-toLogMessage :: RenderedMessage -> LogMessage
 
 module Hydra.TUI.Model
 
@@ -283,7 +298,7 @@ L1UTxORefresh :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
 FuelUTxORefresh :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
 TxBuildError :: Text -> TUIEvent tx
 data RootState
-RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> ActiveTab -> Bool -> List Name LogMessage -> Maybe Text -> Maybe (Map TxIn (TxOut CtxUTxO)) -> Maybe (VerificationKey PaymentKey) -> Maybe (Map TxIn (TxOut CtxUTxO)) -> ActiveTab -> Theme -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -> EventHistoryFilter -> RootState
+RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> ActiveTab -> Bool -> List Name LogMessage -> Maybe Text -> Maybe (Map TxIn (TxOut CtxUTxO)) -> Maybe (VerificationKey PaymentKey) -> Maybe (Map TxIn (TxOut CtxUTxO)) -> ActiveTab -> Theme -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -> Maybe (UTxOCheckboxForm (HydraEvent Tx) Name) -> EventHistoryFilter -> RootState
 [$sel:nodeHost:RootState] :: RootState -> Host
 [$sel:now:RootState] :: RootState -> UTCTime
 [$sel:timeZone:RootState] :: RootState -> TimeZone
@@ -304,6 +319,12 @@ RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> Active
 [$sel:previousTab:RootState] :: RootState -> ActiveTab
 [$sel:theme:RootState] :: RootState -> Theme
 [$sel:recoveryForm:RootState] :: RootState -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+
+-- | When set, the operator is multi-selecting which UTxOs to fan out for a
+--   selective <tt>PartialFanout</tt> (a top-level modal flow, like
+--   <a>$sel:recoveryForm:RootState</a>). Available regardless of head
+--   state once fanout is possible.
+[$sel:fanoutSelectionForm:RootState] :: RootState -> Maybe (UTxOCheckboxForm (HydraEvent Tx) Name)
 [$sel:eventHistoryFilter:RootState] :: RootState -> EventHistoryFilter
 
 -- | Connection to the hydra node.
@@ -395,6 +416,17 @@ Open :: OpenScreen -> ActiveHeadState
 Closed :: ClosedState -> ActiveHeadState
 [$sel:closedState:Open] :: ActiveHeadState -> ClosedState
 FanoutPossible :: ActiveHeadState
+
+-- | A selective partial fanout is in progress (on-chain
+--   <tt>FanoutProgress</tt>): some UTxO has been distributed and
+--   <a>$sel:fanoutRemaining:Open</a> is still in the head. Only further
+--   partial fanouts are accepted (no full <tt>Fanout</tt>).
+--   <a>$sel:fanoutMode:Open</a> (reported by the node) says whether it
+--   keeps draining on its own or awaits the next selection, driving what
+--   the UI offers.
+FanningOut :: UTxO -> FanoutProgressMode -> ActiveHeadState
+[$sel:fanoutRemaining:Open] :: ActiveHeadState -> UTxO
+[$sel:fanoutMode:Open] :: ActiveHeadState -> FanoutProgressMode
 Final :: ActiveHeadState
 type Name = Text
 data ActiveTab
@@ -417,11 +449,11 @@ recoveryFormL :: Lens' RootState (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name
 previousTabL :: Lens' RootState ActiveTab
 pendingActionL :: Lens' RootState (Maybe Text)
 nowL :: Lens' RootState UTCTime
-nodeHostL :: Lens' RootState Host
 logStateL :: Lens' RootState LogState
 l1UTxOL :: Lens' RootState (Maybe (Map TxIn (TxOut CtxUTxO)))
 fuelVkL :: Lens' RootState (Maybe (VerificationKey PaymentKey))
 fuelUTxOL :: Lens' RootState (Maybe (Map TxIn (TxOut CtxUTxO)))
+fanoutSelectionFormL :: Lens' RootState (Maybe (UTxOCheckboxForm (HydraEvent Tx) Name))
 eventHistoryListL :: Lens' RootState (List Name LogMessage)
 eventHistoryFilterL :: Lens' RootState EventHistoryFilter
 eventDetailRawL :: Lens' RootState Bool
@@ -437,14 +469,13 @@ activeLinkL :: Traversal' HeadState ActiveLink
 utxoL :: Lens' ActiveLink UTxO
 pendingUTxOToDecommitL :: Lens' ActiveLink UTxO
 pendingIncrementsL :: Lens' ActiveLink [PendingIncrement]
-partiesL :: Lens' ActiveLink [Party]
-headIdL :: Lens' ActiveLink HeadId
 activeHeadStateL :: Lens' ActiveLink ActiveHeadState
 eventHistoryListName :: Name
 mainUTxOViewportName :: Name
 fundsL2ViewportName :: Name
 fundsL1ViewportName :: Name
 fundsFuelViewportName :: Name
+fanoutSelectionViewportName :: Name
 emptyEventHistoryList :: List Name LogMessage
 emptyConnection :: Connection
 newActiveLink :: [Party] -> HeadId -> ActiveLink
@@ -528,6 +559,15 @@ leaveModal :: EventM Name RootState ()
 --   pending-action slot. Should be called after any node event that may
 --   mutate <a>$sel:pendingIncrements:ActiveLink</a>.
 refreshRecoveryForm :: EventM Name RootState ()
+
+-- | Keep an open partial-fanout selection modal in sync with the head's
+--   remaining UTxO. When a <tt>HeadPartiallyFannedOut</tt> step lands, the
+--   displayed <a>utxoL</a> shrinks; rebuild the form against it so the
+--   user cannot tick (and submit) UTxOs that were already fanned out.
+--   Still-valid ticks are preserved. If the head is no longer fanning out
+--   (finalized, or otherwise left a fanout-capable state), close the
+--   modal.
+refreshFanoutForm :: EventM Name RootState ()
 
 -- | Run an IO action in a background thread, reporting any exception
 --   through the TUI's event channel as a <a>TxBuildError</a> (visible in
@@ -614,6 +654,10 @@ drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [Pend
 
 -- | Focus panel when fanout is possible.
 drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+
+-- | Focus panel while a selective partial fanout is in progress: shows
+--   what is still to be fanned out.
+drawFocusPanelFanningOut :: NetworkId -> VerificationKey PaymentKey -> FanoutProgressMode -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
 
 -- | Focus panel for a finalised head.
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name

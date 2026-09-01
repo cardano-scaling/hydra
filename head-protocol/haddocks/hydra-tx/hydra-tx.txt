@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx
-@version 2.3.0
+@version 2.4.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
@@ -95,10 +95,20 @@ usedExecutionUnits :: EvaluationReport -> ExecutionUnits
 -- | Estimate minimum fee for given transaction and evaluated redeemers.
 --   Instead of using the budgets from the transaction (which are usually
 --   set to 0 until balancing), this directly computes the fee from
---   transaction size and the units of the <a>EvaluationReport</a>. Note
---   that this function likely under-estimates cost as we have no witnesses
---   on this <a>Tx</a>.
-estimateMinFeeWith :: PParams LedgerEra -> Tx -> EvaluationReport -> Coin
+--   transaction size, the units of the <a>EvaluationReport</a>, and the
+--   Conway reference-script charge.
+--   
+--   The reference-script term is the ledger's own
+--   <tt>tierRefScriptFee</tt> over the scripts reachable from the given
+--   <a>UTxO</a>, so it tracks <tt>minFeeRefScriptCostPerByte</tt> and the
+--   tiering rule exactly. It matters for every Hydra protocol transaction,
+--   which supplies its validator by reference from the script registry
+--   rather than inline.
+--   
+--   NOTE: This still under-estimates slightly, as there are no witnesses
+--   on this <a>Tx</a> yet; use the ledger's <tt>calcMinFeeTx</tt> (as
+--   <a>Wallet</a> does) when the actual fee to pay is needed.
+estimateMinFeeWith :: PParams LedgerEra -> UTxO -> Tx -> EvaluationReport -> Coin
 instance GHC.Show.Show Hydra.Ledger.Cardano.Evaluate.EvaluationError
 
 
@@ -147,11 +157,40 @@ instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.ContestationPeriod.Contesta
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Real.Integral Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Real.Real Hydra.Tx.ContestationPeriod.ContestationPeriod
+instance GHC.Generics.Generic Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Classes.Ord Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Classes.Eq Hydra.Tx.ContestationPeriod.ContestationPeriod
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.ContestationPeriod.ContestationPeriod
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Show.Show Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Enum.Enum Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Num.Num Hydra.Tx.ContestationPeriod.ContestationPeriod
+
+module Hydra.Tx.DepositPeriod
+
+-- | A positive duration used as the deposit validity window. Nodes within
+--   the same Head must configure identical values.
+newtype DepositPeriod
+DepositPeriod :: NominalDiffTime -> DepositPeriod
+[$sel:toNominalDiffTime:DepositPeriod] :: DepositPeriod -> NominalDiffTime
+
+-- | Convert an off-chain deposit period to its on-chain representation.
+toChain :: DepositPeriod -> DepositPeriod
+
+-- | Convert an on-chain deposit period to its off-chain representation.
+--   NOTE: Truncates to whole milliseconds.
+fromChain :: DepositPeriod -> DepositPeriod
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.DepositPeriod.DepositPeriod
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Real.Real Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Num.Num Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Read.Read Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Generics.Generic Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Classes.Ord Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Classes.Eq Hydra.Tx.DepositPeriod.DepositPeriod
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.DepositPeriod.DepositPeriod
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.DepositPeriod.DepositPeriod
+instance GHC.Show.Show Hydra.Tx.DepositPeriod.DepositPeriod
 
 module Hydra.Tx.HeadId
 
@@ -186,9 +225,13 @@ instance GHC.Generics.Generic Hydra.Tx.HeadId.HeadSeed
 instance GHC.Classes.Ord Hydra.Tx.HeadId.HeadSeed
 instance GHC.Classes.Eq Hydra.Tx.HeadId.HeadSeed
 instance GHC.Show.Show Hydra.Tx.HeadId.HeadSeed
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.HeadId.HeadSeed
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.HeadId.HeadSeed
 instance Data.String.IsString Hydra.Tx.HeadId.HeadSeed
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadSeed
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadSeed
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.HeadId.HeadId
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.HeadId.HeadId
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadId
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadId
 
@@ -219,6 +262,11 @@ balance :: IsTx tx => UTxOType tx -> ValueType tx
 -- | Hash a utxo set to be able to sign (off-chain) and verify it
 --   (on-chain).
 hashUTxO :: IsTx tx => UTxOType tx -> ByteString
+
+-- | Raw bytes identifying a transaction, as bound into snapshot
+--   signatures. Must match what the on-chain code reads out of a
+--   <tt>TxOutRef</tt>, see <a>getSignableRepresentation</a>.
+txIdBytes :: IsTx tx => TxIdType tx -> ByteString
 txSpendingUTxO :: IsTx tx => UTxOType tx -> tx
 
 -- | Get the UTxO produced by given transaction.
@@ -292,6 +340,14 @@ data HydraAccumulator
 getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 
+-- | Compute the compressed G1 commitment for an accumulator through the
+--   rust-accumulator FFI (divide-and-conquer FFT polynomial expansion and
+--   a Pippenger multi-scalar multiplication), which is orders of magnitude
+--   faster than expanding the polynomial in Haskell. Bit-for-bit equal to
+--   the PlutusTx reference path; see the equivalence properties and golden
+--   values in <a>Hydra.Tx.AccumulatorSpec</a>.
+computeG1CommitmentBytes :: Accumulator -> ByteString
+
 -- | Number of UTxOs tracked by the accumulator.
 accumulatorSize :: HydraAccumulator -> Int
 
@@ -337,6 +393,18 @@ buildFromUTxO :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator
 --   value; the merge is done here for explicit consistency with the rest
 --   of the fanout code paths.
 buildFromSnapshotUTxOs :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator
+
+-- | Update an accumulator from one snapshot's combined UTxO set to the
+--   next by adding and removing only the changed outputs, avoiding the
+--   per-output serialization and hashing of a full rebuild. Extensionally
+--   equal to <a>buildFromUTxO</a> on the new set (see the property in
+--   <a>Hydra.Tx.AccumulatorSpec</a>): the underlying map tracks element
+--   multiplicity and the TxIn-keyed set difference removes exactly one
+--   occurrence per consumed input. Falls back to a full rebuild if a
+--   removed element is missing or has lower multiplicity than the removals
+--   require, which would indicate the given accumulator was not built from
+--   the given previous UTxO set.
+applyUTxODelta :: forall tx. IsTx tx => HydraAccumulator -> UTxOType tx -> UTxOType tx -> HydraAccumulator
 
 -- | Returns the first <tt>n</tt> G2 powers of tau from the EIP-4844
 --   trusted setup. Used as the on-chain CRS for verifying membership
@@ -414,6 +482,8 @@ instance GHC.Generics.Generic Hydra.Tx.OnChainId.OnChainId
 instance GHC.Classes.Ord Hydra.Tx.OnChainId.OnChainId
 instance GHC.Classes.Eq Hydra.Tx.OnChainId.OnChainId
 instance GHC.Show.Show Hydra.Tx.OnChainId.OnChainId
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.OnChainId.OnChainId
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.OnChainId.OnChainId
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.OnChainId.OnChainId
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.OnChainId.OnChainId
 
@@ -532,9 +602,9 @@ class CanSignTx s
 signTx :: CanSignTx s => s -> Tx -> Tx
 
 -- | Naiively aggregated multi-signatures.
-newtype MultiSignature a
-HydraMultiSignature :: [Signature a] -> MultiSignature a
-[$sel:multiSignature:HydraMultiSignature] :: MultiSignature a -> [Signature a]
+newtype MultiSignature (a :: Type)
+HydraMultiSignature :: [Signature a] -> MultiSignature (a :: Type)
+[$sel:multiSignature:HydraMultiSignature] :: MultiSignature (a :: Type) -> [Signature a]
 
 -- | Polymorphic <a>getVerificationKey</a> that works on either a raw
 --   'SigningKey k' or a <a>Secret</a>-wrapped 'Secret (SigningKey k)'.
@@ -557,8 +627,8 @@ signTx :: CanSignTx s => s -> Tx -> Tx
 data HydraKey
 
 -- | Signature of <tt>a</tt>, not containing the actual payload.
-newtype Signature a
-HydraSignature :: SigDSIGN Ed25519DSIGN -> Signature a
+newtype Signature (a :: Type)
+HydraSignature :: SigDSIGN Ed25519DSIGN -> Signature (a :: Type)
 
 -- | A result type for multisigs verification providing some information in
 --   case of failure.
@@ -591,7 +661,6 @@ generateSigningKey :: ByteString -> Secret (SigningKey HydraKey)
 -- | Verify a given 'Signature a' and value <tt>a</tt> using provided
 --   <a>VerificationKey</a>.
 verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
-deserialiseFromRawBytesBase16 :: SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
 
 -- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a
@@ -629,14 +698,13 @@ instance Data.String.IsString (Cardano.Api.Key.Internal.Class.VerificationKey Hy
 instance GHC.Show.Show (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance forall k (a :: k). (Data.Typeable.Internal.Typeable a, Data.Typeable.Internal.Typeable k) => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.Signature a)
-instance forall k (a :: k). (Data.Typeable.Internal.Typeable a, Data.Typeable.Internal.Typeable k) => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.Signature a)
-instance forall k (a :: k). GHC.Classes.Eq (Hydra.Tx.Crypto.Signature a)
-instance forall k (a :: k). GHC.Base.Monoid (Hydra.Tx.Crypto.MultiSignature a)
-instance forall k (a :: k). GHC.Base.Semigroup (Hydra.Tx.Crypto.MultiSignature a)
-instance forall k (a :: k). GHC.Generics.Generic (Hydra.Tx.Crypto.MultiSignature a)
-instance forall k (a :: k). GHC.Show.Show (Hydra.Tx.Crypto.MultiSignature a)
-instance forall k (a :: k). GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Generics.Generic (Hydra.Tx.Crypto.Signature a)
+instance GHC.Classes.Eq (Hydra.Tx.Crypto.Signature a)
+instance GHC.Base.Monoid (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Base.Semigroup (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Generics.Generic (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Show.Show (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
 instance GHC.Generics.Generic Hydra.Tx.Crypto.Verified
 instance GHC.Show.Show Hydra.Tx.Crypto.Verified
 instance GHC.Classes.Eq Hydra.Tx.Crypto.Verified
@@ -645,8 +713,12 @@ instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
 instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.MultiSignature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.MultiSignature a)
-instance forall k (a :: k). GHC.Show.Show (Hydra.Tx.Crypto.Signature a)
-instance forall k (a :: k). Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.Signature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.Signature a)
+instance GHC.Show.Show (Hydra.Tx.Crypto.Signature a)
+instance Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.Signature a)
 instance Hydra.Tx.Crypto.CanSignTx (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey)
@@ -695,10 +767,6 @@ partyToChain :: Party -> Party
 --   on-chain and a non-guaranteed verification key length. See
 --   <a>Party</a> for an explanation why this is a distinct type.
 partyFromChain :: MonadFail m => Party -> m Party
-
--- | Type class to retrieve the <a>Party</a> from some type.
-class HasParty a
-getParty :: HasParty a => a -> Party
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Party.Party
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Party.Party
 instance GHC.Generics.Generic Hydra.Tx.Party.Party
@@ -715,14 +783,17 @@ module Hydra.Tx.HeadParameters
 -- | Contains the head's parameters as established in the initial
 --   transaction.
 data HeadParameters
-HeadParameters :: ContestationPeriod -> [Party] -> HeadParameters
+HeadParameters :: ContestationPeriod -> DepositPeriod -> [Party] -> HeadParameters
 [$sel:contestationPeriod:HeadParameters] :: HeadParameters -> ContestationPeriod
+[$sel:depositPeriod:HeadParameters] :: HeadParameters -> DepositPeriod
 [$sel:parties:HeadParameters] :: HeadParameters -> [Party]
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.HeadParameters.HeadParameters
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Generics.Generic Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Show.Show Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Classes.Eq Hydra.Tx.HeadParameters.HeadParameters
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.HeadParameters.HeadParameters
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.HeadParameters.HeadParameters
 
 module Hydra.Tx.Snapshot
 newtype SnapshotNumber
@@ -732,7 +803,7 @@ newtype SnapshotVersion
 UnsafeSnapshotVersion :: Natural -> SnapshotVersion
 fromChainSnapshotVersion :: SnapshotVersion -> SnapshotVersion
 data Snapshot tx
-Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
+Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
 [$sel:headId:Snapshot] :: Snapshot tx -> HeadId
 
 -- | Open state version this snapshot is based on. Spec: v
@@ -751,11 +822,50 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 -- | UTxO to be committed. Spec: Uα
 [$sel:utxoToCommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
+-- | Transaction which deposited <a>$sel:utxoToCommit:Snapshot</a> on L1,
+--   i.e. the deposit an increment of this snapshot is allowed to claim.
+--   Bound into the signature so a deposit cannot be swapped for a
+--   look-alike one, see <a>getSignableRepresentation</a>.
+--   
+--   A transaction id identifies a deposit because a deposit is always the
+--   first output of its transaction; <a>observeDepositTx</a> enforces that
+--   and <a>checkIncrement</a> requires it on-chain. Callers set this
+--   exactly when <a>$sel:utxoToCommit:Snapshot</a> is set.
+[$sel:depositTxId:Snapshot] :: Snapshot tx -> Maybe (TxIdType tx)
+
 -- | UTxO to be decommitted. Spec: Uω
 [$sel:utxoToDecommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
 -- | The cryptographic accumulator built from UTxO hashes. Spec: A
 [$sel:accumulator:Snapshot] :: Snapshot tx -> HydraAccumulator
+
+-- | Digest of a snapshot's pending commit (Uα) as bound into its
+--   signature: the ordered commit outputs together with the id of the
+--   deposit transaction they come from.
+--   
+--   Both halves are required. The outputs alone do not identify a deposit,
+--   since a deposit datum is unauthenticated data anyone can copy into a
+--   look-alike deposit holding less value; binding the deposit's
+--   transaction id makes the signature usable for that one deposit only.
+--   The increment validator recomputes this from the deposit input it
+--   claims, see <a>checkIncrement</a>. Close, contest and decrement
+--   transactions cannot recompute it (they spend no deposit) and carry it
+--   in their redeemer instead, where it only feeds signature verification.
+commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:depositTxId:Snapshot</a>.
+--   
+--   The fields are a bare concatenation with no length prefix, so a layout
+--   change is only decodable when the tag distinguishes it:
+--   <a>snapshotCBORTagV1</a> names the one written before
+--   <a>$sel:depositTxId:Snapshot</a> existed and is still accepted,
+--   letting a node replay an event log from an earlier version.
+snapshotCBORTag :: Text
+
+-- | Tag of the layout without <a>$sel:depositTxId:Snapshot</a>. Decoded,
+--   never written.
+snapshotCBORTagV1 :: Text
 
 -- | All UTxOs represented by this snapshot: settled plus any pending
 --   commit/decommit.
@@ -782,8 +892,6 @@ instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Real.Real Hydra.Tx.Snapshot.SnapshotNumber
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.Snapshot.SnapshotNumber
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.Snapshot.SnapshotNumber
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Snapshot.SnapshotNumber
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Show.Show Hydra.Tx.Snapshot.SnapshotNumber
@@ -794,8 +902,6 @@ instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Real.Real Hydra.Tx.Snapshot.SnapshotVersion
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.Snapshot.SnapshotVersion
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.Snapshot.SnapshotVersion
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Snapshot.SnapshotVersion
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Show.Show Hydra.Tx.Snapshot.SnapshotVersion
@@ -810,9 +916,17 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Tx.Snapshot.ConfirmedSna
 instance GHC.Generics.Generic (Hydra.Tx.Snapshot.ConfirmedSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Tx.Snapshot.Snapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Snapshot.ConfirmedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Snapshot.ConfirmedSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Crypto.Util.SignableRepresentation (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Snapshot.Snapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Snapshot.Snapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Snapshot.Snapshot tx)
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.Snapshot.SnapshotVersion
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.Snapshot.SnapshotVersion
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.Snapshot.SnapshotNumber
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.Snapshot.SnapshotNumber
 
 module Hydra.Tx
 
@@ -829,7 +943,7 @@ ChainSlot :: Natural -> ChainSlot
 --   
 --   XXX: Find a better name for this. Maybe HasL1State, IsChainTx or
 --   IsL1Tx?
-class (IsTx tx, Ord (ChainPointType tx), Eq (ChainPointType tx), Show (ChainPointType tx), FromJSON (ChainPointType tx), ToJSON (ChainPointType tx), Eq (ChainStateType tx), Show (ChainStateType tx), FromJSON (ChainStateType tx), ToJSON (ChainStateType tx)) => IsChainState tx where {
+class (IsTx tx, Ord (ChainPointType tx), Eq (ChainPointType tx), Show (ChainPointType tx), FromJSON (ChainPointType tx), ToJSON (ChainPointType tx), FromCBOR (ChainPointType tx), ToCBOR (ChainPointType tx), Eq (ChainStateType tx), Show (ChainStateType tx), FromJSON (ChainStateType tx), ToJSON (ChainStateType tx), FromCBOR (ChainStateType tx), ToCBOR (ChainStateType tx)) => IsChainState tx where {
     
     -- | Type of unique points on the chain.
     type ChainPointType tx = p | p -> tx;
@@ -855,6 +969,8 @@ instance GHC.Generics.Generic Hydra.Chain.ChainState.ChainSlot
 instance GHC.Show.Show Hydra.Chain.ChainState.ChainSlot
 instance GHC.Classes.Eq Hydra.Chain.ChainState.ChainSlot
 instance GHC.Classes.Ord Hydra.Chain.ChainState.ChainSlot
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Chain.ChainState.ChainSlot
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Chain.ChainState.ChainSlot
 
 module Hydra.Tx.Utils
 
@@ -898,11 +1014,6 @@ hydraMetadataLabel :: Word64
 --   on-chain identifier is the public key hash as it is also available to
 --   plutus validators.
 verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
-
--- | Split a given UTxO into two, such that the second UTxO is non-empty.
---   This is useful to pick a UTxO to decommit.
-splitUTxO :: UTxO -> (UTxO, UTxO)
-adaOnly :: TxOut CtxUTxO -> TxOut CtxUTxO
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
 dummyValidatorScript :: PlutusScript
@@ -1049,10 +1160,10 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 -- | Observe a deposit transaction by decoding the target head id, deposit
 --   deadline and deposited utxo in the datum.
 --   
---   This includes checking whether - the first output is a deposit output
---   - all of deposited value is contained in the deposit tx output, - the
---   deposit script output actually contains the deposited value, - an
---   upper validity bound has been set (used as creation slot).
+--   This includes checking whether - the transaction's first output is the
+--   deposit output - all of deposited value is contained in the deposit tx
+--   output, - the deposit script output actually contains the deposited
+--   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Deposit.DepositObservation
@@ -1085,9 +1196,10 @@ type PointInTime = (SlotNo, UTCTime)
 -- | Representation of the head thread UTxO while the head is in the Open
 --   state.
 data OpenThreadOutput
-OpenThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> [Party] -> OpenThreadOutput
+OpenThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> DepositPeriod -> [Party] -> OpenThreadOutput
 [$sel:openThreadUTxO:OpenThreadOutput] :: OpenThreadOutput -> (TxIn, TxOut CtxUTxO)
 [$sel:openContestationPeriod:OpenThreadOutput] :: OpenThreadOutput -> ContestationPeriod
+[$sel:openDepositPeriod:OpenThreadOutput] :: OpenThreadOutput -> DepositPeriod
 [$sel:openParties:OpenThreadOutput] :: OpenThreadOutput -> [Party]
 
 -- | Create a transaction closing a head with either the initial snapshot
@@ -1113,12 +1225,13 @@ instance GHC.Show.Show Hydra.Tx.Close.CloseObservation
 
 module Hydra.Tx.Contest
 data ClosedThreadOutput
-ClosedThreadOutput :: (TxIn, TxOut CtxUTxO) -> [Party] -> POSIXTime -> [PubKeyHash] -> Integer -> ClosedThreadOutput
+ClosedThreadOutput :: (TxIn, TxOut CtxUTxO) -> [Party] -> POSIXTime -> [PubKeyHash] -> Integer -> DepositPeriod -> ClosedThreadOutput
 [$sel:closedThreadUTxO:ClosedThreadOutput] :: ClosedThreadOutput -> (TxIn, TxOut CtxUTxO)
 [$sel:closedParties:ClosedThreadOutput] :: ClosedThreadOutput -> [Party]
 [$sel:closedContestationDeadline:ClosedThreadOutput] :: ClosedThreadOutput -> POSIXTime
 [$sel:closedContesters:ClosedThreadOutput] :: ClosedThreadOutput -> [PubKeyHash]
 [$sel:closedHeadAdaOverhead:ClosedThreadOutput] :: ClosedThreadOutput -> Integer
+[$sel:closedDepositPeriod:ClosedThreadOutput] :: ClosedThreadOutput -> DepositPeriod
 contestTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> ContestationPeriod -> SnapshotVersion -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> PointInTime -> ClosedThreadOutput -> Tx
 data ContestObservation
 ContestObservation :: HeadId -> SnapshotNumber -> UTCTime -> [PubKeyHash] -> ContestObservation
@@ -1195,10 +1308,10 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 -- | Observe a deposit transaction by decoding the target head id, deposit
 --   deadline and deposited utxo in the datum.
 --   
---   This includes checking whether - the first output is a deposit output
---   - all of deposited value is contained in the deposit tx output, - the
---   deposit script output actually contains the deposited value, - an
---   upper validity bound has been set (used as creation slot).
+--   This includes checking whether - the transaction's first output is the
+--   deposit output - all of deposited value is contained in the deposit tx
+--   output, - the deposit script output actually contains the deposited
+--   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation

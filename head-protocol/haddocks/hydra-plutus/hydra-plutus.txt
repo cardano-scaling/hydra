@@ -4,7 +4,7 @@
 
 -- | Hydra Plutus Contracts
 @package hydra-plutus
-@version 2.3.0
+@version 2.4.0
 
 module Hydra.Contract.CRS
 type CRSDatum = [BuiltinBLS12_381_G2_Element]
@@ -29,6 +29,15 @@ type CRSDatum = [BuiltinBLS12_381_G2_Element]
 --   <li><tt>ints</tt>: integer encodings of element hashes, defining
 --   <tt>P_S(X) = ∏(X − sᵢ)</tt></li>
 --   </ul>
+--   
+--   A subset of N elements yields <tt>P_S</tt> of degree N, so evaluating
+--   <tt>P_S(τ)·G2</tt> consumes N+1 CRS points. <a>getG2Commitment</a>
+--   pairs the coefficients with the CRS using <a>zipWith</a>, which
+--   silently drops the coefficients the CRS cannot cover: an oversized
+--   subset would then be checked against a truncated, lower-degree
+--   polynomial instead of being rejected. Verifying a different identity
+--   than the one asked for is never the safe answer, so bail out whenever
+--   the polynomial outruns the CRS.
 checkMembershipPairing :: BuiltinBLS12_381_G1_Element -> BuiltinBLS12_381_G1_Element -> CRSDatum -> [Integer] -> Bool
 crsValidatorScript :: CompiledCode ValidatorType
 validatorScript :: PlutusScript
@@ -156,6 +165,8 @@ IncorrectDepositHash :: DepositError
 DepositHeadInputNotFound :: DepositError
 HeadInputRedeemerNotFound :: DepositError
 HeadRedeemerNotIncrement :: DepositError
+DepositNotClaimedByHead :: DepositError
+MultipleDepositsRecovered :: DepositError
 instance GHC.Show.Show Hydra.Contract.DepositError.DepositError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.DepositError.DepositError
 
@@ -179,12 +190,6 @@ NotPayingToHead :: HeadError
 SignatureVerificationFailed :: HeadError
 MustNotChangeVersion :: HeadError
 BurntTokenNumberMismatch :: HeadError
-ReimbursedOutputsDontMatch :: HeadError
-STNotSpent :: HeadError
-IncorrectUtxoHash :: HeadError
-MissingCommits :: HeadError
-NotAllValueCollected :: HeadError
-IncorrectVersion :: HeadError
 VersionNotIncremented :: HeadError
 HasBoundedValidityCheckFailed :: HeadError
 IncorrectClosedContestationDeadline :: HeadError
@@ -207,8 +212,6 @@ FailedContestUsed :: HeadError
 FanoutUTxOHashMismatch :: HeadError
 LowerBoundBeforeContestationDeadline :: HeadError
 FanoutNoLowerBoundDefined :: HeadError
-FanoutUTxOToCommitHashMismatch :: HeadError
-FanoutUTxOToDecommitHashMismatch :: HeadError
 DepositNotSpent :: HeadError
 DepositInputNotFound :: HeadError
 HeadInputNotFound :: HeadError
@@ -226,6 +229,9 @@ PartialFanoutCannotBeLastBatch :: HeadError
 ChangedHeadAdaOverhead :: HeadError
 DepositDatumInvalid :: HeadError
 InvalidCRSDatum :: HeadError
+DepositNotFirstOutput :: HeadError
+DecrementZeroOutputs :: HeadError
+MustNotSpendOtherScripts :: HeadError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.HeadError.HeadError
 
 module Hydra.Contract.HeadTokensError
@@ -343,6 +349,24 @@ InvalidG1Point :: Text -> KZGSetupError
 InvalidG2Point :: Text -> KZGSetupError
 [hexPoint] :: KZGSetupError -> Text
 
+-- | Force the whole embedded trusted setup into memory, yielding the
+--   number of G1 points loaded.
+--   
+--   Both halves are forced: the G1 CRS the off-chain commitment path
+--   consumes, and the G2 CRS behind <a>canonicalG2Points</a>, which the
+--   head validator binds. A caller gets a corrupt setup as a <a>Left</a>
+--   here rather than as the <a>error</a> those two would otherwise raise
+--   from pure code, mid-session.
+--   
+--   The forcing lives in this module on purpose. <a>g1Points</a> currently
+--   decompresses every point just to decide between <a>Left</a> and
+--   <a>Right</a>, so any <tt>WHNF</tt> happens to do the work — but that
+--   is a property of the representation, not a promise. Should either list
+--   become a lazy structure, this is the one place obliged to keep
+--   forcing, rather than a caller's <a>length</a> silently degenerating
+--   into a spine walk.
+warmup :: Either KZGSetupError Int
+
 -- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony
 --   (monomial form). 4096 points; used off-chain to build accumulator
 --   commitments and membership proofs.
@@ -439,6 +463,22 @@ instance GHC.Classes.Ord Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Classes.Eq Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Generics.Generic Hydra.Data.ContestationPeriod.ContestationPeriod
 
+module Hydra.Data.DepositPeriod
+newtype DepositPeriod
+UnsafeDepositPeriod :: DiffMilliSeconds -> DepositPeriod
+[milliseconds] :: DepositPeriod -> DiffMilliSeconds
+depositPeriodFromDiffTime :: NominalDiffTime -> DepositPeriod
+depositPeriodToDiffTime :: DepositPeriod -> NominalDiffTime
+instance PlutusTx.IsData.Class.ToData Hydra.Data.DepositPeriod.DepositPeriod
+instance PlutusTx.IsData.Class.FromData Hydra.Data.DepositPeriod.DepositPeriod
+instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Data.DepositPeriod.DepositPeriod
+instance PlutusTx.Eq.Class.Eq Hydra.Data.DepositPeriod.DepositPeriod
+instance GHC.Num.Num Hydra.Data.DepositPeriod.DepositPeriod
+instance GHC.Show.Show Hydra.Data.DepositPeriod.DepositPeriod
+instance GHC.Classes.Ord Hydra.Data.DepositPeriod.DepositPeriod
+instance GHC.Classes.Eq Hydra.Data.DepositPeriod.DepositPeriod
+instance GHC.Generics.Generic Hydra.Data.DepositPeriod.DepositPeriod
+
 module Hydra.Data.Party
 
 -- | On-chain representation of a Hydra party.
@@ -519,7 +559,7 @@ type Signature = BuiltinByteString
 
 -- | Sub-type for the open state-machine state.
 data OpenDatum
-OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> Hash -> Integer -> OpenDatum
+OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> DepositPeriod -> SnapshotVersion -> Hash -> Integer -> OpenDatum
 
 -- | TODO: Spec?
 [$sel:headSeed:OpenDatum] :: OpenDatum -> TxOutRef
@@ -532,6 +572,9 @@ OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> Snap
 
 -- | Spec: T
 [$sel:contestationPeriod:OpenDatum] :: OpenDatum -> ContestationPeriod
+
+-- | Must match the --deposit-period of all participating nodes.
+[$sel:depositPeriod:OpenDatum] :: OpenDatum -> DepositPeriod
 
 -- | Spec: v
 [$sel:version:OpenDatum] :: OpenDatum -> SnapshotVersion
@@ -546,7 +589,7 @@ OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> Snap
 
 -- | Sub-type for the closed state-machine state.
 data ClosedDatum
-ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> SnapshotNumber -> [PubKeyHash] -> POSIXTime -> BuiltinBLS12_381_G1_Element -> Integer -> ClosedDatum
+ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> DepositPeriod -> SnapshotVersion -> SnapshotNumber -> [PubKeyHash] -> POSIXTime -> BuiltinBLS12_381_G1_Element -> Integer -> ClosedDatum
 
 -- | Spec: cid
 [$sel:headId:ClosedDatum] :: ClosedDatum -> CurrencySymbol
@@ -556,6 +599,9 @@ ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersio
 
 -- | Spec: T
 [$sel:contestationPeriod:ClosedDatum] :: ClosedDatum -> ContestationPeriod
+
+-- | Must match the --deposit-period of all participating nodes.
+[$sel:depositPeriod:ClosedDatum] :: ClosedDatum -> DepositPeriod
 
 -- | Spec: v
 [$sel:version:ClosedDatum] :: ClosedDatum -> SnapshotVersion
@@ -857,7 +903,7 @@ makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 --   input.
 getHeadInput :: ScriptContext -> TxInInfo
 getHeadAddress :: ScriptContext -> Address
-mustNotChangeParameters :: ([Party], [Party]) -> (ContestationPeriod, ContestationPeriod) -> (CurrencySymbol, CurrencySymbol) -> Bool
+mustNotChangeParameters :: ([Party], [Party]) -> (ContestationPeriod, ContestationPeriod) -> (CurrencySymbol, CurrencySymbol) -> (DepositPeriod, DepositPeriod) -> Bool
 mustPreserveHeadAdaOverhead :: Integer -> Integer -> Bool
 mustBeSignedByParticipant :: ScriptContext -> CurrencySymbol -> Bool
 findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]

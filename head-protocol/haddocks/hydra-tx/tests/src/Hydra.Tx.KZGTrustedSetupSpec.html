@@ -10,19 +10,27 @@
 </span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.CRS</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">checkMembershipPairing</span></span><span class="hs-special">)</span><span>
 </span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.KZGTrustedSetup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">g1Points</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">g2BuiltinPoints</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">g2Points</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">maxAccumulatorSize</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">maxFanoutBatchSize</span></span><span class="hs-special">)</span><span>
 </span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Accumulator</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">build</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">createMembershipProof</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">crsG1Points</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getAccumulatorCommitment</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">requiredCRSPointCount</span></span><span class="hs-special">)</span><span>
-</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">bls12_381_G1_uncompress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">byteStringToInteger</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
-</span><span id="line-14"></span><span>
-</span><span id="line-15"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetupSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
-</span><span id="line-16"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Plutus.Crypto.BlsUtils</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Bls</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_G1_scalarMul</span></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_G1_uncompress</span></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_finalVerify</span></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_millerLoop</span></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier">byteStringToInteger</span></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetupSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-24"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
 </span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Spec -&gt; Spec
 forall a. SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-17"></span><span>  </span><span class="hs-comment">-- Extract the setup values once; a Left here means the embedded binary is</span><span>
-</span><span id="line-18"></span><span>  </span><span class="hs-comment">-- corrupted or tampered with, which should crash the test suite loudly.</span><span>
-</span><span id="line-19"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473058"><span class="annot"><span class="annottext">g1Pts :: [Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var hs-var">g1Pts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [Point1])
+</span><span id="line-25"></span><span>  </span><span class="hs-comment">-- Extract the setup values once; a Left here means the embedded binary is</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-comment">-- corrupted or tampered with, which should crash the test suite loudly.</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679496931"><span class="annot"><span class="annottext">g1Pts :: [Point1]
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var hs-var">g1Pts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [Point1])
 -&gt; ([Point1] -&gt; [Point1])
 -&gt; Either KZGSetupError [Point1]
 -&gt; [Point1]
@@ -38,8 +46,8 @@ forall b a. (Show a, IsString b) =&gt; a -&gt; b
 forall a. a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [Point1]
 </span><span class="hs-identifier hs-var">g1Points</span></span><span>
-</span><span id="line-20"></span><span>      </span><span id="local-6989586621679473072"><span class="annot"><span class="annottext">g2Pts :: [Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var hs-var">g2Pts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [Point2])
+</span><span id="line-28"></span><span>      </span><span id="local-6989586621679496945"><span class="annot"><span class="annottext">g2Pts :: [Point2]
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var hs-var">g2Pts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [Point2])
 -&gt; ([Point2] -&gt; [Point2])
 -&gt; Either KZGSetupError [Point2]
 -&gt; [Point2]
@@ -55,8 +63,8 @@ forall b a. (Show a, IsString b) =&gt; a -&gt; b
 forall a. a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [Point2]
 </span><span class="hs-identifier hs-var">g2Points</span></span><span>
-</span><span id="line-21"></span><span>      </span><span id="local-6989586621679473081"><span class="annot"><span class="annottext">g2BuiltinPts :: [BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473081"><span class="hs-identifier hs-var hs-var">g2BuiltinPts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [BuiltinBLS12_381_G2_Element])
+</span><span id="line-29"></span><span>      </span><span id="local-6989586621679496954"><span class="annot"><span class="annottext">g2BuiltinPts :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var hs-var">g2BuiltinPts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(KZGSetupError -&gt; [BuiltinBLS12_381_G2_Element])
 -&gt; ([BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element])
 -&gt; Either KZGSetupError [BuiltinBLS12_381_G2_Element]
 -&gt; [BuiltinBLS12_381_G2_Element]
@@ -74,14 +82,14 @@ forall b a. (Show a, IsString b) =&gt; a -&gt; b
 forall a. a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [BuiltinBLS12_381_G2_Element]
 </span><span class="hs-identifier hs-var">g2BuiltinPoints</span></span><span>
-</span><span id="line-22"></span><span>
-</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;KZGTrustedSetup (EIP-4844)&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -90,16 +98,16 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-25"></span><span>      </span><span class="annot"><span class="annottext">[Point1] -&gt; Int
+</span><span id="line-33"></span><span>      </span><span class="annot"><span class="annottext">[Point1] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">4096</span></span><span>
-</span><span id="line-26"></span><span>
-</span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -108,16 +116,16 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-28"></span><span>      </span><span class="annot"><span class="annottext">[Point2] -&gt; Int
+</span><span id="line-36"></span><span>      </span><span class="annot"><span class="annottext">[Point2] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">65</span></span><span>
-</span><span id="line-29"></span><span>
-</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -126,13 +134,13 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-31"></span><span>      </span><span class="annot"><span class="annottext">Int
+</span><span id="line-39"></span><span>      </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">maxAccumulatorSize</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">4095</span></span><span>
-</span><span id="line-32"></span><span>
-</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -141,19 +149,19 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-34"></span><span>      </span><span class="annot"><span class="annottext">Int
+</span><span id="line-42"></span><span>      </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">maxAccumulatorSize</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">[Point1] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-35"></span><span>
-</span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -162,13 +170,13 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-37"></span><span>      </span><span class="annot"><span class="annottext">Int
+</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">maxFanoutBatchSize</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">64</span></span><span>
-</span><span id="line-38"></span><span>
-</span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -177,19 +185,19 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-40"></span><span>      </span><span class="annot"><span class="annottext">Int
+</span><span id="line-48"></span><span>      </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">maxFanoutBatchSize</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">[Point2] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-41"></span><span>
-</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -198,26 +206,26 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-43"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-44"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><span id="line-51"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point1]
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-52"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;g1Points is empty&quot;</span></span><span>
-</span><span id="line-45"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473087"><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473087"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
+</span><span id="line-53"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679496960"><span class="annot"><span class="annottext">Point1
+</span><a href="#local-6989586621679496960"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473087"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
+</span><a href="#local-6989586621679496960"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point1
 forall curve. BLS curve =&gt; Point curve
 </span><span class="hs-identifier hs-var">blsGenerator</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span class="hs-special">)</span><span>
-</span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -226,26 +234,26 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-48"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-49"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><span id="line-56"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point2]
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-57"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;g2Points is empty&quot;</span></span><span>
-</span><span id="line-50"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473088"><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473088"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
+</span><span id="line-58"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679496961"><span class="annot"><span class="annottext">Point2
+</span><a href="#local-6989586621679496961"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473088"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
+</span><a href="#local-6989586621679496961"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point2
 forall curve. BLS curve =&gt; Point curve
 </span><span class="hs-identifier hs-var">blsGenerator</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span class="hs-special">)</span><span>
-</span><span id="line-51"></span><span>
-</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -254,17 +262,17 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">(Point2 -&gt; Bool) -&gt; [Point2] -&gt; Bool
+</span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">(Point2 -&gt; Bool) -&gt; [Point2] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#all"><span class="hs-identifier hs-var">all</span></a></span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; Bool
 forall curve. BLS curve =&gt; Point curve -&gt; Bool
 </span><span class="hs-identifier hs-var">blsInGroup</span></span><span> </span><span class="annot"><span class="annottext">[Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-54"></span><span>
-</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -273,7 +281,7 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">(Point1 -&gt; Bool) -&gt; [Point1] -&gt; Bool
+</span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">(Point1 -&gt; Bool) -&gt; [Point1] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#all"><span class="hs-identifier hs-var">all</span></a></span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; Bool
 forall curve. BLS curve =&gt; Point curve -&gt; Bool
@@ -281,12 +289,12 @@ forall curve. BLS curve =&gt; Point curve -&gt; Bool
 forall a. Int -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">[Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var">g1Pts</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var">g1Pts</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-57"></span><span>
-</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -295,14 +303,14 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-59"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point1]
-</span><a href="#local-6989586621679473058"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-60"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><span id="line-67"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point1]
+</span><a href="#local-6989586621679496931"><span class="hs-identifier hs-var">g1Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;g1Points is empty&quot;</span></span><span>
-</span><span id="line-61"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473091"><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473091"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
+</span><span id="line-69"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679496964"><span class="annot"><span class="annottext">Point1
+</span><a href="#local-6989586621679496964"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point1]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either BLSTError Point1
 forall curve.
 BLS curve =&gt;
@@ -310,9 +318,9 @@ ByteString -&gt; Either BLSTError (Point curve)
 </span><span class="hs-identifier hs-var">blsUncompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473091"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-62"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679473092"><span class="annot"><span class="annottext">BLSTError
-</span><a href="#local-6989586621679473092"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><a href="#local-6989586621679496964"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-70"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679496965"><span class="annot"><span class="annottext">BLSTError
+</span><a href="#local-6989586621679496965"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expectation) -&gt; String -&gt; Expectation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -322,19 +330,19 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">BLSTError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">BLSTError
-</span><a href="#local-6989586621679473092"><span class="hs-identifier hs-var">err</span></a></span><span>
-</span><span id="line-63"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679473093"><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473093"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
+</span><a href="#local-6989586621679496965"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-71"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679496966"><span class="annot"><span class="annottext">Point1
+</span><a href="#local-6989586621679496966"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473093"><span class="hs-identifier hs-var">p'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
+</span><a href="#local-6989586621679496966"><span class="hs-identifier hs-var">p'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point1
-</span><a href="#local-6989586621679473091"><span class="hs-identifier hs-var">p</span></a></span><span>
-</span><span id="line-64"></span><span>
-</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><a href="#local-6989586621679496964"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -343,14 +351,14 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-66"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point2]
-</span><a href="#local-6989586621679473072"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-67"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><span id="line-74"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[Point2]
+</span><a href="#local-6989586621679496945"><span class="hs-identifier hs-var">g2Pts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-75"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;g2Points is empty&quot;</span></span><span>
-</span><span id="line-68"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679473094"><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473094"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
+</span><span id="line-76"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679496967"><span class="annot"><span class="annottext">Point2
+</span><a href="#local-6989586621679496967"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Point2]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either BLSTError Point2
 forall curve.
 BLS curve =&gt;
@@ -358,9 +366,9 @@ ByteString -&gt; Either BLSTError (Point curve)
 </span><span class="hs-identifier hs-var">blsUncompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473094"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-69"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679473095"><span class="annot"><span class="annottext">BLSTError
-</span><a href="#local-6989586621679473095"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+</span><a href="#local-6989586621679496967"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-77"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679496968"><span class="annot"><span class="annottext">BLSTError
+</span><a href="#local-6989586621679496968"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
 String -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expectation) -&gt; String -&gt; Expectation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -370,25 +378,25 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">BLSTError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">BLSTError
-</span><a href="#local-6989586621679473095"><span class="hs-identifier hs-var">err</span></a></span><span>
-</span><span id="line-70"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679473096"><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473096"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
+</span><a href="#local-6989586621679496968"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-78"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679496969"><span class="annot"><span class="annottext">Point2
+</span><a href="#local-6989586621679496969"><span class="hs-identifier hs-var">p'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473096"><span class="hs-identifier hs-var">p'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
+</span><a href="#local-6989586621679496969"><span class="hs-identifier hs-var">p'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
 forall curve. BLS curve =&gt; Point curve -&gt; ByteString
 </span><span class="hs-identifier hs-var">blsCompress</span></span><span> </span><span class="annot"><span class="annottext">Point2
-</span><a href="#local-6989586621679473094"><span class="hs-identifier hs-var">p</span></a></span><span>
-</span><span id="line-71"></span><span>
-</span><span id="line-72"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+</span><a href="#local-6989586621679496967"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;End-to-end pairing check&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -397,34 +405,34 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-74"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473103"><span class="annot"><span class="annottext">allElements :: [ByteString]
-</span><a href="#local-6989586621679473103"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span id="line-82"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679496976"><span class="annot"><span class="annottext">allElements :: [ByteString]
+</span><a href="#local-6989586621679496976"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;delta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;epsilon&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-75"></span><span>          </span><span id="local-6989586621679473104"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
-</span><a href="#local-6989586621679473104"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
+</span><span id="line-83"></span><span>          </span><span id="local-6989586621679496977"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
+</span><a href="#local-6989586621679496977"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
 </span><span class="hs-identifier hs-var">build</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473103"><span class="hs-identifier hs-var">allElements</span></a></span><span>
-</span><span id="line-76"></span><span>          </span><span id="local-6989586621679473107"><span class="annot"><span class="annottext">subsetElements :: [ByteString]
-</span><a href="#local-6989586621679473107"><span class="hs-identifier hs-var hs-var">subsetElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679496976"><span class="hs-identifier hs-var">allElements</span></a></span><span>
+</span><span id="line-84"></span><span>          </span><span id="local-6989586621679496980"><span class="annot"><span class="annottext">subsetElements :: [ByteString]
+</span><a href="#local-6989586621679496980"><span class="hs-identifier hs-var hs-var">subsetElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-77"></span><span>          </span><span id="local-6989586621679473108"><span class="annot"><span class="annottext">crsSize :: Int
-</span><a href="#local-6989586621679473108"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
+</span><span id="line-85"></span><span>          </span><span id="local-6989586621679496981"><span class="annot"><span class="annottext">crsSize :: Int
+</span><a href="#local-6989586621679496981"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
 </span><span class="hs-identifier hs-var">requiredCRSPointCount</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473104"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
-</span><span id="line-78"></span><span>          </span><span id="local-6989586621679473109"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473109"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679496977"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
+</span><span id="line-86"></span><span>          </span><span id="local-6989586621679496982"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496982"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
 -&gt; [BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element]
 forall a. Int -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473108"><span class="hs-identifier hs-var">crsSize</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473081"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
-</span><span id="line-79"></span><span>      </span><span id="local-6989586621679473110"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473110"><span class="hs-identifier hs-var">proofBytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ByteString)
+</span><a href="#local-6989586621679496981"><span class="hs-identifier hs-var">crsSize</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
+</span><span id="line-87"></span><span>      </span><span id="local-6989586621679496983"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679496983"><span class="hs-identifier hs-var">proofBytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ByteString)
 -&gt; (ByteString -&gt; IO ByteString)
 -&gt; Either Text ByteString
 -&gt; IO ByteString
@@ -440,39 +448,39 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[ByteString]
 -&gt; HydraAccumulator -&gt; [Point1] -&gt; Either Text ByteString
 </span><span class="hs-identifier hs-var">createMembershipProof</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473107"><span class="hs-identifier hs-var">subsetElements</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473104"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
+</span><a href="#local-6989586621679496980"><span class="hs-identifier hs-var">subsetElements</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679496977"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
 </span><span class="hs-identifier hs-var">crsG1Points</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473108"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-80"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473111"><span class="annot"><span class="annottext">proof :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473111"><span class="hs-identifier hs-var hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679496981"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679496984"><span class="annot"><span class="annottext">proof :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679496984"><span class="hs-identifier hs-var hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">bls12_381_G1_uncompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
 forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 </span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473110"><span class="hs-identifier hs-var">proofBytes</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-81"></span><span>          </span><span id="local-6989586621679473112"><span class="annot"><span class="annottext">ints :: [Integer]
-</span><a href="#local-6989586621679473112"><span class="hs-identifier hs-var hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Integer) -&gt; [ByteString] -&gt; [Integer]
+</span><a href="#local-6989586621679496983"><span class="hs-identifier hs-var">proofBytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>          </span><span id="local-6989586621679496985"><span class="annot"><span class="annottext">ints :: [Integer]
+</span><a href="#local-6989586621679496985"><span class="hs-identifier hs-var hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Integer) -&gt; [ByteString] -&gt; [Integer]
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Integer
 </span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var">toInt</span></a></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473107"><span class="hs-identifier hs-var">subsetElements</span></a></span><span>
-</span><span id="line-82"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679496980"><span class="hs-identifier hs-var">subsetElements</span></a></span><span>
+</span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
 -&gt; BuiltinBLS12_381_G1_Element
 -&gt; [BuiltinBLS12_381_G2_Element]
 -&gt; [Integer]
 -&gt; Bool
 </span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">getAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473104"><span class="hs-identifier hs-var">fullAcc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473111"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473109"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679473112"><span class="hs-identifier hs-var">ints</span></a></span><span>
-</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+</span><a href="#local-6989586621679496977"><span class="hs-identifier hs-var">fullAcc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679496984"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496982"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679496985"><span class="hs-identifier hs-var">ints</span></a></span><span>
+</span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -481,37 +489,37 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-86"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473117"><span class="annot"><span class="annottext">allElements :: [ByteString]
-</span><a href="#local-6989586621679473117"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span id="line-94"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679496990"><span class="annot"><span class="annottext">allElements :: [ByteString]
+</span><a href="#local-6989586621679496990"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-87"></span><span>          </span><span id="local-6989586621679473118"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
-</span><a href="#local-6989586621679473118"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
+</span><span id="line-95"></span><span>          </span><span id="local-6989586621679496991"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
+</span><a href="#local-6989586621679496991"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
 </span><span class="hs-identifier hs-var">build</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473117"><span class="hs-identifier hs-var">allElements</span></a></span><span>
-</span><span id="line-88"></span><span>          </span><span id="local-6989586621679473120"><span class="annot"><span class="annottext">foreignElement :: [ByteString]
-</span><a href="#local-6989586621679473120"><span class="hs-identifier hs-var hs-var">foreignElement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679496990"><span class="hs-identifier hs-var">allElements</span></a></span><span>
+</span><span id="line-96"></span><span>          </span><span id="local-6989586621679496993"><span class="annot"><span class="annottext">foreignElement :: [ByteString]
+</span><a href="#local-6989586621679496993"><span class="hs-identifier hs-var hs-var">foreignElement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;omega&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-89"></span><span>          </span><span id="local-6989586621679473121"><span class="annot"><span class="annottext">crsSize :: Int
-</span><a href="#local-6989586621679473121"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
+</span><span id="line-97"></span><span>          </span><span id="local-6989586621679496994"><span class="annot"><span class="annottext">crsSize :: Int
+</span><a href="#local-6989586621679496994"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
 </span><span class="hs-identifier hs-var">requiredCRSPointCount</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473118"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
-</span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621679496991"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
+</span><span id="line-98"></span><span>      </span><span class="annot"><span class="annottext">[ByteString]
 -&gt; HydraAccumulator -&gt; [Point1] -&gt; Either Text ByteString
 </span><span class="hs-identifier hs-var">createMembershipProof</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473120"><span class="hs-identifier hs-var">foreignElement</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473118"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
+</span><a href="#local-6989586621679496993"><span class="hs-identifier hs-var">foreignElement</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679496991"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
 </span><span class="hs-identifier hs-var">crsG1Points</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473121"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">Either Text ByteString
+</span><a href="#local-6989586621679496994"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">Either Text ByteString
 -&gt; (Either Text ByteString -&gt; Bool) -&gt; Expectation
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">Either Text ByteString -&gt; Bool
 forall a b. Either a b -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isLeft"><span class="hs-identifier hs-var">isLeft</span></a></span><span>
-</span><span id="line-92"></span><span>
-</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
 (HasCallStack, Example a) =&gt;
 String -&gt; a -&gt; SpecWith (Arg a)
@@ -520,43 +528,43 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-94"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473128"><span class="annot"><span class="annottext">allElements :: [ByteString]
-</span><a href="#local-6989586621679473128"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span id="line-102"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497001"><span class="annot"><span class="annottext">allElements :: [ByteString]
+</span><a href="#local-6989586621679497001"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;delta&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-95"></span><span>          </span><span id="local-6989586621679473129"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
-</span><a href="#local-6989586621679473129"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
+</span><span id="line-103"></span><span>          </span><span id="local-6989586621679497002"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
+</span><a href="#local-6989586621679497002"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
 </span><span class="hs-identifier hs-var">build</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473128"><span class="hs-identifier hs-var">allElements</span></a></span><span>
-</span><span id="line-96"></span><span>          </span><span id="local-6989586621679473132"><span class="annot"><span class="annottext">subsetA :: [ByteString]
-</span><a href="#local-6989586621679473132"><span class="hs-identifier hs-var hs-var">subsetA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679497001"><span class="hs-identifier hs-var">allElements</span></a></span><span>
+</span><span id="line-104"></span><span>          </span><span id="local-6989586621679497005"><span class="annot"><span class="annottext">subsetA :: [ByteString]
+</span><a href="#local-6989586621679497005"><span class="hs-identifier hs-var hs-var">subsetA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-97"></span><span>          </span><span id="local-6989586621679473135"><span class="annot"><span class="annottext">subsetB :: [ByteString]
-</span><a href="#local-6989586621679473135"><span class="hs-identifier hs-var hs-var">subsetB</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span id="line-105"></span><span>          </span><span id="local-6989586621679497008"><span class="annot"><span class="annottext">subsetB :: [ByteString]
+</span><a href="#local-6989586621679497008"><span class="hs-identifier hs-var hs-var">subsetB</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;delta&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-98"></span><span>          </span><span id="local-6989586621679473136"><span class="annot"><span class="annottext">crsSize :: Int
-</span><a href="#local-6989586621679473136"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
+</span><span id="line-106"></span><span>          </span><span id="local-6989586621679497009"><span class="annot"><span class="annottext">crsSize :: Int
+</span><a href="#local-6989586621679497009"><span class="hs-identifier hs-var hs-var">crsSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
 </span><span class="hs-identifier hs-var">requiredCRSPointCount</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473129"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
-</span><span id="line-99"></span><span>          </span><span id="local-6989586621679473137"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473137"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679497002"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
+</span><span id="line-107"></span><span>          </span><span id="local-6989586621679497010"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497010"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
 -&gt; [BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element]
 forall a. Int -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473136"><span class="hs-identifier hs-var">crsSize</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473081"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
-</span><span id="line-100"></span><span>          </span><span id="local-6989586621679473138"><span class="annot"><span class="annottext">ints :: [Integer]
-</span><a href="#local-6989586621679473138"><span class="hs-identifier hs-var hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Integer) -&gt; [ByteString] -&gt; [Integer]
+</span><a href="#local-6989586621679497009"><span class="hs-identifier hs-var">crsSize</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
+</span><span id="line-108"></span><span>          </span><span id="local-6989586621679497011"><span class="annot"><span class="annottext">ints :: [Integer]
+</span><a href="#local-6989586621679497011"><span class="hs-identifier hs-var hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Integer) -&gt; [ByteString] -&gt; [Integer]
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Integer
 </span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var">toInt</span></a></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473135"><span class="hs-identifier hs-var">subsetB</span></a></span><span>
-</span><span id="line-101"></span><span>      </span><span id="local-6989586621679473139"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473139"><span class="hs-identifier hs-var">proofBytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ByteString)
+</span><a href="#local-6989586621679497008"><span class="hs-identifier hs-var">subsetB</span></a></span><span>
+</span><span id="line-109"></span><span>      </span><span id="local-6989586621679497012"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679497012"><span class="hs-identifier hs-var">proofBytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ByteString)
 -&gt; (ByteString -&gt; IO ByteString)
 -&gt; Either Text ByteString
 -&gt; IO ByteString
@@ -572,36 +580,303 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[ByteString]
 -&gt; HydraAccumulator -&gt; [Point1] -&gt; Either Text ByteString
 </span><span class="hs-identifier hs-var">createMembershipProof</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
-</span><a href="#local-6989586621679473132"><span class="hs-identifier hs-var">subsetA</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473129"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
+</span><a href="#local-6989586621679497005"><span class="hs-identifier hs-var">subsetA</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679497002"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
 </span><span class="hs-identifier hs-var">crsG1Points</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679473136"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-102"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679473140"><span class="annot"><span class="annottext">proof :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473140"><span class="hs-identifier hs-var hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497009"><span class="hs-identifier hs-var">crsSize</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497013"><span class="annot"><span class="annottext">proof :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497013"><span class="hs-identifier hs-var hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">bls12_381_G1_uncompress</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
 forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 </span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473139"><span class="hs-identifier hs-var">proofBytes</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-103"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497012"><span class="hs-identifier hs-var">proofBytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
 -&gt; BuiltinBLS12_381_G1_Element
 -&gt; [BuiltinBLS12_381_G2_Element]
 -&gt; [Integer]
 -&gt; Bool
 </span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">getAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
-</span><a href="#local-6989586621679473129"><span class="hs-identifier hs-var">fullAcc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679473140"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
-</span><a href="#local-6989586621679473137"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679473138"><span class="hs-identifier hs-var">ints</span></a></span><span>
-</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+</span><a href="#local-6989586621679497002"><span class="hs-identifier hs-var">fullAcc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497013"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497010"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497011"><span class="hs-identifier hs-var">ints</span></a></span><span>
+</span><span id="line-112"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-105"></span><span>
-</span><span id="line-106"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-type">toInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
-</span><span id="line-107"></span><span id="toInt"><span class="annot"><span class="annottext">toInt :: ByteString -&gt; Integer
-</span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var hs-var">toInt</span></a></span></span><span> </span><span id="local-6989586621679473141"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473141"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteOrder -&gt; BuiltinByteString -&gt; Integer
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-comment">-- 'getG2Commitment' pairs polynomial coefficients with CRS points using</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-comment">-- 'zipWith', which silently drops whatever the CRS cannot cover. A subset of</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-comment">-- N elements yields N+1 coefficients, so it must satisfy N &lt; length crsG2;</span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-comment">-- 'checkMembershipPairing' rejects anything else rather than verify a</span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-comment">-- truncated, lower-degree polynomial. On mainnet the CRS datum is pinned to</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-comment">-- the canonical 'defaultItems' = 30 points, which is what caps a fanout batch</span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-comment">-- at 29 outputs.</span><span>
+</span><span id="line-121"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;CRS length guard&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497019"><span class="annot"><span class="annottext">allElements :: [ByteString]
+</span><a href="#local-6989586621679497019"><span class="hs-identifier hs-var hs-var">allElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;delta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;epsilon&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-123"></span><span>        </span><span id="local-6989586621679497020"><span class="annot"><span class="annottext">fullAcc :: HydraAccumulator
+</span><a href="#local-6989586621679497020"><span class="hs-identifier hs-var hs-var">fullAcc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
+</span><span class="hs-identifier hs-var">build</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621679497019"><span class="hs-identifier hs-var">allElements</span></a></span><span>
+</span><span id="line-124"></span><span>        </span><span id="local-6989586621679497021"><span class="annot"><span class="annottext">commitment :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var hs-var">commitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
+</span><span class="hs-identifier hs-var">getAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679497020"><span class="hs-identifier hs-var">fullAcc</span></a></span><span>
+</span><span id="line-125"></span><span>        </span><span id="local-6989586621679497026"><span class="annot"><span class="annottext">subsetElements :: [ByteString]
+</span><a href="#local-6989586621679497026"><span class="hs-identifier hs-var hs-var">subsetElements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;alpha&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;beta&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;gamma&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;delta&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-126"></span><span>        </span><span id="local-6989586621679497027"><span class="annot"><span class="annottext">ints :: [Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Integer) -&gt; [ByteString] -&gt; [Integer]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Integer
+</span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var">toInt</span></a></span><span> </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621679497026"><span class="hs-identifier hs-var">subsetElements</span></a></span><span>
+</span><span id="line-127"></span><span>        </span><span id="local-6989586621679497035"><span class="annot"><span class="annottext">genuineProof :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497035"><span class="hs-identifier hs-var hs-var">genuineProof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-128"></span><span>          </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
+</span><span class="hs-identifier hs-var">bls12_381_G1_uncompress</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element)
+-&gt; (Either Text ByteString -&gt; BuiltinByteString)
+-&gt; Either Text ByteString
+-&gt; BuiltinBLS12_381_G1_Element
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; BuiltinByteString
+ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; BuiltinByteString)
+-&gt; (Either Text ByteString -&gt; ByteString)
+-&gt; Either Text ByteString
+-&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString)
+-&gt; (ByteString -&gt; ByteString)
+-&gt; Either Text ByteString
+-&gt; ByteString
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+forall a. a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span> </span><span class="annot"><span class="annottext">(Either Text ByteString -&gt; BuiltinBLS12_381_G1_Element)
+-&gt; Either Text ByteString -&gt; BuiltinBLS12_381_G1_Element
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-129"></span><span>            </span><span class="annot"><span class="annottext">[ByteString]
+-&gt; HydraAccumulator -&gt; [Point1] -&gt; Either Text ByteString
+</span><span class="hs-identifier hs-var">createMembershipProof</span></span><span> </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621679497026"><span class="hs-identifier hs-var">subsetElements</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679497020"><span class="hs-identifier hs-var">fullAcc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Point1]
+</span><span class="hs-identifier hs-var">crsG1Points</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; [Point1]) -&gt; Int -&gt; [Point1]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; Int
+</span><span class="hs-identifier hs-var">requiredCRSPointCount</span></span><span> </span><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679497020"><span class="hs-identifier hs-var">fullAcc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;accepts a subset that exactly fills the CRS (N + 1 == length crsG2)&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-132"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497039"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497039"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; [BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Integer] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var">ints</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
+</span><span id="line-133"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G1_Element
+-&gt; [BuiltinBLS12_381_G2_Element]
+-&gt; [Integer]
+-&gt; Bool
+</span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497035"><span class="hs-identifier hs-var">genuineProof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497039"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var">ints</span></a></span><span>
+</span><span id="line-134"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rejects a subset one element past the CRS (N == length crsG2)&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-137"></span><span>      </span><span class="hs-comment">-- Same subset and same genuine proof as above; only the CRS is one point</span><span>
+</span><span id="line-138"></span><span>      </span><span class="hs-comment">-- shorter, which is exactly where the polynomial stops fitting.</span><span>
+</span><span id="line-139"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497042"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497042"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; [BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Integer] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var">ints</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
+</span><span id="line-140"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G1_Element
+-&gt; [BuiltinBLS12_381_G2_Element]
+-&gt; [Integer]
+-&gt; Bool
+</span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497035"><span class="hs-identifier hs-var">genuineProof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497042"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var">ints</span></a></span><span>
+</span><span id="line-141"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rejects an empty CRS&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-144"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G1_Element
+-&gt; [BuiltinBLS12_381_G2_Element]
+-&gt; [Integer]
+-&gt; Bool
+</span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497035"><span class="hs-identifier hs-var">genuineProof</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679497027"><span class="hs-identifier hs-var">ints</span></a></span><span>
+</span><span id="line-145"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span>    </span><span class="hs-comment">-- Truncation is not merely &quot;verifies the wrong identity and fails anyway&quot;,</span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-comment">-- it is forgeable. With a single CRS point the subset polynomial X + s</span><span>
+</span><span id="line-149"></span><span>    </span><span class="hs-comment">-- truncates to the constant s, so the identity degenerates to</span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-comment">-- e(A, G2) = e(proof, s&#183;G2) &#8212; which proof = s&#8315;&#185;&#183;A satisfies. That forgery</span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-comment">-- needs nothing but the public commitment from the datum: no witness, no</span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-comment">-- CRS secret, and s never added to the accumulator.</span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rejects a forged proof that the truncated pairing accepts&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-154"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497043"><span class="annot"><span class="annottext">crsG2 :: [BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497043"><span class="hs-identifier hs-var hs-var">crsG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; [BuiltinBLS12_381_G2_Element] -&gt; [BuiltinBLS12_381_G2_Element]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679496954"><span class="hs-identifier hs-var">g2BuiltinPts</span></a></span><span>
+</span><span id="line-155"></span><span>          </span><span id="local-6989586621679497045"><span class="annot"><span class="annottext">s :: Integer
+</span><a href="#local-6989586621679497045"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Integer
+</span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var">toInt</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;omega&quot;</span></span><span> </span><span class="hs-comment">-- never added to the accumulator</span><span>
+</span><span id="line-156"></span><span>          </span><span id="local-6989586621679497048"><span class="annot"><span class="annottext">forgedProof :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497048"><span class="hs-identifier hs-var hs-var">forgedProof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+-&gt; BuiltinBLS12_381_G1_Element -&gt; BuiltinBLS12_381_G1_Element
+</span><span class="hs-identifier hs-var">bls12_381_G1_scalarMul</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Scalar -&gt; Integer
+</span><span class="hs-identifier hs-var">Bls.unScalar</span></span><span> </span><span class="annot"><span class="annottext">(Scalar -&gt; Integer) -&gt; (Scalar -&gt; Scalar) -&gt; Scalar -&gt; Integer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Scalar -&gt; Scalar
+forall a. MultiplicativeGroup a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">Bls.recip</span></span><span> </span><span class="annot"><span class="annottext">(Scalar -&gt; Integer) -&gt; Scalar -&gt; Integer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Scalar
+</span><span class="hs-identifier hs-var">Bls.mkScalar</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679497045"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span>
+</span><span id="line-157"></span><span>          </span><span id="local-6989586621679497052"><span class="annot"><span class="annottext">truncatedPolyG2 :: BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679497052"><span class="hs-identifier hs-var hs-var">truncatedPolyG2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+-&gt; ScalarPoly -&gt; BuiltinBLS12_381_G2_Element
+</span><span class="hs-identifier hs-var">Bls.getG2Commitment</span></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497043"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Scalar] -&gt; ScalarPoly
+</span><span class="hs-identifier hs-var">Bls.getFinalPoly</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Integer -&gt; Scalar
+</span><span class="hs-identifier hs-var">Bls.mkScalar</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679497045"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497043"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-159"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; String -&gt; Expectation
+String -&gt; Expectation
+</span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;g2BuiltinPoints is empty&quot;</span></span><span>
+</span><span id="line-160"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679497055"><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679497055"><span class="hs-identifier hs-var">g2</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-161"></span><span>          </span><span class="hs-comment">-- The truncated identity really does hold for the forged proof ...</span><span>
+</span><span id="line-162"></span><span>          </span><span class="annot"><span class="annottext">BuiltinBLS12_381_MlResult -&gt; BuiltinBLS12_381_MlResult -&gt; Bool
+</span><span class="hs-identifier hs-var">bls12_381_finalVerify</span></span><span>
+</span><span id="line-163"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
+</span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679497055"><span class="hs-identifier hs-var">g2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
+</span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497048"><span class="hs-identifier hs-var">forgedProof</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679497052"><span class="hs-identifier hs-var">truncatedPolyG2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-166"></span><span>          </span><span class="hs-comment">-- ... so the length guard is the only thing standing between the</span><span>
+</span><span id="line-167"></span><span>          </span><span class="hs-comment">-- validator and accepting it.</span><span>
+</span><span id="line-168"></span><span>          </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G1_Element
+-&gt; [BuiltinBLS12_381_G2_Element]
+-&gt; [Integer]
+-&gt; Bool
+</span><span class="hs-identifier hs-var">checkMembershipPairing</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497021"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679497048"><span class="hs-identifier hs-var">forgedProof</span></a></span><span> </span><span class="annot"><span class="annottext">[BuiltinBLS12_381_G2_Element]
+</span><a href="#local-6989586621679497043"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679497045"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-169"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-type">toInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-172"></span><span id="toInt"><span class="annot"><span class="annottext">toInt :: ByteString -&gt; Integer
+</span><a href="Hydra.Tx.KZGTrustedSetupSpec.html#toInt"><span class="hs-identifier hs-var hs-var">toInt</span></a></span></span><span> </span><span id="local-6989586621679497056"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679497056"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteOrder -&gt; BuiltinByteString -&gt; Integer
 </span><span class="hs-identifier hs-var">byteStringToInteger</span></span><span> </span><span class="annot"><span class="annottext">ByteOrder
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.ByteOrder.html#BigEndian"><span class="hs-identifier hs-var">BigEndian</span></a></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; Integer)
 -&gt; (ByteString -&gt; BuiltinByteString) -&gt; ByteString -&gt; Integer
@@ -620,5 +895,5 @@ proxy Blake2b_224 -&gt; ByteString -&gt; ByteString
 </span><span class="hs-identifier hs-var">digest</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall t. Proxy t
 forall {k} (t :: k). Proxy t
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2b_224</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679473141"><span class="hs-identifier hs-var">e</span></a></span><span>
-</span><span id="line-108"></span></pre></body></html>
+</span><a href="#local-6989586621679497056"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-173"></span></pre></body></html>

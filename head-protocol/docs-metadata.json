@@ -200,16 +200,34 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2026-03-10_033-directly-open-head.md\n"
     }
   },
+  "adr/34": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2026-07-16_034-binary-cbor-api.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2026-07-16_034-binary-cbor-api.md\n"
+    }
+  },
   "benchmarks": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/index.md\n",
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/index.md\n"
     }
   },
+  "benchmarks/metrics": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/metrics.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/metrics.md\n"
+    }
+  },
   "benchmarks/profiling": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/profiling.md\n",
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/profiling.md\n"
+    }
+  },
+  "benchmarks/transaction-cost": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/transaction-cost.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/transaction-cost.md\n"
     }
   },
   "docs/api-behavior": {
@@ -230,6 +248,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/configuration.md\n"
     }
   },
+  "docs/dev/agda": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/agda.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/agda.md\n"
+    }
+  },
   "docs/dev/architecture/event-sourcing": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/event-sourcing.md\n",
@@ -246,6 +270,12 @@
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/networking.md\n",
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/networking.md\n"
+    }
+  },
+  "docs/dev/architecture/partial-fanout": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/partial-fanout.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/partial-fanout.md\n"
     }
   },
   "docs/dev/commit": {
@@ -360,6 +390,12 @@
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/operating-hydra.md\n",
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/operating-hydra.md\n"
+    }
+  },
+  "docs/how-to/selective-fanout": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/how-to/selective-fanout.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/how-to/selective-fanout.md\n"
     }
   },
   "docs/how-to/sideload-snapshot": {

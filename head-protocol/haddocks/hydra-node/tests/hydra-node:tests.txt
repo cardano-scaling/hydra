@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 2.3.0
+@version 2.4.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -23,6 +23,10 @@ allowEverythingServerOutputFilter :: ServerOutputFilter tx
 noop :: Applicative m => a -> m ()
 withTestAPIServer :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
 
+-- | Like <a>withTestAPIServer</a>, but with an explicit callback invoked
+--   for every <a>ClientInput</a> received by the server.
+withTestAPIServerWithCallback :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
 -- | Connect to a websocket server running at given path. Fails if not
 --   connected within 2 seconds.
 withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
@@ -35,7 +39,89 @@ waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
 shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 genStateEventForApi :: Gen (StateEvent SimpleTx)
 
+
+-- | Tests for the <a>ToCBOR</a> / <a>FromCBOR</a> codecs of hydra-node
+--   types.
+--   
+--   Three layers of protection:
+--   
+--   <ul>
+--   <li>Unit tests for <a>genericToCBOR</a> / <a>genericFromCBOR</a>
+--   pinning down the constructor-name-tagged format they produce
+--   (including that newtypes and single-constructor records carry the
+--   tag).</li>
+--   <li>Roundtrip properties keeping encoder/decoder pairs in sync: adding
+--   a constructor without a matching codec (or with fields decoded in the
+--   wrong order) fails here.</li>
+--   <li>Golden tests locking the concrete byte-level formats, one sample
+--   per constructor. These catch changes that roundtrip properties cannot
+--   see, e.g. reordering fields in a data declaration of a generically
+--   derived codec, or symmetric encoder+decoder drift. If one fails, the
+--   change breaks decoding of persisted data (hydra.db) or the API wire
+--   format; only delete and regenerate a golden file as a deliberate,
+--   documented format change.</li>
+--   </ul>
+module Hydra.CBORSpec
+data GenericCBORSum
+GenNullary :: GenericCBORSum
+GenPositional :: Int -> Text -> GenericCBORSum
+GenRecord :: Word64 -> [Int] -> Maybe Text -> GenericCBORSum
+[$sel:genA:GenNullary] :: GenericCBORSum -> Word64
+[$sel:genB:GenNullary] :: GenericCBORSum -> [Int]
+[$sel:genC:GenNullary] :: GenericCBORSum -> Maybe Text
+newtype GenericCBORNewtype
+GenericCBORNewtype :: Int -> GenericCBORNewtype
+spec :: Spec
+
+-- | One sample per <a>NetworkId</a> constructor.
+genGoldenNetworkIds :: Gen [NetworkId]
+
+-- | One sample per <a>ChainPoint</a> constructor.
+genGoldenChainPoints :: Gen [ChainPoint]
+
+-- | One <a>StateEvent</a> per <a>StateChanged</a> constructor, in
+--   declaration order: <a>ToADTArbitrary</a> enumerates the constructors
+--   generically, so coverage of every constructor holds by construction
+--   and new constructors are included automatically. Samples are generated
+--   small (resized): the golden file locks tags and field order, which
+--   small values exercise just as well.
+genGoldenStateEvents :: Gen [StateEvent Tx]
+instance GHC.Generics.Generic Hydra.CBORSpec.GenericCBORSum
+instance GHC.Show.Show Hydra.CBORSpec.GenericCBORSum
+instance GHC.Classes.Eq Hydra.CBORSpec.GenericCBORSum
+instance GHC.Generics.Generic Hydra.CBORSpec.GenericCBORNewtype
+instance GHC.Show.Show Hydra.CBORSpec.GenericCBORNewtype
+instance GHC.Classes.Eq Hydra.CBORSpec.GenericCBORNewtype
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.CBORSpec.GenericCBORNewtype
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.CBORSpec.GenericCBORNewtype
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.CBORSpec.GenericCBORSum
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.CBORSpec.GenericCBORSum
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.ClientMessage Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.TimedServerOutput Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.API.ServerOutput.InvalidInput
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.API.ServerOutput.HeadStatus
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.API.ServerOutput.FanoutProgressMode
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.API.ServerOutput.NetworkInfo
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.DecommitInvalidReason Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Tx.Snapshot.ConfirmedSnapshot Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Chain.PostChainTx Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Chain.OnChainTx Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Chain.PostTxError Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Chain.ChainEvent Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.HeadState Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.SeenSnapshot Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.FanoutMode Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.NodeState Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.SyncedStatus
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.DepositStatus
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.Deposit Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.Connectivity
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.WhichEtcd
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Error.RequirementFailure Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Error.SideLoadRequirementFailure Hydra.Cardano.Api.Tx)
+
 module Hydra.Chain.BlockfrostSpec
+retry :: RetryPolicyM IO
 spec :: Spec
 
 module Hydra.Chain.Direct.HandlersSpec
@@ -55,7 +141,7 @@ genFailingReport :: Gen EvaluationReport
 
 -- | Create a chain sync handler which records events as they are called
 --   back.
-recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
+recordEventsHandler :: ChainContext -> ChainStateAt -> (SlotNo -> GetTimeHandle IO) -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 
 -- | A block used for testing. This is a simpler version of the cardano-api
 --   <tt>Block</tt> and can be de-/constructed easily.
@@ -83,45 +169,6 @@ genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
 
 module Hydra.Chain.Direct.ScriptRegistrySpec
 spec :: Spec
-
-module Hydra.Chain.Direct.StateSpec
-spec :: Spec
-genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
-
--- | Given any Head protocol state and the transaction corresponding a
---   protocol transition we should be able to observe this transition
---   correctly even in presence of other valid Hydra Head protocol states
---   in the used lookup utxo.
-prop_observeAnyTx :: Property
-
--- | Given a UTxO with more than one entry, we can split it into two
---   non-empty UTxO.
-prop_splitUTxO :: UTxO -> Property
-prop_incrementObservesCorrectUTxO :: Property
-propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
-propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
-forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllIncrement' :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDecrement :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllDecrement' :: Testable property => (UTxO -> UTxO -> Tx -> property) -> Property
-forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
-
--- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds
---   the full UTxO value to the head output so <tt>partialFanoutTx</tt> can
---   subtract distributed values without going negative. The evaluation
---   UTxO must match.
-forAllPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
-
--- | The spendable UTxO for the final partial fanout is the FanoutProgress
---   head output produced by the preceding partial fanout step, so we use
---   the 3rd element from the generator rather than 'getKnownUTxO
---   stClosed'.
-forAllFinalPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
 
 module Hydra.Chain.Direct.TimeHandleSpec
 spec :: Spec
@@ -195,6 +242,22 @@ outputBalance :: Tx TopTx LedgerEra -> Value LedgerEra
 --   witness.
 prop_detectsMissingScript :: Property
 
+-- | Reference inputs carrying Plutus scripts must not produce a script
+--   integrity hash when the transaction executes no scripts (no redeemers,
+--   no datums). The ledger expects SNothing in that case and rejects the
+--   tx with PPViewHashesDontMatch otherwise.
+prop_noScriptIntegrityHashWithoutExecution :: Property
+hasReferenceScript :: BabbageTxOut ConwayEra -> Bool
+
+-- | Transactions that execute scripts while merely referencing unrelated
+--   ones must hash only the executed scripts' language views into the
+--   script integrity hash. The expected hash is recomputed here against an
+--   explicit PlutusV3-only language set: if the unrelated (V2) reference
+--   script's language view ever leaked into the hash, or the redeemers on
+--   the balanced transaction were not the ones hashed, the comparison
+--   fails.
+prop_unrelatedRefScriptDoesNotAffectIntegrityHash :: Property
+
 module Hydra.Chain.ScriptRegistrySpec
 spec :: Spec
 
@@ -246,6 +309,23 @@ genContinuousEvents :: Gen [EventId]
 module Hydra.Events.UDPSpec
 spec :: Spec
 
+-- | Bind a UDP server socket on any free port and hand the assigned port
+--   to the action. Binding port 0 directly avoids probing for a free port
+--   with a separate socket, which is racy (and the previous TCP probe said
+--   nothing about UDP availability anyway).
+withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
+
+
+-- | Golden and roundtrip tests for the persisted event format
+--   (<a>StateEvent</a> and its <a>StateChanged</a> payload).
+--   
+--   <a>StateChanged</a> events are what the node persists in its event log
+--   (regardless of the storage backend), so these tests guard the on-disk
+--   JSON: a change here means older event logs may fail to load and must
+--   be treated as a **breaking** change to persistence.
+module Hydra.HeadLogic.OutcomeSpec
+spec :: Spec
+
 
 -- | Tests our JSON schema test utilities.
 module Hydra.JSONSchemaSpec
@@ -259,100 +339,11 @@ genUTCTime :: Gen UTCTime
 genSlotLength :: Gen SlotLength
 genSystemStart :: Gen SystemStart
 
-
--- | Unit tests of the protocol logic in <tt>HeadLogic</tt>. These are very
---   fine grained and specific to individual steps in the protocol. More
---   high-level of the protocol logic, especially between multiple parties
---   can be found in <a>BehaviorSpec</a>.
-module Hydra.HeadLogicSpec
-spec :: Spec
-prop_ignoresUnrelatedOnInitTx :: Property
-genClosedState :: Gen (NodeState SimpleTx)
-
--- | Create a network input about a received protocol message with default
---   ttl and <a>alice</a> as the sender.
-receiveMessage :: Message tx -> Input tx
-
--- | Create a network input about a received protocol message with default
---   ttl from given sender.
-receiveMessageFrom :: Party -> Message tx -> Input tx
-
--- | Create a chain effect with fixed chain state and slot.
-chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
-
--- | Create an observation chain input with chain state at given slot.
-observeTxAtSlot :: ChainSlot -> OnChainTx SimpleTx -> Input SimpleTx
-
--- | Create an observation chain input with fixed chain state and slot.
-observeTx :: OnChainTx SimpleTx -> Input SimpleTx
-connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
-inIdleState :: NodeState SimpleTx
-inUnsyncedIdleState :: NodeState SimpleTx
-inOpenState :: [Party] -> NodeState SimpleTx
-inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
-inClosedState :: [Party] -> NodeState SimpleTx
-inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
-inClosedStateWithRemaining :: [Party] -> Maybe (Set SimpleTxOut) -> NodeState SimpleTx
-getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
-data StepState tx
-StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
-[$sel:nodeState:StepState] :: StepState tx -> NodeState tx
-[$sel:env:StepState] :: StepState tx -> Environment
-[$sel:ledger:StepState] :: StepState tx -> Ledger tx
-runHeadLogic :: Monad m => Environment -> Ledger tx -> NodeState tx -> StateT (StepState tx) m a -> m a
-
--- | Retrieves the latest <a>NodeState</a> from within <a>runHeadLogic</a>.
-getState :: MonadState (StepState tx) m => m (NodeState tx)
-
--- | Calls <a>update</a> and <a>aggregate</a> to drive the
---   <a>runHeadLogic</a> monad forward.
-step :: (MonadState (StepState tx) m, IsChainState tx, MonadTime m) => Input tx -> m (Outcome tx)
-hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
-assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
-hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
-hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
-hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
-nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
-
--- | Create a <a>TimeHandle</a> for a given slot and current wall-clock
---   time. * Assumes 1-second slots (as in the devnet). * SystemStart is
---   derived so that the given slot corresponds to the given time. *
---   EraHistory is constructed to have a horizon sufficiently far in the
---   future to accommodate time conversions.
-mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
-catchingUp :: IsTx tx => HeadState tx -> NodeState tx
-inSync :: IsTx tx => HeadState tx -> NodeState tx
-zeroChainPointTime :: ChainPointTime
-testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
-
-module Hydra.HeadLogicSnapshotSpec
-spec :: Spec
-prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_thereIsAlwaysALeader :: Property
-testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
-
-module Hydra.API.HTTPServerSpec
-spec :: Spec
-apiServerSpec :: Spec
-
--- | Create a <a>ResponseMatcher</a> or <a>MatchBody</a> from a JSON
---   serializable value (using their <a>IsString</a> instances).
-matchJSON :: (IsString s, ToJSON a) => a -> s
-
--- | Create a <a>MatchBody</a> that validates the returned JSON response
---   against a schema. NOTE: This raises impure exceptions, so only use it
---   in this test suite.
-matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
-
 module Hydra.Ledger.SimpleSpec
 spec :: Spec
 prop_validateCorrectTransactions :: Property
 shrinkSequence :: [SimpleTx] -> [[SimpleTx]]
 genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
-
-module Hydra.Logging.MonitoringSpec
-spec :: Spec
 
 module Hydra.LoggingSpec
 spec :: Spec
@@ -413,7 +404,30 @@ aConfigurationException :: Selector ConfigurationException
 module Hydra.Node.UtilSpec
 spec :: Spec
 
+
+-- | Off-chain differential (real-node binding): the Agda-extracted
+--   round-robin leader <a>leaderRef</a> (the §6 figure's
+--   <tt>leader(s)</tt>) checked against the REAL <a>isLeader</a>. This is
+--   the off-chain counterpart of the on-chain validator differentials: the
+--   extracted decision is pinned not just to a Haskell transcription of
+--   the figure but to the function the node actually runs, closing the
+--   figure↔Agda↔Haskell loop for leader selection.
+--   
+--   Domain note: snapshot numbers in the protocol start at 1, but the
+--   property covers <tt>sn = 0</tt> too. <tt>leaderRef</tt> works over
+--   Nat, whose truncated subtraction would make <tt>0 - 1</tt> zero where
+--   <tt>isLeader</tt>'s <a>Int</a> arithmetic gives <tt>-1 <a>mod</a> n =
+--   n-1</tt>; the extracted checker adds <tt>m</tt> instead of subtracting
+--   1 (the same residue for every <tt>sn &gt;= 1</tt>, and <tt>n-1</tt> at
+--   zero) precisely so the oracle cannot disagree with the node anywhere -
+--   including on an <tt>sn = 0</tt> a peer could put in a <tt>ReqSn</tt>.
+module Hydra.OffChainLeaderSpec
+spec :: Spec
+
 module Hydra.OptionsSpec
+
+-- | Default options as parsed by the publish command parser.
+defaultPublishOptions :: PublishOptions
 spec :: Spec
 canRoundtripRunOptionsAndPrettyPrinting :: RunOptions -> Property
 shouldParse :: HasCallStack => [String] -> Command -> Expectation
@@ -456,9 +470,6 @@ printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace 
 -- | Lifted variant of Hspec's <a>shouldBe</a>.
 shouldBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
 
--- | Lifted variant of Hspec's <a>shouldNotBe</a>.
-shouldNotBe :: (HasCallStack, MonadThrow m, Eq a, Show a) => a -> a -> m ()
-
 -- | Lifted variant of Hspec's <a>shouldSatisfy</a>.
 shouldSatisfy :: (HasCallStack, MonadThrow m, Show a) => a -> (a -> Bool) -> m ()
 
@@ -500,6 +511,307 @@ waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b)
 --   hydra-cluster, but can't (easily) be moved to the Test Prelude because
 --   of the dependency on Hydra.Logging.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
+
+-- | Check a UTxO for thunks, descending via constructors so that GADT
+--   dictionary fields (e.g. the Eq/Show context stored inside
+--   <tt>TxOutValueShelleyBased</tt>) are not reported as false positives,
+--   as they would be by a whole-value <a>InspectHeap</a> probe.
+utxoNoThunks :: UTxO -> IO (Maybe ThunkInfo)
+txOutNoThunks :: TxOut CtxUTxO -> IO (Maybe ThunkInfo)
+scriptLanguageNoThunks :: ScriptLanguage lang -> IO (Maybe ThunkInfo)
+scriptNoThunks :: Script lang -> IO (Maybe ThunkInfo)
+
+module Hydra.Node.InputQueueSpec
+spec :: Spec
+newtype DummyInput
+DummyInput :: Int -> DummyInput
+prop_identify_enqueued_items :: NonEmptyList Int -> Property
+instance GHC.Show.Show Hydra.Node.InputQueueSpec.DummyInput
+instance GHC.Classes.Eq Hydra.Node.InputQueueSpec.DummyInput
+
+
+-- | Test the real networking layer
+module Hydra.NetworkSpec
+spec :: Spec
+
+-- | The etcd tests, kept out of <a>spec</a> so that test/Main.hs can turn
+--   them into a tasty group of their own and run them one at a time.
+--   
+--   They must not run concurrently: each starts etcd on a port obtained by
+--   binding a socket, reading the assigned port and closing it again, so
+--   two at once can be handed the same port, or one test's peer port can
+--   be another's derived client port. Whichever etcd binds second dies
+--   with EADDRINUSE, which <a>withEtcdNetwork</a> turns straight into a
+--   failure.
+etcdSpec :: Spec
+lo :: IsString s => s
+
+-- | Run a TCP proxy in front of an etcd client port that reproduces
+--   #2817's SETTINGS burst deterministically.
+--   
+--   Both directions are forwarded verbatim, and once the client starts
+--   sending request data (so an RPC is in flight, as in production, where
+--   the data being sent is what makes etcd's window ramp fire) the proxy
+--   pushes <tt>burst</tt> empty SETTINGS frames at the client. Those are
+--   legal at any point; the client ACKs each and etcd ignores stray ACKs.
+--   
+--   Injecting beats provoking: how many frames grpc-go's estimator emits
+--   depends on how much data lands in one round-trip, which on an idle
+--   machine stops at 3, one under the limit. Reaching 5 needs the
+--   scheduling latency of the reporter's six-nodes-on-one-host setup.
+withSettingsBurstProxy :: PortNumber -> Int -> (PortNumber -> IO Int -> IO a) -> IO a
+data PeerConfig2
+PeerConfig2 :: NetworkConfiguration -> NetworkConfiguration -> PeerConfig2
+[$sel:aliceConfig:PeerConfig2] :: PeerConfig2 -> NetworkConfiguration
+[$sel:bobConfig:PeerConfig2] :: PeerConfig2 -> NetworkConfiguration
+setup2Peers :: FilePath -> IO PeerConfig2
+data PeerConfig3
+PeerConfig3 :: NetworkConfiguration -> NetworkConfiguration -> NetworkConfiguration -> PeerConfig3
+[$sel:aliceConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
+[$sel:bobConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
+[$sel:carolConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
+setup3Peers :: FilePath -> IO PeerConfig3
+prop_canRoundtripCBOREncoding :: (ToCBOR a, FromCBOR a, Eq a, Show a) => a -> Property
+newRecordingCallback :: MonadLabelledSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
+
+module Hydra.Network.AuthenticateSpec
+spec :: Spec
+newtype Msg
+Msg :: ByteString -> Msg
+instance Cardano.Crypto.Util.SignableRepresentation Hydra.Network.AuthenticateSpec.Msg
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.AuthenticateSpec.Msg
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.AuthenticateSpec.Msg
+instance GHC.Show.Show Hydra.Network.AuthenticateSpec.Msg
+instance GHC.Classes.Eq Hydra.Network.AuthenticateSpec.Msg
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Network.AuthenticateSpec.Msg
+
+module Hydra.Ledger.CardanoSpec
+spec :: Spec
+shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation
+
+-- | Test that the <a>PParams</a> To/FromJSON instances to roundtrip.
+roundtripPParams :: PParams LedgerEra -> Property
+applyTransactionsEquivalence :: Property
+appliesValidTransaction :: Property
+appliesValidTransactionFromJSON :: Property
+reapplyEquivalence :: Property
+reapplyRejectsExpired :: Property
+
+-- | A transaction or transaction output can usually only contain a
+--   realistic number of native asset entries. This property checks a
+--   realistic order of magnitude (100).
+propRealisticValue :: Value -> Property
+
+-- | Check that an output has enough lovelace to cover asset deposits.
+propHasEnoughLovelace :: TxOut CtxUTxO -> Property
+
+-- | Check that the given <a>TxOut</a> fulfills several requirements and
+--   does not use unsupported features. See <a>genTxOut</a> for rationale.
+propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
+utxoIsThunkFree :: UTxO -> Property
+prop_applyTransactionsThunkFree :: Property
+prop_utxoFromTxThunkFree :: Property
+prop_adjustUTxOThunkFree :: Property
+prop_applyTxToThunkFree :: Property
+prop_jsonDecodeThunkFree :: Property
+prop_cborDecodeThunkFree :: Property
+
+-- | A realistic multi-era <a>EraHistory</a> mimicking mainnet/testnet
+--   where: - Byron era: 21600 slots<i>epoch, 20s</i>slot, runs for 208
+--   epochs (4,492,800 slots) - Shelley+ era: 432000 slots<i>epoch,
+--   1s</i>slot, open-ended
+--   
+--   This causes slot-to-time conversions to differ from a simple
+--   fixedEpochInfo because Byron slots are 20x longer than Shelley slots.
+multiEraHistory :: EraHistory
+
+-- | Generate <a>HashableScriptData</a> whose CBOR uses a definite-length
+--   array for constructor fields instead of the Plutus-canonical
+--   indefinite-length form. Both encodings are valid on L1, but
+--   cardano-api's <a>FromJSON</a> re-canonicalises, producing a different
+--   hash — the root cause of the replay crash-loop.
+genNonCanonicalHashableScriptData :: Gen HashableScriptData
+
+
+-- | Unit tests of the protocol logic in <tt>HeadLogic</tt>. These are very
+--   fine grained and specific to individual steps in the protocol. More
+--   high-level of the protocol logic, especially between multiple parties
+--   can be found in <a>BehaviorSpec</a>.
+module Hydra.HeadLogicSpec
+spec :: Spec
+prop_ignoresUnrelatedOnInitTx :: Property
+genClosedState :: Gen (NodeState SimpleTx)
+
+-- | Create a network input about a received protocol message with default
+--   ttl and <a>alice</a> as the sender.
+receiveMessage :: Message tx -> Input tx
+
+-- | Create a network input about a received protocol message with default
+--   ttl from given sender.
+receiveMessageFrom :: Party -> Message tx -> Input tx
+
+-- | Create a chain effect with fixed chain state and slot.
+chainEffect :: PostChainTx SimpleTx -> Effect SimpleTx
+
+-- | Create an observation chain input with chain state at given slot.
+observeTxAtSlot :: ChainSlot -> OnChainTx SimpleTx -> Input SimpleTx
+
+-- | Create an observation chain input with fixed chain state and slot.
+observeTx :: OnChainTx SimpleTx -> Input SimpleTx
+connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
+inIdleState :: NodeState SimpleTx
+inUnsyncedIdleState :: NodeState SimpleTx
+inOpenState :: [Party] -> NodeState SimpleTx
+
+-- | The decommit the reqDec pending-commit tests request. No inputs, so it
+--   applies to any <a>CoordinatedHeadState</a> and the outcome turns
+--   purely on the pending-commit guard.
+reqDecDecommitTx :: SimpleTx
+reqDecDepositTxId :: TxIdType SimpleTx
+
+-- | The UTxO the registered deposit records, so the tests can assert the
+--   reported <a>WaitReason</a> instead of the <tt>mempty</tt> that a
+--   failed lookup would yield whether or not the guard is right.
+reqDecDepositedUTxO :: UTxOType SimpleTx
+
+-- | An open state whose
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> is set, with the
+--   deposit registered at the given status. <a>Nothing</a> registers no
+--   deposit at all, modelling one that has already been recovered:
+--   <a>DepositRecovered</a> deletes the map entry but leaves
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> pointing at it.
+reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
+inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
+inClosedState :: [Party] -> NodeState SimpleTx
+inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
+
+-- | A head mid partial-fanout (on-chain <a>FanoutProgress</a>) with the
+--   given still-to-distribute set and <a>FanoutMode</a>.
+--   <a>StateChanged</a> is a non-empty placeholder so the head datum is
+--   treated as <tt>FanoutProgress</tt> (some outputs already distributed).
+inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+
+-- | Like <a>inFanoutProgressWith</a> but in <a>AutoDrain</a> mode, as if a
+--   plain <a>Fanout</a> kicked off the (chunked) fanout.
+inAutoDrainProgress :: [Party] -> Set SimpleTxOut -> NodeState SimpleTx
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
+data StepState tx
+StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
+[$sel:nodeState:StepState] :: StepState tx -> NodeState tx
+[$sel:env:StepState] :: StepState tx -> Environment
+[$sel:ledger:StepState] :: StepState tx -> Ledger tx
+runHeadLogic :: Monad m => Environment -> Ledger tx -> NodeState tx -> StateT (StepState tx) m a -> m a
+
+-- | Retrieves the latest <a>NodeState</a> from within <a>runHeadLogic</a>.
+getState :: MonadState (StepState tx) m => m (NodeState tx)
+
+-- | Calls <a>update</a> and <a>aggregate</a> to drive the
+--   <a>runHeadLogic</a> monad forward.
+step :: (MonadState (StepState tx) m, IsChainState tx, MonadTime m) => Input tx -> m (Outcome tx)
+hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
+assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
+
+-- | The effects produced by an outcome (empty for
+--   <a>Wait</a>/<a>Error</a>).
+effectsOf :: Outcome tx -> [Effect tx]
+hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
+hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
+nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
+
+-- | Create a <a>TimeHandle</a> for a given slot and current wall-clock
+--   time. * Assumes 1-second slots (as in the devnet). * SystemStart is
+--   derived so that the given slot corresponds to the given time. *
+--   EraHistory is constructed to have a horizon sufficiently far in the
+--   future to accommodate time conversions.
+mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
+catchingUp :: IsTx tx => HeadState tx -> NodeState tx
+inSync :: IsTx tx => HeadState tx -> NodeState tx
+zeroChainPointTime :: ChainPointTime
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+
+-- | Off-chain differential (real-node bindings): the Agda-extracted §6
+--   handler decisions (<a>Hydra.Agda.OffChainReference</a>) checked
+--   against the REAL <a>update</a> outcomes, not against transcriptions of
+--   the figure. This extends <a>OffChainLeaderSpec</a> (which binds
+--   <tt>leaderRef</tt> to the real <tt>isLeader</tt>) to three more
+--   decisions, closing the figure↔Agda↔Haskell loop:
+--   
+--   <ul>
+--   <li><tt>signEligibleRef</tt> vs <tt>onOpenNetworkReqSn</tt>: we drive
+--   <a>update</a> with a <tt>ReqSn</tt> over an open state with version v̂
+--   and a settled snapshot ŝ (confirmed = seen, nothing in flight) and
+--   binarise the outcome: ACCEPT iff the node reaches the signing
+--   continuation (<a>SnapshotRequested</a> + an <tt>AckSn</tt> effect).
+--   The node splits the figure's single <tt>require</tt> into an Error
+--   (number: <a>ReqSnNumberInvalid</a>, leader: <a>ReqSnNotLeader</a>) and
+--   a Wait (version: <a>WaitOnSnapshotVersion</a>, so a follower behind on
+--   the version bump does not drop the message); Error and Wait both map
+--   to non-accept. The reference's leader input is resolved by the
+--   EXTRACTED <tt>leaderRef</tt> (itself bound to the real
+--   <tt>isLeader</tt> in <a>OffChainLeaderSpec</a>), so the composed
+--   decision is fully Agda-derived.</li>
+--   <li><tt>reqDecEligibleRef</tt> vs <tt>onOpenNetworkReqDec</tt>: ACCEPT
+--   iff the node records the decommit (<a>DecommitRecorded</a>). A PENDING
+--   deposit makes the node WAIT (<a>WaitOnUnresolvedCommit</a>) at ttl
+--   &gt; 0, and so does an in-flight decommit
+--   (<a>WaitOnNotApplicableDecommitTx</a> with
+--   <a>DecommitAlreadyInFlight</a>); both are non-accept. The commit axis
+--   is the reference's <a>HsPendingCommit</a>, not a Bool, so this test
+--   cannot decide which commits count: an expired or already-recovered
+--   deposit is a state the node reaches (it clears
+--   <tt>currentDepositTxId</tt> on neither) and the reference is what says
+--   those do not block.</li>
+--   <li><tt>reqSnNotBothRef</tt> <i> <tt>reqSnDecommitOutputsRef</tt> </i>
+--   <tt>reqSnDepositSettledRef</tt> vs <tt>onOpenNetworkReqSn</tt>'s
+--   incremental-action guards: a request carrying both a deposit and a
+--   decommit is <a>ReqSnBothCommitAndDecommit</a>; a decommit producing no
+--   outputs is <a>ReqSnDecommitNoOutputs</a>; and settling a same-version
+--   pending commit requires the request to name the deposit bound into the
+--   confirmed snapshot by tx-id (<a>ReqSnCommitNotSettled</a> otherwise) -
+--   the look-alike-deposit case, where content matches and only identity
+--   differs.</li>
+--   <li><tt>depositStatusRef</tt> vs the deposit-status transition the
+--   node applies on a chain <a>Tick</a> (<tt>onOpenChainTick</tt> via
+--   <tt>determineNextDepositStatus</tt>): starting from a fresh Inactive
+--   deposit, one tick at time t yields <a>DepositExpired</a> <i>
+--   <a>DepositActivated</a> </i> no status event, mapping to ExpiredS <i>
+--   ActiveS </i> InactiveS.</li>
+--   <li><tt>notAlreadySignedRef</tt> vs <tt>onOpenNetworkAckSn</tt>'s
+--   <tt>requireNotSignedYet</tt>: over a directly constructed in-flight
+--   <a>SeenSnapshot</a> whose signatories map holds REAL signatures, an
+--   <tt>AckSn</tt> from a sender already in the map is the node's
+--   <a>SnapshotAlreadySigned</a>; a fresh sender is not.</li>
+--   <li><tt>allSignedRef</tt> vs the round completion of
+--   <tt>onOpenNetworkAckSn</tt>: a fresh sender's ack CONFIRMS (the node
+--   aggregates the real signatures in order and verifies the real
+--   multisignature before emitting <a>SnapshotConfirmed</a>) exactly when
+--   it completes the n-of-n signer set; the composed decision is
+--   <tt>notAlreadySignedRef ∧ allSignedRef (sender ∷ Σ̂)</tt>.</li>
+--   <li><tt>contestEligibleRef</tt> vs <tt>onOpenChainCloseTx</tt>:
+--   observing a close of snapshot s_c while our confirmed snapshot is S̄.s
+--   posts a <a>ContestTx</a> exactly when S̄.s &gt; s_c.</li>
+--   </ul>
+--   
+--   Domain note (deposit status): the extracted decision uses Nat
+--   truncated subtraction for <tt>deadline − T_deposit</tt> whereas the
+--   node subtracts over <a>UTCTime</a>; the two agree whenever
+--   <tt>deadline ≥ T_deposit</tt>, which the protocol guarantees (an
+--   observed deposit deadline sits a full deposit period after creation).
+--   The property therefore quantifies over that domain, with all times as
+--   whole POSIX seconds (exact in both representations).
+--   
+--   Scope note (ackSn): the extracted guards model the COUNTING decisions
+--   (who signed, n-of-n); the collected signatures themselves are held
+--   healthy, exactly as the on-chain reference holds crypto conjuncts
+--   healthy. The real node additionally verifies the aggregate
+--   multisignature at confirmation; a corrupt collected signature makes it
+--   reject (<a>InvalidMultisignature</a>) where the counting reference
+--   alone would accept, demonstrated as a validator-only rejection below.
+module Hydra.OffChainAgreementSpec
+spec :: Spec
 
 module Hydra.NodeSpec
 spec :: Spec
@@ -568,90 +880,48 @@ instance GHC.Show.Show Hydra.Events.RotationSpec.ChunkedEvents
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Events.RotationSpec.ChunkedEvents
 instance Hydra.Events.HasEventId Hydra.Events.RotationSpec.TrivialEvent
 
-module Hydra.Node.InputQueueSpec
+module Hydra.Logging.MonitoringSpec
 spec :: Spec
-newtype DummyInput
-DummyInput :: Int -> DummyInput
-prop_identify_enqueued_items :: NonEmptyList Int -> Property
-instance GHC.Show.Show Hydra.Node.InputQueueSpec.DummyInput
-instance GHC.Classes.Eq Hydra.Node.InputQueueSpec.DummyInput
 
-
--- | Test the real networking layer
-module Hydra.NetworkSpec
+module Hydra.HeadLogicSnapshotSpec
 spec :: Spec
-lo :: IsString s => s
-data PeerConfig2
-PeerConfig2 :: NetworkConfiguration -> NetworkConfiguration -> PeerConfig2
-[$sel:aliceConfig:PeerConfig2] :: PeerConfig2 -> NetworkConfiguration
-[$sel:bobConfig:PeerConfig2] :: PeerConfig2 -> NetworkConfiguration
-setup2Peers :: FilePath -> IO PeerConfig2
-data PeerConfig3
-PeerConfig3 :: NetworkConfiguration -> NetworkConfiguration -> NetworkConfiguration -> PeerConfig3
-[$sel:aliceConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
-[$sel:bobConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
-[$sel:carolConfig:PeerConfig3] :: PeerConfig3 -> NetworkConfiguration
-setup3Peers :: FilePath -> IO PeerConfig3
-prop_canRoundtripCBOREncoding :: (ToCBOR a, FromCBOR a, Eq a, Show a) => a -> Property
-newRecordingCallback :: MonadLabelledSTM m => m (NetworkCallback msg m, m msg, m Connectivity)
+prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
+prop_thereIsAlwaysALeader :: Property
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
 
-module Hydra.Network.AuthenticateSpec
+module Hydra.API.HTTPServerSpec
 spec :: Spec
-newtype Msg
-Msg :: ByteString -> Msg
-instance Cardano.Crypto.Util.SignableRepresentation Hydra.Network.AuthenticateSpec.Msg
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.AuthenticateSpec.Msg
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.AuthenticateSpec.Msg
-instance GHC.Show.Show Hydra.Network.AuthenticateSpec.Msg
-instance GHC.Classes.Eq Hydra.Network.AuthenticateSpec.Msg
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Network.AuthenticateSpec.Msg
+apiServerSpec :: Spec
 
-module Hydra.Ledger.CardanoSpec
-spec :: Spec
-shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expectation
+-- | Create a <a>ResponseMatcher</a> or <a>MatchBody</a> from a JSON
+--   serializable value (using their <a>IsString</a> instances).
+matchJSON :: (IsString s, ToJSON a) => a -> s
 
--- | Test that the <a>PParams</a> To/FromJSON instances to roundtrip.
-roundtripPParams :: PParams LedgerEra -> Property
-applyTransactionsEquivalence :: Property
-appliesValidTransaction :: Property
-appliesValidTransactionFromJSON :: Property
-reapplyEquivalence :: Property
-reapplyRejectsExpired :: Property
+-- | Create a <a>MatchBody</a> that CBOR-decodes the response body and
+--   compares it to an expected value.
+matchCBOR :: (Eq a, Show a, FromCBOR a) => a -> MatchBody
 
--- | A transaction or transaction output can usually only contain a
---   realistic number of native asset entries. This property checks a
---   realistic order of magnitude (100).
-propRealisticValue :: Value -> Property
-
--- | Check that an output has enough lovelace to cover asset deposits.
-propHasEnoughLovelace :: TxOut CtxUTxO -> Property
-
--- | Check that the given <a>TxOut</a> fulfills several requirements and
---   does not use unsupported features. See <a>genTxOut</a> for rationale.
-propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
-
--- | A realistic multi-era <a>EraHistory</a> mimicking mainnet/testnet
---   where: - Byron era: 21600 slots<i>epoch, 20s</i>slot, runs for 208
---   epochs (4,492,800 slots) - Shelley+ era: 432000 slots<i>epoch,
---   1s</i>slot, open-ended
---   
---   This causes slot-to-time conversions to differ from a simple
---   fixedEpochInfo because Byron slots are 20x longer than Shelley slots.
-multiEraHistory :: EraHistory
-
--- | Generate <a>HashableScriptData</a> whose CBOR uses a definite-length
---   array for constructor fields instead of the Plutus-canonical
---   indefinite-length form. Both encodings are valid on L1, but
---   cardano-api's <a>FromJSON</a> re-canonicalises, producing a different
---   hash — the root cause of the replay crash-loop.
-genNonCanonicalHashableScriptData :: Gen HashableScriptData
+-- | Create a <a>MatchBody</a> that validates the returned JSON response
+--   against a schema. NOTE: This raises impure exceptions, so only use it
+--   in this test suite.
+matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
 
 
 -- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
 --   in <a>SQLiteBased</a>.
 module Hydra.Events.SQLiteBasedSpec
 spec :: Spec
+
+-- | Create a v1 database with <tt>n</tt> JSON-encoded 'StateEvent Tx' rows
+--   (as written by hydra-node versions before the CBOR switch), open it
+--   (triggering the migration) and assert nothing is lost: the events load
+--   back equal, and each migrated row's raw CBOR decodes to exactly the
+--   event that was inserted as JSON. Uses the production event type
+--   (<a>Tx</a>, the one real hydra.db files store) rather than
+--   <a>SimpleTx</a>.
+migratesV1JsonToV2CBOR :: Int -> IO ()
 genContinuousEvents :: Gen [StateEvent SimpleTx]
+mkContinuousEvents :: [StateChanged tx] -> [UTCTime] -> [StateEvent tx]
 withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 
 module Hydra.CryptoSpec
@@ -660,6 +930,63 @@ specSigningKey :: Spec
 specVerificationKey :: Spec
 specSignature :: Spec
 specMultiSignature :: Spec
+
+module Hydra.Chain.Direct.StateSpec
+spec :: Spec
+genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
+
+-- | Given any Head protocol state and the transaction corresponding a
+--   protocol transition we should be able to observe this transition
+--   correctly even in presence of other valid Hydra Head protocol states
+--   in the used lookup utxo.
+prop_observeAnyTx :: Property
+
+-- | Given a UTxO with more than one entry, we can split it into two
+--   non-empty UTxO.
+prop_splitUTxO :: UTxO -> Property
+prop_incrementObservesCorrectUTxO :: Property
+
+-- | <a>checkIncrement</a> requires the claimed deposit to be its
+--   transaction's first output, so <a>increment</a> resolves exactly that
+--   output rather than any output of the deposit transaction. Matching by
+--   transaction id alone would build a transaction that cannot validate.
+prop_incrementRequiresFirstDepositOutput :: Property
+
+-- | <a>recoverTx</a> spends <tt>TxIn depositTxId (TxIx 0)</tt>, so
+--   <a>recover</a> resolves exactly that output. Matching by transaction
+--   id alone would read one output's datum and then build a transaction
+--   spending a different one.
+prop_recoverRequiresFirstDepositOutput :: Property
+propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
+propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
+forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | Deposits ranging from trivially fitting (a few ada-only outputs) to
+--   clearly oversized (&gt;100 distinct-policy tokens whose merged value
+--   exceeds mainnet's 5000 byte maxValSize), so
+--   <a>rejectOversizedDeposit</a> exercises both verdicts.
+genMixedDeposit :: Gen UTxO
+forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllIncrement' :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDecrement :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllDecrement' :: Testable property => (UTxO -> UTxO -> Tx -> property) -> Property
+forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
+forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds
+--   the full UTxO value to the head output so <tt>partialFanoutTx</tt> can
+--   subtract distributed values without going negative. The evaluation
+--   UTxO must match.
+forAllPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | The spendable UTxO for the final partial fanout is the FanoutProgress
+--   head output produced by the preceding partial fanout step, so we use
+--   the 3rd element from the generator rather than 'getKnownUTxO
+--   stClosed'.
+forAllFinalPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
 
 module Hydra.BehaviorSpec
 spec :: Spec
@@ -698,12 +1025,11 @@ TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientM
 --   can also <a>$sel:rollbackAndForward:SimulatedChainNetwork</a> any
 --   number of these "transactions".
 data SimulatedChainNetwork tx m
-SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (HeadId -> UTxOType tx -> m ()) -> (Party -> m ()) -> m [ChainEvent tx] -> SimulatedChainNetwork tx m
+SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (Party -> m ()) -> m [ChainEvent tx] -> SimulatedChainNetwork tx m
 [$sel:connectNode:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> DraftHydraNode tx m -> m (HydraNode tx m)
 [$sel:tickThread:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Async m ()
 [$sel:rollbackAndForward:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Natural -> m ()
 [$sel:simulateDeposit:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
-[$sel:simulatePartialFanout:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> m ()
 [$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Party -> m ()
 [$sel:getChainHistory:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> m [ChainEvent tx]
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
@@ -797,7 +1123,7 @@ data MockHydraNode m
 MockHydraNode :: HydraNode Tx m -> ChainSyncHandler m -> MockHydraNode m
 [$sel:node:MockHydraNode] :: MockHydraNode m -> HydraNode Tx m
 [$sel:chainHandler:MockHydraNode] :: MockHydraNode m -> ChainSyncHandler m
-createMockChain :: (MonadTimer m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> ChainContext -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
+createMockChain :: (MonadTimer m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> ChainContext -> DepositPeriod -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
 flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
 
 module Hydra.Model.MockChainSpec
@@ -870,7 +1196,6 @@ Final :: UTxOType Payment -> GlobalState
 newtype OffChainState
 OffChainState :: UTxOType Payment -> OffChainState
 [$sel:confirmedUTxO:OffChainState] :: OffChainState -> UTxOType Payment
-type ActualCommitted = UTxOType Payment
 genSeed :: Gen (Action WorldState ())
 genContestationPeriod :: Gen ContestationPeriod
 genInit :: [(Secret (SigningKey HydraKey), b)] -> Gen (Action WorldState HeadId)
@@ -1117,7 +1442,6 @@ runIOSimProp :: Testable a => (forall s. PropertyM (RunMonad (IOSim s)) a) -> Pr
 runRunMonadIOSimGen :: forall a. Testable a => (forall s. Gen (RunMonad (IOSim s) a)) -> Gen Property
 eventually :: Action WorldState () -> DL WorldState ()
 action_ :: Typeable a => Action WorldState a -> DL WorldState ()
-instance Test.QuickCheck.StateModel.Variables.HasVariables (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey)
 instance Test.QuickCheck.StateModel.Variables.HasVariables Hydra.Model.Payment.CardanoSigningKey
 
 
@@ -1220,11 +1544,11 @@ realWorldModelUTxO :: ModelUTxO -> UTxO
 -- | A correctly signed snapshot. Given a snapshot number a snapshot signed
 --   by all participants (alice, bob and carol) with some UTxO contained is
 --   produced.
-signedSnapshot :: ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
+signedSnapshot :: Maybe TxId -> ModelSnapshot -> (Snapshot Tx, MultiSignature (Snapshot Tx))
 
 -- | A confirmed snapshot (either initial or later confirmed), based
 --   onTxTra <a>signedSnapshot</a>.
-confirmedSnapshot :: ModelSnapshot -> ConfirmedSnapshot Tx
+confirmedSnapshot :: Maybe TxId -> ModelSnapshot -> ConfirmedSnapshot Tx
 
 -- | UTxO of the open head on-chain. NOTE: This uses fixtures for headId,
 --   parties, and cperiod.

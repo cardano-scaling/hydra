@@ -13,355 +13,454 @@ Numbers are approximate. They come from cloud VMs rather than  controlled hardwa
 
 :::
 
-_Generated at_  2026-07-15 12:47:39.333921371 UTC
+_Generated at_  2026-09-01 16:37:15.124603284 UTC
 
 
 ## Summary across cells
 
 TPS columns are rates (transactions per second); _Wall clock (s)_ is the measured elapsed time from the first tx submission to the last confirmation. Times are rounded to one decimal.
 
-| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Peak sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |
+| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |
 | -- | -- | -- | -- | -- | -- | -- |
-| Nodes=1, Constant, incremental ops off, fire and forget | 30 | 0.1 | 450.68 | 30.00 | 65.5 | 66.2 |
-| Nodes=1, Constant, incremental ops off, wait for tx valid | 30 | 0.2 | 138.13 | 30.00 | 7.1 | 12.8 |
-| Nodes=1, Growing, incremental ops off, fire and forget | 30 | 0.1 | 350.06 | 30.00 | 84.1 | 85.4 |
-| Nodes=1, Growing, incremental ops off, wait for tx valid | 30 | 0.3 | 103.77 | 30.00 | 9.5 | 12.3 |
-| Nodes=1, Mixed, incremental ops off, fire and forget | 30 | 0.1 | 389.82 | 30.00 | 75.7 | 76.6 |
-| Nodes=1, Mixed, incremental ops off, wait for tx valid | 30 | 0.2 | 130.69 | 30.00 | 7.6 | 10.9 |
-| Nodes=2, Constant, incremental ops off, fire and forget | 60 | 0.2 | 338.18 | 60.00 | 175.8 | 176.3 |
-| Nodes=2, Constant, incremental ops off, wait for tx valid | 60 | 0.6 | 102.97 | 60.00 | 19.2 | 28.0 |
-| Nodes=2, Growing, incremental ops off, fire and forget | 60 | 0.2 | 291.44 | 60.00 | 203.9 | 204.9 |
-| Nodes=2, Growing, incremental ops off, wait for tx valid | 60 | 1.0 | 59.12 | 59.00 | 33.2 | 48.8 |
-| Nodes=2, Mixed, incremental ops off, fire and forget | 60 | 0.2 | 348.54 | 60.00 | 170.0 | 170.8 |
-| Nodes=2, Mixed, incremental ops off, wait for tx valid | 60 | 0.8 | 75.32 | 60.00 | 26.3 | 35.2 |
-| Nodes=3, Constant, incremental ops off, fire and forget | 90 | 0.3 | 320.49 | 90.00 | 278.0 | 279.9 |
-| Nodes=3, Constant, incremental ops off, wait for tx valid | 90 | 1.0 | 89.11 | 90.00 | 33.1 | 44.1 |
-| Nodes=3, Growing, incremental ops off, fire and forget | 90 | 0.4 | 241.80 | 90.00 | 366.3 | 368.3 |
-| Nodes=3, Growing, incremental ops off, wait for tx valid | 90 | 2.1 | 43.18 | 55.00 | 66.9 | 100.2 |
-| Nodes=3, Mixed, incremental ops off, fire and forget | 90 | 0.3 | 286.48 | 90.00 | 311.1 | 313.4 |
-| Nodes=3, Mixed, incremental ops off, wait for tx valid | 90 | 1.5 | 61.06 | 59.00 | 48.4 | 64.3 |
+| Nodes=1, Constant, fire and forget | 30 | 0.0 | 1318.69 | n/a | 22.0 | 22.5 |
+| Nodes=1, Constant, wait for tx valid | 30 | 0.1 | 217.30 | 216.19 | 4.5 | 5.5 |
+| Nodes=1, Growing, fire and forget | 30 | 0.0 | 902.57 | n/a | 32.5 | 33.0 |
+| Nodes=1, Growing, wait for tx valid | 30 | 0.2 | 162.98 | 161.32 | 6.1 | 9.6 |
+| Nodes=1, Mixed, fire and forget | 30 | 0.0 | 1142.50 | n/a | 25.4 | 26.0 |
+| Nodes=1, Mixed, wait for tx valid | 30 | 0.2 | 185.17 | 185.63 | 5.3 | 6.7 |
+| Nodes=2, Constant, fire and forget | 60 | 0.1 | 1018.16 | n/a | 57.0 | 58.0 |
+| Nodes=2, Constant, wait for tx valid | 60 | 0.4 | 144.39 | 142.42 | 13.7 | 16.3 |
+| Nodes=2, Growing, fire and forget | 60 | 0.1 | 910.68 | n/a | 64.1 | 65.0 |
+| Nodes=2, Growing, wait for tx valid | 60 | 0.6 | 107.45 | 104.70 | 18.4 | 23.5 |
+| Nodes=2, Mixed, fire and forget | 60 | 0.1 | 969.92 | n/a | 59.9 | 60.9 |
+| Nodes=2, Mixed, wait for tx valid | 60 | 0.5 | 109.19 | 103.45 | 18.1 | 23.9 |
+| Nodes=3, Constant, fire and forget | 90 | 0.1 | 709.12 | n/a | 122.4 | 126.1 |
+| Nodes=3, Constant, wait for tx valid | 90 | 0.8 | 117.84 | 117.19 | 25.1 | 31.9 |
+| Nodes=3, Growing, fire and forget | 90 | 0.1 | 603.95 | n/a | 145.0 | 147.5 |
+| Nodes=3, Growing, wait for tx valid | 90 | 1.0 | 89.68 | 88.34 | 33.2 | 41.7 |
+| Nodes=3, Mixed, fire and forget | 90 | 0.1 | 697.44 | n/a | 126.4 | 128.7 |
+| Nodes=3, Mixed, wait for tx valid | 90 | 1.0 | 93.24 | 90.40 | 31.7 | 39.6 |
 
 
-## Nodes=1, Constant, incremental ops off, fire and forget
+## Nodes=1, Constant, fire and forget
 
 
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 65.5 |
-| _P99_ | 66.3ms |
-| _P95_ | 66.2ms |
-| _P50_ | 65.7ms |
-| _End-to-end TPS_ | 450.68 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 22.0 |
+| _P99_ | 22.5ms |
+| _P95_ | 22.5ms |
+| _P50_ | 22.1ms |
+| _Tx validation time p50 (ms)_ | 11.0 |
+| _End-to-end TPS_ | 1318.69 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 87.91 /s |
+| _Avg txs per snapshot_ | 15.0 |
+| _Peak node RSS (MB)_ | 128.8 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 2 |
       
 
-## Nodes=1, Constant, incremental ops off, wait for tx valid
+## Nodes=1, Constant, wait for tx valid
 
 
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 7.1 |
-| _P99_ | 18.0ms |
-| _P95_ | 12.8ms |
-| _P50_ | 6.2ms |
-| _End-to-end TPS_ | 138.13 tx/s |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 4.5 |
+| _P99_ | 7.7ms |
+| _P95_ | 5.5ms |
+| _P50_ | 4.4ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 217.30 tx/s |
+| _Sustained TPS_ | 216.19 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 217.30 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 142.8 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 2 |
       
 
-## Nodes=1, Growing, incremental ops off, fire and forget
+## Nodes=1, Growing, fire and forget
 
 
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 84.1 |
-| _P99_ | 85.5ms |
-| _P95_ | 85.4ms |
-| _P50_ | 85.0ms |
-| _End-to-end TPS_ | 350.06 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 32.5 |
+| _P99_ | 33.0ms |
+| _P95_ | 33.0ms |
+| _P50_ | 32.7ms |
+| _Tx validation time p50 (ms)_ | 10.4 |
+| _End-to-end TPS_ | 902.57 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 60.17 /s |
+| _Avg txs per snapshot_ | 15.0 |
+| _Peak node RSS (MB)_ | 144.3 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 31 |
       
 
-## Nodes=1, Growing, incremental ops off, wait for tx valid
+## Nodes=1, Growing, wait for tx valid
 
 
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 9.5 |
-| _P99_ | 16.8ms |
-| _P95_ | 12.3ms |
-| _P50_ | 9.6ms |
-| _End-to-end TPS_ | 103.77 tx/s |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 6.1 |
+| _P99_ | 12.6ms |
+| _P95_ | 9.6ms |
+| _P50_ | 5.6ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 162.98 tx/s |
+| _Sustained TPS_ | 161.32 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 162.98 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 145.3 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 31 |
       
 
-## Nodes=1, Mixed, incremental ops off, fire and forget
+## Nodes=1, Mixed, fire and forget
 
 Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 75.7 |
-| _P99_ | 76.7ms |
-| _P95_ | 76.6ms |
-| _P50_ | 76.3ms |
-| _End-to-end TPS_ | 389.82 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 25.4 |
+| _P99_ | 26.0ms |
+| _P95_ | 26.0ms |
+| _P50_ | 25.6ms |
+| _Tx validation time p50 (ms)_ | 11.5 |
+| _End-to-end TPS_ | 1142.50 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 76.17 /s |
+| _Avg txs per snapshot_ | 15.0 |
+| _Peak node RSS (MB)_ | 142.6 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 2 |
       
 
-## Nodes=1, Mixed, incremental ops off, wait for tx valid
+## Nodes=1, Mixed, wait for tx valid
 
 Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
 
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 30 |
-| _Avg. Confirmation Time (ms)_ | 7.6 |
-| _P99_ | 16.2ms |
-| _P95_ | 10.9ms |
-| _P50_ | 7.3ms |
-| _End-to-end TPS_ | 130.69 tx/s |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 5.3 |
+| _P99_ | 7.4ms |
+| _P95_ | 6.7ms |
+| _P50_ | 5.2ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 185.17 tx/s |
+| _Sustained TPS_ | 185.63 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Peak sustained TPS_ | 30.00 tx/s |
+| _Snapshots per second_ | 185.17 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 143.0 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 2 |
       
 
-## Nodes=2, Constant, incremental ops off, fire and forget
+## Nodes=2, Constant, fire and forget
 
 
 
 | Number of nodes |  2 | 
 | -- | -- |
 | _Number of txs_ | 60 |
-| _Avg. Confirmation Time (ms)_ | 175.8 |
-| _P99_ | 176.7ms |
-| _P95_ | 176.3ms |
-| _P50_ | 176.0ms |
-| _End-to-end TPS_ | 338.18 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 57.0 |
+| _P99_ | 58.4ms |
+| _P95_ | 58.0ms |
+| _P50_ | 57.3ms |
+| _Tx validation time p50 (ms)_ | 21.6 |
+| _End-to-end TPS_ | 1018.16 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 60.00 tx/s |
+| _Snapshots per second_ | 33.94 /s |
+| _Avg txs per snapshot_ | 30.0 |
+| _Peak node RSS (MB)_ | 143.7 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 3 |
       
 
-## Nodes=2, Constant, incremental ops off, wait for tx valid
+## Nodes=2, Constant, wait for tx valid
 
 
 
 | Number of nodes |  2 | 
 | -- | -- |
 | _Number of txs_ | 60 |
-| _Avg. Confirmation Time (ms)_ | 19.2 |
-| _P99_ | 30.6ms |
-| _P95_ | 28.0ms |
-| _P50_ | 18.0ms |
-| _End-to-end TPS_ | 102.97 tx/s |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 13.7 |
+| _P99_ | 17.3ms |
+| _P95_ | 16.3ms |
+| _P50_ | 13.4ms |
+| _Tx validation time p50 (ms)_ | 4.3 |
+| _End-to-end TPS_ | 144.39 tx/s |
+| _Sustained TPS_ | 142.42 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 60 |
-| _Peak sustained TPS_ | 60.00 tx/s |
+| _Snapshots per second_ | 144.39 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 144.3 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 3 |
       
 
-## Nodes=2, Growing, incremental ops off, fire and forget
+## Nodes=2, Growing, fire and forget
 
 
 
 | Number of nodes |  2 | 
 | -- | -- |
 | _Number of txs_ | 60 |
-| _Avg. Confirmation Time (ms)_ | 203.9 |
-| _P99_ | 205.0ms |
-| _P95_ | 204.9ms |
-| _P50_ | 204.6ms |
-| _End-to-end TPS_ | 291.44 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 64.1 |
+| _P99_ | 65.1ms |
+| _P95_ | 65.0ms |
+| _P50_ | 64.5ms |
+| _Tx validation time p50 (ms)_ | 24.2 |
+| _End-to-end TPS_ | 910.68 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 60.00 tx/s |
+| _Snapshots per second_ | 30.36 /s |
+| _Avg txs per snapshot_ | 30.0 |
+| _Peak node RSS (MB)_ | 144.0 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 62 |
       
 
-## Nodes=2, Growing, incremental ops off, wait for tx valid
+## Nodes=2, Growing, wait for tx valid
 
 
 
 | Number of nodes |  2 | 
 | -- | -- |
 | _Number of txs_ | 60 |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 18.4 |
+| _P99_ | 26.5ms |
+| _P95_ | 23.5ms |
+| _P50_ | 18.1ms |
+| _Tx validation time p50 (ms)_ | 5.7 |
+| _End-to-end TPS_ | 107.45 tx/s |
+| _Sustained TPS_ | 104.70 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
+| _Snapshots observed_ | 60 |
+| _Snapshots per second_ | 107.45 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 145.6 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 62 |
+      
+
+## Nodes=2, Mixed, fire and forget
+
+Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
+
+| Number of nodes |  2 | 
+| -- | -- |
+| _Number of txs_ | 60 |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 59.9 |
+| _P99_ | 61.3ms |
+| _P95_ | 60.9ms |
+| _P50_ | 60.3ms |
+| _Tx validation time p50 (ms)_ | 24.9 |
+| _End-to-end TPS_ | 969.92 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
+| _Snapshots observed_ | 2 |
+| _Snapshots per second_ | 32.33 /s |
+| _Avg txs per snapshot_ | 30.0 |
+| _Peak node RSS (MB)_ | 144.7 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 3 |
+      
+
+## Nodes=2, Mixed, wait for tx valid
+
+Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
+
+| Number of nodes |  2 | 
+| -- | -- |
+| _Number of txs_ | 60 |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 18.1 |
+| _P99_ | 26.2ms |
+| _P95_ | 23.9ms |
+| _P50_ | 18.2ms |
+| _Tx validation time p50 (ms)_ | 5.2 |
+| _End-to-end TPS_ | 109.19 tx/s |
+| _Sustained TPS_ | 103.45 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
+| _Snapshots observed_ | 60 |
+| _Snapshots per second_ | 109.19 /s |
+| _Avg txs per snapshot_ | 1.0 |
+| _Peak node RSS (MB)_ | 145.3 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 3 |
+      
+
+## Nodes=3, Constant, fire and forget
+
+
+
+| Number of nodes |  3 | 
+| -- | -- |
+| _Number of txs_ | 90 |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 122.4 |
+| _P99_ | 126.3ms |
+| _P95_ | 126.1ms |
+| _P50_ | 121.6ms |
+| _Tx validation time p50 (ms)_ | 53.8 |
+| _End-to-end TPS_ | 709.12 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
+| _Snapshots observed_ | 2 |
+| _Snapshots per second_ | 15.76 /s |
+| _Avg txs per snapshot_ | 45.0 |
+| _Peak node RSS (MB)_ | 144.9 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 4 |
+      
+
+## Nodes=3, Constant, wait for tx valid
+
+
+
+| Number of nodes |  3 | 
+| -- | -- |
+| _Number of txs_ | 90 |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 25.1 |
+| _P99_ | 38.2ms |
+| _P95_ | 31.9ms |
+| _P50_ | 24.2ms |
+| _Tx validation time p50 (ms)_ | 6.6 |
+| _End-to-end TPS_ | 117.84 tx/s |
+| _Sustained TPS_ | 117.19 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
+| _Snapshots observed_ | 61 |
+| _Snapshots per second_ | 79.87 /s |
+| _Avg txs per snapshot_ | 1.5 |
+| _Peak node RSS (MB)_ | 145.1 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 4 |
+      
+
+## Nodes=3, Growing, fire and forget
+
+
+
+| Number of nodes |  3 | 
+| -- | -- |
+| _Number of txs_ | 90 |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 145.0 |
+| _P99_ | 147.6ms |
+| _P95_ | 147.5ms |
+| _P50_ | 144.7ms |
+| _Tx validation time p50 (ms)_ | 61.5 |
+| _End-to-end TPS_ | 603.95 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
+| _Snapshots observed_ | 2 |
+| _Snapshots per second_ | 13.42 /s |
+| _Avg txs per snapshot_ | 45.0 |
+| _Peak node RSS (MB)_ | 146.3 |
+| _Number of Invalid txs_ | 0 |
+| _Fanout outputs_        | 0 |
+      
+
+## Nodes=3, Growing, wait for tx valid
+
+
+
+| Number of nodes |  3 | 
+| -- | -- |
+| _Number of txs_ | 90 |
+| _Load mode_ | closed-loop |
 | _Avg. Confirmation Time (ms)_ | 33.2 |
-| _P99_ | 53.0ms |
-| _P95_ | 48.8ms |
-| _P50_ | 33.6ms |
-| _End-to-end TPS_ | 59.12 tx/s |
-| _Snapshots observed_ | 60 |
-| _Peak sustained TPS_ | 59.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
-      
-
-## Nodes=2, Mixed, incremental ops off, fire and forget
-
-Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
-
-| Number of nodes |  2 | 
-| -- | -- |
-| _Number of txs_ | 60 |
-| _Avg. Confirmation Time (ms)_ | 170.0 |
-| _P99_ | 171.4ms |
-| _P95_ | 170.8ms |
-| _P50_ | 170.2ms |
-| _End-to-end TPS_ | 348.54 tx/s |
-| _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 60.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
-      
-
-## Nodes=2, Mixed, incremental ops off, wait for tx valid
-
-Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
-
-| Number of nodes |  2 | 
-| -- | -- |
-| _Number of txs_ | 60 |
-| _Avg. Confirmation Time (ms)_ | 26.3 |
-| _P99_ | 44.7ms |
-| _P95_ | 35.2ms |
-| _P50_ | 26.1ms |
-| _End-to-end TPS_ | 75.32 tx/s |
-| _Snapshots observed_ | 60 |
-| _Peak sustained TPS_ | 60.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
-      
-
-## Nodes=3, Constant, incremental ops off, fire and forget
-
-
-
-| Number of nodes |  3 | 
-| -- | -- |
-| _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 278.0 |
-| _P99_ | 280.0ms |
-| _P95_ | 279.9ms |
-| _P50_ | 279.2ms |
-| _End-to-end TPS_ | 320.49 tx/s |
-| _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 90.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
-      
-
-## Nodes=3, Constant, incremental ops off, wait for tx valid
-
-
-
-| Number of nodes |  3 | 
-| -- | -- |
-| _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 33.1 |
-| _P99_ | 48.7ms |
-| _P95_ | 44.1ms |
-| _P50_ | 31.9ms |
-| _End-to-end TPS_ | 89.11 tx/s |
+| _P99_ | 50.3ms |
+| _P95_ | 41.7ms |
+| _P50_ | 32.9ms |
+| _Tx validation time p50 (ms)_ | 10.4 |
+| _End-to-end TPS_ | 89.68 tx/s |
+| _Sustained TPS_ | 88.34 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 61 |
-| _Peak sustained TPS_ | 90.00 tx/s |
+| _Snapshots per second_ | 60.79 /s |
+| _Avg txs per snapshot_ | 1.5 |
+| _Peak node RSS (MB)_ | 146.0 |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 0 |
       
 
-## Nodes=3, Growing, incremental ops off, fire and forget
-
-
-
-| Number of nodes |  3 | 
-| -- | -- |
-| _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 366.3 |
-| _P99_ | 368.8ms |
-| _P95_ | 368.3ms |
-| _P50_ | 367.0ms |
-| _End-to-end TPS_ | 241.80 tx/s |
-| _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 90.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 93 |
-      
-
-## Nodes=3, Growing, incremental ops off, wait for tx valid
-
-
-
-| Number of nodes |  3 | 
-| -- | -- |
-| _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 66.9 |
-| _P99_ | 127.0ms |
-| _P95_ | 100.2ms |
-| _P50_ | 62.8ms |
-| _End-to-end TPS_ | 43.18 tx/s |
-| _Snapshots observed_ | 64 |
-| _Peak sustained TPS_ | 55.00 tx/s |
-| _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 93 |
-      
-
-## Nodes=3, Mixed, incremental ops off, fire and forget
+## Nodes=3, Mixed, fire and forget
 
 Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
 
 | Number of nodes |  3 | 
 | -- | -- |
 | _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 311.1 |
-| _P99_ | 313.4ms |
-| _P95_ | 313.4ms |
-| _P50_ | 310.9ms |
-| _End-to-end TPS_ | 286.48 tx/s |
+| _Load mode_ | open-loop |
+| _Avg. Confirmation Time (ms)_ | 126.4 |
+| _P99_ | 128.7ms |
+| _P95_ | 128.7ms |
+| _P50_ | 126.8ms |
+| _Tx validation time p50 (ms)_ | 59.3 |
+| _End-to-end TPS_ | 697.44 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Peak sustained TPS_ | 90.00 tx/s |
+| _Snapshots per second_ | 15.50 /s |
+| _Avg txs per snapshot_ | 45.0 |
+| _Peak node RSS (MB)_ | 144.2 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 4 |
       
 
-## Nodes=3, Mixed, incremental ops off, wait for tx valid
+## Nodes=3, Mixed, wait for tx valid
 
 Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, then contracts it back (2-in to 1-out) for the remainder.
 
 | Number of nodes |  3 | 
 | -- | -- |
 | _Number of txs_ | 90 |
-| _Avg. Confirmation Time (ms)_ | 48.4 |
-| _P99_ | 72.1ms |
-| _P95_ | 64.3ms |
-| _P50_ | 49.6ms |
-| _End-to-end TPS_ | 61.06 tx/s |
+| _Load mode_ | closed-loop |
+| _Avg. Confirmation Time (ms)_ | 31.7 |
+| _P99_ | 46.8ms |
+| _P95_ | 39.6ms |
+| _P50_ | 31.4ms |
+| _Tx validation time p50 (ms)_ | 9.6 |
+| _End-to-end TPS_ | 93.24 tx/s |
+| _Sustained TPS_ | 90.40 tx/s |
+| _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 61 |
-| _Peak sustained TPS_ | 59.00 tx/s |
+| _Snapshots per second_ | 63.20 /s |
+| _Avg txs per snapshot_ | 1.5 |
+| _Peak node RSS (MB)_ | 144.5 |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 0 |
+| _Fanout outputs_        | 4 |
       
