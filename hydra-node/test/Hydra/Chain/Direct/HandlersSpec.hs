@@ -37,6 +37,7 @@ import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
+  canBeVerifiedOnChain,
   chainSyncHandler,
   findFittingFanoutTx,
   findLargestFitting,
@@ -44,7 +45,6 @@ import Hydra.Chain.Direct.Handlers (
   getLatest,
   history,
   newLocalChainState,
-  preferredFanoutTx,
   rejectOversizedDeposit,
  )
 import Hydra.Chain.Direct.State (
@@ -686,21 +686,13 @@ spec = do
               -- No chunk above the cap is ever attempted, whatever binds first.
               assert (chunk >= 1 && chunk <= deployedFanoutBatchSize)
 
-  describe "preferredFanoutTx" $ do
-    -- The whole point of the gate is that the preferred transaction is never
-    -- forced above the cap: building it means a membership proof over the whole
-    -- head, discarded on every step. A bottom is the only way to observe that.
-    it "does not force a preferred tx it will not use" $
-      preferredFanoutTx (deployedFanoutBatchSize + 1) (Right (error "preferred tx was forced") :: Either () Tx)
-        `shouldSatisfy` isNothing
-
-    prop "passes the preferred tx through at the cap and rejects above it" $
-      forAllBlind (arbitrary :: Gen Tx) $ \tx ->
-        conjoin
-          [ preferredFanoutTx deployedFanoutBatchSize (Right tx :: Either () Tx) === Just tx
-          , preferredFanoutTx (deployedFanoutBatchSize + 1) (Right tx :: Either () Tx) === Nothing
-          , preferredFanoutTx deployedFanoutBatchSize (Left () :: Either () Tx) === Nothing
-          ]
+  describe "canBeVerifiedOnChain" $
+    -- The callers guard on this before building the whole-set transaction, so
+    -- the fencepost decides whether a valid full fanout is attempted at all.
+    it "accepts exactly up to the deployed CRS batch size" $ do
+      canBeVerifiedOnChain (deployedFanoutBatchSize - 1) `shouldBe` True
+      canBeVerifiedOnChain deployedFanoutBatchSize `shouldBe` True
+      canBeVerifiedOnChain (deployedFanoutBatchSize + 1) `shouldBe` False
 
   describe "rejectOversizedDeposit" $ do
     prop "rejects deposit whose merged head value exceeds max value size" $

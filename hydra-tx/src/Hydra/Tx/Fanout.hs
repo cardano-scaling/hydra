@@ -18,6 +18,17 @@ import PlutusTx.Builtins (bls12_381_G1_uncompress)
 
 -- * Creation
 
+-- | The outputs a full fanout distributes: the snapshot UTxO together with any
+-- pending commit or decommit.
+--
+-- This is the set 'fanoutTx' counts in its redeemer and proves membership for,
+-- so a caller deciding whether a full fanout is worth building at all has to
+-- count this same set. Exported so that decision cannot drift from the union
+-- used here.
+fanoutOutputs :: UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO
+fanoutOutputs utxo utxoToCommit utxoToDecommit =
+  utxo <> fold utxoToCommit <> fold utxoToDecommit
+
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
 -- to set the lower bound to be deadline + 1 slot.
@@ -76,7 +87,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
   -- membership proof against the first 'numberOfFanoutOutputs' outputs, so the
   -- count, the proof and the outputs all have to describe the same set; taking
   -- all three from here is what keeps them from drifting.
-  allToFanout = utxo <> fold utxoToCommit <> fold utxoToDecommit
+  allToFanout = fanoutOutputs utxo utxoToCommit utxoToDecommit
 
   headRedeemer proof =
     toScriptData $

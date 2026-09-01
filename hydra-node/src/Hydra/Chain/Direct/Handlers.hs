@@ -108,6 +108,7 @@ import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
+import Hydra.Tx.Fanout (fanoutOutputs)
 import Hydra.Tx.Observe (
   CloseObservation (..),
   ContestObservation (..),
@@ -209,17 +210,21 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            -- The union is also what 'Hydra.Tx.Fanout.fanoutTx' counts in its
-            -- redeemer and proves membership for, so its size is the exact
-            -- gate for 'preferredFanoutTx'.
-            let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
+            -- 'fanoutOutputs' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
+            -- redeemer and proves membership for, so its size is the exact gate
+            -- on whether that transaction is worth building.
+            let fullUTxO = fanoutOutputs utxo utxoToCommit utxoToDecommit
+                preferred
+                  | canBeVerifiedOnChain (UTxO.size fullUTxO) =
+                      rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot
+                  | otherwise = Nothing
             findFittingFanoutTx
               tracer
               wallet
               ctx
               spendableUTxO
               seedTxIn
-              (preferredFanoutTx (UTxO.size fullUTxO) (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot))
+              preferred
               utxoForProof
               fullUTxO
               (UTxO.size fullUTxO - 1)
@@ -227,13 +232,17 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, presettledUTxO, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+            let preferred
+                  | canBeVerifiedOnChain (UTxO.size utxoToDistribute) =
+                      rightToMaybe $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot
+                  | otherwise = Nothing
             findFittingFanoutTx
               tracer
               wallet
               ctx
               spendableUTxO
               seedTxIn
-              (preferredFanoutTx (UTxO.size utxoToDistribute) (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot))
+              preferred
               (utxoToDistribute <> presettledUTxO)
               utxoToDistribute
               (UTxO.size utxoToDistribute - 1)
@@ -625,15 +634,18 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
 
--- | The single transaction to try before falling back to chunked partial
--- fanouts, given how many outputs it distributes. 'Nothing' above
--- 'Accumulator.deployedFanoutBatchSize', where it could only be rejected:
--- building it means a membership proof over the whole set, discarded on every
--- step.
-preferredFanoutTx :: Int -> Either err Tx -> Maybe Tx
-preferredFanoutTx numOutputs preferred
-  | numOutputs > Accumulator.deployedFanoutBatchSize = Nothing
-  | otherwise = rightToMaybe preferred
+-- | Whether a fanout distributing this many outputs can be verified on chain at
+-- all, and so is worth building.
+--
+-- Above 'Accumulator.deployedFanoutBatchSize' the head validator rejects the
+-- membership proof however cheap the transaction is, and building the
+-- transaction means computing that proof over the whole set — discarded on every
+-- fanout step. Callers guard on this rather than passing the built transaction
+-- and discarding it, so the expensive call is unreachable rather than merely
+-- unforced.
+canBeVerifiedOnChain :: Int -> Bool
+canBeVerifiedOnChain numOutputs =
+  numOutputs <= Accumulator.deployedFanoutBatchSize
 
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
 -- 'tryTx' returns 'Just'. Assumes the predicate is monotone: if size @n@ fits,
