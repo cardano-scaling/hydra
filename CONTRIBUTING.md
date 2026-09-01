@@ -197,19 +197,23 @@ To perform a release of the next `<version>`:
 2. Publish Hydra scripts onto `preview`, `preprod`, and `mainnet` using the
    [smoke test][smoke-test] and put the transaction IDs as new `<version>`
    entries into [networks.json](./hydra-node/networks.json).
-3. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
+3. Add the head and deposit script hashes as new `<version>` entries into
+   [script-hashes.json](./hydra-chain-observer/script-hashes.json), so that
+   `hydra-chain-observer` recognizes heads using the released scripts. The
+   hashes can be obtained with `hydra-node --hydra-script-catalogue`.
+4. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
-4. Run `./release.sh <version>`.
-5. Check if all the bumped versions are correct. In particular, whether the demo
+5. Run `./release.sh <version>`.
+6. Check if all the bumped versions are correct. In particular, whether the demo
    and tutorial would still work given the changelog. If everything is fine,
    push the branches `master`, `release` and the `<version>` tag.
-6. Create a GitHub release page containing:
+7. Create a GitHub release page containing:
    * The released changes (formatted) and giving credit where credit is due
    * Built Hydra (and `cardano-node`) binaries to the release using the naming scheme:
      `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux`,
      `aarch64-linux` or `aarch64-darwin` (the same for `cardano-node` instead
      of `hydra`)
-   * The just published `hydra-scripts-tx-id` from step 1.
+   * The just published `hydra-scripts-tx-id` from step 2.
 
 [smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml
 

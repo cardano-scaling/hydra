@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [UNRELEASED]
+## [2.4.0] - 2026.09.01
 
 - Deposit transactions now get a validity window of up to `maxGraceTime` (200s),
   capped at half the configured `--deposit-period`. An operator-precedence
@@ -41,6 +41,7 @@ changes.
   rate-limited transaction submissions give up after ~2 minutes so a close or
   contest fails with a clear rate-limit error before its validity window
   expires.
+  [#2835](https://github.com/cardano-scaling/hydra/pull/2835)
 
 - Fix closing large heads missing the close tx validity window
   (`OutsideValidityIntervalUTxO`): L2 UTxO values are now forced when
@@ -60,6 +61,7 @@ changes.
   into the signature alongside the committed outputs, so an increment can only
   claim the exact deposit the parties approved rather than any other one
   recording the same UTxO. Snapshot JSON gains an optional `depositTxId`.
+  [GHSA-gfpc-m687-p7h5](https://github.com/cardano-scaling/hydra/security/advisories/GHSA-gfpc-m687-p7h5)
   * The deposit validator additionally requires the head's increment redeemer to
     name the deposit being claimed (`D09`), and the head validator requires the
     claimed deposit to be the first output of its transaction (`H69`).
@@ -76,6 +78,7 @@ changes.
   action, so a snapshot with both could not be closed; and the decrement
   validator requires an output, so an empty decommit could not settle. Requests
   for either are rejected, and a leader with both pending sends the commit first.
+  [20d42fc3a](https://github.com/cardano-scaling/hydra/commit/20d42fc3a1e1a2ea80dd847b19cdb2d38a51726e)
 
 - **Breaking**: script hashes change for the head validator, head minting policy
   and deposit validator, and so does the snapshot signature payload. Earlier
@@ -89,6 +92,7 @@ changes.
   missing `depositTxId` as absent, and the CBOR codec keeps a decoder for the
   layout written before the field existed, so upgrading a node whose heads are
   already closed is unaffected.
+  [GHSA-gfpc-m687-p7h5](https://github.com/cardano-scaling/hydra/security/advisories/GHSA-gfpc-m687-p7h5)
 
 - Fix a node dying under sustained load with
   `ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings"`, leaving the
@@ -96,6 +100,7 @@ changes.
   volume grows and sends a SETTINGS frame per step, which trips the `http2`
   client's limit of 4 SETTINGS/s. That limit is now lifted for the local etcd,
   as the ping limit already was.
+  [#2819](https://github.com/cardano-scaling/hydra/pull/2819)
   * Connection-level failures on the etcd link no longer take the node down
     either: they are retried, since etcd is a local subprocess and the gRPC
     client reconnects on its own. Broadcast retries are idempotent, and a failed
@@ -116,6 +121,7 @@ changes.
   and ineffective `--blockfrost-query-timeout` options (`retry-timeout` and
   `query-timeout` config keys) were removed: existing command lines and config
   files still using them are rejected and must drop them.
+  [#2821](https://github.com/cardano-scaling/hydra/pull/2821)
 
 - Changed `hydra-cluster/config/protocol-parameters.json` so that no layer 2
   UTxO can become impossible to fan out on layer 1: `maxTxSize` lowered to
@@ -123,6 +129,7 @@ changes.
   `utxoCostPerByte` restored to the mainnet value 4310 (layer 1 min ada must
   hold for fanned-out outputs), and `minFeeRefScriptCostPerByte` zeroed like
   the other fees. See the updated "Ledger parameters" documentation.
+  [#2815](https://github.com/cardano-scaling/hydra/pull/2815)
 
 - Publish `hydra-node` docker images for `linux/arm64` alongside `linux/amd64`.
   Its release tags are manifest lists, so an arm64 host pulls a native image
@@ -133,11 +140,13 @@ changes.
   respectively). The arm64 image ships the natively linked binary and its
   runtime closure, as there is no musl cross build for aarch64-linux yet.
   `hydra-tui`, `hydraw` and `hydra-chain-observer` remain `linux/amd64` only.
+  [#2814](https://github.com/cardano-scaling/hydra/pull/2814)
 
 - The `latest` docker tag now only moves when the release being built is the
   highest release tag, so a hotfix on an older line no longer takes `latest`
   backwards. The workflow previously checked out no history, which made every
   release look like the newest one.
+  [#2814](https://github.com/cardano-scaling/hydra/pull/2814)
 
 - The `POST /commit` endpoint now rejects deposits that could never be claimed:
   a dry-run increment transaction is checked against the layer 1 maximum
@@ -147,6 +156,7 @@ changes.
   transaction succeeded, but the increment transaction claiming it could never
   land on-chain, leaving the funds locked until recovery after the deadline and
   wedging further incremental commits until the head closed.
+  [#2807](https://github.com/cardano-scaling/hydra/pull/2807)
 
 - Fix long-running nodes rejecting layer 2 Plutus transactions that carry a
   validity bound. The era history queried at startup has a forecast horizon
@@ -187,12 +197,14 @@ changes.
   `c` into the amount or address entry no longer cancels the dialog (bech32
   addresses regularly contain `c`, so pasting one aborted the entry and a
   subsequent `q` could even quit the TUI).
+  [#2770](https://github.com/cardano-scaling/hydra/pull/2770)
 
 - Fix hydra-tui submitting transactions with stale form values. Pressing Enter
   on an invalid recipient address or amount now shows an error instead of
   silently using the last valid value (previously an unparsable address sent
   the funds to the prefilled own address, and an invalid amount sent the full
   UTxO value).
+  [#2770](https://github.com/cardano-scaling/hydra/pull/2770)
 
 - **BREAKING** (WebSocket API) Removed the `SyncedStatusReport` server output.
   The node used to push it on every block, flooding clients; it is now gone from
@@ -211,6 +223,7 @@ changes.
   aborts startup and leaves the database untouched. After migration, older
   hydra-node versions refuse to open the database — there is no downgrade
   path.
+  [#2767](https://github.com/cardano-scaling/hydra/pull/2767)
 
 - `hydra-node` now traces the KZG trusted-setup warm-up it does at startup, as
   `LoadingTrustedSetup` followed by `TrustedSetupLoaded`. The warm-up used to run
@@ -220,16 +233,19 @@ changes.
   opened, and now forces the G2 half as well, so a corrupt embedded setup raises
   a `ConfigurationException` at startup instead of `error`-ing out of pure code
   mid-session.
+  [#2843](https://github.com/cardano-scaling/hydra/pull/2843)
 
 - Fix `hydra-node` withholding log entries from whoever reads its stdout until
   64KB had accumulated. Output is block-buffered and was only flushed when the
   tracer shut down, so `docker logs` and process supervisors saw nothing from a
   node that was running but not logging heavily. The writer now flushes each
   batch it drains.
+  [#2843](https://github.com/cardano-scaling/hydra/pull/2843)
   * A write failing no longer kills the log writer. GHC ignores `SIGPIPE`, so a
     reader going away (`hydra-node | head`, a restarting log shipper) made the
     next write throw; the writer is not linked to the node, so it died unnoticed
     and every subsequent trace blocked once the queue filled.
+
 - The formal specification (`spec/`) was migrated from LaTeX to literate Agda +
   Typst: the same sources are type-checked by Agda (definitions, validity
   bundles and security proofs are machine-checked, including consistency,
@@ -250,12 +266,14 @@ changes.
   init/increment/decrement/close/contest, and fanout can only distribute
   committed outputs; the proof's increment case consumes the deposit-identity
   binding, so weakening it fails the spec build.
+  [#2847](https://github.com/cardano-scaling/hydra/pull/2847)
 
 - CI now gates validator reject-path coverage: `checks.error-codes` verifies
   that every error code the head and deposit validators can raise is either
   referenced by a test or carries a reviewed exclusion in the ledger of
   `spec/check-error-codes.sh`, that no code is dead, and that the Aiken and
   Haskell deposit-error tables agree.
+  [#2847](https://github.com/cardano-scaling/hydra/pull/2847)
 
 - The head logic now enforces the specification's "no commit and decommit in
   flight at once" discipline on the message level: a `ReqDec` received while a
@@ -265,6 +283,7 @@ changes.
   deposit first. This complements the `ReqSn`-level rejection of a snapshot
   carrying both (`ReqSnBothCommitAndDecommit`) and mirrors the machine-checked
   `NoBothInFlight` invariant of the formal specification.
+  [#2847](https://github.com/cardano-scaling/hydra/pull/2847)
 
 ## [2.3.0] - 2026.07.15
 
