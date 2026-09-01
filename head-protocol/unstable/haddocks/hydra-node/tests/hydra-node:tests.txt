@@ -1123,7 +1123,7 @@ data MockHydraNode m
 MockHydraNode :: HydraNode Tx m -> ChainSyncHandler m -> MockHydraNode m
 [$sel:node:MockHydraNode] :: MockHydraNode m -> HydraNode Tx m
 [$sel:chainHandler:MockHydraNode] :: MockHydraNode m -> ChainSyncHandler m
-createMockChain :: (MonadTimer m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> ChainContext -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
+createMockChain :: (MonadTimer m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> ChainContext -> DepositPeriod -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
 flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
 
 module Hydra.Model.MockChainSpec

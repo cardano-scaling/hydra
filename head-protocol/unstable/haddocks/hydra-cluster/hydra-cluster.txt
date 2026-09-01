@@ -185,6 +185,41 @@ mkTestTiming :: BlockTime -> Timing
 --   base deposit period.
 mkTestTiming' :: Int -> BlockTime -> Timing
 
+-- | Timing for the smoke test run by the <tt>hydra-cluster</tt> executable
+--   against a public network, where a block takes ~20s and the run is
+--   dominated by waiting out <a>Timing</a> rather than by anything the
+--   scenario asserts.
+--   
+--   A deposit becomes active at <tt>created + depositActivation</tt>,
+--   where <tt>created</tt> is the deposit tx's upper validity bound, set a
+--   grace time ahead of the chain tip by <a>draftDepositTx</a>. That grace
+--   time caps at <tt>min maxGraceTime (depositPeriod / 2)</tt>, 200s here,
+--   so the wait is <tt>200 + depositActivation</tt> and only the second
+--   term is ours: at one block time it drops from 200 + 400 to 200 + 20.
+--   
+--   <a>Timing</a> is cut to the point where the close transaction's
+--   validity window stops changing, and no further. The contestation
+--   deadline is <tt>closeTxUpperBound + contestationPeriod</tt> with the
+--   close tx bounded at <tt>now + min contestationPeriod
+--   maxGraceTime</tt>, so at <tt>10 * blockTime</tt> = 200s the wait
+--   halves from 600s to 400s while that <tt>min</tt> still yields 200s,
+--   exactly as it does at <a>mkTestTiming</a>'s 400s. Going below 200s
+--   would start shortening the window every close, contest and increment
+--   has to be included in, with no resubmit on expiry, and would drag two
+--   things with it: the derived <tt>unsyncedPeriod</tt> (half the
+--   contestation period, against a Blockfrost follower that only observes
+--   blocks with a successor and so lags a block gap by construction) and
+--   <a>submissionRetryPolicy</a>, whose ~180s worst case is documented
+--   against a 200s window.
+--   
+--   <a>Timing</a> keeps its <a>mkTestTiming</a> value. It is not on the
+--   critical path -- it sets how long a deposit stays active, not how long
+--   anything waits -- and shortening it only shrinks windows: the grace
+--   time is capped at half of it, so both the deposit tx's validity and
+--   the active window <tt>depositPeriod - graceTime</tt> fall with it.
+--   <a>UtilSpec</a> guards the value used here.
+mkSmokeTiming :: BlockTime -> Timing
+
 -- | Get a timeout until a deposit should have happened given a
 --   <a>Timing</a>. A deposit becomes active after <a>Timing</a> and then
 --   needs about one <a>Timing</a> to be picked up and incremented, so both
@@ -237,9 +272,28 @@ seedFromFaucet :: ChainBackendOptions -> VerificationKey PaymentKey -> Value -> 
 -- | Create a specially marked "seed" UTXO containing requested
 --   <a>Value</a> by redeeming funds available to the well-known faucet.
 seedFromFaucetWithMinting :: ChainBackendOptions -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
+
+-- | Like <a>seedFromFaucet</a> but pays every recipient from a single
+--   faucet transaction. A scenario needing more than one funded key then
+--   waits for one confirmation instead of one per key, which is a block
+--   time each on a public network.
+seedManyFromFaucet :: ChainBackendOptions -> [(VerificationKey PaymentKey, Value)] -> Tracer IO FaucetLog -> IO [UTxO]
+seedManyFromFaucetWithMinting :: ChainBackendOptions -> [(VerificationKey PaymentKey, Value)] -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO [UTxO]
 findFaucetUTxO :: NetworkId -> ChainBackendOptions -> Coin -> IO UTxO
 seedFromFaucetBlockfrost :: VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
+
+-- | Select entries covering the given amount, largest first, and sweep up
+--   to <a>sweepLimit</a> of the smallest remaining entries into the
+--   selection. Both parts keep the faucet usable across runs: outputs
+--   smaller than a requested amount (e.g. what <a>returnFundsToFaucet</a>
+--   pays back) would otherwise never be spent again, while the change
+--   output alone shrinks with every seeding.
 findUTxO :: MonadIO m => UTxO Era -> Lovelace -> m (UTxO Era)
+
+-- | Cap on the extra entries <a>findUTxO</a> sweeps into a transaction,
+--   bounding its size. Consolidation only has to outpace the one or two
+--   outputs a scenario returns to the faucet per run.
+sweepLimit :: Int
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
 --   <a>UTxO</a>.
@@ -801,8 +855,17 @@ headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 
 -- | Step through the full life cycle of a Hydra Head with only a single
 --   participant. This scenario is also used by the smoke test run via the
---   `hydra-cluster` executable.
-singlePartyHeadFullLifeCycle :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+--   `hydra-cluster` executable, which passes <tt>mkSmokeTiming</tt> rather
+--   than <a>mkTestTiming</a> on the networks where the protocol waits
+--   dominate.
+singlePartyHeadFullLifeCycle :: Tracer IO EndToEndLog -> FilePath -> (BlockTime -> Timing) -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Like <a>refuelIfNeeded</a>, but seeds further keys from the same
+--   faucet transaction and returns their UTxO. Each faucet transaction
+--   costs an on-chain confirmation, a block time on a public network, so a
+--   scenario needing several funded keys is better off asking for them
+--   together.
+refuelAndSeed :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> Coin -> [(VerificationKey PaymentKey, Value)] -> IO [UTxO]
 
 -- | An <a>Option</a> carrying a hydra-node's actual API port. Use to set
 --   the port in a <a>req</a> call.

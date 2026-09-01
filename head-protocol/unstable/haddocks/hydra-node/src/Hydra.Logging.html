@@ -51,7 +51,7 @@
 </span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Text</span></span><span>
 </span><span id="line-52"></span><span>
 </span><span id="line-53"></span><span class="hs-keyword">data</span><span> </span><span id="Verbosity"><span class="annot"><a href="Hydra.Logging.html#Verbosity"><span class="hs-identifier hs-var">Verbosity</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Quiet"><span class="annot"><a href="Hydra.Logging.html#Quiet"><span class="hs-identifier hs-var">Quiet</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Verbose"><span class="annot"><a href="Hydra.Logging.html#Verbose"><span class="hs-identifier hs-var">Verbose</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
-</span><span id="line-54"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795138"><span id="local-6989586621679795142"><span class="annot"><span class="annottext">Verbosity -&gt; Verbosity -&gt; Bool
+</span><span id="line-54"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795170"><span id="local-6989586621679795174"><span class="annot"><span class="annottext">Verbosity -&gt; Verbosity -&gt; Bool
 (Verbosity -&gt; Verbosity -&gt; Bool)
 -&gt; (Verbosity -&gt; Verbosity -&gt; Bool) -&gt; Eq Verbosity
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -59,7 +59,7 @@ $c== :: Verbosity -&gt; Verbosity -&gt; Bool
 == :: Verbosity -&gt; Verbosity -&gt; Bool
 $c/= :: Verbosity -&gt; Verbosity -&gt; Bool
 /= :: Verbosity -&gt; Verbosity -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795147"><span id="local-6989586621679795153"><span id="local-6989586621679795157"><span class="annot"><span class="annottext">Int -&gt; Verbosity -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795179"><span id="local-6989586621679795185"><span id="local-6989586621679795189"><span class="annot"><span class="annottext">Int -&gt; Verbosity -&gt; ShowS
 [Verbosity] -&gt; ShowS
 Verbosity -&gt; String
 (Int -&gt; Verbosity -&gt; ShowS)
@@ -74,7 +74,7 @@ $cshow :: Verbosity -&gt; String
 show :: Verbosity -&gt; String
 $cshowList :: [Verbosity] -&gt; ShowS
 showList :: [Verbosity] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795161"><span id="local-6989586621679795163"><span class="annot"><span class="annottext">(forall x. Verbosity -&gt; Rep Verbosity x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795193"><span id="local-6989586621679795195"><span class="annot"><span class="annottext">(forall x. Verbosity -&gt; Rep Verbosity x)
 -&gt; (forall x. Rep Verbosity x -&gt; Verbosity) -&gt; Generic Verbosity
 forall x. Rep Verbosity x -&gt; Verbosity
 forall x. Verbosity -&gt; Rep Verbosity x
@@ -85,7 +85,7 @@ from :: forall x. Verbosity -&gt; Rep Verbosity x
 $cto :: forall x. Rep Verbosity x -&gt; Verbosity
 to :: forall x. Rep Verbosity x -&gt; Verbosity
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-55"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795167"><span id="local-6989586621679795174"><span id="local-6989586621679795177"><span id="local-6989586621679795180"><span id="local-6989586621679795183"><span class="annot"><span class="annottext">[Verbosity] -&gt; Value
+</span><span id="line-55"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795199"><span id="local-6989586621679795206"><span id="local-6989586621679795209"><span id="local-6989586621679795212"><span id="local-6989586621679795215"><span class="annot"><span class="annottext">[Verbosity] -&gt; Value
 [Verbosity] -&gt; Encoding
 Verbosity -&gt; Bool
 Verbosity -&gt; Value
@@ -113,7 +113,7 @@ $ctoEncodingList :: [Verbosity] -&gt; Encoding
 toEncodingList :: [Verbosity] -&gt; Encoding
 $comitField :: Verbosity -&gt; Bool
 omitField :: Verbosity -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795271"><span id="local-6989586621679795278"><span id="local-6989586621679795281"><span class="annot"><span class="annottext">Maybe Verbosity
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795303"><span id="local-6989586621679795310"><span id="local-6989586621679795313"><span class="annot"><span class="annottext">Maybe Verbosity
 Value -&gt; Parser [Verbosity]
 Value -&gt; Parser Verbosity
 (Value -&gt; Parser Verbosity)
@@ -132,7 +132,7 @@ omittedField :: Maybe Verbosity
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-56"></span><span>
 </span><span id="line-57"></span><span class="annot"><span class="hs-comment">-- | Provides logging metadata for entries.</span></span><span>
-</span><span id="line-58"></span><span class="hs-keyword">data</span><span> </span><span id="Envelope"><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-var">Envelope</span></a></span></span><span> </span><span id="local-6989586621679794890"><span class="annot"><a href="#local-6989586621679794890"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Envelope"><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-var">Envelope</span></a></span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">data</span><span> </span><span id="Envelope"><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-var">Envelope</span></a></span></span><span> </span><span id="local-6989586621679794922"><span class="annot"><a href="#local-6989586621679794922"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Envelope"><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-var">Envelope</span></a></span></span><span>
 </span><span id="line-59"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Atimestamp%3AEnvelope"><span class="annot"><span class="annottext">forall a. Envelope a -&gt; UTCTime
 </span><a href="Hydra.Logging.html#%24sel%3Atimestamp%3AEnvelope"><span class="hs-identifier hs-var hs-var">timestamp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
 </span><span id="line-60"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AthreadId%3AEnvelope"><span class="annot"><span class="annottext">forall a. Envelope a -&gt; Int
@@ -140,9 +140,9 @@ omittedField :: Maybe Verbosity
 </span><span id="line-61"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Anamespace%3AEnvelope"><span class="annot"><span class="annottext">forall a. Envelope a -&gt; Text
 </span><a href="Hydra.Logging.html#%24sel%3Anamespace%3AEnvelope"><span class="hs-identifier hs-var hs-var">namespace</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-62"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Amessage%3AEnvelope"><span class="annot"><span class="annottext">forall a. Envelope a -&gt; a
-</span><a href="Hydra.Logging.html#%24sel%3Amessage%3AEnvelope"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679794890"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><a href="Hydra.Logging.html#%24sel%3Amessage%3AEnvelope"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679794922"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-63"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-64"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795354"><span id="local-6989586621679795362"><span class="annot"><span class="annottext">Envelope a -&gt; Envelope a -&gt; Bool
+</span><span id="line-64"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679795386"><span id="local-6989586621679795394"><span class="annot"><span class="annottext">Envelope a -&gt; Envelope a -&gt; Bool
 (Envelope a -&gt; Envelope a -&gt; Bool)
 -&gt; (Envelope a -&gt; Envelope a -&gt; Bool) -&gt; Eq (Envelope a)
 forall a. Eq a =&gt; Envelope a -&gt; Envelope a -&gt; Bool
@@ -151,7 +151,7 @@ $c== :: forall a. Eq a =&gt; Envelope a -&gt; Envelope a -&gt; Bool
 == :: Envelope a -&gt; Envelope a -&gt; Bool
 $c/= :: forall a. Eq a =&gt; Envelope a -&gt; Envelope a -&gt; Bool
 /= :: Envelope a -&gt; Envelope a -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795367"><span id="local-6989586621679795376"><span id="local-6989586621679795380"><span class="annot"><span class="annottext">Int -&gt; Envelope a -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795399"><span id="local-6989586621679795408"><span id="local-6989586621679795412"><span class="annot"><span class="annottext">Int -&gt; Envelope a -&gt; ShowS
 [Envelope a] -&gt; ShowS
 Envelope a -&gt; String
 (Int -&gt; Envelope a -&gt; ShowS)
@@ -169,7 +169,7 @@ $cshow :: forall a. Show a =&gt; Envelope a -&gt; String
 show :: Envelope a -&gt; String
 $cshowList :: forall a. Show a =&gt; [Envelope a] -&gt; ShowS
 showList :: [Envelope a] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795383"><span id="local-6989586621679795385"><span class="annot"><span class="annottext">(forall x. Envelope a -&gt; Rep (Envelope a) x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795415"><span id="local-6989586621679795417"><span class="annot"><span class="annottext">(forall x. Envelope a -&gt; Rep (Envelope a) x)
 -&gt; (forall x. Rep (Envelope a) x -&gt; Envelope a)
 -&gt; Generic (Envelope a)
 forall x. Rep (Envelope a) x -&gt; Envelope a
@@ -184,18 +184,18 @@ $cto :: forall a x. Rep (Envelope a) x -&gt; Envelope a
 to :: forall x. Rep (Envelope a) x -&gt; Envelope a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-65"></span><span>
-</span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679794961"><span id="local-6989586621679795389"><span id="local-6989586621679795397"><span id="local-6989586621679795400"><span id="local-6989586621679795403"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679794961"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794961"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-67"></span><span>  </span><span id="local-6989586621679795537"><span class="annot"><span class="annottext">toEncoding :: Envelope a -&gt; Encoding
-</span><a href="#local-6989586621679795537"><span class="hs-identifier hs-var hs-var hs-var hs-var">toEncoding</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span class="hs-special">{</span><span id="local-6989586621679795539"><span class="annot"><span class="annottext">UTCTime
+</span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679794993"><span id="local-6989586621679795421"><span id="local-6989586621679795429"><span id="local-6989586621679795432"><span id="local-6989586621679795435"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679794993"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794993"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621679795569"><span class="annot"><span class="annottext">toEncoding :: Envelope a -&gt; Encoding
+</span><a href="#local-6989586621679795569"><span class="hs-identifier hs-var hs-var hs-var hs-var">toEncoding</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span class="hs-special">{</span><span id="local-6989586621679795571"><span class="annot"><span class="annottext">UTCTime
 $sel:timestamp:Envelope :: forall a. Envelope a -&gt; UTCTime
 timestamp :: UTCTime
-</span><a href="Hydra.Logging.html#%24sel%3Atimestamp%3AEnvelope"><span class="hs-identifier hs-var hs-var">timestamp</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795540"><span class="annot"><span class="annottext">Int
+</span><a href="Hydra.Logging.html#%24sel%3Atimestamp%3AEnvelope"><span class="hs-identifier hs-var hs-var">timestamp</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795572"><span class="annot"><span class="annottext">Int
 $sel:threadId:Envelope :: forall a. Envelope a -&gt; Int
 threadId :: Int
-</span><a href="Hydra.Logging.html#%24sel%3AthreadId%3AEnvelope"><span class="hs-identifier hs-var hs-var">threadId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795541"><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Logging.html#%24sel%3AthreadId%3AEnvelope"><span class="hs-identifier hs-var hs-var">threadId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795573"><span class="annot"><span class="annottext">Text
 $sel:namespace:Envelope :: forall a. Envelope a -&gt; Text
 namespace :: Text
-</span><a href="Hydra.Logging.html#%24sel%3Anamespace%3AEnvelope"><span class="hs-identifier hs-var hs-var">namespace</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795542"><span class="annot"><span class="annottext">a
+</span><a href="Hydra.Logging.html#%24sel%3Anamespace%3AEnvelope"><span class="hs-identifier hs-var hs-var">namespace</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679795574"><span class="annot"><span class="annottext">a
 $sel:message:Envelope :: forall a. Envelope a -&gt; a
 message :: a
 </span><a href="Hydra.Logging.html#%24sel%3Amessage%3AEnvelope"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -211,25 +211,25 @@ forall a. Monoid a =&gt; [a] -&gt; a
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Series
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679795539"><span class="hs-identifier hs-var">timestamp</span></a></span><span>
+</span><a href="#local-6989586621679795571"><span class="hs-identifier hs-var">timestamp</span></a></span><span>
 </span><span id="line-71"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;threadId&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Series
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Series
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679795540"><span class="hs-identifier hs-var">threadId</span></a></span><span>
+</span><a href="#local-6989586621679795572"><span class="hs-identifier hs-var">threadId</span></a></span><span>
 </span><span id="line-72"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;namespace&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Text -&gt; Series
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Series
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795541"><span class="hs-identifier hs-var">namespace</span></a></span><span>
+</span><a href="#local-6989586621679795573"><span class="hs-identifier hs-var">namespace</span></a></span><span>
 </span><span id="line-73"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;message&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; a -&gt; Series
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Series
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679795542"><span class="hs-identifier hs-var">message</span></a></span><span>
+</span><a href="#local-6989586621679795574"><span class="hs-identifier hs-var">message</span></a></span><span>
 </span><span id="line-74"></span><span>        </span><span class="hs-special">]</span><span>
 </span><span id="line-75"></span><span>
 </span><span id="line-76"></span><span class="annot"><a href="Hydra.Logging.html#defaultQueueSize"><span class="hs-identifier hs-type">defaultQueueSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
@@ -251,11 +251,11 @@ forall a. a -&gt; Maybe a
 </span><span id="line-85"></span><span class="hs-comment">-- messages on @stdout@, one message per line, formatted as JSON. This tracer</span><span>
 </span><span id="line-86"></span><span class="hs-comment">-- is wrapping 'msg' into an 'Envelope' with metadata.</span><span>
 </span><span id="line-87"></span><span class="annot"><a href="Hydra.Logging.html#withTracer"><span class="hs-identifier hs-type">withTracer</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-88"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679794973"><span class="annot"><a href="#local-6989586621679794973"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679794977"><span class="annot"><a href="#local-6989586621679794977"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621679794979"><span class="annot"><a href="#local-6989586621679794979"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-89"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794973"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679794973"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679794973"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679794977"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679795005"><span class="annot"><a href="#local-6989586621679795005"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679795009"><span class="annot"><a href="#local-6989586621679795009"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621679795011"><span class="annot"><a href="#local-6989586621679795011"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795005"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795005"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795005"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679795009"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-90"></span><span>  </span><span class="annot"><a href="Hydra.Logging.html#Verbosity"><span class="hs-identifier hs-type">Verbosity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-91"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679794973"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794977"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794979"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794979"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795005"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795009"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795011"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795011"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-93"></span><span id="withTracer"><span class="annot"><span class="annottext">withTracer :: forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
@@ -265,49 +265,49 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer m msg
 forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span class="hs-special">)</span><span>
-</span><span id="line-94"></span><span class="annot"><a href="Hydra.Logging.html#withTracer"><span class="hs-identifier hs-var">withTracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Verbose"><span class="hs-identifier hs-type">Verbose</span></a></span><span> </span><span id="local-6989586621679795558"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795558"><span class="hs-identifier hs-var">namespace</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
+</span><span id="line-94"></span><span class="annot"><a href="Hydra.Logging.html#withTracer"><span class="hs-identifier hs-var">withTracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Verbose"><span class="hs-identifier hs-type">Verbose</span></a></span><span> </span><span id="local-6989586621679795590"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795590"><span class="hs-identifier hs-var">namespace</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><a href="Hydra.Logging.html#withTracerOutputTo"><span class="hs-identifier hs-var">withTracerOutputTo</span></a></span><span> </span><span class="annot"><span class="annottext">BufferMode
 </span><a href="Hydra.Logging.html#defaultLogBuffering"><span class="hs-identifier hs-var">defaultLogBuffering</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.StdHandles.html#stdout"><span class="hs-identifier hs-var">stdout</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795558"><span class="hs-identifier hs-var">namespace</span></a></span><span>
+</span><a href="#local-6989586621679795590"><span class="hs-identifier hs-var">namespace</span></a></span><span>
 </span><span id="line-95"></span><span>
 </span><span id="line-96"></span><span class="hs-comment">-- | Start logging thread acquiring a 'Tracer', outputting JSON formatted</span><span>
 </span><span id="line-97"></span><span class="hs-comment">-- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'</span><span>
 </span><span id="line-98"></span><span class="hs-comment">-- with metadata.</span><span>
 </span><span id="line-99"></span><span class="annot"><a href="Hydra.Logging.html#withTracerOutputTo"><span class="hs-identifier hs-type">withTracerOutputTo</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-100"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679794988"><span class="annot"><a href="#local-6989586621679794988"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679794989"><span class="annot"><a href="#local-6989586621679794989"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621679794990"><span class="annot"><a href="#local-6989586621679794990"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-101"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794988"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679794988"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679794988"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679794989"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679795020"><span class="annot"><a href="#local-6989586621679795020"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621679795021"><span class="annot"><a href="#local-6989586621679795021"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621679795022"><span class="annot"><a href="#local-6989586621679795022"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795020"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795020"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795020"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679795021"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-102"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#BufferMode"><span class="hs-identifier hs-type">BufferMode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-103"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-104"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-105"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679794988"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794989"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794990"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-106"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794990"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795020"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795021"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795022"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-106"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795022"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-107"></span><span id="withTracerOutputTo"><span class="annot"><span class="annottext">withTracerOutputTo :: forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
-</span><a href="Hydra.Logging.html#withTracerOutputTo"><span class="hs-identifier hs-var hs-var">withTracerOutputTo</span></a></span></span><span> </span><span id="local-6989586621679795641"><span class="annot"><span class="annottext">BufferMode
-</span><a href="#local-6989586621679795641"><span class="hs-identifier hs-var">bufferingMode</span></a></span></span><span> </span><span id="local-6989586621679795642"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679795642"><span class="hs-identifier hs-var">hdl</span></a></span></span><span> </span><span id="local-6989586621679795643"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795643"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795644"><span class="annot"><span class="annottext">Tracer m msg -&gt; IO a
-</span><a href="#local-6989586621679795644"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Logging.html#withTracerOutputTo"><span class="hs-identifier hs-var hs-var">withTracerOutputTo</span></a></span></span><span> </span><span id="local-6989586621679795673"><span class="annot"><span class="annottext">BufferMode
+</span><a href="#local-6989586621679795673"><span class="hs-identifier hs-var">bufferingMode</span></a></span></span><span> </span><span id="local-6989586621679795674"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679795674"><span class="hs-identifier hs-var">hdl</span></a></span></span><span> </span><span id="local-6989586621679795675"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795675"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795676"><span class="annot"><span class="annottext">Tracer m msg -&gt; IO a
+</span><a href="#local-6989586621679795676"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-108"></span><span>  </span><span class="annot"><span class="annottext">Handle -&gt; BufferMode -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Handle -&gt; BufferMode -&gt; m ()
 </span><span class="hs-identifier hs-var">hSetBuffering</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679795642"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="annot"><span class="annottext">BufferMode
-</span><a href="#local-6989586621679795641"><span class="hs-identifier hs-var">bufferingMode</span></a></span><span>
-</span><span id="line-109"></span><span>  </span><span id="local-6989586621679795646"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795646"><span class="hs-identifier hs-var">msgQueue</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *) a.
+</span><a href="#local-6989586621679795674"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="annot"><span class="annottext">BufferMode
+</span><a href="#local-6989586621679795673"><span class="hs-identifier hs-var">bufferingMode</span></a></span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679795678"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795678"><span class="hs-identifier hs-var">msgQueue</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; Natural -&gt; m (TBQueue m a)
-</span><span class="hs-identifier hs-var">newLabelledTBQueueIO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679794989"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-identifier hs-var">newLabelledTBQueueIO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795021"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;logging-msg-queue&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><a href="Hydra.Logging.html#defaultQueueSize"><span class="hs-identifier hs-var">defaultQueueSize</span></a></span><span>
-</span><span id="line-110"></span><span>  </span><span id="local-6989586621679795648"><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795648"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool -&gt; IO (TVar IO Bool)
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679795680"><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795680"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool -&gt; IO (TVar IO Bool)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
@@ -320,27 +320,27 @@ MonadAsync m =&gt;
 (String, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;logging-writeLogs&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg) -&gt; TVar Bool -&gt; IO ()
-</span><a href="#local-6989586621679795651"><span class="hs-identifier hs-var">writeLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795646"><span class="hs-identifier hs-var">msgQueue</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795648"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO a) -&gt; IO a) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621679795683"><span class="hs-identifier hs-var">writeLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795678"><span class="hs-identifier hs-var">msgQueue</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795680"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO a) -&gt; IO a) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679795652"><span class="annot"><span class="annottext">Async IO ()
-</span><a href="#local-6989586621679795652"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679795684"><span class="annot"><span class="annottext">Async IO ()
+</span><a href="#local-6989586621679795684"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">Tracer m msg -&gt; IO a
-</span><a href="#local-6989586621679795644"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TBQueue (Envelope msg) -&gt; Tracer m msg
-</span><a href="#local-6989586621679795653"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795646"><span class="hs-identifier hs-var">msgQueue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO a -&gt; IO () -&gt; IO a
+</span><a href="#local-6989586621679795676"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TBQueue (Envelope msg) -&gt; Tracer m msg
+</span><a href="#local-6989586621679795685"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795678"><span class="hs-identifier hs-var">msgQueue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO a -&gt; IO () -&gt; IO a
 forall a b. IO a -&gt; IO b -&gt; IO a
 forall (m :: * -&gt; *) a b. MonadThrow m =&gt; m a -&gt; m b -&gt; m a
 </span><span class="hs-operator hs-var">`finally`</span></span><span> </span><span class="annot"><span class="annottext">TVar Bool -&gt; Async () -&gt; IO ()
-</span><a href="#local-6989586621679795655"><span class="hs-identifier hs-var">drainLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795648"><span class="hs-identifier hs-var">closed</span></a></span><span> </span><span class="annot"><span class="annottext">Async IO ()
+</span><a href="#local-6989586621679795687"><span class="hs-identifier hs-var">drainLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795680"><span class="hs-identifier hs-var">closed</span></a></span><span> </span><span class="annot"><span class="annottext">Async IO ()
 Async ()
-</span><a href="#local-6989586621679795652"><span class="hs-identifier hs-var">writer</span></a></span><span>
+</span><a href="#local-6989586621679795684"><span class="hs-identifier hs-var">writer</span></a></span><span>
 </span><span id="line-113"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-114"></span><span>  </span><span id="local-6989586621679795653"><span class="annot"><span class="annottext">tracer :: TBQueue (Envelope msg) -&gt; Tracer m msg
-</span><a href="#local-6989586621679795653"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679795656"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795656"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-114"></span><span>  </span><span id="local-6989586621679795685"><span class="annot"><span class="annottext">tracer :: TBQueue (Envelope msg) -&gt; Tracer m msg
+</span><a href="#local-6989586621679795685"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679795688"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795688"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">(msg -&gt; m ()) -&gt; Tracer m msg
 forall (m :: * -&gt; *) a. (a -&gt; m ()) -&gt; Tracer m a
 </span><span class="hs-identifier hs-var">Tracer</span></span><span> </span><span class="annot"><span class="annottext">((msg -&gt; m ()) -&gt; Tracer m msg) -&gt; (msg -&gt; m ()) -&gt; Tracer m msg
@@ -351,7 +351,7 @@ forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m) =&gt;
 Text -&gt; msg -&gt; m (Envelope msg)
 </span><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-var">mkEnvelope</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795643"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">(msg -&gt; m (Envelope msg)) -&gt; (Envelope msg -&gt; m ()) -&gt; msg -&gt; m ()
+</span><a href="#local-6989586621679795675"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">(msg -&gt; m (Envelope msg)) -&gt; (Envelope msg -&gt; m ()) -&gt; msg -&gt; m ()
 forall (m :: * -&gt; *) a b c.
 Monad m =&gt;
 (a -&gt; m b) -&gt; (b -&gt; m c) -&gt; a -&gt; m c
@@ -374,14 +374,14 @@ forall a. TBQueue IO a -&gt; a -&gt; STM IO ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TBQueue m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTBQueue</span></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
 TBQueue IO (Envelope msg)
-</span><a href="#local-6989586621679795656"><span class="hs-identifier hs-var">queue</span></a></span><span>
+</span><a href="#local-6989586621679795688"><span class="hs-identifier hs-var">queue</span></a></span><span>
 </span><span id="line-117"></span><span>
-</span><span id="line-118"></span><span>  </span><span id="local-6989586621679795651"><span class="annot"><span class="annottext">writeLogs :: TBQueue (Envelope msg) -&gt; TVar Bool -&gt; IO ()
-</span><a href="#local-6989586621679795651"><span class="hs-identifier hs-var hs-var">writeLogs</span></a></span></span><span> </span><span id="local-6989586621679795661"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795661"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span id="local-6989586621679795662"><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795662"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-119"></span><span>    </span><span id="local-6989586621679795663"><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795663"><span class="hs-identifier hs-var">entries</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO [Envelope msg] -&gt; IO [Envelope msg]
+</span><span id="line-118"></span><span>  </span><span id="local-6989586621679795683"><span class="annot"><span class="annottext">writeLogs :: TBQueue (Envelope msg) -&gt; TVar Bool -&gt; IO ()
+</span><a href="#local-6989586621679795683"><span class="hs-identifier hs-var hs-var">writeLogs</span></a></span></span><span> </span><span id="local-6989586621679795693"><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795693"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span id="local-6989586621679795694"><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795694"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-119"></span><span>    </span><span id="local-6989586621679795695"><span class="annot"><span class="annottext">[Envelope msg]
+</span><a href="#local-6989586621679795695"><span class="hs-identifier hs-var">entries</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM IO [Envelope msg] -&gt; IO [Envelope msg]
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
@@ -390,13 +390,13 @@ STM m a -&gt; m a
 -&gt; STM IO [Envelope msg] -&gt; IO [Envelope msg]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-120"></span><span>      </span><span id="local-6989586621679795664"><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795664"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TBQueue IO (Envelope msg) -&gt; STM IO [Envelope msg]
+</span><span id="line-120"></span><span>      </span><span id="local-6989586621679795696"><span class="annot"><span class="annottext">[Envelope msg]
+</span><a href="#local-6989586621679795696"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TBQueue IO (Envelope msg) -&gt; STM IO [Envelope msg]
 forall a. TBQueue IO a -&gt; STM IO [a]
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TBQueue m a -&gt; STM m [a]
 </span><span class="hs-identifier hs-var">flushTBQueue</span></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
 TBQueue IO (Envelope msg)
-</span><a href="#local-6989586621679795661"><span class="hs-identifier hs-var">queue</span></a></span><span>
+</span><a href="#local-6989586621679795693"><span class="hs-identifier hs-var">queue</span></a></span><span>
 </span><span id="line-121"></span><span>      </span><span class="hs-comment">-- Block until there is something to write, or exit the loop below by</span><span>
 </span><span id="line-122"></span><span>      </span><span class="hs-comment">-- returning the empty batch once the tracer scope has closed.</span><span>
 </span><span id="line-123"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; STM () -&gt; STM ()
@@ -405,20 +405,20 @@ forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 forall a. [a] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795664"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; STM ()) -&gt; STM () -&gt; STM ()
+</span><a href="#local-6989586621679795696"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; STM ()) -&gt; STM () -&gt; STM ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-124"></span><span>        </span><span id="local-6989586621679795667"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679795667"><span class="hs-identifier hs-var">isClosed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar IO Bool -&gt; STM IO Bool
+</span><span id="line-124"></span><span>        </span><span id="local-6989586621679795699"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679795699"><span class="hs-identifier hs-var">isClosed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar IO Bool -&gt; STM IO Bool
 forall a. TVar IO a -&gt; STM IO a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar Bool
 TVar IO Bool
-</span><a href="#local-6989586621679795662"><span class="hs-identifier hs-var">closed</span></a></span><span>
+</span><a href="#local-6989586621679795694"><span class="hs-identifier hs-var">closed</span></a></span><span>
 </span><span id="line-125"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; STM () -&gt; STM ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679795667"><span class="hs-identifier hs-var">isClosed</span></a></span><span> </span><span class="annot"><span class="annottext">STM ()
+</span><a href="#local-6989586621679795699"><span class="hs-identifier hs-var">isClosed</span></a></span><span> </span><span class="annot"><span class="annottext">STM ()
 STM IO ()
 forall a. STM IO a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; STM m a
@@ -427,14 +427,14 @@ forall (m :: * -&gt; *) a. MonadSTM m =&gt; STM m a
 forall a. a -&gt; STM a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795664"><span class="hs-identifier hs-var">es</span></a></span><span>
+</span><a href="#local-6989586621679795696"><span class="hs-identifier hs-var">es</span></a></span><span>
 </span><span id="line-127"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Envelope msg] -&gt; Bool
 forall a. [a] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795663"><span class="hs-identifier hs-var">entries</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621679795695"><span class="hs-identifier hs-var">entries</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-128"></span><span>      </span><span class="hs-comment">-- Flush once per drained batch, so the block buffer does not hold the</span><span>
@@ -456,8 +456,8 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope msg]
-</span><a href="#local-6989586621679795663"><span class="hs-identifier hs-var">entries</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; IO ()
-</span><a href="#local-6989586621679795671"><span class="hs-identifier hs-var">write</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ())
+</span><a href="#local-6989586621679795695"><span class="hs-identifier hs-var">entries</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; IO ()
+</span><a href="#local-6989586621679795703"><span class="hs-identifier hs-var">write</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ())
 -&gt; (Envelope msg -&gt; ByteString) -&gt; Envelope msg -&gt; IO ()
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Envelope msg -&gt; ByteString
@@ -468,7 +468,7 @@ forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Handle -&gt; m ()
 </span><span class="hs-identifier hs-var">hFlush</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679795642"><span class="hs-identifier hs-var">hdl</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679795674"><span class="hs-identifier hs-var">hdl</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-138"></span><span>          </span><span class="annot"><span class="annottext">IO () -&gt; (IOException -&gt; IO ()) -&gt; IO ()
 forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
 forall (m :: * -&gt; *) e a.
@@ -480,9 +480,9 @@ forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-139"></span><span>      </span><span class="annot"><span class="annottext">TBQueue (Envelope msg) -&gt; TVar Bool -&gt; IO ()
-</span><a href="#local-6989586621679795651"><span class="hs-identifier hs-var">writeLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
-</span><a href="#local-6989586621679795661"><span class="hs-identifier hs-var">queue</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795662"><span class="hs-identifier hs-var">closed</span></a></span><span>
+</span><a href="#local-6989586621679795683"><span class="hs-identifier hs-var">writeLogs</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue (Envelope msg)
+</span><a href="#local-6989586621679795693"><span class="hs-identifier hs-var">queue</span></a></span><span> </span><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795694"><span class="hs-identifier hs-var">closed</span></a></span><span>
 </span><span id="line-140"></span><span>
 </span><span id="line-141"></span><span>  </span><span class="hs-comment">-- The writer thread claims queued entries before writing them, so shutdown</span><span>
 </span><span id="line-142"></span><span>  </span><span class="hs-comment">-- must hand over to the writer rather than inspect the queue itself: signal</span><span>
@@ -494,10 +494,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-148"></span><span>  </span><span class="hs-comment">-- 'waitCatch' rather than 'wait': a writer that died would otherwise rethrow</span><span>
 </span><span id="line-149"></span><span>  </span><span class="hs-comment">-- here, inside a 'finally', and replace whatever actually terminated the</span><span>
 </span><span id="line-150"></span><span>  </span><span class="hs-comment">-- node.</span><span>
-</span><span id="line-151"></span><span>  </span><span id="local-6989586621679795655"><span class="annot"><span class="annottext">drainLogs :: TVar Bool -&gt; Async () -&gt; IO ()
-</span><a href="#local-6989586621679795655"><span class="hs-identifier hs-var hs-var">drainLogs</span></a></span></span><span> </span><span id="local-6989586621679795675"><span class="annot"><span class="annottext">TVar Bool
-</span><a href="#local-6989586621679795675"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span id="local-6989586621679795676"><span class="annot"><span class="annottext">Async ()
-</span><a href="#local-6989586621679795676"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><span id="line-151"></span><span>  </span><span id="local-6989586621679795687"><span class="annot"><span class="annottext">drainLogs :: TVar Bool -&gt; Async () -&gt; IO ()
+</span><a href="#local-6989586621679795687"><span class="hs-identifier hs-var hs-var">drainLogs</span></a></span></span><span> </span><span id="local-6989586621679795707"><span class="annot"><span class="annottext">TVar Bool
+</span><a href="#local-6989586621679795707"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span id="local-6989586621679795708"><span class="annot"><span class="annottext">Async ()
+</span><a href="#local-6989586621679795708"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
 forall a. IO a -&gt; IO a
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
@@ -515,7 +515,7 @@ forall a. TVar IO a -&gt; a -&gt; STM IO ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar Bool
 TVar IO Bool
-</span><a href="#local-6989586621679795675"><span class="hs-identifier hs-var">closed</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679795707"><span class="hs-identifier hs-var">closed</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
 </span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">IO (Maybe (Either SomeException ())) -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
@@ -530,18 +530,18 @@ forall (m :: * -&gt; *) a.
 MonadTimer m =&gt;
 DiffTime -&gt; m a -&gt; m (Maybe a)
 </span><span class="hs-identifier hs-var">timeout</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
-</span><a href="#local-6989586621679795679"><span class="hs-identifier hs-var">drainGraceSeconds</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Async IO () -&gt; IO (Either SomeException ())
+</span><a href="#local-6989586621679795711"><span class="hs-identifier hs-var">drainGraceSeconds</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Async IO () -&gt; IO (Either SomeException ())
 forall a. Async IO a -&gt; IO (Either SomeException a)
 forall (m :: * -&gt; *) a.
 MonadAsync m =&gt;
 Async m a -&gt; m (Either SomeException a)
 </span><span class="hs-identifier hs-var">waitCatch</span></span><span> </span><span class="annot"><span class="annottext">Async IO ()
 Async ()
-</span><a href="#local-6989586621679795676"><span class="hs-identifier hs-var">writer</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679795708"><span class="hs-identifier hs-var">writer</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-154"></span><span>    </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Handle -&gt; m ()
 </span><span class="hs-identifier hs-var">hFlush</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679795642"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (IOException -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679795674"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (IOException -&gt; IO ()) -&gt; IO ()
 forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
 forall (m :: * -&gt; *) e a.
 (MonadCatch m, Exception e) =&gt;
@@ -552,17 +552,17 @@ forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-155"></span><span>
-</span><span id="line-156"></span><span>  </span><span class="annot"><a href="#local-6989586621679795679"><span class="hs-identifier hs-type">drainGraceSeconds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span>
-</span><span id="line-157"></span><span>  </span><span id="local-6989586621679795679"><span class="annot"><span class="annottext">drainGraceSeconds :: DiffTime
-</span><a href="#local-6989586621679795679"><span class="hs-identifier hs-var hs-var">drainGraceSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span id="line-156"></span><span>  </span><span class="annot"><a href="#local-6989586621679795711"><span class="hs-identifier hs-type">drainGraceSeconds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span>
+</span><span id="line-157"></span><span>  </span><span id="local-6989586621679795711"><span class="annot"><span class="annottext">drainGraceSeconds :: DiffTime
+</span><a href="#local-6989586621679795711"><span class="hs-identifier hs-var hs-var">drainGraceSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">5</span></span><span>
 </span><span id="line-158"></span><span>
-</span><span id="line-159"></span><span>  </span><span id="local-6989586621679795671"><span class="annot"><span class="annottext">write :: ByteString -&gt; IO ()
-</span><a href="#local-6989586621679795671"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span id="local-6989586621679795680"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679795680"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; ByteString -&gt; IO ()
+</span><span id="line-159"></span><span>  </span><span id="local-6989586621679795703"><span class="annot"><span class="annottext">write :: ByteString -&gt; IO ()
+</span><a href="#local-6989586621679795703"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span id="local-6989586621679795712"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679795712"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; ByteString -&gt; IO ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.html#hPut"><span class="hs-identifier hs-var">LBS.hPut</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679795642"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679795680"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+</span><a href="#local-6989586621679795674"><span class="hs-identifier hs-var">hdl</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679795712"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;\n&quot;</span></span><span class="hs-special">)</span><span>
@@ -570,33 +570,33 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span id="line-161"></span><span class="hs-comment">-- | Capture logs and output them to stdout when an exception was raised by the</span><span>
 </span><span id="line-162"></span><span class="hs-comment">-- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with</span><span>
 </span><span id="line-163"></span><span class="hs-comment">-- metadata.</span><span>
-</span><span id="line-164"></span><span id="local-6989586621679795067"><span id="local-6989586621679795069"><span id="local-6989586621679795070"><span class="annot"><a href="Hydra.Logging.html#showLogsOnFailure"><span class="hs-identifier hs-type">showLogsOnFailure</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-165"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSay</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679795069"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-164"></span><span id="local-6989586621679795099"><span id="local-6989586621679795101"><span id="local-6989586621679795102"><span class="annot"><a href="Hydra.Logging.html#showLogsOnFailure"><span class="hs-identifier hs-type">showLogsOnFailure</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-165"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSay</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621679795101"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-166"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-167"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795069"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795070"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-168"></span><span>  </span><span class="annot"><a href="#local-6989586621679795067"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795070"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-167"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795101"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795102"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-168"></span><span>  </span><span class="annot"><a href="#local-6989586621679795099"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795102"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
 </span><span id="line-169"></span><span id="showLogsOnFailure"><span class="annot"><span class="annottext">showLogsOnFailure :: forall (m :: * -&gt; *) msg a.
 (MonadLabelledSTM m, MonadCatch m, MonadFork m, MonadTime m,
  MonadSay m, ToJSON msg) =&gt;
 Text -&gt; (Tracer m msg -&gt; m a) -&gt; m a
-</span><a href="Hydra.Logging.html#showLogsOnFailure"><span class="hs-identifier hs-var hs-var">showLogsOnFailure</span></a></span></span><span> </span><span id="local-6989586621679795706"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795706"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795707"><span class="annot"><span class="annottext">Tracer m msg -&gt; m a
-</span><a href="#local-6989586621679795707"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-170"></span><span>  </span><span id="local-6989586621679795708"><span class="annot"><span class="annottext">TVar m [Envelope msg]
-</span><a href="#local-6989586621679795708"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Envelope msg] -&gt; m (TVar m [Envelope msg])
+</span><a href="Hydra.Logging.html#showLogsOnFailure"><span class="hs-identifier hs-var hs-var">showLogsOnFailure</span></a></span></span><span> </span><span id="local-6989586621679795738"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795738"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795739"><span class="annot"><span class="annottext">Tracer m msg -&gt; m a
+</span><a href="#local-6989586621679795739"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-170"></span><span>  </span><span id="local-6989586621679795740"><span class="annot"><span class="annottext">TVar m [Envelope msg]
+</span><a href="#local-6989586621679795740"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Envelope msg] -&gt; m (TVar m [Envelope msg])
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;show-logs-on-failure&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-171"></span><span>  </span><span class="annot"><span class="annottext">Tracer m msg -&gt; m a
-</span><a href="#local-6989586621679795707"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m [Envelope msg] -&gt; Text -&gt; Tracer m msg
+</span><a href="#local-6989586621679795739"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m [Envelope msg] -&gt; Text -&gt; Tracer m msg
 forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m, MonadSTM m) =&gt;
 TVar m [Envelope msg] -&gt; Text -&gt; Tracer m msg
 </span><a href="Hydra.Logging.html#traceInTVar"><span class="hs-identifier hs-var">traceInTVar</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m [Envelope msg]
-</span><a href="#local-6989586621679795708"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795706"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679795740"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795738"><span class="hs-identifier hs-var">namespace</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-172"></span><span>    </span><span class="annot"><span class="annottext">m a -&gt; m () -&gt; m a
 forall a b. m a -&gt; m b -&gt; m a
 forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
@@ -604,7 +604,7 @@ forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
 forall a. TVar m a -&gt; m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m [Envelope msg]
-</span><a href="#local-6989586621679795708"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="annot"><span class="annottext">m [Envelope msg] -&gt; ([Envelope msg] -&gt; m ()) -&gt; m ()
+</span><a href="#local-6989586621679795740"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="annot"><span class="annottext">m [Envelope msg] -&gt; ([Envelope msg] -&gt; m ()) -&gt; m ()
 forall a b. m a -&gt; (a -&gt; m b) -&gt; m b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">(Envelope msg -&gt; m ()) -&gt; [Envelope msg] -&gt; m ()
@@ -630,30 +630,30 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-173"></span><span>
-</span><span id="line-174"></span><span id="local-6989586621679795077"><span id="local-6989586621679795078"><span class="annot"><a href="Hydra.Logging.html#traceInTVar"><span class="hs-identifier hs-type">traceInTVar</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-175"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795077"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795077"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679795077"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-176"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679795077"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795078"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-174"></span><span id="local-6989586621679795109"><span id="local-6989586621679795110"><span class="annot"><a href="Hydra.Logging.html#traceInTVar"><span class="hs-identifier hs-type">traceInTVar</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-175"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795109"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795109"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679795109"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-176"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679795109"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795110"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-177"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-178"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795077"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795078"><span class="hs-identifier hs-type">msg</span></a></span></span></span><span>
+</span><span id="line-178"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="#local-6989586621679795109"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795110"><span class="hs-identifier hs-type">msg</span></a></span></span></span><span>
 </span><span id="line-179"></span><span id="traceInTVar"><span class="annot"><span class="annottext">traceInTVar :: forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m, MonadSTM m) =&gt;
 TVar m [Envelope msg] -&gt; Text -&gt; Tracer m msg
-</span><a href="Hydra.Logging.html#traceInTVar"><span class="hs-identifier hs-var hs-var">traceInTVar</span></a></span></span><span> </span><span id="local-6989586621679795724"><span class="annot"><span class="annottext">TVar m [Envelope msg]
-</span><a href="#local-6989586621679795724"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span id="local-6989586621679795725"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795725"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(msg -&gt; m ()) -&gt; Tracer m msg
+</span><a href="Hydra.Logging.html#traceInTVar"><span class="hs-identifier hs-var hs-var">traceInTVar</span></a></span></span><span> </span><span id="local-6989586621679795756"><span class="annot"><span class="annottext">TVar m [Envelope msg]
+</span><a href="#local-6989586621679795756"><span class="hs-identifier hs-var">tvar</span></a></span></span><span> </span><span id="local-6989586621679795757"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795757"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(msg -&gt; m ()) -&gt; Tracer m msg
 forall (m :: * -&gt; *) a. (a -&gt; m ()) -&gt; Tracer m a
 </span><span class="hs-identifier hs-var">Tracer</span></span><span> </span><span class="annot"><span class="annottext">((msg -&gt; m ()) -&gt; Tracer m msg) -&gt; (msg -&gt; m ()) -&gt; Tracer m msg
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679795726"><span class="annot"><span class="annottext">msg
-</span><a href="#local-6989586621679795726"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-180"></span><span>  </span><span id="local-6989586621679795727"><span class="annot"><span class="annottext">Envelope msg
-</span><a href="#local-6989586621679795727"><span class="hs-identifier hs-var">envelope</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; msg -&gt; m (Envelope msg)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679795758"><span class="annot"><span class="annottext">msg
+</span><a href="#local-6989586621679795758"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-180"></span><span>  </span><span id="local-6989586621679795759"><span class="annot"><span class="annottext">Envelope msg
+</span><a href="#local-6989586621679795759"><span class="hs-identifier hs-var">envelope</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; msg -&gt; m (Envelope msg)
 forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m) =&gt;
 Text -&gt; msg -&gt; m (Envelope msg)
 </span><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-var">mkEnvelope</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795725"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">msg
-</span><a href="#local-6989586621679795726"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><a href="#local-6989586621679795757"><span class="hs-identifier hs-var">namespace</span></a></span><span> </span><span class="annot"><span class="annottext">msg
+</span><a href="#local-6989586621679795758"><span class="hs-identifier hs-var">msg</span></a></span><span>
 </span><span id="line-181"></span><span>  </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -668,24 +668,24 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m [Envelope msg]
-</span><a href="#local-6989586621679795724"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Envelope msg
-</span><a href="#local-6989586621679795727"><span class="hs-identifier hs-var">envelope</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679795756"><span class="hs-identifier hs-var">tvar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Envelope msg
+</span><a href="#local-6989586621679795759"><span class="hs-identifier hs-var">envelope</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
 </span><span id="line-182"></span><span class="annot"><span class="hs-comment">-- * Internal functions</span></span><span>
 </span><span id="line-183"></span><span>
-</span><span id="line-184"></span><span id="local-6989586621679795025"><span id="local-6989586621679795026"><span class="annot"><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-type">mkEnvelope</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795025"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795025"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795026"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795025"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795026"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-184"></span><span id="local-6989586621679795057"><span id="local-6989586621679795058"><span class="annot"><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-type">mkEnvelope</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadFork</span></span><span> </span><span class="annot"><a href="#local-6989586621679795057"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679795057"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795058"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679795057"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Logging.html#Envelope"><span class="hs-identifier hs-type">Envelope</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679795058"><span class="hs-identifier hs-type">msg</span></a></span><span class="hs-special">)</span></span></span><span>
 </span><span id="line-185"></span><span id="mkEnvelope"><span class="annot"><span class="annottext">mkEnvelope :: forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m) =&gt;
 Text -&gt; msg -&gt; m (Envelope msg)
-</span><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-var hs-var">mkEnvelope</span></a></span></span><span> </span><span id="local-6989586621679795744"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679795744"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795745"><span class="annot"><span class="annottext">msg
-</span><a href="#local-6989586621679795745"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-186"></span><span>  </span><span id="local-6989586621679795746"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679795746"><span class="hs-identifier hs-var">timestamp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m UTCTime
+</span><a href="Hydra.Logging.html#mkEnvelope"><span class="hs-identifier hs-var hs-var">mkEnvelope</span></a></span></span><span> </span><span id="local-6989586621679795776"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679795776"><span class="hs-identifier hs-var">namespace</span></a></span></span><span> </span><span id="local-6989586621679795777"><span class="annot"><span class="annottext">msg
+</span><a href="#local-6989586621679795777"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-186"></span><span>  </span><span id="local-6989586621679795778"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679795778"><span class="hs-identifier hs-var">timestamp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-187"></span><span>  </span><span id="local-6989586621679795748"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679795748"><span class="hs-identifier hs-var">threadId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ThreadId m -&gt; Int
-</span><a href="#local-6989586621679795749"><span class="hs-identifier hs-var">mkThreadId</span></a></span><span> </span><span class="annot"><span class="annottext">(ThreadId m -&gt; Int) -&gt; m (ThreadId m) -&gt; m Int
+</span><span id="line-187"></span><span>  </span><span id="local-6989586621679795780"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679795780"><span class="hs-identifier hs-var">threadId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ThreadId m -&gt; Int
+</span><a href="#local-6989586621679795781"><span class="hs-identifier hs-var">mkThreadId</span></a></span><span> </span><span class="annot"><span class="annottext">(ThreadId m -&gt; Int) -&gt; m (ThreadId m) -&gt; m Int
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m (ThreadId m)
 forall (m :: * -&gt; *). MonadThread m =&gt; m (ThreadId m)
@@ -712,8 +712,8 @@ message :: msg
 </span><span id="line-189"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-190"></span><span>  </span><span class="hs-comment">-- NOTE(AB): This is a bit contrived but we want a numeric threadId and we</span><span>
 </span><span id="line-191"></span><span>  </span><span class="hs-comment">-- get some text which we know the structure of</span><span>
-</span><span id="line-192"></span><span>  </span><span id="local-6989586621679795749"><span class="annot"><span class="annottext">mkThreadId :: ThreadId m -&gt; Int
-</span><a href="#local-6989586621679795749"><span class="hs-identifier hs-var hs-var">mkThreadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; Int
+</span><span id="line-192"></span><span>  </span><span id="local-6989586621679795781"><span class="annot"><span class="annottext">mkThreadId :: ThreadId m -&gt; Int
+</span><a href="#local-6989586621679795781"><span class="hs-identifier hs-var hs-var">mkThreadId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int -&gt; Int
 forall a. a -&gt; Maybe a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">(Maybe Int -&gt; Int)

@@ -5062,7 +5062,7 @@ type GetTimeHandle m = m TimeHandle
 --   NOTE: Given the constraints on <tt>m</tt> this function should work
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
-mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
+mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
 rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Reject any UTxO containing a Byron address, which cannot be
