@@ -93,7 +93,6 @@ import Test.QuickCheck (
   Positive (..),
   choose,
   chooseEnum,
-  conjoin,
   counterexample,
   cover,
   elements,
