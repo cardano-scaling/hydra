@@ -10,6 +10,16 @@ changes.
 
 ## [UNRELEASED]
 
+- Deposit transactions now get a validity window of up to `maxGraceTime` (200s),
+  capped at half the configured `--deposit-period`. An operator-precedence
+  mistake capped the window at a flat 100s, twice as likely to be missed on a
+  congested chain with no resubmission on expiry. The cap against the deposit
+  period also keeps at least half of it as the deposit's active window, so
+  deposit periods at or below 100s no longer risk deposits expiring before they
+  activate. Deposits on networks with ~20s blocks activate up to 100s later as
+  a result.
+  [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
+
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their
   language views hashed even when nothing runs, so the ledger rejected such

@@ -19,9 +19,9 @@ spec = describe "mkSmokeTiming" $ do
     -- 'depositActivation' after that date and expires one 'depositPeriod'
     -- before its deadline, which is set from wall-clock time. With the tip
     -- current -- the worst case -- the window in which the increment can be
-    -- posted is 'depositPeriod' - 'graceTime'. Shrinking 'depositPeriod'
-    -- towards 'maxGraceTime' closes it, and because 'Expired' is tested before
-    -- 'Active' the deposit then skips being active altogether.
+    -- posted is 'depositPeriod' - 'graceTime', and because 'Expired' is tested
+    -- before 'Active' a deposit with a closed window skips being active
+    -- altogether.
     activeWindow (mkSmokeTiming publicBlockTime)
       `shouldSatisfy` (>= 5 * publicBlockTime)
 
@@ -50,11 +50,10 @@ spec = describe "mkSmokeTiming" $ do
   activeWindow Timing{depositPeriod, depositActivation} =
     DP.toNominalDiffTime depositPeriod - graceTime
    where
-    -- NOTE: Handlers.hs reads @maxGraceTime `min` untilDeadline / 2@; a
-    -- backticked function is infixl 9 and @/@ is infixl 7, so the division
-    -- applies to the @min@, not to @untilDeadline@ alone. Mirrored as written,
-    -- not as it reads.
-    graceTime = max 10 $ min maxGraceTime deadlineOffset / 2
+    graceTime =
+      max 10 $
+        min maxGraceTime $
+          min (deadlineOffset / 2) (DP.toNominalDiffTime depositPeriod / 2)
 
     deadlineOffset =
       DP.toNominalDiffTime depositActivation + 2 * DP.toNominalDiffTime depositPeriod

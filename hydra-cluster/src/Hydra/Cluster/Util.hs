@@ -113,12 +113,10 @@ mkTestTiming' numDeposits blockTime =
 --
 -- A deposit becomes active at @created + depositActivation@, where @created@ is
 -- the deposit tx's upper validity bound, set a grace time ahead of the chain
--- tip by 'Hydra.Chain.Direct.Handlers.draftDepositTx'. That grace time is
--- @maxGraceTime \`min\` untilDeadline / 2@, and a backticked function binds
--- tighter than @\/@, so it is @min 200 untilDeadline / 2@: a flat 100s for any
--- deadline more than 200s out, not the @min 200 (untilDeadline \/ 2)@ it reads
--- as. So the wait is @100 + depositActivation@, and only the second term is
--- ours: at one block time it drops from 100 + 400 to 100 + 20.
+-- tip by 'Hydra.Chain.Direct.Handlers.draftDepositTx'. That grace time caps at
+-- @min maxGraceTime (depositPeriod / 2)@, 200s here, so the wait is
+-- @200 + depositActivation@ and only the second term is ours: at one block
+-- time it drops from 200 + 400 to 200 + 20.
 --
 -- 'contestationPeriod' is cut to the point where the close transaction's
 -- validity window stops changing, and no further. The contestation deadline is
@@ -135,10 +133,10 @@ mkTestTiming' numDeposits blockTime =
 --
 -- 'depositPeriod' keeps its 'mkTestTiming' value. It is not on the critical
 -- path -- it sets how long a deposit stays active, not how long anything waits
--- -- and shortening it only eats that window, which is
--- @depositPeriod - graceTime@. NOTE: This assumes block times around 20s; the
--- window closes entirely below ~5s, where 'depositPeriod' falls to the flat
--- 100s grace time. 'Test.Hydra.Cluster.UtilSpec' guards the value used here.
+-- -- and shortening it only shrinks windows: the grace time is capped at half
+-- of it, so both the deposit tx's validity and the active window
+-- @depositPeriod - graceTime@ fall with it. 'Test.Hydra.Cluster.UtilSpec'
+-- guards the value used here.
 mkSmokeTiming :: BlockTime -> Timing
 mkSmokeTiming blockTime =
   Timing

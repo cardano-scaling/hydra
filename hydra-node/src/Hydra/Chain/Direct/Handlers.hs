@@ -104,6 +104,8 @@ import Hydra.Tx (
  )
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Observe (
   CloseObservation (..),
   ContestObservation (..),
@@ -186,10 +188,12 @@ mkChain ::
   GetTimeHandle m ->
   TinyWallet m ->
   ChainContext ->
+  -- | Configured deposit period, bounding the validity of deposit txs.
+  DepositPeriod ->
   LocalChainState m Tx ->
   SubmitTx m ->
   Chain Tx m
-mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
+mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -275,13 +279,15 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
               Right (s, t) -> pure (s, t)
-            -- NOTE: Use a smaller upper bound than maxGraceTime to allow for
-            -- shorter than 200 slot deposit periods. This is only important on
-            -- fast moving networks (e.g. in testing). XXX: Making maxGraceTime
-            -- configurable would avoid this.
+            -- NOTE: A deposit only activates at @created + depositActivation@,
+            -- with @created@ the upper validity bound set here, and expires at
+            -- @deadline - depositPeriod@. Capping the grace time at half the
+            -- deposit period keeps at least the other half as active window;
+            -- the deadline term guards against deadlines closer than the
+            -- @depositActivation + 2 * depositPeriod@ the API server uses.
             let untilDeadline = diffUTCTime deadline currentTime
-            let graceTime = maxGraceTime `min` untilDeadline / 2
-            -- -- NOTE: But also not make it smaller than 10 slots.
+            let graceTime = min maxGraceTime $ min (untilDeadline / 2) (DepositPeriod.toNominalDiffTime depositPeriod / 2)
+            -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
             let depositDraftTx = depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress
             l1PParams <- lift $ getPParams wallet

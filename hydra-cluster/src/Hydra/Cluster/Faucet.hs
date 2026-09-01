@@ -197,14 +197,30 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
           void $ Blockfrost.awaitUTxO networkId [changeAddress] signedTx
           Blockfrost.awaitUTxO networkId [receivingAddress] signedTx
 
+-- | Select entries covering the given amount, largest first, and sweep up to
+-- 'sweepLimit' of the smallest remaining entries into the selection. Both parts
+-- keep the faucet usable across runs: outputs smaller than a requested amount
+-- (e.g. what 'returnFundsToFaucet' pays back) would otherwise never be spent
+-- again, while the change output alone shrinks with every seeding.
 findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
-findUTxO utxo lovelace' = do
-  let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') utxo
-  when (isNothing foundUTxO) $
-    liftIO $
-      throwIO $
-        FaucetHasNotEnoughFunds{faucetUTxO = utxo}
-  pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
+findUTxO utxo lovelace' =
+  go 0 [] (sortOn (Down . lovelaceOf . snd) (UTxO.toList utxo))
+ where
+  go total selected rest
+    | total >= lovelace' =
+        pure $ UTxO.fromList (selected <> take sweepLimit (reverse rest))
+    | otherwise = case rest of
+        [] -> liftIO $ throwIO FaucetHasNotEnoughFunds{faucetUTxO = utxo}
+        entry : more -> go (total + lovelaceOf (snd entry)) (entry : selected) more
+
+  lovelaceOf :: TxOut CtxUTxO -> Lovelace
+  lovelaceOf = selectLovelace . txOutValue
+
+-- | Cap on the extra entries 'findUTxO' sweeps into a transaction, bounding its
+-- size. Consolidation only has to outpace the one or two outputs a scenario
+-- returns to the faucet per run.
+sweepLimit :: Int
+sweepLimit = 20
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
