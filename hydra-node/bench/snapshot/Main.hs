@@ -118,7 +118,7 @@ benchCell n m = do
           -- does. Compare against full-update to isolate the aggregate share.
           bench "update-and-aggregate" $
             whnf (aggregateState st . update testEnvironment ledger now st) reqSn
-        , bench "ledger-reapply-only" $ whnf (reapplyOrCrash utxo) txs
+        , bench "ledger-apply-only" $ whnf (applyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit
           -- them once per UTxO size.
@@ -141,9 +141,9 @@ benchCell n m = do
 
   ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
-  reapplyOrCrash utxo txs =
-    either (\(tx, err) -> error $ "tx does not reapply: " <> show (txId tx) <> ": " <> show err) UTxO.size $
-      reapplyTransactions ledger (ChainSlot 1) utxo txs
+  applyOrCrash utxo txs =
+    either (\(tx, err) -> error $ "tx does not apply: " <> show (txId tx) <> ": " <> show err) UTxO.size $
+      applyTransactions ledger (ChainSlot 1) utxo txs
 
 -- | Extract the AckSn signature from the outcome of processing a ReqSn.
 -- 'Signature' is a newtype over the Ed25519 signature, so forcing it to WHNF

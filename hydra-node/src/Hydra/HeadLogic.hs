@@ -76,7 +76,7 @@ import Hydra.HeadLogic.State (
   setChainState,
   snapshotInFlight,
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions, reapplyTransactions)
+import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
@@ -482,26 +482,22 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
               cont (activeUTxO, Just utxoToDecommit)
 
-  -- NOTE: at this point we know those transactions apply on the localUTxO because they
-  -- are part of the localTxs. The snapshot can contain less transactions than the ones
-  -- we have seen at this stage, but they all _must_ apply correctly to the latest
-  -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
+  -- The snapshot can contain fewer transactions than the ones we have seen at
+  -- this stage, but they all _must_ apply correctly to the latest snapshot's
+  -- UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
+  --
+  -- We fully apply here, re-running signature and Plutus checks. Transactions
+  -- resolved from 'allTxs' are not guaranteed to have been validated locally
+  -- (an invalid one can be recorded on the receipt 'Wait' branch, and a
+  -- follower may not have applied a valid one that conflicts with its own
+  -- optimistic local state), so full application is the only place that
+  -- guarantees a confirmed snapshot never contains an unvalidated transaction.
   requireApplyTxs utxo requestedTxs cont =
-    case reapplyOrApply ledger currentSlot utxo requestedTxs of
+    case applyTransactions ledger currentSlot utxo requestedTxs of
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
-
-  -- The requested transactions were already validated on receipt ('ReqTx'), so
-  -- re-applying them to the confirmed UTxO only needs the state-dependent ledger
-  -- checks (inputs present, value preserved) and can skip the expensive Plutus
-  -- script re-evaluation. When a commit or decommit reshapes the active UTxO we
-  -- conservatively fall back to full application, since the script context may
-  -- then differ from what was validated.
-  reapplyOrApply
-    | isNothing mDecommitTx && isNothing mDepositTxId = reapplyTransactions
-    | otherwise = applyTransactions
 
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
   requireValidAccumulatorSize accumulator continue
@@ -526,10 +522,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
-      -- These txs are part of 'localTxs' and were already validated on receipt,
-      -- so we re-apply (skipping Plutus re-evaluation); the state-dependent
-      -- checks still run and prune txs that no longer apply.
-      case reapplyOrApply ledger currentSlot u [tx] of
+      case applyTransactions ledger currentSlot u [tx] of
         Left _ -> go u rest
         Right u' -> tx Seq.<| go u' rest
   confSn = case confirmedSnapshot of
