@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Use applyTransactions instead of reapplyTransactions.
+
 ## [2.4.0] - 2026.09.01
 
 - Deposit transactions now get a validity window of up to `maxGraceTime` (200s),

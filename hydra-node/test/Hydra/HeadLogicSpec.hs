@@ -27,7 +27,7 @@ import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
@@ -2911,6 +2911,84 @@ spec =
                   Nothing -> pure ()
                   Just ti -> expectationFailure $ "Thunk found in snapshot UTxO: " <> show ti
           _ -> expectationFailure $ "expected Continue outcome, got: " <> show outcome
+
+      it "rejects a snapshot re-applying an invalidly signed transaction (GHSA-cg83-6w6r-6hx3)" $ do
+        -- A malicious leader can inject a ReqTx whose transaction spends a
+        -- victim's UTxO with a witness that carries the victim's real
+        -- verification key but an invalid signature. The receipt handler defers
+        -- it (it fails full validation) yet still records it in 'allTxs'. If the
+        -- snapshot handler re-applied such a tx while skipping the signature
+        -- check, honest followers would sign a snapshot stealing the victim's
+        -- funds. This asserts the snapshot handler fully validates, so the
+        -- request is rejected instead of acknowledged.
+        (victimVk, victimSk) <- generate genKeyPair
+        (attackerVk, _attackerSk) <- generate genKeyPair
+        victimTxOut <- generate (genOutputFor victimVk)
+        victimTxIn <- generate genTxIn
+        let u0 = forceUTxO $ UTxO.fromList [(victimTxIn, victimTxOut)]
+            value = txOutValue victimTxOut
+            attackerAddr = mkVkAddress Fixture.testNetworkId attackerVk
+            victimAddr = mkVkAddress Fixture.testNetworkId victimVk
+        -- The theft the attacker wants: the victim's UTxO paid to the attacker.
+        goodTx <- case mkSimpleTx (victimTxIn, victimTxOut) (attackerAddr, value) (mkSecret victimSk) of
+          Left err -> failure $ "cannot create theft tx: " <> show err
+          Right tx -> pure tx
+        -- A different tx over the same input, so its witness signs another body.
+        decoyTx <- case mkSimpleTx (victimTxIn, victimTxOut) (victimAddr, value) (mkSecret victimSk) of
+          Left err -> failure $ "cannot create decoy tx: " <> show err
+          Right tx -> pure tx
+        -- Splice the decoy's witness (victim's real vkey, so the needed-witness
+        -- check passes) onto the theft body: the Ed25519 signature no longer
+        -- verifies against this body. An attacker needs only the victim's public
+        -- key to fabricate such a witness; signing a decoy is just the simplest
+        -- way to produce a well-formed but invalid one in the test.
+        let badTx = makeSignedTransaction (getTxWitnesses decoyTx) (getTxBody goodTx)
+        -- Sanity: 'badTx' differs from a valid transfer only by its signature.
+        -- The honest transfer applies, and 'badTx' is rejected by full
+        -- application (the check the vulnerable re-apply path skipped). Without
+        -- this the ReqSn assertion below could pass vacuously.
+        applyTransactions ledger (ChainSlot 0) u0 [goodTx] `shouldSatisfy` isRight
+        applyTransactions ledger (ChainSlot 0) u0 [badTx] `shouldSatisfy` isLeft
+        let st0 =
+              inSync $
+                Open
+                  OpenState
+                    { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties
+                    , coordinatedHeadState =
+                        CoordinatedHeadState
+                          { localUTxO = u0
+                          , allTxs = mempty
+                          , localTxs = mempty
+                          , confirmedSnapshot =
+                              ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                          , seenSnapshot = NoSeenSnapshot
+                          , currentDepositTxId = Nothing
+                          , decommitTx = Nothing
+                          , version = 0
+                          }
+                    , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
+                    , headId = testHeadId
+                    , headSeed = testHeadSeed
+                    }
+        -- bob is an honest follower; alice (the sn-1 leader) sends both messages.
+        (afterReqTx, reqSnOutcome) <- runHeadLogic bobEnv ledger st0 $ do
+          _ <- step $ receiveMessage $ ReqTx badTx
+          st <- getState
+          o <- step $ receiveMessage $ ReqSn 0 1 [txId badTx] Nothing Nothing
+          pure (st, o)
+        -- Precondition: the unvalidated tx is tracked in 'allTxs' (this is
+        -- load-bearing for liveness under concurrency), so the snapshot handler
+        -- is the guard that must reject it.
+        case headState afterReqTx of
+          Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}} ->
+            Map.member (txId badTx) allTxs `shouldBe` True
+          _ -> expectationFailure "expected Open state after ReqTx"
+        -- The fix: full re-application rejects the invalidly signed tx, so no AckSn.
+        case reqSnOutcome of
+          Error (RequireFailed SnapshotDoesNotApply{requestedSn, txid}) -> do
+            requestedSn `shouldBe` 1
+            txid `shouldBe` txId badTx
+          _ -> expectationFailure $ "expected SnapshotDoesNotApply, got: " <> show reqSnOutcome
 
       prop "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ \now -> monadicIO $ do
         let singleParty = [alice]
