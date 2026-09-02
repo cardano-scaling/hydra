@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-agda
-version:       2.4.0
+version:       2.4.1
 synopsis:
   Agda-extracted decidable reference checkers for the Hydra on-chain validator and off-chain head logic.
 
