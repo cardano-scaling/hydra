@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [UNRELEASED]
+## [2.4.1] - 2026.09.02
 
 - Use applyTransactions instead of reapplyTransactions.
 
