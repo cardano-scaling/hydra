@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 2.4.0
+@version 2.4.1
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -594,8 +594,6 @@ roundtripPParams :: PParams LedgerEra -> Property
 applyTransactionsEquivalence :: Property
 appliesValidTransaction :: Property
 appliesValidTransactionFromJSON :: Property
-reapplyEquivalence :: Property
-reapplyRejectsExpired :: Property
 
 -- | A transaction or transaction output can usually only contain a
 --   realistic number of native asset entries. This property checks a

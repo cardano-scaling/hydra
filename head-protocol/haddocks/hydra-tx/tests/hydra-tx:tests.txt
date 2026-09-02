@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx:tests
-@version 2.4.0
+@version 2.4.1
 
 module Hydra.Tx.AccumulatorSpec
 spec :: Spec

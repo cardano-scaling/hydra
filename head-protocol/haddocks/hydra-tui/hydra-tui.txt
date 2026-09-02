@@ -4,7 +4,7 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 2.4.0
+@version 2.4.1
 
 module Hydra.TUI.Config
 data Theme
