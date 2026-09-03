@@ -265,7 +265,6 @@ library examples
     , base
     , conduit
     , event-sourcing
-    , hydra-node
     , hydra-prelude
     , lens
     , network
