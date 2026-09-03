@@ -741,7 +741,6 @@ forAllFanout ::
   (UTxO -> Tx -> property) ->
   Property
 forAllFanout action =
-  -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
   forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, _stClosed, spendableUTxO, tx) ->
     let utxo = spendableUTxO <> getKnownUTxO ctx
      in action utxo tx

@@ -95,7 +95,7 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Utils (splitUTxO)
-import Test.QuickCheck (choose, chooseEnum, discard, elements, oneof, suchThat, vector)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, oneof, scale, suchThat, vector)
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
@@ -434,16 +434,14 @@ genContestTx = do
 genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genFanoutTx numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{headId}) <- genStOpen ctx
+  (u0, stOpen@OpenState{headId}) <- genStOpenWith genFanoutUTxO ctx
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
   -- Only generate commit UTxO when version differs so the accumulator commitment
-  -- in the closed datum matches what fanoutTx builds. Size bounded for KZG budget
-  -- with maximumNumberOfParties: u0 ≤ 5, commit ≤ 5, total ≤ 10 outputs.
-  n <- elements [1 .. 5]
+  -- in the closed datum matches what fanoutTx builds.
   toCommit' <-
     if openVersion /= version
-      then Just <$> genUTxOAdaOnlyOfSize n
+      then Just <$> genFanoutUTxO
       else pure Nothing
   depositTxId <- if isJust toCommit' then Just <$> arbitrary else pure Nothing
   confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' depositTxId Nothing (ctxHydraSigningKeys ctx)
@@ -465,6 +463,26 @@ genFanoutTx numParties = do
   let spendableUTxO = getKnownUTxO stClosed
   let utxoForProof = toFanout <> fold toCommit
   pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing utxoForProof deadlineSlotNo)
+
+-- | Generate UTxO to fan out: either ada-only outputs, or arbitrary outputs
+-- carrying native tokens and datums. Output size feeds into the accumulator
+-- hashing done on-chain, so the fanout properties need coverage of both kinds.
+--
+-- Bounded at 5 outputs for the KZG budget with 'maximumNumberOfParties'.
+-- 'genFanoutTx' draws this twice (once for the in-head UTxO, once for the commit
+-- UTxO), so a single fanout covers up to 10 outputs.
+genFanoutUTxO :: Gen UTxO
+genFanoutUTxO =
+  oneof
+    [ genUTxOAdaOnlyOfSize =<< elements [1 .. 5]
+    , -- NOTE: 'genUTxOSized' grows the value and datum of each output with the
+      -- QuickCheck size parameter, and hashing those into the accumulator is what
+      -- the on-chain budget is spent on. Capped well below the size at which a
+      -- draw stops fitting (empirically ~40), because a full fanout has no chunk
+      -- size to fall back on: uncapped, a handful of outputs each carrying ~100
+      -- assets overspends the execution-memory budget outright.
+      scale (min 10) (genUTxOSized =<< elements [1 .. 5])
+    ]
 
 genPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genPartialFanoutTx numParties = do
@@ -709,12 +727,20 @@ genPartialFanoutTxWithComplexUTxO numParties = do
 genStOpen ::
   HydraContext ->
   Gen (UTxO, OpenState)
-genStOpen ctx = do
+genStOpen = genStOpenWith (genUTxOAdaOnlyOfSize =<< elements [1 .. 5])
+
+-- | Like 'genStOpen', but with a caller-provided generator for the UTxO held in
+-- the head. Use this when a property needs the in-head UTxO to be richer than
+-- the ada-only default, e.g. to fan out multi-asset outputs.
+genStOpenWith ::
+  Gen UTxO ->
+  HydraContext ->
+  Gen (UTxO, OpenState)
+genStOpenWith genInHeadUTxO ctx = do
   txInit <- genInitTx ctx
   cctx <- pickChainContext ctx
   let stOpen = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-  n <- elements [1 .. 5]
-  u0 <- genUTxOAdaOnlyOfSize n
+  u0 <- genInHeadUTxO
   -- Init head output carries only tokens (0 ADA); inflate it so fanout can cover u0 outputs.
   let u0Value = UTxO.totalValue u0
   let stOpen' = stOpen{openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) (openUTxO stOpen)}
