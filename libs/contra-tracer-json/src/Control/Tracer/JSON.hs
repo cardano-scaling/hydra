@@ -1,16 +1,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Adapter module to the actual logging framework.
--- All Hydra node components implements /Structured logging/ via [contra-tracer](https://hackage.haskell.org/package/contra-tracer)
--- generic logging framework. All logs are output in [JSON](https://www.json.org/json-en.html).
-module Hydra.Logging (
+-- | Structured JSON logging over the
+-- [contra-tracer](https://hackage.haskell.org/package/contra-tracer) generic
+-- logging framework. A 'Tracer' acquired here wraps each message in an
+-- 'Envelope' carrying a timestamp, thread id and namespace, and writes it as
+-- one JSON object per line.
+module Control.Tracer.JSON (
   -- * Tracer
   Tracer (..),
   natTracer,
   nullTracer,
   traceWith,
-  ToObject (..),
-  TracingVerbosity (..),
+  contramap,
 
   -- * Using it
   Verbosity (..),
@@ -20,35 +21,47 @@ module Hydra.Logging (
   withTracerOutputTo,
   showLogsOnFailure,
   traceInTVar,
-  contramap,
   mkEnvelope,
   defaultQueueSize,
 ) where
 
-import Hydra.Prelude
-
-import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
+import Control.Concurrent.Class.Labelled (newLabelledTBQueueIO, newLabelledTVarIO, withAsyncLabelled)
 import Control.Concurrent.Class.MonadSTM (
+  MonadLabelledSTM,
+  MonadSTM,
+  TVar,
+  atomically,
   flushTBQueue,
   modifyTVar,
+  readTVar,
   readTVarIO,
   retry,
   writeTBQueue,
   writeTVar,
  )
 import Control.Exception (IOException)
+import Control.Monad (forM_, unless, void, when, (>=>))
 import Control.Monad.Class.MonadAsync (waitCatch)
+import Control.Monad.Class.MonadFork (MonadFork, myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
-import Control.Tracer (
-  Tracer (..),
-  natTracer,
-  nullTracer,
-  traceWith,
- )
-import Data.Aeson (pairs, (.=))
+import Control.Monad.Class.MonadThrow (MonadCatch, catch, finally, onException)
+import Control.Monad.Class.MonadTime.SI (MonadTime, getCurrentTime)
+import Control.Monad.Class.MonadTimer.SI (timeout)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Tracer (Tracer (..), natTracer, nullTracer, traceWith)
+import Data.Aeson (FromJSON, ToJSON (..), pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
+import Data.Functor.Contravariant (contramap)
+import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Encoding (decodeUtf8)
+import Data.Time.Clock (DiffTime, UTCTime)
+import GHC.Generics (Generic)
+import Numeric.Natural (Natural)
+import System.IO (BufferMode (BlockBuffering), Handle, hFlush, hSetBuffering, stdout)
+import Text.Read (readMaybe)
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
@@ -169,7 +182,7 @@ showLogsOnFailure ::
 showLogsOnFailure namespace action = do
   tvar <- newLabelledTVarIO "show-logs-on-failure" []
   action (traceInTVar tvar namespace)
-    `onException` (readTVarIO tvar >>= mapM_ (say . decodeUtf8 . Aeson.encode) . reverse)
+    `onException` (readTVarIO tvar >>= mapM_ (say . Text.unpack . decodeUtf8 . LBS.toStrict . Aeson.encode) . reverse)
 
 traceInTVar ::
   (MonadFork m, MonadTime m, MonadSTM m) =>
@@ -179,6 +192,7 @@ traceInTVar ::
 traceInTVar tvar namespace = Tracer $ \msg -> do
   envelope <- mkEnvelope namespace msg
   atomically $ modifyTVar tvar (envelope :)
+
 -- * Internal functions
 
 mkEnvelope :: (MonadFork m, MonadTime m) => Text -> msg -> m (Envelope msg)
@@ -189,4 +203,4 @@ mkEnvelope namespace message = do
  where
   -- NOTE(AB): This is a bit contrived but we want a numeric threadId and we
   -- get some text which we know the structure of
-  mkThreadId = fromMaybe 0 . readMaybe . Text.unpack . Text.drop 9 . show
+  mkThreadId = fromMaybe 0 . readMaybe . drop 9 . show

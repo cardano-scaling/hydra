@@ -17,6 +17,7 @@ import Test.Hydra.Tx.Mutation (
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import Data.Secret (Secret)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
@@ -43,7 +44,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (verificationKeyToOnChainId)

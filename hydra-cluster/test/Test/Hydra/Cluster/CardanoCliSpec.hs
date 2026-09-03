@@ -5,13 +5,13 @@ import Test.Hydra.Prelude
 
 import CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
 import Control.Lens ((^?))
+import Control.Tracer.JSON (showLogsOnFailure)
 import Data.Aeson (encodeFile)
 import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
 import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
-import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (
   DirectOptions (..),
  )

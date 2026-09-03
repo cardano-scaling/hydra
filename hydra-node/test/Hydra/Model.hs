@@ -29,10 +29,12 @@ import Control.Concurrent.Class.MonadSTM (
   retry,
  )
 import Control.Monad.Class.MonadAsync (cancel, link)
+import Control.Tracer.JSON (Tracer)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret, mkSecret)
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
@@ -51,7 +53,6 @@ import Hydra.BehaviorSpec (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
-import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
@@ -65,7 +66,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
-import Hydra.Tx.Secret (Secret, mkSecret)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)

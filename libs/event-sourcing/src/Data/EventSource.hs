@@ -1,21 +1,16 @@
 {-# LANGUAGE UndecidableInstances #-}
 
--- | This module defines the types and functions for creating 'EventSource' and
--- 'EventSink' instances and is intended to be used as an extension point.
+-- | The types and functions for creating 'EventSource' and 'EventSink'
+-- handles, intended to be used as an extension point.
 --
--- A single 'EventSource' and zero or more 'EventSink' handles are used by the
--- main 'HydraNode' handle to load and send out events.
---
--- See 'Hydra.Events.SQLiteBased' for the default implementation and
--- 'Hydra.Events.SQLiteBasedSpec' for the corresponding test suite.
---
--- Custom implementations should be located under Hydra.Events to avoid
--- conflicts.
-module Hydra.Events where
-
-import Hydra.Prelude
+-- A single 'EventSource' and zero or more 'EventSink' handles let an
+-- application load and emit an ordered, identified event stream.
+-- 'Data.EventSource.SQLite' is a ready-made implementation.
+module Data.EventSource where
 
 import Conduit (ConduitT, MonadUnliftIO, ResourceT, runResourceT, sourceToList)
+import Control.Monad (forM_)
+import Data.Word (Word64)
 
 type EventId = Word64
 

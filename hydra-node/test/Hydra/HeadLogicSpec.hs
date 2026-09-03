@@ -9,8 +9,8 @@
 -- 'Hydra.BehaviorSpec'.
 module Hydra.HeadLogicSpec where
 
+import Data.Secret (Secret, mkSecret)
 import Hydra.Prelude
-import Hydra.Tx.Secret (Secret, mkSecret)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO

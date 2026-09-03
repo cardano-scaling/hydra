@@ -5,13 +5,13 @@ module Hydra.Cluster.Fixture where
 
 import Hydra.Prelude
 
+import Data.Secret (Secret)
 import Hydra.Cardano.Api (NetworkId)
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Tx (Party, deriveParty)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
-import Hydra.Tx.Secret (Secret)
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk

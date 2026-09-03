@@ -16,6 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
@@ -62,7 +63,6 @@ import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.TimeHandle (newCachedTimeHandle, queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (

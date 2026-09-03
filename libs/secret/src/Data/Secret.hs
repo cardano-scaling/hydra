@@ -18,21 +18,21 @@
 -- style accessor: there is intentionally no @revealSecret :: Secret a -> a@.
 -- That forces every consumption site to be a small lexical scope and keeps
 -- raw values from outliving the use site.
-module Hydra.Tx.Secret (
+module Data.Secret (
   Secret,
   mkSecret,
   withSecret,
   Forbid,
 ) where
 
-import Hydra.Prelude hiding (show)
-
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Codec.Serialise (Serialise (..))
 import Control.Exception (TypeError (..), throw)
-import Data.Typeable (typeRep)
+import Data.Aeson (FromJSON (..), ToJSON (..))
+import Data.Proxy (Proxy (..))
+import Data.Typeable (Typeable, typeRep)
 import GHC.TypeError (ErrorMessage (..))
 import GHC.TypeError qualified as TE
-import Text.Show (Show (..))
 
 -- | A value the type system refuses to show or serialise.
 newtype Secret a = Secret a
@@ -57,7 +57,7 @@ type Forbid op =
         ':<>: 'Text " a value marked as secret."
         ':$$: 'Text "Secret values (e.g. signing keys) must not be"
         ':$$: 'Text "shown, logged, or serialised. Use `withSecret` from"
-        ':$$: 'Text "Hydra.Tx.Secret to consume the inner value at its"
+        ':$$: 'Text "Data.Secret to consume the inner value at its"
         ':$$: 'Text "point of use (e.g. signing). If you got here from a"
         ':$$: 'Text "derived `Show` / `ToJSON` on an enclosing record,"
         ':$$: 'Text "either drop that deriving clause or write a"

@@ -6,6 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
+import Data.Secret (Secret, withSecret)
 import Hydra.Cardano.Api (
   CardanoSigningKey,
   Era,
@@ -46,7 +47,6 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Tx (txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
-import Hydra.Tx.Secret (Secret, withSecret)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.

@@ -2,7 +2,7 @@
 
 The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the `hydra-node` API.
 
-On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:EventSource) and while doing so, re-emits those events to all provided [`EventSink`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:EventSink) instances. The resulting [`HydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
+On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSource) and while doing so, re-emits those events to all provided [`EventSink`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSink) instances. The resulting [`HydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](pathname:///haddocks/hydra-node/Hydra-HeadLogic-StateEvent.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
 
 ## Default event source and sinks
 
@@ -28,8 +28,9 @@ as a CBOR text string, followed by the constructor fields in declaration order.
 This applies uniformly to every hydra domain type, including newtypes and
 single-constructor records (e.g. a `HeadId` is encoded as the text
 `"UnsafeHeadId"` followed by the raw bytes). Most instances are derived
-generically via `genericToCBOR` / `genericFromCBOR` from `Hydra.CBOR.Generic`
-(hydra-prelude), which makes the data type declaration itself the on-disk
+generically via `genericToCBOR` / `genericFromCBOR` from
+`Codec.CBOR.Generic.Tagged` (cborg-generic-tagged, re-exported by
+`Hydra.Prelude`), which makes the data type declaration itself the on-disk
 format: changing the order or types of an existing constructor's fields is a
 breaking change that requires a schema migration, while adding, removing or
 reordering constructors keeps existing data decodable thanks to the name tags.
@@ -72,7 +73,7 @@ Version 1 databases (written by earlier hydra-node releases) store event payload
 
 To add a new migration:
 
-1. Bump `nextVersion` in `Hydra.Events.SQLiteBased`
+1. Bump `nextVersion` in `Data.EventSource.SQLite`
 2. Add a new case to `migrateStep` for the previous version number
 3. Add tests in `SQLiteBasedSpec` to verify the migration
 

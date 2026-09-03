@@ -1,0 +1,48 @@
+cabal-version: 3.0
+name:          persistent-queue
+version:       0.1.0.0
+synopsis:      A crash-safe, file-backed, bounded FIFO queue
+description:
+  A bounded FIFO queue whose items are each written to their own index-named
+  file before entering an in-memory 'TBQueue', and deleted only after being
+  popped, so a restart reloads exactly the enqueued-but-unconsumed items
+  (at-least-once delivery). Items cache their CBOR serialization, and can be
+  drained in byte- and count-bounded batches with an in-flight pin for safe
+  retries. Polymorphic in the base monad via @io-classes@.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Concurrency
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions:
+    DerivingStrategies
+    DuplicateRecordFields
+    LambdaCase
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:    Control.Concurrent.PersistentQueue
+  build-depends:
+    , base
+    , bytestring
+    , cardano-binary
+    , contra-tracer
+    , directory
+    , filepath
+    , io-classes
+    , io-classes-labelled
+    , text

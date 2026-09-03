@@ -1,9 +1,5 @@
 -- | A SQLite-backed event source and sink.
 --
--- This is the recommended persistence backend for new deployments.
--- See 'withSQLiteEventStore' which handles migration from the legacy
--- file-based store automatically.
---
 -- == Architecture
 --
 -- Events are stored in a single @events@ table with an integer primary key
@@ -18,10 +14,9 @@
 -- (see 'applyMigrations'). Version 1 stored event data as JSON; opening a
 -- version 1 database re-encodes every row to CBOR in one transaction and runs
 -- @VACUUM@ afterwards to reclaim the freed space. A row that fails to decode
--- aborts the migration (and thereby node startup) with
--- 'EventDecodingException', rolling back to an intact version 1 database.
--- The legacy file-based store (JSON lines) is migrated by decoding each line
--- as JSON and inserting CBOR.
+-- aborts the migration (and thereby startup) with 'EventDecodingException',
+-- rolling back to an intact version 1 database. The legacy file-based store
+-- (JSON lines) is migrated by decoding each line as JSON and inserting CBOR.
 --
 -- == Async write-behind
 --
@@ -45,43 +40,67 @@
 --
 -- * __Writer thread crash surfacing__: The background writer is 'link'ed to
 --   the calling thread. If it dies (e.g. SQLite I/O error), the exception
---   propagates immediately rather than leaving the node silently stalled.
+--   propagates immediately rather than leaving the caller silently stalled.
 --   Use 'withSQLiteEventStore' which handles cleanup (flush + cancel) on exit.
 --
 -- * __Data loss on hard crash__: Events in the queue that have not yet been
 --   flushed to SQLite are lost on SIGKILL, OOM, or power loss. This is
---   acceptable because the L1 chain is the source of truth — the node replays
---   missed events from chain on restart.
+--   acceptable when an external source of truth can replay missed events.
 --
 -- * __Rotation ordering__: 'rotate' flushes the write queue synchronously,
---   archives the current database to @old-state/hydra-<logId>.db@ via
+--   archives the current database to @old-state/<name>-<logId>.db@ via
 --   @VACUUM INTO@, then performs DELETE + INSERT. This is safe because rotation
---   is only called from the single-threaded event processing loop
---   ('processStateChanges'), so no concurrent enqueues can occur between the
---   flush and the rotation write. The archive is taken before the DELETE, so a
---   backup failure aborts rotation and leaves the events intact.
+--   is expected to be called only from a single-threaded processing loop, so no
+--   concurrent enqueues can occur between the flush and the rotation write. The
+--   archive is taken before the DELETE, so a backup failure aborts rotation and
+--   leaves the events intact.
 --
 -- * __Separate read connection__: 'sourceEvents' streams over a dedicated
---   connection. It can run concurrently on API server threads (client
---   history replay), and @VACUUM INTO@ fails with "SQL statements in
---   progress" if a streaming statement is open on the same connection as the
---   rotation. WAL mode makes readers on a separate connection safe.
-module Hydra.Events.SQLiteBased where
+--   connection. It can run concurrently on other threads, and @VACUUM INTO@
+--   fails with "SQL statements in progress" if a streaming statement is open on
+--   the same connection as the rotation. WAL mode makes readers on a separate
+--   connection safe.
+module Data.EventSource.SQLite where
 
-import Hydra.Prelude
-
-import Cardano.Binary (decodeFull', serialize')
+import Cardano.Binary (FromCBOR, ToCBOR, decodeFull', serialize')
 import Conduit (ConduitT, ResourceT, bracketP, runConduitRes, sourceFile, yield, (.|))
-import Control.Concurrent.Class.MonadSTM (flushTBQueue, newEmptyTMVarIO, newTBQueueIO, putTMVar, readTBQueue, takeTMVar, writeTBQueue, writeTVar)
+import Control.Concurrent.Class.Labelled (newLabelledTVarIO)
+import Control.Concurrent.Class.MonadSTM (
+  TBQueue,
+  TMVar,
+  atomically,
+  flushTBQueue,
+  newEmptyTMVarIO,
+  newTBQueueIO,
+  putTMVar,
+  readTBQueue,
+  readTVar,
+  takeTMVar,
+  writeTBQueue,
+  writeTVar,
+ )
+import Control.Exception (Exception, finally, throwIO)
+import Control.Monad (forM, forM_, forever, unless, when)
 import Control.Monad.Class.MonadAsync (async, cancel, link)
+import Control.Monad.IO.Class (liftIO)
+import Control.Tracer (Tracer, traceWith)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as Aeson
+import Data.Bifunctor (second)
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
 import Data.Conduit.Combinators qualified as C
+import Data.Either (partitionEithers)
+import Data.EventSource (EventSink (..), EventSource (..), HasEventId (..))
+import Data.EventSource.Rotation (EventStore (..))
+import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty qualified as NE
+import Data.Proxy (Proxy (..))
+import Data.String (fromString)
+import Data.Word (Word64)
 import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query, query_, withTransaction)
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
-import Hydra.Events.Rotation (EventStore (..))
-import Hydra.Logging (Tracer, traceWith)
+import GHC.Generics (Generic)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
 import System.FilePath (takeBaseName, takeDirectory, takeExtension, (</>))
 
@@ -105,9 +124,8 @@ data SQLiteLog
 -- marker that the writer thread signals after processing all preceding items.
 --
 -- Events are queued unencoded and CBOR-encoded on the writer thread: the
--- encoding of e.g. a SnapshotRequested event carrying a large UTxO otherwise
--- sits on the node loop between processing a ReqSn and broadcasting the
--- AckSn. The bounded queue briefly pins event values instead of compact
+-- encoding of an event carrying a large payload otherwise sits on the caller's
+-- thread. The bounded queue briefly pins event values instead of compact
 -- bytes, but the writer drains whole-queue batches so the window is short.
 type WriteItem e = Either (TMVar IO ()) (Word64, e)
 
@@ -118,11 +136,6 @@ type WriteItem e = Either (TMVar IO ()) (Word64, e)
 --
 -- If a legacy state file exists at @legacyStateFile@, events are migrated into
 -- SQLite automatically before the callback runs.
---
--- Flushing of the async write queue and reinitialisation of the last-seen
--- event id are handled internally: 'sourceEvents' auto-flushes before
--- reading, 'rotate' flushes before deleting, migration reinitialises the
--- event id TVar, and this bracket flushes on exit.
 withSQLiteEventStore ::
   forall e a.
   (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
@@ -158,9 +171,9 @@ mkSQLiteEventStore dbFile = do
           Right evt -> pure $ serialize' evt
           Left err -> throwIO EventDecodingException{eventId = eid, decodeError = err}
   initSchema conn reencodeRow
-  -- Dedicated connection for 'sourceEvents' streams, so concurrent client
-  -- history replay cannot hold statements open on the connection rotation
-  -- runs VACUUM INTO on (see module header).
+  -- Dedicated connection for 'sourceEvents' streams, so concurrent history
+  -- replay cannot hold statements open on the connection rotation runs
+  -- VACUUM INTO on (see module header).
   readConn <- open dbFile
   configurePragmas readConn
   eventIdV <- newLabelledTVarIO "sqlite-event-store-event-id" Nothing
@@ -183,8 +196,8 @@ mkSQLiteEventStore dbFile = do
     decodeRow (eid, evData) =
       case decodeFull' evData of
         Right evt -> pure evt
-        -- NOTE: This will prevent the node from starting, which is intentional —
-        -- starting with missing events would silently corrupt the head state.
+        -- NOTE: This will prevent startup, which is intentional — starting
+        -- with missing events would silently corrupt the aggregated state.
         Left err -> throwIO EventDecodingException{eventId = eid, decodeError = show err}
 
     sourceEvents :: ConduitT () e (ResourceT IO) ()
@@ -227,7 +240,7 @@ mkSQLiteEventStore dbFile = do
         atomically $ do
           forM_ newEvts $ \evt -> writeTBQueue writeQueue (Right (getEventId evt, evt))
           case nonEmpty newEvts of
-            Just ne -> setLastSeenEventId (last ne)
+            Just ne -> setLastSeenEventId (NE.last ne)
             Nothing -> pure ()
 
     rotate logId checkpointEvent = do
@@ -264,7 +277,7 @@ mkSQLiteEventStore dbFile = do
 -- available. Events are CBOR-encoded here, off the caller's thread, then
 -- batch-inserted in a single transaction, and any flush markers in the batch
 -- are signalled. Encode errors surface as writer thread crashes, which are
--- 'link'ed to the node.
+-- 'link'ed to the caller.
 writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
 writerLoop conn queue = forever $ do
   first' <- atomically $ readTBQueue queue
@@ -288,14 +301,14 @@ flushWriteQueue queue = do
 
 -- | Migrate events from a legacy newline-delimited JSON file into SQLite.
 -- Writes directly to the database, bypassing the async write queue (migration
--- runs at startup before the node processes inputs). After inserting, calls
+-- runs at startup before inputs are processed). After inserting, calls
 -- @reinitLastSeen@ to sync the in-memory event id TVar with the database.
 --
 -- Safe to call when the legacy file does not exist (no-op). Not safe to re-run:
 -- duplicate event ids will cause a primary key constraint violation.
 --
 -- On success the legacy file is renamed to @<path>.migrated@ so that
--- subsequent node restarts skip the migration step automatically.
+-- subsequent restarts skip the migration step automatically.
 migrateFromFileBased ::
   forall e.
   (FromJSON e, ToCBOR e, HasEventId e) =>
@@ -364,7 +377,7 @@ configurePragmas conn =
     [ "PRAGMA journal_mode=WAL"
     , "PRAGMA busy_timeout=5000"
     , -- With WAL, NORMAL skips per-write fsyncs and only syncs during
-      -- checkpoints — safe because the chain is the source of truth.
+      -- checkpoints — safe when the source of truth is external.
       "PRAGMA synchronous=NORMAL"
     , "PRAGMA cache_size=-65536" -- 64 MB page cache
     , "PRAGMA temp_store=MEMORY"
@@ -425,7 +438,7 @@ reencodeAllEvents conn reencodeRow = go 0
           encoded <- reencodeRow eid evData
           pure (encoded, eid)
         executeMany conn "UPDATE events SET event_data = ? WHERE event_id = ?" updates
-        go (fst (last neRows) + 1)
+        go (fst (NE.last neRows) + 1)
 
 -- SQL queries
 
@@ -458,9 +471,9 @@ deleteAllEvents conn =
 
 -- | Archive the current database before rotation removes the events, into an
 -- @old-state@ subdirectory next to the database, with the log id inserted
--- before the extension (e.g. @old-state/hydra-42.db@). Uses @VACUUM INTO@ so the
--- snapshot reflects all committed (WAL) data in a single self-contained file,
--- regardless of WAL checkpoint state. The destination is removed first if
+-- before the extension (e.g. @old-state/state-42.db@). Uses @VACUUM INTO@ so
+-- the snapshot reflects all committed (WAL) data in a single self-contained
+-- file, regardless of WAL checkpoint state. The destination is removed first if
 -- present (e.g. a re-rotation at the same log id), since @VACUUM INTO@ requires
 -- it not to exist.
 backupDatabase :: Connection -> FilePath -> Word64 -> IO ()
@@ -468,5 +481,5 @@ backupDatabase conn dbFile logId = do
   let backupDir = takeDirectory dbFile </> "old-state"
       backupPath = backupDir </> (takeBaseName dbFile <> "-" <> show logId <> takeExtension dbFile)
   createDirectoryIfMissing True backupDir
-  whenM (doesFileExist backupPath) $ removeFile backupPath
+  doesFileExist backupPath >>= \exists -> when exists (removeFile backupPath)
   execute conn "VACUUM INTO ?" (Only backupPath)

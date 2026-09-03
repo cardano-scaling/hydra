@@ -35,19 +35,15 @@ library
   exposed-modules:
     Test.Hydra.Prelude
     Test.Hydra.TastyMain
-    Test.Network.Ports
 
   build-depends:
     , base
-    , containers
     , directory
-    , filelock
     , filepath
     , generic-random
     , hspec
     , HUnit
     , hydra-prelude
-    , network
     , process
     , QuickCheck
     , quickcheck-arbitrary-adt

@@ -17,10 +17,14 @@
 -- the kernel releases when the owning process dies.
 module Test.Network.Ports where
 
-import Hydra.Prelude
-
-import Control.Exception (IOException)
+import Control.Exception (IOException, SomeException, catch, onException, try)
+import Control.Monad (replicateM, when)
 import Data.Bits ((.|.))
+import Data.Foldable (for_)
+import Data.Functor (($>), (<&>))
+import Data.IORef (IORef, atomicModifyIORef', modifyIORef', newIORef)
+import Data.Maybe (fromMaybe)
+import Data.Set (Set)
 import Data.Set qualified as Set
 import Foreign.C.Error (throwErrnoIfMinus1)
 import Foreign.C.Types (CInt (..))
@@ -40,12 +44,14 @@ import Network.Socket (
   withFdSocket,
  )
 import System.Directory (createDirectoryIfMissing)
+import System.Environment (lookupEnv)
 import System.FileLock (FileLock, SharedExclusive (Exclusive), tryLockFile)
 import System.FilePath ((</>))
-import System.IO (hPutStrLn)
+import System.IO (hPutStrLn, readFile', stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
 import System.Process (getCurrentPid)
+import Text.Read (readMaybe)
 
 -- | Lowest port handed out by the allocator. The band must sit below the
 -- ephemeral range (32768 and up on Linux by default, 49152 on darwin) so that
@@ -80,10 +86,10 @@ nextCandidateRef = unsafePerformIO $ do
 ephemeralRangeCheck :: ()
 ephemeralRangeCheck = unsafePerformIO $ do
   lower <-
-    try @_ @SomeException (readFileBS "/proc/sys/net/ipv4/ip_local_port_range") <&> \case
-      Right bs | (lo : _) <- words (decodeUtf8 bs) -> readMaybe (toString lo)
+    try @SomeException (readFile' "/proc/sys/net/ipv4/ip_local_port_range") <&> \case
+      Right contents | (lo : _) <- words contents -> readMaybe lo
       _ -> Nothing
-  whenJust lower $ \(lo :: Int) ->
+  for_ lower $ \(lo :: Int) ->
     when (lo < fromIntegral portBandEnd) $
       hPutStrLn stderr $
         "Test.Network.Ports: ip_local_port_range starts at "
@@ -116,7 +122,7 @@ allocatePort mDerive =
         if not locked
           then go (n - 1)
           else
-            try @_ @IOException (verifyBindable ps) >>= \case
+            try @IOException (verifyBindable ps) >>= \case
               Right () -> pure p
               Left _ -> go (n - 1)
 

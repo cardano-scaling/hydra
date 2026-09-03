@@ -59,6 +59,7 @@ library
     , bytestring
     , cardano-binary
     , containers
+    , event-sourcing
     , hydra-node
     , hydra-prelude
     , hydra-tx

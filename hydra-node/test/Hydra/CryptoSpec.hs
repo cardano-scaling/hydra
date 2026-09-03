@@ -13,8 +13,8 @@ import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as Char8
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret)
 import Hydra.Tx.Party (Party (vkey), deriveParty)
-import Hydra.Tx.Secret (Secret)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
@@ -42,7 +42,7 @@ specSigningKey :: Spec
 specSigningKey =
   describe "SigningKey" $ do
     -- Note: Show / ToJSON / FromJSON on `SigningKey HydraKey` are deliberately
-    -- forbidden at compile time (see Hydra.Tx.Secret + Hydra.Tx.Crypto). The
+    -- forbidden at compile time (see Data.Secret + Hydra.Tx.Crypto). The
     -- previous "show includes escaped hex" and JSON roundtrip golden tests
     -- have been removed because they exercised exactly the leak we now refuse.
     it "can be generated when seed exceeds the max seed size for algorithm" $

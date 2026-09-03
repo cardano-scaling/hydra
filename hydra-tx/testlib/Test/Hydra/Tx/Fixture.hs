@@ -19,6 +19,7 @@ import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), compactCoinOrError)
 import Cardano.Ledger.Core (PParams, ppTxFeeFixedL, ppTxFeePerByteL)
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
+import Data.Secret (Secret)
 import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId (Testnet),
@@ -38,7 +39,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
-import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Ledger.Cardano.Fixtures (epochInfo, pparams, slotLength, systemStart)
 import Test.Hydra.Prelude
 

@@ -2,26 +2,26 @@
 
 module Hydra.NodeSpec where
 
+import Data.Secret (Secret)
 import Hydra.Prelude hiding (label)
-import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO, writeTVar)
+import Control.Tracer.JSON (Tracer, showLogsOnFailure, traceInTVar)
+import Control.Tracer.JSON qualified as Logging
+import Data.EventSource (EventSink (..), EventSource (..), getEventId, mkEventSink)
+import Data.EventSource.Rotation (EventStore (..), LogId)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Events (EventSink (..), EventSource (..), getEventId, mkEventSink)
-import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
-import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
-import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (

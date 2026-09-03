@@ -15,6 +15,7 @@ import Control.Lens ((?~))
 import Data.Aeson (Value (Object, String), withObject, (.:))
 import Data.Aeson.Lens (atKey)
 
+import Control.Tracer.JSON (Verbosity (..))
 import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4)
 import Data.List (nub)
@@ -35,7 +36,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))

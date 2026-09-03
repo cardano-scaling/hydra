@@ -9,10 +9,10 @@ module Hydra.Ledger.Cardano (
 
 import Hydra.Prelude
 
+import Data.Secret (Secret, withSecret)
 import Hydra.Cardano.Api hiding (getVerificationKey, initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 import Hydra.Tx.Crypto (getVerificationKey)
-import Hydra.Tx.Secret (Secret, withSecret)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))

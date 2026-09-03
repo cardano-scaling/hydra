@@ -37,6 +37,7 @@ import Hydra.Prelude
 
 import Control.Exception (IOException)
 import Control.Exception qualified as E
+import Control.Tracer.JSON (Verbosity (..))
 import Data.Aeson (KeyValue ((.=)), Value (..), object, withObject, (.:), (.:?))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -55,7 +56,6 @@ import Hydra.Cardano.Api (
   deserialiseFromRawBytesHex,
   serialiseToRawBytesHexText,
  )
-import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..), NodeId (..), PortNumber, WhichEtcd (..), readHost, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))

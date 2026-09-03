@@ -10,12 +10,12 @@ import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile, object, (.=))
 import Data.List qualified as List
+import Data.Secret (Secret)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (PaymentKey, SigningKey)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset, generateLargeUTxODataset, generateMixedUTxODataset)
-import Hydra.Tx.Secret (Secret)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
