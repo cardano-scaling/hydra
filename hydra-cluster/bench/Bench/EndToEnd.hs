@@ -20,6 +20,13 @@ import Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import Control.Exception (SomeAsyncException)
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (concurrently, mapConcurrently)
+import Control.Tracer.JSON (
+  Tracer,
+  Verbosity (Quiet),
+  defaultLogBuffering,
+  traceWith,
+  withTracerOutputTo,
+ )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, members, values, _JSON, _Number, _String)
 import Data.Aeson.Types (parseMaybe)
@@ -42,13 +49,6 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (Timing (..), depositTimeout, truncatedDepositPeriod)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Logging (
-  Tracer,
-  Verbosity (Quiet),
-  defaultLogBuffering,
-  traceWith,
-  withTracerOutputTo,
- )
 import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions (verbosity))
 import Hydra.Tx (HeadId, txId)

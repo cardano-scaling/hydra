@@ -60,6 +60,7 @@ import Control.Concurrent.PersistentQueue (
 import Control.Concurrent.PersistentQueue qualified as Queue
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
@@ -69,7 +70,6 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),

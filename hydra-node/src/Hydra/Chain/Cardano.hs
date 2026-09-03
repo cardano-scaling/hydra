@@ -6,6 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Control.Tracer.JSON (Tracer)
 import Hydra.Cardano.Api (
   Tx,
   shelleyBasedEra,
@@ -28,7 +29,6 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
-import Hydra.Logging (Tracer)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 import Hydra.Tx (Party)

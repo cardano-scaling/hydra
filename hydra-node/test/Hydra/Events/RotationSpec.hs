@@ -4,16 +4,16 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Monad (foldM)
+import Control.Tracer.JSON (showLogsOnFailure)
+import Data.EventSource (EventId, EventSink (..), HasEventId (..), getEvents)
+import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
-import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
-import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)

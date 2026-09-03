@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 
 import Control.Monad.Trans.Resource (runResourceT)
 import Data.ByteString.Char8 qualified as BS8
-import Hydra.Events (EventId, EventSink (..), putEvent)
+import Data.EventSource (EventId, EventSink (..), putEvent)
 import Hydra.Events.UDP (newUDPEventSink, withUDPEventSink)
 import Network.Socket (PortNumber, socketPort)
 import Network.UDP (ListenSocket (..), recvFrom, serverSocket, stop)

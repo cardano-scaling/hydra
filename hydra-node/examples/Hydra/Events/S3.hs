@@ -22,8 +22,8 @@ import Conduit (
  )
 import Control.Lens (view)
 import Data.Aeson qualified as Aeson
+import Data.EventSource (EventId, EventSink (..), EventSource (..), HasEventId, getEventId, mkEventSink)
 import Data.List (stripPrefix)
-import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getEventId, mkEventSink)
 
 -- | Create a new event source and sink that stores events in AWS S3.
 newS3EventStore :: (HasEventId e, ToJSON e, FromJSON e) => AWS.BucketName -> IO (EventSource e IO, EventSink e IO)

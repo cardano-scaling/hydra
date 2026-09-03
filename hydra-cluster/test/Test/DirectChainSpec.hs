@@ -10,6 +10,7 @@ import CardanoClient (waitForUTxO)
 import CardanoNode (NodeLog, runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
+import Control.Tracer.JSON (Tracer, nullTracer, showLogsOnFailure)
 import Data.List.Split (splitWhen)
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -46,7 +47,6 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming, modifyConfig, readConfigFile)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod))

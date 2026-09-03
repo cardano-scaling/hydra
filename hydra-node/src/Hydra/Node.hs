@@ -16,6 +16,9 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Control.Tracer.JSON (Tracer, traceWith)
+import Data.EventSource (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
+import Data.EventSource.Rotation (EventStore (..))
 import Data.Secret (mkSecret)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
@@ -25,8 +28,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
-import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -42,7 +43,6 @@ import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))

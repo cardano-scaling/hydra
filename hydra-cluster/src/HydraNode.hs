@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~), (^?))
 import Control.Monad.Class.MonadAsync (forConcurrently)
+import Control.Tracer.JSON (Tracer, Verbosity (..), traceWith)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -31,7 +32,6 @@ import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
 import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (Timing (..), readConfigFile)
-import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)

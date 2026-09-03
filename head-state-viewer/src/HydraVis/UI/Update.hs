@@ -16,9 +16,9 @@ import Control.Concurrent (forkIO)
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
+import Data.EventSource (EventId)
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId)
 import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..))

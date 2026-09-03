@@ -8,7 +8,7 @@ module Test.Hydra.Logging where
 
 import Test.Hydra.Prelude
 
-import Hydra.Logging
+import Control.Tracer.JSON
 
 import Test.QuickCheck.Instances.Text ()
 

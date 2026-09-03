@@ -2,7 +2,7 @@
 
 The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the `hydra-node` API.
 
-On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:EventSource) and while doing so, re-emits those events to all provided [`EventSink`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:EventSink) instances. The resulting [`HydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](pathname:///haddocks/hydra-node/Hydra-Events.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
+On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSource) and while doing so, re-emits those events to all provided [`EventSink`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSink) instances. The resulting [`HydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](pathname:///haddocks/hydra-node/Hydra-HeadLogic-StateEvent.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
 
 ## Default event source and sinks
 
@@ -73,7 +73,7 @@ Version 1 databases (written by earlier hydra-node releases) store event payload
 
 To add a new migration:
 
-1. Bump `nextVersion` in `Hydra.Events.SQLiteBased`
+1. Bump `nextVersion` in `Data.EventSource.SQLite`
 2. Add a new case to `migrateStep` for the previous version number
 3. Add tests in `SQLiteBasedSpec` to verify the migration
 

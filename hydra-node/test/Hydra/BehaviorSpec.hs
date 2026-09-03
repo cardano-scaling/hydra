@@ -19,6 +19,9 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (async, cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
+import Control.Tracer.JSON (Tracer)
+import Data.EventSource (mkEventSink)
+import Data.EventSource.Rotation (EventStore (..))
 import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
@@ -33,14 +36,11 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Events (mkEventSink)
-import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
-import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (

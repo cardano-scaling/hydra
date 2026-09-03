@@ -2,7 +2,7 @@
 -- in "HydraVis.Sample".
 --
 -- Real Hydra nodes write to @<persistenceDir>/hydra.db@ via
--- "Hydra.Events.SQLiteBased"; this module writes a file with the same shape
+-- "Data.EventSource.SQLite"; this module writes a file with the same shape
 -- (the @events (event_id, event_data BLOB)@ schema, CBOR-encoded
 -- @StateEvent tx@ per row, schema version 2) using purely synthesised events
 -- so the visualizer can be exercised without a running node.
@@ -11,8 +11,8 @@ module HydraVis.SampleDb (writeSampleDb, sampleStateEvents) where
 import Hydra.Prelude
 
 import Cardano.Binary (serialize')
+import Data.EventSource (EventId)
 import Database.SQLite.Simple (close, execute, execute_, open)
-import Hydra.Events (EventId)
 import Hydra.HeadLogic (aggregateState, update)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged)

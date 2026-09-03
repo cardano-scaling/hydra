@@ -3,8 +3,8 @@
 
 module Hydra.HeadLogic.StateEvent where
 
+import Data.EventSource (EventId, HasEventId (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId, HasEventId (..))
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)
 import Hydra.Prelude
@@ -29,7 +29,7 @@ deriving anyclass instance IsChainState tx => ToJSON (StateEvent tx)
 deriving anyclass instance IsChainState tx => FromJSON (StateEvent tx)
 
 -- NOTE: This codec defines the row format persisted in the hydra.db events
--- table (see "Hydra.Events.SQLiteBased"). Changing it breaks decoding of
+-- table (see "Data.EventSource.SQLite"). Changing it breaks decoding of
 -- existing databases and requires a schema migration.
 instance IsChainState tx => ToCBOR (StateEvent tx) where
   toCBOR = genericToCBOR

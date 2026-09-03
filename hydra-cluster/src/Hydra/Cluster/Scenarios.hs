@@ -39,6 +39,7 @@ import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
 
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret, mkSecret)
@@ -111,7 +112,6 @@ import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bo
 import Hydra.Cluster.Util (BlockTime, Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network qualified as Network
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)

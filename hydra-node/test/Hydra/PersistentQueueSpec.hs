@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
 import Control.Concurrent.PersistentQueue (PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, writePersistentQueue)
 import Control.Monad.Class.MonadAsync (concurrently, wait, withAsync)
-import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
+import Control.Tracer.JSON (Envelope (message), nullTracer, traceInTVar)
 import System.Directory (createDirectory, listDirectory, removeFile)
 import System.FilePath ((</>))
 import Test.QuickCheck (counterexample, generate, ioProperty)

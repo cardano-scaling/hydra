@@ -10,7 +10,9 @@ import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Conduit.List (catMaybes, mapAccum)
+import Data.EventSource (EventSink (..), EventSource (..), mkEventSink)
 import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -33,7 +35,6 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Config (renderConfig)
-import Hydra.Events (EventSink (..), EventSource (..), mkEventSink)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   HeadState (..),
@@ -43,7 +44,6 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)

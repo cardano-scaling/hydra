@@ -110,6 +110,7 @@ test-suite tests
     , base
     , blaze-builder
     , bytestring
+    , contra-tracer-json
     , filepath
     , hydra-cardano-api
     , hydra-cluster

@@ -4,7 +4,7 @@
 -- fold them into a scrub-able history of 'NodeState' snapshots.
 --
 -- The Hydra node persists events using the schema defined by
--- "Hydra.Events.SQLiteBased": a single @events@ table with
+-- "Data.EventSource.SQLite": a single @events@ table with
 -- @event_id INTEGER PRIMARY KEY@ and a @event_data BLOB@ column that holds a
 -- CBOR-encoded @StateEvent tx@ (JSON in version 1 databases; we decode CBOR
 -- first and fall back to JSON so pre-migration databases and archives still
@@ -22,6 +22,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (decodeFull')
 import Data.Aeson qualified as Aeson
+import Data.EventSource (EventId)
 import Data.Text.Encoding qualified as TE
 import Database.SQLite.Simple (Only (..), SQLData (..), open, query, query_)
 import Database.SQLite.Simple qualified as SQL
@@ -29,7 +30,6 @@ import Database.SQLite.Simple.FromField (FromField (..), ResultError (..), retur
 import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Node.State (NodeState)

@@ -51,6 +51,7 @@ library
     , cardano-api
     , cardano-ledger-core
     , containers
+    , contra-tracer-json
     , file-embed
     , http-conduit
     , hydra-cardano-api

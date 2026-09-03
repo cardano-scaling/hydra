@@ -97,6 +97,7 @@ library
     , cardano-slotting
     , containers
     , contra-tracer
+    , contra-tracer-json
     , directory
     , filepath
     , http-conduit
@@ -133,6 +134,7 @@ executable hydra-cluster
   main-is:            Main.hs
   ghc-options:        -threaded -rtsopts
   build-depends:
+    , contra-tracer-json
     , directory
     , filepath
     , hydra-cardano-api
@@ -174,6 +176,7 @@ test-suite tests
     , bytestring
     , cardano-api
     , containers
+    , contra-tracer-json
     , directory
     , filepath
     , hspec-golden-aeson
@@ -221,6 +224,7 @@ benchmark bench-e2e
     , bytestring
     , cardano-api
     , containers
+    , contra-tracer-json
     , directory
     , filepath
     , HUnit

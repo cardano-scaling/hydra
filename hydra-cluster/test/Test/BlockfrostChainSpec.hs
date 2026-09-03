@@ -9,6 +9,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.Secret (mkSecret, withSecret)
 import Hydra.Cardano.Api (CardanoSigningKey (..), TxIn (..), TxIx (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
@@ -36,7 +37,6 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Util (chainConfigFor', keysFor)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Options (
   BlockfrostOptions (..),

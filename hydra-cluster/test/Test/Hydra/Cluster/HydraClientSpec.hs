@@ -9,6 +9,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, runBackend, withCardanoNodeDevnet)
 import Control.Lens ((^?))
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
 import Data.Secret (Secret, mkSecret)
@@ -36,7 +37,6 @@ import Hydra.Cluster.Scenarios (
  )
 import Hydra.Cluster.Util (Timing (..), depositTimeout, mkTestTiming')
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), nodeSocket)
 import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (

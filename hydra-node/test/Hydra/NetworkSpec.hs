@@ -17,11 +17,11 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTQueue,
  )
+import Control.Tracer.JSON (Envelope (message), showLogsOnFailure, traceInTVar)
 import Data.Bits (testBit)
 import Data.ByteString qualified as BS
 import Data.Text qualified as T
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (Envelope (message), showLogsOnFailure, traceInTVar)
 import Hydra.Network (
   Connectivity (..),
   Host (..),

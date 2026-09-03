@@ -12,6 +12,7 @@ import CardanoClient (
  )
 import CardanoNode (EndToEndLog (..), runBackend, withBackend, withCardanoNodeDevnet, withHydraScriptsAndBackendRunning)
 import Control.Lens ((^..), (^?))
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
@@ -88,7 +89,6 @@ import Hydra.Cluster.SecurityScenarios (
  )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig, onChainObservationBudget)
 import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
 import HydraNode (HydraClient (..), allocateHydraNodePortsFor, getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withConnectionToNodeHost, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
@@ -178,7 +178,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- refuses to start with the existing data dir).
         nodePorts <- allocateHydraNodePortsFor [1]
         -- Rotation on start up archives the live event log into 'old-state'
-        -- next to it, see 'Hydra.Events.SQLiteBased'.
+        -- next to it, see 'Data.EventSource.SQLite'.
         let archiveDir = tmpDir </> "state-1" </> "old-state"
         -- Start a hydra-node in offline mode and submit several self-txs
         withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \node -> do

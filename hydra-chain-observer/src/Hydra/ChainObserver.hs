@@ -4,13 +4,13 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
+import Control.Tracer.JSON (Verbosity (..), traceWith, withTracer)
 import Data.Version (Version, showVersion)
 import Hydra.Blockfrost.ChainObserver (blockfrostClient)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
 import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.ChainObserver.VersionRegistry (kvVersion, loadKnownVersions, loadKnownVersionsFromFile)
-import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
 import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)

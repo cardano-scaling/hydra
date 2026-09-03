@@ -29,6 +29,7 @@ import Control.Concurrent.Class.MonadSTM (
   retry,
  )
 import Control.Monad.Class.MonadAsync (cancel, link)
+import Control.Tracer.JSON (Tracer)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -52,7 +53,6 @@ import Hydra.BehaviorSpec (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
-import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)

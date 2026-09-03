@@ -18,6 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (link)
+import Control.Tracer.JSON (Tracer)
 import Data.Secret (Secret)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
@@ -64,7 +65,6 @@ import Hydra.HeadLogic (
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
-import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))

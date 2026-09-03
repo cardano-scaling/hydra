@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 import Amazonka qualified as AWS
 import Amazonka.Auth qualified as AWS
 import Amazonka.S3 qualified as AWS
-import Hydra.Events (EventId, EventSink (..), EventSource, HasEventId, getEvents)
+import Data.EventSource (EventId, EventSink (..), EventSource, HasEventId, getEvents)
 import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
 import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, sublistOf, withMaxSuccess, (===))
 

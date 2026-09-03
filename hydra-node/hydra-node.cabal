@@ -72,9 +72,6 @@ library
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
     Hydra.Config
-    Hydra.Events
-    Hydra.Events.Rotation
-    Hydra.Events.SQLiteBased
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
@@ -84,7 +81,6 @@ library
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
-    Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
     Hydra.Network
@@ -231,6 +227,7 @@ library testlib
     , cardano-slotting
     , cborg
     , containers
+    , contra-tracer-json
     , directory
     , filepath
     , hydra-cardano-api
@@ -267,6 +264,7 @@ library examples
     , amazonka-s3
     , base
     , conduit
+    , event-sourcing
     , hydra-node
     , hydra-prelude
     , lens
@@ -281,6 +279,7 @@ executable hydra-node
   build-depends:
     , base
     , bytestring
+    , contra-tracer-json
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -446,7 +445,9 @@ test-suite tests
     , conduit
     , containers
     , contra-tracer
+    , contra-tracer-json
     , directory
+    , event-sourcing
     , filepath
     , generic-lens
     , grapesy

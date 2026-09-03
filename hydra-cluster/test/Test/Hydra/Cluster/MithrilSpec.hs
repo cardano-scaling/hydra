@@ -5,11 +5,11 @@ import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (readTVarIO)
 import Control.Lens ((^?))
+import Control.Tracer.JSON (Envelope (..), Tracer, traceInTVar)
 import Data.Aeson.Lens (key)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Fixture qualified as Fixture
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
-import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import System.Directory (doesDirectoryExist)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (forEachKnownNetwork)

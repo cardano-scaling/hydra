@@ -196,7 +196,7 @@ instance forall tx. (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON
       v -> v
 
 -- NOTE: This codec defines the event format persisted in the hydra.db events
--- table (see "Hydra.Events.SQLiteBased"). Changing an encoding here breaks
+-- table (see "Data.EventSource.SQLite"). Changing an encoding here breaks
 -- decoding of existing databases and requires a schema migration.
 instance IsChainState tx => ToCBOR (StateChanged tx) where
   toCBOR = genericToCBOR
