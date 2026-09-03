@@ -152,6 +152,8 @@ reqSnState vHat sHat =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = fromInteger vHat
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
 
 -- Run the REAL handler on a (v, s) request from the given sender.
@@ -203,6 +205,8 @@ reqDecState commit decommitInFlight =
           _ -> Just reqDecDepositTxId
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
   registry = case commit of
     NoCommitP -> mempty
@@ -289,6 +293,8 @@ settleState =
       , currentDepositTxId = Just 7
       , decommitTx = Nothing
       , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
   -- testSnapshot with the pending commit of deposit 7 bound in; spelled out because a record
   -- update on the shared-field Snapshot type is ambiguous under DuplicateRecordFields.
@@ -395,6 +401,8 @@ ackState collected =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
       }
 
 -- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.

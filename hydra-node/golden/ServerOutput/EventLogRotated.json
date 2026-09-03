@@ -7,6 +7,12 @@
                     "currentSlot": 1,
                     "drift": 1
                 },
+                "depositHistory": [
+                    [
+                        0,
+                        {}
+                    ]
+                ],
                 "headState": {
                     "contents": {
                         "chainState": {

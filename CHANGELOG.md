@@ -24,6 +24,24 @@ changes.
   a result.
   [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
 
+- Fixed deposits not being re-posted when a chain rollback erases an increment
+  that was already finalized (`CommitFinalized`), which previously lost the
+  deposit and could strand its funds
+  [#2741](https://github.com/cardano-scaling/hydra/issues/2741). The node now
+  keeps a slot-indexed history of the pending deposits which is rewound on
+  rollback, retains the signed snapshot that authorized a settled increment or
+  decrement, and re-posts the settling transaction when a rollback erases it.
+  A deposit whose finalized increment was rolled back can neither be recovered
+  nor proposed for a new snapshot — re-posting the increment is the only way it
+  settles.
+  * Persisted state (`hydra.db`) from earlier versions still replays: the CBOR
+    codecs keep decoders for the `NodeState` and `CoordinatedHeadState` layouts
+    written before the new fields existed. Increments or decrements finalized
+    before the upgrade have no retained snapshot, so rollback re-posting is
+    unavailable for them, as it was before the upgrade.
+  * On the API, `NodeState` gains a `depositHistory` field and
+    `CoordinatedHeadState` gains `finalizedCommit` and `finalizedDecommit`.
+
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their
   language views hashed even when nothing runs, so the ledger rejected such
