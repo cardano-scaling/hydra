@@ -8,21 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [2.4.1] - 2026.09.02
-
-- Use applyTransactions instead of reapplyTransactions.
-
-## [2.4.0] - 2026.09.01
-
-- Deposit transactions now get a validity window of up to `maxGraceTime` (200s),
-  capped at half the configured `--deposit-period`. An operator-precedence
-  mistake capped the window at a flat 100s, twice as likely to be missed on a
-  congested chain with no resubmission on expiry. The cap against the deposit
-  period also keeps at least half of it as the deposit's active window, so
-  deposit periods at or below 100s no longer risk deposits expiring before they
-  activate. Deposits on networks with ~20s blocks activate up to 100s later as
-  a result.
-  [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
+## UNRELEASED
 
 - Speed up posting a partial fanout step: the chunk size search was bounded by
   the size of the set being distributed, so a 4000-output head built twelve
@@ -58,6 +44,22 @@ changes.
   a permutation of that union whatever the inputs. Snapshot construction keeps
   the three sets disjoint, so this was not reachable through the node.
   [#2848](https://github.com/cardano-scaling/hydra/issues/2848)
+
+## [2.4.1] - 2026.09.02
+
+- Use applyTransactions instead of reapplyTransactions.
+
+## [2.4.0] - 2026.09.01
+
+- Deposit transactions now get a validity window of up to `maxGraceTime` (200s),
+  capped at half the configured `--deposit-period`. An operator-precedence
+  mistake capped the window at a flat 100s, twice as likely to be missed on a
+  congested chain with no resubmission on expiry. The cap against the deposit
+  period also keeps at least half of it as the deposit's active window, so
+  deposit periods at or below 100s no longer risk deposits expiring before they
+  activate. Deposits on networks with ~20s blocks activate up to 100s later as
+  a result.
+  [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
 
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their
