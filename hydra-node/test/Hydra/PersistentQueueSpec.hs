@@ -5,9 +5,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
+import Control.Concurrent.PersistentQueue (PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, writePersistentQueue)
 import Control.Monad.Class.MonadAsync (concurrently, wait, withAsync)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
-import Hydra.Network.Etcd (EtcdLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, writePersistentQueue)
 import System.Directory (createDirectory, listDirectory, removeFile)
 import System.FilePath ((</>))
 import Test.QuickCheck (counterexample, generate, ioProperty)
@@ -189,12 +189,12 @@ spec = do
       Just next <- nextPendingBatch inFlightVar q 50 maxBound
       (fst <$> next) `shouldBe` [3]
 
-isDeleteFailed :: EtcdLog -> Bool
+isDeleteFailed :: PersistentQueueLog -> Bool
 isDeleteFailed = \case
   PersistentQueueDeleteFailed{} -> True
   _ -> False
 
-isLoadFailed :: EtcdLog -> Bool
+isLoadFailed :: PersistentQueueLog -> Bool
 isLoadFailed = \case
   PersistentQueueLoadFailed{} -> True
   _ -> False

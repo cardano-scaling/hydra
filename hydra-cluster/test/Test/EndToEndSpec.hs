@@ -19,6 +19,7 @@ import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Secret (mkSecret)
 import Data.Set qualified as Set
 import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
@@ -90,7 +91,6 @@ import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import Hydra.Tx.Secret (mkSecret)
 import HydraNode (HydraClient (..), allocateHydraNodePortsFor, getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withConnectionToNodeHost, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)

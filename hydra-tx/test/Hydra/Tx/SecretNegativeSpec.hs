@@ -7,7 +7,7 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# OPTIONS_GHC -fdefer-type-errors #-}
 
--- | Compile-fail checks for 'Hydra.Tx.Secret' and the @SigningKey HydraKey@
+-- | Compile-fail checks for 'Data.Secret' and the @SigningKey HydraKey@
 -- wrapper in 'Hydra.Tx.Crypto'. Each spec passes a deliberately ill-typed
 -- expression to 'shouldFailToTypecheck'; GHC's '-fdefer-type-errors' lifts
 -- the would-be compile error into a runtime exception, which we catch.
@@ -29,14 +29,14 @@ import Codec.Serialise (serialise)
 import Control.DeepSeq (NFData, force)
 import Control.Exception qualified as E
 import Data.Aeson (encode, toJSON)
+import Data.Secret (Secret, mkSecret, withSecret)
 import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
-import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import Test.Hydra.Prelude
 
 -- | Assert that evaluating an expression raises an exception. Used to
 -- detect both deferred 'TypeError's (from '-fdefer-type-errors') and the
 -- explicit throws inside 'Forbid'-bearing instance bodies in
--- 'Hydra.Tx.Secret'.
+-- 'Data.Secret'.
 shouldFailToTypecheck :: NFData a => a -> Expectation
 shouldFailToTypecheck a = do
   result <- E.try @E.SomeException (E.evaluate (force a))

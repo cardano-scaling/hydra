@@ -18,6 +18,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (link)
+import Data.Secret (Secret)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
@@ -79,7 +80,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)

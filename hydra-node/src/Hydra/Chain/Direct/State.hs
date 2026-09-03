@@ -11,6 +11,7 @@ import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (PParams)
+import Data.Secret (Secret)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
@@ -78,7 +79,6 @@ import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (setIncrementalActionMaybe)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get

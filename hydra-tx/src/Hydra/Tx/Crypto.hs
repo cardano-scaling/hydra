@@ -70,6 +70,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
 import Data.Map.Strict qualified as Map
+import Data.Secret (Forbid, Secret, mkSecret, withSecret)
 import Hydra.Cardano.Api (
   AsType (..),
   BlockHeader,
@@ -89,7 +90,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api qualified as Cardano
 import Hydra.Contract.HeadState qualified as OnChain
-import Hydra.Tx.Secret (Forbid, Secret, mkSecret, withSecret)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Text.Show (Show (..))
 
@@ -145,7 +145,7 @@ instance Key HydraKey where
   -- 'Forbid'-bearing 'TypeError' instances further down, so any caller
   -- that tries to use one gets a precise compile error.
   --
-  -- Wrap in 'Hydra.Tx.Secret.Secret' at the field level to extend the
+  -- Wrap in 'Data.Secret.Secret' at the field level to extend the
   -- ban to enclosing records (their @deriving stock (Show)@ /
   -- @deriving anyclass (ToJSON)@ then propagates to the same custom
   -- error).
@@ -261,13 +261,13 @@ instance SerialiseAsCBOR (SigningKey HydraKey) where
 
 -- Refuse 'ToJSON', 'FromJSON', 'ToCBOR' and 'FromCBOR' on raw signing
 -- keys. No 'Show' instance is provided either: every holder of a
--- signing key in this codebase wraps it in 'Hydra.Tx.Secret.Secret', so
+-- signing key in this codebase wraps it in 'Data.Secret.Secret', so
 -- the rendering / serialisation goes through Secret's instances (Secret
 -- has a redacting 'Show' and 'TypeError'-bearing JSON/CBOR instances).
 -- Any code that tries to Show / JSON / CBOR a raw 'SigningKey HydraKey'
 -- gets either a "no instance" or a 'Forbid' custom error from GHC.
 
--- The bodies below mirror the pattern in 'Hydra.Tx.Secret': the 'Forbid'
+-- The bodies below mirror the pattern in 'Data.Secret': the 'Forbid'
 -- constraint fires at normal compile time, so the bodies are unreachable.
 -- Under '-fdefer-type-errors' they get reached: throw a
 -- 'Control.Exception.TypeError' so the runtime exception type matches

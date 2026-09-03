@@ -17,6 +17,7 @@ import Data.Aeson.Lens (key)
 import Data.Aeson.Types (parseEither)
 import Data.ByteString qualified as BS
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyCons, NonEmptyOne))
+import Data.Secret (mkSecret)
 import Data.Text (unpack)
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTx)

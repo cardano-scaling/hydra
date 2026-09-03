@@ -133,9 +133,11 @@ library
     , conduit
     , containers
     , contra-tracer
+    , contra-tracer-json
     , crypton
     , data-default
     , directory
+    , event-sourcing
     , exceptions
     , file-embed
     , filepath
@@ -148,7 +150,6 @@ library
     , hydra-prelude
     , hydra-tx
     , io-classes                   >=0.3.0.0
-    , iohk-monitoring
     , iproute
     , lens
     , lens-aeson
@@ -157,14 +158,15 @@ library
     , ouroboros-consensus
     , ouroboros-network:api
     , ouroboros-network:protocols
+    , persistent-queue
     , process
     , prometheus
     , QuickCheck
     , retry
     , safe-money
+    , secret
     , serialise
     , sop-extras
-    , sqlite-simple
     , stm
     , template-haskell
     , text
@@ -245,6 +247,7 @@ library testlib
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , secret
     , text
     , time
     , versions
@@ -474,6 +477,7 @@ test-suite tests
     , nothunks                        ^>=0.3.1
     , ouroboros-consensus
     , ouroboros-consensus:cardano
+    , persistent-queue
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , process
@@ -485,11 +489,13 @@ test-suite tests
     , req
     , resourcet
     , retry
+    , secret
     , sop-extras
     , sqlite-simple
     , stm
     , tasty
     , temporary
+    , test-network-ports
     , text
     , time
     , tls

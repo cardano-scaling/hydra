@@ -11,6 +11,7 @@ import CardanoNode (EndToEndLog (..), HydraNodeLog, runBackend, withCardanoNodeD
 import Control.Lens ((^?))
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
+import Data.Secret (Secret, mkSecret)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
@@ -38,7 +39,6 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), nodeSocket)
 import Hydra.Tx (HeadId, IsTx (..))
-import Hydra.Tx.Secret (Secret, mkSecret)
 import HydraNode (
   HydraClient (..),
   getSnapshotUTxO,

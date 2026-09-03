@@ -63,6 +63,8 @@ import Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
+import Codec.CBOR.Generic.Tagged (genericFromCBOR, genericToCBOR)
+import Control.Concurrent.Class.Labelled
 import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM (..), MonadSTM (..))
 import Control.Concurrent.Class.MonadSTM.TBQueue (TBQueue)
 import Control.Concurrent.Class.MonadSTM.TMVar (TMVar)
@@ -71,7 +73,7 @@ import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadAsync (
   Async,
-  MonadAsync (async, concurrently, race, withAsync),
+  MonadAsync,
  )
 import Control.Monad.Class.MonadEventlog (
   MonadEventlog,
@@ -115,7 +117,6 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.Fixed (Fixed (..))
 import Data.Text qualified as T
 import Data.Time.Clock (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
-import Hydra.CBOR.Generic (genericFromCBOR, genericToCBOR)
 import Relude hiding (
   MVar,
   Nat,
@@ -226,72 +227,5 @@ spy a = trace (toString $ pShow a) a
 spy' :: Show a => String -> a -> a
 spy' msg a = trace (msg <> ": " <> toString (pShow a)) a
 
--- * Helpers for labeling TVar
-
-newLabelledTVar :: MonadLabelledSTM m => String -> a -> STM m (TVar m a)
-newLabelledTVar lbl val = do
-  tv <- newTVar val
-  labelTVar tv lbl
-  pure tv
-
-newLabelledTVarIO :: MonadLabelledSTM m => String -> a -> m (TVar m a)
-newLabelledTVarIO = (atomically .) . newLabelledTVar
-
--- * Helpers for labeling TMVar
-
-newLabelledEmptyTMVar :: MonadLabelledSTM m => String -> STM m (TMVar m a)
-newLabelledEmptyTMVar lbl = do
-  tmv <- newEmptyTMVar
-  labelTMVar tmv lbl
-  pure tmv
-
-newLabelledEmptyTMVarIO :: MonadLabelledSTM m => String -> m (TMVar m a)
-newLabelledEmptyTMVarIO = atomically . newLabelledEmptyTMVar
-
--- * Helpers for labeling TQueue
-
-newLabelledTQueue :: MonadLabelledSTM m => String -> STM m (TQueue m a)
-newLabelledTQueue lbl = do
-  q <- newTQueue
-  labelTQueue q lbl
-  pure q
-
-newLabelledTQueueIO :: MonadLabelledSTM m => String -> m (TQueue m a)
-newLabelledTQueueIO = atomically . newLabelledTQueue
-
--- * Helpers for labeling TBQueue
-
-newLabelledTBQueue :: MonadLabelledSTM m => String -> Natural -> STM m (TBQueue m a)
-newLabelledTBQueue lbl capacity = do
-  bq <- newTBQueue capacity
-  labelTBQueue bq lbl
-  pure bq
-
-newLabelledTBQueueIO :: MonadLabelledSTM m => String -> Natural -> m (TBQueue m a)
-newLabelledTBQueueIO = (atomically .) . newLabelledTBQueue
-
--- * Helpers for labeling Threads
-
-raceLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (Either a b)
-raceLabelled (lblA, mA) (lblB, mB) =
-  race
-    (labelThisThread lblA >> mA)
-    (labelThisThread lblB >> mB)
-
-raceLabelled_ :: MonadAsync m => (String, m a) -> (String, m b) -> m ()
-raceLabelled_ = (void .) . raceLabelled
-
-withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
-withAsyncLabelled (lbl, ma) = withAsync (labelThisThread lbl >> ma)
-
-concurrentlyLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (a, b)
-concurrentlyLabelled (lblA, mA) (lblB, mB) =
-  concurrently
-    (labelThisThread lblA >> mA)
-    (labelThisThread lblB >> mB)
-
-concurrentlyLabelled_ :: MonadAsync m => (String, m a) -> (String, m b) -> m ()
-concurrentlyLabelled_ = (void .) . concurrentlyLabelled
-
-asyncLabelled :: MonadAsync m => String -> m a -> m (Async m a)
-asyncLabelled lbl mA = async $ labelThisThread lbl >> mA
+-- Labelled STM/async helpers now live in the io-classes-labelled package and
+-- are re-exported here (see the import of Control.Concurrent.Class.Labelled).

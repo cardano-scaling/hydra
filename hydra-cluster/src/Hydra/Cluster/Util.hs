@@ -7,6 +7,7 @@ import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.Secret (Secret, mkSecret)
 import Hydra.Cardano.Api (
   Key (VerificationKey, getVerificationKey),
   NetworkId,
@@ -29,7 +30,6 @@ import Hydra.Options (
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
-import Hydra.Tx.Secret (Secret, mkSecret)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)

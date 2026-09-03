@@ -18,6 +18,7 @@ import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson qualified as Aeson
+import Data.Secret (Secret, mkSecret, withSecret)
 import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
@@ -33,7 +34,6 @@ import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance)
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
-import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 

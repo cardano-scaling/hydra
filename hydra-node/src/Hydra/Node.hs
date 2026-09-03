@@ -16,6 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
+import Data.Secret (mkSecret)
 import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
@@ -53,7 +54,6 @@ import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
 import Hydra.Tx (HeadParameters (..), Party (..), deriveParty)
-import Hydra.Tx.Secret (mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling

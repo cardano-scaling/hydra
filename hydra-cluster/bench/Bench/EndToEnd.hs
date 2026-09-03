@@ -29,6 +29,7 @@ import Data.Char (isDigit)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Scientific (Scientific)
+import Data.Secret (Secret)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Text qualified as T
@@ -52,7 +53,6 @@ import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions (verbosity))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
-import Hydra.Tx.Secret (Secret)
 import HydraNode (
   HydraClient (..),
   getMetrics,

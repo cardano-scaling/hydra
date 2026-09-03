@@ -2,8 +2,8 @@
 
 module Hydra.BehaviorSpec where
 
+import Data.Secret (Secret)
 import Hydra.Prelude
-import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
 import Control.Concurrent.Class.MonadSTM (

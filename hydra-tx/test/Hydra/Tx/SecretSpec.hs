@@ -2,7 +2,7 @@ module Hydra.Tx.SecretSpec where
 
 import Hydra.Prelude
 
-import Hydra.Tx.Secret (mkSecret, withSecret)
+import Data.Secret (mkSecret, withSecret)
 import Test.Hydra.Prelude
 import Test.QuickCheck (Fun, applyFun, (===))
 

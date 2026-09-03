@@ -45,18 +45,19 @@ import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Codec.CBOR.Encoding qualified as CBOR
 import Codec.CBOR.Write qualified as CBOR
 import Control.Concurrent.Class.MonadSTM (
-  isFullTBQueue,
-  modifyTVar',
-  peekTBQueue,
-  readTBQueue,
   readTVarIO,
   swapTVar,
-  tryPeekTBQueue,
-  tryReadTBQueue,
-  unGetTBQueue,
-  writeTBQueue,
   writeTVar,
  )
+import Control.Concurrent.PersistentQueue (
+  PersistentQueue,
+  newPersistentQueue,
+  nextPendingBatch,
+  peekPersistentQueue,
+  popBatchPersistentQueue,
+  writePersistentQueue,
+ )
+import Control.Concurrent.PersistentQueue qualified as Queue
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
 import Data.Aeson (decodeFileStrict', encodeFile)
@@ -66,7 +67,6 @@ import Data.Aeson.Types (Value)
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
-import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
@@ -106,7 +106,7 @@ import Network.GRPC.Etcd (
  )
 import Network.HTTP2.Client (HTTP2Error)
 import Network.Socket (PortNumber)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile, renameFile)
+import System.Directory (renameFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError, isEOFError)
@@ -174,14 +174,14 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                         ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
                         ( "etcd-callback-4"
                         , do
-                            queue <- newPersistentQueue tracer (persistenceDir </> "pending-broadcast") 100
+                            queue <- newPersistentQueue (contramap fromPersistentQueueLog tracer) (persistenceDir </> "pending-broadcast") 100
                             raceLabelled_
                               ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
                               ( "etcd-network-component-action"
                               , do
                                   action
                                     Network
-                                      { broadcast = writePersistentQueue tracer queue
+                                      { broadcast = writePersistentQueue (contramap fromPersistentQueueLog tracer) queue
                                       }
                               )
                         )
@@ -436,7 +436,7 @@ broadcastMessages tracer config ourHost queue = do
                   Nothing -> go n
                   Just batch -> do
                     putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
-                    popBatchPersistentQueue tracer queue batch
+                    popBatchPersistentQueue (contramap fromPersistentQueueLog tracer) queue batch
                     atomically $ writeTVar inFlightVar Nothing
                     go (n - 1)
        in go maxPutsPerConnection
@@ -875,158 +875,15 @@ withProcessInterrupt config =
           `catch` (\e -> unless (isDoesNotExistError e) $ throwIO e)
       )
 
--- * Persistent queue
-
--- | Queue elements carry the item's CBOR serialization, produced once on
--- write and reused for both the on-disk file and the etcd value, so
--- broadcasting does not serialize twice.
-data PersistentQueue m a = PersistentQueue
-  { queue :: TBQueue m (Natural, a, ByteString)
-  , nextIx :: TVar m Natural
-  , directory :: FilePath
-  }
-
--- | Create a new persistent queue at file path and given capacity.
-newPersistentQueue ::
-  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
-  Tracer IO EtcdLog ->
-  FilePath ->
-  Natural ->
-  m (PersistentQueue m a)
-newPersistentQueue tracer path capacity = do
-  paths <- liftIO $ do
-    createDirectoryIfMissing True path
-    sort . mapMaybe readMaybe <$> listDirectory path
-  queue <- newLabelledTBQueueIO "persistent-queue" $ max (fromIntegral $ length paths) capacity
-  highestId <-
-    try (loadExisting queue paths) >>= \case
-      Left (e :: IOException) -> do
-        liftIO $ do
-          traceWith tracer PersistentQueueLoadFailed{reason = show e}
-          createDirectoryIfMissing True path
-        pure 0
-      Right highest -> pure highest
-  nextIx <- newLabelledTVarIO "persistent-next-ix" $ highestId + 1
-  pure PersistentQueue{queue, nextIx, directory = path}
- where
-  loadExisting queue = \case
-    [] -> pure 0
-    idxs -> do
-      forM_ idxs $ \(idx :: Natural) -> do
-        bs <- readFileBS (path </> show idx)
-        case decodeFull' bs of
-          Left err ->
-            fail $ "Failed to decode item: " <> show err
-          Right item ->
-            atomically $ writeTBQueue queue (idx, item, bs)
-      pure $ List.last idxs
-
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
-writePersistentQueue tracer PersistentQueue{queue, nextIx, directory} item = do
-  next <- atomically $ do
-    next <- readTVar nextIx
-    modifyTVar' nextIx (+ 1)
-    pure next
-  let !bytes = serialize' item
-  writeFileBS (directory </> show next) bytes
-  full <- atomically $ isFullTBQueue queue
-  when full $ liftIO $ traceWith tracer PersistentQueueFull
-  atomically $ writeTBQueue queue (next, item, bytes)
-
--- | Get the next value from the queue without removing it, blocking if the
--- queue is empty.
-peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
-peekPersistentQueue PersistentQueue{queue} = do
-  (\(_, item, _) -> item) <$> atomically (peekTBQueue queue)
-
--- | Like 'peekPersistentQueue', but returns 'Nothing' instead of blocking
--- when the queue is empty.
-tryPeekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Maybe a)
-tryPeekPersistentQueue PersistentQueue{queue} = do
-  fmap (\(_, item, _) -> item) <$> atomically (tryPeekTBQueue queue)
-
--- | Get all pending values and their serializations, up to the given count
--- and total byte limits, blocking until at least one is available. Values
--- are not removed; use 'popBatchPersistentQueue' after they were sent.
-peekBatchPersistentQueue :: MonadSTM m => PersistentQueue m a -> Int -> Int -> m [(a, ByteString)]
-peekBatchPersistentQueue PersistentQueue{queue} maxCount maxBytes = atomically $ do
-  first' <- readTBQueue queue
-  -- Collected in reverse consumption order
-  rest <- go (remainingAfter first') []
-  -- Restore everything we consumed: 'unGetTBQueue' pushes to the front, so
-  -- restoring newest-first re-establishes the original queue order.
-  forM_ (rest <> [first']) $ unGetTBQueue queue
-  pure $ (\(_, item, bytes) -> (item, bytes)) <$> (first' : reverse rest)
- where
-  go budget acc
-    | length acc >= maxCount - 1 = pure acc
-    | otherwise =
-        tryReadTBQueue queue >>= \case
-          Nothing -> pure acc
-          Just next@(_, _, bytes)
-            | BS.length bytes > budget -> do
-                unGetTBQueue queue next
-                pure acc
-            | otherwise -> go (budget - BS.length bytes) (next : acc)
-
-  remainingAfter (_, _, bytes) = maxBytes - BS.length bytes
-
--- | Get the batch to broadcast next: the batch already in flight if there is
--- one, otherwise a fresh one peeked from the queue (and recorded as in
--- flight). Returns 'Nothing' when nothing is pending. The caller must clear
--- the in-flight var after popping a successfully sent batch.
---
--- Pinning the in-flight batch across transient retries matters for the
--- compare-fail dedup in 'putMessage': a put can commit server-side while the
--- client sees e.g. 'GrpcDeadlineExceeded'. The retry must send (and
--- afterwards pop) exactly the content of the committed attempt. Re-peeking
--- on retry could pick up messages enqueued in the meantime; the dedup branch
--- would then declare the grown batch delivered and the never-sent tail would
--- be popped and lost.
-nextPendingBatch ::
-  MonadSTM m =>
-  TVar m (Maybe [(a, ByteString)]) ->
-  PersistentQueue m a ->
-  Int ->
-  Int ->
-  m (Maybe [(a, ByteString)])
-nextPendingBatch inFlightVar queue maxCount maxBytes =
-  readTVarIO inFlightVar >>= \case
-    Just batch -> pure (Just batch)
-    Nothing ->
-      tryPeekPersistentQueue queue >>= \case
-        Nothing -> pure Nothing
-        Just _ -> do
-          -- All pending messages (bounded by the given limits) are sent as a
-          -- single etcd value, so a whole batch costs one Raft commit
-          -- instead of one per message.
-          batch <- peekBatchPersistentQueue queue maxCount maxBytes
-          atomically $ writeTVar inFlightVar (Just batch)
-          pure (Just batch)
-
--- | Remove a batch previously returned by 'peekBatchPersistentQueue'. Pops
--- unconditionally, one item per batch entry: this thread is the sole
--- consumer, so the queue head still holds exactly the peeked items (an
--- item-matching guard could only silently no-op and wedge the queue, see
--- #2742).
-popBatchPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> [(a, ByteString)] -> m ()
-popBatchPersistentQueue tracer PersistentQueue{queue, directory} batch = do
-  indices <- atomically $ forM batch $ \_ -> (\(ix, _, _) -> ix) <$> readTBQueue queue
-  forM_ indices $ removeQueueFile tracer directory
-
--- | Delete the backing file of a popped queue item. Failing to delete is
--- traced but not fatal: the message was already broadcast, so a leftover
--- file only means it may be re-broadcast after a restart (at-least-once
--- delivery, same as the crash-recovery path).
-removeQueueFile :: MonadIO m => Tracer IO EtcdLog -> FilePath -> Natural -> m ()
-removeQueueFile tracer directory ix =
-  liftIO $
-    removeFile (directory </> show ix) `catch` \e ->
-      unless (isDoesNotExistError e) $
-        traceWith tracer PersistentQueueDeleteFailed{index = ix, reason = show e}
-
 -- * Tracing
+
+-- | Map the standalone queue's log events onto the node's etcd log, so the
+-- emitted JSON is unchanged by the extraction of 'PersistentQueue'.
+fromPersistentQueueLog :: Queue.PersistentQueueLog -> EtcdLog
+fromPersistentQueueLog = \case
+  Queue.PersistentQueueLoadFailed r -> PersistentQueueLoadFailed{reason = r}
+  Queue.PersistentQueueFull -> PersistentQueueFull
+  Queue.PersistentQueueDeleteFailed i r -> PersistentQueueDeleteFailed{index = i, reason = r}
 
 data EtcdLog
   = EtcdLog {etcd :: Value}

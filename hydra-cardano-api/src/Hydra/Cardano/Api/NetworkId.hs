@@ -4,9 +4,9 @@ module Hydra.Cardano.Api.NetworkId where
 
 import Hydra.Cardano.Api.Prelude
 
+import Codec.CBOR.Generic.Tagged (genericFromCBOR, genericToCBOR)
 import Data.Aeson (Value (String), object, withObject, (.:), (.=))
 import GHC.Generics (Generic)
-import Hydra.CBOR.Generic (genericFromCBOR, genericToCBOR)
 import Hydra.Cardano.Api.NetworkMagic ()
 
 -- * Orphans

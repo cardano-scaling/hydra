@@ -4,8 +4,8 @@ module Hydra.Cardano.Api.ChainPoint where
 
 import Hydra.Cardano.Api.Prelude
 
+import Codec.CBOR.Generic.Tagged (genericFromCBOR, genericToCBOR)
 import GHC.Generics (Generic)
-import Hydra.CBOR.Generic (genericFromCBOR, genericToCBOR)
 
 -- | Get the chain point corresponding to a given 'BlockHeader'.
 getChainPoint :: BlockHeader -> ChainPoint

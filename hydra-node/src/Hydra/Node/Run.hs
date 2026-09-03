@@ -57,6 +57,7 @@ import Hydra.Options (
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
+import Test.QuickCheck (Positive (..))
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -154,7 +155,7 @@ run opts = do
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
   prepareEventStore eventStore = do
-    case RotateAfter <$> persistenceRotateAfter of
+    case RotateAfter . getPositive <$> persistenceRotateAfter of
       Nothing ->
         pure eventStore
       Just rotationConfig -> do

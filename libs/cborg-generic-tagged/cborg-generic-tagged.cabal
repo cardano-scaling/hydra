@@ -1,0 +1,41 @@
+cabal-version: 3.0
+name:          cborg-generic-tagged
+version:       0.1.0.0
+synopsis:      Constructor-name-tagged generic CBOR encoding
+description:
+  Generic derivation of @cardano-binary@ 'ToCBOR'\/'FromCBOR' instances whose
+  wire format is the constructor name (as a CBOR text string) followed by the
+  field encodings in declaration order, with no list framing. Tagging
+  constructors by name rather than by declaration index means adding or
+  reordering constructors leaves existing encodings unchanged; the data type
+  declaration itself is the wire format.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Codec, Serialization
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    LambdaCase
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:    Codec.CBOR.Generic.Tagged
+  build-depends:
+    , base
+    , cardano-binary
+    , text

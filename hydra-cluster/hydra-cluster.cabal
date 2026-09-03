@@ -116,6 +116,8 @@ library
     , process
     , QuickCheck
     , req
+    , secret
+    , test-network-ports
     , text
     , time
     , typed-process
@@ -190,6 +192,7 @@ test-suite tests
     , lens-aeson
     , process
     , QuickCheck
+    , secret
     , split
     , stm
     , tasty
@@ -233,6 +236,7 @@ benchmark bench-e2e
     , optparse-applicative
     , QuickCheck
     , scientific
+    , secret
     , statistics
     , text
     , time

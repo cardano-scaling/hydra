@@ -41,6 +41,7 @@ import Data.ByteString qualified as B
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret, mkSecret)
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
@@ -117,7 +118,6 @@ import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainCo
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, txId)
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
 import Hydra.Tx.Deposit (constructDepositUTxO)
-import Hydra.Tx.Secret (Secret, mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),

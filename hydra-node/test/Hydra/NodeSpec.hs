@@ -2,8 +2,8 @@
 
 module Hydra.NodeSpec where
 
+import Data.Secret (Secret)
 import Hydra.Prelude hiding (label)
-import Hydra.Tx.Secret (Secret)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)

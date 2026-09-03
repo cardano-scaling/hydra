@@ -85,9 +85,9 @@ library
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
+    , cborg-generic-tagged
     , containers
     , deepseq
-    , hydra-prelude
     , lens
     , plutus-ledger-api
     , text                    >=2

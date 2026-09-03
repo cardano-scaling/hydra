@@ -1,57 +1,8 @@
-{-# LANGUAGE UndecidableInstances #-}
-
--- | This module defines the types and functions for creating 'EventSource' and
--- 'EventSink' instances and is intended to be used as an extension point.
+-- | The event-source\/event-sink abstraction used by the node to load and
+-- emit events. The machinery lives in the standalone @event-sourcing@ package;
+-- this module re-exports it under the name used throughout hydra-node.
 --
--- A single 'EventSource' and zero or more 'EventSink' handles are used by the
--- main 'HydraNode' handle to load and send out events.
---
--- See 'Hydra.Events.SQLiteBased' for the default implementation and
--- 'Hydra.Events.SQLiteBasedSpec' for the corresponding test suite.
---
--- Custom implementations should be located under Hydra.Events to avoid
--- conflicts.
-module Hydra.Events where
+-- See 'Hydra.Events.SQLiteBased' for the default implementation.
+module Hydra.Events (module Data.EventSource) where
 
-import Hydra.Prelude
-
-import Conduit (ConduitT, MonadUnliftIO, ResourceT, runResourceT, sourceToList)
-
-type EventId = Word64
-
-class HasEventId a where
-  getEventId :: a -> EventId
-
-instance HasEventId Word64 where
-  getEventId = id
-
-newtype EventSource e m = EventSource
-  { sourceEvents :: HasEventId e => ConduitT () e (ResourceT m) ()
-  -- ^ Stream all events from the event source.
-  }
-
--- | Retrieve all events from the event source as a list.
-getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
-getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
-
-data EventSink e m = EventSink
-  { putEvent :: HasEventId e => e -> m ()
-  -- ^ Send a single event to the event sink.
-  , putEvents :: HasEventId e => [e] -> m ()
-  -- ^ Send a batch of events to the event sink.
-  }
-
--- | Create an 'EventSink' from a single-event function, with a default
--- sequential batch implementation.
-mkEventSink :: Monad m => (HasEventId e => e -> m ()) -> EventSink e m
-mkEventSink putOne =
-  EventSink
-    { putEvent = putOne
-    , putEvents = mapM_ putOne
-    }
-
--- | Put a list of events to a list of event sinks, batching per sink.
-putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
-putEventsToSinks sinks events =
-  forM_ sinks $ \sink ->
-    putEvents sink events
+import Data.EventSource

@@ -18,12 +18,12 @@ import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
+import Data.Secret (Secret, withSecret)
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Tx.Crypto (getVerificationKey)
-import Hydra.Tx.Secret (Secret, withSecret)
 import System.IO.Error (userError)
 
 -- | Run a 'ChainBackend' action given 'ChainBackendOptions'.

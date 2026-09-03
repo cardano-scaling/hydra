@@ -7,6 +7,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Secret (Secret)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus.Orphans ()
@@ -21,7 +22,6 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 import Test.Hydra.Prelude

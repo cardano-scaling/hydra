@@ -38,6 +38,7 @@ library
     , hydra-node
     , hydra-prelude
     , hydra-tx
+    , secret
     , text
     , websockets
 

@@ -23,6 +23,7 @@ import Data.Aeson.Types (Pair)
 import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret, withSecret)
 import Data.Text qualified as T
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
@@ -37,7 +38,6 @@ import Hydra.Network.Etcd (peerPortToClientPort)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
-import Hydra.Tx.Secret (Secret, withSecret)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
 import Network.HTTP.Req qualified as Req
