@@ -51,7 +51,7 @@ healthyFinalPartialFanoutTx =
       finalPartialFanoutTx
         scriptRegistry
         healthyDistributeUTxO
-        mempty
+        healthyRemainingAccumulator
         (headInput, headOutput)
         healthySlotNo
         headTokenScript

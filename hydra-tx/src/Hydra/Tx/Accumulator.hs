@@ -8,10 +8,12 @@ module Hydra.Tx.Accumulator (
   computeG1CommitmentBytes,
   accumulatorSize,
   maxAccumulatorSize,
+  deployedFanoutBatchSize,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
   applyUTxODelta,
+  removeOutputs,
 
   -- * CRS (Common Reference String)
   crsG2Points,
@@ -37,7 +39,7 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
   bls12_381_G1_uncompress,
@@ -134,10 +136,7 @@ buildFromSnapshotUTxOs ::
   -- | The resulting accumulator containing all UTxOs
   HydraAccumulator
 buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
-  buildFromUTxO @tx $
-    utxo
-      <> fromMaybe mempty mUtxoToCommit
-      <> fromMaybe mempty mUtxoToDecommit
+  buildFromUTxO @tx $ combinedUTxO utxo mUtxoToCommit mUtxoToDecommit
 
 -- | Update an accumulator from one snapshot's combined UTxO set to the next
 -- by adding and removing only the changed outputs, avoiding the per-output
@@ -181,6 +180,38 @@ applyUTxODelta prevAcc prevUTxO nextUTxO
 
   addedEls = utxoToElement @tx <$> outputsOfUTxO @tx (nextUTxO `withoutUTxO` prevUTxO)
 
+-- | Remove one occurrence of each given output from an accumulator.
+--
+-- Unlike 'applyUTxODelta' the outputs to remove are given directly, so the
+-- result does not depend on which 'TxIn' holds them. That matters wherever the
+-- two sets are related by content rather than by 'TxIn': partial fanout accepts
+-- a user selection as a sub-multiset of outputs (see
+-- 'Hydra.HeadLogic.isSubMultisetOf'), so the same 'TxIn' can carry a different
+-- 'TxOut' on each side and a 'TxIn'-keyed difference would then remove the
+-- wrong element, or none at all.
+--
+-- Removing exactly the distributed outputs is also what makes the on-chain
+-- split identity @A = P_K * A'@ hold by construction, for the @A@ that was
+-- verified against the head datum.
+--
+-- 'Accumulator.removeElement' no-ops once an element's count is exhausted, so
+-- an output that is not in the accumulator leaves a commitment that does not
+-- bind the intended set; the on-chain identity then fails and the transaction
+-- is rejected, exactly as a fresh build over an inconsistent set would be.
+removeOutputs ::
+  forall tx.
+  IsTx tx =>
+  -- | Accumulator to remove from
+  HydraAccumulator ->
+  -- | Outputs to remove, one occurrence each
+  UTxOType tx ->
+  HydraAccumulator
+removeOutputs acc utxo =
+  mkHydraAccumulator $
+    foldl' (flip Accumulator.removeElement) (unHydraAccumulator acc) removedEls
+ where
+  removedEls = utxoToElement @tx <$> outputsOfUTxO @tx utxo
+
 -- | Get a blake2b-256 hash of the accumulator commitment (compressed G1 point).
 --
 -- This is a pure function that returns a 32-byte deterministic hash of the
@@ -203,6 +234,11 @@ accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
 -- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
 maxAccumulatorSize :: Int
 maxAccumulatorSize = KZG.maxAccumulatorSize
+
+-- | Largest subset a single fanout transaction can distribute, re-exported from
+-- 'KZGTrustedSetup' for convenience.
+deployedFanoutBatchSize :: Int
+deployedFanoutBatchSize = KZG.deployedFanoutBatchSize
 
 -- | Convert a 'KZG.KZGSetupError' 'Either' to the contained value, aborting
 -- with a descriptive message if the setup is invalid.
@@ -253,15 +289,17 @@ crsG2Points n = take n $ fromKZGSetup KZG.g2Points
 -- subset that can be verified in a single fanout / partial-fanout pairing
 -- check: a subset of N elements yields a polynomial of degree N (one
 -- @(X - sᵢ)@ factor per element), and the on-chain MSM to evaluate
--- @P_S(τ)·G2@ needs N+1 G2 points. With @defaultItems = 30@ the deployed
--- batch limit is therefore __29__.
+-- @P_S(τ)·G2@ needs N+1 G2 points, so the deployed batch limit is
+-- 'deployedFanoutBatchSize'.
 --
 -- The trusted-setup file embeds 65 G2 points (see
 -- 'KZGTrustedSetup.maxFanoutBatchSize'); only the first 'defaultItems'
 -- are written into the CRS UTxO at script-registry publication time
--- (see 'Hydra.Chain.ScriptRegistry.buildScriptPublishingTxs'). Raising
--- 'defaultItems' requires re-publishing the CRS UTxO and is bounded
--- above by @KZGTrustedSetup.maxFanoutBatchSize + 1@.
+-- (see 'Hydra.Chain.ScriptRegistry.buildScriptPublishingTxs'). The head
+-- validator is compiled against the hash of that CRS datum and rejects
+-- any other one, so raising 'defaultItems' means re-publishing the CRS
+-- UTxO /and/ recompiling the scripts. It is bounded above by
+-- @KZGTrustedSetup.maxFanoutBatchSize + 1@.
 defaultItems :: Int
 defaultItems = KZG.defaultItems
 

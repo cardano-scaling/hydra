@@ -632,30 +632,43 @@ data PartialFanoutError
     CannotCreateProof Text
   deriving stock (Eq, Show)
 
--- | Construct a partial fanout transaction that distributes a subset of UTxOs.
--- Handles both first step (Closed → FanoutProgress) and intermediate steps
--- (FanoutProgress → FanoutProgress) by detecting the current on-chain datum type.
--- The first 'chunkSize' UTxOs from 'remainingUTxO' are distributed; the rest become
--- the new remaining set.
-partialFanout ::
-  ChainContext ->
+-- | Everything a partial fanout needs that does not depend on the chunk size.
+-- Chunk sizes are searched for by trying candidate transactions, so this is
+-- prepared once per step and reused for each candidate.
+data PartialFanoutPlan = PartialFanoutPlan
+  { headUTxO :: (TxIn, TxOut CtxUTxO)
+  , progressDatum :: Head.FanoutProgressDatum
+  , fullAccumulator :: HydraAccumulator
+  -- ^ Accumulator over the proof UTxO, already verified against the on-chain
+  -- commitment. Pre-settled elements (committed to by the accumulator but never
+  -- distributed, e.g. a decommit paid out before close) are in here and stay in
+  -- the remaining accumulator, because a step only removes what it distributes.
+  , orderedRemaining :: [(TxIn, TxOut CtxUTxO)]
+  -- ^ 'remainingUTxO' in the order chunks are taken from.
+  }
+
+-- | Read the head output and verify the on-chain accumulator, yielding a plan
+-- to build partial fanout transactions from.
+--
+-- Handles both the first step (Closed → FanoutProgress) and intermediate steps
+-- (FanoutProgress → FanoutProgress) by detecting the current datum type.
+preparePartialFanout ::
   -- | Spendable UTxO containing head output
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Number of UTxOs to distribute in this step
-  Int ->
   -- | UTxO used to verify the on-chain accumulator commitment. For the first fanout
   -- step this is utxoForProof (the snapshot's full set, including any decommit UTxOs
   -- that may already have been removed from the head by a DecrementTx). For subsequent
-  -- FanoutProgress steps it equals remainingUTxO.
+  -- FanoutProgress steps it is the not-yet-distributed set plus any pre-settled
+  -- elements, which the remaining set only equals when the whole of it is being
+  -- distributed: a user selection is a sub-multiset of it, matched by output
+  -- content rather than by 'TxIn'.
   UTxO ->
-  -- | Remaining UTxOs to distribute (will be split into distribute + new remaining)
+  -- | Remaining UTxOs to distribute
   UTxO ->
-  -- | Contestation deadline as SlotNo
-  SlotNo ->
-  Either PartialFanoutError Tx
-partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
+  Either PartialFanoutError PartialFanoutPlan
+preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -664,19 +677,38 @@ partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadl
     Head.Closed closedDatum -> pure (Head.progressFromClosed closedDatum)
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum proofUTxO
-  let allPairs = UTxO.toList remainingUTxO
-      utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
+  fullAccumulator <- buildAndVerifyAccumulator progressDatum proofUTxO
+  pure
+    PartialFanoutPlan
+      { headUTxO
+      , progressDatum
+      , fullAccumulator
+      , orderedRemaining = UTxO.toList remainingUTxO
+      }
+
+-- | Construct a partial fanout transaction distributing the first 'chunkSize'
+-- UTxOs of the plan's remaining set; the rest become the new remaining set.
+--
+-- The remaining accumulator is the plan's verified one minus the outputs this
+-- transaction distributes, rather than rebuilt from scratch. Removing exactly
+-- the distributed outputs is what the on-chain split identity @A = P_K * A'@
+-- checks, so it holds by construction whenever those outputs are in @A@.
+partialFanoutFromPlan ::
+  ChainContext ->
+  PartialFanoutPlan ->
+  -- | Number of UTxOs to distribute in this step
+  Int ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  Either PartialFanoutError Tx
+partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo = do
+  let utxoToDistribute = UTxO.fromList (take chunkSize orderedRemaining)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
-  let rest = UTxO.fromList (drop chunkSize allPairs)
-      -- Pre-settled elements are in proofUTxO (what the accumulator commits to)
-      -- but not in remainingUTxO (what we're distributing). They must stay in
-      -- the remaining accumulator so the on-chain split identity A = P_K * A'
-      -- holds at every step.
-      presettled = UTxO.difference proofUTxO remainingUTxO
-  let remainingAccumulator = Accumulator.buildFromUTxO @Tx (rest <> presettled)
+  let remainingAccumulator = Accumulator.removeOutputs @Tx fullAccumulator utxoToDistribute
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
+  PartialFanoutPlan{headUTxO, progressDatum, fullAccumulator, orderedRemaining} = plan
+
   ChainContext{scriptRegistry} = ctx
 
 -- | Construct the final partial fanout transaction that distributes all remaining
@@ -703,12 +735,14 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO de
   progressDatum <- case headState of
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
+  -- The accumulator verified against the datum here is the one the membership
+  -- proof is built against, rather than a second build over the same set.
+  fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
       utxoToDistribute
-      presettledUTxO
+      fullAccumulator
       headUTxO
       deadlineSlotNo
       headTokenScript

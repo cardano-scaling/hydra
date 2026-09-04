@@ -88,6 +88,7 @@ import Hydra.Tx (
   IsTx (..),
   TxIdType,
   UTxOType,
+  combinedUTxO,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -349,7 +350,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
                 let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    nextCombined = nextUTxO <> fromMaybe mempty mUtxoToCommit <> fromMaybe mempty mUtxoToDecommit
+                    nextCombined = combinedUTxO nextUTxO mUtxoToCommit mUtxoToDecommit
                     -- The predecessor is confirmed at this point (see
                     -- requireReqSn and waitNoSnapshotInFlight), so its
                     -- accumulator covers exactly 'snapshotUTxO prevSnapshot'
@@ -1667,9 +1668,7 @@ fanoutUTxOFromSnapshot ::
   SnapshotVersion ->
   UTxOType tx
 fanoutUTxOFromSnapshot confirmedSnapshot version =
-  utxo
-    <> fromMaybe mempty effectiveCommit
-    <> fromMaybe mempty effectiveDecommit
+  combinedUTxO utxo effectiveCommit effectiveDecommit
  where
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
   (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
