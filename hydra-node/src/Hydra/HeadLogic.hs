@@ -115,12 +115,16 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 -- a leader; followers accept larger requests, so this can change without a
 -- coordinated upgrade.
 --
--- 1000 was chosen from a sweep against 100/250 on sustained-load benchmarks
--- (see hydra-cluster/bench/BASELINES.md): per-round costs that scale with the
--- backlog dominate at small caps (4.6-5.7x lower throughput at 100 with a
--- deep backlog), while peak node memory was flat across the sweep.
+-- 4000 was chosen from backlog-drain sweeps at caps 1000 to 8000 (see
+-- hydra-cluster/bench/BASELINES.md): per-round costs scale with the backlog,
+-- so under sustained overload larger caps drain strictly faster (2.7x at
+-- 4000 vs 1000 on a 24k-tx backlog) with lower confirmation latency and
+-- lower peak memory, while the cap never binds under light load. Gains taper
+-- beyond 4000 and worst-case round size keeps growing (ReqSn bytes, failed
+-- round rework, follower reapply stall), so we stop at roughly 10x below
+-- etcd's 1.5MiB request limit, which a too-large ReqSn would wedge on.
 maxTxsPerSnapshot :: Int
-maxTxsPerSnapshot = 1000
+maxTxsPerSnapshot = 4000
 
 -- ** On-Chain Protocol
 
