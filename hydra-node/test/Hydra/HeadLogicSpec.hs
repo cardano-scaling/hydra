@@ -151,10 +151,12 @@ spec =
       it "accepts a ReqSn with more transactions than maxTxsPerSnapshot" $ do
         -- The cap only limits what a leader puts into a ReqSn; followers must
         -- accept larger requests, so the constant can be changed without a
-        -- coordinated upgrade.
+        -- coordinated upgrade. The txs form a chain so the UTxO stays a
+        -- single entry: the follower's ReqSnUTxOSetTooLarge check bounds the
+        -- UTxO size, which is orthogonal to the tx-count cap.
         let n = fromIntegral $ 2 * maxTxsPerSnapshot
-            txs = [SimpleTx i (utxoRef i) (utxoRef (i + 10000)) | i <- [1 .. n]]
-            u0 = utxoRefs [1 .. n]
+            txs = [SimpleTx i (utxoRef i) (utxoRef (i + 1)) | i <- [1 .. n]]
+            u0 = utxoRefs [1]
             s0 =
               inOpenState' threeParties $
                 coordinatedHeadState
@@ -168,6 +170,51 @@ spec =
         update bobEnv ledger now s0 reqSn `hasEffectSatisfying` \case
           NetworkEffect AckSn{} -> True
           _ -> False
+
+      it "tx-count cap sets no UTxO size limit: only the accumulator bound governs snapshot UTxO" $ do
+        -- An over-cap ReqSn may grow the UTxO to exactly
+        -- 'Accumulator.maxAccumulatorSize' (accepted) but not one output more
+        -- (rejected), at the same transaction count either way: the UTxO
+        -- limit comes from the accumulator bound alone, never from
+        -- 'maxTxsPerSnapshot'.
+        let maxSize = fromIntegral Accumulator.maxAccumulatorSize
+            n = max (fromIntegral $ 2 * maxTxsPerSnapshot) (maxSize + 1)
+            -- The first (target - 1) txs add one net output each, the rest
+            -- form a neutral chain: applying all of them to the single-entry
+            -- UTxO ends at exactly target entries.
+            grownTo target =
+              [ if i < target
+                then SimpleTx i (utxoRef i) (utxoRefs [i + 1, 100000 + i])
+                else SimpleTx i (utxoRef i) (utxoRef (i + 1))
+              | i <- [1 .. n]
+              ]
+            u0 = utxoRefs [1]
+            stateWith txs =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { localUTxO = u0
+                  , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
+                  , localTxs = Seq.fromList txs
+                  , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                  }
+            reqSnFor :: [SimpleTx] -> Input SimpleTx
+            reqSnFor txs = receiveMessage $ ReqSn 0 1 (txId <$> txs) Nothing Nothing
+
+        let atBound = grownTo maxSize
+        now <- nowFromSlot (stateWith atBound).chainPointTime.currentSlot
+        update bobEnv ledger now (stateWith atBound) (reqSnFor atBound) `hasEffectSatisfying` \case
+          NetworkEffect AckSn{} -> True
+          _ -> False
+
+        let overBound = grownTo (maxSize + 1)
+        update bobEnv ledger now (stateWith overBound) (reqSnFor overBound)
+          `shouldBe` Error
+            ( RequireFailed
+                ReqSnUTxOSetTooLarge
+                  { utxoCount = Accumulator.maxAccumulatorSize + 1
+                  , maxAllowed = Accumulator.maxAccumulatorSize
+                  }
+            )
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
