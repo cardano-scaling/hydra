@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- `maxTxsPerSnapshot` raised from 1000 to 4000 (leader-side only, no
+  coordinated upgrade required): backlog-drain sweeps show ~2.7x sustained
+  throughput and ~2.4x lower confirmation p50 under deep backlogs, with
+  lower peak memory; the cap never binds under light load. Sweep data in
+  `hydra-cluster/bench/BASELINES.md`.
+  [#2455](https://github.com/cardano-scaling/hydra/issues/2455)
+
 ## [2.4.1] - 2026.09.02
 
 - Use applyTransactions instead of reapplyTransactions.
