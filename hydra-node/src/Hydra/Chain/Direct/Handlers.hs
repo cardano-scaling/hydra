@@ -260,17 +260,10 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             -- Only the first selection is checked against that:
             -- 'Hydra.HeadLogic.onClosedClientPartialFanout' routes a full one to
             -- the auto-drain path, but 'onPartialFanoutClientPartialFanout' has
-            -- no such guard, so a later selection naming the whole remainder
-            -- before any chunk has landed reaches here as a full set. Candidates
-            -- are evaluated locally and only the winner is submitted, so nothing
-            -- is rejected on chain either way. What happens next depends on the
-            -- head: with nothing pre-settled the top candidate leaves an empty
-            -- accumulator, fails 'mustNotBeLastBatch' under local evaluation,
-            -- and the search settles one lower. With a pre-settled set it does
-            -- not fail, the whole remainder goes out in one step, and the head
-            -- is then left in FanoutProgress with nothing to distribute and no
-            -- way to burn its tokens. That is a pre-existing gap in HeadLogic,
-            -- not something this bound can fix.
+            -- no such guard, so a later selection naming the whole remainder can
+            -- wedge the head — a pre-existing HeadLogic gap this bound cannot
+            -- fix, tracked in
+            -- https://github.com/cardano-scaling/hydra/issues/2855.
             findFittingFanoutTx
               tracer
               wallet

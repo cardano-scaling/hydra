@@ -68,7 +68,7 @@ import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, getVerificationKey, sign)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.DepositPeriod qualified as DP
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Ledger (nextChainSlot)
@@ -1470,7 +1470,7 @@ toOnChainTx now = \case
       , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
-    OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
+    OnFanoutTx{headId = testHeadId, fanoutUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit}
   PartialFanoutTx{utxoToDistribute} ->
     OnPartialFanoutTx{headId = testHeadId, distributedOutputs = utxoToDistribute}
   FinalPartialFanoutTx{utxoToDistribute} ->

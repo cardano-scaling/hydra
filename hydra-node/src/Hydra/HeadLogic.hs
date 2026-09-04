@@ -350,7 +350,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
                 let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    nextCombined = nextUTxO <> fromMaybe mempty mUtxoToCommit <> fromMaybe mempty mUtxoToDecommit
+                    nextCombined = combinedUTxO nextUTxO mUtxoToCommit mUtxoToDecommit
                     -- The predecessor is confirmed at this point (see
                     -- requireReqSn and waitNoSnapshotInFlight), so its
                     -- accumulator covers exactly 'snapshotUTxO prevSnapshot'

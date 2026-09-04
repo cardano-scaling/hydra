@@ -736,8 +736,11 @@ genPartialFanoutTxWithComplexUTxO numParties = do
     )
  where
   findFittingChunk safeUnits evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-    go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
+    go [largestWorthTrying, largestWorthTrying - 1 .. 1]
    where
+    -- No chunk above the deployed CRS batch size can be verified on chain, so
+    -- candidates above it are never worth building however big the UTxO grows.
+    largestWorthTrying = min (UTxO.size u0 - 1) Accumulator.deployedFanoutBatchSize
     -- Some random complex UTxOs admit no chunk size that fits the safety
     -- budget. Discard the case (QuickCheck retries a fresh draw)
     go [] = discard
