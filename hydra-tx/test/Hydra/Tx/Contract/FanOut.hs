@@ -145,9 +145,11 @@ healthyFanoutTxWithWalletChange =
       ReferenceScriptNone
   walletVk = generateWith genVerificationKey 99
 
+-- | At least four entries: 'fanoutTxWithOverlappingSets' needs a shared entry
+-- plus one of its own for each of two groups, and picks them by position.
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
-  UTxO.map adaOnly $ generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> UTxO.size u > 1) 42
+  UTxO.map adaOnly $ generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> UTxO.size u > 3) 42
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42

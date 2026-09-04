@@ -39,7 +39,7 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
   bls12_381_G1_uncompress,
@@ -136,10 +136,7 @@ buildFromSnapshotUTxOs ::
   -- | The resulting accumulator containing all UTxOs
   HydraAccumulator
 buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
-  buildFromUTxO @tx $
-    utxo
-      <> fromMaybe mempty mUtxoToCommit
-      <> fromMaybe mempty mUtxoToDecommit
+  buildFromUTxO @tx $ combinedUTxO utxo mUtxoToCommit mUtxoToDecommit
 
 -- | Update an accumulator from one snapshot's combined UTxO set to the next
 -- by adding and removing only the changed outputs, avoiding the per-output

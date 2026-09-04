@@ -39,6 +39,7 @@ import Hydra.Chain.Direct.State (
   HasKnownUTxO (..),
   HydraContext (..),
   OpenState (..),
+  PartialFanoutError,
   close,
   contest,
   decrement,
@@ -46,7 +47,8 @@ import Hydra.Chain.Direct.State (
   finalPartialFanout,
   increment,
   initialize,
-  partialFanout,
+  partialFanoutFromPlan,
+  preparePartialFanout,
  )
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -956,6 +958,32 @@ unsafeFanout ::
   Tx
 unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo =
   either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo
+
+-- | Construct a partial fanout transaction that distributes a subset of UTxOs:
+-- 'preparePartialFanout' followed by 'partialFanoutFromPlan'.
+--
+-- Only for tests and benchmarks. Production code searches for a chunk size by
+-- building several candidates for one head, so it prepares the plan once and
+-- reuses it — that is where the per-step accumulator work lives, and doing it
+-- per candidate is the cost 'findFittingFanoutTx' exists to avoid.
+partialFanout ::
+  ChainContext ->
+  -- | Spendable UTxO containing head output
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Number of UTxOs to distribute in this step
+  Int ->
+  -- | UTxO used to verify the on-chain accumulator commitment
+  UTxO ->
+  -- | Remaining UTxOs to distribute (will be split into distribute + new remaining)
+  UTxO ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  Either PartialFanoutError Tx
+partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
+  plan <- preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO
+  partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo
 
 unsafePartialFanout ::
   HasCallStack =>

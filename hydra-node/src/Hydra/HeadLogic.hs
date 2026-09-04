@@ -88,6 +88,7 @@ import Hydra.Tx (
   IsTx (..),
   TxIdType,
   UTxOType,
+  combinedUTxO,
   txId,
   utxoFromTx,
   withoutUTxO,
@@ -1667,9 +1668,7 @@ fanoutUTxOFromSnapshot ::
   SnapshotVersion ->
   UTxOType tx
 fanoutUTxOFromSnapshot confirmedSnapshot version =
-  utxo
-    <> fromMaybe mempty effectiveCommit
-    <> fromMaybe mempty effectiveDecommit
+  combinedUTxO utxo effectiveCommit effectiveDecommit
  where
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
   (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit

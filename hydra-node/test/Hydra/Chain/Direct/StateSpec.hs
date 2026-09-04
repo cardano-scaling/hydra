@@ -52,7 +52,6 @@ import Hydra.Chain.Direct.State (
   increment,
   initialChainState,
   initialize,
-  partialFanout,
   recover,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
@@ -109,6 +108,7 @@ import Test.Hydra.Chain.Direct.State (
   genPartialFanoutTxWithComplexUTxO,
   genRecoverTx,
   maxGenParties,
+  partialFanout,
   pickChainContext,
   unsafeIncrement,
   unsafePartialFanout,

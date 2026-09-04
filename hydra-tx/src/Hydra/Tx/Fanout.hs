@@ -11,23 +11,13 @@ import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.HeadId (HeadId)
+import Hydra.Tx.IsTx (combinedUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 
 -- * Creation
-
--- | The outputs a full fanout distributes: the snapshot UTxO together with any
--- pending commit or decommit.
---
--- This is the set 'fanoutTx' counts in its redeemer and proves membership for,
--- so a caller deciding whether a full fanout is worth building at all has to
--- count this same set. Exported so that decision cannot drift from the union
--- used here.
-fanoutOutputs :: UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO
-fanoutOutputs utxo utxoToCommit utxoToDecommit =
-  utxo <> fold utxoToCommit <> fold utxoToDecommit
 
 -- | Create the fanout transaction, which distributes the closed state
 -- accordingly. The head validator allows fanout only > deadline, so we need
@@ -87,7 +77,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
   -- membership proof against the first 'numberOfFanoutOutputs' outputs, so the
   -- count, the proof and the outputs all have to describe the same set; taking
   -- all three from here is what keeps them from drifting.
-  allToFanout = fanoutOutputs utxo utxoToCommit utxoToDecommit
+  allToFanout = combinedUTxO utxo utxoToCommit utxoToDecommit
 
   headRedeemer proof =
     toScriptData $

@@ -57,7 +57,6 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   initialChainState,
   initialize,
-  partialFanout,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
@@ -79,6 +78,7 @@ import Test.Hydra.Chain.Direct.State (
   genDepositTx,
   genDepositTxWith,
   genHydraContext,
+  partialFanout,
   pickChainContext,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
@@ -444,9 +444,9 @@ spec = do
     prop "result matches real Cardano protocol size limit and evaluateTx" $
       forAll arbitrary $ \tx -> monadicIO $ do
         let txBytes = BS.length (serialiseToCBOR tx)
-            sizeOk = fromIntegral txBytes <= maxTxSize
+            sizeOk = withinSizeLimits tx
             sizeCheck :: Tx -> IO Bool
-            sizeCheck t = pure $ fromIntegral (BS.length (serialiseToCBOR t)) <= maxTxSize
+            sizeCheck = pure . withinSizeLimits
             evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
             evalCosts t u = pure $ evaluateTx t u
             evalResult = evaluateTx tx mempty
@@ -571,18 +571,7 @@ spec = do
           monadicIO $ do
             -- Wallet always rejects on size → fits always returns False for every chunk
             -- → findLargestFitting returns Nothing → FailedToConstructPartialFanoutTx
-            let wallet =
-                  TinyWallet
-                    { getUTxO = pure mempty
-                    , getSeedInput = pure Nothing
-                    , sign = id
-                    , coverFee = \_ tx -> pure (Right tx)
-                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
-                    , isTxWithinSizeLimits = \_ -> pure False
-                    , getPParams = pure defaultPParams
-                    , reset = pure ()
-                    , update = \_ _ -> pure ()
-                    }
+            let wallet = permissiveWallet{isTxWithinSizeLimits = \_ -> pure False}
             run $
               findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing u0 u0 (UTxO.size u0 - 1) deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
@@ -596,19 +585,11 @@ spec = do
             -- all subsequent calls (for binary-search partial-fanout candidates) return True.
             isFirst <- run $ newIORef True
             let wallet =
-                  TinyWallet
-                    { getUTxO = pure mempty
-                    , getSeedInput = pure Nothing
-                    , sign = id
-                    , coverFee = \_ tx -> pure (Right tx)
-                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
-                    , isTxWithinSizeLimits = \_ -> do
+                  permissiveWallet
+                    { isTxWithinSizeLimits = \_ -> do
                         first' <- readIORef isFirst
                         writeIORef isFirst False
                         pure (not first')
-                    , getPParams = pure defaultPParams
-                    , reset = pure ()
-                    , update = \_ _ -> pure ()
                     }
             -- Any exception thrown here will fail the test automatically.
             _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
@@ -781,18 +762,11 @@ chunkSizeOf tx = length (txOuts' tx) - 1
 -- makes the count worth bounding.
 countingWallet :: IORef Int -> TinyWallet IO
 countingWallet counter =
-  TinyWallet
-    { getUTxO = pure mempty
-    , getSeedInput = pure Nothing
-    , sign = id
-    , coverFee = \_ tx -> pure (Right tx)
-    , evaluateScriptCosts = \tx utxo -> pure (evaluateTx tx utxo)
+  permissiveWallet
+    { evaluateScriptCosts = \tx utxo -> pure (evaluateTx tx utxo)
     , isTxWithinSizeLimits = \tx -> do
         modifyIORef' counter (+ 1)
         pure (withinSizeLimits tx)
-    , getPParams = pure defaultPParams
-    , reset = pure ()
-    , update = \_ _ -> pure ()
     }
 
 -- | Run the chunk search against a closed head, returning how many candidate

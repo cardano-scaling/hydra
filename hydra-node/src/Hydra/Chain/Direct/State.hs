@@ -711,30 +711,6 @@ partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo = do
 
   ChainContext{scriptRegistry} = ctx
 
--- | Construct a partial fanout transaction that distributes a subset of UTxOs.
---
--- 'preparePartialFanout' followed by 'partialFanoutFromPlan'. Callers building
--- more than one candidate for the same head should use those directly and keep
--- the plan, which is where the per-step accumulator work lives.
-partialFanout ::
-  ChainContext ->
-  -- | Spendable UTxO containing head output
-  UTxO ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | Number of UTxOs to distribute in this step
-  Int ->
-  -- | UTxO used to verify the on-chain accumulator commitment
-  UTxO ->
-  -- | Remaining UTxOs to distribute (will be split into distribute + new remaining)
-  UTxO ->
-  -- | Contestation deadline as SlotNo
-  SlotNo ->
-  Either PartialFanoutError Tx
-partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
-  plan <- preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO
-  partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo
-
 -- | Construct the final partial fanout transaction that distributes all remaining
 -- UTxOs and burns all head tokens. Reads FanoutProgressDatum from the head output.
 finalPartialFanout ::

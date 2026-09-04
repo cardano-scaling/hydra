@@ -108,7 +108,7 @@ import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
-import Hydra.Tx.Fanout (fanoutOutputs)
+import Hydra.Tx.IsTx (combinedUTxO)
 import Hydra.Tx.Observe (
   CloseObservation (..),
   ContestObservation (..),
@@ -210,10 +210,10 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            -- 'fanoutOutputs' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
+            -- 'combinedUTxO' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
             -- redeemer and proves membership for, so its size is the exact gate
             -- on whether that transaction is worth building.
-            let fullUTxO = fanoutOutputs utxo utxoToCommit utxoToDecommit
+            let fullUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit
                 preferred
                   | canBeVerifiedOnChain (UTxO.size fullUTxO) =
                       rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot

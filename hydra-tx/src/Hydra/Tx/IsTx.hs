@@ -119,6 +119,17 @@ class
   -- This serializes the TxOut in the same way as the on-chain code does.
   utxoToElement :: TxOutType tx -> ByteString
 
+-- | A snapshot's UTxO together with its pending commit and decommit, if any.
+--
+-- The single definition of that union. Snapshot signing, the accumulator built
+-- from a snapshot and the membership proof a fanout carries all have to describe
+-- the same element set — when two of them disagree a fanout fails on chain with
+-- @FanoutUTxOHashMismatch@ — so they take the union from here rather than each
+-- spelling it out.
+combinedUTxO :: Monoid a => a -> Maybe a -> Maybe a -> a
+combinedUTxO utxo utxoToCommit utxoToDecommit =
+  utxo <> fold utxoToCommit <> fold utxoToDecommit
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
