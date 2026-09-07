@@ -6,66 +6,6 @@
 @package hydra-prelude
 @version 2.4.1
 
-
--- | Generic derivation of <a>ToCBOR</a> / <a>FromCBOR</a> instances in the
---   constructor-name-tagged format used for hydra-node persistence and API
---   messages.
---   
---   The encoding of a value is the constructor name as a CBOR text string,
---   followed by the encodings of the constructor fields in declaration
---   order, concatenated without any list framing:
---   
---   <pre>
---   toCBOR (<a>ConstructorName</a> :: Text) &lt;&gt; toCBOR field1 &lt;&gt; toCBOR field2 &lt;&gt; ...
---   </pre>
---   
---   Every constructor is tagged, including the single constructor of
---   records and newtypes. Tagging by name (instead of by declaration index
---   like the <tt>serialise</tt> package) means adding or reordering
---   constructors does not change the encoding of existing data; removing
---   or renaming a constructor, or changing the order or type of its
---   fields, does and requires a migration of persisted data.
---   
---   Since the field encodings come from the data type declaration, the
---   declaration itself becomes the wire format: reordering record fields
---   is a format change that the type checker will not flag. Golden tests
---   (see <a>CBORSpec</a> in hydra-node) are the guard against that.
---   
---   Decoding fails with <tt>"&lt;tag&gt;" is not a proper CBOR-encoded
---   &lt;TypeName&gt;</tt> when the decoded tag matches no constructor.
-module Hydra.CBOR.Generic
-
--- | Encode a value in the constructor-name-tagged CBOR format:
---   
---   <pre>
---   instance ToCBOR MyType where
---     toCBOR = genericToCBOR
---   </pre>
-genericToCBOR :: (Generic a, GToCBOR (Rep a)) => a -> Encoding
-
--- | Decode a value from the constructor-name-tagged CBOR format produced
---   by <a>genericToCBOR</a>:
---   
---   <pre>
---   instance FromCBOR MyType where
---     fromCBOR = genericFromCBOR
---   </pre>
-genericFromCBOR :: (Generic a, GFromCBOR (Rep a)) => Decoder s a
-instance forall k (name :: GHC.Types.Symbol) (f :: k -> *) (fixity :: GHC.Generics.FixityI) (hasSelectors :: GHC.Types.Bool). (GHC.TypeLits.KnownSymbol name, Hydra.CBOR.Generic.GFieldsFromCBOR f) => Hydra.CBOR.Generic.GConsFromCBOR (GHC.Generics.C1 ('GHC.Generics.MetaCons name fixity hasSelectors) f)
-instance Hydra.CBOR.Generic.GFieldsFromCBOR GHC.Generics.U1
-instance forall k (f :: k -> *) (g :: k -> *). (Hydra.CBOR.Generic.GFieldsFromCBOR f, Hydra.CBOR.Generic.GFieldsFromCBOR g) => Hydra.CBOR.Generic.GFieldsFromCBOR (f GHC.Generics.:*: g)
-instance forall k (f :: k -> *) (meta :: GHC.Generics.Meta). Hydra.CBOR.Generic.GFieldsFromCBOR f => Hydra.CBOR.Generic.GFieldsFromCBOR (GHC.Generics.S1 meta f)
-instance Cardano.Binary.FromCBOR.FromCBOR a => Hydra.CBOR.Generic.GFieldsFromCBOR (GHC.Generics.K1 i a)
-instance forall k (typeName :: GHC.Types.Symbol) (f :: k -> *) (moduleName :: GHC.Types.Symbol) (package :: GHC.Types.Symbol) (isNewtype :: GHC.Types.Bool). (GHC.TypeLits.KnownSymbol typeName, Hydra.CBOR.Generic.GConsFromCBOR f) => Hydra.CBOR.Generic.GFromCBOR (GHC.Generics.D1 ('GHC.Generics.MetaData typeName moduleName package isNewtype) f)
-instance forall k (f :: k -> *) (g :: k -> *). (Hydra.CBOR.Generic.GConsFromCBOR f, Hydra.CBOR.Generic.GConsFromCBOR g) => Hydra.CBOR.Generic.GConsFromCBOR (f GHC.Generics.:+: g)
-instance forall k (name :: GHC.Types.Symbol) (f :: k -> *) (fixity :: GHC.Generics.FixityI) (hasSelectors :: GHC.Types.Bool). (GHC.TypeLits.KnownSymbol name, Hydra.CBOR.Generic.GFieldsToCBOR f) => Hydra.CBOR.Generic.GToCBOR (GHC.Generics.C1 ('GHC.Generics.MetaCons name fixity hasSelectors) f)
-instance Hydra.CBOR.Generic.GFieldsToCBOR GHC.Generics.U1
-instance forall k (f :: k -> *) (g :: k -> *). (Hydra.CBOR.Generic.GFieldsToCBOR f, Hydra.CBOR.Generic.GFieldsToCBOR g) => Hydra.CBOR.Generic.GFieldsToCBOR (f GHC.Generics.:*: g)
-instance forall k (f :: k -> *) (meta :: GHC.Generics.Meta). Hydra.CBOR.Generic.GFieldsToCBOR f => Hydra.CBOR.Generic.GFieldsToCBOR (GHC.Generics.S1 meta f)
-instance Cardano.Binary.ToCBOR.ToCBOR a => Hydra.CBOR.Generic.GFieldsToCBOR (GHC.Generics.K1 i a)
-instance forall k (f :: k -> *) (meta :: GHC.Generics.Meta). Hydra.CBOR.Generic.GToCBOR f => Hydra.CBOR.Generic.GToCBOR (GHC.Generics.D1 meta f)
-instance forall k (f :: k -> *) (g :: k -> *). (Hydra.CBOR.Generic.GToCBOR f, Hydra.CBOR.Generic.GToCBOR g) => Hydra.CBOR.Generic.GToCBOR (f GHC.Generics.:+: g)
-
 module Hydra.Prelude
 
 -- | A fixed-precision integer type with at least the range <tt>[-2^29 ..
@@ -3671,6 +3611,7 @@ lift :: (MonadTrans t, Monad m) => m a -> t m a
 -- | The trivial monad transformer, which maps a monad to an equivalent
 --   monad.
 data () => IdentityT (f :: k -> Type) (a :: k)
+data () => UnicodeException
 type family OneItem x
 data () => Undefined
 Undefined :: Undefined
@@ -3695,7 +3636,6 @@ class Eq a => Hashable a
 hashWithSalt :: Hashable a => Int -> a -> Int
 type OnDecodeError = OnError Word8 Char
 type OnError a b = String -> Maybe a -> Maybe b
-data () => UnicodeException
 data () => HashMap k v
 data () => HashSet a
 pattern Exc :: Exception e => e -> SomeException
@@ -7229,6 +7169,8 @@ maybeToExceptT :: forall (m :: Type -> Type) e a. Functor m => e -> MaybeT m a -
 -- | Convert a <a>ExceptT</a> computation to <a>MaybeT</a>, discarding the
 --   value of any exception.
 exceptToMaybeT :: forall (m :: Type -> Type) e a. Functor m => ExceptT e m a -> MaybeT m a
+decodeUtf8' :: ByteString -> Either UnicodeException Text
+strictDecode :: OnDecodeError
 appliedTo :: Applicative f => f a -> f (a -> b) -> f b
 (&&^) :: Monad m => m Bool -> m Bool -> m Bool
 guardM :: MonadPlus m => m Bool -> m ()
@@ -7327,10 +7269,8 @@ putLTextLn :: MonadIO m => LText -> m ()
 putText :: MonadIO m => Text -> m ()
 putTextLn :: MonadIO m => Text -> m ()
 fromLazy :: LazyStrict l s => l -> s
-decodeUtf8' :: ByteString -> Either UnicodeException Text
 decodeUtf8With :: OnDecodeError -> ByteString -> Text
 lenientDecode :: OnDecodeError
-strictDecode :: OnDecodeError
 class MonadSTM m => MonadLabelledSTM (m :: Type -> Type)
 class (Monad m, Monad STM m) => MonadSTM (m :: Type -> Type)
 type family STM (m :: Type -> Type) = (stm :: Type -> Type) | stm -> m
@@ -7447,22 +7387,7 @@ class Typeable a => ToCBOR a
 toCBOR :: ToCBOR a => a -> Encoding
 encodedSizeExpr :: ToCBOR a => (forall t. ToCBOR t => Proxy t -> Size) -> Proxy a -> Size
 encodedListSizeExpr :: ToCBOR a => (forall t. ToCBOR t => Proxy t -> Size) -> Proxy [a] -> Size
-
--- | Encode a value in the constructor-name-tagged CBOR format:
---   
---   <pre>
---   instance ToCBOR MyType where
---     toCBOR = genericToCBOR
---   </pre>
 genericToCBOR :: (Generic a, GToCBOR (Rep a)) => a -> Encoding
-
--- | Decode a value from the constructor-name-tagged CBOR format produced
---   by <a>genericToCBOR</a>:
---   
---   <pre>
---   instance FromCBOR MyType where
---     fromCBOR = genericFromCBOR
---   </pre>
 genericFromCBOR :: (Generic a, GFromCBOR (Rep a)) => Decoder s a
 class () => FromJSON a
 parseJSON :: FromJSON a => Value -> Parser a
@@ -7528,9 +7453,9 @@ spy :: Show a => a -> a
 
 -- | <i>Warning: Use for debugging purposes only</i>
 spy' :: Show a => String -> a -> a
-newLabelledTVar :: MonadLabelledSTM m => String -> a -> STM m (TVar m a)
+newLabelledTVar :: forall (m :: Type -> Type) a. MonadLabelledSTM m => String -> a -> STM m (TVar m a)
 newLabelledTVarIO :: MonadLabelledSTM m => String -> a -> m (TVar m a)
-newLabelledEmptyTMVar :: MonadLabelledSTM m => String -> STM m (TMVar m a)
+newLabelledEmptyTMVar :: forall (m :: Type -> Type) a. MonadLabelledSTM m => String -> STM m (TMVar m a)
 newLabelledTQueueIO :: MonadLabelledSTM m => String -> m (TQueue m a)
 newLabelledEmptyTMVarIO :: MonadLabelledSTM m => String -> m (TMVar m a)
 concurrentlyLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (a, b)
@@ -7539,8 +7464,8 @@ asyncLabelled :: MonadAsync m => String -> m a -> m (Async m a)
 raceLabelled :: MonadAsync m => (String, m a) -> (String, m b) -> m (Either a b)
 raceLabelled_ :: MonadAsync m => (String, m a) -> (String, m b) -> m ()
 withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
-newLabelledTQueue :: MonadLabelledSTM m => String -> STM m (TQueue m a)
-newLabelledTBQueue :: MonadLabelledSTM m => String -> Natural -> STM m (TBQueue m a)
+newLabelledTQueue :: forall (m :: Type -> Type) a. MonadLabelledSTM m => String -> STM m (TQueue m a)
+newLabelledTBQueue :: forall (m :: Type -> Type) a. MonadLabelledSTM m => String -> Natural -> STM m (TBQueue m a)
 newLabelledTBQueueIO :: MonadLabelledSTM m => String -> Natural -> m (TBQueue m a)
 instance Cardano.Binary.ToCBOR.ToCBOR Data.Time.Clock.Internal.NominalDiffTime.NominalDiffTime
 instance Cardano.Binary.FromCBOR.FromCBOR Data.Time.Clock.Internal.NominalDiffTime.NominalDiffTime

@@ -440,8 +440,8 @@ spec :: Spec
 -- | Tests of the <tt>PersistentQueue</tt>.
 module Hydra.PersistentQueueSpec
 spec :: Spec
-isDeleteFailed :: EtcdLog -> Bool
-isLoadFailed :: EtcdLog -> Bool
+isDeleteFailed :: PersistentQueueLog -> Bool
+isLoadFailed :: PersistentQueueLog -> Bool
 shouldNotBlock :: HasCallStack => IO a -> IO a
 shouldNotBlock_ :: HasCallStack => IO a -> IO ()
 
@@ -509,7 +509,7 @@ waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b)
 -- | Create a tracer that captures all messages and a function to retrieve
 --   all traces captured. XXX: This is duplicated in MithrilSpec in
 --   hydra-cluster, but can't (easily) be moved to the Test Prelude because
---   of the dependency on Hydra.Logging.
+--   of the dependency on Control.Tracer.JSON.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 
 -- | Check a UTxO for thunks, descending via constructors so that GADT
@@ -876,7 +876,7 @@ instance GHC.Show.Show Hydra.Events.RotationSpec.TrivialEvent
 instance GHC.Num.Num Hydra.Events.RotationSpec.TrivialEvent
 instance GHC.Show.Show Hydra.Events.RotationSpec.ChunkedEvents
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Events.RotationSpec.ChunkedEvents
-instance Hydra.Events.HasEventId Hydra.Events.RotationSpec.TrivialEvent
+instance Data.EventSource.HasEventId Hydra.Events.RotationSpec.TrivialEvent
 
 module Hydra.Logging.MonitoringSpec
 spec :: Spec
@@ -906,7 +906,7 @@ matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
 
 
 -- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
---   in <a>SQLiteBased</a>.
+--   in <a>SQLite</a>.
 module Hydra.Events.SQLiteBasedSpec
 spec :: Spec
 

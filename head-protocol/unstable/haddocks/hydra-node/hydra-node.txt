@@ -1143,68 +1143,6 @@ buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> 
 instance GHC.Show.Show Hydra.Chain.ScriptRegistry.PublishScriptException
 instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 
-
--- | This module defines the types and functions for creating
---   <a>EventSource</a> and <a>EventSink</a> instances and is intended to
---   be used as an extension point.
---   
---   A single <a>EventSource</a> and zero or more <a>EventSink</a> handles
---   are used by the main <tt>HydraNode</tt> handle to load and send out
---   events.
---   
---   See <a>SQLiteBased</a> for the default implementation and
---   <a>SQLiteBasedSpec</a> for the corresponding test suite.
---   
---   Custom implementations should be located under Hydra.Events to avoid
---   conflicts.
-module Hydra.Events
-type EventId = Word64
-class HasEventId a
-getEventId :: HasEventId a => a -> EventId
-newtype EventSource e m
-EventSource :: (HasEventId e => ConduitT () e (ResourceT m) ()) -> EventSource e m
-
--- | Stream all events from the event source.
-[$sel:sourceEvents:EventSource] :: EventSource e m -> HasEventId e => ConduitT () e (ResourceT m) ()
-
--- | Retrieve all events from the event source as a list.
-getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
-data EventSink e m
-EventSink :: (HasEventId e => e -> m ()) -> (HasEventId e => [e] -> m ()) -> EventSink e m
-
--- | Send a single event to the event sink.
-[$sel:putEvent:EventSink] :: EventSink e m -> HasEventId e => e -> m ()
-
--- | Send a batch of events to the event sink.
-[$sel:putEvents:EventSink] :: EventSink e m -> HasEventId e => [e] -> m ()
-
--- | Create an <a>EventSink</a> from a single-event function, with a
---   default sequential batch implementation.
-mkEventSink :: Monad m => (HasEventId e => e -> m ()) -> EventSink e m
-
--- | Put a list of events to a list of event sinks, batching per sink.
-putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
-instance Hydra.Events.HasEventId GHC.Word.Word64
-
-module Hydra.Events.Rotation
-newtype RotationConfig
-RotateAfter :: Positive Natural -> RotationConfig
-type LogId = EventId
-
--- | An EventSource and EventSink combined
-data EventStore e m
-EventStore :: EventSource e m -> EventSink e m -> (LogId -> e -> m ()) -> EventStore e m
-[$sel:eventSource:EventStore] :: EventStore e m -> EventSource e m
-[$sel:eventSink:EventStore] :: EventStore e m -> EventSink e m
-
--- | Rotate existing events into a given log id and start a new log from
---   given e.
-[$sel:rotate:EventStore] :: EventStore e m -> LogId -> e -> m ()
-
--- | Creates an event store that rotates according to given config and
---   <tt>StateAggregate</tt>.
-newRotatedEventStore :: (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) => RotationConfig -> s -> (s -> e -> s) -> (s -> EventId -> UTCTime -> e) -> EventStore e m -> m (EventStore e m)
-
 module Hydra.HeadLogic.State
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -1536,347 +1474,6 @@ data () => LedgerEnv era
 type Tx = Tx Era
 
 
--- | A mock implementation of a ledger using very simple UTxO transactions.
---   
---   These transactions have a very simplified representation of unspent
---   transaction outputs being just integers, but already have inputs and
---   outputs. Transactions are validated against the current state of the
---   ledger, so that one transaction could at some point be invalid, then
---   becomes valid because some inputs it consumes are now available.
---   
---   NOTE: There is no notion of time in this ledger, so transactions
---   validation will never depend on the L1 slot.
-module Hydra.Ledger.Simple
-type SimpleId = Integer
-
--- | Simple transaction. A transaction is a <a>SimpleId</a>, a list of
---   inputs and a list of outputs, and it has no time validity.
-data SimpleTx
-SimpleTx :: SimpleId -> UTxOType SimpleTx -> UTxOType SimpleTx -> SimpleTx
-[$sel:txSimpleId:SimpleTx] :: SimpleTx -> SimpleId
-[$sel:txInputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
-[$sel:txOutputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
-
--- | A single output of a <a>SimpleTx</a> having an integer identity and
---   sole value.
-newtype SimpleTxOut
-SimpleTxOut :: Integer -> SimpleTxOut
-[$sel:unSimpleTxOut:SimpleTxOut] :: SimpleTxOut -> Integer
-newtype SimpleChainState
-SimpleChainState :: ChainSlot -> SimpleChainState
-[$sel:slot:SimpleChainState] :: SimpleChainState -> ChainSlot
-simpleLedger :: Ledger SimpleTx
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTx
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTx
-instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTx
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTxOut
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Num.Num Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Num.Num Hydra.Ledger.Simple.SimpleChainState
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleChainState
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleChainState
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleChainState
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleChainState
-instance Hydra.Chain.ChainState.IsChainState Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTxOut
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTxOut
-instance Hydra.Tx.IsTx.IsTx Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTx
-
-
--- | Adapter module to the actual logging framework. All Hydra node
---   components implements <i>Structured logging</i> via
---   <a>contra-tracer</a> generic logging framework. All logs are output in
---   <a>JSON</a>.
-module Hydra.Logging
-newtype () => Tracer (m :: Type -> Type) a
-Tracer :: (a -> m ()) -> Tracer (m :: Type -> Type) a
-[runTracer] :: Tracer (m :: Type -> Type) a -> a -> m ()
-natTracer :: (forall x. () => m x -> n x) -> Tracer m s -> Tracer n s
-nullTracer :: forall (m :: Type -> Type) a. Applicative m => Tracer m a
-traceWith :: Tracer m a -> a -> m ()
-class () => ToObject a
-toObject :: ToObject a => TracingVerbosity -> a -> Object
-textTransformer :: ToObject a => a -> Object -> Text
-data () => TracingVerbosity
-MinimalVerbosity :: TracingVerbosity
-NormalVerbosity :: TracingVerbosity
-MaximalVerbosity :: TracingVerbosity
-data Verbosity
-Quiet :: Verbosity
-Verbose :: Text -> Verbosity
-
--- | Provides logging metadata for entries.
-data Envelope a
-Envelope :: UTCTime -> Int -> Text -> a -> Envelope a
-[$sel:timestamp:Envelope] :: Envelope a -> UTCTime
-[$sel:threadId:Envelope] :: Envelope a -> Int
-[$sel:namespace:Envelope] :: Envelope a -> Text
-[$sel:message:Envelope] :: Envelope a -> a
-
--- | Buffering used for log output. The writer batches whatever the queue
---   holds and flushes each batch, so this bounds the syscalls rather than
---   the latency.
-defaultLogBuffering :: BufferMode
-
--- | Start logging thread and acquire a <a>Tracer</a>. This tracer will
---   dump all messages on <tt>stdout</tt>, one message per line, formatted
---   as JSON. This tracer is wrapping <tt>msg</tt> into an <a>Envelope</a>
---   with metadata.
-withTracer :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => Verbosity -> (Tracer m msg -> IO a) -> IO a
-
--- | Start logging thread acquiring a <a>Tracer</a>, outputting JSON
---   formatted messages to some <a>Handle</a>. This tracer is wrapping
---   <tt>msg</tt> into an <a>Envelope</a> with metadata.
-withTracerOutputTo :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => BufferMode -> Handle -> Text -> (Tracer m msg -> IO a) -> IO a
-
--- | Capture logs and output them to stdout when an exception was raised by
---   the given <tt>action</tt>. This tracer is wrapping <tt>msg</tt> into
---   an <a>Envelope</a> with metadata.
-showLogsOnFailure :: (MonadLabelledSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) => Text -> (Tracer m msg -> m a) -> m a
-traceInTVar :: (MonadFork m, MonadTime m, MonadSTM m) => TVar m [Envelope msg] -> Text -> Tracer m msg
-contramap :: Contravariant f => (a' -> a) -> f a -> f a'
-mkEnvelope :: (MonadFork m, MonadTime m) => Text -> msg -> m (Envelope msg)
-defaultQueueSize :: Natural
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Logging.Verbosity
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Logging.Verbosity
-instance GHC.Generics.Generic Hydra.Logging.Verbosity
-instance GHC.Show.Show Hydra.Logging.Verbosity
-instance GHC.Classes.Eq Hydra.Logging.Verbosity
-instance GHC.Generics.Generic (Hydra.Logging.Envelope a)
-instance GHC.Show.Show a => GHC.Show.Show (Hydra.Logging.Envelope a)
-instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Logging.Envelope a)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Envelope a)
-
-
--- | A SQLite-backed event source and sink.
---   
---   This is the recommended persistence backend for new deployments. See
---   <a>withSQLiteEventStore</a> which handles migration from the legacy
---   file-based store automatically.
---   
---   <h2>Architecture</h2>
---   
---   Events are stored in a single <tt>events</tt> table with an integer
---   primary key (<tt>event_id</tt>) and a BLOB column
---   (<tt>event_data</tt>) containing CBOR-encoded event data (via
---   <a>ToCBOR</a> / <a>FromCBOR</a>). The database uses WAL journal mode
---   with <tt>synchronous=NORMAL</tt> to avoid per-write fsyncs while still
---   syncing at WAL checkpoints.
---   
---   <h2>Schema migrations</h2>
---   
---   The schema version is tracked in <tt>PRAGMA user_version</tt> and
---   migrated on open (see <a>applyMigrations</a>). Version 1 stored event
---   data as JSON; opening a version 1 database re-encodes every row to
---   CBOR in one transaction and runs <tt>VACUUM</tt> afterwards to reclaim
---   the freed space. A row that fails to decode aborts the migration (and
---   thereby node startup) with <a>EventDecodingException</a>, rolling back
---   to an intact version 1 database. The legacy file-based store (JSON
---   lines) is migrated by decoding each line as JSON and inserting CBOR.
---   
---   <h2>Async write-behind</h2>
---   
---   To keep persistence off the hot path, writes use an async write-behind
---   strategy. <a>$sel:putEvent:EventSink</a> and
---   <a>$sel:putEvents:EventSink</a> encode events eagerly to strict
---   <a>ByteString</a> and enqueue them into a bounded <a>TBQueue</a>. A
---   background writer thread drains the queue and batch-inserts rows using
---   <a>executeMany</a> inside a single transaction, amortising WAL frame
---   writes across multiple events.
---   
---   The last-seen event id <a>TVar</a> is updated atomically at enqueue
---   time (not write time), so de-duplication and source-of-truth tracking
---   remain correct even though the physical write is deferred.
---   
---   All SQLite writes go through the single writer thread, preventing
---   concurrent access races. Operations that need data flushed (rotation,
---   reads) use a flush marker: a <a>TMVar</a> is enqueued and the caller
---   blocks until the writer thread has processed all preceding items and
---   signalled it. <a>$sel:sourceEvents:EventSource</a> auto-flushes before
---   reading, so callers always see all enqueued events.
---   
---   <h2>Tradeoffs</h2>
---   
---   <ul>
---   <li><b>Writer thread crash surfacing</b>: The background writer is
---   <a>link</a>ed to the calling thread. If it dies (e.g. SQLite I/O
---   error), the exception propagates immediately rather than leaving the
---   node silently stalled. Use <a>withSQLiteEventStore</a> which handles
---   cleanup (flush + cancel) on exit.</li>
---   </ul>
---   
---   <ul>
---   <li><b>Data loss on hard crash</b>: Events in the queue that have not
---   yet been flushed to SQLite are lost on SIGKILL, OOM, or power loss.
---   This is acceptable because the L1 chain is the source of truth — the
---   node replays missed events from chain on restart.</li>
---   <li><b>Rotation ordering</b>: <a>$sel:rotate:EventStore</a> flushes
---   the write queue synchronously, archives the current database to
---   <tt>old-state/hydra-<a>logId</a>.db</tt> via <tt>VACUUM INTO</tt>,
---   then performs DELETE + INSERT. This is safe because rotation is only
---   called from the single-threaded event processing loop
---   (<tt>processStateChanges</tt>), so no concurrent enqueues can occur
---   between the flush and the rotation write. The archive is taken before
---   the DELETE, so a backup failure aborts rotation and leaves the events
---   intact.</li>
---   <li><b>Separate read connection</b>:
---   <a>$sel:sourceEvents:EventSource</a> streams over a dedicated
---   connection. It can run concurrently on API server threads (client
---   history replay), and <tt>VACUUM INTO</tt> fails with "SQL statements
---   in progress" if a streaming statement is open on the same connection
---   as the rotation. WAL mode makes readers on a separate connection
---   safe.</li>
---   </ul>
-module Hydra.Events.SQLiteBased
-
--- | Exception thrown when a persisted event cannot be decoded.
-data EventDecodingException
-EventDecodingException :: Word64 -> String -> EventDecodingException
-[$sel:eventId:EventDecodingException] :: EventDecodingException -> Word64
-[$sel:decodeError:EventDecodingException] :: EventDecodingException -> String
-data SQLiteLog
-MigratingFromFileBased :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-MigrationSkipped :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-MigrationComplete :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-
--- | Items in the write-behind queue: either an event to insert or a flush
---   marker that the writer thread signals after processing all preceding
---   items.
---   
---   Events are queued unencoded and CBOR-encoded on the writer thread: the
---   encoding of e.g. a SnapshotRequested event carrying a large UTxO
---   otherwise sits on the node loop between processing a ReqSn and
---   broadcasting the AckSn. The bounded queue briefly pins event values
---   instead of compact bytes, but the writer drains whole-queue batches so
---   the window is short.
-type WriteItem e = Either (TMVar IO ()) (Word64, e)
-
--- | Bracket-style wrapper around <a>mkSQLiteEventStore</a>. Creates the
---   database, schema, and writer thread, runs the callback, then flushes
---   queued writes and cancels the writer thread on exit. The writer thread
---   is <a>link</a>ed so that crashes surface immediately in the calling
---   thread.
---   
---   If a legacy state file exists at <tt>legacyStateFile</tt>, events are
---   migrated into SQLite automatically before the callback runs.
---   
---   Flushing of the async write queue and reinitialisation of the
---   last-seen event id are handled internally:
---   <a>$sel:sourceEvents:EventSource</a> auto-flushes before reading,
---   <a>$sel:rotate:EventStore</a> flushes before deleting, migration
---   reinitialises the event id TVar, and this bracket flushes on exit.
-withSQLiteEventStore :: forall e a. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => Tracer IO SQLiteLog -> FilePath -> FilePath -> (EventStore e IO -> IO a) -> IO a
-
--- | Create an <a>EventStore</a> backed by a SQLite database at the given
---   file path. The database and schema are created on first use if they do
---   not exist. Returns <tt>(conn, store, flush, reinitLastSeen,
---   cleanup)</tt>. Internal — prefer <a>withSQLiteEventStore</a> which
---   handles cleanup, migration, and flushing automatically.
-mkSQLiteEventStore :: forall e. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => FilePath -> IO (Connection, EventStore e IO, IO (), IO (), IO ())
-
--- | Background writer that drains the queue and batch-inserts into SQLite.
---   Each iteration blocks for at least one item, then flushes everything
---   available. Events are CBOR-encoded here, off the caller's thread, then
---   batch-inserted in a single transaction, and any flush markers in the
---   batch are signalled. Encode errors surface as writer thread crashes,
---   which are <a>link</a>ed to the node.
-writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
-
--- | Block until all items currently in the write queue have been flushed
---   to SQLite. Sends a flush marker through the queue and waits for the
---   writer thread to signal completion.
-flushWriteQueue :: TBQueue IO (WriteItem e) -> IO ()
-
--- | Migrate events from a legacy newline-delimited JSON file into SQLite.
---   Writes directly to the database, bypassing the async write queue
---   (migration runs at startup before the node processes inputs). After
---   inserting, calls <tt>reinitLastSeen</tt> to sync the in-memory event
---   id TVar with the database.
---   
---   Safe to call when the legacy file does not exist (no-op). Not safe to
---   re-run: duplicate event ids will cause a primary key constraint
---   violation.
---   
---   On success the legacy file is renamed to <tt><a>path</a>.migrated</tt>
---   so that subsequent node restarts skip the migration step
---   automatically.
-migrateFromFileBased :: forall e. (FromJSON e, ToCBOR e, HasEventId e) => Proxy e -> Tracer IO SQLiteLog -> FilePath -> Connection -> IO () -> IO ()
-
--- | Current schema version. Bump this and add a migration step to
---   <a>migrateStep</a> whenever the schema changes.
-nextVersion :: Int
-
--- | Re-encode a single event row given its event id and stored bytes, used
---   by the version 1 (JSON) to version 2 (CBOR) migration. Must throw when
---   the row cannot be decoded.
-type ReencodeRow = Word64 -> ByteString -> IO ByteString
-
--- | Initialise connection pragmas, then create or migrate the schema to
---   <a>nextVersion</a> using SQLite's built-in <tt>user_version</tt>
---   pragma.
-initSchema :: Connection -> ReencodeRow -> IO ()
-configurePragmas :: Connection -> IO ()
-
--- | Read the schema version from <tt>PRAGMA user_version</tt> (0 for a
---   fresh DB).
-getSchemaVersion :: Connection -> IO Int
-setSchemaVersion :: Connection -> Int -> IO ()
-
--- | Apply all pending migrations from version <tt>v</tt> up to
---   <a>nextVersion</a>. Each step runs together with its version bump in
---   one transaction (<tt>PRAGMA user_version</tt> is transactional), so a
---   crash or decoding failure mid-migration rolls back to a well-defined
---   version.
-applyMigrations :: Connection -> ReencodeRow -> Int -> IO ()
-
--- | Individual migration steps. Pattern-match on the <i>source</i>
---   version.
-migrateStep :: Connection -> ReencodeRow -> Int -> IO ()
-
--- | Re-encode all event rows using the given <a>ReencodeRow</a> function
---   (the version 1 JSON to version 2 CBOR migration). Rows are processed
---   in batches of ascending event id so memory stays bounded for large
---   databases. Runs inside the caller's transaction.
-reencodeAllEvents :: Connection -> ReencodeRow -> IO ()
-createEventsTable :: Connection -> IO ()
-selectLastEventId :: Connection -> IO [Only Word64]
-getEventsASC :: Connection -> IO Statement
-insertEvent :: Connection -> (Word64, ByteString) -> IO ()
-insertEvents :: Connection -> [(Word64, ByteString)] -> IO ()
-deleteAllEvents :: Connection -> IO ()
-
--- | Archive the current database before rotation removes the events, into
---   an <tt>old-state</tt> subdirectory next to the database, with the log
---   id inserted before the extension (e.g.
---   <tt>old-state/hydra-42.db</tt>). Uses <tt>VACUUM INTO</tt> so the
---   snapshot reflects all committed (WAL) data in a single self-contained
---   file, regardless of WAL checkpoint state. The destination is removed
---   first if present (e.g. a re-rotation at the same log id), since
---   <tt>VACUUM INTO</tt> requires it not to exist.
-backupDatabase :: Connection -> FilePath -> Word64 -> IO ()
-instance GHC.Show.Show Hydra.Events.SQLiteBased.EventDecodingException
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Generics.Generic Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Show.Show Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Classes.Eq Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Exception.Type.Exception Hydra.Events.SQLiteBased.EventDecodingException
-
-
 -- | Companion tiny-wallet for the direct chain component. This module
 --   provide some useful utilities to tracking the wallet's UTXO, and
 --   accessing it
@@ -1993,6 +1590,65 @@ instance GHC.Show.Show Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Generics.Generic Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Classes.Eq Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Wallet.TinyWalletLog
+
+
+-- | A mock implementation of a ledger using very simple UTxO transactions.
+--   
+--   These transactions have a very simplified representation of unspent
+--   transaction outputs being just integers, but already have inputs and
+--   outputs. Transactions are validated against the current state of the
+--   ledger, so that one transaction could at some point be invalid, then
+--   becomes valid because some inputs it consumes are now available.
+--   
+--   NOTE: There is no notion of time in this ledger, so transactions
+--   validation will never depend on the L1 slot.
+module Hydra.Ledger.Simple
+type SimpleId = Integer
+
+-- | Simple transaction. A transaction is a <a>SimpleId</a>, a list of
+--   inputs and a list of outputs, and it has no time validity.
+data SimpleTx
+SimpleTx :: SimpleId -> UTxOType SimpleTx -> UTxOType SimpleTx -> SimpleTx
+[$sel:txSimpleId:SimpleTx] :: SimpleTx -> SimpleId
+[$sel:txInputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
+[$sel:txOutputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
+
+-- | A single output of a <a>SimpleTx</a> having an integer identity and
+--   sole value.
+newtype SimpleTxOut
+SimpleTxOut :: Integer -> SimpleTxOut
+[$sel:unSimpleTxOut:SimpleTxOut] :: SimpleTxOut -> Integer
+newtype SimpleChainState
+SimpleChainState :: ChainSlot -> SimpleChainState
+[$sel:slot:SimpleChainState] :: SimpleChainState -> ChainSlot
+simpleLedger :: Ledger SimpleTx
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTx
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTx
+instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTx
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTxOut
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Num.Num Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Num.Num Hydra.Ledger.Simple.SimpleChainState
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleChainState
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleChainState
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleChainState
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleChainState
+instance Hydra.Chain.ChainState.IsChainState Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTxOut
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTxOut
+instance Hydra.Tx.IsTx.IsTx Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTx
 
 
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other
@@ -2665,61 +2321,9 @@ withGrpcContext :: MonadCatch m => Text -> m a -> m a
 --   if not stopped within 5 seconds.
 withProcessInterrupt :: (MonadIO m, MonadThrow m) => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
 
--- | Queue elements carry the item's CBOR serialization, produced once on
---   write and reused for both the on-disk file and the etcd value, so
---   broadcasting does not serialize twice.
-data PersistentQueue m a
-PersistentQueue :: TBQueue m (Natural, a, ByteString) -> TVar m Natural -> FilePath -> PersistentQueue m a
-[$sel:queue:PersistentQueue] :: PersistentQueue m a -> TBQueue m (Natural, a, ByteString)
-[$sel:nextIx:PersistentQueue] :: PersistentQueue m a -> TVar m Natural
-[$sel:directory:PersistentQueue] :: PersistentQueue m a -> FilePath
-
--- | Create a new persistent queue at file path and given capacity.
-newPersistentQueue :: (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) => Tracer IO EtcdLog -> FilePath -> Natural -> m (PersistentQueue m a)
-
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
-
--- | Get the next value from the queue without removing it, blocking if the
---   queue is empty.
-peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
-
--- | Like <a>peekPersistentQueue</a>, but returns <a>Nothing</a> instead of
---   blocking when the queue is empty.
-tryPeekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Maybe a)
-
--- | Get all pending values and their serializations, up to the given count
---   and total byte limits, blocking until at least one is available.
---   Values are not removed; use <a>popBatchPersistentQueue</a> after they
---   were sent.
-peekBatchPersistentQueue :: MonadSTM m => PersistentQueue m a -> Int -> Int -> m [(a, ByteString)]
-
--- | Get the batch to broadcast next: the batch already in flight if there
---   is one, otherwise a fresh one peeked from the queue (and recorded as
---   in flight). Returns <a>Nothing</a> when nothing is pending. The caller
---   must clear the in-flight var after popping a successfully sent batch.
---   
---   Pinning the in-flight batch across transient retries matters for the
---   compare-fail dedup in <a>putMessage</a>: a put can commit server-side
---   while the client sees e.g. <a>GrpcDeadlineExceeded</a>. The retry must
---   send (and afterwards pop) exactly the content of the committed
---   attempt. Re-peeking on retry could pick up messages enqueued in the
---   meantime; the dedup branch would then declare the grown batch
---   delivered and the never-sent tail would be popped and lost.
-nextPendingBatch :: MonadSTM m => TVar m (Maybe [(a, ByteString)]) -> PersistentQueue m a -> Int -> Int -> m (Maybe [(a, ByteString)])
-
--- | Remove a batch previously returned by <a>peekBatchPersistentQueue</a>.
---   Pops unconditionally, one item per batch entry: this thread is the
---   sole consumer, so the queue head still holds exactly the peeked items
---   (an item-matching guard could only silently no-op and wedge the queue,
---   see #2742).
-popBatchPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> [(a, ByteString)] -> m ()
-
--- | Delete the backing file of a popped queue item. Failing to delete is
---   traced but not fatal: the message was already broadcast, so a leftover
---   file only means it may be re-broadcast after a restart (at-least-once
---   delivery, same as the crash-recovery path).
-removeQueueFile :: MonadIO m => Tracer IO EtcdLog -> FilePath -> Natural -> m ()
+-- | Map the standalone queue's log events onto the node's etcd log, so the
+--   emitted JSON is unchanged by the extraction of <a>PersistentQueue</a>.
+fromPersistentQueueLog :: PersistentQueueLog -> EtcdLog
 data EtcdLog
 EtcdLog :: Value -> EtcdLog
 [$sel:etcd:EtcdLog] :: EtcdLog -> Value
@@ -3757,7 +3361,7 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogi
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Data.EventSource.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.StateEvent.StateEvent tx)
 

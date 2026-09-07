@@ -166,6 +166,184 @@ instance GHC.Show.Show Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Enum.Enum Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Num.Num Hydra.Tx.ContestationPeriod.ContestationPeriod
 
+
+-- | Hydra multi-signature credentials and cryptographic primitives used to
+--   sign and verify snapshots (or any messages) within the Hydra protocol.
+--   
+--   We are re-using the <a>Key</a> interface of 'cardano-api' for a
+--   consistent representation. For example: Cardano credentials are
+--   'VerificationKey PaymentKey', Hydra credentials are 'VerificationKey
+--   HydraKey'.
+--   
+--   Currently <a>MultiSignature</a> interface is only supporting naiive,
+--   concatenated multi-signatures and will change when we adopt aggregated
+--   multi-signatures including aggregate keys.
+module Hydra.Tx.Crypto
+class (Eq VerificationKey keyrole, Show VerificationKey keyrole, SerialiseAsRawBytes Hash keyrole, HasTextEnvelope VerificationKey keyrole, HasTextEnvelope SigningKey keyrole) => Key keyrole
+deterministicSigningKey :: Key keyrole => AsType keyrole -> Seed -> SigningKey keyrole
+deterministicSigningKeySeedSize :: Key keyrole => AsType keyrole -> Word
+verificationKeyHash :: Key keyrole => VerificationKey keyrole -> Hash keyrole
+data family Hash keyrole
+data family AsType t
+data family SigningKey keyrole
+data family VerificationKey keyrole
+
+-- | Polymorphic <a>getVerificationKey</a> that works on either a raw
+--   'SigningKey k' or a <a>Secret</a>-wrapped 'Secret (SigningKey k)'.
+--   This subsumes the cardano-api <a>Key</a> class method of the same name
+--   and is what <a>Crypto</a> re-exports. Callers can write
+--   <tt>getVerificationKey sk</tt> regardless of whether <tt>sk</tt> is
+--   wrapped.
+class HasVerificationKey s k | s -> k
+getVerificationKey :: HasVerificationKey s k => s -> VerificationKey k
+
+-- | Polymorphic <a>signTx</a> that accepts either a raw 'SigningKey
+--   PaymentKey' or a <a>Secret</a>-wrapped one. Production paths thread
+--   <a>Secret</a> here and benefit from the wrap-free call shape; tests
+--   can still pass raw keys.
+class CanSignTx s
+signTx :: CanSignTx s => s -> Tx -> Tx
+
+-- | Naiively aggregated multi-signatures.
+newtype MultiSignature (a :: Type)
+HydraMultiSignature :: [Signature a] -> MultiSignature (a :: Type)
+[$sel:multiSignature:HydraMultiSignature] :: MultiSignature (a :: Type) -> [Signature a]
+
+-- | Polymorphic <a>getVerificationKey</a> that works on either a raw
+--   'SigningKey k' or a <a>Secret</a>-wrapped 'Secret (SigningKey k)'.
+--   This subsumes the cardano-api <a>Key</a> class method of the same name
+--   and is what <a>Crypto</a> re-exports. Callers can write
+--   <tt>getVerificationKey sk</tt> regardless of whether <tt>sk</tt> is
+--   wrapped.
+class HasVerificationKey s k | s -> k
+getVerificationKey :: HasVerificationKey s k => s -> VerificationKey k
+
+-- | Polymorphic <a>signTx</a> that accepts either a raw 'SigningKey
+--   PaymentKey' or a <a>Secret</a>-wrapped one. Production paths thread
+--   <a>Secret</a> here and benefit from the wrap-free call shape; tests
+--   can still pass raw keys.
+class CanSignTx s
+signTx :: CanSignTx s => s -> Tx -> Tx
+
+-- | Hydra keys (keyrole) which can be used to <a>sign</a> and
+--   <a>verify</a> messages, as well as <a>aggregate</a> multi-signatures.
+data HydraKey
+
+-- | Signature of <tt>a</tt>, not containing the actual payload.
+newtype Signature (a :: Type)
+HydraSignature :: SigDSIGN Ed25519DSIGN -> Signature (a :: Type)
+
+-- | A result type for multisigs verification providing some information in
+--   case of failure.
+--   
+--   This type is of course structurally equivalent to `Maybe
+--   [VerificationKey HydraKey]` but it's much more explicit.
+data Verified
+Verified :: Verified
+FailedKeys :: [VerificationKey HydraKey] -> Verified
+[$sel:failedKeys:Verified] :: Verified -> [VerificationKey HydraKey]
+KeyNumberMismatch :: Verified
+pattern HydraKeyHash :: () => Hash Blake2b_256 (VerificationKey HydraKey) -> Hash HydraKey
+pattern AsHydraKey :: () => AsType HydraKey
+pattern HydraSigningKey :: () => SignKeyDSIGN Ed25519DSIGN -> SigningKey HydraKey
+pattern HydraVerificationKey :: () => VerKeyDSIGN Ed25519DSIGN -> VerificationKey HydraKey
+
+-- | Sign some value <tt>a</tt> with the provided <a>Secret</a>-wrapped
+--   <a>SigningKey</a>. The unwrap is internal: callers don't need a
+--   <a>withSecret</a> at the call site, so the noisy continuation pattern
+--   is hidden where it matters.
+sign :: SignableRepresentation a => Secret (SigningKey HydraKey) -> a -> Signature a
+toPlutusSignatures :: MultiSignature a -> [Signature]
+
+-- | Create a new <a>SigningKey</a> from a <a>ByteString</a> seed, wrapped
+--   in <a>Secret</a>. The public API never returns a raw 'SigningKey
+--   HydraKey'. The created keys are not random and insecure, so don't use
+--   this in production code!
+generateSigningKey :: ByteString -> Secret (SigningKey HydraKey)
+
+-- | Verify a given 'Signature a' and value <tt>a</tt> using provided
+--   <a>VerificationKey</a>.
+verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
+
+-- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
+aggregate :: [Signature a] -> MultiSignature a
+
+-- | Like aggregate, but use order of given list of keys instead.
+--   FIXME(AB): This function exists solely because the order of signatures
+--   matters on-chain, and it should match the order of parties as declared
+--   in the initTx. This should disappear once we use a proper
+--   multisignature scheme
+aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
+
+-- | Verify a given 'MultiSignature a' and value <tt>a</tt> provided a list
+--   of <a>VerificationKey</a>.
+--   
+--   Note that order of keys is relevant and that length of signature and
+--   multisignature list needs to be the same.
+verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Verified
+
+-- | Like <a>verifyMultiSignature</a> but operates on pre-computed signable
+--   bytes, avoiding repeated calls to <a>getSignableRepresentation</a>.
+--   Use this when the same value would be verified multiple times (e.g.
+--   per-party in a round).
+verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Verified
+getSignableRepresentation :: SignableRepresentation a => a -> ByteString
+instance GHC.Show.Show (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Ord (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance Data.String.IsString (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.String.IsString (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Show.Show (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance GHC.Generics.Generic (Hydra.Tx.Crypto.Signature a)
+instance GHC.Classes.Eq (Hydra.Tx.Crypto.Signature a)
+instance GHC.Base.Monoid (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Base.Semigroup (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Generics.Generic (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Show.Show (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
+instance GHC.Generics.Generic Hydra.Tx.Crypto.Verified
+instance GHC.Show.Show Hydra.Tx.Crypto.Verified
+instance GHC.Classes.Eq Hydra.Tx.Crypto.Verified
+instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Block.BlockHeader)
+instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
+instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
+instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.MultiSignature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.Signature a)
+instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.Signature a)
+instance GHC.Show.Show (Hydra.Tx.Crypto.Signature a)
+instance Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signature a)
+instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.Signature a)
+instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.Signature a)
+instance Hydra.Tx.Crypto.CanSignTx (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey)
+instance Hydra.Tx.Crypto.CanSignTx (Data.Secret.Secret (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey))
+instance (Cardano.Api.Key.Internal.Class.Key k, Cardano.Api.HasTypeProxy.HasTypeProxy k) => Hydra.Tx.Crypto.HasVerificationKey (Cardano.Api.Key.Internal.Class.SigningKey k) k
+instance (Cardano.Api.Key.Internal.Class.Key k, Cardano.Api.HasTypeProxy.HasTypeProxy k) => Hydra.Tx.Crypto.HasVerificationKey (Data.Secret.Secret (Cardano.Api.Key.Internal.Class.SigningKey k)) k
+instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.Crypto.HydraKey
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Key.Internal.Class.Key Hydra.Tx.Crypto.HydraKey
+instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Secret.Forbid "encode to JSON" => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Secret.Forbid "decode from JSON" => Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Secret.Forbid "CBOR-encode" => Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Data.Secret.Forbid "CBOR-decode" => Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
+instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes a => Data.String.IsString (Cardano.Api.Serialise.SerialiseUsing.UsingRawBytesHex a)
+
 module Hydra.Tx.DepositPeriod
 
 -- | A positive duration used as the deposit validity window. Nodes within
@@ -488,260 +666,6 @@ instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.OnChainId.OnChai
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.OnChainId.OnChainId
 
 
--- | A data-type to keep track of reference Hydra scripts published
---   on-chain, and needed to construct transactions leveraging reference
---   inputs.
-module Hydra.Tx.ScriptRegistry
-
--- | Hydra scripts published as reference scripts at these UTxO.
-data ScriptRegistry
-ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> ScriptRegistry
-[$sel:headReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
-[$sel:crsReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
-data NewScriptRegistryException
-MissingScript :: Text -> ScriptHash -> Set ScriptHash -> NewScriptRegistryException
-[$sel:scriptName:MissingScript] :: NewScriptRegistryException -> Text
-[$sel:scriptHash:MissingScript] :: NewScriptRegistryException -> ScriptHash
-[$sel:discoveredScripts:MissingScript] :: NewScriptRegistryException -> Set ScriptHash
-
--- | Create a script registry from a UTxO containing outputs with reference
---   scripts. This will return <a>Nothing</a> if one or all of the
---   references could not be found.
-newScriptRegistry :: UTxO -> Either NewScriptRegistryException ScriptRegistry
-
--- | Get the UTxO that corresponds to a script registry.
---   
---   <ul>
---   <li>*Property**:newScriptRegistry (registryUTxO r) === Just r</li>
---   </ul>
-registryUTxO :: ScriptRegistry -> UTxO
-instance GHC.Generics.Generic Hydra.Tx.ScriptRegistry.ScriptRegistry
-instance GHC.Show.Show Hydra.Tx.ScriptRegistry.ScriptRegistry
-instance GHC.Classes.Eq Hydra.Tx.ScriptRegistry.ScriptRegistry
-instance GHC.Show.Show Hydra.Tx.ScriptRegistry.NewScriptRegistryException
-instance GHC.Classes.Eq Hydra.Tx.ScriptRegistry.NewScriptRegistryException
-instance GHC.Exception.Type.Exception Hydra.Tx.ScriptRegistry.NewScriptRegistryException
-
-
--- | A type-level barrier around values that must never be shown, logged,
---   or serialised.
---   
---   Wrapping a value in <a>Secret</a> makes the following a compile-time
---   error (via <a>TypeError</a>) with a custom message:
---   
---   <ul>
---   <li><a>ToJSON</a> / <a>FromJSON</a></li>
---   <li><a>ToCBOR</a> / <a>FromCBOR</a></li>
---   <li><a>Serialise</a></li>
---   </ul>
---   
---   <a>Show</a> is provided but renders as a redacted placeholder
---   (<tt>"&lt;Secret field of type &lt;typename&gt;&gt;"</tt>), so
---   enclosing records can still <tt>deriving stock (Show)</tt> for free.
---   
---   The only way to read the wrapped value is <a>withSecret</a>, a
---   continuation- style accessor: there is intentionally no
---   <tt>revealSecret :: Secret a -&gt; a</tt>. That forces every
---   consumption site to be a small lexical scope and keeps raw values from
---   outliving the use site.
-module Hydra.Tx.Secret
-
--- | A value the type system refuses to show or serialise.
-data Secret a
-mkSecret :: a -> Secret a
-
--- | The only escape hatch. Continuation-style so the raw value is never
---   bound at the call site outside the supplied function.
-withSecret :: Secret a -> (a -> r) -> r
-type Forbid op = TypeError ('Text "Refusing to " ':<>: 'Text op ':<>: 'Text " a value marked as secret." ':$$: 'Text "Secret values (e.g. signing keys) must not be" ':$$: 'Text "shown, logged, or serialised. Use `withSecret` from" ':$$: 'Text "Hydra.Tx.Secret to consume the inner value at its" ':$$: 'Text "point of use (e.g. signing). If you got here from a" ':$$: 'Text "derived `Show` / `ToJSON` on an enclosing record," ':$$: 'Text "either drop that deriving clause or write a" ':$$: 'Text "hand-rolled instance that omits the secret field.")
-instance GHC.Classes.Ord a => GHC.Classes.Ord (Hydra.Tx.Secret.Secret a)
-instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Tx.Secret.Secret a)
-instance Hydra.Tx.Secret.Forbid "encode to JSON" => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Secret.Secret a)
-instance Hydra.Tx.Secret.Forbid "decode from JSON" => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Secret.Secret a)
-instance (Data.Typeable.Internal.Typeable a, Hydra.Tx.Secret.Forbid "CBOR-encode") => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Secret.Secret a)
-instance (Data.Typeable.Internal.Typeable a, Hydra.Tx.Secret.Forbid "CBOR-decode") => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Secret.Secret a)
-instance Hydra.Tx.Secret.Forbid "Serialise-encode" => Codec.Serialise.Class.Serialise (Hydra.Tx.Secret.Secret a)
-instance Data.Typeable.Internal.Typeable a => GHC.Show.Show (Hydra.Tx.Secret.Secret a)
-
-
--- | Hydra multi-signature credentials and cryptographic primitives used to
---   sign and verify snapshots (or any messages) within the Hydra protocol.
---   
---   We are re-using the <a>Key</a> interface of 'cardano-api' for a
---   consistent representation. For example: Cardano credentials are
---   'VerificationKey PaymentKey', Hydra credentials are 'VerificationKey
---   HydraKey'.
---   
---   Currently <a>MultiSignature</a> interface is only supporting naiive,
---   concatenated multi-signatures and will change when we adopt aggregated
---   multi-signatures including aggregate keys.
-module Hydra.Tx.Crypto
-class (Eq VerificationKey keyrole, Show VerificationKey keyrole, SerialiseAsRawBytes Hash keyrole, HasTextEnvelope VerificationKey keyrole, HasTextEnvelope SigningKey keyrole) => Key keyrole
-deterministicSigningKey :: Key keyrole => AsType keyrole -> Seed -> SigningKey keyrole
-deterministicSigningKeySeedSize :: Key keyrole => AsType keyrole -> Word
-verificationKeyHash :: Key keyrole => VerificationKey keyrole -> Hash keyrole
-data family Hash keyrole
-data family AsType t
-data family SigningKey keyrole
-data family VerificationKey keyrole
-
--- | Polymorphic <a>getVerificationKey</a> that works on either a raw
---   'SigningKey k' or a <a>Secret</a>-wrapped 'Secret (SigningKey k)'.
---   This subsumes the cardano-api <a>Key</a> class method of the same name
---   and is what <a>Crypto</a> re-exports. Callers can write
---   <tt>getVerificationKey sk</tt> regardless of whether <tt>sk</tt> is
---   wrapped.
-class HasVerificationKey s k | s -> k
-getVerificationKey :: HasVerificationKey s k => s -> VerificationKey k
-
--- | Polymorphic <a>signTx</a> that accepts either a raw 'SigningKey
---   PaymentKey' or a <a>Secret</a>-wrapped one. Production paths thread
---   <a>Secret</a> here and benefit from the wrap-free call shape; tests
---   can still pass raw keys.
-class CanSignTx s
-signTx :: CanSignTx s => s -> Tx -> Tx
-
--- | Naiively aggregated multi-signatures.
-newtype MultiSignature (a :: Type)
-HydraMultiSignature :: [Signature a] -> MultiSignature (a :: Type)
-[$sel:multiSignature:HydraMultiSignature] :: MultiSignature (a :: Type) -> [Signature a]
-
--- | Polymorphic <a>getVerificationKey</a> that works on either a raw
---   'SigningKey k' or a <a>Secret</a>-wrapped 'Secret (SigningKey k)'.
---   This subsumes the cardano-api <a>Key</a> class method of the same name
---   and is what <a>Crypto</a> re-exports. Callers can write
---   <tt>getVerificationKey sk</tt> regardless of whether <tt>sk</tt> is
---   wrapped.
-class HasVerificationKey s k | s -> k
-getVerificationKey :: HasVerificationKey s k => s -> VerificationKey k
-
--- | Polymorphic <a>signTx</a> that accepts either a raw 'SigningKey
---   PaymentKey' or a <a>Secret</a>-wrapped one. Production paths thread
---   <a>Secret</a> here and benefit from the wrap-free call shape; tests
---   can still pass raw keys.
-class CanSignTx s
-signTx :: CanSignTx s => s -> Tx -> Tx
-
--- | Hydra keys (keyrole) which can be used to <a>sign</a> and
---   <a>verify</a> messages, as well as <a>aggregate</a> multi-signatures.
-data HydraKey
-
--- | Signature of <tt>a</tt>, not containing the actual payload.
-newtype Signature (a :: Type)
-HydraSignature :: SigDSIGN Ed25519DSIGN -> Signature (a :: Type)
-
--- | A result type for multisigs verification providing some information in
---   case of failure.
---   
---   This type is of course structurally equivalent to `Maybe
---   [VerificationKey HydraKey]` but it's much more explicit.
-data Verified
-Verified :: Verified
-FailedKeys :: [VerificationKey HydraKey] -> Verified
-[$sel:failedKeys:Verified] :: Verified -> [VerificationKey HydraKey]
-KeyNumberMismatch :: Verified
-pattern HydraKeyHash :: () => Hash Blake2b_256 (VerificationKey HydraKey) -> Hash HydraKey
-pattern AsHydraKey :: () => AsType HydraKey
-pattern HydraSigningKey :: () => SignKeyDSIGN Ed25519DSIGN -> SigningKey HydraKey
-pattern HydraVerificationKey :: () => VerKeyDSIGN Ed25519DSIGN -> VerificationKey HydraKey
-
--- | Sign some value <tt>a</tt> with the provided <a>Secret</a>-wrapped
---   <a>SigningKey</a>. The unwrap is internal: callers don't need a
---   <a>withSecret</a> at the call site, so the noisy continuation pattern
---   is hidden where it matters.
-sign :: SignableRepresentation a => Secret (SigningKey HydraKey) -> a -> Signature a
-toPlutusSignatures :: MultiSignature a -> [Signature]
-
--- | Create a new <a>SigningKey</a> from a <a>ByteString</a> seed, wrapped
---   in <a>Secret</a>. The public API never returns a raw 'SigningKey
---   HydraKey'. The created keys are not random and insecure, so don't use
---   this in production code!
-generateSigningKey :: ByteString -> Secret (SigningKey HydraKey)
-
--- | Verify a given 'Signature a' and value <tt>a</tt> using provided
---   <a>VerificationKey</a>.
-verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
-
--- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
-aggregate :: [Signature a] -> MultiSignature a
-
--- | Like aggregate, but use order of given list of keys instead.
---   FIXME(AB): This function exists solely because the order of signatures
---   matters on-chain, and it should match the order of parties as declared
---   in the initTx. This should disappear once we use a proper
---   multisignature scheme
-aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
-
--- | Verify a given 'MultiSignature a' and value <tt>a</tt> provided a list
---   of <a>VerificationKey</a>.
---   
---   Note that order of keys is relevant and that length of signature and
---   multisignature list needs to be the same.
-verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Verified
-
--- | Like <a>verifyMultiSignature</a> but operates on pre-computed signable
---   bytes, avoiding repeated calls to <a>getSignableRepresentation</a>.
---   Use this when the same value would be verified multiple times (e.g.
---   per-party in a round).
-verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Verified
-getSignableRepresentation :: SignableRepresentation a => a -> ByteString
-instance GHC.Show.Show (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Ord (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance Data.String.IsString (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.String.IsString (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Show.Show (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance (TypeError ...) => GHC.Classes.Ord (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Classes.Eq (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance GHC.Generics.Generic (Hydra.Tx.Crypto.Signature a)
-instance GHC.Classes.Eq (Hydra.Tx.Crypto.Signature a)
-instance GHC.Base.Monoid (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Base.Semigroup (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Generics.Generic (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Show.Show (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Generics.Generic Hydra.Tx.Crypto.Verified
-instance GHC.Show.Show Hydra.Tx.Crypto.Verified
-instance GHC.Classes.Eq Hydra.Tx.Crypto.Verified
-instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Block.BlockHeader)
-instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
-instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.MultiSignature a)
-instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.MultiSignature a)
-instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.MultiSignature a)
-instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.MultiSignature a)
-instance Data.Typeable.Internal.Typeable a => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.Crypto.Signature a)
-instance Data.Typeable.Internal.Typeable a => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.Crypto.Signature a)
-instance GHC.Show.Show (Hydra.Tx.Crypto.Signature a)
-instance Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signature a)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.Signature a)
-instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.Signature a)
-instance Hydra.Tx.Crypto.CanSignTx (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey)
-instance Hydra.Tx.Crypto.CanSignTx (Hydra.Tx.Secret.Secret (Cardano.Api.Key.Internal.Class.SigningKey Cardano.Api.Key.Internal.PaymentKey))
-instance (Cardano.Api.Key.Internal.Class.Key k, Cardano.Api.HasTypeProxy.HasTypeProxy k) => Hydra.Tx.Crypto.HasVerificationKey (Cardano.Api.Key.Internal.Class.SigningKey k) k
-instance (Cardano.Api.Key.Internal.Class.Key k, Cardano.Api.HasTypeProxy.HasTypeProxy k) => Hydra.Tx.Crypto.HasVerificationKey (Hydra.Tx.Secret.Secret (Cardano.Api.Key.Internal.Class.SigningKey k)) k
-instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.Crypto.HydraKey
-instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Key.Internal.Class.Key Hydra.Tx.Crypto.HydraKey
-instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.Cbor.SerialiseAsCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Hydra.Tx.Secret.Forbid "encode to JSON" => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Hydra.Tx.Secret.Forbid "decode from JSON" => Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Hydra.Tx.Secret.Forbid "CBOR-encode" => Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Hydra.Tx.Secret.Forbid "CBOR-decode" => Cardano.Binary.FromCBOR.FromCBOR (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes a => Data.String.IsString (Cardano.Api.Serialise.SerialiseUsing.UsingRawBytesHex a)
-
-
 -- | Types and functions revolving around a Hydra <a>Party</a>. That is, a
 --   participant in a Hydra Head, which signs transactions or snapshots in
 --   the Hydra protocol.
@@ -794,6 +718,41 @@ instance GHC.Show.Show Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Classes.Eq Hydra.Tx.HeadParameters.HeadParameters
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Tx.HeadParameters.HeadParameters
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Tx.HeadParameters.HeadParameters
+
+
+-- | A data-type to keep track of reference Hydra scripts published
+--   on-chain, and needed to construct transactions leveraging reference
+--   inputs.
+module Hydra.Tx.ScriptRegistry
+
+-- | Hydra scripts published as reference scripts at these UTxO.
+data ScriptRegistry
+ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> ScriptRegistry
+[$sel:headReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
+[$sel:crsReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
+data NewScriptRegistryException
+MissingScript :: Text -> ScriptHash -> Set ScriptHash -> NewScriptRegistryException
+[$sel:scriptName:MissingScript] :: NewScriptRegistryException -> Text
+[$sel:scriptHash:MissingScript] :: NewScriptRegistryException -> ScriptHash
+[$sel:discoveredScripts:MissingScript] :: NewScriptRegistryException -> Set ScriptHash
+
+-- | Create a script registry from a UTxO containing outputs with reference
+--   scripts. This will return <a>Nothing</a> if one or all of the
+--   references could not be found.
+newScriptRegistry :: UTxO -> Either NewScriptRegistryException ScriptRegistry
+
+-- | Get the UTxO that corresponds to a script registry.
+--   
+--   <ul>
+--   <li>*Property**:newScriptRegistry (registryUTxO r) === Just r</li>
+--   </ul>
+registryUTxO :: ScriptRegistry -> UTxO
+instance GHC.Generics.Generic Hydra.Tx.ScriptRegistry.ScriptRegistry
+instance GHC.Show.Show Hydra.Tx.ScriptRegistry.ScriptRegistry
+instance GHC.Classes.Eq Hydra.Tx.ScriptRegistry.ScriptRegistry
+instance GHC.Show.Show Hydra.Tx.ScriptRegistry.NewScriptRegistryException
+instance GHC.Classes.Eq Hydra.Tx.ScriptRegistry.NewScriptRegistryException
+instance GHC.Exception.Type.Exception Hydra.Tx.ScriptRegistry.NewScriptRegistryException
 
 module Hydra.Tx.Snapshot
 newtype SnapshotNumber
