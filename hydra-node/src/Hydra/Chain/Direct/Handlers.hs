@@ -257,19 +257,14 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             -- accumulator and 'mustNotBeLastBatch' is satisfied regardless of
             -- chunk size.
             --
-            -- 'Hydra.HeadLogic.emitPartialFanoutStep' keeps it that way: a
-            -- target covering the whole remainder is routed to the full fanout
-            -- path instead of being posted as a non-final step. That covers
-            -- every producer of this transaction - client input, the rollback
-            -- re-post, and replayed state.
+            -- 'Hydra.HeadLogic.nextFanoutStep' keeps it that way for every
+            -- producer of this transaction, and says there why a step covering
+            -- the whole remainder would wedge the head.
             --
-            -- Note this is a node-side invariant, not one the validator
-            -- enforces: 'mustNotBeLastBatch' decides by asking whether the
-            -- remaining accumulator is the G1 generator, which a non-empty
-            -- pre-settled set keeps it from being, so a modified node can still
-            -- post such a step and have it accepted. Closing that needs the
-            -- pre-settled residual carried in the datum, which changes the
-            -- script hashes.
+            -- That is a node-side invariant only. The validator does not enforce
+            -- it, so a modified node can still post such a step and have it
+            -- accepted; see GHSA-f825-9gwc-h5xq, which covers this and a value
+            -- hole with the same root cause.
             findFittingFanoutTx
               tracer
               wallet
@@ -776,6 +771,12 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
       traceWith tracer PartialFanoutFailed{reason = show err}
       throwIO $ case err of
         StaleChainState -> StalePartialFanoutTx @Tx
+        -- Everything else stays terminal, including 'CannotFindHeadOutput'.
+        -- A missing head output usually does mean another fanout consumed it,
+        -- which is benign, but 'StalePartialFanoutTx' is silently ignored by
+        -- HeadLogic: reporting it that way would also swallow the cases where the
+        -- output is missing for some other reason, losing both the revert to
+        -- 'Closed' and the client notification.
         _ -> FailedToConstructPartialFanoutTx @Tx
 
   fits = fitsTx tracer isTxWithinSizeLimits evaluateScriptCosts evalUTxO

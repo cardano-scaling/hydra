@@ -184,6 +184,29 @@ draining whatever is left automatically. That applies both to selecting the whol
 set out of a freshly closed head and to selecting the whole remainder while an
 earlier selection is still in flight.
 
+In that second case the two transactions race for the head output, and only one
+of them can win. If the full fanout wins, it drains the head and the earlier step
+never lands.
+
+If the earlier step wins, the full fanout is aimed at a head output that has
+moved on and cannot succeed. What the node makes of that depends on what it has
+observed by the time the failure reaches it, and a rejected post is deliberately
+held back for one block so the observation usually gets there first:
+
+- it had already observed the step, so the transaction is never built: the
+  failure is ignored, since the observation drives the next step anyway
+- it built and submitted the transaction, and observed the step before the
+  rejection came back: the client is told the post failed, and the node carries
+  on draining from the observation
+- it still has not observed the step: the client is told, and since nothing has
+  been distributed the head reverts to `Closed`
+
+After such a revert, observing the earlier step puts the head back into
+`FanoutProgress`, this time with the node waiting for a selection rather than
+driving, the same as any other party's step. Further `PartialFanout` commands
+drain it from there; a plain `Fanout` is refused, since the head is in
+`FanoutProgress` by then.
+
 A selection that is empty, or that is not contained in what is left, is refused
 with a `CommandFailed` and changes nothing.
 

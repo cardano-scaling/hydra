@@ -2255,6 +2255,12 @@ spec =
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
           _ -> False
+        -- The final step emits no state change of its own, so the selection has
+        -- to be recorded here: without it a rollback or restart before the
+        -- transaction lands leaves the driver with nothing to resume from.
+        outcome `hasStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{selection} -> selection == remaining
+          _ -> False
 
       -- Regression for #2855. With nothing distributed the on-chain datum is
       -- still 'Closed', so a selection covering the whole remainder cannot go
@@ -2279,6 +2285,11 @@ spec =
           OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
           OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
           _ -> False
+        -- No selection mode is recorded for a selection that is not distributed
+        -- as one: 'HeadFanoutInitiated' would override it immediately.
+        outcome `hasNoStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{} -> True
+          _ -> False
         -- Draining is now automatic, as it is for a plain 'Fanout'.
         case headState (aggregateState st outcome) of
           FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
@@ -2287,7 +2298,7 @@ spec =
       -- The same wedging step is reachable without any client input: a node that
       -- persisted a whole-remainder selection before the guard existed
       -- reconstructs 'DistributingSelection' verbatim on replay, and a rollback
-      -- re-posts it. Guarding 'emitPartialFanoutStep' rather than the client
+      -- re-posts it. Deciding in 'nextFanoutStep' rather than the client
       -- handler is what covers this.
       it "rollback re-post of a whole-remainder selection before any chunk landed posts a full fanout" $ do
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
@@ -2368,6 +2379,11 @@ spec =
         let outcome = update bobEnv ledger now st (ClientInput (PartialFanout fullUTxO))
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        -- And records no selection mode, which 'HeadFanoutInitiated' would
+        -- override immediately.
+        outcome `hasNoStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{} -> True
           _ -> False
 
       it "Fanout is rejected once a partial fanout is in progress (sticky)" $ do
@@ -2456,6 +2472,67 @@ spec =
         case headState (aggregateState st1 failed) of
           Closed{} -> pure ()
           other -> failure $ "Expected Closed after revert, got: " <> show other
+
+      it "does NOT revert when a superseded fanout tx fails after the node moved on" $ do
+        -- A selection covering the whole remainder before anything landed turns
+        -- into a full fanout and leaves the earlier chunk behind, possibly still
+        -- in the mempool. Its terminal failure must not revert the head: nothing
+        -- is waiting on that transaction, and reverting would drop the driver
+        -- role this node just took on.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            superseded = Set.singleton (SimpleTxOut 1)
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection superseded)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let rerouted = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
+            st1 = aggregateState st rerouted
+            failed =
+              update bobEnv ledger now st1 . ChainInput $
+                PostTxError
+                  { postChainTx =
+                      PartialFanoutTx
+                        { utxoToDistribute = superseded
+                        , utxoForProof = remaining
+                        , headSeed = testHeadSeed
+                        , contestationDeadline = arbitrary `generateWith` 42
+                        }
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st1 failed) of
+          FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
+          other -> failure $ "Expected to stay in FanoutProgress AutoDrain, got: " <> show other
+
+      it "does NOT revert when a superseded selection's tx fails and another selection is active" $ do
+        -- Both selections are non-final steps, so the failed transaction has the
+        -- same shape as the one being driven. Only the set it distributes tells
+        -- them apart.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            superseded = Set.singleton (SimpleTxOut 1)
+            active = Set.singleton (SimpleTxOut 2)
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection active)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let failed =
+              update bobEnv ledger now st . ChainInput $
+                PostTxError
+                  { postChainTx =
+                      PartialFanoutTx
+                        { utxoToDistribute = superseded
+                        , utxoForProof = remaining
+                        , headSeed = testHeadSeed
+                        , contestationDeadline = arbitrary `generateWith` 42
+                        }
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st failed) of
+          FanoutProgress{} -> pure ()
+          other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
 
       it "does NOT revert once a partial fanout has landed on chain" $ do
         -- With outputs already distributed the on-chain datum is genuinely
