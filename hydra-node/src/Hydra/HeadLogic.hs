@@ -1070,9 +1070,12 @@ onOpenChainTick env chainTime pendingDeposits st =
 -- finalises on-chain.
 --
 -- Guards:
---   * Only fires when 'version /= newVersion' to avoid duplicate
---     'SnapshotRequestDecided' events when multiple parties post the same
---     on-chain tx and each posting produces a separate finalisation observation.
+--   * Only fires when 'newVersion' is ahead of the local 'version': this
+--     avoids duplicate 'SnapshotRequestDecided' events when multiple parties
+--     post the same on-chain tx and each posting produces a separate
+--     finalisation observation, and it keeps a finalization re-landing after a
+--     rollback (its 'newVersion' is at or behind the local version, which
+--     never rolls back) from requesting a snapshot with a stale version.
 --   * Skips when AckSns are already being collected ('SeenSnapshot'): the
 --     in-flight snapshot will complete and 'maybeRequestNextSnapshot' will chain
 --     the next one with the bumped version. Firing here would use stale
@@ -1097,7 +1100,7 @@ maybeRequestSnapshotAfterVersionBump ::
   Maybe (TxIdType tx) ->
   Outcome tx
 maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot depositTxId =
-  if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
+  if isLeader parameters party nextSn && not (null localTxs) && newVersion > version && not (isCollectingAcks seenSnapshot)
     then
       newState SnapshotRequestDecided{snapshotNumber = nextSn}
         <> cause (NetworkEffect $ ReqSn newVersion nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing depositTxId)
@@ -2087,10 +2090,110 @@ isSettlingDeposit finalizedCommit depositTxId =
   maybe False (\FinalizedCommit{depositTxId = settling} -> settling == depositTxId) finalizedCommit
 
 -- | The retained 'FinalizedCommit' of an open head, if any.
+--
+-- Deliberately 'Nothing' for any other head state: an increment can only
+-- settle into an open head, so once the head closes the retained snapshot can
+-- never claim the deposit on-chain anymore. The resurfaced deposit's escape
+-- hatch is then to recover it (after its deadline) and exclude the deposited
+-- outputs from the fanout via 'PartialFanout' — so 'Recover' must not stay
+-- blocked after close.
 openFinalizedCommit :: HeadState tx -> Maybe (FinalizedCommit tx)
 openFinalizedCommit = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{finalizedCommit}} -> finalizedCommit
   _ -> Nothing
+
+-- | Whether a 'CommitFinalized'/'DecommitFinalized' observation was already
+-- applied to the local state. The local 'version' never rolls back, so an
+-- observed 'newVersion' not ahead of it means this — or a later — finalization
+-- was applied before, i.e. the settling transaction re-landed after a rollback
+-- (note that an *older* finalization can re-land while the local version is
+-- already further ahead, when a rollback erased several settlements). Only
+-- convergence bookkeeping may happen then: in particular 'localUTxO' must not
+-- absorb a deposit again and 'version' must not regress, see #2741.
+finalizationAlreadyApplied :: SnapshotVersion -> CoordinatedHeadState tx -> Bool
+finalizationAlreadyApplied newVersion coordinatedHeadState =
+  coordinatedHeadState.version >= newVersion
+
+-- | 'seenSnapshot' after applying a finalization. If a snapshot is already in
+-- 'SeenSnapshot', all parties have processed the ReqSn and sent AckSns —
+-- preserve it so that snapshot can still complete and chain the next one with
+-- the bumped version. Only reset when nothing is in-flight, and only when the
+-- finalization is applied for the first time (a re-observation after a
+-- rollback must not disturb an ongoing snapshot).
+seenSnapshotAfterFinalization :: Bool -> SnapshotNumber -> SeenSnapshot tx -> SeenSnapshot tx
+seenSnapshotAfterFinalization alreadyApplied confirmedSn seenSnapshot
+  | alreadyApplied = seenSnapshot
+  | otherwise = case seenSnapshot of
+      SeenSnapshot{} -> seenSnapshot
+      _ -> LastSeenSnapshot{lastSeen = confirmedSn}
+
+-- | Update a retained finalization ('FinalizedCommit'/'FinalizedDecommit') on
+-- (re-)observation of its settling transaction:
+--
+--   * retain from the just-confirmed snapshot when it matches the observation;
+--   * otherwise refresh the retained observation slot when the observation
+--     matches what is already retained — the settling transaction re-landed
+--     (e.g. re-posted after a rollback, with 'confirmedSnapshot' advanced past
+--     the settling snapshot), and a rollback of the re-landed transaction must
+--     still trigger a re-post;
+--   * otherwise keep the retention untouched — the observation matches neither
+--     (it raced local snapshot confirmation: another party collected the last
+--     AckSn and posted first); the retention is backfilled once the snapshot
+--     confirms locally, see 'backfillFinalizationRetention'.
+--
+-- See #2741.
+updateFinalizationRetention ::
+  ChainSlot ->
+  -- | Retention derived from the confirmed snapshot, when it matches the observation.
+  Maybe a ->
+  -- | Whether the observation matches the retained finalization.
+  (a -> Bool) ->
+  -- | Refresh the observation slot of a retained finalization.
+  (ChainSlot -> a -> a) ->
+  Maybe a ->
+  Maybe a
+updateFinalizationRetention slot retainFromConfirmed matchesObservation refreshSlot retained =
+  retainFromConfirmed <|> case retained of
+    Just r | matchesObservation r -> Just (refreshSlot slot r)
+    _ -> retained
+
+-- | Backfill the retained 'FinalizedCommit'/'FinalizedDecommit' when a
+-- snapshot confirms locally *after* its settling transaction was already
+-- observed on chain: the observation raced local confirmation (another party
+-- collected the last AckSn and posted first), so nothing could be retained at
+-- observation time — recognizable by the version being bumped exactly one past
+-- the confirming snapshot's. Without the backfill, the #2741 rollback
+-- protections would be silently inert for that deposit or decommit.
+--
+-- The passed slot may over-approximate the true observation slot, which errs
+-- towards re-posting: a rollback landing between the true observation and the
+-- confirmation triggers a re-post of a transaction that may still be on chain
+-- (harmless noise), rather than staying silent when it is not.
+backfillFinalizationRetention :: IsTx tx => ChainSlot -> HeadState tx -> HeadState tx
+backfillFinalizationRetention slot st = case st of
+  Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{confirmedSnapshot = snap@ConfirmedSnapshot{snapshot}, version}}
+    | Just depositTxId <- snapshot.depositTxId
+    , isJust snapshot.utxoToCommit
+    , snapshot.version + 1 == version
+    , not (isSettlingDeposit chs.finalizedCommit depositTxId) ->
+        Open
+          os
+            { coordinatedHeadState =
+                chs{finalizedCommit = Just FinalizedCommit{depositTxId, incrementingSnapshot = snap, observedAtSlot = slot}}
+            }
+    | isJust snapshot.utxoToDecommit
+    , snapshot.version + 1 == version
+    , not (retainedDecommitFor snapshot.version chs.finalizedDecommit) ->
+        Open
+          os
+            { coordinatedHeadState =
+                chs{finalizedDecommit = Just FinalizedDecommit{decrementingSnapshot = snap, observedAtSlot = slot}}
+            }
+  _ -> st
+ where
+  -- Already retained (with an accurate observation slot) at observation time.
+  retainedDecommitFor v =
+    maybe False (\FinalizedDecommit{decrementingSnapshot} -> (getSnapshot decrementingSnapshot).version == v)
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
@@ -2243,11 +2346,36 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Node-level: deposit/recover observations scoped to our head
-  (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
-    | otherwise ->
-        Continue [] []
+  ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
+    , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
+    )
+      | ourHeadId == headId ->
+          newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+            -- The settling deposit observed *again* means a rollback erased
+            -- both the deposit and its finalized increment, and the deposit tx
+            -- just re-landed on the new chain. The increment re-post issued at
+            -- rollback time necessarily failed (the deposit UTxO did not exist
+            -- on the new chain yet) and is not retried anywhere else, while
+            -- every alternative settlement of this deposit is deliberately
+            -- blocked (see 'withoutSettlingDeposit'): re-post the increment
+            -- now that the deposit is on chain again, see #2741.
+            <> case finalizedCommit of
+              Just FinalizedCommit{depositTxId = settling, incrementingSnapshot}
+                | settling == depositTxId ->
+                    cause
+                      OnChainEffect
+                        { postChainTx =
+                            IncrementTx
+                              { headSeed
+                              , headId = ourHeadId
+                              , headParameters = parameters
+                              , incrementingSnapshot
+                              , depositTxId
+                              }
+                        }
+              _ -> Continue [] []
+      | otherwise ->
+          Continue [] []
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
@@ -2472,14 +2600,13 @@ aggregateNodeState nodeState sc =
             CommitFinalized{chainState, newVersion, depositTxId} ->
               modifyDeposits (chainStateSlot chainState) (Map.delete depositTxId) $ case st of
                 Open os@OpenState{coordinatedHeadState} ->
-                  -- A finalization is applied once: the local 'version' never
-                  -- rolls back, so on re-observation after a rollback it
-                  -- already equals 'newVersion' and only convergence
-                  -- bookkeeping happens below. In particular 'localUTxO' must
-                  -- not absorb the deposit again — its outputs may have been
-                  -- spent on L2 in the meantime and the union would resurrect
-                  -- them, see #2741.
-                  let alreadyApplied = coordinatedHeadState.version == newVersion
+                  -- A finalization is applied once, see
+                  -- 'finalizationAlreadyApplied': on re-observation after a
+                  -- rollback only convergence bookkeeping happens below. In
+                  -- particular 'localUTxO' must not absorb the deposit again —
+                  -- its outputs may have been spent on L2 in the meantime and
+                  -- the union would resurrect them, see #2741.
+                  let alreadyApplied = finalizationAlreadyApplied newVersion coordinatedHeadState
                       deposit = Map.lookup depositTxId currentPendingDeposits
                       newUTxO
                         | alreadyApplied = mempty
@@ -2491,63 +2618,55 @@ aggregateNodeState nodeState sc =
                                 { chainState
                                 , coordinatedHeadState =
                                     coordinatedHeadState
-                                      { version = newVersion
-                                      , -- NOTE: This must correspond to the just finalized
-                                        -- depositTxId, but we should not verify this here.
-                                        currentDepositTxId = Nothing
+                                      { version = max coordinatedHeadState.version newVersion
+                                      , -- NOTE: On first application this must correspond to the
+                                        -- just finalized depositTxId, but we should not verify
+                                        -- this here. On re-observation of an old increment,
+                                        -- however, an unrelated deposit may already be parked
+                                        -- here for the next snapshot — leave that one alone.
+                                        currentDepositTxId =
+                                          if alreadyApplied && coordinatedHeadState.currentDepositTxId /= Just depositTxId
+                                            then coordinatedHeadState.currentDepositTxId
+                                            else Nothing
                                       , localUTxO = localUTxO <> newUTxO
-                                      , -- If a snapshot is already in SeenSnapshot, all parties
-                                        -- have processed the ReqSn and sent AckSns — preserve it
-                                        -- so that snapshot can still complete and chain the next
-                                        -- one with the bumped version. Only reset when nothing
-                                        -- is in-flight.
-                                        seenSnapshot =
-                                          if alreadyApplied
-                                            then seenSnapshot
-                                            else case seenSnapshot of
-                                              SeenSnapshot{} -> seenSnapshot
-                                              _ -> LastSeenSnapshot{lastSeen = confirmedSn}
+                                      , seenSnapshot = seenSnapshotAfterFinalization alreadyApplied confirmedSn seenSnapshot
                                       , finalizedCommit =
-                                          case confirmedSnapshot of
-                                            snap@ConfirmedSnapshot{snapshot = Snapshot{depositTxId = Just snapDeposit}}
-                                              | snapDeposit == depositTxId ->
-                                                  Just
-                                                    FinalizedCommit
-                                                      { depositTxId
-                                                      , incrementingSnapshot = snap
-                                                      , observedAtSlot = chainStateSlot chainState
-                                                      }
-                                            _ ->
-                                              case coordinatedHeadState.finalizedCommit of
-                                                -- The increment re-landed (e.g. re-posted after a
-                                                -- rollback, with 'confirmedSnapshot' advanced past the
-                                                -- incrementing snapshot): refresh the observation slot
-                                                -- so that a rollback of the re-landed increment still
-                                                -- triggers a re-post, see #2741.
-                                                Just FinalizedCommit{depositTxId = retained, incrementingSnapshot}
-                                                  | retained == depositTxId ->
-                                                      Just
-                                                        FinalizedCommit
-                                                          { depositTxId = retained
-                                                          , incrementingSnapshot
-                                                          , observedAtSlot = chainStateSlot chainState
-                                                          }
-                                                -- An increment observation matching neither our confirmed
-                                                -- snapshot nor the retained finalized commit: keep what we
-                                                -- retained. This happens when the observation races local
-                                                -- snapshot confirmation (another party collected the last
-                                                -- AckSn and posted first); no retention happens then, but
-                                                -- once the snapshot confirms locally, 'maybePostIncrementTx'
-                                                -- still settles the deposit should a rollback resurface it.
-                                                retained -> retained
+                                          updateFinalizationRetention
+                                            (chainStateSlot chainState)
+                                            retainFromConfirmed
+                                            (\FinalizedCommit{depositTxId = retained} -> retained == depositTxId)
+                                            refreshSlot
+                                            coordinatedHeadState.finalizedCommit
                                       }
                                 }
                         }
                  where
+                  retainFromConfirmed =
+                    case confirmedSnapshot of
+                      snap@ConfirmedSnapshot{snapshot = Snapshot{depositTxId = Just snapDeposit}}
+                        | snapDeposit == depositTxId ->
+                            Just
+                              FinalizedCommit
+                                { depositTxId
+                                , incrementingSnapshot = snap
+                                , observedAtSlot = chainStateSlot chainState
+                                }
+                      _ -> Nothing
+
+                  refreshSlot slot FinalizedCommit{depositTxId = retained, incrementingSnapshot} =
+                    FinalizedCommit{depositTxId = retained, incrementingSnapshot, observedAtSlot = slot}
+
                   CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
                   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
                 _ ->
                   nodeState{headState = st}
+            -- The confirming snapshot's settling transaction may have been
+            -- observed before this confirmation (see
+            -- 'backfillFinalizationRetention'). The head's chain state was set
+            -- by that observation (and only moved forward since), so its slot
+            -- is the closest over-approximation of the observation slot.
+            SnapshotConfirmed{} ->
+              nodeState{headState = backfillFinalizationRetention (chainStateSlot (getChainState st)) st}
             TickObserved{chainPoint, chainTime} ->
               nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
             ChainRolledBack{chainState} ->
@@ -2856,63 +2975,54 @@ applyEvent st = \case
       Open
         os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}} ->
           let Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-              alreadyApplied = coordinatedHeadState.version == newVersion
+              alreadyApplied = finalizationAlreadyApplied newVersion coordinatedHeadState
+
+              -- The confirmed snapshot must be tied to *this* decrement by
+              -- identity, not by merely carrying a decommit: only a decrement
+              -- of the confirmed snapshot bumps the version to exactly one
+              -- past its version. With a second decommit racing (its
+              -- decrement posted by another party before its snapshot
+              -- confirmed locally), the confirmed snapshot is still the
+              -- previous, already settled one and must not be retained here.
+              retainFromConfirmed =
+                case confirmedSnapshot of
+                  snap@ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit = Just _, version = snapVersion}}
+                    | snapVersion + 1 == newVersion ->
+                        Just
+                          FinalizedDecommit
+                            { decrementingSnapshot = snap
+                            , observedAtSlot = chainStateSlot chainState
+                            }
+                  _ -> Nothing
+
+              refreshSlot slot FinalizedDecommit{decrementingSnapshot} =
+                FinalizedDecommit{decrementingSnapshot, observedAtSlot = slot}
            in Open
                 os
                   { chainState
                   , coordinatedHeadState =
                       coordinatedHeadState
-                        { decommitTx = Nothing
-                        , version = newVersion
-                        , -- If a snapshot is already in SeenSnapshot, all parties have
-                          -- processed the ReqSn and sent AckSns — preserve it so that
-                          -- snapshot can still complete and chain the next one with the
-                          -- bumped version. Only reset when nothing is in-flight, and
-                          -- only when the finalization is applied for the first time
-                          -- (a re-observation after a rollback must not disturb an
-                          -- ongoing snapshot; the local version never rolls back, so
-                          -- it already equals 'newVersion' then).
-                          seenSnapshot =
+                        { -- Only clear the pending decommit on first
+                          -- application: on re-observation of an old decrement
+                          -- after a rollback, an unrelated newer decommit may
+                          -- already be in flight.
+                          decommitTx =
                             if alreadyApplied
-                              then seenSnapshot
-                              else case seenSnapshot of
-                                SeenSnapshot{} -> seenSnapshot
-                                _ -> LastSeenSnapshot{lastSeen = confirmedSn}
+                              then coordinatedHeadState.decommitTx
+                              else Nothing
+                        , version = max coordinatedHeadState.version newVersion
+                        , seenSnapshot = seenSnapshotAfterFinalization alreadyApplied confirmedSn seenSnapshot
                         , -- Retain the signed decrementing snapshot: if a rollback
                           -- erases the just observed decrement, 'confirmedSnapshot'
                           -- may have advanced past it and this is the only snapshot
                           -- that can settle the decommit on-chain.
                           finalizedDecommit =
-                            case confirmedSnapshot of
-                              snap@ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit = Just _}} ->
-                                Just
-                                  FinalizedDecommit
-                                    { decrementingSnapshot = snap
-                                    , observedAtSlot = chainStateSlot chainState
-                                    }
-                              _ ->
-                                case coordinatedHeadState.finalizedDecommit of
-                                  -- The decrement re-landed (e.g. re-posted after a rollback,
-                                  -- with 'confirmedSnapshot' advanced past the decrementing
-                                  -- snapshot, identified by it bumping to this very version):
-                                  -- refresh the observation slot so that a rollback of the
-                                  -- re-landed decrement still triggers a re-post, see #2741.
-                                  Just FinalizedDecommit{decrementingSnapshot}
-                                    | (getSnapshot decrementingSnapshot).version + 1 == newVersion ->
-                                        Just
-                                          FinalizedDecommit
-                                            { decrementingSnapshot
-                                            , observedAtSlot = chainStateSlot chainState
-                                            }
-                                  -- A decrement observation matching neither our confirmed
-                                  -- snapshot nor the retained finalized decommit: keep what
-                                  -- we retained. This happens when the observation races
-                                  -- local snapshot confirmation (another party collected the
-                                  -- last AckSn and posted first); no retention happens then
-                                  -- and a rollback erasing this decrement can only converge
-                                  -- by the decrement re-landing on the new chain (e.g. from
-                                  -- the mempool) — a known limitation of this narrow race.
-                                  retained -> retained
+                            updateFinalizationRetention
+                              (chainStateSlot chainState)
+                              retainFromConfirmed
+                              (\FinalizedDecommit{decrementingSnapshot} -> (getSnapshot decrementingSnapshot).version + 1 == newVersion)
+                              refreshSlot
+                              coordinatedHeadState.finalizedDecommit
                         }
                   }
       _otherState -> st

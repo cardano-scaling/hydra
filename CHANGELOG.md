@@ -98,6 +98,13 @@ changes.
     unavailable for them, as it was before the upgrade.
   * On the API, `NodeState` gains a `depositHistory` field and
     `CoordinatedHeadState` gains `finalizedCommit` and `finalizedDecommit`.
+  * `GET /deposits` now reflects rollbacks: it is served from the node state
+    (which rewinds its deposit view on rollback) instead of a projection that
+    only tracked deposit lifecycle events.
+  * Once the head is closed, recovering such a deposit is allowed again: the
+    retained snapshot can no longer settle it into the (closed) head, so
+    recover plus a partial fanout excluding the deposited outputs is the
+    escape hatch.
 
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their

@@ -145,7 +145,7 @@ Users of a Hydra head can request decommits UTxO from L1 by sending a `POST /dec
 The decommit transaction is necessary to prove to the head participants that the decommitted UTxO can be spent by the requestor.
 :::
 
-As the decommit is first decided on the L2 with full consensus and no honest node would approve further spending of funds to be decommitted, we do not need to specially consider rollbacks in this scenario.
+As the decommit is first decided on the L2 with full consensus, no honest node would approve further spending of funds to be decommitted — so a rollback cannot lead to a double spend of them. A rollback erasing an already observed `decrementTx` still needs handling though: the node retains the signed snapshot that authorized the decrement and re-posts the transaction should a rollback erase it, see [rollbacks](./rollbacks) for details.
 
 ```mermaid
 sequenceDiagram

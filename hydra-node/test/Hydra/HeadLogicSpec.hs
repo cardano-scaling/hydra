@@ -2298,6 +2298,160 @@ spec =
                   number == 1 && utxoToDecommit == Just (utxoRef 3)
             _ -> False
 
+        it "does not regress the version when an older finalized increment re-lands after a newer finalization" $ do
+          -- A rollback can erase several settlements at once; they then re-land
+          -- (or are re-posted) oldest first. Re-observing the older increment
+          -- while the local version is already further ahead must be pure
+          -- convergence: no version regression, no re-absorbing the deposit
+          -- into 'localUTxO', no snapshot request with a stale version.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          let spendTx = SimpleTx 5 depositedUTxO (utxoRef 5)
+          (s1, reobserved) <- runHeadLogic soloAliceEnv ledger s0 $ do
+            -- A decrement (posted by another party) finalizes on top: version 2.
+            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+            -- The deposited outputs are spent on L2 in the meantime.
+            step . receiveMessage $ ReqTx spendTx
+            -- Rollback erases both settlements; the increment re-lands first.
+            step (rollbackTo 2 now)
+            outcome <- step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            s <- getState
+            pure (s, outcome)
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{version, localUTxO}} -> do
+              version `shouldBe` 2
+              localUTxO `shouldBe` utxoRef 5
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+          -- No snapshot is requested with the stale version of the re-landed
+          -- increment (followers would park such a request forever).
+          reobserved `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{snapshotVersion} -> snapshotVersion == 1
+            _ -> False
+
+        it "re-posts IncrementTx after a rollback when the increment observation raced snapshot confirmation" $ do
+          -- Another party can collect the last AckSn and post the increment
+          -- before the snapshot confirms locally: at observation time nothing
+          -- can be retained ('confirmedSnapshot' does not name the deposit
+          -- yet), so the retention is backfilled when the snapshot confirms.
+          now <- getCurrentTime
+          s1 <- runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            step . ChainInput $
+              Tick
+                { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
+                , chainPoint = 2
+                }
+            step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+            -- Increment observed before the local AckSn confirms the snapshot
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
+            getState
+          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
+              case getSnapshot snap of
+                Snapshot{number} -> number == 1 && dep == depositTxId'
+            _ -> False
+
+        it "re-posts DecrementTx after a rollback when the decrement observation raced snapshot confirmation" $ do
+          now <- getCurrentTime
+          s1 <- runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
+            step . receiveMessage $ ReqDec{transaction = decommitTx'}
+            step . receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
+            -- Decrement observed before the local AckSn confirms the snapshot
+            step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
+            step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
+            getState
+          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
+              case getSnapshot snap of
+                Snapshot{number, utxoToDecommit} ->
+                  number == 1 && utxoToDecommit == Just (utxoRef 3)
+            _ -> False
+
+        it "retains the racing second decommit, not the already settled snapshot" $ do
+          -- With two decommits back to back, the second decrement can be
+          -- observed (posted first by another party) while 'confirmedSnapshot'
+          -- is still the first, already settled decommit snapshot. That
+          -- snapshot must not be retained for the second decrement — only the
+          -- second snapshot can settle it on-chain.
+          now <- getCurrentTime
+          s0 <- afterDecommitFinalized
+          let decommitTx2 = aValidTx 7
+              decrementingSnapshot2 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 1
+                  , number = 2
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Nothing
+                  , utxoToDecommit = Just (utxoRef 7)
+                  , depositTxId = Nothing
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 7))
+                  }
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step . receiveMessage $ ReqDec{transaction = decommitTx2}
+            step . receiveMessage $ ReqSn 1 2 [] (Just decommitTx2) Nothing
+            -- Decrement 2 observed before its snapshot confirms locally
+            step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7}
+            step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot2) 2
+            getState
+          -- A rollback erasing only decrement 2 must re-post it from snapshot
+          -- 2; re-posting the already settled snapshot 1 would be invalid
+          -- on-chain and leave decommit 2 unsettled.
+          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 4 now)
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
+              case getSnapshot snap of
+                Snapshot{number} -> number == 2
+            _ -> False
+          outcome `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
+              case getSnapshot snap of
+                Snapshot{number} -> number == 1
+            _ -> False
+
+        it "re-posts IncrementTx when the deposit is observed again after deposit and increment were both rolled back" $ do
+          -- When the rollback reaches before the deposit itself, the increment
+          -- re-post issued at rollback time cannot land (the deposit UTxO does
+          -- not exist on the new chain). Once the deposit tx re-lands, the
+          -- increment must be re-posted again — nothing else settles this
+          -- deposit ('withoutSettlingDeposit' blocks all alternatives).
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step (rollbackTo 0 now)
+            getState
+          -- The rollback erased the deposit tx as well: not tracked anymore
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` False
+
+          let outcome = update soloAliceEnv ledger now s1 (observeTxAtSlot 1 (mkDepositObserved now))
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
+              case getSnapshot snap of
+                Snapshot{number} -> number == 1 && dep == depositTxId'
+            _ -> False
+
+        it "allows recovering the settling deposit once the head is closed" $ do
+          -- An increment can only settle into an open head: after close the
+          -- retained snapshot can never claim the deposit anymore, so recover
+          -- (plus a partial fanout excluding the deposited outputs) is the
+          -- escape hatch and must not stay blocked.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step (rollbackTo 2 now)
+            step $ observeTxAtSlot 4 OnCloseTx{headId = testHeadId, snapshotNumber = 1, contestationDeadline = addUTCTime 60 now}
+            getState
+          -- The deposit resurfaced and the head is now closed
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` True
+          let outcome = update soloAliceEnv ledger now s1 (ClientInput (Recover depositTxId'))
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = RecoverTx{recoverTxId}} -> recoverTxId == depositTxId'
+            _ -> False
+
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqTx (aValidTx 42)
@@ -3409,6 +3563,8 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
+                          , finalizedCommit = Nothing
+                          , finalizedDecommit = Nothing
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId

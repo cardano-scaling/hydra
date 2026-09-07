@@ -50,39 +50,60 @@ currentDeposits :: DepositHistory tx -> PendingDeposits tx
 currentDeposits (DepositHistory ((_, deposits) :| _)) = deposits
 
 -- | Record a new version of the pending deposits at the given slot. Multiple
--- versions at the same slot collapse into the latest one. The history length
--- is bounded by 'maxDepositHistorySize': rollbacks deeper than the deposit
--- deadline cannot lead to a valid re-post anyway, so dropping the tail loses
--- nothing actionable.
+-- versions at the same slot collapse into the latest one.
 --
 -- 'rollbackDepositHistory' relies on the history slots being strictly
 -- descending, so a push at a slot not younger than the newest entry (deposit
 -- status changes are recorded at tick slots while observations are recorded at
 -- their block slot, so slots may repeat or arrive slightly out of order)
 -- collapses into the newest entry rather than breaking that order.
+--
+-- Versions older than 'depositHistoryHorizon' are pruned: no rollback can
+-- reach them, so they can never be restored. The newest pruned version is kept
+-- as boundary entry — it is still the correct view for a rollback landing
+-- between it and the oldest retained version. 'maxDepositHistorySize' bounds
+-- the length against pathological deposit churn within the horizon.
 pushDeposits :: ChainSlot -> PendingDeposits tx -> DepositHistory tx -> DepositHistory tx
 pushDeposits slot deposits (DepositHistory history@((newestSlot, _) :| older))
   | slot <= newestSlot = DepositHistory ((newestSlot, deposits) :| older)
-  | otherwise = DepositHistory ((slot, deposits) :| take (maxDepositHistorySize - 1) (toList history))
+  | otherwise = DepositHistory ((slot, deposits) :| prune (toList history))
+ where
+  prune entries =
+    let (withinHorizon, beyondHorizon) = span (\(s, _) -> s > cutoff) entries
+     in take (maxDepositHistorySize - 1) (withinHorizon <> take 1 beyondHorizon)
+
+  cutoff =
+    case (slot, depositHistoryHorizon) of
+      (ChainSlot s, ChainSlot horizon) -> ChainSlot (if s > horizon then s - horizon else 0)
 
 -- | Rewind the history to the given slot: drop all versions recorded after it.
--- The oldest version is always kept as last resort.
-rollbackDepositHistory :: ChainSlot -> DepositHistory tx -> DepositHistory tx
+--
+-- A rollback reaching past the whole retained history restores the empty
+-- view: the version at that slot was pruned and cannot be reconstructed, and
+-- an empty view is safe where a stale one is not — a missing deposit converges
+-- by re-observing its deposit transaction, while a stale entry could be
+-- proposed for a snapshot that can never settle. This is only reachable for
+-- rollbacks deeper than 'depositHistoryHorizon', which no real chain produces.
+rollbackDepositHistory :: IsTx tx => ChainSlot -> DepositHistory tx -> DepositHistory tx
 rollbackDepositHistory slot (DepositHistory history) =
   case dropWhile (\(s, _) -> s > slot) (toList history) of
-    [] -> DepositHistory (last history :| [])
+    [] -> initialDepositHistory
     (h : rest) -> DepositHistory (h :| rest)
 
--- | Upper bound on retained deposit history versions. Deposit lifecycles only
--- push a handful of versions each, so this covers rollbacks far deeper than
--- any deposit deadline while keeping memory and checkpoint size bounded.
---
--- Trade-off: in-memory versions share structure, but serialization (state
--- checkpoints, API messages carrying 'NodeState') copies each version in
--- full, so with many concurrent deposits this bound dominates the serialized
--- size. Pruning by slot age (versions older than the deposit deadline horizon
--- can never lead to a valid re-post) would bound the history by what is
--- actionable instead and is a possible refinement.
+-- | Number of slots of deposit history to retain, see 'pushDeposits'. Sized to
+-- cover the deepest rollback Cardano can produce (the security parameter k =
+-- 2160 blocks, roughly 12 hours at one block per 20 slots) with a three-fold
+-- margin. Bounding the history by slot age instead of only by count matters
+-- because it is embedded in 'NodeState': serialization (state checkpoints,
+-- API messages carrying 'NodeState') copies each version in full, so retained
+-- versions directly size persisted state and client messages.
+depositHistoryHorizon :: ChainSlot
+depositHistoryHorizon = ChainSlot 129600
+
+-- | Upper bound on retained deposit history versions, a backstop against
+-- pathological deposit churn within 'depositHistoryHorizon'. Deposit
+-- lifecycles only push a handful of versions each, so the horizon is the
+-- effective bound in practice.
 maxDepositHistorySize :: Int
 maxDepositHistorySize = 1000
 
@@ -99,7 +120,7 @@ modifyDeposits slot f nodeState =
 
 -- | Rewind the pending deposits to their state at the given (rolled back)
 -- slot, see 'DepositHistory'.
-rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
+rollbackDeposits :: IsTx tx => ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
   nodeState
     { pendingDeposits = currentDeposits history
