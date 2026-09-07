@@ -77,6 +77,7 @@ library
     , microlens-th
     , optparse-applicative
     , req
+    , secret
     , text
     , time
     , vector
@@ -109,6 +110,7 @@ test-suite tests
     , base
     , blaze-builder
     , bytestring
+    , contra-tracer-json
     , filepath
     , hydra-cardano-api
     , hydra-cluster

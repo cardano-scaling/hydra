@@ -72,9 +72,6 @@ library
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
     Hydra.Config
-    Hydra.Events
-    Hydra.Events.Rotation
-    Hydra.Events.SQLiteBased
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
@@ -84,7 +81,6 @@ library
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
-    Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
     Hydra.Network
@@ -133,9 +129,11 @@ library
     , conduit
     , containers
     , contra-tracer
+    , contra-tracer-json
     , crypton
     , data-default
     , directory
+    , event-sourcing
     , exceptions
     , file-embed
     , filepath
@@ -148,7 +146,6 @@ library
     , hydra-prelude
     , hydra-tx
     , io-classes                   >=0.3.0.0
-    , iohk-monitoring
     , iproute
     , lens
     , lens-aeson
@@ -157,14 +154,15 @@ library
     , ouroboros-consensus
     , ouroboros-network:api
     , ouroboros-network:protocols
+    , persistent-queue
     , process
     , prometheus
     , QuickCheck
     , retry
     , safe-money
+    , secret
     , serialise
     , sop-extras
-    , sqlite-simple
     , stm
     , template-haskell
     , text
@@ -229,6 +227,7 @@ library testlib
     , cardano-slotting
     , cborg
     , containers
+    , contra-tracer-json
     , directory
     , filepath
     , hydra-cardano-api
@@ -245,6 +244,7 @@ library testlib
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , secret
     , text
     , time
     , versions
@@ -264,7 +264,7 @@ library examples
     , amazonka-s3
     , base
     , conduit
-    , hydra-node
+    , event-sourcing
     , hydra-prelude
     , lens
     , network
@@ -278,6 +278,7 @@ executable hydra-node
   build-depends:
     , base
     , bytestring
+    , contra-tracer-json
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
@@ -443,7 +444,9 @@ test-suite tests
     , conduit
     , containers
     , contra-tracer
+    , contra-tracer-json
     , directory
+    , event-sourcing
     , filepath
     , generic-lens
     , grapesy
@@ -474,6 +477,7 @@ test-suite tests
     , nothunks                        ^>=0.3.1
     , ouroboros-consensus
     , ouroboros-consensus:cardano
+    , persistent-queue
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , process
@@ -485,11 +489,13 @@ test-suite tests
     , req
     , resourcet
     , retry
+    , secret
     , sop-extras
     , sqlite-simple
     , stm
     , tasty
     , temporary
+    , test-network-ports
     , text
     , time
     , tls

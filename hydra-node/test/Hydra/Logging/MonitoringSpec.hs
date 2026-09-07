@@ -5,9 +5,9 @@ import Test.Hydra.Prelude
 
 import Data.Text qualified as Text
 
+import Control.Tracer.JSON (nullTracer, traceWith)
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
-import Hydra.Logging (nullTracer, traceWith)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network (Host (Host))

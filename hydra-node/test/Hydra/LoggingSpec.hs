@@ -4,9 +4,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Exception (IOException)
+import Control.Tracer.JSON (defaultLogBuffering, defaultQueueSize, traceWith, withTracerOutputTo)
 import Data.Aeson (object, (.=))
 import Data.Text.IO qualified as Text.IO
-import Hydra.Logging (defaultLogBuffering, defaultQueueSize, traceWith, withTracerOutputTo)
 import System.FilePath ((</>))
 import System.IO (hClose)
 import System.Process (createPipe)

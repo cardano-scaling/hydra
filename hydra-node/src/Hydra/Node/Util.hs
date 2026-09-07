@@ -5,6 +5,7 @@ module Hydra.Node.Util where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (totalValue)
+import Data.Secret (Secret, mkSecret)
 import Hydra.Cardano.Api (
   AsType (AsPaymentExtendedKey, AsPaymentKey, AsSigningKey, AsVerificationKey),
   AssetId (..),
@@ -24,7 +25,6 @@ import Hydra.Cardano.Api (
   readFileTextEnvelope,
   readFileTextEnvelopeAnyOf,
  )
-import Hydra.Tx.Secret (Secret, mkSecret)
 
 -- | Thrown when a cardano key file could not be read as any of the accepted
 -- text envelope formats.

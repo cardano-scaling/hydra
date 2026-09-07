@@ -18,6 +18,7 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Lens ((^.))
 import Control.Monad.Class.MonadSTM (throwSTM)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
@@ -91,7 +92,6 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport, renderEvaluationReport)
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
   CommitBlueprintTx (..),

@@ -11,6 +11,13 @@ _: {
           hsPkgs.hydra-node.components.tests.tests.doc
           hsPkgs.hydra-cluster.components.library.doc
           hsPkgs.hydra-tui.components.library.doc
+          hsPkgs.cborg-generic-tagged.components.library.doc
+          hsPkgs.contra-tracer-json.components.library.doc
+          hsPkgs.event-sourcing.components.library.doc
+          hsPkgs.io-classes-labelled.components.library.doc
+          hsPkgs.persistent-queue.components.library.doc
+          hsPkgs.secret.components.library.doc
+          hsPkgs.test-network-ports.components.library.doc
         ];
       }
       ''

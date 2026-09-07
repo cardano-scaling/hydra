@@ -1,0 +1,43 @@
+cabal-version: 3.0
+name:          test-network-ports
+version:       0.1.0.0
+synopsis:
+  Collision-free localhost TCP port allocation for test suites
+
+description:
+  Hand out free @localhost@ TCP ports for integration tests from a private
+  band below the kernel's ephemeral range, coordinated across processes by
+  file locks and verified bindable before being returned. This avoids the
+  races inherent in @bind(0)@-based allocation, where an OS-assigned port can
+  land on a port a test has reserved but not yet bound.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Testing, Network
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions: LambdaCase
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:    Test.Network.Ports
+  build-depends:
+    , base
+    , containers
+    , directory
+    , filelock
+    , filepath
+    , network
+    , process

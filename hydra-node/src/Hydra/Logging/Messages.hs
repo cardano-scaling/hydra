@@ -10,9 +10,9 @@ module Hydra.Logging.Messages where
 
 import Hydra.Prelude
 
+import Data.EventSource.SQLite (SQLiteLog)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
-import Hydra.Events.SQLiteBased (SQLiteLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)

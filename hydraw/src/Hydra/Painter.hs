@@ -6,13 +6,13 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Exception (IOException)
 import Data.Aeson qualified as Aeson
+import Data.Secret (Secret, mkSecret, withSecret)
 import Data.Text (unpack)
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Chain.Direct.State ()
 import Hydra.Network (Host (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Tx.Crypto (getVerificationKey)
-import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import Network.WebSockets (Connection, runClient, sendTextData)

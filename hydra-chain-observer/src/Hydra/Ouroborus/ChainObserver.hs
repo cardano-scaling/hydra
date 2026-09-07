@@ -5,6 +5,7 @@ module Hydra.Ouroborus.ChainObserver where
 
 import Hydra.Prelude
 
+import Control.Tracer.JSON (Tracer, traceWith)
 import Hydra.Cardano.Api (
   BlockHeader (BlockHeader),
   BlockInMode (..),
@@ -36,7 +37,6 @@ import Hydra.ChainObserver.NodeClient (
   observeAll,
  )
 import Hydra.ChainObserver.VersionRegistry (KnownVersion)
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx.Observe (HeadObservation (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),

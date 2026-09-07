@@ -16,9 +16,11 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Lens ((^?))
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
+import Data.EventSource (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Data.List qualified as List
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
@@ -37,11 +39,9 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Options (defaultRunOptions)

@@ -27,6 +27,7 @@ import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Lens (view, (.~), (<>~), (^.))
 import Control.Tracer (nullTracer)
 import Data.Map.Strict qualified as Map
+import Data.Secret (mkSecret)
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
@@ -61,7 +62,6 @@ import Hydra.Chain.Direct.Wallet (
   newTinyWallet,
  )
 import Hydra.Contract.Dummy (dummyValidatorScript)
-import Hydra.Tx.Secret (mkSecret)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut)
 import Test.QuickCheck (

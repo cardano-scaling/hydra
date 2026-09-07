@@ -4,13 +4,13 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.List (isInfixOf)
+import Data.Secret (withSecret)
 import Hydra.Cardano.Api (
   CardanoSigningKey (..),
   getCardanoPaymentVerificationKey,
   verificationKeyHash,
  )
 import Hydra.Node.Util (KeyFileError (..), readKeyPair, readSigningKey, readVerificationKey)
-import Hydra.Tx.Secret (withSecret)
 
 spec :: Spec
 spec = do

@@ -12,6 +12,7 @@ import CardanoNode (
   withCardanoNodeDevnet,
   withCardanoNodeOnKnownNetwork,
  )
+import Control.Tracer.JSON (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Cardano.Api (TxId, serialiseToRawBytesHexText)
 import Hydra.Chain.Backend (blockfrostProjectPath)
 import Hydra.Cluster.Faucet (publishHydraScriptsAs)
@@ -20,7 +21,6 @@ import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Cluster.Util (mkSmokeTiming)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)

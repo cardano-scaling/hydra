@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
  )
 
-import Hydra.Logging (Verbosity (..))
+import Control.Tracer.JSON (Verbosity (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), LedgerConfig (..), OfflineChainConfig (..), RunOptions (..), defaultBlockfrostOptions, defaultDirectOptions)
 import Test.Hydra.Logging ()
 import Test.Hydra.Network ()

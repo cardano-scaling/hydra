@@ -1,14 +1,29 @@
-module Hydra.Events.Rotation where
-
-import Hydra.Prelude
+-- | Log rotation for an 'EventStore': fold the existing events into an
+-- aggregate, and once a configured number of events has accumulated, archive
+-- them under a log id and start a fresh log from a checkpoint event that
+-- captures the aggregate so far.
+module Data.EventSource.Rotation (
+  RotationConfig (..),
+  LogId,
+  EventStore (..),
+  newRotatedEventStore,
+) where
 
 import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
+import Control.Concurrent.Class.Labelled (newLabelledTVarIO)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, atomically, modifyTVar', readTVarIO, writeTVar)
+import Control.Monad (forM_, when)
+import Control.Monad.Class.MonadTime.SI (MonadTime, getCurrentTime)
 import Data.Conduit.Combinators qualified as C
-import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
-import Test.QuickCheck (Positive (..))
+import Data.EventSource (EventId, EventSink (..), EventSource (..), HasEventId (..))
+import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty qualified as NE
+import Data.Time.Clock (UTCTime)
+import Numeric.Natural (Natural)
 
-newtype RotationConfig = RotateAfter (Positive Natural)
+-- | Rotate after this many events have been appended. Must be positive; a
+-- value of 0 would trigger a rotation immediately after every checkpoint.
+newtype RotationConfig = RotateAfter Natural
 
 type LogId = EventId
 
@@ -20,6 +35,9 @@ data EventStore e m
   , rotate :: LogId -> e -> m ()
   -- ^ Rotate existing events into a given log id and start a new log from given e.
   }
+
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM mb action = mb >>= \b -> when b action
 
 -- | Creates an event store that rotates according to given config and 'StateAggregate'.
 newRotatedEventStore ::
@@ -54,7 +72,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
         rotate = const . const $ pure ()
       }
  where
-  RotateAfter (Positive rotateAfterX) = config
+  RotateAfter rotateAfterX = config
 
   aggregateEvents (!n, !_evId, !acc) e = (n + 1, getEventId e, aggregator acc e)
 
@@ -85,7 +103,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
         modifyTVar' numberOfEventsV (+ 1)
     whenM (shouldRotate numberOfEventsV) $ do
       case nonEmpty evts of
-        Just ne -> rotateEventLog numberOfEventsV aggregateStateV (getEventId $ last ne)
+        Just ne -> rotateEventLog numberOfEventsV aggregateStateV (getEventId $ NE.last ne)
         Nothing -> pure ()
 
   rotateEventLog numberOfEventsV aggregateStateV lastEventId = do

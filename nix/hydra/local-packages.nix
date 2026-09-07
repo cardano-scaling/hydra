@@ -5,6 +5,10 @@
 _: {
   perSystem = _: {
     _module.args.localHaskellPackageNames = [
+      "cborg-generic-tagged"
+      "contra-tracer-json"
+      "event-sourcing"
+      "head-state-viewer"
       "hydra-agda"
       "hydra-cardano-api"
       "hydra-chain-observer"
@@ -17,7 +21,10 @@ _: {
       "hydra-tx"
       "hydra-tui"
       "hydraw"
-      "head-state-viewer"
+      "io-classes-labelled"
+      "persistent-queue"
+      "secret"
+      "test-network-ports"
     ];
   };
 }

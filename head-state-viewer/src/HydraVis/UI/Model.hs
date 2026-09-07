@@ -21,10 +21,10 @@ module HydraVis.UI.Model (
 
 import Hydra.Prelude
 
+import Data.EventSource (EventId)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventId)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))

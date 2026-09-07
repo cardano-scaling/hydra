@@ -1,8 +1,5 @@
-{-# LANGUAGE DataKinds #-}
-
--- | Generic derivation of 'ToCBOR' / 'FromCBOR' instances in the
--- constructor-name-tagged format used for hydra-node persistence and API
--- messages.
+-- | Generic derivation of 'ToCBOR' / 'FromCBOR' instances in a
+-- constructor-name-tagged format.
 --
 -- The encoding of a value is the constructor name as a CBOR text string,
 -- followed by the encodings of the constructor fields in declaration order,
@@ -21,19 +18,20 @@
 --
 -- Since the field encodings come from the data type declaration, the
 -- declaration itself becomes the wire format: reordering record fields is a
--- format change that the type checker will not flag. Golden tests (see
--- 'Hydra.CBORSpec' in hydra-node) are the guard against that.
+-- format change that the type checker will not flag. A byte-level golden test
+-- is the guard against that.
 --
 -- Decoding fails with @"\<tag\>" is not a proper CBOR-encoded \<TypeName\>@
 -- when the decoded tag matches no constructor.
-module Hydra.CBOR.Generic (
+module Codec.CBOR.Generic.Tagged (
   genericToCBOR,
   genericFromCBOR,
 ) where
 
-import Relude
-
 import Cardano.Binary (Decoder, Encoding, FromCBOR (..), ToCBOR (..))
+import Control.Applicative ((<|>))
+import Data.Proxy (Proxy (..))
+import Data.Text (Text, pack)
 import GHC.Generics
 import GHC.TypeLits (KnownSymbol, symbolVal)
 
@@ -130,4 +128,4 @@ instance FromCBOR a => GFieldsFromCBOR (K1 i a) where
 
 -- | The constructor name from generic metadata, as 'Text'.
 conNameText :: KnownSymbol name => Proxy name -> Text
-conNameText = toText . symbolVal
+conNameText = pack . symbolVal

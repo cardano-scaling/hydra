@@ -11,10 +11,10 @@ import CardanoNode (
   withCardanoNodeDevnet,
   withCardanoNodeOnKnownNetwork,
  )
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import System.Directory (doesFileExist)
 import Test.Hydra.Cluster.Utils (chainPointToSlot, forEachKnownNetwork)
