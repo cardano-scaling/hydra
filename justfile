@@ -33,6 +33,7 @@ check:
 #
 # Example:
 #   just test hydra-node expired-lease       # → --pattern=/expired lease/
+[doc("run cabal tests, optionally with a tasty --pattern; e.g. `just test hydra-node expired-lease`")]
 test PKG="all" PATTERN="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -56,6 +57,7 @@ test PKG="all" PATTERN="":
 #
 # Note: This was written with Claude; so don't worry too much about the HTML
 # detail, or changing it.
+[doc("emit ./test-reports/index.html linking the per-suite HTML reports")]
 test-index:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -102,6 +104,7 @@ test-index:
 # example:
 #
 # > just stress-test hydra-node 1
+[doc("run one package's nix test suite N times, stopping at the first failure")]
 stress-test PKG N PATTERN="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -124,6 +127,7 @@ stress-test PKG N PATTERN="":
 # Runs the formatter AND the -Werror build even when the former fails, so a
 # formatting/typos failure cannot silently mask compiler findings, and ends
 # with an unambiguous status line that survives output truncation.
+[doc("format, and build with -Werror and strict linting flags")]
 lint PKG="all":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -149,6 +153,7 @@ lint PKG="all":
 # benchmark page first, so it renders locally exactly like it does in CI (which
 # generates it from nix/hydra/docs.nix). Uses cabal to build tx-cost since the
 # nix benchmark exe does not run on darwin.
+[doc("serve the documentation locally (generates the tx-cost benchmark page first)")]
 docs:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -160,6 +165,7 @@ docs:
 
 # run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
 # BENCH_MAX_UTXO=4000 includes the largest grid cells
+[doc("run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work)")]
 bench-snapshot OPTIONS="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -169,6 +175,7 @@ bench-snapshot OPTIONS="":
 
 # run the end-to-end cluster benchmark on a dataset file, e.g.
 # `just bench-e2e hydra-cluster/datasets/3-nodes.json`
+[doc("run the end-to-end cluster benchmark on a dataset file")]
 bench-e2e DATASET:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -184,5 +191,6 @@ bench-e2e DATASET:
 #
 # The spec toolchain lives in its own dev shell (nix/hydra/spec.nix) so that it
 # is not in every developer's default shell, hence the explicit `nix develop`.
+[doc("typecheck the literate-Agda sources and render spec/_build/hydra-spec.pdf")]
 spec:
   nix develop .#spec --command spec/build.sh

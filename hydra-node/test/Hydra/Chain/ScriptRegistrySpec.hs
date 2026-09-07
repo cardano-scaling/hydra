@@ -3,8 +3,8 @@ module Hydra.Chain.ScriptRegistrySpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
+import Data.Secret (mkSecret)
 import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
-import Hydra.Tx.Secret (mkSecret)
 
 import Hydra.Cardano.Api (
   Address,

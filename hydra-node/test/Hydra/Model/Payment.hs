@@ -11,12 +11,12 @@ import Test.Hydra.Prelude
 import Text.Show qualified
 
 import Data.List qualified as List
+import Data.Secret (Secret, mkSecret)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
 import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.Secret (Secret, mkSecret)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
 

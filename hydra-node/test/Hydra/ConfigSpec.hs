@@ -5,9 +5,9 @@ module Hydra.ConfigSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Control.Tracer.JSON (Verbosity (..))
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Config (isSelfAddress, loadConfig, resolvePaths)
-import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..))
 import Hydra.Options (
   CardanoChainConfig (..),

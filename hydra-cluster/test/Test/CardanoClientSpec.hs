@@ -4,11 +4,11 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (runBackend, withCardanoNodeDevnet)
+import Control.Tracer.JSON (showLogsOnFailure)
 import Data.Aeson ((.:))
 import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..))
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Utils (readJsonFileThrow)
 import System.FilePath ((</>))

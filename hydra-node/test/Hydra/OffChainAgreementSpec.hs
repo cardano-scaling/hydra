@@ -61,6 +61,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference (
@@ -102,7 +103,6 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, aggregate, sign)
 import Hydra.Tx.IsTx (TxIdType, UTxOType)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)

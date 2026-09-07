@@ -182,10 +182,16 @@ while read -r code name status; do
     tested) ;;
     untested:*)
       tag=${status#untested:}
-      if ! printf '%s\n' $KNOWN_TAGS | grep -qxF -- "$tag"; then
-        echo "check-error-codes: $code $name has unknown exclusion tag '$tag' (known: $KNOWN_TAGS)."
-        fail=1
-      fi
+      # No pipeline here: `printf | grep -q` races grep's early exit against
+      # printf's per-word writes, and under pipefail a losing printf (EPIPE)
+      # fails the membership test spuriously.
+      case " $KNOWN_TAGS " in
+        *" $tag "*) ;;
+        *)
+          echo "check-error-codes: $code $name has unknown exclusion tag '$tag' (known: $KNOWN_TAGS)."
+          fail=1
+          ;;
+      esac
       ;;
     *)
       echo "check-error-codes: $code $name has unrecognised status '$status' (want 'tested' or 'untested:<tag>')."

@@ -7,10 +7,10 @@ import Test.Hydra.Prelude
 
 import Control.Monad (foldM)
 import Data.ByteString qualified as BS
+import Data.Secret (Secret, mkSecret, withSecret)
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano (mkTransferTx)
 import Hydra.Tx (IsTx (..))
-import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Tx.Fixture (testNetworkId)

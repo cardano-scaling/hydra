@@ -12,6 +12,7 @@ import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
 import Control.Concurrent.STM (newTChanIO)
 import Control.Monad.Class.MonadAsync (cancel, link, waitCatch)
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
@@ -42,7 +43,6 @@ import Hydra.Cluster.Fixture (
   aliceSk,
  )
 import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)

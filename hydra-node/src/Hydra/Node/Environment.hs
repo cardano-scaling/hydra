@@ -3,6 +3,7 @@ module Hydra.Node.Environment where
 import Hydra.Prelude hiding (show)
 
 import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Secret (Secret)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
@@ -10,7 +11,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Secret (Secret)
 import Text.Show (Show (..))
 
 data Environment = Environment

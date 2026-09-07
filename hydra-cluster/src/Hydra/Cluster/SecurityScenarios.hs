@@ -12,6 +12,7 @@ import CardanoClient (
  )
 import CardanoNode (EndToEndLog (..), runBackend)
 import Control.Lens ((^?))
+import Control.Tracer.JSON (Tracer)
 import Data.Aeson.Lens (key)
 import Data.Aeson.Types (parseMaybe)
 import Data.Set qualified as Set
@@ -89,7 +90,6 @@ import Hydra.Contract.HeadState (
  )
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import Hydra.Logging (Tracer)
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)

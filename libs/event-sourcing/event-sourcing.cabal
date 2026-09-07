@@ -1,0 +1,58 @@
+cabal-version: 3.0
+name:          event-sourcing
+version:       0.1.0.0
+synopsis:
+  Conduit-based event sourcing with a SQLite backend and log rotation
+
+description:
+  An 'EventSource'\/'EventSink' abstraction for an ordered, identified event
+  stream, a checkpoint-by-aggregate log rotation combinator, and a production
+  SQLite backend (WAL, @user_version@ schema migrations, async write-behind
+  through a bounded queue, and @VACUUM INTO@ archival on rotation). Polymorphic
+  in the base monad via @io-classes@ where practical.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Database, Conduit
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions:
+    DeriveAnyClass
+    DerivingStrategies
+    LambdaCase
+    OverloadedStrings
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:
+    Data.EventSource
+    Data.EventSource.Rotation
+    Data.EventSource.SQLite
+
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , cardano-binary
+    , conduit
+    , contra-tracer
+    , directory
+    , filepath
+    , io-classes
+    , io-classes-labelled
+    , io-classes:si-timers
+    , sqlite-simple
+    , time

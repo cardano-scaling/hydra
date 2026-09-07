@@ -1,23 +1,23 @@
--- | Tests for the 'EventSource' and 'EventSink' implementation in 'Hydra.Events.SQLiteBased'.
+-- | Tests for the 'EventSource' and 'EventSink' implementation in 'Data.EventSource.SQLite'.
 module Hydra.Events.SQLiteBasedSpec where
 
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull')
+import Control.Tracer.JSON (Envelope (..), nullTracer)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
+import Data.EventSource (EventSink (..), EventSource (..), getEvents, putEvent)
+import Data.EventSource.Rotation (EventStore (..))
+import Data.EventSource.SQLite (EventDecodingException, SQLiteLog (..), getSchemaVersion, nextVersion, withSQLiteEventStore)
 import Data.List (zipWith3)
 import Data.List qualified as List
 import Database.SQLite.Simple (Only (..), close, execute, execute_, open, query)
-import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
-import Hydra.Events.Rotation (EventStore (..))
-import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), getSchemaVersion, nextVersion, withSQLiteEventStore)
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (Envelope (..), nullTracer)
 import System.Directory (doesFileExist, getFileSize)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.StateEvent ()

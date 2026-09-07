@@ -20,6 +20,7 @@ import Data.ByteString qualified as BS
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
+import Data.Secret (Secret)
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
@@ -40,7 +41,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)

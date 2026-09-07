@@ -7,6 +7,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
+import Control.Tracer.JSON (nullTracer)
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
@@ -42,7 +43,6 @@ import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, 
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (nullTracer)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.Accumulator qualified as Accumulator

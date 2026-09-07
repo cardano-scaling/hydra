@@ -18,12 +18,12 @@ import Control.Monad.IOSim (
   traceResult,
  )
 import Control.Tracer (Tracer (Tracer))
+import Control.Tracer.JSON (Envelope (..), traceInTVar)
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
 import Hydra.Cardano.Api (CtxUTxO, TxOut, UTxO)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
 import NoThunks.Class (InspectHeap (..), ThunkInfo, allNoThunks, noThunks)
@@ -153,7 +153,7 @@ waitMatch waitNext delay match = do
 -- | Create a tracer that captures all messages and a function to retrieve all
 -- traces captured.
 -- XXX: This is duplicated in MithrilSpec in hydra-cluster, but can't (easily)
--- be moved to the Test Prelude because of the dependency on Hydra.Logging.
+-- be moved to the Test Prelude because of the dependency on Control.Tracer.JSON.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 captureTracer namespace = do
   traces <- newLabelledTVarIO "capture-tracer" []

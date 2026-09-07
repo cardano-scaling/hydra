@@ -8,6 +8,7 @@ import Control.Exception (IOException)
 import Control.Monad.Catch (Handler (Handler))
 import Control.Monad.Catch qualified as Catch
 import Control.Retry (RetryPolicyM, RetryStatus (..), constantDelay, recovering, retrying)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -38,7 +39,6 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (newCachedTimeHandle, queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
 
 newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostEnv IO a)

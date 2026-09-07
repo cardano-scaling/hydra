@@ -9,6 +9,8 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)
 import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
+import Control.Tracer.JSON (Tracer, showLogsOnFailure)
+import Data.Secret (mkSecret, withSecret)
 import Hydra.Cardano.Api (CardanoSigningKey (..), TxIn (..), TxIx (..), pattern TxOut, pattern TxOutDatumInline)
 import Hydra.Chain (
   Chain (Chain, postTx),
@@ -35,7 +37,6 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Util (chainConfigFor', keysFor)
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Options (
   BlockfrostOptions (..),
@@ -50,7 +51,6 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Secret (mkSecret, withSecret)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (

@@ -7,6 +7,10 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.Monad.Trans.Except (runExcept)
+import Control.Tracer.JSON (Tracer, traceWith, withTracer)
+import Data.EventSource (EventSink)
+import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Data.EventSource.SQLite (withSQLiteEventStore)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
@@ -20,14 +24,10 @@ import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Events (EventSink)
-import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.Events.SQLiteBased (withSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
-import Hydra.Logging (Tracer, traceWith, withTracer)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
@@ -57,6 +57,7 @@ import Hydra.Options (
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
+import Test.QuickCheck (Positive (..))
 
 data ConfigurationException
   = -- XXX: this is not used
@@ -154,7 +155,7 @@ run opts = do
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
   prepareEventStore eventStore = do
-    case RotateAfter <$> persistenceRotateAfter of
+    case RotateAfter . getPositive <$> persistenceRotateAfter of
       Nothing ->
         pure eventStore
       Just rotationConfig -> do

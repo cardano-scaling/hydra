@@ -9,6 +9,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import Data.Secret (Secret)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Commit (Commit, serializeCommit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
@@ -35,7 +36,6 @@ import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 qualified as Plutus

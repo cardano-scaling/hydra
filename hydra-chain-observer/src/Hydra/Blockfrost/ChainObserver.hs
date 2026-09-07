@@ -10,6 +10,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
   ChainPoint (..),
@@ -34,7 +35,6 @@ import Hydra.ChainObserver.NodeClient (
   observeAll,
  )
 import Hydra.ChainObserver.VersionRegistry (KnownVersion)
-import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Observe (HeadObservation (..))
 

@@ -69,7 +69,6 @@ library
     Hydra.Tx.Party
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
-    Hydra.Tx.Secret
     Hydra.Tx.Snapshot
     Hydra.Tx.Utils
 
@@ -103,6 +102,7 @@ library
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter
+    , secret
     , serialise
     , text
     , time
@@ -156,6 +156,7 @@ library testlib
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , secret
     , sop-extras
     , template-haskell
     , time
@@ -236,6 +237,7 @@ test-suite tests
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
+    , secret
     , serialise
     , time
 

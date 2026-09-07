@@ -57,6 +57,6 @@ root-instances = [
   # is to emit a GHC TypeError if anyone tries to derive or call them.
   { module = "Hydra.Tx.Crypto", instance = 'FromJSON \(SigningKey HydraKey\)' },
   { module = "Hydra.Tx.Crypto", instance = 'FromCBOR \(SigningKey HydraKey\)' },
-  { module = "Hydra.Tx.Secret", instance = 'FromJSON \(Secret a\)' },
-  { module = "Hydra.Tx.Secret", instance = 'FromCBOR \(Secret a\)' },
+  { module = "Data.Secret", instance = 'FromJSON \(Secret a\)' },
+  { module = "Data.Secret", instance = 'FromCBOR \(Secret a\)' },
 ]

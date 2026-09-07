@@ -9,6 +9,7 @@ import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, 
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.List qualified as List
+import Data.Secret (Secret, mkSecret, withSecret)
 import Hydra.Chain.Backend (buildTransaction)
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Cluster.Faucet (FaucetException (..))
@@ -16,7 +17,6 @@ import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Options qualified as Options
 import Hydra.Tx.Crypto (getVerificationKey, signTx)
-import Hydra.Tx.Secret (Secret, mkSecret, withSecret)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
 

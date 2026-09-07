@@ -5,7 +5,7 @@ import Hydra.Prelude
 
 import Control.Monad.Trans.Resource (MonadResource, allocate)
 import Data.Aeson (encode)
-import Hydra.Events (EventSink (..), mkEventSink)
+import Data.EventSource (EventSink (..), mkEventSink)
 import Network.Socket (HostName, ServiceName)
 import Network.UDP (UDPSocket, clientSocket, close, send)
 

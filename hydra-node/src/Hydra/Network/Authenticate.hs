@@ -8,14 +8,14 @@ module Hydra.Network.Authenticate where
 
 import Cardano.Crypto.Util (SignableRepresentation)
 import Control.Tracer (Tracer)
+import Control.Tracer.JSON (traceWith)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
-import Hydra.Logging (traceWith)
+import Data.Secret (Secret)
 import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, sign, verify)
-import Hydra.Tx.Secret (Secret)
 
 -- | Represents a signed message over the network.
 -- Becomes valid once its receivers verify it against its other peers

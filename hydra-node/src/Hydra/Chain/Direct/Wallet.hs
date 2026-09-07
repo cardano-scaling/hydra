@@ -52,9 +52,11 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Secret (Secret, withSecret)
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -84,8 +86,6 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport, evaluateTxWith)
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx.Secret (Secret, withSecret)
 
 type Address = Ledger.Addr
 type TxIn = Ledger.TxIn

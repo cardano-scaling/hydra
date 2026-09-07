@@ -17,7 +17,6 @@ library
   hs-source-dirs:     src
   c-sources:          cbits/revision.c
   exposed-modules:
-    Hydra.CBOR.Generic
     Hydra.Prelude
     Hydra.Version
 
@@ -27,8 +26,10 @@ library
     , base
     , base16-bytestring
     , cardano-binary        >=1.7.0   && <1.8
+    , cborg-generic-tagged
     , gitrev
     , io-classes            >=1.8.0.1
+    , io-classes-labelled
     , io-classes:si-timers
     , pretty-simple
     , relude

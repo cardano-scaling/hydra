@@ -1,0 +1,38 @@
+cabal-version: 3.0
+name:          io-classes-labelled
+version:       0.1.0.0
+synopsis:
+  Label-attaching wrappers over io-classes STM and async primitives
+
+description:
+  Thin wrappers over @io-classes@ that attach a label to each 'TVar',
+  'TMVar', 'TQueue', 'TBQueue' or thread they create. The labels show up in
+  @io-sim@ traces and as GHC thread labels, making deadlock and liveness
+  diagnosis tractable. Nothing here is specific to any application; it is the
+  labelling discipline made convenient.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Concurrency
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions: TypeFamilies
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:    Control.Concurrent.Class.Labelled
+  build-depends:
+    , base
+    , io-classes  >=1.8.0.1

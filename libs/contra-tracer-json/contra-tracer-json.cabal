@@ -1,0 +1,46 @@
+cabal-version: 3.0
+name:          contra-tracer-json
+version:       0.1.0.0
+synopsis:      Structured JSON logging over contra-tracer
+description:
+  Acquire a @contra-tracer@ 'Tracer' that wraps each message in an 'Envelope'
+  (timestamp, thread id, namespace) and writes it as one JSON object per line,
+  through a bounded, batching, back-pressured writer thread. Polymorphic in the
+  base monad via @io-classes@, so the same tracers run under @io-sim@ in tests.
+
+author:        IOG
+copyright:     2022 IOG
+license:       Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
+
+category:      Logging
+
+source-repository head
+  type:     git
+  location: https://github.com/cardano-scaling/hydra
+
+library
+  default-language:   GHC2021
+  default-extensions:
+    DeriveAnyClass
+    DerivingStrategies
+    OverloadedStrings
+
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints -Wunused-packages
+
+  hs-source-dirs:     src
+  exposed-modules:    Control.Tracer.JSON
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , contra-tracer
+    , io-classes
+    , io-classes-labelled
+    , io-classes:si-timers
+    , text
+    , time
