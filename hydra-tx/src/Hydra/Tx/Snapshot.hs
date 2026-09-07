@@ -15,7 +15,7 @@ import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin, toData)
 import PlutusTx.Builtins (sha2_256)
 
@@ -236,7 +236,7 @@ instance IsTx tx => FromCBOR (Snapshot tx) where
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
 snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx
 snapshotUTxO Snapshot{utxo, utxoToCommit, utxoToDecommit} =
-  utxo <> fold utxoToCommit <> fold utxoToDecommit
+  combinedUTxO utxo utxoToCommit utxoToDecommit
 
 -- * ConfirmedSnapshot
 

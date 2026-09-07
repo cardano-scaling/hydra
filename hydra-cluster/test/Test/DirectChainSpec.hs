@@ -53,7 +53,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (UnsafeContestationPeriod
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -152,7 +152,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 { utxo = utxo'
                 , utxoToCommit = utxoToCommit'
                 , utxoToDecommit = utxoToDecommit'
-                , utxoForProof = utxo' <> fold utxoToCommit' <> fold utxoToDecommit'
+                , utxoForProof = combinedUTxO utxo' utxoToCommit' utxoToDecommit'
                 , headSeed
                 , contestationDeadline = deadline
                 }

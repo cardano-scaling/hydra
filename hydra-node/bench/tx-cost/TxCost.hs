@@ -34,6 +34,7 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (utxoFromTx)
+import Hydra.Tx.Accumulator (deployedFanoutBatchSize)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Chain.Direct.State (
@@ -208,8 +209,9 @@ computeFanOutCost = do
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.
 --
--- For each total UTxO count N, we build one partial fanout that distributes
--- all-but-one outputs (the benchmark shows max-chunk scaling). The tx size
+-- For each total UTxO count N, we search for the largest chunk that fits, the
+-- same way the node does: bounded by 'deployedFanoutBatchSize', since no larger
+-- subset can be verified on chain however cheap its transaction is. The tx size
 -- grows with the total UTxO count because the accumulator serialisation stored
 -- in the output datum grows linearly with remaining UTxO count.
 computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
@@ -251,7 +253,7 @@ computePartialFanOutNominalCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (totalUTxO - 1)
+    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
@@ -292,7 +294,7 @@ computePartialFanOutMixedCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (totalUTxO - 1)
+    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
 
 -- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
 -- with mixed UTxOs. This is the terminal step that burns all head tokens and

@@ -64,7 +64,7 @@ import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyConte
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
-import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
+import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
@@ -244,6 +244,12 @@ spec = parallel $ do
       propTransactionEvaluates healthyFanoutTxWithWalletChange
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
+    -- Before the redeemer's output count was taken from the same union the
+    -- membership proof covers, this failed phase-2 with FanoutUTxOHashMismatch
+    -- (H39): the count was a sum over the three sets, one more than the proof
+    -- covered.
+    prop "stays valid when the fanout sets share a TxIn" $
+      propTransactionEvaluates fanoutTxWithOverlappingSets
   describe "PartialFanout" $ do
     prop "is healthy (from Closed)" $
       propTransactionEvaluates healthyPartialFanoutTx

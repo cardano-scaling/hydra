@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## UNRELEASED
+
+- Speed up posting a partial fanout step: the chunk size search was bounded by
+  the size of the set being distributed, so a 4000-output head built twelve
+  candidate transactions per step, the first of them carrying over a thousand
+  outputs, and rebuilt the head's accumulators for every one of them. The
+  search is now bounded by the largest subset the head validator's CRS can
+  verify, the whole-set transaction is skipped outright when it is above that
+  bound and so could never validate, and the head's accumulator is verified once
+  for the whole search rather than once per candidate. That is at most five
+  fallback candidates per step regardless of head size (six including the
+  whole-set transaction, where that is still attempted), against a previous
+  bound of `floor(log2 (n - 1)) + 1` in the size `n` of the set being
+  distributed. Measured on a 4000-output head, the fallback search builds five
+  candidates in about 0.3s where it used to build twelve in about 1s. The
+  chunk chosen is unchanged. Three limits bound a step, and the chunk is the
+  smallest of them: the layer 1 transaction size, the script execution budget,
+  and the CRS. Today the budget is the one that binds first, at 23 ada-only
+  outputs or 21 carrying native tokens, under a CRS ceiling of 29 that no step
+  can exceed whatever the other two allow. That
+  ceiling now lives beside the trusted setup it derives from, as
+  `KZGTrustedSetup.deployedFanoutBatchSize`, so the chain layer, the
+  transaction-cost benchmark and the test generators all bound their searches by
+  the same value.
+  [#2848](https://github.com/cardano-scaling/hydra/issues/2848)
+
+- Fixed `fanoutTx` counting the outputs it claims differently from the set it
+  proves membership for: the `numberOfFanoutOutputs` redeemer was a sum over the
+  snapshot UTxO, pending commit and pending decommit, while the proof and the
+  head's accumulator are built over their union. Those disagree exactly when two
+  of the sets share a `TxIn`, and the transaction then failed on chain with
+  `FanoutUTxOHashMismatch`. Both now come from the union, and each group of
+  outputs drops what the groups before it already emitted, so the emitted list is
+  a permutation of that union whatever the inputs. Snapshot construction keeps
+  the three sets disjoint, so this was not reachable through the node.
+  [#2848](https://github.com/cardano-scaling/hydra/issues/2848)
+
 ## [2.4.1] - 2026.09.02
 
 - Use applyTransactions instead of reapplyTransactions.

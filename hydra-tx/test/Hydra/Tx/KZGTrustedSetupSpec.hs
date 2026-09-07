@@ -8,7 +8,7 @@ import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
-import Hydra.Contract.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
+import Hydra.Contract.KZGTrustedSetup (canonicalG2Points, deployedFanoutBatchSize, g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
 import Hydra.Tx.Accumulator (build, createMembershipProof, crsG1Points, getAccumulatorCommitment, requiredCRSPointCount)
 import Plutus.Crypto.BlsUtils qualified as Bls
 import PlutusTx.Builtins (
@@ -46,6 +46,24 @@ spec = parallel $ do
 
     it "maxFanoutBatchSize matches the parsed G2 point count minus one" $
       maxFanoutBatchSize `shouldBe` length g2Pts - 1
+
+    -- The deployed cap, as opposed to the ceiling above. The node bounds every
+    -- fanout search by this ('Hydra.Chain.Direct.Handlers'), so pin it against
+    -- 'checkMembershipPairing' and the CRS the validator is compiled against
+    -- rather than restating @defaultItems - 1@: the cap is only right if the
+    -- canonical CRS verifies exactly this many outputs and no more.
+    it "deployedFanoutBatchSize is exactly what the canonical CRS verifies" $ do
+      let elements = [fromString (show i) | i <- [1 .. deployedFanoutBatchSize + 1]] :: [ByteString]
+          fullAcc = build elements
+          commitment = getAccumulatorCommitment fullAcc
+          proofFor subset =
+            bls12_381_G1_uncompress . toBuiltin . either error id $
+              createMembershipProof subset fullAcc (crsG1Points $ requiredCRSPointCount fullAcc)
+          atCap = take deployedFanoutBatchSize elements
+      checkMembershipPairing commitment (proofFor atCap) canonicalG2Points (map toInt atCap)
+        `shouldBe` True
+      checkMembershipPairing commitment (proofFor elements) canonicalG2Points (map toInt elements)
+        `shouldBe` False
 
     it "first G1 point matches the BLS12-381 G1 generator (τ^0·G1 = G1, confirming monomial form)" $
       case g1Pts of

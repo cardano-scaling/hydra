@@ -39,6 +39,7 @@ import Hydra.Chain.Direct.State (
   HasKnownUTxO (..),
   HydraContext (..),
   OpenState (..),
+  PartialFanoutError,
   close,
   contest,
   decrement,
@@ -46,7 +47,8 @@ import Hydra.Chain.Direct.State (
   finalPartialFanout,
   increment,
   initialize,
-  partialFanout,
+  partialFanoutFromPlan,
+  preparePartialFanout,
  )
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -511,9 +513,21 @@ genFinalPartialFanoutTx numParties = do
 genClosedStateForFanout ::
   Int ->
   Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO)
-genClosedStateForFanout numParties = do
+genClosedStateForFanout numParties =
+  choose (11, 18 :: Int) >>= genClosedStateForFanoutOfSize numParties
+
+-- | Like 'genClosedStateForFanout' but with a caller-chosen snapshot UTxO size,
+-- for tests that need a head large enough to exercise how the chunk size is
+-- searched for. Sizes well above what one fanout step can distribute are the
+-- interesting ones there, and those never arise from 'genClosedStateForFanout'.
+genClosedStateForFanoutOfSize ::
+  Int ->
+  -- | Number of UTxOs in the snapshot. At least 2, so the first step can
+  -- distribute one and still leave one behind.
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO)
+genClosedStateForFanoutOfSize numParties n = do
   ctx <- genHydraContextFor numParties
-  n <- choose (11, 18 :: Int)
   u0 <- genUTxOAdaOnlyOfSize n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
@@ -660,10 +674,19 @@ genClosedStateWithDuplicateTxOuts numParties = do
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
+--
+-- Starts at 'Accumulator.deployedFanoutBatchSize' rather than at @size - 1@:
+-- every larger chunk fails 'Hydra.Contract.CRS.checkMembershipPairing' whatever
+-- its cost, so probing them is one wasted transaction build (and one full
+-- accumulator rebuild) each. No current caller reaches heads that large, so the
+-- cap does nothing today; it is here so that pointing this at a bigger
+-- generator does not silently cost hundreds of doomed builds.
 findFittingPartialChunk :: UTxO -> ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> (Int, Tx)
 findFittingPartialChunk evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-  go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
+  go [largestWorthTrying, largestWorthTrying - 1 .. 1]
  where
+  largestWorthTrying = min (UTxO.size u0 - 1) Accumulator.deployedFanoutBatchSize
+
   go [] = error "findFittingPartialChunk: no fitting chunk size found"
   go (n : rest) =
     let tx = unsafePartialFanout cctx spendableUTxO seedTxIn n u0 deadlineSlotNo
@@ -713,8 +736,11 @@ genPartialFanoutTxWithComplexUTxO numParties = do
     )
  where
   findFittingChunk safeUnits evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-    go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
+    go [largestWorthTrying, largestWorthTrying - 1 .. 1]
    where
+    -- No chunk above the deployed CRS batch size can be verified on chain, so
+    -- candidates above it are never worth building however big the UTxO grows.
+    largestWorthTrying = min (UTxO.size u0 - 1) Accumulator.deployedFanoutBatchSize
     -- Some random complex UTxOs admit no chunk size that fits the safety
     -- budget. Discard the case (QuickCheck retries a fresh draw)
     go [] = discard
@@ -935,6 +961,32 @@ unsafeFanout ::
   Tx
 unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo =
   either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo
+
+-- | Construct a partial fanout transaction that distributes a subset of UTxOs:
+-- 'preparePartialFanout' followed by 'partialFanoutFromPlan'.
+--
+-- Only for tests and benchmarks. Production code searches for a chunk size by
+-- building several candidates for one head, so it prepares the plan once and
+-- reuses it — that is where the per-step accumulator work lives, and doing it
+-- per candidate is the cost 'findFittingFanoutTx' exists to avoid.
+partialFanout ::
+  ChainContext ->
+  -- | Spendable UTxO containing head output
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Number of UTxOs to distribute in this step
+  Int ->
+  -- | UTxO used to verify the on-chain accumulator commitment
+  UTxO ->
+  -- | Remaining UTxOs to distribute (will be split into distribute + new remaining)
+  UTxO ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  Either PartialFanoutError Tx
+partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
+  plan <- preparePartialFanout spendableUTxO seedTxIn proofUTxO remainingUTxO
+  partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo
 
 unsafePartialFanout ::
   HasCallStack =>

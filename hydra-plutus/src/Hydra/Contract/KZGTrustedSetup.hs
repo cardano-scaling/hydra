@@ -54,6 +54,7 @@ module Hydra.Contract.KZGTrustedSetup (
   g2BuiltinPoints,
   maxAccumulatorSize,
   maxFanoutBatchSize,
+  deployedFanoutBatchSize,
   defaultItems,
   canonicalG2Points,
 ) where
@@ -105,11 +106,27 @@ maxAccumulatorSize = 4095
 -- NOTE: this is the __ceiling__ implied by the trusted-setup file, not the
 -- __deployed__ cap. The on-chain CRS UTxO only embeds the first
 -- 'Hydra.Tx.Accumulator.defaultItems' G2 points, so the production batch
--- limit is currently @defaultItems - 1@. Raising the deployed cap requires
--- re-publishing the CRS UTxO with more G2 points (bounded above by this
--- value).
+-- limit is 'deployedFanoutBatchSize'. Raising it requires re-publishing the
+-- CRS UTxO with more G2 points (bounded above by this value) and recompiling
+-- the head validator, which binds the hash of the canonical CRS datum.
 maxFanoutBatchSize :: Int
 maxFanoutBatchSize = 64
+
+-- | Largest subset a single fanout transaction can distribute against the CRS
+-- the head validator actually accepts.
+--
+-- Verifying a subset of @N@ outputs evaluates a degree-@N@ polynomial (one
+-- @(X - sᵢ)@ factor per output), which needs @N + 1@ G2 points, and
+-- 'canonicalG2Points' carries 'defaultItems' of them. A larger subset is not
+-- merely expensive, it can never validate: 'Hydra.Contract.CRS.checkMembershipPairing'
+-- bails out on it.
+--
+-- Unlike 'maxFanoutBatchSize' this is the __deployed__ cap, and it cannot drift
+-- from what is on chain: the head validator is compiled against the hash of
+-- 'canonicalG2Points' and rejects any other CRS datum outright, so publishing a
+-- longer CRS does not raise this limit, it invalidates every fanout.
+deployedFanoutBatchSize :: Int
+deployedFanoutBatchSize = defaultItems - 1
 
 -- | Expected SHA-256 of trusted_setup.json, from the EIP-4844 ceremony output.
 -- Verify independently with: sha256sum hydra-tx/trusted_setup.json
