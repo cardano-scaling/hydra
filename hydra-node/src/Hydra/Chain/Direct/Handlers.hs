@@ -252,18 +252,19 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             -- Non-final partial fanout: no preferred tx, always chunk from the
             -- user-selected set. The whole selection may be distributed in one
-            -- tx (size, not size-1): normally the selection is a strict subset
-            -- of the head's remaining UTxO, so the unselected remainder stays in
-            -- the accumulator and 'mustNotBeLastBatch' is satisfied regardless
-            -- of chunk size.
+            -- tx (size, not size-1): the selection is a strict subset of the
+            -- head's remaining UTxO, so the unselected remainder stays in the
+            -- accumulator and 'mustNotBeLastBatch' is satisfied regardless of
+            -- chunk size.
             --
-            -- Only the first selection is checked against that:
-            -- 'Hydra.HeadLogic.onClosedClientPartialFanout' routes a full one to
-            -- the auto-drain path, but 'onPartialFanoutClientPartialFanout' has
-            -- no such guard, so a later selection naming the whole remainder can
-            -- wedge the head — a pre-existing HeadLogic gap this bound cannot
-            -- fix, tracked in
-            -- https://github.com/cardano-scaling/hydra/issues/2855.
+            -- Both HeadLogic entry points keep it that way:
+            -- 'Hydra.HeadLogic.onClosedClientPartialFanout' and
+            -- 'onPartialFanoutClientPartialFanout' route a selection covering
+            -- the whole remainder to the full fanout path instead. A selection
+            -- re-posted after a rollback ('repostFanoutStep') was validated
+            -- against the remainder it is still measured against: the remainder
+            -- only shrinks when a chunk is observed, which is also what makes a
+            -- final fanout possible.
             findFittingFanoutTx
               tracer
               wallet

@@ -2256,6 +2256,40 @@ spec =
           OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
           _ -> False
 
+      -- Regression for #2855. With nothing distributed the on-chain datum is
+      -- still 'Closed', so a selection covering the whole remainder cannot go
+      -- out as a final step - and as a non-final one it empties the head, which
+      -- only 'mustNotBeLastBatch' would stop, and a non-empty pre-settled set
+      -- keeps that check happy. The head is then unfinalizable (a zero-output
+      -- final fanout is rejected) and unrevertable. Selecting everything means a
+      -- full fanout, so it is routed there instead.
+      it "client partial fanout selecting everything before any chunk landed posts a full fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inFanoutProgressDistributed threeParties remaining mempty AwaitingSelection
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        -- The wedge itself: distributing the whole remainder in a non-final step.
+        outcome `hasNoEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          _ -> False
+        -- Draining is now automatic, as it is for a plain 'Fanout'.
+        case headState (aggregateState st outcome) of
+          FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
+          other -> failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
+
+      it "client partial fanout selecting a strict subset before any chunk landed still posts a partial fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            selection = Set.fromList [SimpleTxOut 1]
+            st = inFanoutProgressDistributed threeParties remaining mempty AwaitingSelection
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
+          _ -> False
+
       it "an awaiting (observer) node can drive the next step with its own PartialFanout" $ do
         -- A node that only observed someone else's partial fanout sits in
         -- 'AwaitingSelection'; issuing its own 'PartialFanout' makes it the driver
@@ -3432,7 +3466,14 @@ inClosedState' parties confirmedSnapshot =
 -- placeholder so the head datum is treated as @FanoutProgress@ (some outputs
 -- already distributed).
 inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
-inFanoutProgressWith parties remaining mode =
+inFanoutProgressWith parties remaining =
+  inFanoutProgressDistributed parties remaining (Set.singleton (SimpleTxOut 0))
+
+-- | Like 'inFanoutProgressWith' but with a caller-chosen distributed set. An
+-- empty one means no chunk has landed yet, so the on-chain datum is still
+-- 'Closed' and a final fanout is not valid.
+inFanoutProgressDistributed :: [Party] -> Set SimpleTxOut -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+inFanoutProgressDistributed parties remaining distributed mode =
   inSync $
     FanoutProgress
       PartialFanoutState
@@ -3449,7 +3490,7 @@ inFanoutProgressWith parties remaining mode =
         , headSeed = testHeadSeed
         , version = 0
         , remainingOutputs = remaining
-        , distributedOutputs = Set.singleton (SimpleTxOut 0)
+        , distributedOutputs = distributed
         , mode
         }
  where

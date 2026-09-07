@@ -1526,14 +1526,27 @@ onPartialFanoutClientPartialFanout ::
 onPartialFanoutClientPartialFanout pfs selection
   | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
       cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
+  -- Selecting the whole remainder while nothing has landed is a full fanout, so
+  -- route it there like 'onClosedClientPartialFanout' does. Without this the
+  -- step goes out as a non-final 'PartialFanoutTx' distributing everything: with
+  -- a non-empty pre-settled set the remaining accumulator is not the G1
+  -- generator, so 'mustNotBeLastBatch' passes and it lands, leaving a head that
+  -- can only be finalized by a zero-output 'FinalPartialFanoutTx' (rejected by
+  -- 'mustHaveOutputs') and can no longer be reverted (the revert needs
+  -- @nullOutputs distributedOutputs@). See #2855.
+  | selection `sameOutputs` remainingOutputs && onChainDatum == DatumClosed =
+      newState HeadFanoutInitiated{headId, remainingOutputs}
+        <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
   | otherwise =
       newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
         -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
         -- actually landed (some outputs distributed); until then it is still
         -- @Closed@ and a 'FinalPartialFanoutTx' is not yet valid. Compute this
         -- the same way as 'repostFanoutStep' rather than assuming 'True'.
-        <> emitPartialFanoutStep selection remainingOutputs (onChainFanoutDatum distributedOutputs) confirmedSnapshot version headSeed contestationDeadline
+        <> emitPartialFanoutStep selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
  where
+  onChainDatum = onChainFanoutDatum distributedOutputs
+
   PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs} = pfs
 
 -- | Observe a (full or final) fanout transaction, finalizing the head.
@@ -2799,6 +2812,11 @@ applyEvent st = \case
       -- 'AutoDrain' mode so its observations auto-continue to completion.
       Closed cst@ClosedState{chainState} ->
         closedToFanoutProgress cst chainState remainingOutputs mempty AutoDrain
+      -- A selection covering the whole remainder before anything landed is a
+      -- full fanout too ('onPartialFanoutClientPartialFanout'), so the driver
+      -- switches to draining automatically. Nothing else about the state
+      -- changes: 'remainingOutputs' is what the selection covered.
+      FanoutProgress pfs -> FanoutProgress pfs{mode = AutoDrain}
       _otherState -> st
   HeadPartialFanoutSelected{remainingOutputs, selection} ->
     case st of
