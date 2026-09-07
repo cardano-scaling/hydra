@@ -1434,10 +1434,27 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  newState HeadFanoutInitiated{headId, remainingOutputs = computeFullFanoutUTxO closedState}
-    <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
+  initiateFullFanout headId (computeFullFanoutUTxO closedState) confirmedSnapshot version headSeed contestationDeadline
  where
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+
+-- | Become the fanout driver and post the single full fanout transaction; the
+-- chain layer chunks it when it does not fit. Shared by the plain 'Fanout'
+-- command and by 'emitPartialFanoutStep' for a selection that turns out to
+-- cover the whole remainder before anything has landed.
+initiateFullFanout ::
+  IsTx tx =>
+  HeadId ->
+  -- | Everything still to be distributed
+  UTxOType tx ->
+  ConfirmedSnapshot tx ->
+  SnapshotVersion ->
+  HeadSeed ->
+  UTCTime ->
+  Outcome tx
+initiateFullFanout headId remainingOutputs confirmedSnapshot version headSeed contestationDeadline =
+  newState HeadFanoutInitiated{headId, remainingOutputs}
+    <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
 
 -- | Given the on-chain @version@ and a snapshot's own version, decide which of a
 -- pending commit / decommit is still to be distributed on fanout. When the
@@ -1508,7 +1525,7 @@ onClosedClientPartialFanout closedState selection
       newState HeadPartialFanoutSelected{headId, remainingOutputs = fullUTxO, selection}
         -- Fresh head: on-chain datum is still @Closed@, so the first step is a
         -- non-final 'PartialFanoutTx'.
-        <> emitPartialFanoutStep selection fullUTxO DatumClosed confirmedSnapshot version headSeed contestationDeadline
+        <> emitPartialFanoutStep headId selection fullUTxO DatumClosed confirmedSnapshot version headSeed contestationDeadline
  where
   fullUTxO = computeFullFanoutUTxO closedState
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
@@ -1526,27 +1543,14 @@ onPartialFanoutClientPartialFanout ::
 onPartialFanoutClientPartialFanout pfs selection
   | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
       cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
-  -- Selecting the whole remainder while nothing has landed is a full fanout, so
-  -- route it there like 'onClosedClientPartialFanout' does. Without this the
-  -- step goes out as a non-final 'PartialFanoutTx' distributing everything: with
-  -- a non-empty pre-settled set the remaining accumulator is not the G1
-  -- generator, so 'mustNotBeLastBatch' passes and it lands, leaving a head that
-  -- can only be finalized by a zero-output 'FinalPartialFanoutTx' (rejected by
-  -- 'mustHaveOutputs') and can no longer be reverted (the revert needs
-  -- @nullOutputs distributedOutputs@). See #2855.
-  | selection `sameOutputs` remainingOutputs && onChainDatum == DatumClosed =
-      newState HeadFanoutInitiated{headId, remainingOutputs}
-        <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
   | otherwise =
       newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
         -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
         -- actually landed (some outputs distributed); until then it is still
         -- @Closed@ and a 'FinalPartialFanoutTx' is not yet valid. Compute this
         -- the same way as 'repostFanoutStep' rather than assuming 'True'.
-        <> emitPartialFanoutStep selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
+        <> emitPartialFanoutStep headId selection remainingOutputs (onChainFanoutDatum distributedOutputs) confirmedSnapshot version headSeed contestationDeadline
  where
-  onChainDatum = onChainFanoutDatum distributedOutputs
-
   PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs} = pfs
 
 -- | Observe a (full or final) fanout transaction, finalizing the head.
@@ -1631,7 +1635,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
             , mode = newMode
             }
       -- Already in 'FanoutProgress' on chain, so any continuation may finalize.
-      finalize = emitPartialFanoutStep remaining remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+      finalize = emitPartialFanoutStep headId remaining remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
       continue
         -- The head's remaining set is now empty: emit the final (burning) step,
         -- which also distributes any pre-settled UTxO. This must happen regardless
@@ -1641,7 +1645,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
         | nullOutputs remaining = finalize
         | otherwise = case newMode of
             AutoDrain -> finalize
-            DistributingSelection sel' -> emitPartialFanoutStep sel' remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+            DistributingSelection sel' -> emitPartialFanoutStep headId sel' remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
             AwaitingSelection -> noop
    in record <> continue
  where
@@ -1791,6 +1795,7 @@ onChainFanoutDatum distributed
 --    chain layer sizes the actual on-chain chunk dynamically.
 emitPartialFanoutStep ::
   IsTx tx =>
+  HeadId ->
   -- | Chunk source for the next step (the user selection remainder, or the whole
   --   remaining set when auto-draining)
   UTxOType tx ->
@@ -1805,7 +1810,7 @@ emitPartialFanoutStep ::
   HeadSeed ->
   UTCTime ->
   Outcome tx
-emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version headSeed contestationDeadline
+emitPartialFanoutStep headId target remaining onChainDatum confirmedSnapshot version headSeed contestationDeadline
   | target `sameOutputs` remaining && onChainDatum == DatumFanoutProgress =
       cause
         OnChainEffect
@@ -1817,6 +1822,19 @@ emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version he
                 , contestationDeadline
                 }
           }
+  -- The datum is still @Closed@ (nothing has landed), so the final step is not
+  -- valid yet - and a non-final one covering the whole remainder empties the
+  -- head. On chain only 'mustNotBeLastBatch' would stop that, and it decides by
+  -- asking whether the remaining accumulator is the G1 generator, which a
+  -- non-empty pre-settled set keeps it from being. The step lands, and the head
+  -- is then unfinalizable (its final fanout would carry zero outputs, which
+  -- 'mustHaveOutputs' rejects) and unrevertable (the revert needs nothing
+  -- distributed). Covering the whole remainder is a full fanout, so post that
+  -- instead. Guarding here rather than at the client-input handlers catches the
+  -- rollback re-post ('repostFanoutStep') and a selection persisted by a node
+  -- that predates this check. See #2855.
+  | target `sameOutputs` remaining =
+      initiateFullFanout headId remaining confirmedSnapshot version headSeed contestationDeadline
   | otherwise =
       cause
         OnChainEffect
@@ -1865,12 +1883,12 @@ repostFanoutStep pfs =
       | onChainDatum == DatumClosed ->
           cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
       | otherwise ->
-          emitPartialFanoutStep remainingOutputs remainingOutputs DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+          emitPartialFanoutStep headId remainingOutputs remainingOutputs DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
     DistributingSelection selection ->
-      emitPartialFanoutStep selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
+      emitPartialFanoutStep headId selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
  where
   onChainDatum = onChainFanoutDatum distributedOutputs
-  PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs, mode} = pfs
+  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs, mode} = pfs
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.

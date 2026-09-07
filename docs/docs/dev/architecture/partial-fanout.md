@@ -173,10 +173,16 @@ is submitted speculatively and rejected by the chain.
 
 The last transaction cannot be an ordinary partial step: it must be the _final_
 fanout, which distributes the rest and burns the head tokens. The node handles
-that boundary itself. Once the head is in `FanoutProgress`, a selection covering
-everything that is left is posted as the final transaction. Selecting the whole
-set out of a freshly closed head is instead treated as a plain `Fanout`, which is
-what it means, and takes the single-transaction or automatic-drain path above.
+that boundary itself. Once a first chunk has landed, a selection covering
+everything that is left is posted as the final transaction.
+
+Before that it cannot be: the head output still carries the `Closed` datum, which
+the final fanout is not valid against. A selection covering the whole remainder
+at that point is treated as a plain `Fanout` instead — which is what it means —
+and takes the single-transaction or automatic-drain path above, with the node
+draining whatever is left automatically. That applies both to selecting the whole
+set out of a freshly closed head and to selecting the whole remainder while an
+earlier selection is still in flight.
 
 A selection that is empty, or that is not contained in what is left, is refused
 with a `CommandFailed` and changes nothing.

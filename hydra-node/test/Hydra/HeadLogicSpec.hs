@@ -2265,25 +2265,47 @@ spec =
       -- full fanout, so it is routed there instead.
       it "client partial fanout selecting everything before any chunk landed posts a full fanout" $ do
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            st = inFanoutProgressDistributed threeParties remaining mempty AwaitingSelection
+            -- The state a first selection leaves behind: a subset is being
+            -- distributed and nothing has landed, so the datum is still Closed.
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 1)))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FanoutTx{}} -> True
           _ -> False
-        -- The wedge itself: distributing the whole remainder in a non-final step.
+        -- Neither step is valid against a Closed datum covering everything: the
+        -- non-final one empties the head, the final one cannot be posted yet.
         outcome `hasNoEffectSatisfying` \case
           OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
           _ -> False
         -- Draining is now automatic, as it is for a plain 'Fanout'.
         case headState (aggregateState st outcome) of
           FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
           other -> failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
 
-      it "client partial fanout selecting a strict subset before any chunk landed still posts a partial fanout" $ do
+      -- The same wedging step is reachable without any client input: a node that
+      -- persisted a whole-remainder selection before the guard existed
+      -- reconstructs 'DistributingSelection' verbatim on replay, and a rollback
+      -- re-posts it. Guarding 'emitPartialFanoutStep' rather than the client
+      -- handler is what covers this.
+      it "rollback re-post of a whole-remainder selection before any chunk landed posts a full fanout" $ do
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection remaining)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now})
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        outcome `hasNoEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+
+      it "client partial fanout selecting a strict subset before any chunk landed still posts a partial fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
             selection = Set.fromList [SimpleTxOut 1]
-            st = inFanoutProgressDistributed threeParties remaining mempty AwaitingSelection
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 2)))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput (PartialFanout selection))
         outcome `hasEffectSatisfying` \case

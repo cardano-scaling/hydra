@@ -257,14 +257,19 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             -- accumulator and 'mustNotBeLastBatch' is satisfied regardless of
             -- chunk size.
             --
-            -- Both HeadLogic entry points keep it that way:
-            -- 'Hydra.HeadLogic.onClosedClientPartialFanout' and
-            -- 'onPartialFanoutClientPartialFanout' route a selection covering
-            -- the whole remainder to the full fanout path instead. A selection
-            -- re-posted after a rollback ('repostFanoutStep') was validated
-            -- against the remainder it is still measured against: the remainder
-            -- only shrinks when a chunk is observed, which is also what makes a
-            -- final fanout possible.
+            -- 'Hydra.HeadLogic.emitPartialFanoutStep' keeps it that way: a
+            -- target covering the whole remainder is routed to the full fanout
+            -- path instead of being posted as a non-final step. That covers
+            -- every producer of this transaction - client input, the rollback
+            -- re-post, and replayed state.
+            --
+            -- Note this is a node-side invariant, not one the validator
+            -- enforces: 'mustNotBeLastBatch' decides by asking whether the
+            -- remaining accumulator is the G1 generator, which a non-empty
+            -- pre-settled set keeps it from being, so a modified node can still
+            -- post such a step and have it accepted. Closing that needs the
+            -- pre-settled residual carried in the datum, which changes the
+            -- script hashes.
             findFittingFanoutTx
               tracer
               wallet
@@ -724,10 +729,9 @@ findFittingFanoutTx ::
   --   final/full fanout fallback this is @size - 1@ (the preferred tx handles
   --   the full set; a partial fanout must leave at least one output). For an
   --   explicit non-final partial fanout this is the full @size@: the selection
-  --   is normally a strict subset of the head's remaining UTxO, so even
-  --   distributing all of it leaves the unselected remainder in the accumulator
-  --   and 'mustNotBeLastBatch' holds (see the caller for the one case where it
-  --   does not, which costs a rejected candidate but not the answer).
+  --   is a strict subset of the head's remaining UTxO, so even distributing all
+  --   of it leaves the unselected remainder in the accumulator and
+  --   'mustNotBeLastBatch' holds (see the caller for what keeps that true).
   --   The search caps this at 'Accumulator.deployedFanoutBatchSize' regardless:
   --   no larger subset can be verified, however cheap its transaction is.
   Int ->
