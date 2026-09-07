@@ -12,12 +12,13 @@ import Control.Tracer.JSON (Tracer, showLogsOnFailure, traceInTVar)
 import Control.Tracer.JSON qualified as Logging
 import Data.EventSource (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Data.EventSource.Rotation (EventStore (..), LogId)
+import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -37,7 +38,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), DepositHistory (..), NodeState (..), PendingDeposits, currentDeposits, initialDepositHistory, pushDeposits)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositHistory (..), DepositStatus (..), NodeState (..), PendingDeposits, currentDeposits, depositHistoryHorizon, initialChainTime, initialDepositHistory, pushDeposits, rollbackDepositHistory)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -83,6 +84,40 @@ spec = parallel $ do
         let history =
               foldl' (\h (s, d) -> pushDeposits s d h) (initialDepositHistory @SimpleTx) pushes
          in currentDeposits (pushDeposits slot deposits history) == deposits
+
+    -- Entries older than 'depositHistoryHorizon' can never be rolled back to
+    -- (no real chain rolls back that deep), so they are pruned to bound the
+    -- serialized history size — except one boundary entry, which is still the
+    -- correct view for a rollback landing between it and the next retained
+    -- version.
+    it "pushDeposits prunes versions older than the horizon, keeping one boundary entry" $ do
+      let ChainSlot horizon = depositHistoryHorizon
+          viewAt1 = Map.singleton 1 (testDeposit 1)
+          viewAt2 = Map.singleton 2 (testDeposit 2)
+          history =
+            pushDeposits (ChainSlot (horizon + 100)) mempty
+              . pushDeposits (ChainSlot 2) viewAt2
+              . pushDeposits (ChainSlot 1) viewAt1
+              $ initialDepositHistory @SimpleTx
+      -- The initial (slot 0) anchor was pruned, slot 2 is kept as boundary.
+      let DepositHistory entries = history
+      (fst <$> toList entries) `shouldBe` [ChainSlot (horizon + 100), ChainSlot 2]
+      -- A rollback below the cutoff but at/after the boundary restores it.
+      currentDeposits (rollbackDepositHistory (ChainSlot 50) history)
+        `shouldBe` viewAt2
+
+    it "rollbackDepositHistory restores the empty view when rolling back past the retained history" $ do
+      let ChainSlot horizon = depositHistoryHorizon
+          history =
+            pushDeposits (ChainSlot (horizon + 100)) mempty
+              . pushDeposits (ChainSlot 2) (Map.singleton 2 (testDeposit 2))
+              . pushDeposits (ChainSlot 1) (Map.singleton 1 (testDeposit 1))
+              $ initialDepositHistory @SimpleTx
+      -- Rolling back to before the boundary entry: the view at that slot was
+      -- pruned and cannot be reconstructed; an empty view is safe (deposits
+      -- converge by re-observation) where a stale one is not.
+      currentDeposits (rollbackDepositHistory (ChainSlot 1) history)
+        `shouldBe` mempty
   -- Set up a hydrate function with fixtures curried
   let setupHydrate ::
         ( ( EventStore (StateEvent SimpleTx) IO ->
@@ -621,3 +656,15 @@ throwExceptionOnPostTx exception node =
             , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"
             }
       }
+
+-- | A minimal deposit for exercising the 'DepositHistory' functions; the
+-- 'Integer' distinguishes deposits by their deposited UTxO.
+testDeposit :: Integer -> Deposit SimpleTx
+testDeposit i =
+  Deposit
+    { headId = testHeadId
+    , deposited = utxoRefs [i]
+    , created = initialChainTime
+    , deadline = initialChainTime
+    , status = Active
+    }
