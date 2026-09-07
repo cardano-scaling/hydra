@@ -400,10 +400,27 @@ maxAccumulatorSize :: Int
 --   NOTE: this is the <b>ceiling</b> implied by the trusted-setup file,
 --   not the <b>deployed</b> cap. The on-chain CRS UTxO only embeds the
 --   first <a>defaultItems</a> G2 points, so the production batch limit is
---   currently <tt>defaultItems - 1</tt>. Raising the deployed cap requires
---   re-publishing the CRS UTxO with more G2 points (bounded above by this
---   value).
+--   <a>deployedFanoutBatchSize</a>. Raising it requires re-publishing the
+--   CRS UTxO with more G2 points (bounded above by this value) and
+--   recompiling the head validator, which binds the hash of the canonical
+--   CRS datum.
 maxFanoutBatchSize :: Int
+
+-- | Largest subset a single fanout transaction can distribute against the
+--   CRS the head validator actually accepts.
+--   
+--   Verifying a subset of <tt>N</tt> outputs evaluates a degree-<tt>N</tt>
+--   polynomial (one <tt>(X - sᵢ)</tt> factor per output), which needs
+--   <tt>N + 1</tt> G2 points, and <a>canonicalG2Points</a> carries
+--   <a>defaultItems</a> of them. A larger subset is not merely expensive,
+--   it can never validate: <a>checkMembershipPairing</a> bails out on it.
+--   
+--   Unlike <a>maxFanoutBatchSize</a> this is the <b>deployed</b> cap, and
+--   it cannot drift from what is on chain: the head validator is compiled
+--   against the hash of <a>canonicalG2Points</a> and rejects any other CRS
+--   datum outright, so publishing a longer CRS does not raise this limit,
+--   it invalidates every fanout.
+deployedFanoutBatchSize :: Int
 
 -- | Number of G2 monomial points published in the on-chain CRS reference
 --   UTxO (see <a>createCRSG2Datum</a>), hence the size of the canonical

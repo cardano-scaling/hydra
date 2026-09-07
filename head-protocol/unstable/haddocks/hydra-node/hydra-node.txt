@@ -983,13 +983,42 @@ StaleChainState :: PartialFanoutError
 --   caller.
 CannotCreateProof :: Text -> PartialFanoutError
 
--- | Construct a partial fanout transaction that distributes a subset of
---   UTxOs. Handles both first step (Closed → FanoutProgress) and
---   intermediate steps (FanoutProgress → FanoutProgress) by detecting the
---   current on-chain datum type. The first <tt>chunkSize</tt> UTxOs from
---   <tt>remainingUTxO</tt> are distributed; the rest become the new
---   remaining set.
-partialFanout :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+-- | Everything a partial fanout needs that does not depend on the chunk
+--   size. Chunk sizes are searched for by trying candidate transactions,
+--   so this is prepared once per step and reused for each candidate.
+data PartialFanoutPlan
+PartialFanoutPlan :: (TxIn, TxOut CtxUTxO) -> FanoutProgressDatum -> HydraAccumulator -> [(TxIn, TxOut CtxUTxO)] -> PartialFanoutPlan
+[$sel:headUTxO:PartialFanoutPlan] :: PartialFanoutPlan -> (TxIn, TxOut CtxUTxO)
+[$sel:progressDatum:PartialFanoutPlan] :: PartialFanoutPlan -> FanoutProgressDatum
+
+-- | Accumulator over the proof UTxO, already verified against the on-chain
+--   commitment. Pre-settled elements (committed to by the accumulator but
+--   never distributed, e.g. a decommit paid out before close) are in here
+--   and stay in the remaining accumulator, because a step only removes
+--   what it distributes.
+[$sel:fullAccumulator:PartialFanoutPlan] :: PartialFanoutPlan -> HydraAccumulator
+
+-- | <tt>remainingUTxO</tt> in the order chunks are taken from.
+[$sel:orderedRemaining:PartialFanoutPlan] :: PartialFanoutPlan -> [(TxIn, TxOut CtxUTxO)]
+
+-- | Read the head output and verify the on-chain accumulator, yielding a
+--   plan to build partial fanout transactions from.
+--   
+--   Handles both the first step (Closed → FanoutProgress) and intermediate
+--   steps (FanoutProgress → FanoutProgress) by detecting the current datum
+--   type.
+preparePartialFanout :: UTxO -> TxIn -> UTxO -> UTxO -> Either PartialFanoutError PartialFanoutPlan
+
+-- | Construct a partial fanout transaction distributing the first
+--   <tt>chunkSize</tt> UTxOs of the plan's remaining set; the rest become
+--   the new remaining set.
+--   
+--   The remaining accumulator is the plan's verified one minus the outputs
+--   this transaction distributes, rather than rebuilt from scratch.
+--   Removing exactly the distributed outputs is what the on-chain split
+--   identity <tt>A = P_K * A'</tt> checks, so it holds by construction
+--   whenever those outputs are in <tt>A</tt>.
+partialFanoutFromPlan :: ChainContext -> PartialFanoutPlan -> Int -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Construct the final partial fanout transaction that distributes all
 --   remaining UTxOs and burns all head tokens. Reads FanoutProgressDatum
@@ -4716,6 +4745,17 @@ chainSyncHandler :: forall m. (MonadSTM m, MonadThrow m) => Tracer m CardanoChai
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> ChainContext -> UTxOType Tx -> PostChainTx Tx -> STM m Tx
 
+-- | Whether a fanout distributing this many outputs can be verified on
+--   chain at all, and so is worth building.
+--   
+--   Above <a>deployedFanoutBatchSize</a> the head validator rejects the
+--   membership proof however cheap the transaction is, and building the
+--   transaction means computing that proof over the whole set — discarded
+--   on every fanout step. Callers guard on this rather than passing the
+--   built transaction and discarding it, so the expensive call is
+--   unreachable rather than merely unforced.
+canBeVerifiedOnChain :: Int -> Bool
+
 -- | Binary search for the largest chunk size in <tt>[1..maxChunk]</tt> for
 --   which <tt>tryTx</tt> returns <a>Just</a>. Assumes the predicate is
 --   monotone: if size <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit.
@@ -4736,14 +4776,14 @@ fitsTx :: Monad m => Tracer m CardanoChainLog -> (Tx -> m Bool) -> (Tx -> UTxO -
 --   back to a binary search over partial fanout chunk sizes. Returns the
 --   largest chunk that fits, minimising the number of fanout steps.
 --   
---   Error mapping: * <a>StaleChainState</a> from <a>partialFanout</a> →
---   <a>StalePartialFanoutTx</a> (race condition; HeadLogic silently
---   ignores it and the chain observation loop triggers the correct next
---   step). * Any other <a>PartialFanoutError</a> →
---   <a>FailedToConstructPartialFanoutTx</a> (structural mismatch that will
---   not resolve on retry). * No chunk fits within budget →
---   <a>FailedToConstructPartialFanoutTx</a> (budget exhaustion; also not a
---   race condition).
+--   Error mapping: * <a>StaleChainState</a> from
+--   <a>preparePartialFanout</a> → <a>StalePartialFanoutTx</a> (race
+--   condition; HeadLogic silently ignores it and the chain observation
+--   loop triggers the correct next step). * Any other
+--   <a>PartialFanoutError</a> → <a>FailedToConstructPartialFanoutTx</a>
+--   (structural mismatch that will not resolve on retry). * No chunk fits
+--   within budget → <a>FailedToConstructPartialFanoutTx</a> (budget
+--   exhaustion; also not a race condition).
 findFittingFanoutTx :: forall m. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Maybe Tx -> UTxO -> UTxO -> Int -> SlotNo -> m Tx
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a

@@ -143,6 +143,50 @@ genFailingReport :: Gen EvaluationReport
 --   back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> (SlotNo -> GetTimeHandle IO) -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
 
+-- | Whether a transaction is within the protocol's maximum transaction
+--   size, measured the same way the real wallet measures it: <a>Wallet</a>
+--   accepts a transaction of exactly the maximum size, so this is
+--   <tt>&lt;=</tt>, not <tt>&lt;</tt>.
+withinSizeLimits :: Tx -> Bool
+
+-- | Number of outputs a fanout transaction distributes. Output 0 is the
+--   continuing head output; the rest are the chunk.
+chunkSizeOf :: Tx -> Int
+
+-- | A wallet that answers <a>findFittingFanoutTx</a> truthfully - real
+--   script evaluation, real size limit - while counting the candidate
+--   transactions it is asked about.
+--   
+--   The count is exact: the chunk search reaches the outside world only
+--   through these two fields, and <a>fitsTx</a> calls
+--   <a>$sel:isTxWithinSizeLimits:TinyWallet</a> once per constructed
+--   candidate before anything else, so one increment is one candidate
+--   built. Building a candidate rebuilds the head's accumulators, which is
+--   what makes the count worth bounding.
+countingWallet :: IORef Int -> TinyWallet IO
+
+-- | Run the chunk search against a closed head, returning how many
+--   candidate transactions were built and the one the search settled on.
+searchForChunk :: (ChainContext, ClosedState, UTxO, SlotNo, UTxO) -> IO (Int, Tx)
+
+-- | Whether a transaction passes the size limit and script execution
+--   budget the chunk search is held to.
+fitsUnderRealLimits :: ChainContext -> UTxO -> Tx -> IO Bool
+
+-- | Most candidates a capped binary search can build: the range is
+--   <tt>[1..deployedFanoutBatchSize]</tt> and each probe halves it, so
+--   this counts the halvings. Notably it does not depend on the head size.
+maxChunkSearchBuilds :: Int
+
+-- | Why a chunk of the given size is or is not a usable fanout candidate,
+--   naming the limit it runs into. Only ever rendered into a
+--   counterexample.
+describeCandidate :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> String
+
+-- | A wallet that accepts every transaction, for tests that only care
+--   about which error the chunk search reports.
+permissiveWallet :: TinyWallet IO
+
 -- | A block used for testing. This is a simpler version of the cardano-api
 --   <tt>Block</tt> and can be de-/constructed easily.
 data TestBlock
@@ -957,6 +1001,29 @@ prop_incrementRequiresFirstDepositOutput :: Property
 prop_recoverRequiresFirstDepositOutput :: Property
 propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
+
+-- | The commitment a partial fanout puts in the continuing head output
+--   must be one over everything the step leaves behind: what it did not
+--   distribute, plus the pre-settled elements the accumulator commits to
+--   but never pays out.
+--   
+--   The on-chain check is <tt>A = P_K * A'</tt> against the <tt>A</tt> in
+--   the head datum, so the two ways of arriving at <tt>A'</tt> - removing
+--   the distributed outputs from the verified <tt>A</tt>, or building
+--   afresh over the rest - have to agree. This pins them at the call site;
+--   <a>AccumulatorSpec</a> only pins the underlying accumulator operations
+--   in isolation.
+propRemainingAccumulatorRebuilds :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> UTxO -> SlotNo -> Property
+
+-- | The accumulator commitment in the continuing head output of a partial
+--   fanout transaction. Output 0 is the head output; the chunk follows.
+fanoutProgressCommitment :: Tx -> Maybe BuiltinBLS12_381_G1_Element
+
+-- | Run the action on a selection naming the first two outputs of the
+--   given set under each other's <a>TxIn</a>. The head still holds both
+--   outputs, so HeadLogic accepts this as a selection, but no <a>TxIn</a>
+--   in it resolves to the output it carries.
+onCrossPairedSelection :: Testable property => UTxO -> (UTxO -> property) -> Property
 forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property

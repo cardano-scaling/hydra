@@ -877,12 +877,36 @@ instance GHC.Show.Show Hydra.Tx.Contract.Deposit.DepositMutation
 module Hydra.Tx.Contract.FanOut
 scriptRegistry :: ScriptRegistry
 healthyFanoutTx :: (Tx, UTxO)
+healthyHeadInput :: TxIn
+healthyHeadTokenScript :: PlutusScript
+healthyHeadOutput :: TxOut CtxUTxO
+
+-- | A fanout whose snapshot set and decommit set share a <a>TxIn</a>,
+--   chosen so the shared entry sorts <i>before</i> the decommit set's own
+--   entry.
+--   
+--   Unreachable through the node: the three sets a fanout draws from are
+--   pairwise <a>TxIn</a>-disjoint everywhere they are built (see
+--   <a>onOpenNetworkReqSn</a>). It is here because the outputs are emitted
+--   as ascending groups while the redeemer's count and the membership
+--   proof describe their union, and the validator checks the proof against
+--   the first <tt>numberOfFanoutOutputs</tt> outputs. Overlap makes that
+--   prefix reach into the second group, and it fails with
+--   <a>FanoutUTxOHashMismatch</a> whenever a consumed entry is one an
+--   earlier group already emitted. Emitting each group minus what precedes
+--   it makes the emitted list a permutation of the union for any inputs,
+--   so the prefix is the proven set by construction.
+fanoutTxWithOverlappingSets :: (Tx, UTxO)
 
 -- | Variant of <a>healthyFanoutTx</a> with a trailing wallet change output
 --   appended, simulating a wallet-balanced transaction. The validator must
 --   still accept this because <tt>numberOfFanoutOutputs</tt> excludes the
 --   trailing output from the KZG check.
 healthyFanoutTxWithWalletChange :: (Tx, UTxO)
+
+-- | At least four entries: <a>fanoutTxWithOverlappingSets</a> needs a
+--   shared entry plus one of its own for each of two groups, and picks
+--   them by position.
 healthyFanoutUTxO :: UTxO
 healthySlotNo :: SlotNo
 healthyContestationDeadline :: UTCTime
@@ -890,6 +914,10 @@ healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotAccumulator :: HydraAccumulator
 crsSize :: Int
 healthyFanoutDatum :: State
+
+-- | A closed-head datum committing to the given accumulator. Everything
+--   except the commitment is the healthy fixture's.
+mkFanoutDatum :: HydraAccumulator -> State
 healthyParties :: [Party]
 healthyParticipants :: [VerificationKey PaymentKey]
 data FanoutMutation

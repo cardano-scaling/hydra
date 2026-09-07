@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.c6148781.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.75981683.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -28,9 +28,11 @@ distributed over several transactions, each carrying a <em>subset</em> of the ou
 until the head is empty.</p>
 <p>There are two ways to drive it:</p>
 <ul>
-<li>a plain <code>Fanout</code> builds the single full transaction and checks whether it would
-fit; when it would not, the head is drained automatically over as many steps as
-it takes</li>
+<li>a plain <code>Fanout</code> distributes the whole set in one transaction where that can be
+valid at all, and otherwise drains the head automatically over as many steps as
+it takes. A head holding more outputs than the deployed CRS can verify (see
+<a href="#how-much-fits-in-one-step">How much fits in one step</a>) takes the second path
+without building the single transaction, which could only be rejected</li>
 <li>a <code>PartialFanout</code> names the subset to distribute next, so a client decides what
 leaves the head first and in which order</li>
 </ul>
@@ -135,9 +137,12 @@ needs to know. The chain layer runs a binary search
 (<a href="/head-protocol/unstable/haddocks/hydra-node/Hydra-Chain-Direct-Handlers.html#v:findFittingFanoutTx" target="_blank" rel="noopener noreferrer"><code>findFittingFanoutTx</code></a>)
 for the largest number of outputs whose transaction still fits the layer 1 size
 limit and script execution budget, so a large selection is drained over as many
-steps as needed. The search is local: candidate transactions are built and
-evaluated against those limits in the node, and only the winning one is submitted.
-Nothing is submitted speculatively and rejected by the chain.</p>
+steps as needed. The search never looks above what the deployed CRS can verify,
+since no larger subset could be valid however cheap its transaction turns out to
+be, which is what keeps the number of candidates independent of how much is left
+in the head. The search is local: candidate transactions are built and evaluated
+against those limits in the node, and only the winning one is submitted. Nothing
+is submitted speculatively and rejected by the chain.</p>
 <p>The last transaction cannot be an ordinary partial step: it must be the <em>final</em>
 fanout, which distributes the rest and burns the head tokens. The node handles
 that boundary itself. Once the head is in <code>FanoutProgress</code>, a selection covering
@@ -168,9 +173,10 @@ in practice. See the <a href="/head-protocol/unstable/benchmarks/transaction-cos
 benchmarks for the measured chunk sizes</li>
 <li>the length of the deployed CRS. Verifying a subset of <code>N</code> outputs needs <code>N + 1</code>
 G2 points, and the CRS output currently carries 30 of them (<code>defaultItems</code>), so
-no step can distribute more than <strong>29</strong> outputs regardless of budget. Raising
-this means re-publishing the CRS output with more points, up to the 65 G2 points
-the trusted setup provides</li>
+no step can distribute more than <strong>29</strong> outputs regardless of budget. The head
+validator is compiled against the hash of that CRS and rejects any other one, so
+raising this means re-publishing the CRS output with more points <em>and</em>
+recompiling the scripts, up to the 65 G2 points the trusted setup provides</li>
 </ul>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="utxo-sizing">UTxO sizing<a href="#utxo-sizing" class="hash-link" aria-label="Direct link to UTxO sizing" title="Direct link to UTxO sizing">​</a></h3>
 <p>Every fanned-out output has to satisfy the layer 1 min-UTxO rule, so the head must
