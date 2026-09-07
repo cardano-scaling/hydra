@@ -24,11 +24,12 @@ registered.
 
 ### Dependencies
 
-There is **one** run-time dependency of `hydra-node`:
-
-- [`etcd`](https://etcd.io/docs/v3.5/install/) used internally to create a reliable network between nodes
-
-You can ignore this if you are using the Docker image.
+The only run-time dependency of `hydra-node` is [`etcd`](https://etcd.io/), used
+internally to create a reliable network between nodes. A suitable binary is
+embedded in `hydra-node` and installed into the persistence directory on
+startup, so nothing needs to be installed separately. Only when opting out of
+the embedded binary with `--use-system-etcd` does `etcd` need to be
+[installed](https://etcd.io/docs/v3.6/install/) on the system.
 
 ### Prebuilt binaries
 

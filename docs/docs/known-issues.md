@@ -27,7 +27,7 @@ Known errors are:
  - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
    - restart your hydra-node with the `ETCD_INITIAL_CLUSTER_STATE` environment variable set to `existing` (`new` is the default), see also https://etcd.io/docs/v3.3/op-guide/configuration/
 
-We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.5/op-guide/clustering/#etcd-discovery) eventually.
+We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.6/op-guide/clustering/#etcd-discovery) eventually.
 
 #### Auto-compaction (amount of time a peer can be offline)
 

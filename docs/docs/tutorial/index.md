@@ -56,10 +56,6 @@ tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./share/preprod -
 
 curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
-etcd_version=v3.5.21
-curl -L https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz \
-  | tar xz -C bin --strip-components=1
-
 chmod +x bin/*
 ```
 
@@ -81,11 +77,6 @@ tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bi
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
 
 curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
-
-etcd_version=v3.5.21
-curl -L -O https://github.com/etcd-io/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-darwin-arm64.zip
-unzip -d bin etcd-${etcd_version}-darwin-arm64.zip
-mv bin/etcd-${etcd_version}-darwin-arm64/* bin
 
 chmod +x bin/*
 ```
