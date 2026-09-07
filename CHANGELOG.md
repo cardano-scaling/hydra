@@ -34,10 +34,9 @@ changes.
 - Fix a head wedging in `FanoutProgress` when a client selects the whole
   remainder before any chunk has landed. The on-chain datum is still `Closed`
   at that point, so the selection went out as a non-final partial fanout that
-  emptied the head, and with a pre-settled set (a decommit paid out before
-  close) it was accepted: the head could then only be finalized by a
-  zero-output final fanout, which the validator rejects, and could no longer be
-  reverted either, leaving its tokens unburnable and its ada overhead locked.
+  emptied the head: it could then only be finalized by a zero-output final
+  fanout, which the validator rejects, and could no longer be reverted either,
+  leaving its tokens unburnable and its ada overhead locked.
   Selecting everything now means a full fanout, the way it already did from a
   freshly closed head, and the node drains the rest automatically.
   [#2855](https://github.com/cardano-scaling/hydra/issues/2855)

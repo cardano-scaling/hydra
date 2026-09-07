@@ -306,6 +306,13 @@ runHydraNode node@HydraNode{tracer, nodeStateHandler = NodeStateHandler{queryNod
   -- (mirrors the rollback re-post). A step already on chain fails harmlessly
   -- ('StalePartialFanoutTx' is silently ignored) and catch-up observations
   -- re-drive; a passive observer ('AwaitingSelection') posts nothing.
+  --
+  -- Taking only the effects loses nothing: re-posting is not a new decision, so
+  -- 'repostFanoutStep' emits no state changes. That matters here because they
+  -- could not be applied anyway - 'processStateChanges' writes to the event
+  -- sinks, while the in-memory state is updated by 'processNextInput' as it
+  -- computes an outcome, and this calls 'repostFanoutStep' directly rather than
+  -- going through an input.
   atomically queryNodeState >>= \ns -> case headState ns of
     FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
       Continue{effects} -> processEffects node tracer 0 effects
