@@ -630,6 +630,12 @@ data PartialFanoutError
   | -- | Membership proof generation failed (e.g. subset element not in accumulator
     -- or CRS too short). Indicates a programming error in the caller.
     CannotCreateProof Text
+  | -- | The head output does not hold all of the value to distribute, so the
+    -- continuing head output would carry a negative quantity. This happens for
+    -- tokens minted on layer 2, which never entered the head output on layer 1
+    -- and hence can never be fanned out; see
+    -- https://github.com/cardano-scaling/hydra/issues/2334.
+    FanoutValueNegative
   deriving stock (Eq, Show)
 
 -- | Everything a partial fanout needs that does not depend on the chunk size.
@@ -704,6 +710,12 @@ partialFanoutFromPlan ::
 partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo = do
   let utxoToDistribute = UTxO.fromList (take chunkSize orderedRemaining)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
+  -- The continuing head output is the head output minus the distributed value;
+  -- building a transaction with a negative quantity in it would trip an
+  -- 'error' in cardano-ledger.
+  let balance = txOutValue (snd headUTxO) <> negateValue (UTxO.totalValue utxoToDistribute)
+  when (any ((< 0) . snd) (IsList.toList balance)) $
+    Left FanoutValueNegative
   let remainingAccumulator = Accumulator.removeOutputs @Tx fullAccumulator utxoToDistribute
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where

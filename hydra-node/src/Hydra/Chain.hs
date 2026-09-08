@@ -222,6 +222,10 @@ data PostTxError tx
     StalePartialFanoutTx
   | ContestationDeadlineOutsideTimeHorizon {failureReason :: Text}
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
+  | -- | An unexpected assertion (a call to 'error', e.g. from the underlying
+    -- ledger libraries) fired while constructing or posting a transaction.
+    -- Reported instead of crashing the node.
+    UnexpectedPostTxError {failureReason :: Text}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (PostTxError tx)

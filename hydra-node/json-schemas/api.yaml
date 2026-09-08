@@ -3131,6 +3131,22 @@ components:
                     type: integer
                     description: |
                       A quantity of the asset.
+        - title: UnexpectedPostTxError
+          description: |
+            An unexpected assertion (e.g. from the underlying ledger libraries)
+            fired while constructing or posting a transaction. Reported instead
+            of crashing the node.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["UnexpectedPostTxError"]
+            failureReason:
+              type: string
 
     Signature:
       type: string

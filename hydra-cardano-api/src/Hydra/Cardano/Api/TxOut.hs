@@ -33,6 +33,11 @@ txOuts' (getTxBodyContent . getTxBody -> txBody) =
 -- | Automatically balance a given output with the minimum required amount.
 -- Number of assets, presence of datum and/or reference scripts may affect this
 -- minimum value.
+--
+-- NOTE: The output value is /replaced/ by the computed minimum ada value, so
+-- any non-ada assets in the given 'Value' are silently discarded; they only
+-- contribute to the minimum ada calculation. Construct the 'TxOut' directly if
+-- the output is to hold tokens.
 mkTxOutAutoBalance ::
   Ledger.PParams LedgerEra ->
   AddressInEra Era ->
