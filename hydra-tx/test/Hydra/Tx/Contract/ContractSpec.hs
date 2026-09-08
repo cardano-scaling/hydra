@@ -68,7 +68,7 @@ import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation,
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
@@ -266,6 +266,21 @@ spec = parallel $ do
       -- but a partial step still distributes the selected UTxOs, so funds are
       -- recoverable via selection regardless of the stuck token.
       propTransactionEvaluates healthyPartialFanoutTxWithUnburnedToken
+    prop "accepts distributing a pre-settled output (GHSA-f825-9gwc-h5xq)" $
+      -- VULNERABILITY PROOF, deliberately accepting: the distributed output is an
+      -- accumulator member whose value already left the head, so this step pays it
+      -- a second time out of the pool backing everyone else's outputs and leaves
+      -- the final step's strict value equation unsatisfiable (theft and lockout).
+      -- FLIP AFTER THE FIX to propTransactionFailsEvaluation (expected H57); see
+      -- attackFullAccumulator.
+      propTransactionEvaluates presettledFanoutAttackTx
+    prop "accepts distributing a pre-settled output from FanoutProgress (GHSA-f825-9gwc-h5xq)" $
+      -- Same drain posted mid-fanout. FLIP AFTER THE FIX as above.
+      propTransactionEvaluates presettledFanoutAttackFromProgressTx
+    prop "accepts distributing live outputs when a pre-settled set exists" $
+      -- A head with a pre-settled accumulator member must still validate partial
+      -- fanouts of its live outputs, before and after the fix.
+      propTransactionEvaluates liveFanoutWithPresettledTx
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFinalPartialFanoutTx
