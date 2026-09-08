@@ -2192,6 +2192,7 @@ backfillFinalizationRetention slot st = case st of
   _ -> st
  where
   -- Already retained (with an accurate observation slot) at observation time.
+  retainedDecommitFor :: IsTx tx => SnapshotVersion -> Maybe (FinalizedDecommit tx) -> Bool
   retainedDecommitFor v =
     maybe False (\FinalizedDecommit{decrementingSnapshot} -> (getSnapshot decrementingSnapshot).version == v)
 
@@ -2653,6 +2654,7 @@ aggregateNodeState nodeState sc =
                                 }
                       _ -> Nothing
 
+                  refreshSlot :: ChainSlot -> FinalizedCommit tx -> FinalizedCommit tx
                   refreshSlot slot FinalizedCommit{depositTxId = retained, incrementingSnapshot} =
                     FinalizedCommit{depositTxId = retained, incrementingSnapshot, observedAtSlot = slot}
 
@@ -2995,6 +2997,7 @@ applyEvent st = \case
                             }
                   _ -> Nothing
 
+              refreshSlot :: ChainSlot -> FinalizedDecommit tx -> FinalizedDecommit tx
               refreshSlot slot FinalizedDecommit{decrementingSnapshot} =
                 FinalizedDecommit{decrementingSnapshot, observedAtSlot = slot}
            in Open
