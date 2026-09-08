@@ -85,7 +85,7 @@ changes.
   that was already finalized (`CommitFinalized`), which previously lost the
   deposit and could strand its funds
   [#2741](https://github.com/cardano-scaling/hydra/issues/2741). The node now
-  keeps a slot-indexed history of the pending deposits which is rewound on
+  tracks each deposit with its L1 lifecycle slots and rewinds that view on
   rollback, retains the signed snapshot that authorized a settled increment or
   decrement, and re-posts the settling transaction when a rollback erases it.
   A deposit whose finalized increment was rolled back can neither be recovered
@@ -96,7 +96,8 @@ changes.
     written before the new fields existed. Increments or decrements finalized
     before the upgrade have no retained snapshot, so rollback re-posting is
     unavailable for them, as it was before the upgrade.
-  * On the API, `NodeState` gains a `depositHistory` field and
+  * On the API, `NodeState` now serializes deposits with their lifecycle
+    slots (a `deposits` field replaces `pendingDeposits`) and
     `CoordinatedHeadState` gains `finalizedCommit` and `finalizedDecommit`.
   * `GET /deposits` now reflects rollbacks: it is served from the node state
     (which rewinds its deposit view on rollback) instead of a projection that

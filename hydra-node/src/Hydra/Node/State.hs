@@ -5,9 +5,10 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Cardano.Binary (Decoder)
-import Data.Aeson (withObject, (.!=), (.:), (.:?))
+import Data.Aeson (withObject, (.:))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -17,117 +18,112 @@ import Hydra.Tx (
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
--- | Slot-indexed versions of the pending deposits, newest first. Deposits are
--- L1-derived state, so a rollback rewinds this history to restore the view at
--- the rolled-back slot: a deposit whose consuming transaction (increment or
--- recover) was rolled back resurfaces, and one whose deposit transaction was
--- rolled back disappears. Forward re-observation of the new chain then
--- converges the view again. Only L1-derived state may rewind like this; L2
--- state (snapshots, signatures) never rolls back.
---
--- The head entry is the current view and must equal 'pendingDeposits' of the
--- surrounding 'NodeState' — maintain both only via 'modifyDeposits' and
--- 'rollbackDeposits'.
-newtype DepositHistory tx = DepositHistory (NonEmpty (ChainSlot, PendingDeposits tx))
+-- | A deposit with its L1 lifecycle slots. Deposits are L1-derived state, so a
+-- rollback must rewind the view ('rollbackDeposits'): a deposit recorded after
+-- the rolled-back slot vanishes (its deposit transaction was erased), and a
+-- consumption after it is undone (the erased increment or recover resurfaces
+-- the deposit). Forward re-observation of the new chain then converges the view
+-- again. Only L1-derived state may rewind like this; L2 state (snapshots,
+-- signatures) never rolls back.
+data TrackedDeposit tx = TrackedDeposit
+  { deposit :: Deposit tx
+  , recordedAt :: ChainSlot
+  -- ^ Slot at which the deposit transaction was observed.
+  , consumedAt :: Maybe ChainSlot
+  -- ^ Slot at which a consuming transaction (increment or recover) was
+  -- observed, if any. A consumed deposit is no longer pending, but is retained
+  -- for 'depositRetentionHorizon' so a rollback can resurface it.
+  }
   deriving stock (Generic)
 
-deriving stock instance IsTx tx => Eq (DepositHistory tx)
-deriving stock instance IsTx tx => Show (DepositHistory tx)
-deriving anyclass instance IsTx tx => ToJSON (DepositHistory tx)
-deriving anyclass instance IsTx tx => FromJSON (DepositHistory tx)
+deriving stock instance IsTx tx => Eq (TrackedDeposit tx)
+deriving stock instance IsTx tx => Show (TrackedDeposit tx)
+deriving anyclass instance IsTx tx => ToJSON (TrackedDeposit tx)
+deriving anyclass instance IsTx tx => FromJSON (TrackedDeposit tx)
 
-instance IsTx tx => ToCBOR (DepositHistory tx) where
+instance IsTx tx => ToCBOR (TrackedDeposit tx) where
   toCBOR = genericToCBOR
 
-instance IsTx tx => FromCBOR (DepositHistory tx) where
+instance IsTx tx => FromCBOR (TrackedDeposit tx) where
   fromCBOR = genericFromCBOR
 
-initialDepositHistory :: IsTx tx => DepositHistory tx
-initialDepositHistory = DepositHistory ((ChainSlot 0, mempty) :| [])
+type TrackedDeposits tx = Map (TxIdType tx) (TrackedDeposit tx)
 
--- | The current view of the deposit history.
-currentDeposits :: DepositHistory tx -> PendingDeposits tx
-currentDeposits (DepositHistory ((_, deposits) :| _)) = deposits
+-- | Track the given deposits with a fresh lifecycle (recorded at slot 0,
+-- unconsumed). Used to lift state serialized before lifecycle tracking
+-- existed, reproducing the old (rollback unaware) behavior for those deposits.
+trackedFromPending :: PendingDeposits tx -> TrackedDeposits tx
+trackedFromPending = fmap (\deposit -> TrackedDeposit{deposit, recordedAt = ChainSlot 0, consumedAt = Nothing})
 
--- | Record a new version of the pending deposits at the given slot. Multiple
--- versions at the same slot collapse into the latest one.
---
--- 'rollbackDepositHistory' relies on the history slots being strictly
--- descending, so a push at a slot not younger than the newest entry (deposit
--- status changes are recorded at tick slots while observations are recorded at
--- their block slot, so slots may repeat or arrive slightly out of order)
--- collapses into the newest entry rather than breaking that order.
---
--- Versions older than 'depositHistoryHorizon' are pruned: no rollback can
--- reach them, so they can never be restored. The newest pruned version is kept
--- as boundary entry — it is still the correct view for a rollback landing
--- between it and the oldest retained version. 'maxDepositHistorySize' bounds
--- the length against pathological deposit churn within the horizon.
-pushDeposits :: ChainSlot -> PendingDeposits tx -> DepositHistory tx -> DepositHistory tx
-pushDeposits slot deposits (DepositHistory history@((newestSlot, _) :| older))
-  | slot <= newestSlot = DepositHistory ((newestSlot, deposits) :| older)
-  | otherwise = DepositHistory ((slot, deposits) :| prune (toList history))
- where
-  prune entries =
-    let (withinHorizon, beyondHorizon) = span (\(s, _) -> s > cutoff) entries
-     in take (maxDepositHistorySize - 1) (withinHorizon <> take 1 beyondHorizon)
+-- | Deposits pending as observed on chain: the tracked deposits not consumed
+-- yet.
+pendingDeposits :: NodeState tx -> PendingDeposits tx
+pendingDeposits =
+  Map.mapMaybe (\TrackedDeposit{deposit, consumedAt} -> deposit <$ guard (isNothing consumedAt)) . deposits
 
-  cutoff =
-    case (slot, depositHistoryHorizon) of
-      (ChainSlot s, ChainSlot horizon) -> ChainSlot (if s > horizon then s - horizon else 0)
+-- | Derived view, so record-dot access keeps working across the tracked
+-- representation.
+instance view ~ PendingDeposits tx => HasField "pendingDeposits" (NodeState tx) view where
+  getField = pendingDeposits
 
--- | Rewind the history to the given slot: drop all versions recorded after it.
---
--- A rollback reaching past the whole retained history restores the empty
--- view: the version at that slot was pruned and cannot be reconstructed, and
--- an empty view is safe where a stale one is not — a missing deposit converges
--- by re-observing its deposit transaction, while a stale entry could be
--- proposed for a snapshot that can never settle. This is only reachable for
--- rollbacks deeper than 'depositHistoryHorizon', which no real chain produces.
-rollbackDepositHistory :: IsTx tx => ChainSlot -> DepositHistory tx -> DepositHistory tx
-rollbackDepositHistory slot (DepositHistory history) =
-  case dropWhile (\(s, _) -> s > slot) (toList history) of
-    [] -> initialDepositHistory
-    (h : rest) -> DepositHistory (h :| rest)
-
--- | Number of slots of deposit history to retain, see 'pushDeposits'. Sized to
--- cover the deepest rollback Cardano can produce (the security parameter k =
--- 2160 blocks, roughly 12 hours at one block per 20 slots) with a three-fold
--- margin. Bounding the history by slot age instead of only by count matters
--- because it is embedded in 'NodeState': serialization (state checkpoints,
--- API messages carrying 'NodeState') copies each version in full, so retained
--- versions directly size persisted state and client messages.
-depositHistoryHorizon :: ChainSlot
-depositHistoryHorizon = ChainSlot 129600
-
--- | Upper bound on retained deposit history versions, a backstop against
--- pathological deposit churn within 'depositHistoryHorizon'. Deposit
--- lifecycles only push a handful of versions each, so the horizon is the
--- effective bound in practice.
-maxDepositHistorySize :: Int
-maxDepositHistorySize = 1000
-
--- | Apply a change to the pending deposits at the given slot, recording the
--- new version in 'depositHistory' so a rollback can restore the previous ones.
-modifyDeposits :: ChainSlot -> (PendingDeposits tx -> PendingDeposits tx) -> NodeState tx -> NodeState tx
-modifyDeposits slot f nodeState =
+-- | Record a newly observed deposit at the given slot. Re-recording an id (its
+-- deposit transaction re-landed after a rollback) starts a fresh lifecycle.
+recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+recordDeposit slot depositTxId deposit nodeState =
   nodeState
-    { pendingDeposits = deposits
-    , depositHistory = pushDeposits slot deposits (depositHistory nodeState)
+    { deposits =
+        Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
+          pruneConsumedDeposits slot (deposits nodeState)
     }
- where
-  deposits = f (pendingDeposits nodeState)
 
--- | Rewind the pending deposits to their state at the given (rolled back)
--- slot, see 'DepositHistory'.
-rollbackDeposits :: IsTx tx => ChainSlot -> NodeState tx -> NodeState tx
+-- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
+-- unaffected. Unknown ids are ignored.
+updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+updateDeposit depositTxId deposit nodeState =
+  nodeState{deposits = Map.adjust (\tracked -> tracked{deposit}) depositTxId (deposits nodeState)}
+
+-- | Mark a deposit consumed at the given slot: its increment or recover was
+-- observed on chain. Re-consuming (the consuming transaction re-landed after a
+-- rollback) re-stamps the slot, so a rollback of the re-landed transaction
+-- still resurfaces the deposit.
+consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeState tx
+consumeDeposit slot depositTxId nodeState =
+  nodeState
+    { deposits =
+        Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
+          pruneConsumedDeposits slot (deposits nodeState)
+    }
+
+-- | Rewind the deposit view to the given (rolled back) slot, see
+-- 'TrackedDeposit'.
+rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
-  nodeState
-    { pendingDeposits = currentDeposits history
-    , depositHistory = history
-    }
+  nodeState{deposits = Map.mapMaybe rollbackOne (deposits nodeState)}
  where
-  history = rollbackDepositHistory slot (depositHistory nodeState)
+  rollbackOne tracked@TrackedDeposit{recordedAt, consumedAt}
+    | recordedAt > slot = Nothing
+    | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
+
+-- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
+-- resurface them anymore, so retaining them would only grow persisted state
+-- with every deposit ever settled. Called on the deposit write paths, which is
+-- enough because only deposit churn creates consumed entries. Unconsumed
+-- deposits are never pruned — an expired deposit stays recoverable
+-- indefinitely.
+pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
+pruneConsumedDeposits (ChainSlot slot) =
+  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> cutoff) consumedAt)
+ where
+  cutoff =
+    case depositRetentionHorizon of
+      ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
+
+-- | How long consumed deposits are retained for rollbacks: sized to cover the
+-- deepest rollback Cardano can produce (the security parameter k = 2160
+-- blocks, roughly 12 hours at one block per 20 slots) with a three-fold
+-- margin.
+depositRetentionHorizon :: ChainSlot
+depositRetentionHorizon = ChainSlot 129600
 
 data ChainPointTime = ChainPointTime
   { currentSlot :: ChainSlot
@@ -151,26 +147,22 @@ data NodeState tx
     -- view of the chain.
     NodeInSync
       { headState :: HeadState tx
-      , pendingDeposits :: PendingDeposits tx
-      -- ^ Pending deposits as observed on chain: the current view of
-      -- 'depositHistory'. Only change via 'modifyDeposits'/'rollbackDeposits'.
+      , deposits :: TrackedDeposits tx
+      -- ^ Deposits as observed on chain, with their L1 lifecycle (see
+      -- 'TrackedDeposit'); read the pending view via 'pendingDeposits'.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
-      , depositHistory :: DepositHistory tx
-      -- ^ Past versions of 'pendingDeposits' to restore on rollback.
       , chainPointTime :: ChainPointTime
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
     NodeCatchingUp
       { headState :: HeadState tx
-      , pendingDeposits :: PendingDeposits tx
-      -- ^ Pending deposits as observed on chain: the current view of
-      -- 'depositHistory'. Only change via 'modifyDeposits'/'rollbackDeposits'.
+      , deposits :: TrackedDeposits tx
+      -- ^ Deposits as observed on chain, with their L1 lifecycle (see
+      -- 'TrackedDeposit'); read the pending view via 'pendingDeposits'.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
-      , depositHistory :: DepositHistory tx
-      -- ^ Past versions of 'pendingDeposits' to restore on rollback.
       , chainPointTime :: ChainPointTime
       }
   deriving stock (Generic)
@@ -179,32 +171,32 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
 
--- | Manual instance: 'depositHistory' was added after 'NodeState' shipped, so
--- checkpoints persisted by older versions lack the key. Seed the history from
--- the legacy current view in that case, which reproduces the old (rollback
--- unaware) behavior for deposits recorded before the upgrade.
+-- | Manual instance: lifecycle-tracked 'deposits' replaced the plain pending
+-- deposit map after 'NodeState' shipped. A checkpoint persisted by an older
+-- version carries a "pendingDeposits" key instead, which is lifted via
+-- 'trackedFromPending'.
 instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx) where
   parseJSON = withObject "NodeState" $ \o -> do
     tag :: Text <- o .: "tag"
     headState <- o .: "headState"
-    pendingDeposits <- o .: "pendingDeposits"
-    depositHistory <- o .:? "depositHistory" .!= DepositHistory ((ChainSlot 0, pendingDeposits) :| [])
+    deposits <- o .: "deposits" <|> (trackedFromPending <$> o .: "pendingDeposits")
     chainPointTime <- o .: "chainPointTime"
     case tag of
-      "NodeInSync" -> pure NodeInSync{headState, pendingDeposits, depositHistory, chainPointTime}
-      "NodeCatchingUp" -> pure NodeCatchingUp{headState, pendingDeposits, depositHistory, chainPointTime}
+      "NodeInSync" -> pure NodeInSync{headState, deposits, chainPointTime}
+      "NodeCatchingUp" -> pure NodeCatchingUp{headState, deposits, chainPointTime}
       _ -> fail $ "unknown NodeState tag: " <> show tag
 
--- | Tags of the current on-disk\/wire layout, which carries 'depositHistory'.
--- The fields are a bare concatenation with no length prefix, so a layout
--- change is only decodable when the tag distinguishes it: the V1 tags name the
--- layout written before the field existed and are still accepted, seeding the
--- history from the legacy current view like the 'FromJSON' instance above.
+-- | Tags of the current on-disk\/wire layout, which tracks deposit lifecycles
+-- ('TrackedDeposits'). The fields are a bare concatenation with no length
+-- prefix, so a layout change is only decodable when the tag distinguishes it:
+-- the V1 tags name the layout with a plain pending deposit map written before
+-- lifecycle tracking existed and are still accepted, lifted via
+-- 'trackedFromPending' like the 'FromJSON' instance above.
 nodeInSyncCBORTag, nodeCatchingUpCBORTag :: Text
 nodeInSyncCBORTag = "NodeInSync2"
 nodeCatchingUpCBORTag = "NodeCatchingUp2"
 
--- | Tags of the layout without 'depositHistory'. Decoded, never written.
+-- | Tags of the layout without deposit lifecycles. Decoded, never written.
 nodeInSyncCBORTagV1, nodeCatchingUpCBORTagV1 :: Text
 nodeInSyncCBORTagV1 = "NodeInSync"
 nodeCatchingUpCBORTagV1 = "NodeCatchingUp"
@@ -213,8 +205,7 @@ instance IsChainState tx => ToCBOR (NodeState tx) where
   toCBOR nodeState =
     toCBOR tag
       <> toCBOR (headState nodeState)
-      <> toCBOR (pendingDeposits nodeState)
-      <> toCBOR (depositHistory nodeState)
+      <> toCBOR (deposits nodeState)
       <> toCBOR (chainPointTime nodeState)
    where
     tag = case nodeState of
@@ -225,31 +216,26 @@ instance IsChainState tx => FromCBOR (NodeState tx) where
   fromCBOR =
     fromCBOR >>= \case
       (tag :: Text)
-        | tag == nodeInSyncCBORTag -> decode NodeInSync True
-        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp True
-        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync False
-        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp False
+        | tag == nodeInSyncCBORTag -> decode NodeInSync fromCBOR
+        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp fromCBOR
+        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync (trackedFromPending <$> fromCBOR)
+        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp (trackedFromPending <$> fromCBOR)
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
    where
     decode ::
-      (HeadState tx -> PendingDeposits tx -> DepositHistory tx -> ChainPointTime -> NodeState tx) ->
-      Bool ->
+      (HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx) ->
+      Decoder s (TrackedDeposits tx) ->
       Decoder s (NodeState tx)
-    decode mkNodeState hasDepositHistory = do
+    decode mkNodeState decodeDeposits = do
       headState <- fromCBOR
-      pendingDeposits <- fromCBOR
-      depositHistory <-
-        if hasDepositHistory
-          then fromCBOR
-          else pure $ DepositHistory ((ChainSlot 0, pendingDeposits) :| [])
-      mkNodeState headState pendingDeposits depositHistory <$> fromCBOR
+      deposits <- decodeDeposits
+      mkNodeState headState deposits <$> fromCBOR
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
   NodeCatchingUp
     { headState = Idle IdleState{chainState}
-    , pendingDeposits = mempty
-    , depositHistory = initialDepositHistory
+    , deposits = mempty
     , chainPointTime = initialChainPointTime chainState
     }
 

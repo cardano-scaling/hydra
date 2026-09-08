@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, initialDepositHistory)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -223,7 +223,7 @@ spec =
               deposit2 = Deposit{headId = testHeadId, deposited = utxoRef 2, created = depositTime 2, deadline, status = Active}
               -- open state with pending deposits from another head
               party = [alice]
-              openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
+              openState = (inOpenState party){deposits = trackedFromPending (Map.fromList [(1, deposit1), (2, deposit2)])}
           let input = ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3}
 
           let outcome = update aliceEnv ledger now openState input
@@ -337,7 +337,7 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status = Active
                   }
-              s0 = (inOpenState threeParties){pendingDeposits = Map.singleton depositTxId' deposit}
+              s0 = (inOpenState threeParties){deposits = trackedFromPending (Map.singleton depositTxId' deposit)}
               recoverOldHead = observeTx OnRecoverTx{headId = testHeadId, recoveredTxId = depositTxId', recoveredUTxO = depositedUtxo}
           now' <- nowFromSlot s0.chainPointTime.currentSlot
           update bobEnv ledger now' s0 recoverOldHead
@@ -376,7 +376,7 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status = Active
                   }
-              s0 = (inClosedState threeParties){pendingDeposits = Map.singleton ownDepositId ownDeposit}
+              s0 = (inClosedState threeParties){deposits = trackedFromPending (Map.singleton ownDepositId ownDeposit)}
               recoverOwnDeposit =
                 observeTx $
                   OnRecoverTx
@@ -401,7 +401,7 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status = Active
                   }
-              s0 = inIdleState{pendingDeposits = Map.singleton ownDepositId deposit}
+              s0 = inIdleState{deposits = trackedFromPending (Map.singleton ownDepositId deposit)}
               recoverDeposit =
                 observeTx $
                   OnRecoverTx
@@ -427,7 +427,7 @@ spec =
                   }
               -- Deposits from a previous head are never cleared on fanout, so they
               -- remain in pendingDeposits when the node transitions to Idle.
-              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
+              s0 = (inSync (Idle IdleState{chainState = 0})){deposits = trackedFromPending (Map.singleton depositTxId' deposit)}
           now' <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now' s0 (ClientInput (Recover depositTxId'))
             `hasEffectSatisfying` \case
@@ -539,7 +539,7 @@ spec =
                     , currentDepositTxId = Nothing
                     }
               )
-                { pendingDeposits = Map.singleton depositId deposit
+                { deposits = trackedFromPending (Map.singleton depositId deposit)
                 }
 
           -- Alice's AckSn confirms sn=1; maybeRequestNextSnapshot fires for sn=2.
@@ -585,13 +585,13 @@ spec =
                   }
               s0 =
                 (inOpenState' threeParties coordinatedHeadState{currentDepositTxId = Just ownDepositId})
-                  { pendingDeposits = Map.singleton foreignDepositId foreignDeposit
+                  { deposits = trackedFromPending (Map.singleton foreignDepositId foreignDeposit)
                   }
           let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
           case s1 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}, pendingDeposits} -> do
+            s1'@NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.currentDepositTxId `shouldBe` Just ownDepositId
-              pendingDeposits `shouldBe` mempty
+              s1'.pendingDeposits `shouldBe` mempty
             _ -> fail "expected Open state"
 
         it "DepositRecovered while Idle removes deposit from pendingDeposits" $ do
@@ -605,10 +605,10 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status = Active
                   }
-              s0 = (inSync (Idle IdleState{chainState = 0})){pendingDeposits = Map.singleton depositTxId' deposit}
+              s0 = (inSync (Idle IdleState{chainState = 0})){deposits = trackedFromPending (Map.singleton depositTxId' deposit)}
           let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
           case s1 of
-            NodeInSync{pendingDeposits} -> pendingDeposits `shouldBe` mempty
+            s1'@NodeInSync{} -> s1'.pendingDeposits `shouldBe` mempty
             _ -> fail "expected NodeInSync"
 
         it "CommitFinalized from another head does not update version or localUTxO" $ do
@@ -700,7 +700,7 @@ spec =
                         currentDepositTxId = Just txid1
                       }
                 )
-                  { pendingDeposits = Map.fromList [(txid1, mkDeposit 1), (txid2, mkDeposit 2)]
+                  { deposits = trackedFromPending (Map.fromList [(txid1, mkDeposit 1), (txid2, mkDeposit 2)])
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
               outcome = update aliceEnv ledger now s0 ackSn
@@ -734,7 +734,7 @@ spec =
                       , currentDepositTxId = Just depositTxId'
                       }
                 )
-                  { pendingDeposits = Map.singleton depositTxId' deposit
+                  { deposits = trackedFromPending (Map.singleton depositTxId' deposit)
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
               outcome = update aliceEnv ledger now s0 ackSn
@@ -2095,7 +2095,7 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
         it "re-posts IncrementTx again when the re-landed increment is rolled back again" $ do
-          -- The retained 'FinalizedCommit' must track the increment's latest
+          -- The retained 'finalizedCommit' must track the increment's latest
           -- observation slot: after the re-posted increment lands at a later
           -- slot, a second rollback erasing it has a rollback point past the
           -- original observation slot and a stale retention would go silent.
@@ -2418,7 +2418,7 @@ spec =
           -- re-post issued at rollback time cannot land (the deposit UTxO does
           -- not exist on the new chain). Once the deposit tx re-lands, the
           -- increment must be re-posted again — nothing else settles this
-          -- deposit ('withoutSettlingDeposit' blocks all alternatives).
+          -- deposit ('finalizedDepositTxId' blocks all alternatives).
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
@@ -2432,6 +2432,37 @@ spec =
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
                 Snapshot{number} -> number == 1 && dep == depositTxId'
+            _ -> False
+
+        it "does not park the re-landed settling deposit in currentDepositTxId when it activates" $ do
+          -- After deposit and increment were both rolled back, the re-landed
+          -- deposit starts a fresh lifecycle (recorded 'Inactive'), so the next
+          -- tick re-emits 'DepositActivated' for it. It must neither be queued
+          -- as the next commit nor proposed in a snapshot request — only
+          -- re-posting the increment settles it.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          (s1, tickOutcome) <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step (rollbackTo 0 now)
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            outcome <-
+              step . ChainInput $
+                Tick
+                  { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
+                  , chainPoint = 2
+                  }
+            s <- getState
+            pure (s, outcome)
+          -- The re-landed deposit is tracked again ...
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` True
+          -- ... but not parked as the next commit ...
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Nothing
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+          -- ... nor proposed by the tick-driven snapshot request
+          tickOutcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = dep} -> dep == Just depositTxId'
             _ -> False
 
         it "allows recovering the settling deposit once the head is closed" $ do
@@ -3407,7 +3438,7 @@ spec =
                 ( inOpenState' singleParty $
                     coordinatedHeadState{currentDepositTxId = Just depositTxId}
                 )
-                  { pendingDeposits = Map.singleton depositTxId activeDeposit
+                  { deposits = trackedFromPending (Map.singleton depositTxId activeDeposit)
                   }
           -- Step 1: Confirm snapshot 1 including the deposit in utxoToCommit
           s1 <- runHeadLogic aliceEnv' ledger s0 $ do
@@ -3728,8 +3759,7 @@ spec =
                         , headId = testHeadId
                         , headSeed = testHeadSeed
                         }
-                , pendingDeposits = mempty
-                , depositHistory = initialDepositHistory
+                , deposits = mempty
                 , chainPointTime =
                     ChainPointTime
                       { currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
@@ -3778,8 +3808,7 @@ spec =
                       , headId = testHeadId
                       , headSeed = testHeadSeed
                       }
-              , pendingDeposits = mempty
-              , depositHistory = initialDepositHistory
+              , deposits = mempty
               , chainPointTime =
                   ChainPointTime
                     { currentSlot = ChainSlot 1
@@ -3972,7 +4001,7 @@ reqDecDepositedUTxO = utxoRef 42
 reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
 reqDecStateWith parties mStatus =
   (inOpenState' parties headState)
-    { pendingDeposits = maybe mempty (Map.singleton reqDecDepositTxId . mkDeposit) mStatus
+    { deposits = trackedFromPending (maybe mempty (Map.singleton reqDecDepositTxId . mkDeposit) mStatus)
     }
  where
   headState =
@@ -4198,10 +4227,10 @@ mkTimeHandleAt slotNo now =
   eraHistory = eraHistoryWithHorizonAt horizonSlot
 
 catchingUp :: IsTx tx => HeadState tx -> NodeState tx
-catchingUp headState = NodeCatchingUp{headState, pendingDeposits = mempty, depositHistory = initialDepositHistory, chainPointTime = zeroChainPointTime}
+catchingUp headState = NodeCatchingUp{headState, deposits = mempty, chainPointTime = zeroChainPointTime}
 
 inSync :: IsTx tx => HeadState tx -> NodeState tx
-inSync headState = NodeInSync{headState, pendingDeposits = mempty, depositHistory = initialDepositHistory, chainPointTime = zeroChainPointTime}
+inSync headState = NodeInSync{headState, deposits = mempty, chainPointTime = zeroChainPointTime}
 
 zeroChainPointTime :: ChainPointTime
 zeroChainPointTime =

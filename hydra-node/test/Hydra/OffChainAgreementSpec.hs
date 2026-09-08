@@ -96,7 +96,7 @@ import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', observeTx, re
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..))
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), trackedFromPending)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -191,7 +191,7 @@ inFlightDecommit = SimpleTx 2 mempty (utxoRef 2)
 -- registered, are both states the node reaches and clears the id in neither.
 reqDecState :: HsPendingCommit -> Bool -> NodeState SimpleTx
 reqDecState commit decommitInFlight =
-  (inOpenState' threeParties headState){pendingDeposits = registry}
+  (inOpenState' threeParties headState){deposits = trackedFromPending registry}
  where
   headState =
     CoordinatedHeadState
@@ -268,7 +268,7 @@ activeDeposit9 =
 -- Fresh open state with deposit 7 registered Active: the domain of the both/no-outputs guards
 -- (the request is the first snapshot, alice leads it).
 incActionState :: NodeState SimpleTx
-incActionState = (inOpenState threeParties){pendingDeposits = Map.fromList [(7, activeDeposit9)]}
+incActionState = (inOpenState threeParties){deposits = trackedFromPending (Map.fromList [(7, activeDeposit9)])}
 
 reqSnIncActionOutcome :: Maybe SimpleTx -> Maybe Integer -> Outcome SimpleTx
 reqSnIncActionOutcome mDecommit mDeposit =
@@ -281,7 +281,7 @@ reqSnIncActionOutcome mDecommit mDeposit =
 -- content.
 settleState :: NodeState SimpleTx
 settleState =
-  (inOpenState' threeParties chs){pendingDeposits = Map.fromList [(7, activeDeposit9), (8, activeDeposit9)]}
+  (inOpenState' threeParties chs){deposits = trackedFromPending (Map.fromList [(7, activeDeposit9), (8, activeDeposit9)])}
  where
   chs =
     CoordinatedHeadState
@@ -331,8 +331,8 @@ tickEnv tDep tAct = aliceEnv{depositPeriod = fromInteger tDep, depositActivation
 depositState :: Integer -> Integer -> NodeState SimpleTx
 depositState created deadline =
   (inOpenState threeParties)
-    { pendingDeposits =
-        Map.fromList
+    { deposits =
+        trackedFromPending . Map.fromList $
           [
             ( 1
             , Deposit

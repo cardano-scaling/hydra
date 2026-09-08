@@ -53,7 +53,7 @@ import Hydra.API.ServerOutput (
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), NetworkMagic (..))
 import Hydra.Cardano.Api.Gen ()
 import Hydra.Chain (ChainEvent, OnChainTx, PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
@@ -67,7 +67,7 @@ import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (ChainPointTime, Deposit, DepositHistory (..), DepositStatus, NodeState (..), SyncedStatus, nodeCatchingUpCBORTag, nodeInSyncCBORTag, nodeInSyncCBORTagV1)
+import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState (..), SyncedStatus, TrackedDeposit, nodeCatchingUpCBORTag, nodeInSyncCBORTag, nodeInSyncCBORTagV1, pendingDeposits, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -246,9 +246,10 @@ spec = parallel $ do
                 <> toCBOR version
       decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
 
-  -- 'NodeState' gained 'depositHistory' between two released layouts, same
-  -- situation as 'Snapshot' above. The legacy layout seeds the history from
-  -- the current view, mirroring the 'FromJSON' instance.
+  -- 'NodeState' gained deposit lifecycle tracking between two released
+  -- layouts, same situation as 'Snapshot' above. The legacy layout carries a
+  -- plain pending deposit map, lifted into fresh lifecycles on decode,
+  -- mirroring the 'FromJSON' instance.
   describe "NodeState layouts" $ do
     let nodeState = generateWith (resize 3 arbitrary) 42 :: NodeState Tx
 
@@ -257,7 +258,7 @@ spec = parallel $ do
         BS.isPrefixOf (serialize' nodeInSyncCBORTag) bytes
           || BS.isPrefixOf (serialize' nodeCatchingUpCBORTag) bytes
 
-    it "decodes the layout written before depositHistory existed" $ do
+    it "decodes the layout written before deposit lifecycle tracking existed" $ do
       let legacy =
             toStrictByteString $
               toCBOR nodeInSyncCBORTagV1
@@ -268,8 +269,7 @@ spec = parallel $ do
         `shouldBe` Right
           NodeInSync
             { headState = headState nodeState
-            , pendingDeposits = pendingDeposits nodeState
-            , depositHistory = DepositHistory ((ChainSlot 0, pendingDeposits nodeState) :| [])
+            , deposits = trackedFromPending (pendingDeposits nodeState)
             , chainPointTime = chainPointTime nodeState
             }
 
@@ -285,6 +285,7 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @(SeenSnapshot Tx)
     roundtripCBOR $ Proxy @(NodeState Tx)
     roundtripCBOR $ Proxy @(Deposit Tx)
+    roundtripCBOR $ Proxy @(TrackedDeposit Tx)
     roundtripCBOR $ Proxy @Environment
     roundtripCBOR $ Proxy @Connectivity
     roundtripCBOR $ Proxy @HeadId

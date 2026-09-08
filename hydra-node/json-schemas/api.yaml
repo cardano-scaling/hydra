@@ -3844,11 +3844,11 @@ components:
         finalizedCommit:
           oneOf:
             - type: "null"
-            - $ref: "api.yaml#/components/schemas/FinalizedCommit"
+            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
         finalizedDecommit:
           oneOf:
             - type: "null"
-            - $ref: "api.yaml#/components/schemas/FinalizedDecommit"
+            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
 
     Deposit:
       type: object
@@ -3871,54 +3871,40 @@ components:
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
-    DepositHistory:
-      type: array
-      minItems: 1
-      description: |
-        Slot-indexed versions of the pending deposits, newest first, used to
-        restore the deposit view when a rollback occurs. Each entry is a pair
-        of the chain slot and the pending deposits as of that slot.
-      items:
-        type: array
-        minItems: 2
-        maxItems: 2
-        prefixItems:
-          - $ref: "api.yaml#/components/schemas/ChainSlot"
-          - type: object
-            propertyNames:
-              $ref: "api.yaml#/components/schemas/TxId"
-            additionalProperties:
-              $ref: "api.yaml#/components/schemas/Deposit"
-
-    FinalizedCommit:
+    TrackedDeposit:
       type: object
       additionalProperties: false
       description: |
-        Retained when an increment settles on-chain so the IncrementTx can be
-        re-posted if a rollback later erases it.
+        A deposit with its L1 lifecycle slots: the slot its deposit transaction
+        was observed at and, once consumed by an increment or recover, the slot
+        of that consuming transaction. A rollback rewinds the view using these
+        slots.
       required:
-        - depositTxId
-        - incrementingSnapshot
-        - observedAtSlot
+        - deposit
+        - recordedAt
+        - consumedAt
       properties:
-        depositTxId:
-          $ref: "api.yaml#/components/schemas/TxId"
-        incrementingSnapshot:
-          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-        observedAtSlot:
+        deposit:
+          $ref: "api.yaml#/components/schemas/Deposit"
+        recordedAt:
           $ref: "api.yaml#/components/schemas/ChainSlot"
+        consumedAt:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/ChainSlot"
 
-    FinalizedDecommit:
+    FinalizedSnapshot:
       type: object
       additionalProperties: false
       description: |
-        Retained when a decrement settles on-chain so the DecrementTx can be
-        re-posted if a rollback later erases it.
+        A snapshot whose settlement transaction (increment or decrement)
+        settled on-chain, retained so the settlement can be re-posted if a
+        rollback later erases it.
       required:
-        - decrementingSnapshot
+        - snapshot
         - observedAtSlot
       properties:
-        decrementingSnapshot:
+        snapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
         observedAtSlot:
           $ref: "api.yaml#/components/schemas/ChainSlot"
@@ -3946,8 +3932,7 @@ components:
           required:
             - tag
             - headState
-            - pendingDeposits
-            - depositHistory
+            - deposits
             - chainPointTime
           properties:
             tag:
@@ -3955,14 +3940,12 @@ components:
               enum: ["NodeInSync"]
             headState:
               $ref: "api.yaml#/components/schemas/HeadState"
-            pendingDeposits:
+            deposits:
               type: object
               propertyNames:
                 $ref: "api.yaml#/components/schemas/TxId"
-              items:
-                $ref: "api.yaml#/components/schemas/Deposit"
-            depositHistory:
-              $ref: "api.yaml#/components/schemas/DepositHistory"
+              additionalProperties:
+                $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
         - title: NodeCatchingUp
@@ -3971,8 +3954,7 @@ components:
           required:
             - tag
             - headState
-            - pendingDeposits
-            - depositHistory
+            - deposits
             - chainPointTime
           properties:
             tag:
@@ -3980,14 +3962,12 @@ components:
               enum: ["NodeCatchingUp"]
             headState:
               $ref: "api.yaml#/components/schemas/HeadState"
-            pendingDeposits:
+            deposits:
               type: object
               propertyNames:
                 $ref: "api.yaml#/components/schemas/TxId"
-              items:
-                $ref: "api.yaml#/components/schemas/Deposit"
-            depositHistory:
-              $ref: "api.yaml#/components/schemas/DepositHistory"
+              additionalProperties:
+                $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
 
