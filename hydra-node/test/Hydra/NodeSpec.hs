@@ -38,7 +38,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositHistory (..), DepositStatus (..), NodeState (..), PendingDeposits, currentDeposits, depositHistoryHorizon, initialChainTime, initialDepositHistory, pushDeposits, rollbackDepositHistory)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -68,56 +68,54 @@ import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
-  describe "DepositHistory" $ do
-    -- 'rollbackDepositHistory' drops entries with 'dropWhile', which is only
-    -- correct on strictly descending slots; pushes must maintain that even
-    -- when their slots arrive out of order (deposit status changes are
-    -- recorded at tick slots, observations at their block slot).
-    prop "pushDeposits keeps history slots strictly descending" $
-      \(pushes :: [(ChainSlot, PendingDeposits SimpleTx)]) ->
-        let DepositHistory entries =
-              foldl' (\h (slot, deposits) -> pushDeposits slot deposits h) (initialDepositHistory @SimpleTx) pushes
-         in isStrictlyMonotonic (reverse $ fst <$> toList entries)
+  describe "deposit lifecycle tracking" $ do
+    let s0 = initNodeState 0 :: NodeState SimpleTx
+        record slot i = recordDeposit (ChainSlot slot) i (testDeposit i)
 
-    prop "pushDeposits makes the pushed deposits the current view" $
-      \(pushes :: [(ChainSlot, PendingDeposits SimpleTx)]) (slot :: ChainSlot) (deposits :: PendingDeposits SimpleTx) ->
-        let history =
-              foldl' (\h (s, d) -> pushDeposits s d h) (initialDepositHistory @SimpleTx) pushes
-         in currentDeposits (pushDeposits slot deposits history) == deposits
+    it "a consumed deposit is no longer pending" $ do
+      let s1 = record 1 1 s0
+      pendingDeposits s1 `shouldBe` Map.singleton 1 (testDeposit 1)
+      pendingDeposits (consumeDeposit (ChainSlot 2) 1 s1) `shouldBe` mempty
 
-    -- Entries older than 'depositHistoryHorizon' can never be rolled back to
-    -- (no real chain rolls back that deep), so they are pruned to bound the
-    -- serialized history size — except one boundary entry, which is still the
-    -- correct view for a rollback landing between it and the next retained
-    -- version.
-    it "pushDeposits prunes versions older than the horizon, keeping one boundary entry" $ do
-      let ChainSlot horizon = depositHistoryHorizon
-          viewAt1 = Map.singleton 1 (testDeposit 1)
-          viewAt2 = Map.singleton 2 (testDeposit 2)
-          history =
-            pushDeposits (ChainSlot (horizon + 100)) mempty
-              . pushDeposits (ChainSlot 2) viewAt2
-              . pushDeposits (ChainSlot 1) viewAt1
-              $ initialDepositHistory @SimpleTx
-      -- The initial (slot 0) anchor was pruned, slot 2 is kept as boundary.
-      let DepositHistory entries = history
-      (fst <$> toList entries) `shouldBe` [ChainSlot (horizon + 100), ChainSlot 2]
-      -- A rollback below the cutoff but at/after the boundary restores it.
-      currentDeposits (rollbackDepositHistory (ChainSlot 50) history)
-        `shouldBe` viewAt2
+    it "rollbackDeposits drops deposits recorded after the rolled back slot" $ do
+      let s1 = record 5 1 s0
+      pendingDeposits (rollbackDeposits (ChainSlot 4) s1) `shouldBe` mempty
+      -- The rollback point is the last common block: a deposit recorded AT the
+      -- rolled back slot is still on chain.
+      pendingDeposits (rollbackDeposits (ChainSlot 5) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
 
-    it "rollbackDepositHistory restores the empty view when rolling back past the retained history" $ do
-      let ChainSlot horizon = depositHistoryHorizon
-          history =
-            pushDeposits (ChainSlot (horizon + 100)) mempty
-              . pushDeposits (ChainSlot 2) (Map.singleton 2 (testDeposit 2))
-              . pushDeposits (ChainSlot 1) (Map.singleton 1 (testDeposit 1))
-              $ initialDepositHistory @SimpleTx
-      -- Rolling back to before the boundary entry: the view at that slot was
-      -- pruned and cannot be reconstructed; an empty view is safe (deposits
-      -- converge by re-observation) where a stale one is not.
-      currentDeposits (rollbackDepositHistory (ChainSlot 1) history)
-        `shouldBe` mempty
+    it "rollbackDeposits resurfaces deposits consumed after the rolled back slot" $ do
+      let s1 = consumeDeposit (ChainSlot 10) 1 (record 1 1 s0)
+      pendingDeposits (rollbackDeposits (ChainSlot 9) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
+      -- A consumption AT the rolled back slot is still on chain.
+      pendingDeposits (rollbackDeposits (ChainSlot 10) s1) `shouldBe` mempty
+
+    -- Consumed deposits beyond 'depositRetentionHorizon' can never be
+    -- resurfaced by a rollback (no real chain rolls back that deep), so they
+    -- are pruned to bound the persisted state; unconsumed deposits stay
+    -- recoverable indefinitely.
+    it "prunes consumed deposits beyond the retention horizon, keeping unconsumed ones" $ do
+      let ChainSlot horizon = depositRetentionHorizon
+          s1 =
+            record (horizon + 100) 3
+              . consumeDeposit (ChainSlot 2) 1
+              . record 1 2
+              . record 1 1
+              $ s0
+      Map.keys (deposits s1) `shouldBe` [2, 3]
+
+    it "a rollback deeper than the horizon cannot resurface a pruned deposit" $ do
+      let ChainSlot horizon = depositRetentionHorizon
+          s1 =
+            record (horizon + 100) 2
+              . consumeDeposit (ChainSlot 3) 1
+              . record 1 1
+              $ s0
+      -- Deposit 1's consumption is beyond the horizon by the time deposit 2 is
+      -- recorded, so it was pruned: a rollback reaching before its consumption
+      -- slot yields a missing deposit (which converges by re-observing its
+      -- deposit transaction), never a stale one.
+      pendingDeposits (rollbackDeposits (ChainSlot 2) s1) `shouldBe` mempty
   -- Set up a hydrate function with fixtures curried
   let setupHydrate ::
         ( ( EventStore (StateEvent SimpleTx) IO ->
