@@ -12,7 +12,7 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2026-04-15T20:41:57Z
+  , hackage.haskell.org 2026-09-06T00:00:00Z
   , cardano-haskell-packages 2026-05-13T16:23:27Z
 
 packages:
@@ -25,8 +25,12 @@ packages:
 -- cardano-api 11.1.0.0 declares ^>=1.61 but cardano-node 11.0.1 uses
 -- plutus 1.63.0.0; relax upper bounds to align with the on-chain evaluator.
 --
+-- grapesy-etcd 0.3.0 only uses grapesy API that is unchanged in 1.2 but
+-- declares grapesy <1.1; relax until a new grapesy-etcd release.
+--
 -- XXX: Review what is needed here
 allow-newer:
+  grapesy-etcd:grapesy,
   servant-multipart-client:random,
   cardano-api:plutus-core,
   cardano-api:plutus-ledger-api,
@@ -39,12 +43,25 @@ allow-newer:
   cardano-ledger-mary:plutus-ledger-api,
   cardano-ledger-shelley:plutus-ledger-api
 
+-- nothunks 0.3.2 ships NoThunks instances for vector types that clash with
+-- vector-map 1.2.0.0's own instances (duplicate instance declarations), and
+-- validation 1.2 drops the validate/toEither API that
+-- ouroboros-consensus-cardano 3.0.1.0 uses; hold both back until CHaP carries
+-- fixed packages.
 constraints:
   plutus-core == 1.63.0.0,
   plutus-tx == 1.63.0.0,
   plutus-tx-plugin == 1.63.0.0,
   plutus-ledger-api == 1.63.0.0,
-  plutus-metatheory == 1.63.0.0
+  plutus-metatheory == 1.63.0.0,
+  nothunks < 0.3.2,
+  validation < 1.2,
+  -- proto-lens 0.7.1.7 (and its runtime/protobuf-types companions) breaks
+  -- type inference at the grapesy-etcd RPC call sites with ambiguous
+  -- 'Message' constraints; hold the family at the last working versions.
+  proto-lens == 0.7.1.6,
+  proto-lens-runtime == 0.7.0.7,
+  proto-lens-protobuf-types == 0.7.2.2
 
 -- Compile more things in parallel
 package *

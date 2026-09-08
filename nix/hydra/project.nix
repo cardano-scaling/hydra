@@ -83,7 +83,7 @@
           }
           # Add etcd as build dependency of hydra-node (template haskell embedding not tracked by cabal)
           {
-            packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
+            packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_6 ];
           }
           # Add static sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple).
           # Using the static variant ensures libsqlite3 is linked into the binary so that

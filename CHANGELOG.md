@@ -45,6 +45,26 @@ changes.
   the three sets disjoint, so this was not reachable through the node.
   [#2848](https://github.com/cardano-scaling/hydra/issues/2848)
 
+- Upgraded the gRPC client stack of the etcd network component: `grapesy`
+  1.0.1 to 1.2.0 and `http2` 5.3.9 to 5.4.4 (pulling in `http2-tls` 0.5.2,
+  `tls` 2.2.2 and `warp` 3.4.15). This relates to
+  [#2167](https://github.com/cardano-scaling/hydra/issues/2167): the
+  underlying http2 connection stall is still reproducible upstream when puts
+  share a connection with the watch stream, but on the new stack it surfaces
+  as a reconnectable `ServerDisconnected` error instead of blocking calls
+  silently and forever. The dedicated, recycled and timeout-guarded broadcast
+  connections introduced for #2167 remain the operative fix, verified with
+  repeated 8000 x 100KiB broadcast soaks.
+
+- Upgraded the bundled etcd from 3.5.25 to 3.6.6, along with the tutorial and
+  installation docs. etcd supports rolling upgrades from 3.5.x (>= 3.5.20);
+  note that the etcd data directory upgrade is one-way.
+
+- Dropped the etcd download step from the tutorial and corrected the
+  installation docs: `hydra-node` embeds etcd and uses it by default, so a
+  separate install is only needed with `--use-system-etcd`.
+  [#2126](https://github.com/cardano-scaling/hydra/issues/2126)
+
 ## [2.4.1] - 2026.09.02
 
 - Use applyTransactions instead of reapplyTransactions.

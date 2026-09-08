@@ -137,7 +137,7 @@ library
     , exceptions
     , file-embed
     , filepath
-    , grapesy
+    , grapesy                      >=1.2
     , grapesy-etcd                 >=0.3
     , http-types
     , http2
@@ -449,7 +449,7 @@ test-suite tests
     , event-sourcing
     , filepath
     , generic-lens
-    , grapesy
+    , grapesy                         >=1.2
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

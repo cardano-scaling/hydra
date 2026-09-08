@@ -84,6 +84,8 @@ import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
   Connection,
+  Reconnect (..),
+  ReconnectDecision (..),
   ReconnectPolicy (..),
   ReconnectTo (ReconnectToOriginal),
   Server (..),
@@ -222,7 +224,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
-  -- NOTE: Configured using guides: https://etcd.io/docs/v3.5/op-guide
+  -- NOTE: Configured using guides: https://etcd.io/docs/v3.6/op-guide
   etcdCmd etcdBinPath envVars =
     -- NOTE: We map prefers the left; so we need to mappend default at the end.
     setEnv (Map.toList $ envVars <> defaultEnv)
@@ -248,7 +250,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   defaultEnv :: Map.Map String String
   defaultEnv =
     -- Keep up to 1000 revisions. See also:
-    -- https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
+    -- https://etcd.io/docs/v3.6/op-guide/maintenance/#auto-compaction
     Map.fromList
       [ ("ETCD_AUTO_COMPACTION_MODE", "revision")
       , ("ETCD_AUTO_COMPACTION_RETENTION", "1000")
@@ -282,10 +284,16 @@ connParams tracer to =
     , connDefaultTimeout = to
     }
  where
-  reconnectPolicy = ReconnectAfter ReconnectToOriginal $ do
+  reconnectPolicy = ReconnectPolicy $ do
     threadDelay 1
     traceWith tracer Reconnecting
-    pure reconnectPolicy
+    pure $
+      DoReconnect
+        Reconnect
+          { reconnectTo = ReconnectToOriginal
+          , onReconnect = Nothing
+          , nextPolicy = reconnectPolicy
+          }
 
 grpcServer :: NetworkConfiguration -> Server
 grpcServer config =
@@ -609,7 +617,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
       let startRevision = fromIntegral (revision + 1)
       traceWith tracer WatchMessagesStartRevision{startRevision}
       -- NOTE: Request all keys starting with 'msg'. See also section KeyRanges
-      -- in https://etcd.io/docs/v3.5/learning/api/#key-value-api
+      -- in https://etcd.io/docs/v3.6/learning/api/#key-value-api
       let watchRequest =
             defMessage
               & #key .~ "msg"

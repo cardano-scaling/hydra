@@ -35,6 +35,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..))
+import Network.GRPC.Common.Exception (ExactException (..))
 import Network.HTTP2.Client (ErrorCode (..), HTTP2Error (..))
 import Network.Socket (
   Family (AF_INET),
@@ -101,7 +102,7 @@ spec = do
       retryableEtcdError (toException $ ConnectionErrorIsSent EnhanceYourCalm 0 "too many settings")
         `shouldSatisfy` isJust
     it "retries a connection lost under an in-flight call" $
-      retryableEtcdError (toException $ ServerDisconnected (toException ConnectionIsClosed) callStack)
+      retryableEtcdError (toException $ ServerDisconnected (WrapExactException $ toException ConnectionIsClosed) Nothing)
         `shouldSatisfy` isJust
     it "retries transient grpc errors" $
       retryableEtcdError (toException GrpcException{grpcError = GrpcUnavailable, grpcErrorMessage = Just "etcd is electing", grpcErrorDetails = Nothing, grpcErrorMetadata = []})
@@ -291,28 +292,6 @@ etcdSpec =
                 -- Not a vacuous pass: 5 injected plus etcd's own handshake
                 -- frame, and possibly more from its window ramp.
                 settingsSeen >>= (`shouldSatisfy` (>= 6))
-
-    -- Note: This test is disabled as it takes took long; but it is
-    -- important to keep around. Successfully completion of this test looks
-    -- like either a "mvcc database size exceeded" error; or no error at
-    -- all. Failures looks like complete blocking
-    around_ onlyLocal $ xit "broadcasts 100KiB messages 1M times" $ \tracer ->
-      withTempDir "test-etcd" $ \tmp -> do
-        putStrLn $ "Folder " ++ show tmp
-        PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
-        (recordReceived, waitNext, _) <- newRecordingCallback
-        -- Create a 100KiB message (100 * 1024 characters)
-        let largeMessage = toText $ replicate (100 * 1024) 'a'
-        withEtcdNetwork @Text tracer v1 aliceConfig recordReceived $ \n1 -> do
-          withEtcdNetwork @Text tracer v1 bobConfig noopCallback $ \_ -> do
-            forM_ [1 :: Integer .. 1000000] $ \i -> do
-              let msgWithId = largeMessage <> " - Message #" <> show i
-              when (i `mod` 10000 == 0) $
-                putStrLn $
-                  "Broadcasting 100KiB message #" <> show i <> " (size: " <> show (length (toString msgWithId)) <> " chars)"
-              broadcast n1 msgWithId
-              _ <- waitNext
-              threadDelay 0.02
 
     it "broadcasts messages to single connected peer" $ \tracer -> do
       withTempDir "test-etcd" $ \tmp -> do
