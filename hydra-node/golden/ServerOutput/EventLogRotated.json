@@ -7,12 +7,7 @@
                     "currentSlot": 1,
                     "drift": 1
                 },
-                "depositHistory": [
-                    [
-                        0,
-                        {}
-                    ]
-                ],
+                "deposits": {},
                 "headState": {
                     "contents": {
                         "chainState": {
@@ -37,7 +32,6 @@
                     },
                     "tag": "Idle"
                 },
-                "pendingDeposits": {},
                 "tag": "NodeInSync"
             },
             "tag": "EventLogRotated"
