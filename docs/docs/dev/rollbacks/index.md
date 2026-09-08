@@ -42,7 +42,7 @@ The guiding principle is that layer 2 state never rolls back: snapshots and thei
 
 For deposits and incremental commits/decommits while the head is open, this works as follows:
 
-- The node keeps a slot-indexed history of the pending deposits. On a rollback it rewinds this view to the rolled-back slot: a deposit whose deposit transaction was rolled back stops being tracked (until re-observed on the new chain), and a deposit whose consuming transaction (increment or recover) was rolled back becomes tracked again.
+- The node tracks each deposit with the slots its deposit transaction and (once settled or recovered) its consuming transaction were observed at. On a rollback it rewinds this view to the rolled-back slot: a deposit whose deposit transaction was rolled back stops being tracked (until re-observed on the new chain), and a deposit whose consuming transaction (increment or recover) was rolled back becomes pending again.
 
 - When an increment or decrement transaction settles on-chain (`CommitFinalized`/`DecommitFinalized`), the node retains the signed snapshot that authorized it, together with the slot the settlement was observed at. If a later rollback reaches past that slot, the settling transaction was erased from the chain and the node re-posts it from the retained snapshot. This also covers the case where newer snapshots were confirmed in the meantime (see [#2741](https://github.com/cardano-scaling/hydra/issues/2741)).
 
