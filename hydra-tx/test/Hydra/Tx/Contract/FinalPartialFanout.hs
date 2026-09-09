@@ -11,7 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSDatum, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutIncomplete, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSDatum, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -129,9 +129,11 @@ data FinalPartialFanoutMutation
     MutateFinalPartialFanoutOutputCount
   | -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
     MutateFinalPartialFanoutNonCanonicalCRS
-  | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's value
-    -- is left unaccounted.
-    MutateFinalPartialFanoutStealAda
+  | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th member is
+    -- left out. Membership holds for the N-1, but the quotient is the omitted
+    -- member's commitment rather than the empty set, so the final step is not
+    -- complete (and the N-th UTxO's value would be left unaccounted).
+    MutateFinalPartialFanoutOmitOutput
   | -- | Set numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
     -- This is the fund-theft vector: empty subset makes e(A,G2)=e(proof,G2) trivially
     -- true when proof=A (public from datum), and geq lets excess ADA go anywhere.
@@ -236,11 +238,11 @@ genFinalPartialFanoutMutation (tx, _utxo) =
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead (Head.FanoutProgress healthyProgressDatum))
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
-      -- valid proof for n-1 elements. The conservation check catches this: the sum of
-      -- n-1 outputs is less than headInValue, so HeadValueIsNotPreserved fires before
-      -- the membership check (isG1Generator was removed; strict == conservation replaces it).
+      -- valid proof for n-1 elements. Membership passes, but the proof is the
+      -- omitted element's commitment and not the G1 generator, so the completeness
+      -- check rejects it before value conservation (which would fail too).
       pure $
-        SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateFinalPartialFanoutStealAda $
+        SomeMutation (pure $ toErrorCode FinalPartialFanoutIncomplete) MutateFinalPartialFanoutOmitOutput $
           let n = UTxO.size healthyDistributeUTxO - 1
               distributedMinus1 = UTxO.fromList $ take n $ UTxO.toList healthyDistributeUTxO
               proof =

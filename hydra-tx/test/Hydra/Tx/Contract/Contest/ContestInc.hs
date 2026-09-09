@@ -73,12 +73,23 @@ healthyContestIncSnapshot =
     , utxoToDecommit = Nothing
     , depositTxId = Just healthyDepositTxId
     , version = healthyCloseSnapshotVersion
-    , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead (Just healthyDepositedUTxO) Nothing
+    , accumulator = fst healthyContestIncAccumulators
+    , appliedAccumulator = snd healthyContestIncAccumulators
     }
+
+-- | The contested snapshot's two signed accumulators: without the pending
+-- deposit (not in the head yet, the contest is Unused) and with it.
+healthyContestIncAccumulators :: (Accumulator.HydraAccumulator, Accumulator.HydraAccumulator)
+healthyContestIncAccumulators =
+  Accumulator.buildFromSnapshotUTxOs splitUTxOInHead (Just healthyDepositedUTxO) Nothing
 
 healthyContestIncAccumulatorHash :: Head.Hash
 healthyContestIncAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestIncSnapshot
+
+healthyContestIncAppliedAccumulatorHash :: Head.Hash
+healthyContestIncAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyContestIncSnapshot
 
 healthyContestIncDecommitOutputsHash :: Head.Hash
 healthyContestIncDecommitOutputsHash =
@@ -102,8 +113,7 @@ healthyContestIncClosedState =
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorCommitment =
-          Accumulator.getAccumulatorCommitment
-            (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead (Just healthyDepositedUTxO) Nothing)
+          Accumulator.getAccumulatorCommitment (fst healthyContestIncAccumulators)
       , headAdaOverhead = 0
       }
 
@@ -155,6 +165,10 @@ data ContestIncMutation
   = ContestUnusedIncAlterRedeemerCommitHash
   | ContestUsedIncAlterAccumulatorCommitment
   | ContestUnusedIncAlterAccumulatorCommitment
+  | -- | Stores the applied accumulator, which counts a deposit the head never
+    -- absorbed. Both hashes are signed, so only the redeemer-kind selection
+    -- rejects this (GHSA-f825-9gwc-h5xq).
+    ContestUnusedIncStoreAppliedAccumulator
   | ContestUsedIncMutateSnapshotVersion
   | ContestUnusedIncMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
@@ -169,6 +183,7 @@ genContestIncMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestIncAccumulatorHash
+              , appliedAccumulatorHash = healthyContestIncAppliedAccumulatorHash
               , decommitOutputsHash = healthyContestIncDecommitOutputsHash
               , commitOutputsHash = healthyContestIncCommitOutputsHash
               }
@@ -178,6 +193,9 @@ genContestIncMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedIncAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedIncStoreAppliedAccumulator . ChangeOutput 0 <$> do
+        let appliedCommitment = Accumulator.getAccumulatorCommitment (snd healthyContestIncAccumulators)
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment appliedCommitment)
     , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedIncMutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut

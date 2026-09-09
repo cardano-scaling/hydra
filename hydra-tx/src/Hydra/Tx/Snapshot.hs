@@ -80,7 +80,30 @@ data Snapshot tx = Snapshot
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator
-  -- ^ The cryptographic accumulator built from UTxO hashes. Spec: A
+  -- ^ KZG accumulator of the UTxOs the head holds as long as the pending
+  -- increment/decrement of this snapshot has NOT happened on L1 yet:
+  --
+  -- > utxo <> utxoToDecommit
+  --
+  -- A decommit is still in the head until its DecrementTx lands, and a deposit
+  -- is not in the head until its IncrementTx lands. Close/Contest store this one
+  -- when the head is still at this snapshot's 'version' (redeemers Any/Unused).
+  -- Spec: A
+  , appliedAccumulator :: Accumulator.HydraAccumulator
+  -- ^ KZG accumulator of the UTxOs the head holds once the pending
+  -- increment/decrement of this snapshot HAS happened on L1:
+  --
+  -- > utxo <> utxoToCommit
+  --
+  -- The decommit was paid out, the deposit was absorbed. Close/Contest store
+  -- this one when the head moved past this snapshot's 'version' (redeemer Used).
+  --
+  -- Both are signed, because when the snapshot is signed nobody knows yet which
+  -- of the two will be true at close time, and the closed head must commit to
+  -- exactly what it still holds so that fanout cannot pay out a UTxO twice.
+  -- With nothing pending both fields are the same value. Never transmitted,
+  -- always rebuilt from the UTxO sets, see
+  -- 'Hydra.Tx.Accumulator.buildFromSnapshotUTxOs'.
   }
   deriving stock (Generic)
 
@@ -88,20 +111,22 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', 'accumulatorHash', 'decommitOutputsHash', and
--- 'commitOutputsHash' according to CDDL schemata:
+-- 'headId', 'version', 'number', 'accumulatorHash', 'appliedAccumulatorHash',
+-- 'decommitOutputsHash', and 'commitOutputsHash' according to CDDL schemata:
 --
 -- headId = bytes .size 28
 -- version = uint
 -- number = uint
--- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
+-- accumulatorHash = bytes .size 32  ; blake2b-256 of the compressed G1 commitment of 'accumulator'
+-- appliedAccumulatorHash = bytes .size 32  ; blake2b-256 of the compressed G1 commitment of 'appliedAccumulator'
 -- decommitOutputsHash = bytes .size 32  ; sha2-256 of the ordered decommit outputs (Uω)
 -- commitOutputsHash = bytes .size 32  ; sha2-256 of the ordered commit outputs (Uα)
 --                                     ; and of the deposit transaction id
 --
--- The BLS accumulator commitment (bound via accumulatorHash) commits to the full
--- UTxO set. 'decommitOutputsHash' and 'commitOutputsHash' additionally bind the
--- exact ordered sets of decommit (Uω) and commit (Uα) outputs, so the on-chain
+-- The two accumulator hashes let Close/Contest store whichever of the two UTxO
+-- sets the head actually holds at that time (see the field docs above).
+-- 'decommitOutputsHash' and 'commitOutputsHash' additionally bind the exact
+-- ordered sets of decommit (Uω) and commit (Uα) outputs, so the on-chain
 -- decrement and increment validators can recompute them from the materialized L1
 -- decommit outputs / claimed deposit and reject any redirected/altered output.
 --
@@ -111,16 +136,18 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- the same and accept this snapshot's signatures. See the matching computation in
 -- 'Hydra.Contract.Head.checkIncrement'.
 instance IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, utxoToDecommit} =
+  getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, appliedAccumulator, utxoToDecommit} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData $ toBuiltin accumulatorBytes)
+        <> serialise (toData $ toBuiltin appliedAccumulatorBytes)
         <> serialise (toData $ toBuiltin decommitOutputsHash)
         <> serialise (toData $ toBuiltin (commitOutputsHash snapshot))
    where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
+    appliedAccumulatorBytes = Accumulator.getAccumulatorHash appliedAccumulator
     -- Matches on-chain 'Hydra.Contract.Util.hashTxOuts' over the same outputs in
     -- the same (TxIn-sorted) order; empty-list hash when there is nothing pending.
     decommitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToDecommit)
@@ -144,7 +171,7 @@ commitOutputsHash Snapshot{utxoToCommit, depositTxId} =
       <> foldMap (txIdBytes @tx) depositTxId
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, depositTxId} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, appliedAccumulator, depositTxId} =
     object
       [ "headId" .= headId
       , "version" .= version
@@ -155,6 +182,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxoToDecommit" .= utxoToDecommit
       , "depositTxId" .= depositTxId
       , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
+      , "appliedAccumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash appliedAccumulator)
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -173,15 +201,14 @@ instance IsTx tx => FromJSON (Snapshot tx) where
         Nothing -> pure mempty
         (Just utxoD) -> pure utxoD
     depositTxId <- obj .:? "depositTxId"
-    -- Reconstruct accumulator from all UTxOs (including commit/decommit).
-    -- The "accumulator" JSON field stores only the hash (consistent with signing
-    -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
+    -- The "accumulator" and "appliedAccumulator" JSON fields carry only the
+    -- hashes for display; both accumulators are always rebuilt from the UTxO sets.
     -- SECURITY: never trust a hash from the JSON instead of rebuilding. This
     -- instance is reachable from untrusted client input (SideLoadSnapshot),
-    -- and the accumulator hash is what multisignatures verify against, so it
-    -- must always be derived from the UTxO content.
-    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
+    -- and the accumulator hashes are what multisignatures verify against, so
+    -- they must always be derived from the UTxO content.
+    let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator}
 
 -- | Tag of the current on-disk\/wire layout, which carries 'depositTxId'.
 --
@@ -196,8 +223,8 @@ snapshotCBORTag = "Snapshot2"
 snapshotCBORTagV1 :: Text
 snapshotCBORTagV1 = "Snapshot"
 
--- NOTE: Like the JSON encoding, the accumulator is not transmitted (only
--- derived data) and gets rebuilt from the UTxO sets on decode. This is why
+-- NOTE: Like the JSON encoding, the accumulators are not transmitted (only
+-- derived data) and get rebuilt from the UTxO sets on decode. This is why
 -- the codec stays hand-written.
 instance IsTx tx => ToCBOR (Snapshot tx) where
   toCBOR Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit} =
@@ -230,8 +257,8 @@ instance IsTx tx => FromCBOR (Snapshot tx) where
       -- increment of it cannot validate; only replaying it has to work.
       depositTxId <- if hasDepositTxId then fromCBOR else pure Nothing
       utxoToDecommit <- fromCBOR
-      let accumulator = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
-      pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator}
+      let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
+      pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator, appliedAccumulator}
 
 -- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
 snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx
@@ -279,6 +306,9 @@ getSnapshot = \case
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
       , depositTxId = Nothing
-      , accumulator = Accumulator.buildFromUTxO @tx mempty
+      , accumulator = emptyAccumulator
+      , appliedAccumulator = emptyAccumulator
       }
   ConfirmedSnapshot{snapshot} -> snapshot
+ where
+  emptyAccumulator = Accumulator.buildFromUTxO @tx mempty

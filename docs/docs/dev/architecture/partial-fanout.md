@@ -39,9 +39,9 @@ The head does not store the individual UTxOs on-chain while it is open. Instead
 it keeps a single _commitment_ to the confirmed snapshot, a
 [`HydraAccumulator`](pathname:///haddocks/hydra-tx/Hydra-Tx-Accumulator.html).
 
-The snapshot's UTxO set, together with any pending commit or decommit, is turned
-into elements: each output is serialised to its `BuiltinData` bytes and hashed
-down to one _element_, a scalar. The elements `s₁, …, sₙ` define a polynomial
+A UTxO set is turned into elements: each output is serialised to its
+`BuiltinData` bytes and hashed down to one _element_, a scalar. The elements
+`s₁, …, sₙ` define a polynomial
 
 ```
 A(X) = (X − s₁)·(X − s₂)·…·(X − sₙ)
@@ -51,11 +51,30 @@ which is committed as a single `BLS12-381` G1 point `A(τ)·G1`. This point is t
 _accumulator commitment_. Identical outputs hash to identical elements, so the
 accumulator is a multiset and keeps their multiplicity.
 
-While the head is open, all parties sign a blake2b-256 hash of that commitment,
-the `accumulatorHash`, and the `OpenDatum` carries it. `Close` verifies the
-signature and stores the commitment point itself in the `ClosedDatum`, checking
-that hashing the point reproduces the signed hash. So a whole snapshot, however
-many outputs it has, is pinned on-chain by one 48-byte group element.
+The commitment stored in a closed head has to describe exactly the outputs the
+head still owes, because that is what the fanout paths distribute and what the
+head output's value backs. Which outputs those are depends on something not
+known when a snapshot is signed: whether the snapshot's pending increment or
+decrement lands on chain before the head is closed. A pending decommit stays
+inside the head until its decrement lands, and a pending commit only enters the
+head once its increment lands. So every snapshot carries _two_ accumulators and
+the parties sign both hashes:
+
+- the snapshot accumulator, over the snapshot UTxO plus a pending decommit:
+  what the head owes while it stays at the snapshot's version
+- the applied accumulator, over the snapshot UTxO plus a pending commit: what
+  the head owes once the pending action has been applied on chain
+
+With nothing pending the two are the same value. While the head is open the
+`OpenDatum` carries the snapshot accumulator's hash for reference. `Close` and
+`Contest` verify the signature over both hashes and store one commitment point
+in the `ClosedDatum`, selected by redeemer kind: `Unused`/`Any` (the head is
+still at the snapshot's version) store the snapshot accumulator, `Used` (the
+pending action was applied) stores the applied one, each checked by hashing the
+point and comparing against the signed hash. Storing the other candidate would
+let a fanout pay out an output whose value already left the head, or leave value
+no output can claim. So a whole snapshot, however many outputs it has, is pinned
+on-chain by one 48-byte group element that means "still owed".
 
 ## Membership proofs
 
@@ -88,6 +107,15 @@ over the distributed subset is exactly the accumulator over the outputs that
 remain, which the step has to publish in the continuing head output anyway. The
 validator uses that new commitment as the proof, which both verifies membership
 and forces the remaining accumulator to be correct.
+
+Since the commitment covers exactly the owed outputs, the two terminal
+transactions also require _completeness_: their proof, the quotient after
+removing everything they distribute, has to be the commitment to the empty set
+(the G1 generator). Leaving an owed output out of a `Fanout` or
+`FinalPartialFanout` is rejected with `FanoutIncomplete` or
+`FinalPartialFanoutIncomplete`, and an intermediate step that would empty the
+accumulator is rejected because the last batch has to be the token-burning final
+one.
 
 ## The CRS
 

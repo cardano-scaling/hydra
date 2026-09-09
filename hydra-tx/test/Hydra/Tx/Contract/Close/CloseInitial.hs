@@ -153,7 +153,7 @@ healthyInitialOpenDatum =
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
-      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx mempty
       , headAdaOverhead = 0
       }
 

@@ -113,8 +113,15 @@ healthyContestSnapshot =
     , utxoToDecommit = Just splitUTxOToDecommit
     , depositTxId = Nothing
     , version = healthyCloseSnapshotVersion
-    , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
+    , accumulator = fst healthyContestAccumulators
+    , appliedAccumulator = snd healthyContestAccumulators
     }
+
+-- | The contested snapshot's two signed accumulators: with the pending decommit
+-- (still in the head, the contest is Unused) and without it.
+healthyContestAccumulators :: (Accumulator.HydraAccumulator, Accumulator.HydraAccumulator)
+healthyContestAccumulators =
+  Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
 
 healthyClosedState :: Head.State
 healthyClosedState =
@@ -128,7 +135,7 @@ healthyClosedState =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
-      , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
+      , accumulatorCommitment = Accumulator.getAccumulatorCommitment (fst healthyContestAccumulators)
       , headAdaOverhead = 0
       }
 

@@ -112,12 +112,24 @@ healthyCommitAppliedSnapshot =
     , utxoToCommit = Just healthyDepositUTxO
     , utxoToDecommit = Nothing
     , depositTxId = Just healthyDepositTxId
-    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
+    , accumulator = fst healthyCommitAppliedAccumulators
+    , appliedAccumulator = snd healthyCommitAppliedAccumulators
     }
+
+-- | The increment landed, so the deposit is in the head: the applied accumulator
+-- covers in-head UTxO plus deposit, the snapshot one only the in-head UTxO.
+-- CloseUsed must store the former.
+healthyCommitAppliedAccumulators :: (Accumulator.HydraAccumulator, Accumulator.HydraAccumulator)
+healthyCommitAppliedAccumulators =
+  Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
 
 healthyCommitAppliedAccumulatorHash :: Head.Hash
 healthyCommitAppliedAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCommitAppliedSnapshot
+
+healthyCommitAppliedAppliedAccumulatorHash :: Head.Hash
+healthyCommitAppliedAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyCommitAppliedSnapshot
 
 healthyCommitAppliedDecommitOutputsHash :: Head.Hash
 healthyCommitAppliedDecommitOutputsHash =
@@ -222,6 +234,10 @@ data CloseMutation
   | MutateValueInOutput
   | MutateContestationPeriod
   | MutateAccumulatorCommitment
+  | -- | Stores the snapshot's own accumulator, which leaves out the deposit the
+    -- increment already moved into the head: that value could then never be
+    -- fanned out. Only the redeemer-kind selection rejects this.
+    MutateStoreSnapshotAccumulator
   | MutateCloseSignatures
   | MutateCloseType
   | MutateCloseHeadAdaOverhead
@@ -237,7 +253,7 @@ genCloseCommitUsedMutation (tx, _utxo) =
       -- causes the CloseUnused validator path to fail.
       SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitAppliedAccumulatorHash, decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash, commitOutputsHash = healthyCommitAppliedCommitOutputsHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitAppliedAccumulatorHash, appliedAccumulatorHash = healthyCommitAppliedAppliedAccumulatorHash, decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash, commitOutputsHash = healthyCommitAppliedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCommitAppliedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -267,6 +283,9 @@ genCloseCommitUsedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateStoreSnapshotAccumulator . ChangeOutput 0 <$> do
+        let snapshotCommitment = Accumulator.getAccumulatorCommitment (fst healthyCommitAppliedAccumulators)
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment snapshotCommitment)
     , SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
@@ -300,6 +319,7 @@ genCloseCommitUsedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCommitAppliedSnapshot
                             , accumulatorHash = healthyCommitAppliedAccumulatorHash
+                            , appliedAccumulatorHash = healthyCommitAppliedAppliedAccumulatorHash
                             , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
                             , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
                             }
@@ -321,6 +341,7 @@ genCloseCommitUsedMutation (tx, _utxo) =
             Head.CloseUsed
               { signature
               , accumulatorHash = healthyCommitAppliedAccumulatorHash
+              , appliedAccumulatorHash = healthyCommitAppliedAppliedAccumulatorHash
               , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
               , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
               }
@@ -330,6 +351,7 @@ genCloseCommitUsedMutation (tx, _utxo) =
             Head.CloseUnused
               { signature = toPlutusSignatures $ signatures healthyCommitAppliedConfirmedSnapshot
               , accumulatorHash = healthyCommitAppliedAccumulatorHash
+              , appliedAccumulatorHash = healthyCommitAppliedAppliedAccumulatorHash
               , decommitOutputsHash = healthyCommitAppliedDecommitOutputsHash
               , commitOutputsHash = healthyCommitAppliedCommitOutputsHash
               }

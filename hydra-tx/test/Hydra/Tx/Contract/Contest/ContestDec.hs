@@ -34,6 +34,10 @@ healthyContestAccumulatorHash :: Head.Hash
 healthyContestAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
+healthyContestAppliedAccumulatorHash :: Head.Hash
+healthyContestAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyContestSnapshot
+
 healthyContestDecommitOutputsHash :: Head.Hash
 healthyContestDecommitOutputsHash =
   toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestSnapshot))
@@ -46,6 +50,10 @@ data ContestDecMutation
   = ContestUnusedDecAlterRedeemerDecommitHash
   | ContestUsedDecAlterAccumulatorCommitment
   | ContestUnusedDecAlterAccumulatorCommitment
+  | -- | Stores the applied accumulator, which excludes the pending decommit the
+    -- head still holds. Both hashes are signed, so only the redeemer-kind
+    -- selection rejects this (GHSA-f825-9gwc-h5xq).
+    ContestUnusedDecStoreAppliedAccumulator
   | ContestUsedDecMutateSnapshotVersion
   | ContestUnusedDecMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
@@ -60,6 +68,7 @@ genContestDecMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
+              , appliedAccumulatorHash = healthyContestAppliedAccumulatorHash
               , decommitOutputsHash = healthyContestDecommitOutputsHash
               , commitOutputsHash = healthyContestCommitOutputsHash
               }
@@ -69,6 +78,9 @@ genContestDecMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedDecStoreAppliedAccumulator . ChangeOutput 0 <$> do
+        let appliedCommitment = Accumulator.getAccumulatorCommitment (appliedAccumulator healthyContestSnapshot)
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment appliedCommitment)
     , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedDecMutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyCloseSnapshotVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut

@@ -101,21 +101,39 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
         Head.CloseInitial
       ConfirmedSnapshot{signatures} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+            appliedAccHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
             decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
             commitHash = toBuiltin $ commitOutputsHash snapshot
             sig = toPlutusSignatures signatures
          in case incrementalAction of
               NoThing ->
-                Head.CloseAny{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                Head.CloseAny{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
               _ ->
                 if version == openVersion
-                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
-                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, version} = getSnapshot confirmedSnapshot
+  snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, appliedAccumulator, version} = getSnapshot confirmedSnapshot
+
+  -- Whether the snapshot's pending increment/decrement has already been applied
+  -- on chain. This decides both which UTxO the head still holds and which of the
+  -- two signed accumulators the closed datum must commit to (the validator
+  -- enforces the latter by redeemer kind, see 'Hydra.Contract.Head.checkClose').
+  pendingActionApplied = version /= openVersion
+
+  -- The UTxO the head still owes at close time: a pending decommit is inside
+  -- until its decrement lands, a pending commit only once its increment landed.
+  utxoInHead
+    | pendingActionApplied = utxo <> fold utxoToCommit
+    | otherwise = utxo <> fold utxoToDecommit
+
+  -- The accumulator committing to exactly 'utxoInHead'.
+  accumulatorInHead
+    | pendingActionApplied = appliedAccumulator
+    | otherwise = accumulator
 
   -- Lovelace in the head UTxO not attributable to any L2 UTxO value (the
   -- min-UTxO overhead). Computed once at Close and propagated unchanged through
@@ -123,12 +141,6 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   -- strict equality rather than >=.
   headAdaOverhead =
     let Coin headLovelace = selectLovelace (txOutValue headOutputBefore)
-        utxoInHead = case (incrementalAction, version == openVersion) of
-          (NoThing, _) -> utxo
-          (ToCommit, True) -> utxo -- commit pending: deposit not yet merged into head
-          (ToCommit, False) -> utxo <> fold utxoToCommit -- increment applied: commit is in head
-          (ToDecommit, True) -> utxo <> fold utxoToDecommit -- decommit pending: value still in head
-          (ToDecommit, False) -> utxo -- decrement applied: value left head
         Coin utxoLovelace = selectLovelace (UTxO.totalValue utxoInHead)
      in headLovelace - utxoLovelace
 
@@ -144,7 +156,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
-          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulatorInHead
           , headAdaOverhead
           }
 

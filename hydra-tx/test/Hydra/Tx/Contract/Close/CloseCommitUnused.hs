@@ -101,12 +101,24 @@ healthyCommitPendingSnapshot =
     , utxoToCommit = Just healthyDepositUTxO
     , utxoToDecommit = Nothing
     , depositTxId = Just healthyDepositTxId
-    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
+    , accumulator = fst healthyCommitPendingAccumulators
+    , appliedAccumulator = snd healthyCommitPendingAccumulators
     }
+
+-- | The increment has not landed, so the deposit is not in the head: the
+-- snapshot accumulator covers the in-head UTxO only, the applied one adds the
+-- deposit. CloseUnused must store the former.
+healthyCommitPendingAccumulators :: (Accumulator.HydraAccumulator, Accumulator.HydraAccumulator)
+healthyCommitPendingAccumulators =
+  Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead (Just healthyDepositUTxO) Nothing
 
 healthyCommitPendingAccumulatorHash :: Head.Hash
 healthyCommitPendingAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCommitPendingSnapshot
+
+healthyCommitPendingAppliedAccumulatorHash :: Head.Hash
+healthyCommitPendingAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyCommitPendingSnapshot
 
 healthyCommitPendingDecommitOutputsHash :: Head.Hash
 healthyCommitPendingDecommitOutputsHash =
@@ -197,6 +209,10 @@ data CloseMutation
   | MutateValueInOutput
   | MutateContestationPeriod
   | MutateAccumulatorCommitment
+  | -- | Stores the applied accumulator, which counts a deposit the head never
+    -- absorbed (GHSA-f825-9gwc-h5xq): a later fanout would pay it out of other
+    -- participants' value. Only the redeemer-kind selection rejects this.
+    MutateStoreAppliedAccumulator
   | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
@@ -208,7 +224,7 @@ genCloseCommitUnusedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitPendingAccumulatorHash, decommitOutputsHash = healthyCommitPendingDecommitOutputsHash, commitOutputsHash = healthyCommitPendingCommitOutputsHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyCommitPendingAccumulatorHash, appliedAccumulatorHash = healthyCommitPendingAppliedAccumulatorHash, decommitOutputsHash = healthyCommitPendingDecommitOutputsHash, commitOutputsHash = healthyCommitPendingCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCommitPendingSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -268,6 +284,7 @@ genCloseCommitUnusedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCommitPendingSnapshot
                             , accumulatorHash = healthyCommitPendingAccumulatorHash
+                            , appliedAccumulatorHash = healthyCommitPendingAppliedAccumulatorHash
                             , decommitOutputsHash = healthyCommitPendingDecommitOutputsHash
                             , commitOutputsHash = healthyCommitPendingCommitOutputsHash
                             }
@@ -285,6 +302,9 @@ genCloseCommitUnusedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateStoreAppliedAccumulator . ChangeOutput 0 <$> do
+        let appliedCommitment = Accumulator.getAccumulatorCommitment (snd healthyCommitPendingAccumulators)
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment appliedCommitment)
     , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
         wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
         pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)

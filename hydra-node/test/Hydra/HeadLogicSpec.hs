@@ -685,7 +685,8 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , depositTxId = Just txid2
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               s0 =
                 ( inOpenState'
@@ -1529,7 +1530,8 @@ spec =
                 , utxoToCommit = Nothing
                 , utxoToDecommit = utxoToDecommit
                 , depositTxId = Nothing
-                , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
                 }
             s0 =
               inOpenState'
@@ -1625,7 +1627,8 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , depositTxId = Just depositTxId
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1749,7 +1752,8 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , depositTxId = Just depositTxId
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1827,7 +1831,8 @@ spec =
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
                   , depositTxId = Nothing
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
+                  , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
+                  , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
@@ -2275,9 +2280,8 @@ spec =
 
       it "selective fanout that drains the whole remaining set finalizes instead of wedging" $ do
         -- Regression: a 'DistributingSelection' step whose observed distribution
-        -- empties 'remaining' (e.g. a chunk drained everything because a pre-settled
-        -- UTxO kept the on-chain accumulator non-empty) must still emit the burning
-        -- FinalPartialFanoutTx — not stop at AwaitingSelection and wedge the head.
+        -- empties 'remaining' must still emit the burning FinalPartialFanoutTx —
+        -- not stop at AwaitingSelection and wedge the head.
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             st = inFanoutProgressWith threeParties remaining (DistributingSelection remaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
@@ -2557,7 +2561,7 @@ spec =
         -- as an error to the API client.
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, presettledUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
             outcome = update bobEnv ledger now st postTxError
         outcome `hasNoEffectSatisfying` \case
           ClientEffect{} -> True
@@ -2720,8 +2724,8 @@ spec =
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
           let utxo' = utxoRef 3
               utxoToDecom = Just utxoToDecommit
-              accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing Nothing utxoToDecom accumulator
+              (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing Nothing utxoToDecom accumulator appliedAccumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2736,8 +2740,8 @@ spec =
 
           let utxo' = utxoRef 3
               utxoToCom = Just utxoToCommit
-              accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom (Just 2) Nothing accumulator
+              (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom (Just 2) Nothing accumulator appliedAccumulator
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2803,7 +2807,8 @@ spec =
                   , utxoToCommit = Just depositedUTxO
                   , utxoToDecommit = Nothing
                   , depositTxId = Just depositTxId
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
                   }
               depositMultisig = aggregate [sign aliceSk depositSnapshot]
           -- Start with deposit already active and tracked
@@ -3618,4 +3623,5 @@ testSnapshot number version confirmed utxo =
     , utxoToDecommit = mempty
     , depositTxId = Nothing
     , accumulator = Accumulator.buildFromUTxO utxo
+    , appliedAccumulator = Accumulator.buildFromUTxO utxo
     }

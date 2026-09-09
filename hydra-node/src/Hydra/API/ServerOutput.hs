@@ -461,7 +461,7 @@ handleUtxoInclusionTyped config timed =
     WithUTxO -> timed
     WithoutUTxO ->
       case output timed of
-        SnapshotConfirmed{headId, snapshot = Snapshot{headId = snapHeadId, version, number, confirmed, utxoToCommit, depositTxId, utxoToDecommit, accumulator}, signatures} ->
+        SnapshotConfirmed{headId, snapshot = Snapshot{headId = snapHeadId, version, number, confirmed, utxoToCommit, depositTxId, utxoToDecommit, accumulator, appliedAccumulator}, signatures} ->
           timed
             { output =
                 SnapshotConfirmed
@@ -477,6 +477,7 @@ handleUtxoInclusionTyped config timed =
                         , depositTxId
                         , utxoToDecommit
                         , accumulator
+                        , appliedAccumulator
                         }
                   , signatures
                   }

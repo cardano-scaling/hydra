@@ -114,10 +114,7 @@ healthyContestationDeadline =
 -- | Accumulator covering all UTxOs in the snapshot (used for the input commitment).
 fullAccumulator :: Accumulator.HydraAccumulator
 fullAccumulator =
-  Accumulator.buildFromSnapshotUTxOs
-    healthyFullUTxO
-    Nothing
-    Nothing
+  Accumulator.buildFromUTxO @Tx healthyFullUTxO
 
 -- | Accumulator covering only the UTxOs that remain after distributing the first chunk.
 -- This is the commitment that the on-chain output must carry after a partial fanout step.
@@ -185,10 +182,7 @@ duplicateRemainingUTxO =
 
 duplicateFullAccumulator :: Accumulator.HydraAccumulator
 duplicateFullAccumulator =
-  Accumulator.buildFromSnapshotUTxOs
-    duplicateFullUTxO
-    Nothing
-    Nothing
+  Accumulator.buildFromUTxO @Tx duplicateFullUTxO
 
 duplicateRemainingAccumulator :: Accumulator.HydraAccumulator
 duplicateRemainingAccumulator =
@@ -260,28 +254,27 @@ healthyPartialFanoutTxWithUnburnedToken = (tx, lookupUTxO)
 
 -- * Pre-settled drain (GHSA-f825-9gwc-h5xq)
 
--- | An accumulator member whose value already left the head, e.g. a decommit
--- paid out by a DecrementTx before Close. Drawn from the same generated list
--- as 'healthyFullUTxO' but past the entries it takes, so it is disjoint from
--- the live set.
+-- | A snapshot member whose value already left the head: a decommit paid out
+-- by a DecrementTx before Close. Drawn from the same generated list as
+-- 'healthyFullUTxO' but past the entries it takes, so it is disjoint from the
+-- live set.
 attackPresettledUTxO :: UTxO
 attackPresettledUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
    in UTxO.fromList $ take 1 $ drop (fanoutOutputThreshold + 1) $ UTxO.toList utxo
 
--- | Closed accumulator including the pre-settled member, while the head output
--- value covers only the live set, mirroring a real close after a settled
--- decommit.
---
--- FLIP AFTER THE FIX: once Close commits to the live set only, change the
--- third argument to Nothing; the attack txs below then fail membership (H57)
--- and their spec props flip to propTransactionFailsEvaluation.
+-- | The accumulator a CloseUsed stores for a snapshot whose pending decommit
+-- ('attackPresettledUTxO') was paid out before the close: the snapshot's
+-- /applied/ accumulator, which covers the live set only. Before the fix the
+-- closed datum carried the union including the pre-settled member, which is
+-- what let the attack transactions below pass membership.
 attackFullAccumulator :: Accumulator.HydraAccumulator
 attackFullAccumulator =
-  Accumulator.buildFromSnapshotUTxOs
-    healthyFullUTxO
-    Nothing
-    (Just attackPresettledUTxO)
+  snd $
+    Accumulator.buildFromSnapshotUTxOs
+      healthyFullUTxO
+      Nothing
+      (Just attackPresettledUTxO)
 
 attackClosedDatum :: Head.ClosedDatum
 attackClosedDatum =
@@ -292,11 +285,12 @@ attackClosedDatum =
 attackProgressDatum :: Head.FanoutProgressDatum
 attackProgressDatum = Head.progressFromClosed attackClosedDatum
 
--- | Distributes ONLY the pre-settled output: the continuing head output
--- shrinks by value the head no longer holds, paying that output a second time
--- out of the pool backing everyone else's outputs, and the final step's strict
--- value equation can no longer balance. The continuing datum carries the
--- honest removal quotient, so every current check passes.
+-- | Distributes ONLY the pre-settled output, shrinking the continuing head
+-- output by value the head no longer holds. This paid that output a second time
+-- out of the pool backing everyone else's outputs and left the final step's
+-- strict value equation unsatisfiable. With the closed datum committing to the
+-- live set only, the pre-settled output is not a member and the step fails
+-- with 'PartialFanoutMembershipFailed'.
 presettledFanoutAttackTx :: (Tx, UTxO)
 presettledFanoutAttackTx =
   mkHealthyPartialFanoutTxWith
@@ -318,8 +312,8 @@ presettledFanoutAttackFromProgressTx =
     (Accumulator.removeOutputs @Tx attackFullAccumulator attackPresettledUTxO)
     (Head.FanoutProgress attackProgressDatum)
 
--- | Distributing live outputs from a head whose accumulator has a pre-settled
--- member must stay valid, before and after the fix.
+-- | Distributing live outputs from a head closed after a settled decommit must
+-- stay valid.
 liveFanoutWithPresettledTx :: (Tx, UTxO)
 liveFanoutWithPresettledTx =
   mkHealthyPartialFanoutTxWith

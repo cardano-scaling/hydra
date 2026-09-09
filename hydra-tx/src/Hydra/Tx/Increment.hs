@@ -65,6 +65,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           { signature = toPlutusSignatures sigs
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
+          , appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
           , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
           }
 
@@ -115,7 +116,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxoToCommit, utxoToDecommit, version, number, accumulator} = snapshot
+  Snapshot{utxoToCommit, utxoToDecommit, version, number, accumulator, appliedAccumulator} = snapshot
 
 -- * Observation
 

@@ -3,19 +3,68 @@
         {
             "snapshot": {
                 "signatures": {
-                    "multiSignature": [
-                        "3bcd9f17602a4285298a92ba30289c44db294ab7620a795b78e69532188de007ec83848fa127c76565a5eb4fe4dd9d9596dec74920dcb84d9983598f53b0f303"
-                    ]
+                    "multiSignature": []
                 },
                 "snapshot": {
-                    "accumulator": "3798d946335842e828e81c753977ef7a81adca0463f4faa7599b11f9856287fd",
+                    "accumulator": "1a5cdf03a5dbe8fcd8ecf68f82a8feaf148f0948a326ccb3c0e01407205e39ff",
+                    "appliedAccumulator": "98c7160432a11ec991b72513b5b2921e7ee5718951350c163f9f14a2b8b7794d",
                     "confirmed": [],
-                    "depositTxId": null,
-                    "headId": "01010101010101000100000101010001",
-                    "number": 1,
+                    "depositTxId": "0000010100000000000000010100000001010001010100000101000101010000",
+                    "headId": "00000000010000000000010100000101",
+                    "number": 2,
                     "utxo": {
-                        "0100000001010100010101010000000001000101000100010101010100010001#71": {
-                            "address": "addr_test1zq6p8vch8kq4v2k8vrw640ztjnzvf7ksj5ckrwvcn7ma3jdqp87su5r6s27st78fn22pyc0tsd6urf0986k5qcjemucsdx58un",
+                        "0100010001010001010100000000000101010101010001000000000000000101#88": {
+                            "address": "addr_test1yz6dahszth97v446yrwkzs40adxmcslxsxwh00c39xf6vunxvf4n0ga6wwsf2ykk0q0pfmwfdursayfxlgefz3uzf8ds8fz5ra",
+                            "datum": null,
+                            "inlineDatum": {
+                                "constructor": 0,
+                                "fields": [
+                                    {
+                                        "constructor": 0,
+                                        "fields": [
+                                            {
+                                                "constructor": 3,
+                                                "fields": [
+                                                    {
+                                                        "int": -3
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "list": []
+                                            },
+                                            {
+                                                "constructor": 4,
+                                                "fields": [
+                                                    {
+                                                        "bytes": "82"
+                                                    },
+                                                    {
+                                                        "int": -5
+                                                    },
+                                                    {
+                                                        "bytes": ""
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            "inlineDatumRaw": "d8799fd8799fd87c9f22ff80d87d9f41822440ffffff",
+                            "inlineDatumhash": "10a1fc8ed9eb3bbcc2f87b1dde280cd655b0be33add76c42d9a68d8a4e16fff3",
+                            "referenceScript": null,
+                            "value": {
+                                "a171e2dc3f22cb9fa4608f295f8955bb7259385548a37c87fae1aa65": {
+                                    "31": 552697098151725913
+                                },
+                                "lovelace": 1288690
+                            }
+                        }
+                    },
+                    "utxoToCommit": {
+                        "0001000100000001000100010001000000010000010101010100000101010101#60": {
+                            "address": "addr_test1yrs9lgtg4upf5vg5pckfpyaceep0682xt038usg7qtkpjn9qx7vxpgvw3emfz5u75edadhv8q7tvhcapq9m7y8gel07svdmdys",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
@@ -26,17 +75,19 @@
                             }
                         }
                     },
-                    "utxoToCommit": null,
                     "utxoToDecommit": {
-                        "0101000000010000010100010001000001000001000100010100010001000000#95": {
-                            "address": "addr_test1wzrnzmmdl8wkgw42uvxl7l0zl8cxrh928hcrxll3039fa3ssgckjm",
+                        "0000000001000101010100000101010001010001010101010101010101010100#71": {
+                            "address": "addr_test1xrd03ag8jnqn7hm9tsfsk8e45n5vyflsl98evz2fukrl772jaswym3njeednsn38580p3hvhmrc7x6whg8kh6tgsxgtsqnjn0a",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
                             "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
-                                "lovelace": 849070
+                                "f1a894353562cf123a6b19c5f26ff40683523452fe43d74469b636a0": {
+                                    "5144cabc8b6380ab79cda3e3b9a4b78f": 2
+                                },
+                                "lovelace": 45000000000000000
                             }
                         }
                     },
@@ -47,5 +98,5 @@
             "tag": "SideLoadSnapshot"
         }
     ],
-    "seed": -499407408
+    "seed": 2090230869
 }

@@ -2633,7 +2633,6 @@ components:
           required:
             - tag
             - utxo
-            - utxoForProof
             - headSeed
             - contestationDeadline
           description: |
@@ -2652,8 +2651,6 @@ components:
              oneOf:
               - $ref: "api.yaml#/components/schemas/UTxO"
               - type: "null"
-            utxoForProof:
-              $ref: "api.yaml#/components/schemas/UTxO"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
@@ -2688,7 +2685,6 @@ components:
           required:
             - tag
             - utxoToDistribute
-            - presettledUTxO
             - headSeed
             - contestationDeadline
           description: |
@@ -2698,8 +2694,6 @@ components:
               type: string
               enum: ["FinalPartialFanoutTx"]
             utxoToDistribute:
-              $ref: "api.yaml#/components/schemas/UTxO"
-            presettledUTxO:
               $ref: "api.yaml#/components/schemas/UTxO"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
@@ -3180,6 +3174,21 @@ components:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
             - type: "null"
+        accumulator:
+          description: >-
+            Informational, hex-encoded blake2b-256 hash of the snapshot's
+            accumulator commitment: the UTxO set the head owes while it is at
+            this snapshot's version (`utxo` plus `utxoToDecommit`). Ignored on
+            input and always recomputed from the UTxO sets.
+          type: string
+        appliedAccumulator:
+          description: >-
+            Informational, hex-encoded blake2b-256 hash of the snapshot's
+            applied accumulator commitment: the UTxO set the head owes once the
+            snapshot's pending increment or decrement has been applied on chain
+            (`utxo` plus `utxoToCommit`). Equal to `accumulator` when nothing is
+            pending. Ignored on input and always recomputed from the UTxO sets.
+          type: string
 
     SnapshotNumber:
       type: integer

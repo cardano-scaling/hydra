@@ -186,7 +186,7 @@ record DepositObj : Set where      -- §6 depositObj(U, t_created, t_deadline, s
 
 record Snapshot : Set where        -- the confirmed snapshot object S̄
   field
-    cid     : ℍ                    -- S̄.cid (head currency id; the FIRST signed component, cid‖v‖s‖η#‖δ#‖κ#)
+    cid     : ℍ                    -- S̄.cid (head currency id; the FIRST signed component, cid‖v‖s‖η#‖η̂#‖δ#‖κ#)
     version : ℕ                    -- S̄.v
     number  : ℕ                    -- S̄.s
     txs     : List Data            -- S̄.T
@@ -198,9 +198,14 @@ record Snapshot : Set where        -- the confirmed snapshot object S̄
                                    -- makes the signature authorize that one deposit and no other
                                    -- recording the same UTxO.
     utxoDec : UTxO                 -- S̄.U_ω (pending decrement; the δ# argument, see `signHonest`)
-    etaHash : ℍ                    -- S̄.(η')# (accumulator-commitment hash; always present, like the node's HydraAccumulator)
-    decHash : ℍ                    -- S̄.δ# (decommit-output-set hash, node `decommitOutputsHash`; signed 5th component)
-    comHash : ℍ                    -- S̄.κ# (commit-output-set hash, node `commitOutputsHash`; signed 6th component)
+    etaHash : ℍ                    -- S̄.(η')# (hash of the commitment to the outputs the head owes at this
+                                   -- snapshot's version, node `accumulator`; signed 4th component)
+    appliedEtaHash : ℍ             -- S̄.(η̂')# (hash of the commitment to the outputs the head owes once the
+                                   -- pending increment/decrement has been applied on chain, node
+                                   -- `appliedAccumulator`; signed 5th component; equals etaHash when
+                                   -- nothing is pending)
+    decHash : ℍ                    -- S̄.δ# (decommit-output-set hash, node `decommitOutputsHash`; signed 6th component)
+    comHash : ℍ                    -- S̄.κ# (commit-output-set hash, node `commitOutputsHash`; signed 7th component)
     sig     : Maybe AggSig         -- S̄.σ, mirroring the §6 snapshot object (descriptive: the proofs
                                    -- read signing status from the system's `sigs`/`aggSigOf`, never
                                    -- from here, so this field marks nothing on its own)

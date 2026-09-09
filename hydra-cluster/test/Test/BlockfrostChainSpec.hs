@@ -137,6 +137,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                   , depositTxId = Nothing
                   , version = snapshotVersion
                   , accumulator
+                  , appliedAccumulator = accumulator
                   }
 
           postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
@@ -155,7 +156,6 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
               { utxo = Snapshot.utxo snapshot
               , utxoToCommit = Nothing
               , utxoToDecommit = Nothing
-              , utxoForProof = Snapshot.utxo snapshot <> fold (Snapshot.utxoToCommit snapshot) <> fold (Snapshot.utxoToDecommit snapshot)
               , headSeed
               , contestationDeadline = deadline
               }

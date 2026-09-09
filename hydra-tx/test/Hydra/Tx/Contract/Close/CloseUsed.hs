@@ -99,8 +99,16 @@ healthyOutdatedSnapshot =
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
     , depositTxId = Nothing
-    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
+    , accumulator = fst healthyOutdatedAccumulators
+    , appliedAccumulator = snd healthyOutdatedAccumulators
     }
+
+-- | The decrement already landed, so the decommit left the head: the snapshot
+-- accumulator still covers both halves, the applied one only the in-head half.
+-- CloseUsed must store the latter.
+healthyOutdatedAccumulators :: (Accumulator.HydraAccumulator, Accumulator.HydraAccumulator)
+healthyOutdatedAccumulators =
+  Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
 
 healthyOutdatedOpenDatum :: Head.State
 healthyOutdatedOpenDatum =
@@ -126,6 +134,10 @@ healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedSnapshot healthyOutdat
 healthyOutdatedAccumulatorHash :: Head.Hash
 healthyOutdatedAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyOutdatedSnapshot
+
+healthyOutdatedAppliedAccumulatorHash :: Head.Hash
+healthyOutdatedAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyOutdatedSnapshot
 
 healthyOutdatedDecommitOutputsHash :: Head.Hash
 healthyOutdatedDecommitOutputsHash =
@@ -210,6 +222,12 @@ data CloseMutation
     --
     -- Ensures the output state is consistent with the redeemer.
     MutateCloseUTxOHash
+  | -- | Stores the snapshot's own (non-applied) accumulator, which still counts
+    -- the decommit the decrement already paid out. Both hashes are signed, so only
+    -- the redeemer-kind selection in mustBindAccumulatorCommitment rejects this.
+    -- Storing it is what let a later partial fanout pay the decommit a second
+    -- time (GHSA-f825-9gwc-h5xq).
+    MutateStoreSnapshotAccumulator
   | -- | Invalidates the tx by changing claimed closing type. i.e. claim the
     -- snapshot is current but provide signatures from an previous version
     MutateCloseType
@@ -268,7 +286,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyOutdatedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyOutdatedAccumulatorHash, appliedAccumulatorHash = healthyOutdatedAppliedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -300,6 +318,9 @@ genCloseOutdatedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateCloseUTxOHash . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateStoreSnapshotAccumulator . ChangeOutput 0 <$> do
+        let snapshotCommitment = Accumulator.getAccumulatorCommitment (fst healthyOutdatedAccumulators)
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment snapshotCommitment)
     , -- Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline
@@ -338,6 +359,7 @@ genCloseOutdatedMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyOutdatedSnapshot
                             , accumulatorHash = healthyOutdatedAccumulatorHash
+                            , appliedAccumulatorHash = healthyOutdatedAppliedAccumulatorHash
                             , decommitOutputsHash = healthyOutdatedDecommitOutputsHash
                             , commitOutputsHash = healthyOutdatedCommitOutputsHash
                             }
@@ -364,6 +386,7 @@ genCloseOutdatedMutation (tx, _utxo) =
             Head.CloseUsed
               { signature
               , accumulatorHash = healthyOutdatedAccumulatorHash
+              , appliedAccumulatorHash = healthyOutdatedAppliedAccumulatorHash
               , decommitOutputsHash = healthyOutdatedDecommitOutputsHash
               , commitOutputsHash = healthyOutdatedCommitOutputsHash
               }
@@ -371,7 +394,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         -- Close redeemer claims whether the snapshot is valid against current
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
-        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
+        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash, appliedAccumulatorHash = healthyOutdatedAppliedAccumulatorHash, decommitOutputsHash = healthyOutdatedDecommitOutputsHash, commitOutputsHash = healthyOutdatedCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
         wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
         pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)

@@ -226,10 +226,10 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → OC.headValue ctx ≡ r₀
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) ∅ˢ r₀
 
-  s-inc : ∀ {ctx cid n cp v η η' ada ξ s ref δ# U w} {snap : Snapshot}
+  s-inc : ∀ {ctx cid n cp v η η' ada ξ s ref η̂# δ# U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → (b : OC.IncrementValid ctx aggKey cid v (OC.Open cid aggKey n cp v η ada)
-                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s ref δ#)
+                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s ref η̂# δ#)
     → (hf : HonestFacts snap)
     → Snapshot.etaHash snap ≡ hash η'                          -- unforgeability: η# is the signed one
     → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref  -- unforgeability: κ# is the signed one
@@ -240,10 +240,10 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → SolventReach r₀ (OC.Open cid aggKey n cp (suc v) η' ada)
                    (HonestFacts.committed hf) (OC.headValue ctx)
 
-  s-dec : ∀ {ctx cid n cp v η η' ada ξ s m κ# U w} {snap : Snapshot}
+  s-dec : ∀ {ctx cid n cp v η η' ada ξ s m η̂# κ# U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → (b : OC.DecrementValid ctx aggKey cid v (OC.Open cid aggKey n cp v η ada)
-                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s m κ#)
+                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s m η̂# κ#)
     → (hf : HonestFacts snap)
     → Snapshot.etaHash snap ≡ hash η'                          -- unforgeability: η# is the signed one
     → Snapshot.decHash snap ≡ OC.decommitOutputsHashOf ctx m   -- unforgeability: δ# is the signed one
@@ -267,10 +267,10 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
   -- head value is preserved exactly, so the per-step hypothesis is that the
   -- closing snapshot's committed value equals the settled one - L2 transactions
   -- between settlements preserve value (owner: the L2 ledger rules).
-  s-close : ∀ {ctx cid n cp v η ada ξ η# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+  s-close : ∀ {ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
-                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUnused ξ η# δ# κ#)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUnused ξ η# η̂# δ# κ#)
     → (hf : HonestFacts snap)
     → Snapshot.etaHash snap ≡ η#                               -- unforgeability: η# is the signed one
     → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
@@ -281,11 +281,11 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
   -- contesting with a newer certified snapshot (the contestUnused redeemer;
   -- contestUsed combines a pending delta into the stored accumulator and is
   -- future work, as is closeUsed). Same jump-and-preserve pattern as close.
-  s-contest : ∀ {ctx cid n cp v s η C tfin ada ξ η# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
+  s-contest : ∀ {ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
     → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
                       (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
-                      (OC.contestUnused ξ η# δ# κ#) kh
+                      (OC.contestUnused ξ η# η̂# δ# κ#) kh
     → (hf : HonestFacts snap)
     → Snapshot.etaHash snap ≡ η#                               -- unforgeability: η# is the signed one
     → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
@@ -428,10 +428,10 @@ These are the intended entry points - a real chain history enters the
 relation through a certificate, never through free-floating honest facts.
 
 ```agda
-  s-inc-certified : ∀ {r₀ ctx cid n cp v η η' ada ξ s ref δ# U w} {snap : Snapshot}
+  s-inc-certified : ∀ {r₀ ctx cid n cp v η η' ada ξ s ref η̂# δ# U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → (b : OC.IncrementValid ctx aggKey cid v (OC.Open cid aggKey n cp v η ada)
-                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s ref δ#)
+                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s ref η̂# δ#)
     → (cert : Certified sys snap)
     → Snapshot.etaHash snap ≡ hash η'
     → Snapshot.comHash snap ≡ OC.depositCommitsHashOf ctx ref
@@ -443,10 +443,10 @@ relation through a certificate, never through free-floating honest facts.
     → SolventReach r₀ (OC.Open cid aggKey n cp (suc v) η' ada)
                    (HonestFacts.committed (honest-certified cert)) (OC.headValue ctx)
 
-  s-dec-certified : ∀ {r₀ ctx cid n cp v η η' ada ξ s m κ# U w} {snap : Snapshot}
+  s-dec-certified : ∀ {r₀ ctx cid n cp v η η' ada ξ s m η̂# κ# U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → (b : OC.DecrementValid ctx aggKey cid v (OC.Open cid aggKey n cp v η ada)
-                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s m κ#)
+                             (OC.Open cid aggKey n cp (suc v) η' ada) ξ s m η̂# κ#)
     → (cert : Certified sys snap)
     → Snapshot.etaHash snap ≡ hash η'
     → Snapshot.decHash snap ≡ OC.decommitOutputsHashOf ctx m
@@ -465,10 +465,10 @@ relation through a certificate, never through free-floating honest facts.
     s-dec r b (honest-certified cert) ηEq δEq chain valCo
 
   -- the close/contest forms follow the same one-line pattern.
-  s-close-certified : ∀ {r₀ ctx cid n cp v η ada ξ η# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+  s-close-certified : ∀ {r₀ ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
     → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
-                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUnused ξ η# δ# κ#)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUnused ξ η# η̂# δ# κ#)
     → (cert : Certified sys snap)
     → Snapshot.etaHash snap ≡ η#
     → OC.headValueIn ctx ≡ w
@@ -478,11 +478,11 @@ relation through a certificate, never through free-floating honest facts.
   s-close-certified r b cert ηEq chain sumEq =
     s-close r b (honest-certified cert) ηEq chain sumEq
 
-  s-contest-certified : ∀ {r₀ ctx cid n cp v s η C tfin ada ξ η# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
+  s-contest-certified : ∀ {r₀ ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
     → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
                       (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
-                      (OC.contestUnused ξ η# δ# κ#) kh
+                      (OC.contestUnused ξ η# η̂# δ# κ#) kh
     → (cert : Certified sys snap)
     → Snapshot.etaHash snap ≡ η#
     → OC.headValueIn ctx ≡ w

@@ -764,6 +764,7 @@ signedSnapshot depositTxId ms =
         -- deposit it claims, so this must be the deposit the model tracks.
         depositTxId = depositTxId <* utxoToCommit
       , accumulator
+      , appliedAccumulator
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -778,7 +779,7 @@ signedSnapshot depositTxId ms =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
 
-  accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+  (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
@@ -822,7 +823,7 @@ openHeadUTxO =
           , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
-          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs inHeadUTxO Nothing Nothing
+          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx inHeadUTxO
           , headAdaOverhead = 0
           }
 
@@ -932,8 +933,6 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       -- Model world has no 'Maybe ModelUTxO', but real world does.
       fanoutCommit
       fanoutDecommit
-      -- Full snapshot UTxO for accumulator proof (no pre-settling in model world)
-      (fanoutUTxO <> fold fanoutCommit <> fold fanoutDecommit)
       deadline
  where
   fanoutUTxO = realWorldModelUTxO utxo

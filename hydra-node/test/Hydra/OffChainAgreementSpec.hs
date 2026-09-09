@@ -304,6 +304,7 @@ settleState =
       , utxoToDecommit = mempty
       , depositTxId = Just 7
       , accumulator = Accumulator.buildFromUTxO @SimpleTx mempty
+      , appliedAccumulator = Accumulator.buildFromUTxO @SimpleTx (utxoRef 9)
       }
 
 -- Snapshot 2's leader among the three parties is bob ((2 - 1) mod 3 = 1).

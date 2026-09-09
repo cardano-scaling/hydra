@@ -204,7 +204,7 @@ computeFanOutCost = do
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
         spendableUTxO = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx spendableUTxO seedTxIn utxo mempty mempty utxo deadlineSlotNo, spendableUTxO)
+    pure (utxo, unsafeFanout cctx spendableUTxO seedTxIn utxo mempty mempty deadlineSlotNo, spendableUTxO)
 
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.

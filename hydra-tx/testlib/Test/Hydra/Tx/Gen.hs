@@ -550,12 +550,12 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx t
     utxoToDecommit <- scale (min cap) arbitrary
     -- A deposit is only identified when there is something to commit.
     depositTxId <- if isJust utxoToCommit then Just <$> arbitrary else pure Nothing
-    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
+    let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit, depositTxId} =
-    [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
+    [ let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
        in Snapshot
             { headId
             , version
@@ -566,6 +566,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), IsTx t
             , utxoToDecommit = utxoToDecommit'
             , depositTxId = if isJust utxoToCommit' then depositTxId else Nothing
             , accumulator
+            , appliedAccumulator
             }
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
@@ -619,8 +620,8 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit depositTxId utxoToDe
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
     let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
-    let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
-        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, depositTxId, accumulator}
+    let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

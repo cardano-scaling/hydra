@@ -38,7 +38,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (verifySnapshotSignature)
+import Hydra.Contract.HeadError (HeadError (PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
@@ -82,7 +84,7 @@ import Test.Hydra.Tx.Gen (
   propTransactionEvaluates,
   shrinkUTxO,
  )
-import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
+import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation, propTransactionFailsPhase2)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -146,7 +148,7 @@ spec = parallel $ do
                   , contestationDeadline = 2_000_000_000_000
                   , accumulatorCommitment =
                       Accumulator.getAccumulatorCommitment $
-                        Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+                        Accumulator.buildFromUTxO @Tx mempty
                   , headAdaOverhead = 0
                   }
           -- minUTxOValue adds maxWord64 internally, so the base must have 0 lovelace
@@ -266,20 +268,21 @@ spec = parallel $ do
       -- but a partial step still distributes the selected UTxOs, so funds are
       -- recoverable via selection regardless of the stuck token.
       propTransactionEvaluates healthyPartialFanoutTxWithUnburnedToken
-    prop "accepts distributing a pre-settled output (GHSA-f825-9gwc-h5xq)" $
-      -- VULNERABILITY PROOF, deliberately accepting: the distributed output is an
-      -- accumulator member whose value already left the head, so this step pays it
-      -- a second time out of the pool backing everyone else's outputs and leaves
-      -- the final step's strict value equation unsatisfiable (theft and lockout).
-      -- FLIP AFTER THE FIX to propTransactionFailsEvaluation (expected H57); see
-      -- attackFullAccumulator.
-      propTransactionEvaluates presettledFanoutAttackTx
-    prop "accepts distributing a pre-settled output from FanoutProgress (GHSA-f825-9gwc-h5xq)" $
-      -- Same drain posted mid-fanout. FLIP AFTER THE FIX as above.
-      propTransactionEvaluates presettledFanoutAttackFromProgressTx
-    prop "accepts distributing live outputs when a pre-settled set exists" $
-      -- A head with a pre-settled accumulator member must still validate partial
-      -- fanouts of its live outputs, before and after the fix.
+    prop "rejects distributing a pre-settled output (GHSA-f825-9gwc-h5xq)" $
+      -- Regression: the distributed output is a snapshot member whose value
+      -- already left the head (a decommit paid out before close). Before the fix
+      -- the closed datum committed to the whole snapshot set, so this step paid
+      -- it a second time out of the pool backing everyone else's outputs and
+      -- left the final step's strict value equation unsatisfiable (theft and
+      -- lockout). Close now stores the accumulator over the owed set only, so the
+      -- output is not a member.
+      propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] presettledFanoutAttackTx
+    prop "rejects distributing a pre-settled output from FanoutProgress (GHSA-f825-9gwc-h5xq)" $
+      -- Same drain posted mid-fanout.
+      propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] presettledFanoutAttackFromProgressTx
+    prop "accepts distributing live outputs after a settled decommit" $
+      -- A head closed after a settled decommit must still validate partial
+      -- fanouts of its live outputs.
       propTransactionEvaluates liveFanoutWithPresettledTx
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
@@ -356,14 +359,14 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, utxoToDecommit} :: Snapshot Tx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, appliedAccumulator, utxoToDecommit} :: Snapshot Tx) ->
     forAll (resize 3 arbitrary) $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (commitOutputsHash snapshot)) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (Accumulator.getAccumulatorHash appliedAccumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (commitOutputsHash snapshot)) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)

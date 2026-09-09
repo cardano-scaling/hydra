@@ -37,7 +37,10 @@ data OpenDatum = OpenDatum
   , version :: SnapshotVersion
   -- ^ Spec: v
   , accumulatorHash :: Hash
-  -- ^ Digest of the accumulator hash for the last confirmed snapshot
+  -- ^ Digest of the last confirmed snapshot's accumulator commitment: the
+  -- outputs the head owes while it is at that snapshot's version (see
+  -- 'Hydra.Tx.Snapshot'). Informational only; the fanout paths read the
+  -- commitment itself from the 'ClosedDatum'.
   , headAdaOverhead :: Integer
   -- ^ Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO overhead).
   -- Set once at init time and invariant for the head's lifetime.
@@ -65,7 +68,10 @@ data ClosedDatum = ClosedDatum
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
   , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
-  -- ^ KZG commitment to the full UTxO set.
+  -- ^ KZG commitment to exactly the UTxO set the head still owes, i.e. the
+  -- outputs a fanout must distribute. Close/Contest select it from the two
+  -- signed candidates of the closing snapshot by redeemer kind (see
+  -- 'CloseRedeemer').
   , headAdaOverhead :: Integer
   -- ^ Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO overhead).
   -- Propagated unchanged from OpenDatum via Close.
@@ -118,7 +124,16 @@ data CloseRedeemer
     CloseAny
       { signature :: [Signature]
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
+      -- ^ Digest of the snapshot's accumulator commitment: the outputs the head
+      -- owes while it is still at the snapshot's version, i.e. with a pending
+      -- decommit still inside and a pending commit not yet inside. Selected as the
+      -- stored commitment by the Any/Unused cases.
+      , appliedAccumulatorHash :: Hash
+      -- ^ Digest of the snapshot's applied accumulator commitment: the outputs the
+      -- head owes once the pending increment/decrement of the snapshot has been
+      -- applied on chain, i.e. with a pending commit inside and a pending decommit
+      -- paid out. Selected as the stored commitment by the Used case. Equal to
+      -- 'accumulatorHash' when nothing is pending.
       , decommitOutputsHash :: Hash
       -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
       -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
@@ -131,7 +146,16 @@ data CloseRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
+      -- ^ Digest of the snapshot's accumulator commitment: the outputs the head
+      -- owes while it is still at the snapshot's version, i.e. with a pending
+      -- decommit still inside and a pending commit not yet inside. Selected as the
+      -- stored commitment by the Any/Unused cases.
+      , appliedAccumulatorHash :: Hash
+      -- ^ Digest of the snapshot's applied accumulator commitment: the outputs the
+      -- head owes once the pending increment/decrement of the snapshot has been
+      -- applied on chain, i.e. with a pending commit inside and a pending decommit
+      -- paid out. Selected as the stored commitment by the Used case. Equal to
+      -- 'accumulatorHash' when nothing is pending.
       , decommitOutputsHash :: Hash
       -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
       -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
@@ -144,7 +168,16 @@ data CloseRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
+      -- ^ Digest of the snapshot's accumulator commitment: the outputs the head
+      -- owes while it is still at the snapshot's version, i.e. with a pending
+      -- decommit still inside and a pending commit not yet inside. Selected as the
+      -- stored commitment by the Any/Unused cases.
+      , appliedAccumulatorHash :: Hash
+      -- ^ Digest of the snapshot's applied accumulator commitment: the outputs the
+      -- head owes once the pending increment/decrement of the snapshot has been
+      -- applied on chain, i.e. with a pending commit inside and a pending decommit
+      -- paid out. Selected as the stored commitment by the Used case. Equal to
+      -- 'accumulatorHash' when nothing is pending.
       , decommitOutputsHash :: Hash
       -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
       -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
@@ -169,7 +202,16 @@ data ContestRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
+      -- ^ Digest of the snapshot's accumulator commitment: the outputs the head
+      -- owes while it is still at the snapshot's version, i.e. with a pending
+      -- decommit still inside and a pending commit not yet inside. Selected as the
+      -- stored commitment by the Any/Unused cases.
+      , appliedAccumulatorHash :: Hash
+      -- ^ Digest of the snapshot's applied accumulator commitment: the outputs the
+      -- head owes once the pending increment/decrement of the snapshot has been
+      -- applied on chain, i.e. with a pending commit inside and a pending decommit
+      -- paid out. Selected as the stored commitment by the Used case. Equal to
+      -- 'accumulatorHash' when nothing is pending.
       , decommitOutputsHash :: Hash
       -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
       -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
@@ -182,7 +224,16 @@ data ContestRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
+      -- ^ Digest of the snapshot's accumulator commitment: the outputs the head
+      -- owes while it is still at the snapshot's version, i.e. with a pending
+      -- decommit still inside and a pending commit not yet inside. Selected as the
+      -- stored commitment by the Any/Unused cases.
+      , appliedAccumulatorHash :: Hash
+      -- ^ Digest of the snapshot's applied accumulator commitment: the outputs the
+      -- head owes once the pending increment/decrement of the snapshot has been
+      -- applied on chain, i.e. with a pending commit inside and a pending decommit
+      -- paid out. Selected as the stored commitment by the Used case. Equal to
+      -- 'accumulatorHash' when nothing is pending.
       , decommitOutputsHash :: Hash
       -- ^ Digest of the ordered decommit outputs (Uω); empty-list hash when the
       -- signed snapshot has no pending decommit. Binds Uω into the multi-signature.
@@ -203,6 +254,10 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
+  , appliedAccumulatorHash :: Hash
+  -- ^ Digest of the signed snapshot's applied accumulator commitment (the owed
+  -- set once this increment has landed). Needed to reconstruct the multi-signed
+  -- message; the snapshot's other accumulator hash comes from the output datum.
   , decommitOutputsHash :: Hash
   -- ^ Digest of the ordered decommit outputs (Uω) of the signed snapshot. Needed
   -- to reconstruct the multi-signed message; commit and decommit are not mutually
@@ -220,6 +275,10 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
+  , appliedAccumulatorHash :: Hash
+  -- ^ Digest of the signed snapshot's applied accumulator commitment (the owed
+  -- set once this decrement has landed). Needed to reconstruct the multi-signed
+  -- message; the snapshot's other accumulator hash comes from the output datum.
   , commitOutputsHash :: Hash
   -- ^ Digest of the ordered commit outputs (Uα) of the signed snapshot. Needed to
   -- reconstruct the multi-signed message; a decrement's snapshot may still carry a

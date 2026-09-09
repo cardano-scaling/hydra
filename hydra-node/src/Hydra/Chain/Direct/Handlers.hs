@@ -208,15 +208,17 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
               pure (slot, tin)
         vtx <- case tx of
-          FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} -> do
+          FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             -- 'combinedUTxO' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
             -- redeemer and proves membership for, so its size is the exact gate
-            -- on whether that transaction is worth building.
+            -- on whether that transaction is worth building. It is also the set
+            -- the closed datum commits to, so it doubles as the proof base of the
+            -- partial fallback.
             let fullUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit
                 preferred
                   | canBeVerifiedOnChain (UTxO.size fullUTxO) =
-                      rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot
+                      rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
                   | otherwise = Nothing
             findFittingFanoutTx
               tracer
@@ -225,16 +227,16 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               spendableUTxO
               seedTxIn
               preferred
-              utxoForProof
+              fullUTxO
               fullUTxO
               (UTxO.size fullUTxO - 1)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
-          FinalPartialFanoutTx{utxoToDistribute, presettledUTxO, headSeed, contestationDeadline} -> do
+          FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let preferred
                   | canBeVerifiedOnChain (UTxO.size utxoToDistribute) =
-                      rightToMaybe $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlot
+                      rightToMaybe $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot
                   | otherwise = Nothing
             findFittingFanoutTx
               tracer
@@ -243,7 +245,7 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               spendableUTxO
               seedTxIn
               preferred
-              (utxoToDistribute <> presettledUTxO)
+              utxoToDistribute
               utxoToDistribute
               (UTxO.size utxoToDistribute - 1)
               deadlineSlot

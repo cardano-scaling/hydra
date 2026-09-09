@@ -148,13 +148,19 @@ healthySnapshot =
     , utxoToDecommit = Nothing
     , depositTxId = Just healthyDepositTxId
     , accumulator = healthyAccumulator
+    , appliedAccumulator = healthyAppliedAccumulator
     }
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
 
-healthyAccumulator :: Accumulator.HydraAccumulator
-healthyAccumulator = Accumulator.buildFromSnapshotUTxOs healthyUTxO (Just healthyDeposited) Nothing
+healthyAppliedAccumulatorHash :: ByteString
+healthyAppliedAccumulatorHash = Accumulator.getAccumulatorHash healthyAppliedAccumulator
+
+-- | Snapshot accumulator (in-head UTxO only) and applied accumulator (with the
+-- deposit this increment moves into the head).
+healthyAccumulator, healthyAppliedAccumulator :: Accumulator.HydraAccumulator
+(healthyAccumulator, healthyAppliedAccumulator) = Accumulator.buildFromSnapshotUTxOs healthyUTxO (Just healthyDeposited) Nothing
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -288,6 +294,7 @@ genIncrementMutation (tx, utxo) =
                   invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef healthyDepositInput
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
               , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
@@ -304,6 +311,7 @@ genIncrementMutation (tx, utxo) =
               { signature = toPlutusSignatures healthySignature
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
               , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
               }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) IncrementClaimLookAlikeDeposit <$> do
@@ -318,6 +326,7 @@ genIncrementMutation (tx, utxo) =
                     { signature = toPlutusSignatures healthySignature
                     , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
                     , increment = toPlutusTxOutRef lookAlikeIn
+                    , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
                     , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
                     }
             ]
@@ -333,6 +342,7 @@ genIncrementMutation (tx, utxo) =
                     { signature = toPlutusSignatures healthySignature
                     , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
                     , increment = toPlutusTxOutRef siblingIn
+                    , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
                     , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
                     }
             ]

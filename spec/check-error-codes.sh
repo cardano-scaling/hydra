@@ -127,6 +127,8 @@ H68 InvalidCRSDatum tested
 H69 DepositNotFirstOutput tested
 H70 DecrementZeroOutputs tested
 H71 MustNotSpendOtherScripts tested
+H72 FanoutIncomplete tested
+H73 FinalPartialFanoutIncomplete tested
 LEDGER
 )
 
