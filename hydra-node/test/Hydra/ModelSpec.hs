@@ -149,7 +149,14 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  prop "check model balances under load with divergent forks" propStressModelBalances
+  -- Heavy: run the deep-stress version only on nightly, where it does not
+  -- compete with the rest of the suite for CPU (a starved io-sim schedule
+  -- makes the driver's waits time out spuriously, cf. ServerSpec). The default
+  -- suite still exercises deposits, decommits and divergent-fork rollbacks
+  -- through 'check model' and 'check model balances', which share the same
+  -- generators.
+  around_ onlyNightly $
+    prop "check model balances under load with divergent forks @nightly" propStressModelBalances
   -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
@@ -310,7 +317,12 @@ nonConflictingTx st =
 -- In presence of a network adversary, a conflict-free execution satisfies the following condition:
 -- For any transaction tx input via (new,tx), tx ∈ T i∈[n] Ci eventually holds.
 --
--- TODO: make the network adversarial => make the model runner interleave/delay network messages
+-- NOTE: The model network is adversarial in delivery timing: each node
+-- receives messages with a random per-node delay (see 'maxNetworkLatency' in
+-- 'Hydra.Model.MockChain'), so nodes fall behind each other and behind their
+-- own chain observations. Delivery order per node is preserved, matching the
+-- production etcd network's total order — per-node reordering is deliberately
+-- not modelled as it cannot happen there.
 conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
@@ -395,6 +407,8 @@ runRunMonadIOSimGen f = do
           , logger = traceInIOSim
           , threads = mempty
           , chain = dummySimulatedChainNetwork
+          , eventStores = mempty
+          , nodeThreads = mempty
           }
     runReaderT (runMonad (eval f)) (RunState v)
 
