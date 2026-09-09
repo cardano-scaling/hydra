@@ -25,7 +25,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, Recover, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Close, Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -2530,6 +2530,65 @@ spec =
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = RecoverTx{recoverTxId}} -> recoverTxId == depositTxId'
             _ -> False
+
+        -- DELIBERATE DESIGN, characterized here (see #2741 follow-up): when a
+        -- rollback erases a finalized increment we do NOT locally revert
+        -- 'version' back to the on-chain value. 'ChainRolledBack' only restores
+        -- the black-box 'chainState' and leaves 'version' at 1 — because
+        -- 'localUTxO' already absorbed the deposit at 'CommitFinalized' and L2
+        -- may have spent it, so decrementing 'version' without unwinding
+        -- 'localUTxO' would corrupt the L2 ledger. Instead we rely on the chain
+        -- to heal: the node re-posts the *same* incrementing snapshot, it
+        -- re-lands, and the on-chain version climbs back to 1 to match — see
+        -- "re-posts IncrementTx when a rollback erases a finalized increment"
+        -- and "converges when the increment is observed again after a
+        -- rollback". This test pins both halves: the heal path (same increment
+        -- replayed → close is consistent again), and the residual gap when
+        -- healing is impossible (deposit deadline passed, or its tx erased and
+        -- never re-submitted) — then on-chain stays at 0, 'version' stays at 1,
+        -- and a close carries the stale 'openVersion = 1' that can never
+        -- validate, leaving the head stuck open.
+        it "relies on the same increment being replayed to heal a rolled-back finalized increment (#2741)" $ do
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          -- Increment finalized: local version bumped to 1.
+          case headState s0 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{version}} -> version `shouldBe` 1
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- The rollback erases the increment (chain back before its slot). We
+          -- deliberately keep 'version = 1' and re-post the SAME increment
+          -- (same snapshot, same deposit) — that re-post is how the chain heals.
+          let rollbackOutcome = update soloAliceEnv ledger now s0 (rollbackTo 2 now)
+          rollbackOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
+              (getSnapshot snap).number == 1 && dep == depositTxId'
+            _ -> False
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{version}} -> version `shouldBe` 1
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- HEAL PATH: the same increment re-lands (re-observed at its slot).
+          -- On-chain version is back to 1, matching local 'version', so a close
+          -- now carries a consistent 'openVersion = 1'.
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            getState
+          update soloAliceEnv ledger now s2 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion}} -> openVersion == 1
+              _ -> False
+
+          -- RESIDUAL GAP (deliberately not fixed): if the increment can never
+          -- re-land, on-chain stays at version 0 but the node still closes with
+          -- the stale 'openVersion = 1', which cannot validate — head stuck
+          -- open. Closing straight from 's1' (increment not re-observed) shows
+          -- the stale version the on-chain head will never reach.
+          update soloAliceEnv ledger now s1 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion}} -> openVersion == 1
+              _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties

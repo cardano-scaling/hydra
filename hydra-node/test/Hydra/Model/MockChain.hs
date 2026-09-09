@@ -11,6 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (writeTVar),
   modifyTVar,
+  readTQueue,
   readTVarIO,
   throwSTM,
   tryReadTQueue,
@@ -19,6 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (link)
 import Control.Tracer.JSON (Tracer, traceWith)
+import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
@@ -44,7 +46,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
-  LocalChainState,
+  LocalChainState (..),
   SubmitTx,
   chainSyncHandler,
   mkChain,
@@ -52,7 +54,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.HeadLogic (
@@ -71,7 +73,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
@@ -111,11 +113,19 @@ mockChainAndNetwork tr seedKeys = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
+  latencySeed <- newLabelledTVarIO "mock-network-latency-seed" (42 :: Word64)
+  -- Persisted, totally-ordered network log plus a per-party consumer offset,
+  -- mirroring the production etcd network: a node reconnecting after a restart
+  -- resumes from its last consumed offset (messages sent while down, or
+  -- in-flight at crash time, are re-delivered; already-consumed ones are not
+  -- re-processed). See 'connectNode' and 'createMockNetwork'.
+  networkHistory <- newLabelledTVarIO "mock-network-history" ([] :: [(Party, Message Tx)])
+  consumerOffsets <- newLabelledTVarIO "mock-network-offsets" (mempty :: Map Party Int)
   tickThread <- asyncLabelled "mock-chain-tick" (simulateChain nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes chain queue
+      { connectNode = connectNode latencySeed networkHistory consumerOffsets nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
       , rollbackAndFork = rollbackAndFork nodes chain queue
@@ -146,7 +156,7 @@ mockChainAndNetwork tr seedKeys = do
     let vks = (\(_, CardanoSigningKey sk) -> getVerificationKey sk) <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes chain queue draftNode = do
+  connectNode latencySeed networkHistory consumerOffsets nodes chain queue draftNode = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let DraftHydraNode{env} = draftNode
         Environment{party = ownParty, depositPeriod} = env
@@ -198,8 +208,31 @@ mockChainAndNetwork tr seedKeys = do
             getTimeHandle
             seedInput
             localChainState
-    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
+    node <- connect mockChain (createMockNetwork draftNode networkHistory nodes) mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
+    -- Deliver network messages from this node's mailbox with a random
+    -- per-message latency, preserving per-node order; see 'createMockNetwork'.
+    -- Latencies overlap (each message is due at its own arrival + latency, and
+    -- the single delivery thread only sleeps up to the due time), so a burst
+    -- of n messages arrives within 'maxNetworkLatency' — not n times it.
+    mailbox <- newLabelledTQueueIO "mock-network-mailbox"
+    deliveryThread <- asyncLabelled "mock-network-delivery" $
+      forever $ do
+        (arrival, sender, msg) <- atomically $ readTQueue mailbox
+        latency <- atomically $ do
+          seed <- readTVar latencySeed
+          -- Knuth's MMIX LCG: deterministic, dependency-free randomness.
+          let seed' = seed * 6364136223846793005 + 1442695040888963407
+          writeTVar latencySeed seed'
+          pure $ fromIntegral (seed' `mod` truncate (maxNetworkLatency * 1_000_000)) / 1_000_000
+        now <- getCurrentTime
+        let remaining = realToFrac $ addUTCTime (realToFrac (latency :: DiffTime)) arrival `diffUTCTime` now
+        when (remaining > 0) $ threadDelay remaining
+        -- Advance this party's consumer offset as the message reaches the node,
+        -- so a later reconnect resumes from exactly here (see 'connectNode').
+        atomically $ modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+        enqueue (mkNetworkInput sender msg)
+    link deliveryThread
     let mockNode =
           MockHydraNode
             { node = node'
@@ -210,22 +243,87 @@ mockChainAndNetwork tr seedKeys = do
                   (const getTimeHandle)
                   ctx
                   localChainState
+            , mailbox
             }
-    atomically $ modifyTVar nodes (mockNode :)
+    -- Resume chain sync from the node's recovered chain point, like a real
+    -- node re-syncing after a restart. Its head state comes from the event
+    -- store, so for each already-served block we either:
+    --   * slot <= recovered: rebuild the chain-sync 'localChainState' history
+    --     only (the block's stored UTxO is the spendable L1 UTxO at that
+    --     point), so a later rollback can resolve to any past state — seeding
+    --     just the tip would leave a gap and desync the handler on the next
+    --     rollback. No 'onRollForward', which would re-drive the recovered head
+    --     state machine.
+    --   * slot > recovered: re-observe it (blocks missed while down), which
+    --     drives both head state and 'localChainState' via the handler.
+    -- A fresh node recovered nothing (slot 0) with no blocks produced yet, so
+    -- this is a no-op.
+    let HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} = node'
+    recoveredSlot <- currentSlot . chainPointTime <$> atomically queryNodeState
+    (_, replayPosition, replayBlocks, _) <- readTVarIO chain
+    let servedBlocks = toList $ Seq.take (fromIntegral replayPosition) replayBlocks
+    forM_ servedBlocks $ \(header@(BlockHeader slotNo _ _), txs, blockUTxO) ->
+      if slotNo > fromChainSlot recoveredSlot
+        then onRollForward (chainHandler mockNode) header txs
+        else atomically $ pushNew localChainState ChainStateAt{spendableUTxO = blockUTxO, recordedAt = Just (getChainPoint header)}
+    -- Register (replacing a previous incarnation of this party's node) and
+    -- snapshot the network log in one atomic step, so the log partitions
+    -- cleanly: messages already logged are replayed below, later ones reach
+    -- the freshly registered mailbox — no message lost or delivered twice.
+    (pastMessages, ownOffset) <- atomically $ do
+      modifyTVar nodes ((mockNode :) . filter (not . matchingParty ownParty))
+      history <- readTVar networkHistory
+      offset <- Map.findWithDefault 0 ownParty <$> readTVar consumerOffsets
+      pure (history, offset)
+    -- Resume the persisted network log from this party's consumer offset,
+    -- mirroring a node re-reading the etcd stream from where it left off after
+    -- a restart: messages sent while down, or in-flight (delivered to the
+    -- mailbox but not yet consumed) at crash time, are re-delivered; ones it
+    -- already consumed are not re-processed (which would diverge its ledger).
+    -- A first connection has offset 0 and an empty log, so replays nothing.
+    let DraftHydraNode{inputQueue = InputQueue{enqueue = enqueueOwn}} = draftNode
+    forM_ (drop ownOffset pastMessages) $ \(msgSender, msg) -> do
+      atomically $ modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+      enqueueOwn $ mkNetworkInput msgSender msg
+    (_, caughtUpPosition, caughtUpBlocks, _) <- readTVarIO chain
+    forM_ (Seq.take (fromIntegral caughtUpPosition - fromIntegral replayPosition) $ Seq.drop (fromIntegral replayPosition) caughtUpBlocks) $ \(header, txs, _) ->
+      onRollForward (chainHandler mockNode) header txs
     pure node'
 
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the
     -- deposit tx directly?
-    readTVarIO nodes >>= \case
-      [] -> error "simulateDeposit: no MockHydraNode"
-      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}} : _) -> do
+    -- Draft against an in-sync open node: a node still catching up after a
+    -- restart has a stale chain view, so drafting the deposit against it fails
+    -- ('CannotFindHeadOutputInIncrement'). Any synced node works — the deposit
+    -- is not party-specific.
+    findSyncedOpenNode nodes >>= \case
+      Nothing -> error "simulateDeposit: no in-sync open MockHydraNode"
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}} -> do
         currentSnapshot <-
           fromMaybe InitialSnapshot{headId} . getConfirmedSnapshot . headState <$> atomically queryNodeState
         draftDepositTx headId defaultPParams currentSnapshot (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
+
+  -- \| Wait for and return a node that is both in sync with the chain and has
+  -- an open head, retrying briefly (nodes may be mid-catch-up after a restart).
+  findSyncedOpenNode :: TVar m [MockHydraNode m] -> m (Maybe (MockHydraNode m))
+  findSyncedOpenNode nodes = go (100 :: Int)
+   where
+    go 0 = pure Nothing
+    go n = do
+      hydraNodes <- readTVarIO nodes
+      synced <- filterM isSyncedOpen hydraNodes
+      case synced of
+        (node : _) -> pure (Just node)
+        [] -> threadDelay 0.1 >> go (n - 1)
+    isSyncedOpen :: MockHydraNode m -> m Bool
+    isSyncedOpen MockHydraNode{node = HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}}} =
+      atomically queryNodeState <&> \case
+        NodeInSync{headState = Open{}} -> True
+        _ -> False
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> Party -> m ()
@@ -450,22 +548,49 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   vkOf (CardanoSigningKey sk) = getVerificationKey sk
 
 -- TODO: unify with BehaviorSpec's ?
-createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
-createMockNetwork draftNode nodes =
+--
+-- An adversarial-lag network: every broadcast is appended synchronously to
+-- each node's 'mailbox' — one shared total order, like the etcd based
+-- production network — but each node's single delivery thread (see
+-- 'connectNode') drains its mailbox with a random per-message delay. Per-node
+-- delivery order is preserved while nodes fall behind each other and behind
+-- their own chain observations, which is exactly the interleaving class that
+-- wedged heads before (e.g. a ReqSn overtaking the deposit observation).
+createMockNetwork ::
+  (MonadSTM m, MonadTime m) =>
+  DraftHydraNode Tx m ->
+  TVar m [(Party, Message Tx)] ->
+  TVar m [MockHydraNode m] ->
+  Network m (Message Tx)
+createMockNetwork draftNode networkHistory nodes =
   Network{broadcast}
  where
   broadcast msg = do
-    allNodes <- fmap node <$> readTVarIO nodes
-    mapM_ (`handleMessage` msg) allNodes
-
-  handleMessage HydraNode{inputQueue} msg = do
-    enqueue inputQueue $ mkNetworkInput sender msg
+    now <- getCurrentTime
+    atomically $ do
+      -- Append to the persisted log first (see 'mockChainAndNetwork'), then
+      -- fan out to every connected node's delayed mailbox.
+      modifyTVar networkHistory (<> [(sender, msg)])
+      allNodes <- readTVar nodes
+      forM_ allNodes $ \MockHydraNode{mailbox} ->
+        writeTQueue mailbox (now, sender, msg)
 
   DraftHydraNode{env = Environment{party = sender}} = draftNode
+
+-- | Upper bound of the random delivery delay per network message and node,
+-- see 'createMockNetwork'. One block time: enough for messages to routinely
+-- cross block boundaries relative to other nodes' chain observations, while
+-- staying far below the ~600s a parked network input survives (TTL x
+-- 'waitDelay') so delays alone never exhaust a message's retry budget.
+maxNetworkLatency :: DiffTime
+maxNetworkLatency = 20
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m
   , chainHandler :: ChainSyncHandler m
+  , mailbox :: TQueue m (UTCTime, Party, Message Tx)
+  -- ^ Pending network deliveries to this node (with their arrival time), see
+  -- 'createMockNetwork'.
   }
 
 createMockChain ::

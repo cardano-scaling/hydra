@@ -30,6 +30,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (cancel, link)
 import Control.Tracer.JSON (Tracer)
+import Data.EventSource.Rotation (EventStore)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -44,7 +45,7 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
   TestHydraClient (..),
-  createHydraNode,
+  createHydraNodeWithEventStore,
   createTestHydraClient,
   getHeadUTxO,
   shortLabel,
@@ -52,13 +53,16 @@ import Hydra.BehaviorSpec (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic.State qualified as HeadLogic
+import Hydra.HeadLogic.StateEvent (StateEvent)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.State (NodeState (..))
-import Hydra.Options (defaultDepositPeriod)
+import Hydra.NodeSpec (createMockEventStoreWithReader)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
@@ -165,6 +169,9 @@ instance StateModel WorldState where
     -- re-served); their transactions are re-submitted when 'requeueErased'
     -- (mempool re-inclusion), otherwise only what the nodes re-post lands.
     RollbackAndFork :: {numberOfBlocks :: Natural, requeueErased :: Bool} -> Action WorldState ()
+    -- Crash a node (in-flight inputs are lost) and restart it from its event
+    -- store, re-syncing the chain from genesis.
+    RestartNode :: Party -> Action WorldState ()
     CloseWithInitialSnapshot :: Party -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
@@ -200,6 +207,8 @@ instance StateModel WorldState where
         , (1, genRollbackAndForward)
         , (1, genRollbackAndFork)
         ]
+          -- 'RestartNode' models fail-recovery under load, see 'restartNodeEnabled'.
+          <> [(1, genRestartNode) | restartNodeEnabled]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
           <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> [(2, genDecommit) | length confirmedUTxO > 1]
@@ -232,6 +241,9 @@ instance StateModel WorldState where
       numberOfBlocks <- choose (1, 2)
       requeueErased <- elements [True, False]
       pure . Some $ RollbackAndFork{numberOfBlocks = wordToNatural numberOfBlocks, requeueErased}
+
+    genRestartNode =
+      Some . RestartNode . deriveParty . fst <$> elements hydraParties
 
   precondition WorldState{hydraState = Start} Seed{} =
     True
@@ -267,6 +279,8 @@ instance StateModel WorldState where
       && onChainVersion == 0
   precondition WorldState{hydraState = Open{}} RollbackAndFork{} =
     True
+  precondition WorldState{hydraState = Open{headParameters}} (RestartNode p) =
+    p `elem` headParameters.parties
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
       Start{} -> False
@@ -364,6 +378,7 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
       RollbackAndFork{} -> s
+      RestartNode{} -> s
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
@@ -392,6 +407,14 @@ deriving stock instance Show (Action WorldState a)
 deriving stock instance Eq (Action WorldState a)
 
 -- ** Generator Helper
+
+-- | Whether random 'RestartNode' actions are generated. On: a restarted node
+-- recovers head state (event store), chain point, network consumer offset
+-- (etcd-style) and the full chain-sync 'localChainState' history, so it
+-- converges under load like a real fail-recovery. Flip to 'False' to drop the
+-- fail-recovery dimension if it ever proves flaky.
+restartNodeEnabled :: Bool
+restartNodeEnabled = True
 
 genSeed :: Gen (Action WorldState ())
 genSeed = do
@@ -462,6 +485,11 @@ data Nodes m = Nodes
   , threads :: [Async m ()]
   -- ^ List of threads spawned when executing `RunMonad`
   , chain :: SimulatedChainNetwork Tx m
+  , eventStores :: Map.Map Party (EventStore (StateEvent Tx) m, m [StateEvent Tx])
+  -- ^ Each node's event store (with a direct reader), so 'RestartNode' can
+  -- recover a node from its own persisted events like fail-recovery would.
+  , nodeThreads :: Map.Map Party (Async m ())
+  -- ^ Each node's main thread, so 'RestartNode' can crash one selectively.
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -579,6 +607,8 @@ instance
         performRollbackAndForward numberOfBlocks
       RollbackAndFork{numberOfBlocks, requeueErased} ->
         performRollbackAndFork numberOfBlocks requeueErased
+      RestartNode party ->
+        performRestartNode st party
       StopTheWorld ->
         stopTheWorld
 
@@ -608,49 +638,78 @@ seedWorld seedKeys seedCP = do
     lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys
   pushThread tickThread
 
-  clients <- forM seedKeys $ \(hsk, _csk) -> do
+  perNode <- forM seedKeys $ \(hsk, _csk) -> do
     let party = deriveParty hsk
         otherParties = filter (/= party) parties
-    (testClient, nodeThread) <- lift $ do
-      outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
-      messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
-      outputHistory <- newLabelledTVarIO "seed-world-output-history" []
-      node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
-        createHydraNode
-          (contramap Node tr)
-          ledger
-          initialChainState
-          hsk
-          otherParties
-          outputs
-          messages
-          outputHistory
-          mockChain
-          seedCP
-          testDepositPeriod
-      nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
-      link nodeThread
-      -- await for the node to be in sync with the chain before returning the client
-      atomically $ do
-        st <- queryNodeState
-        case st of
-          NodeInSync{} -> pure ()
-          _ -> retry
-      let testClient = createTestHydraClient outputs messages outputHistory node
-      pure (testClient, nodeThread)
+    eventStore <- lift createMockEventStoreWithReader
+    (testClient, nodeThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
     pushThread nodeThread
-    pure (party, testClient)
+    pure (party, (testClient, eventStore, nodeThread))
 
   modify $ \n ->
-    n{nodes = Map.fromList clients, chain = mockChain}
+    n
+      { nodes = Map.fromList [(party, c) | (party, (c, _, _)) <- perNode]
+      , eventStores = Map.fromList [(party, es) | (party, (_, es, _)) <- perNode]
+      , nodeThreads = Map.fromList [(party, t) | (party, (_, _, t)) <- perNode]
+      , chain = mockChain
+      }
  where
   parties = map (deriveParty . fst) seedKeys
-
-  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
   pushThread :: MonadSTM m => Async m () -> RunMonad m ()
   pushThread t = modify $ \s ->
     s{threads = t : threads s}
+
+-- | (Re-)create and start a single hydra node on the given event store,
+-- recovering its state from the store's events, and wait for it to be in sync
+-- with the chain. Shared by 'seedWorld' and 'performRestartNode'.
+startNode ::
+  ( MonadAsync m
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadDelay m
+  , MonadMask m
+  , MonadTime m
+  ) =>
+  Tracer m (HydraLog Tx) ->
+  SimulatedChainNetwork Tx m ->
+  ContestationPeriod ->
+  (EventStore (StateEvent Tx) m, m [StateEvent Tx]) ->
+  Secret (SigningKey HydraKey) ->
+  [Party] ->
+  RunMonad m (TestHydraClient Tx m, Async m ())
+startNode tr mockChain seedCP (eventStore, readEvents) hsk otherParties = lift $ do
+  outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
+  messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
+  outputHistory <- newLabelledTVarIO "seed-world-output-history" []
+  events <- readEvents
+  node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
+    createHydraNodeWithEventStore
+      eventStore
+      events
+      (contramap Node tr)
+      ledger
+      initialChainState
+      hsk
+      otherParties
+      outputs
+      messages
+      outputHistory
+      mockChain
+      seedCP
+      testDepositPeriod
+  nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
+  link nodeThread
+  -- await for the node to be in sync with the chain before returning the client
+  atomically $ do
+    st <- queryNodeState
+    case st of
+      NodeInSync{} -> pure ()
+      _ -> retry
+  let testClient = createTestHydraClient outputs messages outputHistory node
+  pure (testClient, nodeThread)
+ where
+  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) =>
@@ -782,16 +841,49 @@ performInit party = do
     HeadIsOpen{headId} -> Just headId
     _ -> Nothing
 
-performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
+performClose :: forall m. (MonadThrow m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForOpen thisNode
-  party `sendsInput` Input.Close
-
-  lift . waitUntilMatch (elems nodes) $ \case
-    HeadIsClosed{} -> Just ()
-    _ -> Nothing
+  -- A close posted while a settlement race is unresolved (e.g. the increment
+  -- was observed on chain but its snapshot has not confirmed locally yet)
+  -- fails on-chain and nothing in the node re-posts it: like a real client,
+  -- retry until the head is closed. Success is detected by polling every
+  -- node's head state for 'Closed' (not by matching a 'HeadIsClosed' server
+  -- output, which 'waitUntilMatch' would consume — so a retry would then wait
+  -- for a second one that never comes). Only (re-)send Close while this node's
+  -- head is still open: once a close has landed, a slow (e.g. just-restarted)
+  -- peer may still be catching up, and re-sending would yield a spurious
+  -- CommandFailed on the already-closed head.
+  let isClosed :: NodeState Tx -> Bool
+      isClosed st' = case headState st' of
+        HeadLogic.Closed{} -> True
+        _ -> False
+  let allClosed = lift $ all isClosed <$> mapM queryState (elems nodes)
+  let closeWithRetry :: Int -> RunMonad m ()
+      closeWithRetry n
+        | n <= 0 = failure "performClose: head not closed after retries"
+        | otherwise = do
+            thisClosed <- lift $ not . isOpen <$> queryState thisNode
+            unless thisClosed $ party `sendsInput` Input.Close
+            -- Poll for all nodes closed, giving the chain time to observe it.
+            let pollFor :: Int -> RunMonad m Bool
+                pollFor k
+                  | k <= 0 = pure False
+                  | otherwise =
+                      allClosed >>= \case
+                        True -> pure True
+                        False -> lift (threadDelay 1) >> pollFor (k - 1)
+            pollFor 60 >>= \case
+              True -> pure ()
+              False -> closeWithRetry (n - 1)
+  closeWithRetry 10
+ where
+  isOpen :: NodeState Tx -> Bool
+  isOpen st' = case headState st' of
+    HeadLogic.Open{} -> True
+    _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
@@ -842,6 +934,47 @@ performRollbackAndFork :: (MonadThrow m, MonadTimer m) => Natural -> Bool -> Run
 performRollbackAndFork numberOfBlocks requeueErased = do
   SimulatedChainNetwork{rollbackAndFork} <- gets chain
   lift $ rollbackAndFork numberOfBlocks requeueErased
+
+-- | Crash a node (cancelling its main thread, so any in-flight inputs and
+-- in-memory-only state are lost) and start it again from its own event store,
+-- re-syncing the chain from genesis. Models a node operator restart /
+-- fail-recovery under load: the head must stay live through it.
+performRestartNode ::
+  ( MonadAsync m
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadMask m
+  , MonadDelay m
+  , MonadTime m
+  ) =>
+  WorldState ->
+  Party ->
+  RunMonad m ()
+performRestartNode st party = do
+  tr <- gets logger
+  mockChain <- gets chain
+  stores <- gets eventStores
+  threadsByParty <- gets nodeThreads
+  case (Map.lookup party stores, Map.lookup party threadsByParty, findHsk) of
+    (Just eventStore, Just oldThread, Just hsk) -> do
+      -- Crash the node: cancel the main thread; the event store survives.
+      lift $ cancel oldThread
+      let otherParties = filter (/= party) allParties
+      (testClient, newThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
+      modify $ \n ->
+        n
+          { nodes = Map.insert party testClient (nodes n)
+          , nodeThreads = Map.insert party newThread (nodeThreads n)
+          , threads = newThread : threads n
+          }
+    _ -> pure ()
+ where
+  WorldState{hydraParties} = st
+  allParties = deriveParty . fst <$> hydraParties
+  findHsk = fst <$> find ((== party) . deriveParty . fst) hydraParties
+  seedCP = case hydraState st of
+    Open{headParameters = HeadParameters{contestationPeriod}} -> contestationPeriod
+    _ -> defaultContestationPeriod
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
