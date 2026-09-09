@@ -69,7 +69,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -86,12 +86,13 @@ data WorldState = WorldState
   -- ^ Expected consensus state
   -- All nodes should be in the same state.
   , availableToDeposit :: UTxOType Payment
-  -- ^ UTxO available to be committed incrementally. NOTE: We must not add UTxO
-  -- we decommitted to this as the 'Payment' transaction model results in
-  -- non-unique transaction ids when running the model.
-  -- NOTE: Deposits are not randomly generated in 'anyActions_' — they are only
-  -- performed explicitly in scripted tests (e.g. 'propFanoutLimit'). Adding
-  -- real support for random deposit actions is left for the future.
+  -- ^ UTxO available to be committed incrementally, seeded from
+  -- 'additionalUTxO' at 'Seed'. NOTE: We must not add UTxO we decommitted to
+  -- this as the 'Payment' transaction model results in non-unique transaction
+  -- ids when running the model. For the same reason a random 'Deposit' always
+  -- commits /all/ of one signer's available UTxO at once ('toRealUTxO'
+  -- assigns mocked TxIns per signer starting from index 0, so two separate
+  -- deposits by the same signer would collide).
   }
   deriving stock (Eq, Show)
 
@@ -117,6 +118,9 @@ data GlobalState
       , offChainState :: OffChainState
       , -- TODO: keep a single UTxOType Payment instead?
         committed :: Map Party (UTxOType Payment)
+      , onChainVersion :: Natural
+      -- ^ Expected open state version on chain: bumped by every settled
+      -- increment ('Deposit') and decrement ('Decommit').
       }
   | Closed
       { headParameters :: HeadParameters
@@ -157,6 +161,10 @@ instance StateModel WorldState where
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     RollbackAndForward :: Natural -> Action WorldState ()
+    -- Rollback onto a divergent fork: the rolled back blocks are dropped (not
+    -- re-served); their transactions are re-submitted when 'requeueErased'
+    -- (mempool re-inclusion), otherwise only what the nodes re-post lands.
+    RollbackAndFork :: {numberOfBlocks :: Natural, requeueErased :: Bool} -> Action WorldState ()
     CloseWithInitialSnapshot :: Party -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
@@ -190,15 +198,19 @@ instance StateModel WorldState where
       frequency $
         [ (1, genClose)
         , (1, genRollbackAndForward)
+        , (1, genRollbackAndFork)
         ]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
           <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> [(2, genDecommit) | length confirmedUTxO > 1]
           <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
+    -- NOTE: Deposits all of one signer's available UTxO at once, see
+    -- 'availableToDeposit'. Only signers with available UTxO qualify: an
+    -- empty deposit is rejected at draft time (SnapshotIncrementUTxOIsNull).
     genDeposit headIdVar = do
-      sk <- snd <$> elements hydraParties
-      utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableToDeposit
+      sk <- elements (nub $ fst <$> availableToDeposit)
+      let utxoToDeposit = filter ((sk ==) . fst) availableToDeposit
       pure $ Some Deposit{headIdVar, utxoToDeposit}
 
     genDecommit = do
@@ -216,6 +228,11 @@ instance StateModel WorldState where
       numberOfBlocks <- choose (1, 2)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
 
+    genRollbackAndFork = do
+      numberOfBlocks <- choose (1, 2)
+      requeueErased <- elements [True, False]
+      pure . Some $ RollbackAndFork{numberOfBlocks = wordToNatural numberOfBlocks, requeueErased}
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{idleParties}} (Init p) =
@@ -227,8 +244,11 @@ instance StateModel WorldState where
       && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var} =
+  precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var, utxoToDeposit} =
     var == headIdVar
+      -- An empty deposit is rejected at draft time; also keeps shrinking from
+      -- emptying a deposit's utxo.
+      && not (null utxoToDeposit)
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
@@ -238,7 +258,14 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{headParameters}} (Fanout party) =
     party `elem` headParameters.parties
-  precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
+  precondition WorldState{hydraState = Open{headParameters, onChainVersion}} (CloseWithInitialSnapshot p) =
+    -- Only head members have a node to close with; keeps shrinking from
+    -- rebinding the action to a party outside the (shrunk) seed. Closing with
+    -- the initial snapshot (and open version 0) is only valid on-chain while
+    -- no increment or decrement has settled.
+    p `elem` headParameters.parties
+      && onChainVersion == 0
+  precondition WorldState{hydraState = Open{}} RollbackAndFork{} =
     True
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
@@ -254,8 +281,8 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableToDeposit} a result =
     case a of
-      Seed{seedKeys, contestationPeriod} ->
-        s{hydraParties = seedKeys, hydraState = idleState}
+      Seed{seedKeys, contestationPeriod, additionalUTxO} ->
+        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys
@@ -275,6 +302,7 @@ instance StateModel WorldState where
                     }
               , offChainState = OffChainState{confirmedUTxO = mempty}
               , committed = mempty
+              , onChainVersion = 0
               }
           _ -> error "unexpected state"
       Deposit{utxoToDeposit} ->
@@ -284,10 +312,11 @@ instance StateModel WorldState where
           }
        where
         updateWithIncrementalCommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
             hs
               { offChainState =
                   OffChainState{confirmedUTxO = utxoToDeposit <> confirmedUTxO}
+              , onChainVersion = onChainVersion + 1
               }
           _ -> error "unexpected state"
       Decommit _party tx ->
@@ -296,10 +325,11 @@ instance StateModel WorldState where
         decommitted = (from tx, value tx)
 
         updateWithDecommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
             hs
               { offChainState =
                   OffChainState{confirmedUTxO = List.delete decommitted confirmedUTxO}
+              , onChainVersion = onChainVersion + 1
               }
           _ -> error "unexpected state"
       Close{} ->
@@ -333,6 +363,7 @@ instance StateModel WorldState where
           Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
+      RollbackAndFork{} -> s
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
@@ -366,7 +397,9 @@ genSeed :: Gen (Action WorldState ())
 genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   contestationPeriod <- genContestationPeriod
-  additionalUTxO <- listOf $ do
+  -- NOTE: Unique (signer, value) pairs: 'toRealUTxO' derives mocked TxIns
+  -- from them, so duplicates deposited in separate actions would collide.
+  additionalUTxO <- fmap nub . listOf $ do
     sk <- snd <$> elements seedKeys
     value <- genAdaValue
     pure (sk, value)
@@ -544,6 +577,8 @@ instance
         performCloseWithInitialSnapshot st party
       RollbackAndForward numberOfBlocks ->
         performRollbackAndForward numberOfBlocks
+      RollbackAndFork{numberOfBlocks, requeueErased} ->
+        performRollbackAndFork numberOfBlocks requeueErased
       StopTheWorld ->
         stopTheWorld
 
@@ -717,10 +752,20 @@ waitForReadyToFanout node = do
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForReadyToFanout node
 
-sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
+sendsInput :: forall m. (MonadSTM m, MonadThrow m, MonadDelay m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
   actorNode <- getActorNode party
+  -- A node rejects client inputs while catching up (e.g. right after a
+  -- rollback, until the next block restores its view). A real client sees
+  -- 'RejectedInputBecauseUnsynced' and retries; we wait for sync upfront.
+  waitForInSync actorNode
   lift $ actorNode `send` command
+ where
+  waitForInSync :: TestHydraClient Tx m -> RunMonad m ()
+  waitForInSync node =
+    lift (queryState node) >>= \case
+      NodeInSync{} -> pure ()
+      _ -> lift (threadDelay 1) >> waitForInSync node
 
 getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
 getActorNode party = do
@@ -729,7 +774,7 @@ getActorNode party = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> pure actorNode
 
-performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
+performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
 performInit party = do
   party `sendsInput` Input.Init
   nodes <- gets nodes
@@ -792,6 +837,11 @@ performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad
 performRollbackAndForward numberOfBlocks = do
   SimulatedChainNetwork{rollbackAndForward} <- gets chain
   lift $ rollbackAndForward numberOfBlocks
+
+performRollbackAndFork :: (MonadThrow m, MonadTimer m) => Natural -> Bool -> RunMonad m ()
+performRollbackAndFork numberOfBlocks requeueErased = do
+  SimulatedChainNetwork{rollbackAndFork} <- gets chain
+  lift $ rollbackAndFork numberOfBlocks requeueErased
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =

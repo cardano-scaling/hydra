@@ -18,13 +18,12 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (link)
-import Control.Tracer.JSON (Tracer)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Secret (Secret)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.IO.Exception (userError)
 import Hydra.API.ServerOutput (getConfirmedSnapshot)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -38,11 +37,12 @@ import Hydra.Chain (
     headParameters,
     openVersion
   ),
+  PostTxError (FailedToPostTx, failingTx, failureReason),
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
-  CardanoChainLog,
+  CardanoChainLog (..),
   ChainSyncHandler (..),
   LocalChainState,
   SubmitTx,
@@ -118,6 +118,7 @@ mockChainAndNetwork tr seedKeys = do
       { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
+      , rollbackAndFork = rollbackAndFork nodes chain queue
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       , getChainHistory = pure []
@@ -170,13 +171,22 @@ mockChainAndNetwork tr seedKeys = do
                   Just (_, _, blockUTxO) -> blockUTxO
             case applyTransactions slot utxo [tx] of
               Left (_tx, ValidationError{reason}) ->
-                throwSTM . userError . toString $
-                  unlines
-                    [ "MockChain: Invalid tx submitted"
-                    , "Slot: " <> show slot
-                    , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                    , "Error: \n\n" <> reason
-                    ]
+                -- A transaction that does not apply is rejected at submission,
+                -- as a real cardano-node would: the posting node observes a
+                -- 'PostTxError' (see 'processEffect') and the head continues.
+                -- This is a legitimate situation e.g. for a settlement
+                -- re-posted after a rollback racing its re-landed original.
+                throwSTM
+                  FailedToPostTx
+                    { failureReason =
+                        toText . unlines $
+                          [ "MockChain: Invalid tx submitted"
+                          , "Slot: " <> show slot
+                          , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                          , "Error: \n\n" <> reason
+                          ]
+                    , failingTx = tx
+                    }
               Right _utxo' ->
                 writeTQueue queue tx
     let mockChain =
@@ -253,22 +263,33 @@ mockChainAndNetwork tr seedKeys = do
 
   rollForward nodes chain queue = do
     threadDelay blockTime
-    atomically $ do
+    dropped <- atomically $ do
       transactions <- flushQueue queue
       addNewBlockToChain chain transactions
+    -- A real chain drops invalid transactions silently, but an invisible drop
+    -- makes test failures undiagnosable: surface each like a failed posting.
+    forM_ dropped $ \(tx, reason) ->
+      traceWith tr PostingFailed{tx, postTxError = FailedToPostTx{failureReason = "MockChain: dropped at block inclusion: " <> reason, failingTx = tx}}
     doRollForward nodes chain
 
   doRollForward :: TVar m [MockHydraNode m] -> TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> m ()
   doRollForward nodes chain = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
-    case Seq.lookup (fromIntegral position) blocks of
-      Just (header, txs, utxo) -> do
-        let position' = position + 1
+    -- NOTE: Advance the chain state in a single transaction: a separate
+    -- read-then-write races concurrent mutations (block production,
+    -- rollbacks, forks) and would clobber them with the stale read. The
+    -- ledger must also be reset to this utxo before calling the node handlers
+    -- (as they might submit transactions directly).
+    mServed <- atomically $ do
+      (slotNum, position, blocks, _) <- readTVar chain
+      case Seq.lookup (fromIntegral position) blocks of
+        Just (header, txs, utxo) -> do
+          writeTVar chain (slotNum, position + 1, blocks, utxo)
+          pure $ Just (header, txs)
+        Nothing ->
+          pure Nothing
+    case mServed of
+      Just (header, txs) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        -- NOTE: Need to reset the mocked chain ledger to this utxo before
-        -- calling the node handlers (as they might submit transactions
-        -- directly).
-        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (\h -> onRollForward h header txs)
       Nothing ->
         pure ()
@@ -298,29 +319,91 @@ mockChainAndNetwork tr seedKeys = do
     Natural ->
     m ()
   doRollBackward nodes chain nbBlocks = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
-    case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
-      Just (header, _, utxo) -> do
-        let position' = position - nbBlocks + 1
+    -- NOTE: Single transaction for the same reason as in 'doRollForward'.
+    mPoint <- atomically $ do
+      (slotNum, position, blocks, _) <- readTVar chain
+      case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
+        Just (header, _, utxo) -> do
+          writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
+          pure $ Just (getChainPoint header)
+        Nothing ->
+          pure Nothing
+    case mPoint of
+      Just point -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        let point = getChainPoint header
-        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (`onRollBackward` point)
       Nothing ->
         pure ()
 
-  addNewBlockToChain :: TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> [Tx] -> STM m ()
-  addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
-      -- NOTE: Assumes 1 slot = 1 second
-      let newSlot = slotNum + ChainSlot (truncate blockTime)
-          header = hedgehog (genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
-          -- NOTE: Transactions that do not apply to the current state (eg.
-          -- UTxO) are silently dropped which emulates the chain behaviour that
-          -- only the client is potentially witnessing the failure, and no
-          -- invalid transaction will ever be included in the chain.
-          (txs', utxo') = collectTransactions ledger newSlot utxo transactions
-       in (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
+  -- Rollback the chain and continue on a divergent fork: unlike
+  -- 'rollbackAndForward', which re-serves the very same blocks, the rolled
+  -- back blocks are dropped. When @requeue@, their transactions are
+  -- re-submitted (a real chain switch re-includes transactions from the
+  -- mempool where still valid) and re-land in later blocks at later slots;
+  -- without it they are gone for good and only transactions (re-)posted by
+  -- the nodes reacting to the rollback make it onto the new chain.
+  rollbackAndFork ::
+    TVar m [MockHydraNode m] ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    TQueue m Tx ->
+    Natural ->
+    Bool ->
+    m ()
+  rollbackAndFork nodes chain queue numberOfBlocks requeue = do
+    mPoint <- atomically $ do
+      (slotNum, position, blocks, _utxo) <- readTVar chain
+      -- Same rollback point arithmetic as 'doRollBackward': the block at
+      -- @position - numberOfBlocks@ becomes the new tip — but never fork past
+      -- the block containing the head's init tx (the one spending
+      -- 'seedInput'): a permanently erased init makes the head unrecoverable
+      -- by design (see the known limitations in docs/dev/rollbacks) and is
+      -- not the scenario this simulates.
+      let initIndex =
+            fromMaybe 0 $
+              Seq.findIndexR (\(_, txs, _) -> any (elem seedInput . txIns') txs) blocks
+          tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks)
+      if tipIndex < 0
+        then pure Nothing
+        else case Seq.lookup (fromInteger tipIndex) blocks of
+          Nothing -> pure Nothing
+          Just (header, _, blockUTxO) -> do
+            let kept = Seq.take (fromInteger tipIndex + 1) blocks
+                erased = concatMap (\(_, txs, _) -> txs) $ toList $ Seq.drop (fromInteger tipIndex + 1) blocks
+            writeTVar chain (slotNum, fromInteger tipIndex + 1, kept, blockUTxO)
+            when requeue $ forM_ erased (writeTQueue queue)
+            pure $ Just (getChainPoint header)
+    case mPoint of
+      Nothing -> pure ()
+      Just point -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        forM_ allHandlers (`onRollBackward` point)
+    -- Give the nodes and the chain time to converge onto the new fork: nodes
+    -- re-post erased settlements upon observing the rollback and requeued
+    -- transactions are included in the following blocks.
+    threadDelay (3 * blockTime)
+
+  -- Returns the transactions that were dropped (with the validation error
+  -- against the block-start UTxO), so callers can surface them.
+  addNewBlockToChain :: TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> [Tx] -> STM m [(Tx, Text)]
+  addNewBlockToChain chain transactions = do
+    (slotNum, position, blocks, utxo) <- readTVar chain
+    -- NOTE: Assumes 1 slot = 1 second
+    let newSlot = slotNum + ChainSlot (truncate blockTime)
+        header = hedgehog (genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
+        -- NOTE: Transactions that do not apply to the current state (eg.
+        -- UTxO) are dropped, which emulates the chain behaviour that no
+        -- invalid transaction will ever be included in the chain.
+        (txs', utxo') = collectTransactions ledger newSlot utxo transactions
+        dropped =
+          [ (tx, reason)
+          | tx <- transactions
+          , tx `notElem` txs'
+          , let reason = case applyTransactions newSlot utxo [tx] of
+                  Left (_, ValidationError{reason = r}) -> toText r
+                  Right _ -> "conflicts with an earlier transaction in the same block"
+          ]
+    writeTVar chain (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
+    pure dropped
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
 -- This is used in our 'Model' tests and we want to make sure the tests finish before
@@ -420,6 +503,10 @@ createMockChain tracer ctx depositPeriod submitTx timeHandle seedInput chainStat
 
 -- NOTE: This is a workaround until the upstream PR is merged:
 -- https://github.com/input-output-hk/io-sim/issues/133
+
+-- | Drain the queue, preserving submission order (a mempool applies dependent
+-- transactions oldest first; reversing them would drop e.g. a re-queued
+-- increment flushed together with its deposit after a chain fork).
 flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
 flushQueue queue = go []
  where
@@ -427,4 +514,4 @@ flushQueue queue = go []
     hasA <- tryReadTQueue queue
     case hasA of
       Just a -> go (a : as)
-      Nothing -> pure as
+      Nothing -> pure (reverse as)

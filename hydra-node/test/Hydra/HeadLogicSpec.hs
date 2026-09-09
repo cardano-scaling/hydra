@@ -1690,15 +1690,63 @@ spec =
               isNothing reqDepositTxId
             _ -> False
 
-          -- Step 8: When node processes this ReqSn, it will wait forever
+          -- Step 8: A node processing this stale ReqSn parks it while ttl
+          -- remains — the deposit may simply not be observed yet (a ReqSn can
+          -- race the receiver's chain sync, see the WaitOnDepositObserved
+          -- note) — and only errors out once ttl is exhausted.
           s7 <- runHeadLogic aliceEnv' ledger s6 $ do
             step reqTxInput
             getState
 
-          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
-          let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
-          -- Fix bug: Error out instead of waiting for deposit to be observed forever
-          reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+          let staleReqSnMsg = ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let reqSnOutcome = update aliceEnv' ledger now s7 (receiveMessage staleReqSnMsg)
+          reqSnOutcome `shouldBe` Wait{reason = WaitOnDepositObserved depositTxId, stateChanges = []}
+
+          let exhaustedReqSn = NetworkInput 0 ReceivedMessage{sender = alice, msg = staleReqSnMsg}
+          let exhaustedOutcome = update aliceEnv' ledger now s7 exhaustedReqSn
+          exhaustedOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+
+        it "signs the snapshot when the requested deposit is observed only after the ReqSn" $ do
+          -- A follower can receive the leader's ReqSn before its own chain
+          -- sync has processed the deposit observation. Hard-erroring here
+          -- permanently drops the message: this node never signs while the
+          -- snapshot is in flight on every other node, wedging the head until
+          -- the deposit expires (found by the model tests, where one of 13
+          -- nodes lagged by a block). The ReqSn must instead be parked and
+          -- succeed once the deposit is observed and activated.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  , depositPeriod = 60
+                  , depositActivation = 60
+                  }
+              depositTxId' = 42 :: Integer
+              deposited = utxoRef 42
+              reqSn = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+              s0 = inOpenState [alice]
+          -- The ReqSn arrives before the deposit observation: park it.
+          update aliceEnv' ledger now s0 reqSn
+            `shouldBe` Wait{reason = WaitOnDepositObserved depositTxId', stateChanges = []}
+          -- Observe and activate the deposit, then retry the parked ReqSn.
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $
+              observeTxAtSlot
+                1
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId = depositTxId'
+                  , deposited
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  }
+            step . ChainInput $ Tick{chainTime = addUTCTime 120 now, chainPoint = 2}
+            getState
+          let retriedOutcome = update aliceEnv' ledger now s1 reqSn
+          retriedOutcome `hasEffectSatisfying` \case
+            NetworkEffect AckSn{} -> True
+            _ -> False
 
         it "re-posts IncrementTx on chain rollback when deposit is pending" $ do
           -- After a snapshot is confirmed with a deposit (CommitApproved + IncrementTx posted),

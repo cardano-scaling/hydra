@@ -110,7 +110,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, vectorOf, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, resize, vectorOf, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -149,6 +149,7 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
+  prop "check model balances under load with divergent forks" propStressModelBalances
   -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
@@ -192,21 +193,37 @@ propHydraModel actions =
 propCheckModelBalances :: Property
 propCheckModelBalances =
   within 30000000 $
-    forAllShrink arbitrary shrink $ \actions ->
-      runIOSimProp $ do
-        (metadata, _symEnv) <- runActions actions
-        let WorldState{hydraParties, hydraState} = underlyingState metadata
-        -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
-        -- the underlying simulated chain which produces a block every 20s. It
-        -- should be enough to ensure all nodes' threads terminate their actions
-        -- and those gets picked up by the chain
-        run $ lift waitForAMinute
-        let parties = Set.fromList $ deriveParty . fst <$> hydraParties
-        nodes <- run $ gets nodes
-        assert (parties == Map.keysSet nodes)
-        forM_ parties $ \p -> do
-          run $ lift $ threadDelay 1
-          assertBalancesInOpenHeadAreConsistent hydraState nodes p
+    forAllShrink arbitrary shrink checkModelBalances
+
+-- | Same balance consistency assertion as 'propCheckModelBalances', but over
+-- longer random action sequences: heavier L2 traffic with deposits, decommits,
+-- benign rollbacks and divergent-fork rollbacks interleaved. This is the
+-- property meant to shake out races between settlement, re-posting and
+-- rollbacks: a wedged head surfaces as a 'waitUntilMatch' timeout inside the
+-- failing action, together with the shrunk action sequence and an io-sim
+-- trace to diagnose from.
+propStressModelBalances :: Property
+propStressModelBalances =
+  within 600000000 $
+    withMaxSuccess 20 $
+      forAllShrink (resize 100 arbitrary) shrink checkModelBalances
+
+checkModelBalances :: Actions WorldState -> Property
+checkModelBalances actions =
+  runIOSimProp $ do
+    (metadata, _symEnv) <- runActions actions
+    let WorldState{hydraParties, hydraState} = underlyingState metadata
+    -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
+    -- the underlying simulated chain which produces a block every 20s. It
+    -- should be enough to ensure all nodes' threads terminate their actions
+    -- and those gets picked up by the chain
+    run $ lift waitForAMinute
+    let parties = Set.fromList $ deriveParty . fst <$> hydraParties
+    nodes <- run $ gets nodes
+    assert (parties == Map.keysSet nodes)
+    forM_ parties $ \p -> do
+      run $ lift $ threadDelay 1
+      assertBalancesInOpenHeadAreConsistent hydraState nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
   waitForAMinute = threadDelay 60
@@ -247,11 +264,18 @@ propIsDistributive f x y =
 
 -- | Expect to see contestations when trying to close with
 -- an old snapshot
+--
+-- XXX: Since heads open empty (funds only enter via version-bumping
+-- increments), a head with funds always has 'onChainVersion' > 0 and closing
+-- with the initial snapshot (open version 0) is invalid on-chain — so this
+-- scenario is effectively vacuous under random actions. To stay meaningful it
+-- needs the mock to close with an old /confirmed/ snapshot at the current
+-- version instead of 'CloseWithInitialSnapshot'.
 partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion = 0}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
