@@ -511,7 +511,14 @@ createRecordingSink = do
   pure (mkEventSink putEvent, getAll)
 
 createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
-createMockEventStore = do
+createMockEventStore = fst <$> createMockEventStoreWithReader
+
+-- | Like 'createMockEventStore', but also returns a direct reader of the
+-- stored events. The 'EventSource' conduit needs 'MonadUnliftIO' to run
+-- ('getEvents'), which IOSim does not provide — the reader gives IOSim-based
+-- tests (e.g. a node restart in 'Hydra.Model') access to the events anyway.
+createMockEventStoreWithReader :: MonadLabelledSTM m => m (EventStore a m, m [a])
+createMockEventStoreWithReader = do
   tvar <- newLabelledTVarIO "in-memory-source-sink" []
   let source =
         EventSource
@@ -525,7 +532,7 @@ createMockEventStore = do
               atomically $ modifyTVar tvar (<> [x])
           )
       rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
-  pure (EventStore source sink rotate)
+  pure (EventStore source sink rotate, readTVarIO tvar)
 
 -- | Synthetic inputs that simulate a head opening. The head will be empty
 -- though and this test hardness can not reliably simulate deposits. Use
