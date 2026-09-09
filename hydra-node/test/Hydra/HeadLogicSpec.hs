@@ -25,7 +25,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, Recover, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Close, Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -1690,15 +1690,63 @@ spec =
               isNothing reqDepositTxId
             _ -> False
 
-          -- Step 8: When node processes this ReqSn, it will wait forever
+          -- Step 8: A node processing this stale ReqSn parks it while ttl
+          -- remains — the deposit may simply not be observed yet (a ReqSn can
+          -- race the receiver's chain sync, see the WaitOnDepositObserved
+          -- note) — and only errors out once ttl is exhausted.
           s7 <- runHeadLogic aliceEnv' ledger s6 $ do
             step reqTxInput
             getState
 
-          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
-          let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
-          -- Fix bug: Error out instead of waiting for deposit to be observed forever
-          reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+          let staleReqSnMsg = ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let reqSnOutcome = update aliceEnv' ledger now s7 (receiveMessage staleReqSnMsg)
+          reqSnOutcome `shouldBe` Wait{reason = WaitOnDepositObserved depositTxId, stateChanges = []}
+
+          let exhaustedReqSn = NetworkInput 0 ReceivedMessage{sender = alice, msg = staleReqSnMsg}
+          let exhaustedOutcome = update aliceEnv' ledger now s7 exhaustedReqSn
+          exhaustedOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+
+        it "signs the snapshot when the requested deposit is observed only after the ReqSn" $ do
+          -- A follower can receive the leader's ReqSn before its own chain
+          -- sync has processed the deposit observation. Hard-erroring here
+          -- permanently drops the message: this node never signs while the
+          -- snapshot is in flight on every other node, wedging the head until
+          -- the deposit expires (found by the model tests, where one of 13
+          -- nodes lagged by a block). The ReqSn must instead be parked and
+          -- succeed once the deposit is observed and activated.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  , depositPeriod = 60
+                  , depositActivation = 60
+                  }
+              depositTxId' = 42 :: Integer
+              deposited = utxoRef 42
+              reqSn = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+              s0 = inOpenState [alice]
+          -- The ReqSn arrives before the deposit observation: park it.
+          update aliceEnv' ledger now s0 reqSn
+            `shouldBe` Wait{reason = WaitOnDepositObserved depositTxId', stateChanges = []}
+          -- Observe and activate the deposit, then retry the parked ReqSn.
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $
+              observeTxAtSlot
+                1
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId = depositTxId'
+                  , deposited
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  }
+            step . ChainInput $ Tick{chainTime = addUTCTime 120 now, chainPoint = 2}
+            getState
+          let retriedOutcome = update aliceEnv' ledger now s1 reqSn
+          retriedOutcome `hasEffectSatisfying` \case
+            NetworkEffect AckSn{} -> True
+            _ -> False
 
         it "re-posts IncrementTx on chain rollback when deposit is pending" $ do
           -- After a snapshot is confirmed with a deposit (CommitApproved + IncrementTx posted),
@@ -2482,6 +2530,65 @@ spec =
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = RecoverTx{recoverTxId}} -> recoverTxId == depositTxId'
             _ -> False
+
+        -- DELIBERATE DESIGN, characterized here (see #2741 follow-up): when a
+        -- rollback erases a finalized increment we do NOT locally revert
+        -- 'version' back to the on-chain value. 'ChainRolledBack' only restores
+        -- the black-box 'chainState' and leaves 'version' at 1 — because
+        -- 'localUTxO' already absorbed the deposit at 'CommitFinalized' and L2
+        -- may have spent it, so decrementing 'version' without unwinding
+        -- 'localUTxO' would corrupt the L2 ledger. Instead we rely on the chain
+        -- to heal: the node re-posts the *same* incrementing snapshot, it
+        -- re-lands, and the on-chain version climbs back to 1 to match — see
+        -- "re-posts IncrementTx when a rollback erases a finalized increment"
+        -- and "converges when the increment is observed again after a
+        -- rollback". This test pins both halves: the heal path (same increment
+        -- replayed → close is consistent again), and the residual gap when
+        -- healing is impossible (deposit deadline passed, or its tx erased and
+        -- never re-submitted) — then on-chain stays at 0, 'version' stays at 1,
+        -- and a close carries the stale 'openVersion = 1' that can never
+        -- validate, leaving the head stuck open.
+        it "relies on the same increment being replayed to heal a rolled-back finalized increment (#2741)" $ do
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          -- Increment finalized: local version bumped to 1.
+          case headState s0 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{version}} -> version `shouldBe` 1
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- The rollback erases the increment (chain back before its slot). We
+          -- deliberately keep 'version = 1' and re-post the SAME increment
+          -- (same snapshot, same deposit) — that re-post is how the chain heals.
+          let rollbackOutcome = update soloAliceEnv ledger now s0 (rollbackTo 2 now)
+          rollbackOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
+              (getSnapshot snap).number == 1 && dep == depositTxId'
+            _ -> False
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{version}} -> version `shouldBe` 1
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- HEAL PATH: the same increment re-lands (re-observed at its slot).
+          -- On-chain version is back to 1, matching local 'version', so a close
+          -- now carries a consistent 'openVersion = 1'.
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            getState
+          update soloAliceEnv ledger now s2 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion}} -> openVersion == 1
+              _ -> False
+
+          -- RESIDUAL GAP (deliberately not fixed): if the increment can never
+          -- re-land, on-chain stays at version 0 but the node still closes with
+          -- the stale 'openVersion = 1', which cannot validate — head stuck
+          -- open. Closing straight from 's1' (increment not re-observed) shows
+          -- the stale version the on-chain head will never reach.
+          update soloAliceEnv ledger now s1 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion}} -> openVersion == 1
+              _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties

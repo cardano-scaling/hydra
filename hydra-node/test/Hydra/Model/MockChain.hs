@@ -11,6 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (writeTVar),
   modifyTVar,
+  readTQueue,
   readTVarIO,
   throwSTM,
   tryReadTQueue,
@@ -18,13 +19,13 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Monad.Class.MonadAsync (link)
-import Control.Tracer.JSON (Tracer)
+import Control.Tracer.JSON (Tracer, traceWith)
+import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
 import Data.Sequence (Seq (Empty, (:|>)))
 import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.IO.Exception (userError)
 import Hydra.API.ServerOutput (getConfirmedSnapshot)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -38,13 +39,14 @@ import Hydra.Chain (
     headParameters,
     openVersion
   ),
+  PostTxError (FailedToPostTx, failingTx, failureReason),
   initHistory,
  )
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
-  CardanoChainLog,
+  CardanoChainLog (..),
   ChainSyncHandler (..),
-  LocalChainState,
+  LocalChainState (..),
   SubmitTx,
   chainSyncHandler,
   mkChain,
@@ -52,7 +54,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.HeadLogic (
@@ -71,7 +73,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
 import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
@@ -111,13 +113,22 @@ mockChainAndNetwork tr seedKeys = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
+  latencySeed <- newLabelledTVarIO "mock-network-latency-seed" (42 :: Word64)
+  -- Persisted, totally-ordered network log plus a per-party consumer offset,
+  -- mirroring the production etcd network: a node reconnecting after a restart
+  -- resumes from its last consumed offset (messages sent while down, or
+  -- in-flight at crash time, are re-delivered; already-consumed ones are not
+  -- re-processed). See 'connectNode' and 'createMockNetwork'.
+  networkHistory <- newLabelledTVarIO "mock-network-history" ([] :: [(Party, Message Tx)])
+  consumerOffsets <- newLabelledTVarIO "mock-network-offsets" (mempty :: Map Party Int)
   tickThread <- asyncLabelled "mock-chain-tick" (simulateChain nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode nodes chain queue
+      { connectNode = connectNode latencySeed networkHistory consumerOffsets nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
+      , rollbackAndFork = rollbackAndFork nodes chain queue
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       , getChainHistory = pure []
@@ -145,7 +156,7 @@ mockChainAndNetwork tr seedKeys = do
     let vks = (\(_, CardanoSigningKey sk) -> getVerificationKey sk) <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode nodes chain queue draftNode = do
+  connectNode latencySeed networkHistory consumerOffsets nodes chain queue draftNode = do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let DraftHydraNode{env} = draftNode
         Environment{party = ownParty, depositPeriod} = env
@@ -170,13 +181,22 @@ mockChainAndNetwork tr seedKeys = do
                   Just (_, _, blockUTxO) -> blockUTxO
             case applyTransactions slot utxo [tx] of
               Left (_tx, ValidationError{reason}) ->
-                throwSTM . userError . toString $
-                  unlines
-                    [ "MockChain: Invalid tx submitted"
-                    , "Slot: " <> show slot
-                    , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                    , "Error: \n\n" <> reason
-                    ]
+                -- A transaction that does not apply is rejected at submission,
+                -- as a real cardano-node would: the posting node observes a
+                -- 'PostTxError' (see 'processEffect') and the head continues.
+                -- This is a legitimate situation e.g. for a settlement
+                -- re-posted after a rollback racing its re-landed original.
+                throwSTM
+                  FailedToPostTx
+                    { failureReason =
+                        toText . unlines $
+                          [ "MockChain: Invalid tx submitted"
+                          , "Slot: " <> show slot
+                          , "Tx: " <> toText (renderTxWithUTxO utxo tx)
+                          , "Error: \n\n" <> reason
+                          ]
+                    , failingTx = tx
+                    }
               Right _utxo' ->
                 writeTQueue queue tx
     let mockChain =
@@ -188,8 +208,36 @@ mockChainAndNetwork tr seedKeys = do
             getTimeHandle
             seedInput
             localChainState
-    node <- connect mockChain (createMockNetwork draftNode nodes) mockServer draftNode
+    node <- connect mockChain (createMockNetwork draftNode networkHistory nodes) mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
+    -- Advance this party's consumer offset as a message reaches the node, so a
+    -- later reconnect resumes from exactly here (see the network-log replay).
+    let bumpOffset :: STM m ()
+        bumpOffset = modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+        -- A fresh random delay in [0, maxNetworkLatency), via Knuth's MMIX LCG
+        -- (deterministic, dependency-free).
+        nextLatency :: STM m DiffTime
+        nextLatency = do
+          seed <- readTVar latencySeed
+          let seed' = seed * 6364136223846793005 + 1442695040888963407
+          writeTVar latencySeed seed'
+          pure $ fromIntegral (seed' `mod` truncate (maxNetworkLatency * 1_000_000)) / 1_000_000
+    -- Deliver network messages from this node's mailbox with a random
+    -- per-message latency, preserving per-node order; see 'createMockNetwork'.
+    -- Latencies overlap (each message is due at its own arrival + latency, and
+    -- the single delivery thread only sleeps up to the due time), so a burst
+    -- of n messages arrives within 'maxNetworkLatency' — not n times it.
+    mailbox <- newLabelledTQueueIO "mock-network-mailbox"
+    deliveryThread <- asyncLabelled "mock-network-delivery" $
+      forever $ do
+        (arrival, sender, msg) <- atomically $ readTQueue mailbox
+        latency <- atomically nextLatency
+        now <- getCurrentTime
+        let remaining = realToFrac $ addUTCTime (realToFrac latency) arrival `diffUTCTime` now
+        when (remaining > 0) $ threadDelay remaining
+        atomically bumpOffset
+        enqueue (mkNetworkInput sender msg)
+    link deliveryThread
     let mockNode =
           MockHydraNode
             { node = node'
@@ -200,22 +248,91 @@ mockChainAndNetwork tr seedKeys = do
                   (const getTimeHandle)
                   ctx
                   localChainState
+            , mailbox
             }
-    atomically $ modifyTVar nodes (mockNode :)
+    -- Resume chain sync from the node's recovered chain point, like a real
+    -- node re-syncing after a restart. Its head state comes from the event
+    -- store, so for each already-served block we either:
+    --   * slot <= recovered: rebuild the chain-sync 'localChainState' history
+    --     only (the block's stored UTxO is the spendable L1 UTxO at that
+    --     point), so a later rollback can resolve to any past state — seeding
+    --     just the tip would leave a gap and desync the handler on the next
+    --     rollback. No 'onRollForward', which would re-drive the recovered head
+    --     state machine.
+    --   * slot > recovered: re-observe it (blocks missed while down), which
+    --     drives both head state and 'localChainState' via the handler.
+    -- A fresh node recovered nothing (slot 0) with no blocks produced yet, so
+    -- this is a no-op.
+    let HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} = node'
+    recoveredSlot <- currentSlot . chainPointTime <$> atomically queryNodeState
+    -- Blocks at or before the recovered slot only rebuild 'localChainState'
+    -- (bookkeeping); later blocks — missed while down — are re-observed, which
+    -- drives both head state and 'localChainState' via the handler.
+    let replayBlock :: (BlockHeader, [Tx], UTxO) -> m ()
+        replayBlock (header@(BlockHeader slotNo _ _), txs, blockUTxO)
+          | slotNo > fromChainSlot recoveredSlot = onRollForward (chainHandler mockNode) header txs
+          | otherwise = atomically $ pushNew localChainState ChainStateAt{spendableUTxO = blockUTxO, recordedAt = Just (getChainPoint header)}
+    (_, replayPosition, replayBlocks, _) <- readTVarIO chain
+    forM_ (Seq.take (fromIntegral replayPosition) replayBlocks) replayBlock
+    -- Register (replacing a previous incarnation of this party's node) and
+    -- snapshot the network log in one atomic step, so the log partitions
+    -- cleanly: messages already logged are replayed below, later ones reach
+    -- the freshly registered mailbox — no message lost or delivered twice.
+    (pastMessages, ownOffset) <- atomically $ do
+      modifyTVar nodes ((mockNode :) . filter (not . matchingParty ownParty))
+      history <- readTVar networkHistory
+      offset <- Map.findWithDefault 0 ownParty <$> readTVar consumerOffsets
+      pure (history, offset)
+    -- Resume the persisted network log from this party's consumer offset,
+    -- mirroring a node re-reading the etcd stream from where it left off after
+    -- a restart: messages sent while down, or in-flight (delivered to the
+    -- mailbox but not yet consumed) at crash time, are re-delivered; ones it
+    -- already consumed are not re-processed (which would diverge its ledger).
+    -- A first connection has offset 0 and an empty log, so replays nothing.
+    let DraftHydraNode{inputQueue = InputQueue{enqueue = enqueueOwn}} = draftNode
+    forM_ (drop ownOffset pastMessages) $ \(msgSender, msg) -> do
+      atomically bumpOffset
+      enqueueOwn $ mkNetworkInput msgSender msg
+    -- Re-observe blocks produced during the reconnect above (all past the
+    -- recovered slot, so 'replayBlock' re-observes them).
+    (_, caughtUpPosition, caughtUpBlocks, _) <- readTVarIO chain
+    forM_ (Seq.take (fromIntegral caughtUpPosition - fromIntegral replayPosition) $ Seq.drop (fromIntegral replayPosition) caughtUpBlocks) replayBlock
     pure node'
 
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the
     -- deposit tx directly?
-    readTVarIO nodes >>= \case
-      [] -> error "simulateDeposit: no MockHydraNode"
-      (MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}} : _) -> do
+    -- Draft against an in-sync open node: a node still catching up after a
+    -- restart has a stale chain view, so drafting the deposit against it fails
+    -- ('CannotFindHeadOutputInIncrement'). Any synced node works — the deposit
+    -- is not party-specific.
+    findSyncedOpenNode nodes >>= \case
+      Nothing -> error "simulateDeposit: no in-sync open MockHydraNode"
+      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftDepositTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}} -> do
         currentSnapshot <-
           fromMaybe InitialSnapshot{headId} . getConfirmedSnapshot . headState <$> atomically queryNodeState
         draftDepositTx headId defaultPParams currentSnapshot (mkSimpleBlueprintTx utxoToDeposit) deadline Nothing >>= \case
           Left e -> throwIO e
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
+
+  -- \| Wait for and return a node that is both in sync with the chain and has
+  -- an open head, retrying briefly (nodes may be mid-catch-up after a restart).
+  findSyncedOpenNode :: TVar m [MockHydraNode m] -> m (Maybe (MockHydraNode m))
+  findSyncedOpenNode nodes = go (100 :: Int)
+   where
+    go 0 = pure Nothing
+    go n = do
+      hydraNodes <- readTVarIO nodes
+      synced <- filterM isSyncedOpen hydraNodes
+      case synced of
+        (node : _) -> pure (Just node)
+        [] -> threadDelay 0.1 >> go (n - 1)
+    isSyncedOpen :: MockHydraNode m -> m Bool
+    isSyncedOpen MockHydraNode{node = HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}}} =
+      atomically queryNodeState <&> \case
+        NodeInSync{headState = Open{}} -> True
+        _ -> False
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
   closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> Party -> m ()
@@ -253,22 +370,33 @@ mockChainAndNetwork tr seedKeys = do
 
   rollForward nodes chain queue = do
     threadDelay blockTime
-    atomically $ do
+    dropped <- atomically $ do
       transactions <- flushQueue queue
       addNewBlockToChain chain transactions
+    -- A real chain drops invalid transactions silently, but an invisible drop
+    -- makes test failures undiagnosable: surface each like a failed posting.
+    forM_ dropped $ \(tx, reason) ->
+      traceWith tr PostingFailed{tx, postTxError = FailedToPostTx{failureReason = "MockChain: dropped at block inclusion: " <> reason, failingTx = tx}}
     doRollForward nodes chain
 
   doRollForward :: TVar m [MockHydraNode m] -> TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> m ()
   doRollForward nodes chain = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
-    case Seq.lookup (fromIntegral position) blocks of
-      Just (header, txs, utxo) -> do
-        let position' = position + 1
+    -- NOTE: Advance the chain state in a single transaction: a separate
+    -- read-then-write races concurrent mutations (block production,
+    -- rollbacks, forks) and would clobber them with the stale read. The
+    -- ledger must also be reset to this utxo before calling the node handlers
+    -- (as they might submit transactions directly).
+    mServed <- atomically $ do
+      (slotNum, position, blocks, _) <- readTVar chain
+      case Seq.lookup (fromIntegral position) blocks of
+        Just (header, txs, utxo) -> do
+          writeTVar chain (slotNum, position + 1, blocks, utxo)
+          pure $ Just (header, txs)
+        Nothing ->
+          pure Nothing
+    case mServed of
+      Just (header, txs) -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        -- NOTE: Need to reset the mocked chain ledger to this utxo before
-        -- calling the node handlers (as they might submit transactions
-        -- directly).
-        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (\h -> onRollForward h header txs)
       Nothing ->
         pure ()
@@ -298,29 +426,91 @@ mockChainAndNetwork tr seedKeys = do
     Natural ->
     m ()
   doRollBackward nodes chain nbBlocks = do
-    (slotNum, position, blocks, _) <- readTVarIO chain
-    case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
-      Just (header, _, utxo) -> do
-        let position' = position - nbBlocks + 1
+    -- NOTE: Single transaction for the same reason as in 'doRollForward'.
+    mPoint <- atomically $ do
+      (slotNum, position, blocks, _) <- readTVar chain
+      case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
+        Just (header, _, utxo) -> do
+          writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
+          pure $ Just (getChainPoint header)
+        Nothing ->
+          pure Nothing
+    case mPoint of
+      Just point -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        let point = getChainPoint header
-        atomically $ writeTVar chain (slotNum, position', blocks, utxo)
         forM_ allHandlers (`onRollBackward` point)
       Nothing ->
         pure ()
 
-  addNewBlockToChain :: TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> [Tx] -> STM m ()
-  addNewBlockToChain chain transactions =
-    modifyTVar chain $ \(slotNum, position, blocks, utxo) -> do
-      -- NOTE: Assumes 1 slot = 1 second
-      let newSlot = slotNum + ChainSlot (truncate blockTime)
-          header = hedgehog (genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
-          -- NOTE: Transactions that do not apply to the current state (eg.
-          -- UTxO) are silently dropped which emulates the chain behaviour that
-          -- only the client is potentially witnessing the failure, and no
-          -- invalid transaction will ever be included in the chain.
-          (txs', utxo') = collectTransactions ledger newSlot utxo transactions
-       in (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
+  -- Rollback the chain and continue on a divergent fork: unlike
+  -- 'rollbackAndForward', which re-serves the very same blocks, the rolled
+  -- back blocks are dropped. When @requeue@, their transactions are
+  -- re-submitted (a real chain switch re-includes transactions from the
+  -- mempool where still valid) and re-land in later blocks at later slots;
+  -- without it they are gone for good and only transactions (re-)posted by
+  -- the nodes reacting to the rollback make it onto the new chain.
+  rollbackAndFork ::
+    TVar m [MockHydraNode m] ->
+    TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
+    TQueue m Tx ->
+    Natural ->
+    Bool ->
+    m ()
+  rollbackAndFork nodes chain queue numberOfBlocks requeue = do
+    mPoint <- atomically $ do
+      (slotNum, position, blocks, _utxo) <- readTVar chain
+      -- Same rollback point arithmetic as 'doRollBackward': the block at
+      -- @position - numberOfBlocks@ becomes the new tip — but never fork past
+      -- the block containing the head's init tx (the one spending
+      -- 'seedInput'): a permanently erased init makes the head unrecoverable
+      -- by design (see the known limitations in docs/dev/rollbacks) and is
+      -- not the scenario this simulates.
+      let initIndex =
+            fromMaybe 0 $
+              Seq.findIndexR (\(_, txs, _) -> any (elem seedInput . txIns') txs) blocks
+          tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks)
+      if tipIndex < 0
+        then pure Nothing
+        else case Seq.lookup (fromInteger tipIndex) blocks of
+          Nothing -> pure Nothing
+          Just (header, _, blockUTxO) -> do
+            let kept = Seq.take (fromInteger tipIndex + 1) blocks
+                erased = concatMap (\(_, txs, _) -> txs) $ toList $ Seq.drop (fromInteger tipIndex + 1) blocks
+            writeTVar chain (slotNum, fromInteger tipIndex + 1, kept, blockUTxO)
+            when requeue $ forM_ erased (writeTQueue queue)
+            pure $ Just (getChainPoint header)
+    case mPoint of
+      Nothing -> pure ()
+      Just point -> do
+        allHandlers <- fmap chainHandler <$> readTVarIO nodes
+        forM_ allHandlers (`onRollBackward` point)
+    -- Give the nodes and the chain time to converge onto the new fork: nodes
+    -- re-post erased settlements upon observing the rollback and requeued
+    -- transactions are included in the following blocks.
+    threadDelay (3 * blockTime)
+
+  -- Returns the transactions that were dropped (with the validation error
+  -- against the block-start UTxO), so callers can surface them.
+  addNewBlockToChain :: TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> [Tx] -> STM m [(Tx, Text)]
+  addNewBlockToChain chain transactions = do
+    (slotNum, position, blocks, utxo) <- readTVar chain
+    -- NOTE: Assumes 1 slot = 1 second
+    let newSlot = slotNum + ChainSlot (truncate blockTime)
+        header = hedgehog (genBlockHeaderAt (fromChainSlot newSlot)) `generateWith` 42
+        -- NOTE: Transactions that do not apply to the current state (eg.
+        -- UTxO) are dropped, which emulates the chain behaviour that no
+        -- invalid transaction will ever be included in the chain.
+        (txs', utxo') = collectTransactions ledger newSlot utxo transactions
+        dropped =
+          [ (tx, reason)
+          | tx <- transactions
+          , tx `notElem` txs'
+          , let reason = case applyTransactions newSlot utxo [tx] of
+                  Left (_, ValidationError{reason = r}) -> toText r
+                  Right _ -> "conflicts with an earlier transaction in the same block"
+          ]
+    writeTVar chain (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
+    pure dropped
 
 -- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
 -- This is used in our 'Model' tests and we want to make sure the tests finish before
@@ -367,22 +557,49 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
   vkOf (CardanoSigningKey sk) = getVerificationKey sk
 
 -- TODO: unify with BehaviorSpec's ?
-createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
-createMockNetwork draftNode nodes =
+--
+-- An adversarial-lag network: every broadcast is appended synchronously to
+-- each node's 'mailbox' — one shared total order, like the etcd based
+-- production network — but each node's single delivery thread (see
+-- 'connectNode') drains its mailbox with a random per-message delay. Per-node
+-- delivery order is preserved while nodes fall behind each other and behind
+-- their own chain observations, which is exactly the interleaving class that
+-- wedged heads before (e.g. a ReqSn overtaking the deposit observation).
+createMockNetwork ::
+  (MonadSTM m, MonadTime m) =>
+  DraftHydraNode Tx m ->
+  TVar m [(Party, Message Tx)] ->
+  TVar m [MockHydraNode m] ->
+  Network m (Message Tx)
+createMockNetwork draftNode networkHistory nodes =
   Network{broadcast}
  where
   broadcast msg = do
-    allNodes <- fmap node <$> readTVarIO nodes
-    mapM_ (`handleMessage` msg) allNodes
-
-  handleMessage HydraNode{inputQueue} msg = do
-    enqueue inputQueue $ mkNetworkInput sender msg
+    now <- getCurrentTime
+    atomically $ do
+      -- Append to the persisted log first (see 'mockChainAndNetwork'), then
+      -- fan out to every connected node's delayed mailbox.
+      modifyTVar networkHistory (<> [(sender, msg)])
+      allNodes <- readTVar nodes
+      forM_ allNodes $ \MockHydraNode{mailbox} ->
+        writeTQueue mailbox (now, sender, msg)
 
   DraftHydraNode{env = Environment{party = sender}} = draftNode
+
+-- | Upper bound of the random delivery delay per network message and node,
+-- see 'createMockNetwork'. One block time: enough for messages to routinely
+-- cross block boundaries relative to other nodes' chain observations, while
+-- staying far below the ~600s a parked network input survives (TTL x
+-- 'waitDelay') so delays alone never exhaust a message's retry budget.
+maxNetworkLatency :: DiffTime
+maxNetworkLatency = 20
 
 data MockHydraNode m = MockHydraNode
   { node :: HydraNode Tx m
   , chainHandler :: ChainSyncHandler m
+  , mailbox :: TQueue m (UTCTime, Party, Message Tx)
+  -- ^ Pending network deliveries to this node (with their arrival time), see
+  -- 'createMockNetwork'.
   }
 
 createMockChain ::
@@ -420,6 +637,10 @@ createMockChain tracer ctx depositPeriod submitTx timeHandle seedInput chainStat
 
 -- NOTE: This is a workaround until the upstream PR is merged:
 -- https://github.com/input-output-hk/io-sim/issues/133
+
+-- | Drain the queue, preserving submission order (a mempool applies dependent
+-- transactions oldest first; reversing them would drop e.g. a re-queued
+-- increment flushed together with its deposit after a chain fork).
 flushQueue :: MonadSTM m => TQueue m a -> STM m [a]
 flushQueue queue = go []
  where
@@ -427,4 +648,4 @@ flushQueue queue = go []
     hasA <- tryReadTQueue queue
     case hasA of
       Just a -> go (a : as)
-      Nothing -> pure as
+      Nothing -> pure (reverse as)

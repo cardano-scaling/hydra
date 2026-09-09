@@ -316,6 +316,7 @@ onOpenNetworkReqSn ::
   PendingDeposits tx ->
   ChainSlot ->
   OpenState tx ->
+  TTL ->
   -- | Party which sent the ReqSn.
   Party ->
   -- | Requested snapshot version.
@@ -329,7 +330,7 @@ onOpenNetworkReqSn ::
   -- | Optional commit of additional funds into the head.
   Maybe (TxIdType tx) ->
   Outcome tx
-onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
+onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
   -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
@@ -435,9 +436,17 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
             Error $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
       Just depositTxId ->
         case Map.lookup depositTxId pendingDeposits of
-          Nothing ->
-            -- Error out in case we receive a ReqSn that doesn't match local deposit
-            Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
+          Nothing
+            -- NOTE: must be a Wait while ttl remains, not a require: a
+            -- follower can receive the ReqSn before its own chain handler has
+            -- processed the deposit observation. Erroring would drop the
+            -- message permanently and this node would never sign — with the
+            -- snapshot then in flight on all other nodes, the head is stuck
+            -- for good. Once ttl is exhausted the deposit is genuinely
+            -- unknown (e.g. a stale ReqSn referencing an already recovered
+            -- deposit) and we error out.
+            | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
+            | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
@@ -2430,8 +2439,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
   -- NOTE: 'ReqSn' gets the unfiltered (per-head) deposits: it distinguishes a
   -- requested deposit that is blocked by a finalized increment (hard error)
   -- from one that is simply not known locally (wait).
-  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
+    onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState ttl sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env (eligibleDeposits openState pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->

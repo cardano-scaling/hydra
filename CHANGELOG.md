@@ -81,6 +81,18 @@ changes.
   a result.
   [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
 
+- Fixed a head becoming permanently stuck when a snapshot request claiming a
+  deposit reaches a party before that party's chain sync has observed the
+  deposit: the receiving node hard-errored (`RequestedDepositNotFoundLocally`)
+  and never signed, while the snapshot stayed in flight on every other node,
+  blocking all further snapshots until the head is closed. The request is now
+  parked and retried while its TTL lasts (mirroring the existing handling of a
+  snapshot request racing an increment/decrement observation), erroring only
+  once the TTL is exhausted — which keeps the protection against stale
+  requests referencing already recovered deposits. Found by the extended model
+  tests, which now generate random deposits, decommits and divergent-fork
+  rollbacks under transaction load.
+
 - Fixed deposits not being re-posted when a chain rollback erases an increment
   that was already finalized (`CommitFinalized`), which previously lost the
   deposit and could strand its funds

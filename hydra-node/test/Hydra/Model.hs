@@ -30,6 +30,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Class.MonadAsync (cancel, link)
 import Control.Tracer.JSON (Tracer)
+import Data.EventSource.Rotation (EventStore)
 import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map.Strict ((!))
@@ -44,7 +45,7 @@ import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
   TestHydraClient (..),
-  createHydraNode,
+  createHydraNodeWithEventStore,
   createTestHydraClient,
   getHeadUTxO,
   shortLabel,
@@ -52,13 +53,16 @@ import Hydra.BehaviorSpec (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic.State qualified as HeadLogic
+import Hydra.HeadLogic.StateEvent (StateEvent)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.State (NodeState (..))
-import Hydra.Options (defaultDepositPeriod)
+import Hydra.NodeSpec (createMockEventStoreWithReader)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
@@ -69,7 +73,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -86,12 +90,13 @@ data WorldState = WorldState
   -- ^ Expected consensus state
   -- All nodes should be in the same state.
   , availableToDeposit :: UTxOType Payment
-  -- ^ UTxO available to be committed incrementally. NOTE: We must not add UTxO
-  -- we decommitted to this as the 'Payment' transaction model results in
-  -- non-unique transaction ids when running the model.
-  -- NOTE: Deposits are not randomly generated in 'anyActions_' — they are only
-  -- performed explicitly in scripted tests (e.g. 'propFanoutLimit'). Adding
-  -- real support for random deposit actions is left for the future.
+  -- ^ UTxO available to be committed incrementally, seeded from
+  -- 'additionalUTxO' at 'Seed'. NOTE: We must not add UTxO we decommitted to
+  -- this as the 'Payment' transaction model results in non-unique transaction
+  -- ids when running the model. For the same reason a random 'Deposit' always
+  -- commits /all/ of one signer's available UTxO at once ('toRealUTxO'
+  -- assigns mocked TxIns per signer starting from index 0, so two separate
+  -- deposits by the same signer would collide).
   }
   deriving stock (Eq, Show)
 
@@ -117,6 +122,9 @@ data GlobalState
       , offChainState :: OffChainState
       , -- TODO: keep a single UTxOType Payment instead?
         committed :: Map Party (UTxOType Payment)
+      , onChainVersion :: Natural
+      -- ^ Expected open state version on chain: bumped by every settled
+      -- increment ('Deposit') and decrement ('Decommit').
       }
   | Closed
       { headParameters :: HeadParameters
@@ -157,6 +165,13 @@ instance StateModel WorldState where
     -- Check that all parties have observed the head as open
     ObserveHeadIsOpen :: Action WorldState ()
     RollbackAndForward :: Natural -> Action WorldState ()
+    -- Rollback onto a divergent fork: the rolled back blocks are dropped (not
+    -- re-served); their transactions are re-submitted when 'requeueErased'
+    -- (mempool re-inclusion), otherwise only what the nodes re-post lands.
+    RollbackAndFork :: {numberOfBlocks :: Natural, requeueErased :: Bool} -> Action WorldState ()
+    -- Crash a node (in-flight inputs are lost) and restart it from its event
+    -- store, re-syncing the chain from genesis.
+    RestartNode :: Party -> Action WorldState ()
     CloseWithInitialSnapshot :: Party -> Action WorldState ()
     StopTheWorld :: Action WorldState ()
 
@@ -190,15 +205,21 @@ instance StateModel WorldState where
       frequency $
         [ (1, genClose)
         , (1, genRollbackAndForward)
+        , (1, genRollbackAndFork)
         ]
+          -- 'RestartNode' models fail-recovery under load, see 'restartNodeEnabled'.
+          <> [(1, genRestartNode) | restartNodeEnabled]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
           <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> [(2, genDecommit) | length confirmedUTxO > 1]
           <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
+    -- NOTE: Deposits all of one signer's available UTxO at once, see
+    -- 'availableToDeposit'. Only signers with available UTxO qualify: an
+    -- empty deposit is rejected at draft time (SnapshotIncrementUTxOIsNull).
     genDeposit headIdVar = do
-      sk <- snd <$> elements hydraParties
-      utxoToDeposit <- sublistOf $ filter ((sk ==) . fst) availableToDeposit
+      sk <- elements (nub $ fst <$> availableToDeposit)
+      let utxoToDeposit = filter ((sk ==) . fst) availableToDeposit
       pure $ Some Deposit{headIdVar, utxoToDeposit}
 
     genDecommit = do
@@ -216,6 +237,14 @@ instance StateModel WorldState where
       numberOfBlocks <- choose (1, 2)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
 
+    genRollbackAndFork = do
+      numberOfBlocks <- choose (1, 2)
+      requeueErased <- elements [True, False]
+      pure . Some $ RollbackAndFork{numberOfBlocks = wordToNatural numberOfBlocks, requeueErased}
+
+    genRestartNode =
+      Some . RestartNode . deriveParty . fst <$> elements hydraParties
+
   precondition WorldState{hydraState = Start} Seed{} =
     True
   precondition WorldState{hydraState = Idle{idleParties}} (Init p) =
@@ -227,8 +256,11 @@ instance StateModel WorldState where
       && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var} =
+  precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var, utxoToDeposit} =
     var == headIdVar
+      -- An empty deposit is rejected at draft time; also keeps shrinking from
+      -- emptying a deposit's utxo.
+      && not (null utxoToDeposit)
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
@@ -238,8 +270,17 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{headParameters}} (Fanout party) =
     party `elem` headParameters.parties
-  precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
+  precondition WorldState{hydraState = Open{headParameters, onChainVersion}} (CloseWithInitialSnapshot p) =
+    -- Only head members have a node to close with; keeps shrinking from
+    -- rebinding the action to a party outside the (shrunk) seed. Closing with
+    -- the initial snapshot (and open version 0) is only valid on-chain while
+    -- no increment or decrement has settled.
+    p `elem` headParameters.parties
+      && onChainVersion == 0
+  precondition WorldState{hydraState = Open{}} RollbackAndFork{} =
     True
+  precondition WorldState{hydraState = Open{headParameters}} (RestartNode p) =
+    p `elem` headParameters.parties
   precondition WorldState{hydraState} (RollbackAndForward _) =
     case hydraState of
       Start{} -> False
@@ -254,8 +295,8 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableToDeposit} a result =
     case a of
-      Seed{seedKeys, contestationPeriod} ->
-        s{hydraParties = seedKeys, hydraState = idleState}
+      Seed{seedKeys, contestationPeriod, additionalUTxO} ->
+        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys
@@ -275,6 +316,7 @@ instance StateModel WorldState where
                     }
               , offChainState = OffChainState{confirmedUTxO = mempty}
               , committed = mempty
+              , onChainVersion = 0
               }
           _ -> error "unexpected state"
       Deposit{utxoToDeposit} ->
@@ -284,10 +326,11 @@ instance StateModel WorldState where
           }
        where
         updateWithIncrementalCommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
             hs
               { offChainState =
                   OffChainState{confirmedUTxO = utxoToDeposit <> confirmedUTxO}
+              , onChainVersion = onChainVersion + 1
               }
           _ -> error "unexpected state"
       Decommit _party tx ->
@@ -296,10 +339,11 @@ instance StateModel WorldState where
         decommitted = (from tx, value tx)
 
         updateWithDecommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
             hs
               { offChainState =
                   OffChainState{confirmedUTxO = List.delete decommitted confirmedUTxO}
+              , onChainVersion = onChainVersion + 1
               }
           _ -> error "unexpected state"
       Close{} ->
@@ -333,6 +377,8 @@ instance StateModel WorldState where
           Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       RollbackAndForward _numberOfBlocks -> s
+      RollbackAndFork{} -> s
+      RestartNode{} -> s
       Wait _ -> s
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
@@ -362,11 +408,21 @@ deriving stock instance Eq (Action WorldState a)
 
 -- ** Generator Helper
 
+-- | Whether random 'RestartNode' actions are generated. On: a restarted node
+-- recovers head state (event store), chain point, network consumer offset
+-- (etcd-style) and the full chain-sync 'localChainState' history, so it
+-- converges under load like a real fail-recovery. Flip to 'False' to drop the
+-- fail-recovery dimension if it ever proves flaky.
+restartNodeEnabled :: Bool
+restartNodeEnabled = True
+
 genSeed :: Gen (Action WorldState ())
 genSeed = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   contestationPeriod <- genContestationPeriod
-  additionalUTxO <- listOf $ do
+  -- NOTE: Unique (signer, value) pairs: 'toRealUTxO' derives mocked TxIns
+  -- from them, so duplicates deposited in separate actions would collide.
+  additionalUTxO <- fmap nub . listOf $ do
     sk <- snd <$> elements seedKeys
     value <- genAdaValue
     pure (sk, value)
@@ -429,6 +485,11 @@ data Nodes m = Nodes
   , threads :: [Async m ()]
   -- ^ List of threads spawned when executing `RunMonad`
   , chain :: SimulatedChainNetwork Tx m
+  , eventStores :: Map.Map Party (EventStore (StateEvent Tx) m, m [StateEvent Tx])
+  -- ^ Each node's event store (with a direct reader), so 'RestartNode' can
+  -- recover a node from its own persisted events like fail-recovery would.
+  , nodeThreads :: Map.Map Party (Async m ())
+  -- ^ Each node's main thread, so 'RestartNode' can crash one selectively.
   }
 
 -- NOTE: This newtype is needed to allow its use in typeclass instances
@@ -544,6 +605,10 @@ instance
         performCloseWithInitialSnapshot st party
       RollbackAndForward numberOfBlocks ->
         performRollbackAndForward numberOfBlocks
+      RollbackAndFork{numberOfBlocks, requeueErased} ->
+        performRollbackAndFork numberOfBlocks requeueErased
+      RestartNode party ->
+        performRestartNode st party
       StopTheWorld ->
         stopTheWorld
 
@@ -573,49 +638,78 @@ seedWorld seedKeys seedCP = do
     lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys
   pushThread tickThread
 
-  clients <- forM seedKeys $ \(hsk, _csk) -> do
+  perNode <- forM seedKeys $ \(hsk, _csk) -> do
     let party = deriveParty hsk
         otherParties = filter (/= party) parties
-    (testClient, nodeThread) <- lift $ do
-      outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
-      messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
-      outputHistory <- newLabelledTVarIO "seed-world-output-history" []
-      node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
-        createHydraNode
-          (contramap Node tr)
-          ledger
-          initialChainState
-          hsk
-          otherParties
-          outputs
-          messages
-          outputHistory
-          mockChain
-          seedCP
-          testDepositPeriod
-      nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
-      link nodeThread
-      -- await for the node to be in sync with the chain before returning the client
-      atomically $ do
-        st <- queryNodeState
-        case st of
-          NodeInSync{} -> pure ()
-          _ -> retry
-      let testClient = createTestHydraClient outputs messages outputHistory node
-      pure (testClient, nodeThread)
+    eventStore <- lift createMockEventStoreWithReader
+    (testClient, nodeThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
     pushThread nodeThread
-    pure (party, testClient)
+    pure (party, (testClient, eventStore, nodeThread))
 
   modify $ \n ->
-    n{nodes = Map.fromList clients, chain = mockChain}
+    n
+      { nodes = Map.fromList [(party, c) | (party, (c, _, _)) <- perNode]
+      , eventStores = Map.fromList [(party, es) | (party, (_, es, _)) <- perNode]
+      , nodeThreads = Map.fromList [(party, t) | (party, (_, _, t)) <- perNode]
+      , chain = mockChain
+      }
  where
   parties = map (deriveParty . fst) seedKeys
-
-  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
   pushThread :: MonadSTM m => Async m () -> RunMonad m ()
   pushThread t = modify $ \s ->
     s{threads = t : threads s}
+
+-- | (Re-)create and start a single hydra node on the given event store,
+-- recovering its state from the store's events, and wait for it to be in sync
+-- with the chain. Shared by 'seedWorld' and 'performRestartNode'.
+startNode ::
+  ( MonadAsync m
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadDelay m
+  , MonadMask m
+  , MonadTime m
+  ) =>
+  Tracer m (HydraLog Tx) ->
+  SimulatedChainNetwork Tx m ->
+  ContestationPeriod ->
+  (EventStore (StateEvent Tx) m, m [StateEvent Tx]) ->
+  Secret (SigningKey HydraKey) ->
+  [Party] ->
+  RunMonad m (TestHydraClient Tx m, Async m ())
+startNode tr mockChain seedCP (eventStore, readEvents) hsk otherParties = lift $ do
+  outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
+  messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
+  outputHistory <- newLabelledTVarIO "seed-world-output-history" []
+  events <- readEvents
+  node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
+    createHydraNodeWithEventStore
+      eventStore
+      events
+      (contramap Node tr)
+      ledger
+      initialChainState
+      hsk
+      otherParties
+      outputs
+      messages
+      outputHistory
+      mockChain
+      seedCP
+      testDepositPeriod
+  nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
+  link nodeThread
+  -- await for the node to be in sync with the chain before returning the client
+  atomically $ do
+    st <- queryNodeState
+    case st of
+      NodeInSync{} -> pure ()
+      _ -> retry
+  let testClient = createTestHydraClient outputs messages outputHistory node
+  pure (testClient, nodeThread)
+ where
+  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) =>
@@ -717,10 +811,20 @@ waitForReadyToFanout node = do
  where
   waitAndRetry = lift (threadDelay 0.1) >> waitForReadyToFanout node
 
-sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
+sendsInput :: forall m. (MonadSTM m, MonadThrow m, MonadDelay m) => Party -> ClientInput Tx -> RunMonad m ()
 sendsInput party command = do
   actorNode <- getActorNode party
+  -- A node rejects client inputs while catching up (e.g. right after a
+  -- rollback, until the next block restores its view). A real client sees
+  -- 'RejectedInputBecauseUnsynced' and retries; we wait for sync upfront.
+  waitForInSync actorNode
   lift $ actorNode `send` command
+ where
+  waitForInSync :: TestHydraClient Tx m -> RunMonad m ()
+  waitForInSync node =
+    lift (queryState node) >>= \case
+      NodeInSync{} -> pure ()
+      _ -> lift (threadDelay 1) >> waitForInSync node
 
 getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
 getActorNode party = do
@@ -729,7 +833,7 @@ getActorNode party = do
     Nothing -> throwIO $ UnexpectedParty party
     Just actorNode -> pure actorNode
 
-performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
+performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
 performInit party = do
   party `sendsInput` Input.Init
   nodes <- gets nodes
@@ -737,16 +841,49 @@ performInit party = do
     HeadIsOpen{headId} -> Just headId
     _ -> Nothing
 
-performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
+performClose :: forall m. (MonadThrow m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performClose party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForOpen thisNode
-  party `sendsInput` Input.Close
-
-  lift . waitUntilMatch (elems nodes) $ \case
-    HeadIsClosed{} -> Just ()
-    _ -> Nothing
+  -- A close posted while a settlement race is unresolved (e.g. the increment
+  -- was observed on chain but its snapshot has not confirmed locally yet)
+  -- fails on-chain and nothing in the node re-posts it: like a real client,
+  -- retry until the head is closed. Success is detected by polling every
+  -- node's head state for 'Closed' (not by matching a 'HeadIsClosed' server
+  -- output, which 'waitUntilMatch' would consume — so a retry would then wait
+  -- for a second one that never comes). Only (re-)send Close while this node's
+  -- head is still open: once a close has landed, a slow (e.g. just-restarted)
+  -- peer may still be catching up, and re-sending would yield a spurious
+  -- CommandFailed on the already-closed head.
+  let isClosed :: NodeState Tx -> Bool
+      isClosed st' = case headState st' of
+        HeadLogic.Closed{} -> True
+        _ -> False
+  let allClosed = lift $ all isClosed <$> mapM queryState (elems nodes)
+  let closeWithRetry :: Int -> RunMonad m ()
+      closeWithRetry n
+        | n <= 0 = failure "performClose: head not closed after retries"
+        | otherwise = do
+            thisClosed <- lift $ not . isOpen <$> queryState thisNode
+            unless thisClosed $ party `sendsInput` Input.Close
+            -- Poll for all nodes closed, giving the chain time to observe it.
+            let pollFor :: Int -> RunMonad m Bool
+                pollFor k
+                  | k <= 0 = pure False
+                  | otherwise =
+                      allClosed >>= \case
+                        True -> pure True
+                        False -> lift (threadDelay 1) >> pollFor (k - 1)
+            pollFor 60 >>= \case
+              True -> pure ()
+              False -> closeWithRetry (n - 1)
+  closeWithRetry 10
+ where
+  isOpen :: NodeState Tx -> Bool
+  isOpen st' = case headState st' of
+    HeadLogic.Open{} -> True
+    _ -> False
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
@@ -792,6 +929,52 @@ performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad
 performRollbackAndForward numberOfBlocks = do
   SimulatedChainNetwork{rollbackAndForward} <- gets chain
   lift $ rollbackAndForward numberOfBlocks
+
+performRollbackAndFork :: (MonadThrow m, MonadTimer m) => Natural -> Bool -> RunMonad m ()
+performRollbackAndFork numberOfBlocks requeueErased = do
+  SimulatedChainNetwork{rollbackAndFork} <- gets chain
+  lift $ rollbackAndFork numberOfBlocks requeueErased
+
+-- | Crash a node (cancelling its main thread, so any in-flight inputs and
+-- in-memory-only state are lost) and start it again from its own event store,
+-- re-syncing the chain from genesis. Models a node operator restart /
+-- fail-recovery under load: the head must stay live through it.
+performRestartNode ::
+  ( MonadAsync m
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadMask m
+  , MonadDelay m
+  , MonadTime m
+  ) =>
+  WorldState ->
+  Party ->
+  RunMonad m ()
+performRestartNode st party = do
+  tr <- gets logger
+  mockChain <- gets chain
+  stores <- gets eventStores
+  threadsByParty <- gets nodeThreads
+  case (Map.lookup party stores, Map.lookup party threadsByParty, findHsk) of
+    (Just eventStore, Just oldThread, Just hsk) -> do
+      -- Crash the node: cancel the main thread; the event store survives.
+      lift $ cancel oldThread
+      let otherParties = filter (/= party) allParties
+      (testClient, newThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
+      modify $ \n ->
+        n
+          { nodes = Map.insert party testClient (nodes n)
+          , nodeThreads = Map.insert party newThread (nodeThreads n)
+          , threads = newThread : threads n
+          }
+    _ -> pure ()
+ where
+  WorldState{hydraParties} = st
+  allParties = deriveParty . fst <$> hydraParties
+  findHsk = fst <$> find ((== party) . deriveParty . fst) hydraParties
+  seedCP = case hydraState st of
+    Open{headParameters = HeadParameters{contestationPeriod}} -> contestationPeriod
+    _ -> defaultContestationPeriod
 
 stopTheWorld :: MonadAsync m => RunMonad m ()
 stopTheWorld =
