@@ -210,6 +210,18 @@ mockChainAndNetwork tr seedKeys = do
             localChainState
     node <- connect mockChain (createMockNetwork draftNode networkHistory nodes) mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
+    -- Advance this party's consumer offset as a message reaches the node, so a
+    -- later reconnect resumes from exactly here (see the network-log replay).
+    let bumpOffset :: STM m ()
+        bumpOffset = modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+        -- A fresh random delay in [0, maxNetworkLatency), via Knuth's MMIX LCG
+        -- (deterministic, dependency-free).
+        nextLatency :: STM m DiffTime
+        nextLatency = do
+          seed <- readTVar latencySeed
+          let seed' = seed * 6364136223846793005 + 1442695040888963407
+          writeTVar latencySeed seed'
+          pure $ fromIntegral (seed' `mod` truncate (maxNetworkLatency * 1_000_000)) / 1_000_000
     -- Deliver network messages from this node's mailbox with a random
     -- per-message latency, preserving per-node order; see 'createMockNetwork'.
     -- Latencies overlap (each message is due at its own arrival + latency, and
@@ -219,18 +231,11 @@ mockChainAndNetwork tr seedKeys = do
     deliveryThread <- asyncLabelled "mock-network-delivery" $
       forever $ do
         (arrival, sender, msg) <- atomically $ readTQueue mailbox
-        latency <- atomically $ do
-          seed <- readTVar latencySeed
-          -- Knuth's MMIX LCG: deterministic, dependency-free randomness.
-          let seed' = seed * 6364136223846793005 + 1442695040888963407
-          writeTVar latencySeed seed'
-          pure $ fromIntegral (seed' `mod` truncate (maxNetworkLatency * 1_000_000)) / 1_000_000
+        latency <- atomically nextLatency
         now <- getCurrentTime
-        let remaining = realToFrac $ addUTCTime (realToFrac (latency :: DiffTime)) arrival `diffUTCTime` now
+        let remaining = realToFrac $ addUTCTime (realToFrac latency) arrival `diffUTCTime` now
         when (remaining > 0) $ threadDelay remaining
-        -- Advance this party's consumer offset as the message reaches the node,
-        -- so a later reconnect resumes from exactly here (see 'connectNode').
-        atomically $ modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+        atomically bumpOffset
         enqueue (mkNetworkInput sender msg)
     link deliveryThread
     let mockNode =
@@ -260,12 +265,15 @@ mockChainAndNetwork tr seedKeys = do
     -- this is a no-op.
     let HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} = node'
     recoveredSlot <- currentSlot . chainPointTime <$> atomically queryNodeState
+    -- Blocks at or before the recovered slot only rebuild 'localChainState'
+    -- (bookkeeping); later blocks — missed while down — are re-observed, which
+    -- drives both head state and 'localChainState' via the handler.
+    let replayBlock :: (BlockHeader, [Tx], UTxO) -> m ()
+        replayBlock (header@(BlockHeader slotNo _ _), txs, blockUTxO)
+          | slotNo > fromChainSlot recoveredSlot = onRollForward (chainHandler mockNode) header txs
+          | otherwise = atomically $ pushNew localChainState ChainStateAt{spendableUTxO = blockUTxO, recordedAt = Just (getChainPoint header)}
     (_, replayPosition, replayBlocks, _) <- readTVarIO chain
-    let servedBlocks = toList $ Seq.take (fromIntegral replayPosition) replayBlocks
-    forM_ servedBlocks $ \(header@(BlockHeader slotNo _ _), txs, blockUTxO) ->
-      if slotNo > fromChainSlot recoveredSlot
-        then onRollForward (chainHandler mockNode) header txs
-        else atomically $ pushNew localChainState ChainStateAt{spendableUTxO = blockUTxO, recordedAt = Just (getChainPoint header)}
+    forM_ (Seq.take (fromIntegral replayPosition) replayBlocks) replayBlock
     -- Register (replacing a previous incarnation of this party's node) and
     -- snapshot the network log in one atomic step, so the log partitions
     -- cleanly: messages already logged are replayed below, later ones reach
@@ -283,11 +291,12 @@ mockChainAndNetwork tr seedKeys = do
     -- A first connection has offset 0 and an empty log, so replays nothing.
     let DraftHydraNode{inputQueue = InputQueue{enqueue = enqueueOwn}} = draftNode
     forM_ (drop ownOffset pastMessages) $ \(msgSender, msg) -> do
-      atomically $ modifyTVar consumerOffsets (Map.insertWith (+) ownParty 1)
+      atomically bumpOffset
       enqueueOwn $ mkNetworkInput msgSender msg
+    -- Re-observe blocks produced during the reconnect above (all past the
+    -- recovered slot, so 'replayBlock' re-observes them).
     (_, caughtUpPosition, caughtUpBlocks, _) <- readTVarIO chain
-    forM_ (Seq.take (fromIntegral caughtUpPosition - fromIntegral replayPosition) $ Seq.drop (fromIntegral replayPosition) caughtUpBlocks) $ \(header, txs, _) ->
-      onRollForward (chainHandler mockNode) header txs
+    forM_ (Seq.take (fromIntegral caughtUpPosition - fromIntegral replayPosition) $ Seq.drop (fromIntegral replayPosition) caughtUpBlocks) replayBlock
     pure node'
 
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
