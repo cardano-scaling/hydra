@@ -1206,6 +1206,12 @@ waitUntilMatch nodes predicate = do
  where
   go seenOutputs (nid, n) =
     raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
+      -- A rejected increment/decrement submission is deliberate protocol noise:
+      -- settlements are re-posted after rollbacks erring towards posting (see
+      -- 'maybeRepostIncrementTx') and a re-post can race a re-landed original.
+      -- Keep waiting instead of failing the whole wait on it.
+      Left PostTxOnChainFailed{postChainTx = IncrementTx{}} -> go seenOutputs (nid, n)
+      Left PostTxOnChainFailed{postChainTx = DecrementTx{}} -> go seenOutputs (nid, n)
       Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
       Right out -> do
         atomically (modifyTVar' seenOutputs ((nid, out) :))
@@ -1241,6 +1247,12 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   { connectNode :: DraftHydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
+  , rollbackAndFork :: Natural -> Bool -> m ()
+  -- ^ Rollback the given number of blocks and continue on a divergent fork:
+  -- the rolled-back blocks are dropped instead of re-served. The 'Bool' says
+  -- whether their transactions are re-submitted (mempool re-inclusion on a
+  -- real chain switch); without it, only transactions (re-)posted by the
+  -- nodes make it onto the new chain.
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
   , closeWithInitialSnapshot :: Party -> m ()
   , getChainHistory :: m [ChainEvent tx]
@@ -1252,6 +1264,7 @@ dummySimulatedChainNetwork =
     { connectNode = error "connectNode"
     , tickThread = error "tickThread"
     , rollbackAndForward = error "rollbackAndForward"
+    , rollbackAndFork = error "rollbackAndFork"
     , simulateDeposit = error "simulateDeposit"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     , getChainHistory = error "getChainHistory"
@@ -1325,6 +1338,7 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
           pure node
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
+      , rollbackAndFork = \_ _ -> error "rollbackAndFork not implemented for simulatedChainAndNetwork"
       , simulateDeposit = \headId toDeposit deadline -> do
           created <- getCurrentTime
           depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
