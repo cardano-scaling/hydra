@@ -20,7 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (async, cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Control.Tracer.JSON (Tracer)
-import Data.EventSource (mkEventSink)
+import Data.EventSource (getEventId, mkEventSink, putEventsToSinks)
 import Data.EventSource.Rotation (EventStore (..))
 import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
@@ -36,7 +36,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory, aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger)
@@ -1212,6 +1212,10 @@ waitUntilMatch nodes predicate = do
       -- Keep waiting instead of failing the whole wait on it.
       Left PostTxOnChainFailed{postChainTx = IncrementTx{}} -> go seenOutputs (nid, n)
       Left PostTxOnChainFailed{postChainTx = DecrementTx{}} -> go seenOutputs (nid, n)
+      -- A close can race an unresolved settlement (e.g. increment observed
+      -- while the snapshot has not confirmed locally yet) and fail on-chain;
+      -- clients retry it (see the model's 'performClose'). Keep waiting.
+      Left PostTxOnChainFailed{postChainTx = CloseTx{}} -> go seenOutputs (nid, n)
       Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
       Right out -> do
         atomically (modifyTVar' seenOutputs ((nid, out) :))
@@ -1580,7 +1584,32 @@ createHydraNode ::
   DepositPeriod ->
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
-  EventStore{eventSource, eventSink} <- createMockEventStore
+  eventStore <- createMockEventStore
+  createHydraNodeWithEventStore eventStore [] tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp
+
+-- | Like 'createHydraNode', but on a caller-owned event store whose existing
+-- events are passed explicitly (the 'EventSource' conduit needs
+-- 'MonadUnliftIO', which IOSim does not provide): they are re-aggregated into
+-- the initial node state, so creating a node on the store and events of a
+-- stopped one recovers its state like fail-recovery would (no events yields
+-- the initial state).
+createHydraNodeWithEventStore ::
+  (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) =>
+  EventStore (StateEvent tx) m ->
+  [StateEvent tx] ->
+  Tracer m (HydraNodeLog tx) ->
+  Ledger tx ->
+  ChainStateType tx ->
+  Secret (SigningKey HydraKey) ->
+  [Party] ->
+  TQueue m (ServerOutput tx) ->
+  TQueue m (ClientMessage tx) ->
+  TVar m [ServerOutput tx] ->
+  SimulatedChainNetwork tx m ->
+  ContestationPeriod ->
+  DepositPeriod ->
+  m (HydraNode tx m)
+createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
   seenSnapshotVar <- newTVarIO Nothing
   let apiSink =
         mkEventSink
@@ -1593,10 +1622,16 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
                   writeTQueue outputs output
                   modifyTVar' outputHistory (output :)
           )
-  -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
-  let nodeState = initNodeState chainState
-  let chainStateHistory = initHistory chainState
-  nodeStateHandler <- createNodeStateHandler Nothing nodeState
+  -- NOTE: Not using 'hydrate' as it needs 'MonadUnliftIO' for the event source
+  -- conduit, which IOSim does not provide. Re-aggregate the given events by
+  -- folding them directly instead, and re-emit them to the API sink so the
+  -- server output history (e.g. HeadIsOpen) is available like after a real
+  -- fail-recovery.
+  putEventsToSinks [apiSink] events
+  let nodeState = foldl' (\s StateEvent{stateChanged} -> aggregateNodeState s stateChanged) (initNodeState chainState) events
+  let chainStateHistory = foldl' (\h StateEvent{stateChanged} -> aggregateChainStateHistory h stateChanged) (initHistory chainState) events
+  let lastEventId = getEventId <$> viaNonEmpty last events
+  nodeStateHandler <- createNodeStateHandler lastEventId nodeState
   inputQueue <- createInputQueue
   node <-
     connectNode
