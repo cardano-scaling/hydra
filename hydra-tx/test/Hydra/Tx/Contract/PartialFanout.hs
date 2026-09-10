@@ -329,6 +329,9 @@ data PartialFanoutMutation
   | -- | Partial fanout must NOT burn tokens (unlike full fanout)
     MutatePartialFanoutBurnTokens
   | MutatePartialFanoutOutputValue
+  | -- | Swap a distributed output for one of EQUAL value at another address, so
+    -- value conservation still holds and only membership can reject it.
+    MutatePartialFanoutSwapEqualValueOutput
   | -- | Steal Ada by reducing the continuing head output and adding a personal output
     MutatePartialFanoutStealAda
   | -- | Continuing FanoutProgressDatum must preserve headId, parties, contestationDeadline
@@ -362,6 +365,12 @@ genPartialFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [1 .. numDistributed] (drop 1 outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode PartialFanoutMembershipFailed) MutatePartialFanoutSwapEqualValueOutput <$> do
+        let outs = txOuts' tx
+            numDistributed = UTxO.size healthyDistributeUTxO
+        (ix, out) <- elements (zip [1 .. numDistributed] (drop 1 outs))
+        address' <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutAddress (const address') out)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutatePartialFanoutStealAda <$> do
         let headOut = fromJust $ txOuts' tx !!? 0
         stolenValue <- extractAdaFromValue (txOutValue headOut)

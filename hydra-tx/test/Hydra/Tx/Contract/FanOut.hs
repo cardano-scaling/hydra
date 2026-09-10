@@ -33,7 +33,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.Hydra.Tx.Utils (adaOnly, splitUTxO)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
@@ -212,6 +212,9 @@ data FanoutMutation
     MutateThreadTokenQuantity
   | MutateAddUnexpectedOutput
   | MutateFanoutOutputValue
+  | -- | Swap a distributed output for one of EQUAL value at another address.
+    -- Value conservation still holds, so only membership can reject it.
+    MutateFanoutSwapEqualValueOutput
   | MutateDecommitOutputValue
   | -- | Inject an unrelated v_deposit input into a healthy Fanout.
     FanoutAbsorbForeignDeposit
@@ -259,6 +262,11 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] (drop noOfUtxoToOutputs outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutSwapEqualValueOutput <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (zip [0 .. UTxO.size healthyFanoutUTxO - 1] outs)
+        address' <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutAddress (const address') out)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateHeadAdaOverhead <$> do
         -- Changing headAdaOverhead in the input datum shifts the expected conservation
         -- baseline, so the on-chain headInValue == outputs + overhead check fails.

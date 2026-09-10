@@ -27,7 +27,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (fanoutChunkSize, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, replaceHeadAdaOverhead)
 import Test.Hydra.Tx.Utils (adaOnly)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
@@ -122,6 +122,9 @@ data FinalPartialFanoutMutation
     MutateFinalPartialFanoutBurnTokens
   | -- | Changing an output value breaks the membership proof
     MutateFinalPartialFanoutOutputValue
+  | -- | Swap a distributed output for one of EQUAL value at another address, so
+    -- value conservation still holds and only membership can reject it.
+    MutateFinalPartialFanoutSwapEqualValueOutput
   | -- | Replacing the input datum's accumulator commitment invalidates the KZG membership proof
     MutateFinalPartialFanoutWrongAccumulator
   | -- | Claiming fewer outputs in the redeemer than are actually in the tx
@@ -160,6 +163,11 @@ genFinalPartialFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [0 :: Int ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutSwapEqualValueOutput <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (zip [0 .. UTxO.size healthyDistributeUTxO - 1] outs)
+        address' <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutAddress (const address') out)
     , -- Replacing the input datum commitment with an empty accumulator invalidates the proof
       pure $
         SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutWrongAccumulator $
