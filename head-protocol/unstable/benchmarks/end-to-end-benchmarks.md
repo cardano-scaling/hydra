@@ -13,7 +13,7 @@ Please note that these results are approximate  as they are currently produced f
 
 :::
 
-_Generated at_  2026-09-08 09:00:03.286156674 UTC
+_Generated at_  2026-09-10 13:17:47.412413116 UTC
 
 
 ## Baseline Scenario
@@ -24,17 +24,17 @@ _Generated at_  2026-09-08 09:00:03.286156674 UTC
 | -- | -- |
 | _Number of txs_ | 300 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 170.6 |
-| _P99_ | 180.2ms |
-| _P95_ | 180.0ms |
-| _P50_ | 164.9ms |
-| _Tx validation time p50 (ms)_ | 96.4 |
-| _End-to-end TPS_ | 1639.72 tx/s |
+| _Avg. Confirmation Time (ms)_ | 221.0 |
+| _P99_ | 223.4ms |
+| _P95_ | 223.1ms |
+| _P50_ | 221.7ms |
+| _Tx validation time p50 (ms)_ | 136.0 |
+| _End-to-end TPS_ | 1314.50 tx/s |
 | _Backlog drain time (s)_ | 0.2 |
 | _Snapshots observed_ | 3 |
-| _Snapshots per second_ | 16.40 /s |
+| _Snapshots per second_ | 13.15 /s |
 | _Avg txs per snapshot_ | 100.0 |
-| _Peak node RSS (MB)_ | 129.3 |
+| _Peak node RSS (MB)_ | 142.4 |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 2 |
       
@@ -47,17 +47,17 @@ _Generated at_  2026-09-08 09:00:03.286156674 UTC
 | -- | -- |
 | _Number of txs_ | 900 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 999.7 |
-| _P99_ | 1093.2ms |
-| _P95_ | 1092.8ms |
-| _P50_ | 1075.7ms |
-| _Tx validation time p50 (ms)_ | 470.4 |
-| _End-to-end TPS_ | 816.64 tx/s |
+| _Avg. Confirmation Time (ms)_ | 1046.9 |
+| _P99_ | 1072.7ms |
+| _P95_ | 1072.3ms |
+| _P50_ | 1046.0ms |
+| _Tx validation time p50 (ms)_ | 549.2 |
+| _End-to-end TPS_ | 820.56 tx/s |
 | _Backlog drain time (s)_ | 1.1 |
 | _Snapshots observed_ | 3 |
-| _Snapshots per second_ | 2.72 /s |
+| _Snapshots per second_ | 2.74 /s |
 | _Avg txs per snapshot_ | 300.0 |
-| _Peak node RSS (MB)_ | 144.9 |
+| _Peak node RSS (MB)_ | 145.8 |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 4 |
       
@@ -70,17 +70,17 @@ Each client splits its funds into 1000 outputs (1-in 10-out), then holds that pl
 | -- | -- |
 | _Number of txs_ | 600 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 697.8 |
-| _P99_ | 880.9ms |
-| _P95_ | 880.0ms |
-| _P50_ | 765.0ms |
-| _Tx validation time p50 (ms)_ | 232.3 |
-| _End-to-end TPS_ | 674.48 tx/s |
-| _Backlog drain time (s)_ | 0.9 |
-| _Snapshots observed_ | 4 |
-| _Snapshots per second_ | 4.50 /s |
-| _Avg txs per snapshot_ | 150.0 |
-| _Peak node RSS (MB)_ | 151.8 |
+| _Avg. Confirmation Time (ms)_ | 938.7 |
+| _P99_ | 1047.7ms |
+| _P95_ | 1047.2ms |
+| _P50_ | 1042.6ms |
+| _Tx validation time p50 (ms)_ | 296.9 |
+| _End-to-end TPS_ | 567.41 tx/s |
+| _Backlog drain time (s)_ | 1.0 |
+| _Snapshots observed_ | 3 |
+| _Snapshots per second_ | 2.84 /s |
+| _Avg txs per snapshot_ | 200.0 |
+| _Peak node RSS (MB)_ | 149.0 |
 | _Number of Invalid txs_ | 0 |
 | _Fanout outputs_        | 1000 |
       
