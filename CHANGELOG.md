@@ -81,6 +81,32 @@ changes.
   a result.
   [#2850](https://github.com/cardano-scaling/hydra/pull/2850)
 
+- Fixed deposits not being re-posted when a chain rollback erases an increment
+  that was already finalized (`CommitFinalized`), which previously lost the
+  deposit and could strand its funds
+  [#2741](https://github.com/cardano-scaling/hydra/issues/2741). The node now
+  tracks each deposit with its L1 lifecycle slots and rewinds that view on
+  rollback, retains the signed snapshot that authorized a settled increment or
+  decrement, and re-posts the settling transaction when a rollback erases it.
+  A deposit whose finalized increment was rolled back can neither be recovered
+  nor proposed for a new snapshot — re-posting the increment is the only way it
+  settles.
+  * Persisted state (`hydra.db`) from earlier versions still replays: the CBOR
+    codecs keep decoders for the `NodeState` and `CoordinatedHeadState` layouts
+    written before the new fields existed. Increments or decrements finalized
+    before the upgrade have no retained snapshot, so rollback re-posting is
+    unavailable for them, as it was before the upgrade.
+  * On the API, `NodeState` now serializes deposits with their lifecycle
+    slots (a `deposits` field replaces `pendingDeposits`) and
+    `CoordinatedHeadState` gains `finalizedCommit` and `finalizedDecommit`.
+  * `GET /deposits` now reflects rollbacks: it is served from the node state
+    (which rewinds its deposit view on rollback) instead of a projection that
+    only tracked deposit lifecycle events.
+  * Once the head is closed, recovering such a deposit is allowed again: the
+    retained snapshot can no longer settle it into the (closed) head, so
+    recover plus a partial fanout excluding the deposited outputs is the
+    escape hatch.
+
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their
   language views hashed even when nothing runs, so the ledger rejected such

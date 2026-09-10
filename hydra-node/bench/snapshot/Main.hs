@@ -91,12 +91,14 @@ benchCell n m = do
                         , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
+                        , finalizedCommit = Nothing
+                        , finalizedDecommit = Nothing
                         }
                   , chainState = initialChainState
                   , headId = testHeadId
                   , headSeed = testHeadSeed
                   }
-          , pendingDeposits = mempty
+          , deposits = mempty
           , chainPointTime =
               ChainPointTime
                 { currentSlot = ChainSlot 1

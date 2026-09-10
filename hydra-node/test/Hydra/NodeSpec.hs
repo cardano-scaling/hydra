@@ -12,12 +12,13 @@ import Control.Tracer.JSON (Tracer, showLogsOnFailure, traceInTVar)
 import Control.Tracer.JSON qualified as Logging
 import Data.EventSource (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Data.EventSource.Rotation (EventStore (..), LogId)
+import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -37,7 +38,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -48,6 +49,7 @@ import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
+import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -60,11 +62,60 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
+  describe "deposit lifecycle tracking" $ do
+    let s0 = initNodeState 0 :: NodeState SimpleTx
+        record slot i = recordDeposit (ChainSlot slot) i (testDeposit i)
+
+    it "a consumed deposit is no longer pending" $ do
+      let s1 = record 1 1 s0
+      pendingDeposits s1 `shouldBe` Map.singleton 1 (testDeposit 1)
+      pendingDeposits (consumeDeposit (ChainSlot 2) 1 s1) `shouldBe` mempty
+
+    it "rollbackDeposits drops deposits recorded after the rolled back slot" $ do
+      let s1 = record 5 1 s0
+      pendingDeposits (rollbackDeposits (ChainSlot 4) s1) `shouldBe` mempty
+      -- The rollback point is the last common block: a deposit recorded AT the
+      -- rolled back slot is still on chain.
+      pendingDeposits (rollbackDeposits (ChainSlot 5) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
+
+    it "rollbackDeposits resurfaces deposits consumed after the rolled back slot" $ do
+      let s1 = consumeDeposit (ChainSlot 10) 1 (record 1 1 s0)
+      pendingDeposits (rollbackDeposits (ChainSlot 9) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
+      -- A consumption AT the rolled back slot is still on chain.
+      pendingDeposits (rollbackDeposits (ChainSlot 10) s1) `shouldBe` mempty
+
+    -- Consumed deposits beyond 'depositRetentionHorizon' can never be
+    -- resurfaced by a rollback (no real chain rolls back that deep), so they
+    -- are pruned to bound the persisted state; unconsumed deposits stay
+    -- recoverable indefinitely.
+    it "prunes consumed deposits beyond the retention horizon, keeping unconsumed ones" $ do
+      let ChainSlot horizon = depositRetentionHorizon
+          s1 =
+            record (horizon + 100) 3
+              . consumeDeposit (ChainSlot 2) 1
+              . record 1 2
+              . record 1 1
+              $ s0
+      Map.keys (deposits s1) `shouldBe` [2, 3]
+
+    it "a rollback deeper than the horizon cannot resurface a pruned deposit" $ do
+      let ChainSlot horizon = depositRetentionHorizon
+          s1 =
+            record (horizon + 100) 2
+              . consumeDeposit (ChainSlot 3) 1
+              . record 1 1
+              $ s0
+      -- Deposit 1's consumption is beyond the horizon by the time deposit 2 is
+      -- recorded, so it was pruned: a rollback reaching before its consumption
+      -- slot yields a missing deposit (which converges by re-observing its
+      -- deposit transaction), never a stale one.
+      pendingDeposits (rollbackDeposits (ChainSlot 2) s1) `shouldBe` mempty
   -- Set up a hydrate function with fixtures curried
   let setupHydrate ::
         ( ( EventStore (StateEvent SimpleTx) IO ->
@@ -603,3 +654,15 @@ throwExceptionOnPostTx exception node =
             , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"
             }
       }
+
+-- | A minimal deposit for exercising the 'DepositHistory' functions; the
+-- 'Integer' distinguishes deposits by their deposited UTxO.
+testDeposit :: Integer -> Deposit SimpleTx
+testDeposit i =
+  Deposit
+    { headId = testHeadId
+    , deposited = utxoRefs [i]
+    , created = initialChainTime
+    , deadline = initialChainTime
+    , status = Active
+    }

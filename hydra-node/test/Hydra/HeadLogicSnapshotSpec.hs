@@ -65,6 +65,8 @@ spec = do
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
+            , finalizedCommit = Nothing
+            , finalizedDecommit = Nothing
             }
     let sendReqSn :: Effect tx -> Bool
         sendReqSn = \case
@@ -234,6 +236,8 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version
+        , finalizedCommit = Nothing
+        , finalizedDecommit = Nothing
         }
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
