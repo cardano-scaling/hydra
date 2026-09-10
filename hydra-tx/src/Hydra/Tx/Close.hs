@@ -105,27 +105,28 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
             decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
             commitHash = toBuiltin $ commitOutputsHash snapshot
             sig = toPlutusSignatures signatures
-         in case incrementalAction of
-              NoThing ->
-                Head.CloseAny{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
-              _ ->
-                if version == openVersion
-                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
-                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+         in if pendingActionApplied
+              then
+                Head.CloseUsed{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+              else case incrementalAction of
+                NoThing ->
+                  Head.CloseAny{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+                _ ->
+                  Head.CloseUnused{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, appliedAccumulator, version} = getSnapshot confirmedSnapshot
 
-  -- Whether the snapshot's pending increment/decrement has already been applied
-  -- on chain. This decides both which UTxO the head still holds and which of the
-  -- two signed accumulators the closed datum must commit to (the validator
-  -- enforces the latter by redeemer kind, see 'Hydra.Contract.Head.checkClose').
+  -- Whether the snapshot's pending L1 tx (increment or decrement) has happened.
+  -- This decides both what the head holds and which of the two signed
+  -- accumulators the closed datum must commit to (the validator enforces the
+  -- latter by redeemer kind, see 'Hydra.Contract.Head.checkClose').
   pendingActionApplied = version /= openVersion
 
-  -- The UTxO the head still owes at close time: a pending decommit is inside
-  -- until its decrement lands, a pending commit only once its increment landed.
+  -- What the head holds at close time: a pending decommit is inside until its
+  -- decrement happened, a pending commit only once its increment happened.
   utxoInHead
     | pendingActionApplied = utxo <> fold utxoToCommit
     | otherwise = utxo <> fold utxoToDecommit

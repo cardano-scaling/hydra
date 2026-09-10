@@ -59,7 +59,7 @@ import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, 
 import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
-import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
+import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedNoPendingTx, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUsedMutation, healthyContestUsedTx)
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
@@ -207,6 +207,8 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+    prop "closes a stale snapshot with nothing pending as CloseUsed" $
+      propTransactionEvaluates healthyCloseOutdatedNoPendingTx
   describe "CloseCommitUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCommitPendingTx

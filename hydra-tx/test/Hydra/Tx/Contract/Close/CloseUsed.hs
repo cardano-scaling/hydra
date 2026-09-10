@@ -19,11 +19,11 @@ import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   ConfirmedSnapshot,
+  ScriptRegistry,
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
   commitOutputsHash,
-  getSnapshot,
   mkHeadId,
   registryUTxO,
   signatures,
@@ -148,8 +148,26 @@ healthyOutdatedCommitOutputsHash =
   toBuiltin $ commitOutputsHash healthyOutdatedSnapshot
 
 healthyCloseOutdatedTx :: (Tx, UTxO)
-healthyCloseOutdatedTx =
-  (tx, lookupUTxO)
+healthyCloseOutdatedTx = mkCloseOutdatedTx healthyOutdatedSnapshot
+
+-- | Nothing pending, but another snapshot's action bumped the head version
+-- past this one. Must close as CloseUsed, not CloseAny.
+healthyCloseOutdatedNoPendingTx :: (Tx, UTxO)
+healthyCloseOutdatedNoPendingTx =
+  mkCloseOutdatedTx
+    healthyOutdatedSnapshot
+      { utxoToDecommit = Nothing
+      , accumulator = acc
+      , appliedAccumulator = acc
+      }
+ where
+  acc = Accumulator.buildFromUTxO @Tx healthySplitUTxOInHead
+
+-- | Close the outdated open head ('healthyOutdatedOpenDatum') with the given
+-- snapshot, deriving the incremental action from its pending commit/decommit.
+mkCloseOutdatedTx :: Snapshot Tx -> (Tx, UTxO)
+mkCloseOutdatedTx snapshot =
+  (tx, healthyOutdatedLookupUTxO)
  where
   tx =
     closeTx
@@ -157,36 +175,35 @@ healthyCloseOutdatedTx =
       somePartyCardanoVerificationKey
       (mkHeadId Fixture.testPolicyId)
       healthyOpenStateVersion
-      closeUsedSnapshot
+      (healthyConfirmedSnapshot snapshot)
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
-      openThreadOutput
+      healthyOutdatedOpenThreadOutput
       incrementalAction
-
-  closeUsedSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
 
   incrementalAction =
     fromMaybe NoThing $
-      setIncrementalActionMaybe (utxoToCommit $ getSnapshot closeUsedSnapshot) (utxoToDecommit $ getSnapshot closeUsedSnapshot)
+      setIncrementalActionMaybe (utxoToCommit snapshot) (utxoToDecommit snapshot)
 
-  lookupUTxO :: UTxO
-  lookupUTxO =
-    UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut datum)
-      <> registryUTxO scriptRegistry
+scriptRegistry :: ScriptRegistry
+scriptRegistry = genScriptRegistry `generateWith` 42
 
-  scriptRegistry = genScriptRegistry `generateWith` 42
+healthyOutdatedDatum :: TxOutDatum CtxUTxO
+healthyOutdatedDatum = mkTxOutDatumInline healthyOutdatedOpenDatum
 
-  datum :: TxOutDatum CtxUTxO
-  datum = mkTxOutDatumInline healthyOutdatedOpenDatum
+healthyOutdatedLookupUTxO :: UTxO
+healthyOutdatedLookupUTxO =
+  UTxO.singleton healthyOpenHeadTxIn (healthyOpenHeadTxOut healthyOutdatedDatum)
+    <> registryUTxO scriptRegistry
 
-  openThreadOutput :: OpenThreadOutput
-  openThreadOutput =
-    OpenThreadOutput
-      { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut datum)
-      , openParties = healthyOnChainParties
-      , openContestationPeriod = healthyContestationPeriod
-      , openDepositPeriod = DP.toChain Fixture.dperiod
-      }
+healthyOutdatedOpenThreadOutput :: OpenThreadOutput
+healthyOutdatedOpenThreadOutput =
+  OpenThreadOutput
+    { openThreadUTxO = (healthyOpenHeadTxIn, healthyOpenHeadTxOut healthyOutdatedDatum)
+    , openParties = healthyOnChainParties
+    , openContestationPeriod = healthyContestationPeriod
+    , openDepositPeriod = DP.toChain Fixture.dperiod
+    }
 
 data CloseMutation
   = -- | Ensures the close transaction's continuing output is paid to νHead.
@@ -350,7 +367,7 @@ genCloseOutdatedMutation (tx, _utxo) =
             [ ChangeOutput 0 (replacePolicyIdWith Fixture.testPolicyId otherHeadId headTxOut)
             , ChangeInput
                 healthyOpenHeadTxIn
-                (replacePolicyIdWith Fixture.testPolicyId otherHeadId $ healthyOpenHeadTxOut datum)
+                (replacePolicyIdWith Fixture.testPolicyId otherHeadId $ healthyOpenHeadTxOut healthyOutdatedDatum)
                 ( Just $
                     toScriptData
                       ( Head.Close
@@ -409,9 +426,6 @@ genCloseOutdatedMutation (tx, _utxo) =
     pure (SlotNo lowerValidityBound, SlotNo upperValidityBound, adjustedContestationDeadline)
 
   headTxOut = fromJust $ txOuts' tx !!? 0
-
-  datum :: TxOutDatum CtxUTxO
-  datum = mkTxOutDatumInline healthyOutdatedOpenDatum
 
 -- | Generate not acceptable, but interesting deadlines.
 genMutatedDeadline :: Gen POSIXTime
