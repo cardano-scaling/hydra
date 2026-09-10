@@ -278,9 +278,13 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
                    (HonestFacts.committed hf) (OC.headValue ctx)
 
-  -- contesting with a newer certified snapshot (the contestUnused redeemer;
-  -- contestUsed combines a pending delta into the stored accumulator and is
-  -- future work, as is closeUsed). Same jump-and-preserve pattern as close.
+  -- contesting with a newer certified snapshot (the contestUnused redeemer).
+  -- Same jump-and-preserve pattern as close. The contestUsed and closeUsed
+  -- redeemers are not covered: they store the snapshot's second signed
+  -- commitment (`η̂#`, over the owed set once the pending increment or
+  -- decrement has landed), which the reference validator binds in
+  -- `closeηOK`/`contestηOK` but which this relation does not yet track - see
+  -- the closing remarks of this section.
   s-contest : ∀ {ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
     → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
@@ -522,7 +526,13 @@ digest covering datum content alone, a copied-datum deposit holding less
 value is accepted under the real deposit's signature and leaves the head
 insolvent, while the id-binding digest rejects the same claim by identity -
 regression documentation the checker rebuilds on every build. Not yet
-covered here: the `closeUsed`/`contestUsed` redeemers (their stored
-accumulator combines a pending delta, needing a generalized commitment
-invariant), partial fanout, and deriving the per-step L2 value-preservation
-hypotheses from the off-chain ledger laws.
+covered here, and therefore not carried by this proof, are both halves of the
+GHSA-f825-9gwc-h5xq fix: the `closeUsed`/`contestUsed` redeemers, whose stored
+commitment is the snapshot's second signed accumulator over the owed set after
+the pending increment or decrement landed (a `SolventReach` step for them needs
+`HonestFacts` to carry that applied set and a value-preservation hypothesis for
+it), and the fan-out completeness conjunct (`FanoutIncomplete`,
+`FinalPartialFanoutIncomplete`), which the abstract accumulator laws cannot
+express since they only provide the existence of a witness, not its identity.
+Also outside the section: partial fanout, and deriving the per-step L2
+value-preservation hypotheses from the off-chain ledger laws.
