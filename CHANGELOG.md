@@ -10,6 +10,18 @@ changes.
 
 ## UNRELEASED
 
+- Fixed the hydra-node crashing on `Fanout` when the head contains tokens
+  minted on layer 2: constructing a partial fanout step subtracted the
+  distributed value from the head output, and tokens which never entered the
+  head output on layer 1 produced a negative quantity that tripped an assertion
+  in cardano-ledger, bringing the node down. The node now rejects such a step
+  while constructing it and reports `FailedToConstructPartialFanoutTx` to
+  clients; the head remains closed and such tokens still cannot be fanned out
+  (see [#2334](https://github.com/cardano-scaling/hydra/issues/2334)).
+  As a safety net, an assertion firing anywhere while constructing or posting a
+  transaction no longer crashes the node either, but is reported to clients as
+  a new `UnexpectedPostTxError` API type.
+
 - Speed up posting a partial fanout step: the chunk size search was bounded by
   the size of the set being distributed, so a 4000-output head built twelve
   candidate transactions per step, the first of them carrying over a thousand

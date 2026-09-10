@@ -72,7 +72,9 @@ import Hydra.Cluster.Scenarios (
   restartedNodeCanClose,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
+  singlePartyFansOutTokensMintedOnL1,
   singlePartyHeadFullLifeCycle,
+  singlePartyMintsTokensOnL2,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
   startWithWrongPeers,
@@ -291,6 +293,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             singlePartyUsesWithdrawZeroTrick tracer tmpDir
+      it "cannot fanout tokens minted on L2" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyMintsTokensOnL2 tracer tmpDir
+      it "can fanout tokens minted on L1 and deposited into the head" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyFansOutTokensMintedOnL1 tracer tmpDir
       it "can submit a signed user transaction" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $

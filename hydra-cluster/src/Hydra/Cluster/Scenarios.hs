@@ -106,11 +106,11 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_, seedManyFromFaucet)
+import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
 import Hydra.Cluster.Util (BlockTime, Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
-import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
+import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
@@ -140,6 +140,7 @@ import HydraNode (
   waitForNodesSynced,
   waitForSnapshotUTxO,
   waitMatch,
+  waitNoMatch,
   withConnectionToNode,
   withHydraCluster,
   withHydraNode,
@@ -847,6 +848,167 @@ singlePartyUsesScriptOnL2 tracer workDir opts hydraScriptsTxId =
             -- Assert final wallet balance
             (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
               `shouldReturn` lovelaceToValue commitAmount
+
+-- | Open a head, mint tokens on L2 using a dummy minting policy and observe
+-- what happens on fanout: the minted tokens exist on L2 but never entered the
+-- head output on L1, so no fanout transaction can distribute them and the head
+-- cannot be finalized (see
+-- https://github.com/cardano-scaling/hydra/issues/2334). The node reports this
+-- as a 'PostTxOnChainFailed' and keeps running.
+singlePartyMintsTokensOnL2 ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  ChainBackendOptions ->
+  [TxId] ->
+  IO ()
+singlePartyMintsTokensOnL2 tracer workDir opts hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer opts Alice
+        returnFundsToFaucet tracer opts AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer opts Alice 250_000_000
+      blockTime <- runBackend opts getBlockTime
+      let timing = mkTestTiming blockTime
+      aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+
+        (walletVk, walletSk) <- keysFor AliceFunds
+
+        -- Deposit some ada to pay for the minting transaction on L2
+        utxoToDeposit <- seedFromFaucet opts walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+        depositTx <- requestCommitTx n1 utxoToDeposit <&> signTx walletSk
+        runBackend opts $ submitTransaction depositTx
+        waitFor hydraTracer (depositTimeout timing) [n1] $
+          output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+
+        -- Mint a token on L2 using the dummy minting policy
+        pparams <- getProtocolParameters n1
+        networkId <- runBackend opts queryNetworkId
+        systemStart <- runBackend opts $ querySystemStart QueryTip
+        eraHistory <- runBackend opts $ queryEraHistory QueryTip
+        stakePools <- runBackend opts $ queryStakePools QueryTip
+
+        let walletAddress = mkVkAddress networkId walletVk
+        let mintedValue :: CAPI.Value
+            mintedValue =
+              fromList
+                [
+                  ( CAPI.AssetId (CAPI.scriptPolicyId (CAPI.PlutusScript dummyMintingScript)) (CAPI.UnsafeAssetName "L2Token")
+                  , CAPI.Quantity 1
+                  )
+                ]
+        -- NOTE: Deliberately not using 'mkTxOutAutoBalance' as it would
+        -- replace the value (and thereby the token) with the minimum ada
+        -- value.
+        let tokenOutput =
+              TxOut
+                walletAddress
+                (lovelaceToValue 5_000_000 <> mintedValue)
+                TxOutDatumNone
+                ReferenceScriptNone
+
+        signedMintTx <-
+          case buildTransactionWithPParams' pparams systemStart eraHistory stakePools walletAddress utxoToDeposit (toList $ UTxO.inputSet utxoToDeposit) [tokenOutput] (Just dummyMintingScript) of
+            Left e -> failure $ show e
+            Right tx -> pure $ signTx walletSk tx
+        send n1 $ input "NewTx" ["transaction" .= signedMintTx]
+        waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          guard $
+            toJSON signedMintTx
+              `elem` (v ^.. key "snapshot" . key "confirmed" . values)
+
+        -- Close the head and try to fan out
+        send n1 $ input "Close" []
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 10 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+
+        -- No fanout transaction can produce the minted tokens which the head
+        -- output does not hold, so constructing one fails.
+        postTxErrorTag <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "PostTxOnChainFailed"
+          v ^? key "postTxError" . key "tag" . _String
+        postTxErrorTag `shouldBe` "FailedToConstructPartialFanoutTx"
+
+        -- The head is not finalized and the node is still up, still serving
+        -- the L2 UTxO with the minted token.
+        waitNoMatch (10 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+        l2UTxO <- getSnapshotUTxO n1
+        UTxO.totalValue l2UTxO `shouldBe` lovelaceToValue 10_000_000 <> mintedValue
+
+-- | Mint tokens on L1 using a dummy minting policy, deposit them into an open
+-- head and fan out. Tokens which entered the head output on L1 are
+-- distributed by the fanout transaction like any other value.
+singlePartyFansOutTokensMintedOnL1 ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  ChainBackendOptions ->
+  [TxId] ->
+  IO ()
+singlePartyFansOutTokensMintedOnL1 tracer workDir opts hydraScriptsTxId =
+  ( `finally`
+      do
+        returnFundsToFaucet tracer opts Alice
+        returnFundsToFaucet tracer opts AliceFunds
+  )
+    $ do
+      refuelIfNeeded tracer opts Alice 250_000_000
+      blockTime <- runBackend opts getBlockTime
+      let timing = mkTestTiming blockTime
+      aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
+      let hydraNodeId = 1
+      let hydraTracer = contramap FromHydraNode tracer
+      withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] $ \n1 -> do
+        send n1 $ input "Init" []
+        headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+
+        (walletVk, walletSk) <- keysFor AliceFunds
+
+        -- Mint a token on L1 into the wallet
+        let walletValue =
+              lovelaceToValue 10_000_000
+                <> fromList
+                  [
+                    ( CAPI.AssetId (CAPI.scriptPolicyId (CAPI.PlutusScript dummyMintingScript)) (CAPI.UnsafeAssetName "L1Token")
+                    , CAPI.Quantity 1
+                    )
+                  ]
+        utxoToDeposit <- seedFromFaucetWithMinting opts walletVk walletValue (contramap FromFaucet tracer) (Just dummyMintingScript)
+
+        -- Deposit the tokens into the head
+        depositTx <- requestCommitTx n1 utxoToDeposit <&> signTx walletSk
+        runBackend opts $ submitTransaction depositTx
+        waitFor hydraTracer (depositTimeout timing) [n1] $
+          output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+        waitForSnapshotUTxO (depositTimeout timing) n1 utxoToDeposit
+
+        -- Close the head and fan out
+        send n1 $ input "Close" []
+        deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          v ^? key "contestationDeadline" . _JSON
+        remainingTime <- diffUTCTime deadline <$> getCurrentTime
+        waitFor hydraTracer (remainingTime + 10 * blockTime) [n1] $
+          output "ReadyToFanout" ["headId" .= headId]
+        send n1 $ input "Fanout" []
+        waitMatch (10 * blockTime) n1 $ \v ->
+          guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+        -- The tokens are back on L1 in the wallet
+        (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
+          `shouldReturn` walletValue
 
 -- | Open a head and run a script using 'Rewarding' script purpose and a zero
 -- lovelace withdrawal.
