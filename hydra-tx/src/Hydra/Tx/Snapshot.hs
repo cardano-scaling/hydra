@@ -80,8 +80,8 @@ data Snapshot tx = Snapshot
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator
-  -- ^ KZG accumulator of the UTxOs the head holds as long as the pending
-  -- increment/decrement of this snapshot has NOT happened on L1 yet:
+  -- ^ What the head holds if the pending L1 tx (increment or decrement) has
+  -- not happened:
   --
   -- > utxo <> utxoToDecommit
   --
@@ -90,8 +90,7 @@ data Snapshot tx = Snapshot
   -- when the head is still at this snapshot's 'version' (redeemers Any/Unused).
   -- Spec: A
   , appliedAccumulator :: Accumulator.HydraAccumulator
-  -- ^ KZG accumulator of the UTxOs the head holds once the pending
-  -- increment/decrement of this snapshot HAS happened on L1:
+  -- ^ What the head holds after the pending L1 tx happened:
   --
   -- > utxo <> utxoToCommit
   --
@@ -100,10 +99,9 @@ data Snapshot tx = Snapshot
   --
   -- Both are signed, because when the snapshot is signed nobody knows yet which
   -- of the two will be true at close time, and the closed head must commit to
-  -- exactly what it still holds so that fanout cannot pay out a UTxO twice.
-  -- With nothing pending both fields are the same value. Never transmitted,
-  -- always rebuilt from the UTxO sets, see
-  -- 'Hydra.Tx.Accumulator.buildFromSnapshotUTxOs'.
+  -- exactly what it holds so that fanout cannot pay out a UTxO twice. With
+  -- nothing pending both fields are the same value. Never transmitted, always
+  -- rebuilt from the UTxO sets, see 'Hydra.Tx.Accumulator.buildFromSnapshotUTxOs'.
   }
   deriving stock (Generic)
 

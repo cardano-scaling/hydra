@@ -61,7 +61,7 @@ import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyClo
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
-import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUsedMutation, healthyContestUsedTx)
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
@@ -228,11 +228,16 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
-  describe "ContestUsed" $ do
+  describe "ContestDecommit (pending, ContestUnused)" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestDecMutation
+  describe "ContestUsed (decommit paid out before close)" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyContestUsedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyContestUsedTx genContestUsedMutation
   describe "ContestCommit" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestIncTx
