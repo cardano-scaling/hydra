@@ -117,7 +117,7 @@ buildFromUTxO utxo =
 -- commit, and decommit — and delegates to 'buildFromUTxO' on the merged set.
 -- Merging via UTxO union keeps the same canonical TxIn-sorted element order
 -- used by every other accumulator call site ('computeFullFanoutUTxO',
--- 'partialFanout' staleness check, 'emitNextFanoutStep'), so the commitment
+-- 'partialFanout' staleness check, 'nextFanoutStep'), so the commitment
 -- stored in the snapshot and all downstream proofs are built from the same
 -- element set by construction.
 --

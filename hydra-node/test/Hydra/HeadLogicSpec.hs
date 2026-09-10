@@ -2255,6 +2255,73 @@ spec =
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
           _ -> False
+        -- The final step emits no state change of its own, so the selection has
+        -- to be recorded here: without it a rollback or restart before the
+        -- transaction lands leaves the driver with nothing to resume from.
+        outcome `hasStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{selection} -> selection == remaining
+          _ -> False
+
+      -- Regression for #2855. With nothing distributed the on-chain datum is
+      -- still 'Closed', so a selection covering the whole remainder cannot go
+      -- out as a final step - and as a non-final one it empties the head, which
+      -- only 'mustNotBeLastBatch' would stop, and a non-empty pre-settled set
+      -- keeps that check happy. The head is then unfinalizable (a zero-output
+      -- final fanout is rejected) and unrevertable. Selecting everything means a
+      -- full fanout, so it is routed there instead.
+      it "client partial fanout selecting everything before any chunk landed posts a full fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            -- The state a first selection leaves behind: a subset is being
+            -- distributed and nothing has landed, so the datum is still Closed.
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 1)))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        -- Neither step is valid against a Closed datum covering everything: the
+        -- non-final one empties the head, the final one cannot be posted yet.
+        outcome `hasNoEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+        -- No selection mode is recorded for a selection that is not distributed
+        -- as one: 'HeadFanoutInitiated' would override it immediately.
+        outcome `hasNoStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{} -> True
+          _ -> False
+        -- Draining is now automatic, as it is for a plain 'Fanout'.
+        case headState (aggregateState st outcome) of
+          FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
+          other -> failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
+
+      -- The same wedging step is reachable without any client input: a node that
+      -- persisted a whole-remainder selection before the guard existed
+      -- reconstructs 'DistributingSelection' verbatim on replay, and a rollback
+      -- re-posts it. Deciding in 'nextFanoutStep' rather than the client
+      -- handler is what covers this.
+      it "rollback re-post of a whole-remainder selection before any chunk landed posts a full fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection remaining)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now})
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        outcome `hasNoEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+
+      it "client partial fanout selecting a strict subset before any chunk landed still posts a partial fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            selection = Set.fromList [SimpleTxOut 1]
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 2)))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
+          _ -> False
 
       it "an awaiting (observer) node can drive the next step with its own PartialFanout" $ do
         -- A node that only observed someone else's partial fanout sits in
@@ -2312,6 +2379,11 @@ spec =
         let outcome = update bobEnv ledger now st (ClientInput (PartialFanout fullUTxO))
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        -- And records no selection mode, which 'HeadFanoutInitiated' would
+        -- override immediately.
+        outcome `hasNoStateChangedSatisfying` \case
+          HeadPartialFanoutSelected{} -> True
           _ -> False
 
       it "Fanout is rejected once a partial fanout is in progress (sticky)" $ do
@@ -2400,6 +2472,67 @@ spec =
         case headState (aggregateState st1 failed) of
           Closed{} -> pure ()
           other -> failure $ "Expected Closed after revert, got: " <> show other
+
+      it "does NOT revert when a superseded fanout tx fails after the node moved on" $ do
+        -- A selection covering the whole remainder before anything landed turns
+        -- into a full fanout and leaves the earlier chunk behind, possibly still
+        -- in the mempool. Its terminal failure must not revert the head: nothing
+        -- is waiting on that transaction, and reverting would drop the driver
+        -- role this node just took on.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            superseded = Set.singleton (SimpleTxOut 1)
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection superseded)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let rerouted = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
+            st1 = aggregateState st rerouted
+            failed =
+              update bobEnv ledger now st1 . ChainInput $
+                PostTxError
+                  { postChainTx =
+                      PartialFanoutTx
+                        { utxoToDistribute = superseded
+                        , utxoForProof = remaining
+                        , headSeed = testHeadSeed
+                        , contestationDeadline = arbitrary `generateWith` 42
+                        }
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st1 failed) of
+          FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
+          other -> failure $ "Expected to stay in FanoutProgress AutoDrain, got: " <> show other
+
+      it "does NOT revert when a superseded selection's tx fails and another selection is active" $ do
+        -- Both selections are non-final steps, so the failed transaction has the
+        -- same shape as the one being driven. Only the set it distributes tells
+        -- them apart.
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            superseded = Set.singleton (SimpleTxOut 1)
+            active = Set.singleton (SimpleTxOut 2)
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection active)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let failed =
+              update bobEnv ledger now st . ChainInput $
+                PostTxError
+                  { postChainTx =
+                      PartialFanoutTx
+                        { utxoToDistribute = superseded
+                        , utxoForProof = remaining
+                        , headSeed = testHeadSeed
+                        , contestationDeadline = arbitrary `generateWith` 42
+                        }
+                  , postTxError = FailedToConstructPartialFanoutTx
+                  , failingTx = Nothing
+                  }
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        case headState (aggregateState st failed) of
+          FanoutProgress{} -> pure ()
+          other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
 
       it "does NOT revert once a partial fanout has landed on chain" $ do
         -- With outputs already distributed the on-chain datum is genuinely
@@ -3432,7 +3565,14 @@ inClosedState' parties confirmedSnapshot =
 -- placeholder so the head datum is treated as @FanoutProgress@ (some outputs
 -- already distributed).
 inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
-inFanoutProgressWith parties remaining mode =
+inFanoutProgressWith parties remaining =
+  inFanoutProgressDistributed parties remaining (Set.singleton (SimpleTxOut 0))
+
+-- | Like 'inFanoutProgressWith' but with a caller-chosen distributed set. An
+-- empty one means no chunk has landed yet, so the on-chain datum is still
+-- 'Closed' and a final fanout is not valid.
+inFanoutProgressDistributed :: [Party] -> Set SimpleTxOut -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+inFanoutProgressDistributed parties remaining distributed mode =
   inSync $
     FanoutProgress
       PartialFanoutState
@@ -3449,7 +3589,7 @@ inFanoutProgressWith parties remaining mode =
         , headSeed = testHeadSeed
         , version = 0
         , remainingOutputs = remaining
-        , distributedOutputs = Set.singleton (SimpleTxOut 0)
+        , distributedOutputs = distributed
         , mode
         }
  where

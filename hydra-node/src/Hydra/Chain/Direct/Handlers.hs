@@ -252,18 +252,19 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             -- Non-final partial fanout: no preferred tx, always chunk from the
             -- user-selected set. The whole selection may be distributed in one
-            -- tx (size, not size-1): normally the selection is a strict subset
-            -- of the head's remaining UTxO, so the unselected remainder stays in
-            -- the accumulator and 'mustNotBeLastBatch' is satisfied regardless
-            -- of chunk size.
+            -- tx (size, not size-1): the selection is a strict subset of the
+            -- head's remaining UTxO, so the unselected remainder stays in the
+            -- accumulator and 'mustNotBeLastBatch' is satisfied regardless of
+            -- chunk size.
             --
-            -- Only the first selection is checked against that:
-            -- 'Hydra.HeadLogic.onClosedClientPartialFanout' routes a full one to
-            -- the auto-drain path, but 'onPartialFanoutClientPartialFanout' has
-            -- no such guard, so a later selection naming the whole remainder can
-            -- wedge the head — a pre-existing HeadLogic gap this bound cannot
-            -- fix, tracked in
-            -- https://github.com/cardano-scaling/hydra/issues/2855.
+            -- 'Hydra.HeadLogic.nextFanoutStep' keeps it that way for every
+            -- producer of this transaction, and says there why a step covering
+            -- the whole remainder would wedge the head.
+            --
+            -- That is a node-side invariant only. The validator does not enforce
+            -- it, so a modified node can still post such a step and have it
+            -- accepted; see GHSA-f825-9gwc-h5xq, which covers this and a value
+            -- hole with the same root cause.
             findFittingFanoutTx
               tracer
               wallet
@@ -723,10 +724,9 @@ findFittingFanoutTx ::
   --   final/full fanout fallback this is @size - 1@ (the preferred tx handles
   --   the full set; a partial fanout must leave at least one output). For an
   --   explicit non-final partial fanout this is the full @size@: the selection
-  --   is normally a strict subset of the head's remaining UTxO, so even
-  --   distributing all of it leaves the unselected remainder in the accumulator
-  --   and 'mustNotBeLastBatch' holds (see the caller for the one case where it
-  --   does not, which costs a rejected candidate but not the answer).
+  --   is a strict subset of the head's remaining UTxO, so even distributing all
+  --   of it leaves the unselected remainder in the accumulator and
+  --   'mustNotBeLastBatch' holds (see the caller for what keeps that true).
   --   The search caps this at 'Accumulator.deployedFanoutBatchSize' regardless:
   --   no larger subset can be verified, however cheap its transaction is.
   Int ->
@@ -771,6 +771,12 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
       traceWith tracer PartialFanoutFailed{reason = show err}
       throwIO $ case err of
         StaleChainState -> StalePartialFanoutTx @Tx
+        -- Everything else stays terminal, including 'CannotFindHeadOutput'.
+        -- A missing head output usually does mean another fanout consumed it,
+        -- which is benign, but 'StalePartialFanoutTx' is silently ignored by
+        -- HeadLogic: reporting it that way would also swallow the cases where the
+        -- output is missing for some other reason, losing both the revert to
+        -- 'Closed' and the client notification.
         _ -> FailedToConstructPartialFanoutTx @Tx
 
   fits = fitsTx tracer isTxWithinSizeLimits evaluateScriptCosts evalUTxO

@@ -1434,10 +1434,90 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  newState HeadFanoutInitiated{headId, remainingOutputs = computeFullFanoutUTxO closedState}
-    <> cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
+  -- A plain 'Fanout' is a full fanout by definition, and is only reachable from
+  -- 'Closed'.
+  fanoutStepStateChange headId FullFanoutStep fullUTxO
+    <> emitFanoutStep FullFanoutStep confirmedSnapshot version headSeed contestationDeadline
  where
+  fullUTxO = computeFullFanoutUTxO closedState
+
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+
+-- | The state change that goes with a fanout step, for the callers that own the
+-- head state: taking the driver role, or recording the selection being
+-- distributed. Decided here once rather than in each handler.
+--
+-- The selection comes from the step rather than the caller, so a step can only
+-- ever be recorded against the set it actually distributes.
+fanoutStepStateChange ::
+  HeadId ->
+  NextFanoutStep tx ->
+  -- | The head's full remaining set
+  UTxOType tx ->
+  Outcome tx
+fanoutStepStateChange headId step remainingOutputs =
+  case step of
+    -- The selection is not distributed as one: it becomes a full fanout, and this
+    -- node drives the rest of it.
+    FullFanoutStep -> newState HeadFanoutInitiated{headId, remainingOutputs}
+    -- 'FinalStep' posts a transaction and nothing else, so the selection has to
+    -- be recorded for it too: a rollback or restart before that transaction
+    -- lands otherwise leaves the driver with no selection to resume from.
+    FinalStep{stepDistribute} -> recordSelection stepDistribute
+    PartialStep{stepDistribute} -> recordSelection stepDistribute
+ where
+  recordSelection selection = newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
+
+-- | Which transaction the next fanout step has to be, carrying the sets that
+-- transaction needs. Decided once by 'nextFanoutStep' so that callers deciding
+-- what else to record and 'emitFanoutStep' deciding what to post cannot
+-- disagree, and so that no caller can pair a step with sets it does not go with.
+data NextFanoutStep tx
+  = -- | The target is the whole remainder and the head is already in
+    -- @FanoutProgress@ on chain: the final step, distributing the rest along with
+    -- any pre-settled outputs, and burning the head tokens.
+    FinalStep {stepDistribute :: UTxOType tx, stepPresettled :: UTxOType tx}
+  | -- | The target is the whole remainder but the head output still carries the
+    -- @Closed@ datum, which the final step is not valid against. Posting it as a
+    -- non-final step instead would empty the head and wedge it beyond both
+    -- finalizing and reverting, and the validator does not reliably stop that
+    -- (#2855). Covering everything is a full fanout, so post that.
+    FullFanoutStep
+  | -- | The target is a strict subset: a non-final chunk distributing it, proved
+    -- against the set the head's current datum commits to.
+    PartialStep {stepDistribute :: UTxOType tx, stepProof :: UTxOType tx}
+
+-- | Decide the next fanout step. The multiset comparison here is the only one
+-- needed: callers pass the result on rather than re-deriving it.
+nextFanoutStep ::
+  IsTx tx =>
+  ConfirmedSnapshot tx ->
+  SnapshotVersion ->
+  -- | Chunk source for the next step (the user selection, or the whole remaining
+  --   set when auto-draining)
+  UTxOType tx ->
+  -- | The head's full remaining set
+  UTxOType tx ->
+  OnChainFanoutDatum ->
+  NextFanoutStep tx
+nextFanoutStep confirmedSnapshot version target remaining onChainDatum
+  | target `sameOutputs` remaining =
+      case onChainDatum of
+        DatumFanoutProgress -> FinalStep{stepDistribute = remaining, stepPresettled = presettled}
+        DatumClosed -> FullFanoutStep
+  | otherwise = PartialStep{stepDistribute = target, stepProof = proofSet}
+ where
+  -- Pre-settled elements: in the snapshot accumulator but never distributed
+  -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
+  presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) (fanoutUTxOFromSnapshot confirmedSnapshot version)
+
+  proofSet = case onChainDatum of
+    -- First step from a @Closed@ head: the datum's accumulator commits to the
+    -- full snapshot UTxO.
+    DatumClosed -> snapshotUTxO (getSnapshot confirmedSnapshot)
+    -- Otherwise the head is in @FanoutProgress@, whose accumulator commits to the
+    -- not-yet-distributed set plus any pre-settled elements.
+    DatumFanoutProgress -> remaining <> presettled
 
 -- | Given the on-chain @version@ and a snapshot's own version, decide which of a
 -- pending commit / decommit is still to be distributed on fanout. When the
@@ -1487,8 +1567,10 @@ mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
 
 -- | Client request to fan out a user-selected subset of a freshly closed head.
 -- Validates the selection is a non-empty sub-multiset (by content) of the
--- fan-out-able UTxO, transitions the head into 'PartialFanout' (in
--- 'DistributingSelection' mode) and emits the first 'PartialFanoutTx'.
+-- fan-out-able UTxO, then transitions the head into 'PartialFanout' and posts
+-- whichever step 'nextFanoutStep' decides on: a strict subset records the
+-- selection and posts a 'PartialFanoutTx', while a selection covering the whole
+-- head is a full fanout and drains it automatically instead.
 --
 -- __Transition__: 'ClosedState' → 'PartialFanoutState'
 onClosedClientPartialFanout ::
@@ -1499,23 +1581,24 @@ onClosedClientPartialFanout ::
 onClosedClientPartialFanout closedState selection
   | nullOutputs selection || not (selection `isSubMultisetOf` fullUTxO) =
       cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (Closed closedState)
-  -- Selecting the whole head is just a full fanout: delegate to the automatic
-  -- drain. This is both what the user means ("fan out everything") and avoids an
-  -- impossible non-final partial fanout — a non-final batch must leave ≥1 UTxO, so
-  -- a fresh head with a single UTxO could not be drained selectively otherwise.
-  | selection `sameOutputs` fullUTxO = onClosedClientFanout closedState
   | otherwise =
-      newState HeadPartialFanoutSelected{headId, remainingOutputs = fullUTxO, selection}
-        -- Fresh head: on-chain datum is still @Closed@, so the first step is a
-        -- non-final 'PartialFanoutTx'.
-        <> emitPartialFanoutStep selection fullUTxO DatumClosed confirmedSnapshot version headSeed contestationDeadline
+      -- A selection covering the whole head becomes a full fanout - what the user
+      -- means by "fan out everything", and the only option for a head holding a
+      -- single UTxO, since a non-final batch has to leave one behind.
+      fanoutStepStateChange headId step fullUTxO
+        <> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
  where
+  -- Fresh head: the on-chain datum is still @Closed@.
+  step = nextFanoutStep confirmedSnapshot version selection fullUTxO DatumClosed
+
   fullUTxO = computeFullFanoutUTxO closedState
   ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
 
 -- | Client request to continue a selective partial fanout. Validates the
--- selection against the current 'remainingOutputs', records it as the active
--- selection and emits the next step.
+-- selection against the current 'remainingOutputs' and emits whichever step
+-- 'nextFanoutStep' decides on, which is not always a recorded selection: one
+-- covering the whole remainder finalizes the head, or, if nothing has been
+-- distributed yet, becomes a full fanout that drains it automatically.
 --
 -- __Transition__: 'PartialFanoutState' → 'PartialFanoutState'
 onPartialFanoutClientPartialFanout ::
@@ -1527,13 +1610,15 @@ onPartialFanoutClientPartialFanout pfs selection
   | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
       cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
   | otherwise =
-      newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
-        -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
-        -- actually landed (some outputs distributed); until then it is still
-        -- @Closed@ and a 'FinalPartialFanoutTx' is not yet valid. Compute this
-        -- the same way as 'repostFanoutStep' rather than assuming 'True'.
-        <> emitPartialFanoutStep selection remainingOutputs (onChainFanoutDatum distributedOutputs) confirmedSnapshot version headSeed contestationDeadline
+      fanoutStepStateChange headId step remainingOutputs
+        <> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
  where
+  -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
+  -- actually landed (some outputs distributed); until then it is still @Closed@
+  -- and a 'FinalPartialFanoutTx' is not yet valid. Compute this the same way as
+  -- 'repostFanoutStep' rather than assuming 'True'.
+  step = nextFanoutStep confirmedSnapshot version selection remainingOutputs (onChainFanoutDatum distributedOutputs)
+
   PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs} = pfs
 
 -- | Observe a (full or final) fanout transaction, finalizing the head.
@@ -1618,20 +1703,22 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
             , mode = newMode
             }
       -- Already in 'FanoutProgress' on chain, so any continuation may finalize.
-      finalize = emitPartialFanoutStep remaining remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+      finalize = emitStep (nextFanoutStep confirmedSnapshot version remaining remaining DatumFanoutProgress)
       continue
-        -- The head's remaining set is now empty: emit the final (burning) step,
-        -- which also distributes any pre-settled UTxO. This must happen regardless
-        -- of mode — otherwise a selection that drains everything (e.g. when a
-        -- pre-settled decommit UTxO keeps the on-chain accumulator non-empty) would
-        -- stop at 'AwaitingSelection' and wedge the head, never burning the tokens.
+        -- Nothing left to distribute, so try to finalize whatever the mode. That
+        -- step cannot actually validate (with no outputs it fails
+        -- 'mustHaveOutputs'), but reaching this state at all means the head is
+        -- already wedged on chain (GHSA-f825-9gwc-h5xq), which no post fixes.
         | nullOutputs remaining = finalize
         | otherwise = case newMode of
             AutoDrain -> finalize
-            DistributingSelection sel' -> emitPartialFanoutStep sel' remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
+            DistributingSelection sel' ->
+              emitStep (nextFanoutStep confirmedSnapshot version sel' remaining DatumFanoutProgress)
             AwaitingSelection -> noop
    in record <> continue
  where
+  emitStep step = emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
+
   PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, mode} = pfs
 
 -- | Observe the final fanout while in 'PartialFanout', finalizing the head with
@@ -1720,14 +1807,33 @@ fanoutProgressToClosed pfs =
  where
   PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version} = pfs
 
--- | Whether a 'PostChainTx' is one of the fanout-posting transactions (used to
--- scope the optimistic-fanout revert to genuine fanout post failures).
-isFanoutPostChainTx :: PostChainTx tx -> Bool
-isFanoutPostChainTx = \case
-  FanoutTx{} -> True
-  PartialFanoutTx{} -> True
-  FinalPartialFanoutTx{} -> True
-  _ -> False
+-- | The step this node is currently driving. 'Nothing' while a manual fanout
+-- waits on the next selection, where nothing is pending.
+currentFanoutStep :: IsTx tx => PartialFanoutState tx -> Maybe (NextFanoutStep tx)
+currentFanoutStep PartialFanoutState{confirmedSnapshot, version, remainingOutputs, distributedOutputs, mode} =
+  case mode of
+    AwaitingSelection -> Nothing
+    AutoDrain -> Just (step remainingOutputs)
+    DistributingSelection selection -> Just (step selection)
+ where
+  step target = nextFanoutStep confirmedSnapshot version target remainingOutputs onChainDatum
+
+  onChainDatum = onChainFanoutDatum distributedOutputs
+
+-- | Whether a posted transaction is the one a given step posts, telling a failure
+-- of the step this node is driving from one it has already moved past.
+--
+-- Compares the distributed set, not just the transaction shape, since two
+-- selections can both be non-final steps. By content, because naming the same
+-- outputs under other inputs is a valid way to ask for the same set.
+matchesFanoutStep :: IsTx tx => NextFanoutStep tx -> PostChainTx tx -> Bool
+matchesFanoutStep step postChainTx =
+  case (step, postChainTx) of
+    -- Only one full fanout is ever in flight: it covers the whole head.
+    (FullFanoutStep, FanoutTx{}) -> True
+    (FinalStep{stepDistribute}, FinalPartialFanoutTx{utxoToDistribute}) -> utxoToDistribute `sameOutputs` stepDistribute
+    (PartialStep{stepDistribute}, PartialFanoutTx{utxoToDistribute}) -> utxoToDistribute `sameOutputs` stepDistribute
+    _ -> False
 
 removeDistributedOutputs :: IsTx tx => [TxOutType tx] -> UTxOType tx -> UTxOType tx
 removeDistributedOutputs = flip (foldl' (flip removeOneOutputFromUTxO))
@@ -1760,7 +1866,6 @@ sameOutputs a b =
 -- A 'FinalPartialFanoutTx' (which burns the head tokens) is only valid once the
 -- datum is 'DatumFanoutProgress'.
 data OnChainFanoutDatum = DatumClosed | DatumFanoutProgress
-  deriving stock (Eq)
 
 -- | The on-chain datum implied by how much has been distributed so far: still
 -- @Closed@ while nothing has landed, @FanoutProgress@ once some has.
@@ -1769,64 +1874,48 @@ onChainFanoutDatum distributed
   | nullOutputs distributed = DatumClosed
   | otherwise = DatumFanoutProgress
 
--- | Emit the next partial fanout on-chain effect.
+-- | Post the transaction a decided 'NextFanoutStep' calls for. The chain layer
+-- chunks a full fanout, and sizes a partial one, dynamically.
 --
---  * When the chunk source @target@ covers the entire remaining set and the head
---    is already in @FanoutProgress@ on chain, emit the final 'FinalPartialFanoutTx'
---    that distributes the rest and burns the head tokens.
---  * Otherwise emit a non-final 'PartialFanoutTx' drawing from @target@. The
---    chain layer sizes the actual on-chain chunk dynamically.
-emitPartialFanoutStep ::
+-- Transactions only: any accompanying state change belongs to the caller that
+-- owns the head state, via 'fanoutStepStateChange'. That keeps this safe to call
+-- where effects can be applied but state changes cannot, as in the startup
+-- re-post in 'Hydra.Node.runHydraNode'.
+emitFanoutStep ::
   IsTx tx =>
-  -- | Chunk source for the next step (the user selection remainder, or the whole
-  --   remaining set when auto-draining)
-  UTxOType tx ->
-  -- | The head's full remaining set
-  UTxOType tx ->
-  -- | The on-chain datum the step is posted against. 'DatumClosed' only for the
-  --   very first step from a @Closed@ head, where 'FinalPartialFanoutTx' is not
-  --   yet possible.
-  OnChainFanoutDatum ->
+  -- | The step to emit, from 'nextFanoutStep'.
+  NextFanoutStep tx ->
   ConfirmedSnapshot tx ->
   SnapshotVersion ->
   HeadSeed ->
   UTCTime ->
   Outcome tx
-emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version headSeed contestationDeadline
-  | target `sameOutputs` remaining && onChainDatum == DatumFanoutProgress =
+emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
+  case step of
+    FinalStep{stepDistribute, stepPresettled} ->
       cause
         OnChainEffect
           { postChainTx =
               FinalPartialFanoutTx
-                { utxoToDistribute = remaining
-                , presettledUTxO = presettled
+                { utxoToDistribute = stepDistribute
+                , presettledUTxO = stepPresettled
                 , headSeed
                 , contestationDeadline
                 }
           }
-  | otherwise =
+    FullFanoutStep ->
+      cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
+    PartialStep{stepDistribute, stepProof} ->
       cause
         OnChainEffect
           { postChainTx =
               PartialFanoutTx
-                { utxoToDistribute = target
-                , utxoForProof
+                { utxoToDistribute = stepDistribute
+                , utxoForProof = stepProof
                 , headSeed
                 , contestationDeadline
                 }
           }
- where
-  fullUTxO = fanoutUTxOFromSnapshot confirmedSnapshot version
-  -- Pre-settled elements: in the snapshot accumulator but never distributed
-  -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
-  presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) fullUTxO
-  utxoForProof
-    -- First step from a @Closed@ head: the datum's accumulator commits to the
-    -- full snapshot UTxO.
-    | onChainDatum == DatumClosed = snapshotUTxO (getSnapshot confirmedSnapshot)
-    -- Otherwise the head is in @FanoutProgress@, whose accumulator commits to the
-    -- not-yet-distributed set plus any pre-settled elements.
-    | otherwise = remaining <> presettled
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
@@ -1837,27 +1926,22 @@ emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version he
 -- not attempt to reconstruct fanout progress across a divergent rollback (the
 -- same limitation the general rollback handling has).
 --
--- @distributedOutputs@ being empty means no partial fanout has landed on chain
--- yet (the head datum is still @Closed@); otherwise the datum is
--- @FanoutProgress@ and a 'FinalPartialFanoutTx' is possible.
+-- Which step that is comes from 'currentFanoutStep', the same derivation the
+-- revert guard uses to tell this step's failure from a superseded one's.
 repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
 repostFanoutStep pfs =
-  case mode of
+  case currentFanoutStep pfs of
     -- Manual mode paused on the user: nothing to re-post, wait for the next
     -- 'PartialFanout' command.
-    AwaitingSelection -> noop
-    AutoDrain
-      -- Nothing distributed yet: re-post the full automatic fanout, exactly as
-      -- the original 'Fanout' command did.
-      | onChainDatum == DatumClosed ->
-          cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
-      | otherwise ->
-          emitPartialFanoutStep remainingOutputs remainingOutputs DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
-    DistributingSelection selection ->
-      emitPartialFanoutStep selection remainingOutputs onChainDatum confirmedSnapshot version headSeed contestationDeadline
+    Nothing -> noop
+    -- Only the transaction is re-posted: this node is the driver already, and
+    -- re-posting is not a new decision to record. So this emits no state
+    -- changes, which is what lets 'Hydra.Node.runHydraNode' apply its effects
+    -- alone at startup.
+    Just step ->
+      emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
  where
-  onChainDatum = onChainFanoutDatum distributedOutputs
-  PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, distributedOutputs, mode} = pfs
+  PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.
@@ -2232,7 +2316,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- was faster). The chain observation loop already emitted the correct next
     -- step, so this is safe to ignore.
     noop
-  (FanoutProgress PartialFanoutState{headId, distributedOutputs}, ChainInput PostTxError{postChainTx, postTxError})
+  (FanoutProgress pfs, ChainInput PostTxError{postChainTx, postTxError})
     -- We optimistically moved 'Closed' → 'PartialFanout' when the fanout was
     -- initiated. If posting the initiating fanout tx fails terminally before
     -- anything has been distributed on chain (so the on-chain datum is still
@@ -2240,7 +2324,15 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- 'Fanout' stays rejected and there is no clean way to recover. Once any
     -- partial fanout has landed ('distributedOutputs' non-empty) the on-chain
     -- datum is genuinely 'FanoutProgress', so we must not revert.
-    | isFanoutPostChainTx postChainTx && nullOutputs distributedOutputs ->
+    --
+    -- Only for a failure of the step this node is actually driving, of which
+    -- 'AwaitingSelection' has none. A superseded transaction can still be in
+    -- flight — a selection covering the whole remainder turns into a full fanout
+    -- and leaves the earlier chunk behind — and reverting on its failure would
+    -- drop the driver role for a transaction nobody is waiting on.
+    | PartialFanoutState{headId, distributedOutputs} <- pfs
+    , nullOutputs distributedOutputs
+    , maybe False (`matchesFanoutStep` postChainTx) (currentFanoutStep pfs) ->
         newState HeadFanoutReverted{headId}
           <> cause (ClientEffect ServerOutput.PostTxOnChainFailed{postChainTx, postTxError})
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
@@ -2799,6 +2891,10 @@ applyEvent st = \case
       -- 'AutoDrain' mode so its observations auto-continue to completion.
       Closed cst@ClosedState{chainState} ->
         closedToFanoutProgress cst chainState remainingOutputs mempty AutoDrain
+      -- A target covering the whole remainder before anything landed is a full
+      -- fanout too ('nextFanoutStep'), so the driver switches to draining
+      -- automatically.
+      FanoutProgress pfs -> FanoutProgress pfs{mode = AutoDrain, remainingOutputs}
       _otherState -> st
   HeadPartialFanoutSelected{remainingOutputs, selection} ->
     case st of
