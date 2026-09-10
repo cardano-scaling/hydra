@@ -70,7 +70,7 @@ import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation,
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
@@ -285,6 +285,10 @@ spec = parallel $ do
     prop "rejects distributing a pre-settled output from FanoutProgress (GHSA-f825-9gwc-h5xq)" $
       -- Same drain posted mid-fanout.
       propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] presettledFanoutAttackFromProgressTx
+    prop "closes with CloseUsed after a settled decommit" $
+      -- The close the fixtures above are derived from must itself be valid,
+      -- otherwise they would exercise a closed state no head can reach.
+      propTransactionEvaluates presettledCloseTx
     prop "accepts distributing live outputs after a settled decommit" $
       -- A head closed after a settled decommit must still validate partial
       -- fanouts of its live outputs.

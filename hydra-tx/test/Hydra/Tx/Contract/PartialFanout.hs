@@ -8,7 +8,9 @@ import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Maybe (fromJust)
+import Data.Secret (Secret)
 import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSDatum, LowerBoundBeforeContestationDeadline, PartialFanoutCannotBeLastBatch, PartialFanoutChangedParameters, PartialFanoutMembershipFailed, PartialFanoutZeroOutputs))
@@ -20,15 +22,17 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (ScriptRegistry (..), registryUTxO)
+import Hydra.Tx (ConfirmedSnapshot (..), ScriptRegistry (..), Snapshot (..), deriveParty, mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
+import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, partyToChain, vkey)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
-import Test.Hydra.Tx.Fixture (dperiod, fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Hydra.Tx.Utils (IncrementalAction (..), verificationKeyToOnChainId)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadAdaOverhead, replaceHeadId, replaceParties)
 import Test.Hydra.Tx.Utils (adaOnly)
@@ -111,6 +115,12 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   slotNoToUTCTime systemStart slotLength $ healthySlotNo - 1
 
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriodSeconds = 10
+
+healthyContestationPeriod :: OnChain.ContestationPeriod
+healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds
+
 -- | Accumulator covering all UTxOs in the snapshot (used for the input commitment).
 fullAccumulator :: Accumulator.HydraAccumulator
 fullAccumulator =
@@ -129,7 +139,7 @@ healthyClosedDatum =
     { snapshotNumber = 1
     , parties = partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = OnChain.contestationPeriodFromDiffTime 10
+    , contestationPeriod = healthyContestationPeriod
     , depositPeriod = DP.toChain dperiod
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
@@ -144,9 +154,11 @@ healthyClosedDatum =
 healthyProgressDatum :: Head.FanoutProgressDatum
 healthyProgressDatum = Head.progressFromClosed healthyClosedDatum
 
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
+healthySigningKeys = [aliceSk, bobSk, carolSk]
+
 healthyParties :: [Party]
-healthyParties =
-  [generateWith arbitrary i | i <- [1 .. 3]]
+healthyParties = deriveParty <$> healthySigningKeys
 
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParticipants =
@@ -254,36 +266,149 @@ healthyPartialFanoutTxWithUnburnedToken = (tx, lookupUTxO)
 
 -- * Pre-settled drain (GHSA-f825-9gwc-h5xq)
 
--- | A snapshot member whose value already left the head: a decommit paid out
--- by a DecrementTx before Close. Drawn from the same generated list as
--- 'healthyFullUTxO' but past the entries it takes, so it is disjoint from the
--- live set.
-attackPresettledUTxO :: UTxO
-attackPresettledUTxO =
+--
+-- These fixtures start from a head that was really closed with 'CloseUsed'
+-- after a decommit settled: the closing snapshot still lists the decommit in
+-- 'utxoToDecommit', but its value already left the head with the DecrementTx,
+-- so the open head output backs the live set only. The fanout input is the
+-- head output of that close transaction, taken verbatim, so both the stored
+-- commitment and the head value are what the validator accepted rather than
+-- hand-built approximations of it.
+
+-- | The decommit that settled before the close. Drawn from the same generated
+-- list as 'healthyFullUTxO' but past the entries it takes, so it is disjoint
+-- from the live set.
+presettledUTxO :: UTxO
+presettledUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
    in UTxO.fromList $ take 1 $ drop (fanoutOutputThreshold + 1) $ UTxO.toList utxo
 
--- | The accumulator a CloseUsed stores for a snapshot whose pending decommit
--- ('attackPresettledUTxO') was paid out before the close: the snapshot's
--- /applied/ accumulator, which covers the live set only. Before the fix the
--- closed datum carried the union including the pre-settled member, which is
--- what let the attack transactions below pass membership.
-attackFullAccumulator :: Accumulator.HydraAccumulator
-attackFullAccumulator =
-  snd $
-    Accumulator.buildFromSnapshotUTxOs
-      healthyFullUTxO
-      Nothing
-      (Just attackPresettledUTxO)
+-- | The closing snapshot: the live set in 'utxo', the settled decommit still
+-- pending in 'utxoToDecommit', signed at version 0.
+presettledSnapshot :: Snapshot Tx
+presettledSnapshot =
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , version = 0
+    , number = 1
+    , confirmed = []
+    , utxo = healthyFullUTxO
+    , utxoToCommit = Nothing
+    , utxoToDecommit = Just presettledUTxO
+    , depositTxId = Nothing
+    , accumulator
+    , appliedAccumulator
+    }
+ where
+  (accumulator, appliedAccumulator) =
+    Accumulator.buildFromSnapshotUTxOs healthyFullUTxO Nothing (Just presettledUTxO)
 
-attackClosedDatum :: Head.ClosedDatum
-attackClosedDatum =
-  healthyClosedDatum
-    { Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment attackFullAccumulator
+presettledConfirmedSnapshot :: ConfirmedSnapshot Tx
+presettledConfirmedSnapshot =
+  ConfirmedSnapshot
+    { snapshot = presettledSnapshot
+    , signatures = aggregate [sign sk presettledSnapshot | sk <- healthySigningKeys]
     }
 
-attackProgressDatum :: Head.FanoutProgressDatum
-attackProgressDatum = Head.progressFromClosed attackClosedDatum
+presettledOpenHeadInput :: TxIn
+presettledOpenHeadInput = generateWith arbitrary 43
+
+-- | The open head after the DecrementTx landed: version 1, and only the live
+-- set's value left in it.
+presettledOpenHeadOutput :: TxOut CtxUTxO
+presettledOpenHeadOutput =
+  modifyTxOutValue (<> healthyParticipationTokens <> UTxO.totalValue healthyFullUTxO) $
+    mkHeadOutput testNetworkId testPolicyId (verificationKeyToOnChainId <$> healthyParticipants) $
+      mkTxOutDatumInline $
+        Head.Open
+          Head.OpenDatum
+            { parties = partyToChain <$> healthyParties
+            , contestationPeriod = healthyContestationPeriod
+            , depositPeriod = DP.toChain dperiod
+            , headSeed = toPlutusTxOutRef testSeedInput
+            , headId = toPlutusCurrencySymbol testPolicyId
+            , version = 1
+            , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash (accumulator presettledSnapshot)
+            , headAdaOverhead = 0
+            }
+
+-- | Close validity bounds chosen so the resulting contestation deadline is
+-- 'healthyContestationDeadline', which the fanout fixtures' 'healthySlotNo' is
+-- past.
+presettledCloseUpperBound :: PointInTime
+presettledCloseUpperBound =
+  let t = addUTCTime (negate $ fromInteger healthyContestationPeriodSeconds) healthyContestationDeadline
+   in (slotNoFromUTCTime systemStart slotLength t, t)
+
+presettledCloseLowerBoundSlot :: SlotNo
+presettledCloseLowerBoundSlot = fst presettledCloseUpperBound - 1
+
+-- | The 'CloseUsed' transaction closing the head with 'presettledSnapshot' at
+-- open version 1.
+presettledCloseTx :: (Tx, UTxO)
+presettledCloseTx = (tx, lookupUTxO)
+ where
+  tx =
+    closeTx
+      scriptRegistry
+      (List.head healthyParticipants)
+      (mkHeadId testPolicyId)
+      1
+      presettledConfirmedSnapshot
+      presettledCloseLowerBoundSlot
+      presettledCloseUpperBound
+      openThreadOutput
+      ToDecommit
+
+  lookupUTxO =
+    UTxO.singleton presettledOpenHeadInput presettledOpenHeadOutput
+      <> registryUTxO scriptRegistry
+
+  openThreadOutput =
+    OpenThreadOutput
+      { openThreadUTxO = (presettledOpenHeadInput, presettledOpenHeadOutput)
+      , openParties = partyToChain <$> healthyParties
+      , openContestationPeriod = healthyContestationPeriod
+      , openDepositPeriod = DP.toChain dperiod
+      }
+
+-- | The closed head output produced by 'presettledCloseTx'.
+presettledClosedHeadInput :: TxIn
+presettledClosedHeadInput = mkTxIn (fst presettledCloseTx) 0
+
+presettledClosedHeadOutput :: TxOut CtxUTxO
+presettledClosedHeadOutput =
+  toCtxUTxOTxOut . fromJust $ txOuts' (fst presettledCloseTx) !!? 0
+
+presettledClosedDatum :: Head.ClosedDatum
+presettledClosedDatum =
+  case txOutDatum presettledClosedHeadOutput of
+    TxOutDatumInline sd
+      | Just (Head.Closed closedDatum) <- fromScriptData sd -> closedDatum
+    _ -> error "presettledCloseTx: head output does not carry a Closed datum"
+
+presettledProgressDatum :: Head.FanoutProgressDatum
+presettledProgressDatum = Head.progressFromClosed presettledClosedDatum
+
+-- | A partial fanout step spending 'presettledClosedHeadOutput' (with the given
+-- input state as datum) and distributing the given outputs.
+mkPresettledPartialFanoutTx :: Head.State -> UTxO -> (Tx, UTxO)
+mkPresettledPartialFanoutTx inputState distributeUTxO = (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton presettledClosedHeadInput headOutput
+      <> registryUTxO scriptRegistry
+
+  tx =
+    partialFanoutTx
+      scriptRegistry
+      distributeUTxO
+      (presettledClosedHeadInput, headOutput)
+      healthySlotNo
+      presettledProgressDatum
+      (Accumulator.removeOutputs @Tx (appliedAccumulator presettledSnapshot) distributeUTxO)
+
+  headOutput = presettledClosedHeadOutput{txOutDatum = mkTxOutDatumInline inputState}
 
 -- | Distributes ONLY the pre-settled output, shrinking the continuing head
 -- output by value the head no longer holds. This paid that output a second time
@@ -293,36 +418,18 @@ attackProgressDatum = Head.progressFromClosed attackClosedDatum
 -- with 'PartialFanoutMembershipFailed'.
 presettledFanoutAttackTx :: (Tx, UTxO)
 presettledFanoutAttackTx =
-  mkHealthyPartialFanoutTxWith
-    scriptRegistry
-    healthyFullUTxO
-    attackPresettledUTxO
-    attackProgressDatum
-    (Accumulator.removeOutputs @Tx attackFullAccumulator attackPresettledUTxO)
-    (Head.Closed attackClosedDatum)
+  mkPresettledPartialFanoutTx (Head.Closed presettledClosedDatum) presettledUTxO
 
 -- | The same drain posted mid-fanout, from a FanoutProgress input.
 presettledFanoutAttackFromProgressTx :: (Tx, UTxO)
 presettledFanoutAttackFromProgressTx =
-  mkHealthyPartialFanoutTxWith
-    scriptRegistry
-    healthyFullUTxO
-    attackPresettledUTxO
-    attackProgressDatum
-    (Accumulator.removeOutputs @Tx attackFullAccumulator attackPresettledUTxO)
-    (Head.FanoutProgress attackProgressDatum)
+  mkPresettledPartialFanoutTx (Head.FanoutProgress presettledProgressDatum) presettledUTxO
 
 -- | Distributing live outputs from a head closed after a settled decommit must
 -- stay valid.
 liveFanoutWithPresettledTx :: (Tx, UTxO)
 liveFanoutWithPresettledTx =
-  mkHealthyPartialFanoutTxWith
-    scriptRegistry
-    healthyFullUTxO
-    healthyDistributeUTxO
-    attackProgressDatum
-    (Accumulator.removeOutputs @Tx attackFullAccumulator healthyDistributeUTxO)
-    (Head.Closed attackClosedDatum)
+  mkPresettledPartialFanoutTx (Head.Closed presettledClosedDatum) healthyDistributeUTxO
 
 data PartialFanoutMutation
   = MutatePartialFanoutValidityBeforeDeadline
