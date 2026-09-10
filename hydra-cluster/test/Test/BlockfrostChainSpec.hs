@@ -56,6 +56,7 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (
   CardanoChainTest (..),
   DirectChainTestLog (..),
+  delayUntil,
   hasInitTxWith,
   loadParticipants,
   observesInTimeSatisfying',
@@ -147,6 +148,9 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
                 | snapshotNumber == 1 -> Just contestationDeadline
               _ -> Nothing
 
+          -- Sleep through the contestation period first: 'waitMatch' is bounded
+          -- and that bound is shorter than the contestation period.
+          delayUntil deadline
           waitMatch aliceChain $ \case
             Tick t _ | t > deadline -> Just ()
             _ -> Nothing
