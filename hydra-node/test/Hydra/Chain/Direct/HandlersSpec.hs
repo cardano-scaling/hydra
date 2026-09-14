@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   getChainPoint,
   toLedgerTx,
-  txOuts',
+  txOuts', calculateMinimumUTxO, shelleyBasedEra, fromCtxUTxOTxOut, modifyTxOutValue, negateValue, lovelaceToValue, selectLovelace,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
@@ -45,7 +45,7 @@ import Hydra.Chain.Direct.Handlers (
   getLatest,
   history,
   newLocalChainState,
-  rejectOversizedDeposit,
+  rejectOversizedDeposit, rejectLowDeposits,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -59,12 +59,12 @@ import Hydra.Chain.Direct.State (
   initialize,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.Direct.Wallet (TinyWallet (..), coverFee_)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), mkSimpleBlueprintTx)
 import Hydra.Tx.Accumulator (deployedFanoutBatchSize)
-import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Deposit (depositTx, observeDepositTx)
 import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
 import System.IO.Error (ioeGetErrorString, userError)
 import Test.Hydra.Chain ()
@@ -105,7 +105,7 @@ import Test.QuickCheck (
   property,
   suchThat,
   withMaxSuccess,
-  (===),
+  (===), (==>),
  )
 import Test.QuickCheck.Monadic (
   assert,
@@ -115,6 +115,8 @@ import Test.QuickCheck.Monadic (
   run,
   stop,
  )
+import qualified Cardano.Ledger.Shelley.API as Ledger
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
@@ -709,6 +711,32 @@ spec = do
         \(ctx, st@OpenState{headId}, _, txDeposit) ->
           forAllBlind (pickChainContext ctx) $ \cctx ->
             rejectOversizedDeposit pparamsWithMainnetValueLimit cctx (getKnownUTxO st) headId InitialSnapshot{headId} txDeposit (SlotNo 100) === Right ()
+
+    -- Reproduces #2871. A deposited output carrying a token at exactly its own
+    -- minimum ADA passes 'rejectLowDeposits', but the deposit output built from
+    -- it needs more ADA, because it embeds that output in its datum. The wallet
+    -- then tops the deposit output up to min ADA while the datum keeps the
+    -- original value, and 'observeDepositTx' refuses the tx the node drafted.
+    prop "accepted deposits stay observable after coverFee tops up min ADA" $
+      forAll (genUTxOWithUniquePolicyTokensOfSize 1) $ \tokenUTxO ->
+        forAll arbitrary $ \(headId, deadline) ->
+          forAllBlind (genUTxOAdaOnlyOfSize 1) $ \feeUTxO ->
+            let -- Put the deposited output in the danger band: enough ADA for
+                -- itself, not enough for the deposit output that wraps it.
+                atOwnMinimum :: _
+                atOwnMinimum o =
+                  let minLovelace = calculateMinimumUTxO shelleyBasedEra Fixture.pparams (fromCtxUTxOTxOut o)
+                   in modifyTxOutValue (\v -> v <> negateValue (lovelaceToValue (selectLovelace v)) <> lovelaceToValue minLovelace) o
+                utxo = UTxO.fromList $ second atOwnMinimum <$> UTxO.toList tokenUTxO
+                -- A wallet UTxO rich enough to pay the fee and the top-up.
+                walletUTxO = UTxO.fromList $ second (modifyTxOutValue (<> lovelaceToValue 20_000_000)) <$> UTxO.toList feeUTxO
+                toLedgerMap = Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra
+                drafted = depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx utxo) (SlotNo 1) deadline Nothing
+             in case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap utxo) (toLedgerMap walletUTxO) (toLedgerTx drafted) of
+                  Left err -> property False & counterexample ("coverFee failed: " <> show err)
+                  Right finalized ->
+                    isRight (rejectLowDeposits Fixture.pparams utxo) ==> isJust (observeDepositTx Fixture.testNetworkId (fromLedgerTx finalized))
+                      & counterexample (renderTxWithUTxO (utxo <> walletUTxO) (fromLedgerTx finalized))
 
 -- | Generate a byte-count limit that straddles the real serialised size of
 -- @tx@, giving roughly equal probability of the size check passing or failing.
