@@ -139,15 +139,21 @@ healthySnapshot =
         , utxoToDecommit = Just utxoToDecommit'
         , depositTxId = Nothing
         , accumulator = healthyAccumulator
+        , appliedAccumulator = healthyAppliedAccumulator
         }
 
-healthyAccumulator :: Accumulator.HydraAccumulator
-healthyAccumulator =
+-- | Snapshot accumulator (with the decommit still inside) and applied
+-- accumulator (without it, once this decrement has paid it out).
+healthyAccumulator, healthyAppliedAccumulator :: Accumulator.HydraAccumulator
+(healthyAccumulator, healthyAppliedAccumulator) =
   let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
    in Accumulator.buildFromSnapshotUTxOs utxo Nothing (Just utxoToDecommit')
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
+
+healthyAppliedAccumulatorHash :: ByteString
+healthyAppliedAccumulatorHash = Accumulator.getAccumulatorHash healthyAppliedAccumulator
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -257,6 +263,7 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
               , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
               }
     , -- Spec: Transaction is signed by a participant
@@ -331,6 +338,7 @@ genDecrementMutation (tx, _utxo) =
               { signature = toPlutusSignatures healthySignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = 0
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
               , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
               }
     , SomeMutation (pure $ toErrorCode DecrementZeroOutputs) DecrementTruncatedDecommitOutputs <$> do
@@ -349,6 +357,7 @@ genDecrementMutation (tx, _utxo) =
                     { signature = toPlutusSignatures healthySignature
                     , snapshotNumber = fromIntegral healthySnapshotNumber
                     , numberOfDecommitOutputs = 1
+                    , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
                     , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
                     }
               )

@@ -49,16 +49,21 @@ the $nuHead$ transition.
 
 ```
 -- Redeemer "hints" for closing/contesting (the CloseType / ContestType unions).
--- Besides the accumulator hash η#, the signed close/contest redeemers carry the
--- decommit- and commit-output-set hashes δ# and κ# (implementation
--- `decommitOutputsHash` / `commitOutputsHash`), which the snapshot
--- multisignature binds (see `snapshotSigOK`).
+-- The signed close/contest redeemers carry the snapshot's TWO accumulator
+-- hashes - η# over the outputs the head owes while it stays at the snapshot's
+-- version, η̂# over the outputs it owes once the snapshot's pending
+-- increment/decrement has been applied on chain (implementation
+-- `accumulatorHash` / `appliedAccumulatorHash`) - and the decommit- and
+-- commit-output-set hashes δ# and κ# (implementation `decommitOutputsHash` /
+-- `commitOutputsHash`), all of which the snapshot multisignature binds (see
+-- `snapshotSigOK`). Which accumulator hash the produced datum must reflect is
+-- selected by the redeemer kind (`closeηOK` / `contestηOK`).
 data CloseType : Set where
   closeInitial                   : CloseType
-  closeAny closeUnused closeUsed : (ξ : AggSig) (ηhash δhash κhash : ℍ) → CloseType
+  closeAny closeUnused closeUsed : (ξ : AggSig) (ηhash η̂hash δhash κhash : ℍ) → CloseType
 
 data ContestType : Set where
-  contestUnused contestUsed : (ξ : AggSig) (ηhash δhash κhash : ℍ) → ContestType
+  contestUnused contestUsed : (ξ : AggSig) (ηhash η̂hash δhash κhash : ℍ) → ContestType
 
 data HeadDatum : Set where
   Open : (cid : ℍ) (hydraKey : VKey) (n : ℕ) (contestationPeriod : ℕ)
@@ -71,11 +76,13 @@ data HeadDatum : Set where
   Final : HeadDatum
 
 data HeadRedeemer : Set where
-  -- Increment carries the decommit-set hash δ# (its commit digest κ# is recomputed on-chain
-  -- from the claimed deposit's datum AND its transaction id); decrement carries the commit-set hash κ# (its
-  -- decommit-set hash is recomputed from the tx's decommit outputs). Cf. `snapshotSigOK`.
-  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) → HeadRedeemer
-  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ) (κ# : ℍ)           → HeadRedeemer
+  -- Increment and decrement both carry the signed snapshot's applied-accumulator hash η̂# (the
+  -- open datum records the snapshot's own accumulator hash η#). Increment additionally carries the
+  -- decommit-set hash δ# (its commit digest κ# is recomputed on-chain from the claimed deposit's
+  -- datum AND its transaction id); decrement carries the commit-set hash κ# (its decommit-set hash
+  -- is recomputed from the tx's decommit outputs). Cf. `snapshotSigOK`.
+  Increment          : (ξ : AggSig) (s : ℕ) (ref : OutputRef) (η̂# δ# : ℍ) → HeadRedeemer
+  Decrement          : (ξ : AggSig) (s : ℕ) (m : ℕ) (η̂# κ# : ℍ)           → HeadRedeemer
   Close              : CloseType                                  → HeadRedeemer
   Contest            : ContestType                                → HeadRedeemer
   Fanout             : (m : ℕ) (π : AccWitness) (crs : OutputRef) → HeadRedeemer
@@ -101,11 +108,11 @@ alongside it.
 ```
 data _⟶⟨_⟩_ : HeadDatum → HeadRedeemer → HeadDatum → Set where
 
-  increment : ∀ {cid hk n cp v η ada η' ξ s ref δ#}
-    → Open cid hk n cp v η ada ⟶⟨ Increment ξ s ref δ# ⟩ Open cid hk n cp (suc v) η' ada
+  increment : ∀ {cid hk n cp v η ada η' ξ s ref η̂# δ#}
+    → Open cid hk n cp v η ada ⟶⟨ Increment ξ s ref η̂# δ# ⟩ Open cid hk n cp (suc v) η' ada
 
-  decrement : ∀ {cid hk n cp v η ada η' ξ s m κ#}
-    → Open cid hk n cp v η ada ⟶⟨ Decrement ξ s m κ# ⟩ Open cid hk n cp (suc v) η' ada
+  decrement : ∀ {cid hk n cp v η ada η' ξ s m η̂# κ#}
+    → Open cid hk n cp v η ada ⟶⟨ Decrement ξ s m η̂# κ# ⟩ Open cid hk n cp (suc v) η' ada
 
   close : ∀ {cid hk n cp v η ada s' η' tfin ct}
     → Open cid hk n cp v η ada ⟶⟨ Close ct ⟩ Closed cid hk n cp v s' η' [] tfin ada
@@ -313,14 +320,16 @@ decommitOutputsHashOf : Context → ℕ → ℍ
 decommitOutputsHashOf ctx m = hash (take m (drop 1 (Context.outputs ctx)))
 
 -- spec §5.4–5.7: the snapshot multisignature ξ verifies, under the aggregate hydra key, over the
--- message cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ# (shared by increment, decrement, close and contest; §7's
--- `snapMsg` is defined as this same concatenation). Besides the accumulator hash η#, the message
--- binds the decommit-output-set hash δ# and the commit-output-set hash κ# -- in THIS order, matching
--- the implementation's `verifyPartySignature` tuple `(headId, version, number, accumulatorHash,
+-- message cid ‖ v ‖ s ‖ η# ‖ η̂# ‖ δ# ‖ κ# (shared by increment, decrement, close and contest; §7's
+-- `snapMsg` is defined as this same concatenation). The message binds BOTH accumulator hashes - η#
+-- over the outputs the head owes at the snapshot's version and η̂# over the outputs it owes once
+-- the pending increment/decrement has been applied - together with the decommit-output-set hash δ#
+-- and the commit-output-set hash κ# -- in THIS order, matching the implementation's
+-- `verifyPartySignature` tuple `(headId, version, number, accumulatorHash, appliedAccumulatorHash,
 -- decommitOutputsHash, commitOutputsHash)` -- so a participant cannot redirect the committed or
--- decommitted outputs while reusing a valid signature.
-snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# δ# κ# : ℍ) (ξ : AggSig) → Set
-snapshotSigOK hydraKey cid v s η# δ# κ# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#) ξ ≡ true
+-- decommitted outputs, nor substitute either accumulator, while reusing a valid signature.
+snapshotSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) (η# η̂# δ# κ# : ℍ) (ξ : AggSig) → Set
+snapshotSigOK hydraKey cid v s η# η̂# δ# κ# ξ = msVfy hydraKey (cid ‖ v ‖ s ‖ η# ‖ η̂# ‖ δ# ‖ κ#) ξ ≡ true
 ```
 
 ```
@@ -356,7 +365,7 @@ distributedOuts ctx m = fromList (take m (Context.outputs ctx))
 partialDistributedOuts : Context → ℕ → ℙ Output
 partialDistributedOuts ctx m = fromList (take m (drop 1 (Context.outputs ctx)))
 
--- All distributed outputs are members of the unified accumulator η
+-- All distributed outputs are members of the accumulator η
 -- (fanout §5.8 and final partial fanout §5.8.2).
 fanoutMembersOK : (η : AccCommitment) (outs : ℙ Output) (π : AccWitness) → Set
 fanoutMembersOK η outs π = accVerify η outs π ≡ true
@@ -508,7 +517,7 @@ Consequently, the $mtxInit$ transaction
   $stClosed$ / $stFanoutProgress$ states, where fan-out membership proofs require it. The
   two coincide for every open-state check, since those reference $eta$ only through
   $hash(eta)$ (e.g. the close / increment / decrement signature over
-  $cid || v || s || eta^(\#) || delta^(\#) || kappa^(\#)$). Similarly, the datum's `hydraKey` field is the single
+  $cid || v || s || eta^(\#) || hat(eta)^(\#) || delta^(\#) || kappa^(\#)$). Similarly, the datum's `hydraKey` field is the single
   _aggregate_ key of the multisignature scheme rather than the per-party key list
   $hydraKeys$; the checks written $msVfy(hydraKeys, dots.h)$ in @sec:increment-tx–@sec:contest-tx are verified
   under this aggregate key (Agda `hk`).]
@@ -799,11 +808,12 @@ $redeemerDeposit = sans("Claim")$ and ensures:
   $ txOutRef_(sans("increment")) = txOutRef_(sans("deposit")) $
 
 The state-machine validator $nuHead$ is spent with
-$redeemerHead = (sans("increment"), xi, s, txOutRef_(sans("increment")), delta^(\#))$,
+$redeemerHead = (sans("increment"), xi, s, txOutRef_(sans("increment")), hat(eta)^(\#), delta^(\#))$,
 where $xi$ is a multi-signature of the increment snapshot which authorizes
 addition of deposited UTxO, $s$ is the snapshot number,
-$txOutRef_(sans("deposit"))$ points to the claimed deposit and $delta^(\#)$ is
-the hash of the snapshot's decommit output set. The validator
+$txOutRef_(sans("deposit"))$ points to the claimed deposit, $hat(eta)^(\#)$ is
+the hash of the snapshot's _applied_ accumulator (see @sec:close-tx) and
+$delta^(\#)$ is the hash of the snapshot's decommit output set. The validator
 checks:
 + State is advanced from $datumHead tilde stOpen$ to
   $datumHead' tilde stOpen$, parameters $cid, hydraKeys, nop, Tcontest$
@@ -820,10 +830,11 @@ checks:
   be interchangeable under one signature:
   $ txIdx(txOutRef_(sans("deposit"))) = 0 $
 + $xi$ is a valid multi-signature of the new head state $eta'$
-  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-  where $(eta')^(\#) = hash(eta')$ is the hash of the new accumulator commitment $eta'$
-  stored in the output datum, reflecting the UTxO set after adding the deposited UTxOs;
-  $delta^(\#)$ is taken from the redeemer; and $kappa^(\#)$ is _recomputed on-chain_ from
+  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#) || hat(eta)^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+  where $(eta')^(\#) = hash(eta')$ is the hash of the snapshot's accumulator commitment $eta'$
+  stored in the output datum (the UTxO set the head owes at the snapshot's version, i.e.
+  without the deposited UTxOs, which only count once this increment has landed);
+  $hat(eta)^(\#)$ and $delta^(\#)$ are taken from the redeemer; and $kappa^(\#)$ is _recomputed on-chain_ from
   the claimed deposit itself, binding both the commit list $C$ decoded from its own datum
   $datumDeposit = (cid_(sans("deposit")), t_(sans("recover")), C)$ (a deposit datum
   that fails to decode rejects the transaction, error `DepositDatumInvalid`) and the
@@ -858,12 +869,12 @@ incrementValueOK vh vd vh' = vh +ᵛ vd ≡ vh'
 -- The signature binds the redeemer-carried decommit hash δ# and the RECOMPUTED commit hash
 -- `depositCommitsHashOf ctx ref` (from the claimed deposit's own datum, §5.4).
 record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
-                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) : Set where
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (ref : OutputRef) (η̂# δ# : ℍ) : Set where
   constructor mkIncrementValid
   field
-    step               : d ⟶⟨ Increment ξ s ref δ# ⟩ d'
+    step               : d ⟶⟨ Increment ξ s ref η̂# δ# ⟩ d'
     mintEmpty          : noMint ctx
-    sigOK              : snapshotSigOK hk cid v s (hash (ηOf d')) δ# (depositCommitsHashOf ctx ref) ξ
+    sigOK              : snapshotSigOK hk cid v s (hash (ηOf d')) η̂# δ# (depositCommitsHashOf ctx ref) ξ
     valueOK            : incrementValueOK (headValueIn ctx) (depositsValue ctx) (headValue ctx)  -- ALL νDeposit inputs (§5.4)
     depositSpent       : depositSpentOK ctx ref            -- claimed deposit is spent (§5.4)
     -- §5.4: the claimed deposit is the only νDeposit value the transaction spends (the validator's
@@ -881,9 +892,9 @@ record IncrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
     depositFirstOutput : OutputRef.index ref ≡ 0
     participantSigned  : signedByParticipant cid ctx
 
-incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → Set
-incrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s ref δ# = IncrementValid ctx hk cid v d d' ξ s ref δ#
-incrementValid _ _ _ _ _ _ _ = ⊥
+incrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → ℍ → Set
+incrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s ref η̂# δ# = IncrementValid ctx hk cid v d d' ξ s ref η̂# δ#
+incrementValid _ _ _ _ _ _ _ _ = ⊥
 ```
 
 A deposit claim must satisfy both validators run in the same transaction:
@@ -909,13 +920,13 @@ since it conjoins `incrementValid` with the deposit-side bundle.
 -- bridged + tested: `recoverValid→ref` + the `HeadValidatorAgreement` recover agreement cover
 -- deposit.ak's after-deadline check.)
 record ClaimTxValid (ctx : Context) (dd : DepositDatum) (headIn headOut : HeadDatum)
-                    (ξ : AggSig) (s : ℕ) (ref : OutputRef) (δ# : ℍ) : Set where
+                    (ξ : AggSig) (s : ℕ) (ref : OutputRef) (η̂# δ# : ℍ) : Set where
   constructor mkClaimTxValid
   field
-    headSideOK    : incrementValid ctx headIn headOut ξ s ref δ#  -- νHead: version / value / signature
-    depositSideOK : claimValid ctx dd headIn                      -- νDeposit: cid-binding + before-deadline
+    headSideOK    : incrementValid ctx headIn headOut ξ s ref η̂# δ#  -- νHead: version / value / signature
+    depositSideOK : claimValid ctx dd headIn                          -- νDeposit: cid-binding + before-deadline
 
-claimTxValid : Context → DepositDatum → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → Set
+claimTxValid : Context → DepositDatum → HeadDatum → HeadDatum → AggSig → ℕ → OutputRef → ℍ → ℍ → Set
 claimTxValid = ClaimTxValid
 ```
 
@@ -959,10 +970,11 @@ validator checks:
   value enters the head. The head would then account for UTxOs it does not
   hold.
 + $xi$ is a valid multi-signature of the new snapshot state $eta'$
-  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-  where $(eta')^(\#) = hash(eta')$ is the hash of the new accumulator commitment $eta'$
-  stored in the output datum, reflecting the UTxO set after removing the decommitted UTxOs;
-  $kappa^(\#)$ is taken from the redeemer; and $delta^(\#)$ is _recomputed on-chain_ as the
+  $ msVfy(hydraKeys, (cid || v || s || (eta')^(\#) || hat(eta)^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+  where $(eta')^(\#) = hash(eta')$ is the hash of the snapshot's accumulator commitment $eta'$
+  stored in the output datum (the UTxO set the head owes at the snapshot's version, i.e.
+  still including the decommitted UTxOs until this decrement has landed);
+  $hat(eta)^(\#)$ and $kappa^(\#)$ are taken from the redeemer; and $delta^(\#)$ is _recomputed on-chain_ as the
   hash of the $m$ decommit outputs $o_2 dots.h o_(m+1)$ following the head output — the
   same output list the value check below sums. Binding $delta^(\#)$ to the exact decommit
   output set (address, datum, order and count, not just aggregate value) means a signer
@@ -989,12 +1001,12 @@ decrementValueOK vh vh' vdec = vh' +ᵛ vdec ≡ vh
 -- The signature binds the RECOMPUTED decommit hash `decommitOutputsHashOf ctx m` (over the same
 -- `take m (tail outputs)` list `decommitValue` sums, §5.5) and the redeemer-carried commit hash κ#.
 record DecrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
-                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (m : ℕ) (κ# : ℍ) : Set where
+                      (d d' : HeadDatum) (ξ : AggSig) (s : ℕ) (m : ℕ) (η̂# κ# : ℍ) : Set where
   constructor mkDecrementValid
   field
-    step              : d ⟶⟨ Decrement ξ s m κ# ⟩ d'
+    step              : d ⟶⟨ Decrement ξ s m η̂# κ# ⟩ d'
     mintEmpty         : noMint ctx
-    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) (decommitOutputsHashOf ctx m) κ# ξ
+    sigOK             : snapshotSigOK hk cid v s (hash (ηOf d')) η̂# (decommitOutputsHashOf ctx m) κ# ξ
     valueOK           : decrementValueOK (headValueIn ctx) (headValue ctx) (decommitValue ctx m)
     -- §5.5: at least one decommit output is materialized (checked on the outputs actually present,
     -- not the redeemer's m - `take m (tail outputs)` truncates silently). Increment and decrement
@@ -1005,9 +1017,9 @@ record DecrementValid (ctx : Context) (hk : VKey) (cid : ℍ) (v : ℕ)
     decommitNonEmpty  : 0 < length (take m (drop 1 (Context.outputs ctx)))
     participantSigned : signedByParticipant cid ctx
 
-decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → ℍ → Set
-decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m κ# = DecrementValid ctx hk cid v d d' ξ s m κ#
-decrementValid _ _ _ _ _ _ _ = ⊥
+decrementValid : Context → HeadDatum → HeadDatum → AggSig → ℕ → ℕ → ℍ → ℍ → Set
+decrementValid ctx d@(Open cid hk _ _ v _ _) d' ξ s m η̂# κ# = DecrementValid ctx hk cid v d d' ξ s m η̂# κ#
+decrementValid _ _ _ _ _ _ _ _ = ⊥
 ```
 
 #figure(decrementTx-diagram, caption: [$mtxDecrement$ transaction spending an open head output, producing a new head output and multiple decommitted outputs.]) <fig:decrementTx>
@@ -1023,41 +1035,57 @@ In order to close a head, a head member may post the $mtxClose$ transaction
 The state-machine validator $nuHead$ is spent with
 $redeemerHead = (sans("close"), sans("CloseType"))$, where
 $sans("CloseType")$ is a hint against which open state to close. (The closing
-party posts $sans("postTx")(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, (eta')^(\#), xi)$
-off-chain; on-chain the redeemer carries only $(xi, (eta')^(\#), delta^(\#), kappa^(\#))$ in
-$sans("CloseType")$ — the signature, the accumulator hash and the decommit-
+party posts $sans("postTx")(mtxClose, hatv, macron(mc(S)).v, macron(mc(S)).s, eta_S^(\#), eta_A^(\#), xi)$
+off-chain; on-chain the redeemer carries only $(xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#))$ in
+$sans("CloseType")$ — the signature, the two accumulator hashes and the decommit-
 and commit-output-set hashes — while the version $v$ and snapshot number $s$ are
 authenticated by the multisignature $xi$ over
-$cid || v || s || (eta')^(\#) || delta^(\#) || kappa^(\#)$ and
-recorded in the datum, rather than being separate redeemer fields.) The
-transaction checks:
+$cid || v || s || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)$ and
+recorded in the datum, rather than being separate redeemer fields.)
+
+A snapshot commits to _two_ accumulators, because at signing time it is not
+known whether its pending increment or decrement will land on chain before the
+head is closed, and the set of UTxOs the head owes at close time depends on
+that: a pending decommit $U_omega$ stays in the head until its decrement lands,
+and a pending commit $U_alpha$ only enters the head once its increment lands.
+The _snapshot accumulator_
+$ eta_S = accUTxO(U' union U_omega) $
+commits to what the head owes while it stays at the snapshot's version, and the
+_applied accumulator_
+$ eta_A = accUTxO(U' union U_alpha) $
+to what it owes once the pending action has been applied on chain (they coincide
+when nothing is pending). The closed state stores the one matching the
+$sans("CloseType")$, so that $eta'$ describes exactly the UTxOs a fan-out has to
+distribute. Storing the other one would let a later fan-out step pay out a
+member whose value already left the head, or leave value in the head that no
+member can claim (GHSA-f825-9gwc-h5xq). The transaction checks:
 + State is advanced from $datumHead tilde stOpen$ to
   $datumHead' tilde stClosed$, parameters $cid, hydraKeys, nop, Tcontest$
   stay unchanged and the new state is governed again by $nuHead$
   #transition-arrow("close")
   (the `close` rule of `_⟶⟨_⟩_`; the version is preserved, $v' = v$).
-  The closed state carries a single unified accumulator $eta'$ that combines the snapshotted UTxO set with any pending increment or decrement UTxOs using $accCombine$.
+  The closed state carries a single accumulator $eta'$, the one of the two signed
+  accumulators that describes the UTxOs the head still owes.
 + Last known open state version is recorded in closed state
   $ v' = v $
 
-+ Based on the redeemer $sans("CloseType") = sans("Initial") union (sans("Any"), xi, (eta')^(\#), delta^(\#), kappa^(\#)) union (sans("Unused"), xi, (eta')^(\#), delta^(\#), kappa^(\#)) union (sans("Used"), xi, (eta')^(\#), delta^(\#), kappa^(\#))$, where $xi$ is a multi-signature of the closing snapshot, $(eta')^(\#)$ is the hash of the unified accumulator commitment stored in the output datum, and $delta^(\#)$/$kappa^(\#)$ are the snapshot's decommit-/commit-output-set hashes (passed verbatim into the signed message; they are authenticated only through $xi$), four cases are distinguished. In each case the closed state carries a single unified accumulator $eta'$:
++ Based on the redeemer $sans("CloseType") = sans("Initial") union (sans("Any"), xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#)) union (sans("Unused"), xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#)) union (sans("Used"), xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#))$, where $xi$ is a multi-signature of the closing snapshot, $eta_S^(\#) = hash(eta_S)$ and $eta_A^(\#) = hash(eta_A)$ are the hashes of the snapshot's two accumulator commitments, and $delta^(\#)$/$kappa^(\#)$ are the snapshot's decommit-/commit-output-set hashes (all passed verbatim into the signed message; they are authenticated only through $xi$), four cases are distinguished. In each case the closed state carries a single accumulator $eta'$ whose hash $(eta')^(\#) = hash(eta')$ must equal the selected signed hash:
   + $sans("Initial")$: The initial snapshot is used to close the head and open state was not updated. No signatures are available and it suffices to check
     $ v = 0 $
     $ s' = 0 $
     $ eta' = accUTxO(emptyset) $
-  + $sans("Any")$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. The unified accumulator is simply the snapshotted state:
-    $ eta' = accUTxO(U') $
-    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-    $ (eta')^(\#) = hash(eta') $
-  + $sans("Unused")$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is _not_ applied in the snapshot. The unified accumulator is the snapshotted state only:
-    $ eta' = accUTxO(U') $
-    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-    $ (eta')^(\#) = hash(eta') $
-  + $sans("Used")$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement _is_ applied in the snapshot. The unified accumulator combines the snapshotted UTxOs with the pending delta:
-    $ eta' = accCombine(accUTxO(U'), eta_Delta) $
-    $ msVfy(hydraKeys, (cid || v - 1 || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-    $ (eta')^(\#) = hash(eta') $
-    where $eta_Delta$ is the accumulator commitment of the pending delta UTxOs.
+  + $sans("Any")$: Closing snapshot refers to current state version $v$ with no pending increments or decrements, and $s' > 0$. Both signed accumulators coincide and the stored one is the snapshotted state:
+    $ eta' = eta_S = accUTxO(U') $
+    $ msVfy(hydraKeys, (cid || v || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = eta_S^(\#) $
+  + $sans("Unused")$: Closing snapshot refers to current state version $v$ and a pending increment or decrement is _not_ applied on chain. A pending decommit is therefore still in the head and a pending commit is not, so the stored accumulator is the snapshot accumulator:
+    $ eta' = eta_S = accUTxO(U' union U_omega) $
+    $ msVfy(hydraKeys, (cid || v || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = eta_S^(\#) $
+  + $sans("Used")$: Closing snapshot refers to the previous state version $v - 1$ and a pending increment or decrement _is_ applied on chain. A pending commit has therefore entered the head and a pending decommit has left it, so the stored accumulator is the applied accumulator:
+    $ eta' = eta_A = accUTxO(U' union U_alpha) $
+    $ msVfy(hydraKeys, (cid || v - 1 || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+    $ (eta')^(\#) = eta_A^(\#) $
 
 + Initializes the set of contesters
   $ contesters = emptyset $
@@ -1082,16 +1110,17 @@ transaction checks:
   where $adaO$ is the ADA in the head UTxO not belonging to any L2 UTxO (minimum-UTxO overhead), set at initialisation time and unchanged for the head's lifetime. On fanout, the on-chain value conservation check treats $adaO$ as released from the head UTxO without requiring it in any distributed output, so it flows to whoever submits the fanout transaction as change (offsetting their transaction fee).
 
 #dparagraph[Implementation note (accumulator construction).]
-The per-case formulas for $eta'$ above ($accUTxO(U')$ for $sans("Any")$/$sans("Unused")$,
-$accCombine(accUTxO(U'), eta_Delta)$ for $sans("Used")$) describe how the closing party constructs the
-unified accumulator _off-chain_ before signing: $nuHead$ has neither $U'$ nor $eta_Delta$ and does not
-recompute them. On-chain it verifies only the multisignature $xi$ over
-$cid || v || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)$
-and the binding $(eta')^(\#) = hash(eta')$; the $sans("Initial")$ case additionally fixes $eta' =
-accUTxO(emptyset) = G_1$ (a constant). The Agda `closeValid` bundle mirrors exactly this on-chain
-view - `closeSigOK` (the multisignature, at $v$ or $v-1$ for $sans("Used")$), `closeηOK`
-($(eta')^(\#) = hash(eta')$), and `closeInitialOK` ($eta = accUTxO(emptyset)$) - and likewise does
-not recompute the off-chain $accUTxO$/$accCombine$ constructions, which are authenticated by $xi$.
+The formulas for $eta_S$ and $eta_A$ above describe how the parties construct the two
+accumulators _off-chain_ before signing: $nuHead$ has neither $U'$ nor $U_alpha$/$U_omega$ and does
+not recompute them. On-chain it verifies only the multisignature $xi$ over
+$cid || v || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)$
+and the binding of the stored $eta'$ to the hash the $sans("CloseType")$ selects
+($hash(eta') = eta_S^(\#)$ for $sans("Any")$/$sans("Unused")$, $hash(eta') = eta_A^(\#)$ for
+$sans("Used")$); the $sans("Initial")$ case additionally fixes $eta' = accUTxO(emptyset) = G_1$ (a
+constant). The Agda `closeValid` bundle mirrors exactly this on-chain view - `closeSigOK` (the
+multisignature, at $v$ or $v-1$ for $sans("Used")$), `closeηOK` (the selected hash equals
+$hash(eta')$), and `closeInitialOK` ($eta = accUTxO(emptyset)$) - and likewise does not recompute
+the off-chain $accUTxO$ constructions, which are authenticated by $xi$.
 
 The close checks are formalised per condition - the deadline equation, the
 Initial-case constraint, the η-hash binding, the positive-snapshot Any case and
@@ -1116,19 +1145,27 @@ closeInitialOK : CloseType → HeadDatum → Set
 closeInitialOK closeInitial (Closed _ _ _ _ v s η _ _ _) = (v ≡ 0) × (s ≡ 0) × (η ≡ accUTxO ∅ˢ)
 closeInitialOK _            _                            = ⊤
 
--- The redeemer-supplied η# must equal the hash of the accumulator η' actually
--- stored in the produced datum (spec §5.6/§5.7: (η')# = hash(η')) - otherwise the
--- signature would attest to an accumulator unrelated to the on-chain state.
+-- The accumulator η' actually stored in the produced datum must hash to the
+-- redeemer-supplied accumulator hash SELECTED BY THE CLOSE TYPE (spec §5.6/§5.7):
+-- Any/Unused close at the snapshot's own version, where a pending decommit is
+-- still in the head and a pending commit is not yet, so η' must be the snapshot
+-- accumulator (η#); Used closes after the pending action was applied on chain,
+-- so η' must be the applied accumulator (η̂#). Either way the stored η' describes
+-- exactly the outputs the head still owes, which is what the fan-out paths
+-- distribute against. Storing the other candidate would let a fan-out pay out a
+-- member whose value already left the head (GHSA-f825-9gwc-h5xq), or leave value
+-- no member can claim. Otherwise the signature would attest to an accumulator
+-- unrelated to the on-chain state.
 closeηOK : CloseType → HeadDatum → Set
-closeηOK closeInitial           _  = ⊤
-closeηOK (closeAny _ η# _ _)    d' = η# ≡ hash (ηOf d')
-closeηOK (closeUnused _ η# _ _) d' = η# ≡ hash (ηOf d')
-closeηOK (closeUsed _ η# _ _)   d' = η# ≡ hash (ηOf d')
+closeηOK closeInitial              _  = ⊤
+closeηOK (closeAny _ η# _ _ _)     d' = η# ≡ hash (ηOf d')
+closeηOK (closeUnused _ η# _ _ _)  d' = η# ≡ hash (ηOf d')
+closeηOK (closeUsed _ _ η̂# _ _)    d' = η̂# ≡ hash (ηOf d')
 
 -- spec §5.6, Any case: the closing snapshot number is positive (s' > 0).
 closeAnyOK : CloseType → HeadDatum → Set
-closeAnyOK (closeAny _ _ _ _) d' = 0 < snapNum d'
-closeAnyOK _                  _  = ⊤
+closeAnyOK (closeAny _ _ _ _ _) d' = 0 < snapNum d'
+closeAnyOK _                    _  = ⊤
 
 -- Signature obligation of a close redeemer: the Initial type carries no signature;
 -- the other types must verify a multisignature over cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#, with
@@ -1143,10 +1180,10 @@ closeAnyOK _                  _  = ⊤
 -- distinguishes them - but the model is strictly weaker at v = 0, and the signature conjunct is an
 -- injected `Ops` boundary, so neither the bridge nor the differential can observe the difference.
 closeSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → CloseType → Set
-closeSigOK _  _   _ _ closeInitial             = ⊤
-closeSigOK hk cid v s (closeAny ξ η# δ# κ#)    = snapshotSigOK hk cid v s η# δ# κ# ξ
-closeSigOK hk cid v s (closeUnused ξ η# δ# κ#) = snapshotSigOK hk cid v s η# δ# κ# ξ
-closeSigOK hk cid v s (closeUsed ξ η# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# δ# κ# ξ
+closeSigOK _  _   _ _ closeInitial                 = ⊤
+closeSigOK hk cid v s (closeAny ξ η# η̂# δ# κ#)    = snapshotSigOK hk cid v s η# η̂# δ# κ# ξ
+closeSigOK hk cid v s (closeUnused ξ η# η̂# δ# κ#) = snapshotSigOK hk cid v s η# η̂# δ# κ# ξ
+closeSigOK hk cid v s (closeUsed ξ η# η̂# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# η̂# δ# κ# ξ
 
 -- A close is *valid* when the state-machine step holds together with all the close
 -- checks: the contestation deadline (§5.6), no minting/burning, the Initial-case
@@ -1178,7 +1215,7 @@ closeValid ctx d@(Open cid hk _ cp v _ _) d'@(Closed _ _ _ _ _ s' _ _ _ _) ct = 
 closeValid _ _ _ _ = ⊥
 ```
 
-#figure(closeTx-diagram, caption: [$mtxClose$ transaction spending the $stOpen$ head output and producing a $stClosed$ head output with unified accumulator $eta'$.]) <fig:closeTx>
+#figure(closeTx-diagram, caption: [$mtxClose$ transaction spending the $stOpen$ head output and producing a $stClosed$ head output with the accumulator $eta'$ of the UTxOs still owed.]) <fig:closeTx>
 
 == Contest Transaction <sec:contest-tx>
 
@@ -1198,24 +1235,24 @@ $sans("ContestType")$ is a hint how to verify the snapshot and checks:
   #transition-arrow("contest")
   (the `contest` rule of `_⟶⟨_⟩_`; the version is preserved and the contester set
   grows by one key, $contesters' = contesters union { keyHash }$).
-  The closed state carries a single unified accumulator $eta'$ computed using $accCombine$ based on the contest type.
+  The closed state carries a single accumulator $eta'$, selected from the contesting
+  snapshot's two signed accumulators by the contest type exactly as for close (@sec:close-tx).
 
 + Last known open state version stays recorded in closed state
   $ v' = v $
 
 + Contested snapshot number $s'$ is higher than the currently stored snapshot number $s$
   $ s' > s $
-+ Based on the redeemer $sans("ContestType") = (sans("Unused"), xi, (eta')^(\#), delta^(\#), kappa^(\#)) union (sans("Used"), xi, (eta')^(\#), delta^(\#), kappa^(\#))$, where $xi$ is a multi-signature of the contesting snapshot, $(eta')^(\#) = hash(eta')$ is the hash of the unified accumulator commitment stored in the output datum, and $delta^(\#)$/$kappa^(\#)$ are the snapshot's decommit-/commit-output-set hashes (passed verbatim into the signed message, as for close), two cases are distinguished:
++ Based on the redeemer $sans("ContestType") = (sans("Unused"), xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#)) union (sans("Used"), xi, eta_S^(\#), eta_A^(\#), delta^(\#), kappa^(\#))$, where $xi$ is a multi-signature of the contesting snapshot, $eta_S^(\#)$/$eta_A^(\#)$ are the hashes of its snapshot and applied accumulators, and $delta^(\#)$/$kappa^(\#)$ are the snapshot's decommit-/commit-output-set hashes (all passed verbatim into the signed message, as for close), two cases are distinguished:
 
-  + $sans("Unused")$: Contesting snapshot refers to current state version $v$ (pending delta not applied in snapshot). The unified accumulator reflects only the snapshotted UTxOs:
-    $ eta' = accUTxO(U') $
-    $ msVfy(hydraKeys, (cid || v || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-    $ (eta')^(\#) = hash(eta') $
-  + $sans("Used")$: Contesting snapshot refers to the previous state version $v - 1$ (pending delta applied in snapshot). The unified accumulator combines the snapshotted UTxOs with the pending delta:
-    $ eta' = accCombine(accUTxO(U'), eta_Delta) $
-    $ msVfy(hydraKeys, (cid || v - 1 || s' || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
-    $ (eta')^(\#) = hash(eta') $
-    where $eta_Delta$ is the accumulator commitment of the pending delta UTxOs.
+  + $sans("Unused")$: Contesting snapshot refers to current state version $v$ (pending action not applied on chain). The stored accumulator is the snapshot accumulator:
+    $ eta' = eta_S = accUTxO(U' union U_omega) $
+    $ msVfy(hydraKeys, (cid || v || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+    $ hash(eta') = eta_S^(\#) $
+  + $sans("Used")$: Contesting snapshot refers to the previous state version $v - 1$ (pending action applied on chain). The stored accumulator is the applied accumulator:
+    $ eta' = eta_A = accUTxO(U' union U_alpha) $
+    $ msVfy(hydraKeys, (cid || v - 1 || s' || eta_S^(\#) || eta_A^(\#) || delta^(\#) || kappa^(\#)), xi) = mtrue $
+    $ hash(eta') = eta_A^(\#) $
 
 + The single signer ${keyHash} = txKeys$ has not already contested and is added to the set of contesters
   $ keyHash in.not contesters $
@@ -1255,17 +1292,21 @@ contestDeadlineOK (Closed _ _ _ _ _ _ _ _ tfinal _) (Closed _ _ n cp _ _ _ C' tf
   tfinal' ≡ (if ⌊ length C' ≟ n ⌋ then tfinal else tfinal + cp)
 contestDeadlineOK _ _ = ⊥
 
+-- As for close (`closeηOK`): the stored η' must hash to the accumulator hash the
+-- contest type selects - the snapshot accumulator η# for Unused, the applied
+-- accumulator η̂# for Used - so a contester cannot swap the commitment back to
+-- one covering outputs the head no longer owes (§5.7).
 contestηOK : ContestType → HeadDatum → Set
-contestηOK (contestUnused _ η# _ _) d' = η# ≡ hash (ηOf d')
-contestηOK (contestUsed _ η# _ _)   d' = η# ≡ hash (ηOf d')
+contestηOK (contestUnused _ η# _ _ _) d' = η# ≡ hash (ηOf d')
+contestηOK (contestUsed _ _ η̂# _ _)   d' = η̂# ≡ hash (ηOf d')
 
 -- Contest signature obligation (both ContestType cases must verify). The
--- decommit/commit-set hashes δ#/κ# pass verbatim from the redeemer into the
--- message, as for close. As for close, the Used case verifies against the
--- previous version v-1 (§5.7).
+-- accumulator hashes η#/η̂# and the decommit/commit-set hashes δ#/κ# pass verbatim
+-- from the redeemer into the message, as for close. As for close, the Used case
+-- verifies against the previous version v-1 (§5.7).
 contestSigOK : (hydraKey : VKey) (cid : ℍ) (v s : ℕ) → ContestType → Set
-contestSigOK hk cid v s (contestUnused ξ η# δ# κ#) = snapshotSigOK hk cid v s η# δ# κ# ξ
-contestSigOK hk cid v s (contestUsed ξ η# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# δ# κ# ξ
+contestSigOK hk cid v s (contestUnused ξ η# η̂# δ# κ#) = snapshotSigOK hk cid v s η# η̂# δ# κ# ξ
+contestSigOK hk cid v s (contestUsed ξ η# η̂# δ# κ#)   = snapshotSigOK hk cid (v ∸ 1) s η# η̂# δ# κ# ξ
 
 -- A contest replaces the closed snapshot with a more recent one and appends the contester (a key
 -- hash, as on-chain: `contesters :: [PubKeyHash]`). The thin `contestValid` function destructures the
@@ -1314,7 +1355,7 @@ contest-participantSigned {kh = kh} b =
 
 Once the contestation phase is over, a head may be finalized by posting a
 $mtxFanout$ transaction (see @fig:fanoutTx), which
-distributes all UTxOs from the head according to the unified accumulator in the closed state. A fanout transaction consists of
+distributes all UTxOs from the head according to the accumulator in the closed state. A fanout transaction consists of
 - one input spending from $nuHead$ holding the $st$, and
 - outputs $o_1 dots.h o_m$ to distribute all UTxOs.
 
@@ -1337,8 +1378,13 @@ The validator checks:
   $tau$ and forge membership witnesses for arbitrary outputs — and since fan-out
   is permissionless after the deadline, that would be direct fund theft. The
   membership check below runs against this canonical CRS.
-+ All $m$ outputs are verified as members of the unified accumulator $eta$ using the membership witness $pi$:
++ All $m$ outputs are verified as members of the accumulator $eta$ using the membership witness $pi$:
   $ accVerify(eta, {o_1, dots.h, o_m}, pi) = mtrue $
++ The distribution is complete: since $eta$ commits to exactly the UTxOs the head
+  still owes (@sec:close-tx), the witness - the quotient left after removing all
+  $m$ outputs - must be the commitment to the empty set, so no owed output can be
+  left behind (error `FanoutIncomplete`):
+  $ pi = accUTxO(emptyset) = G_1 $
 + Transaction is posted after contestation deadline $txValidityMin > tfinal$.
 + All tokens are burnt
   $|{cid |-> dot.c |-> -1} in txMint| = n + 1$.
@@ -1348,7 +1394,12 @@ The validator checks:
 
 The fan-out checks - the burn count, membership of the distributed outputs in the
 accumulator, the deadline, value conservation and the canonical-CRS binding - form
-the `FanoutValid` bundle.
+the `FanoutValid` bundle. The completeness check is an implementation
+strengthening the bundle does not model (the abstract accumulator laws only
+provide the existence of a witness, not its identity), so the bundle is weaker
+than the validator in the safe direction: every bundle-valid fan-out that
+distributes the whole owed set is accepted by both, and the differential test
+fixtures do exactly that.
 
 ```
 burnAllTokensOK : Context → HeadDatum → Set
@@ -1385,7 +1436,7 @@ fanoutValid : Context → HeadDatum → ℕ → AccWitness → OutputRef → Set
 fanoutValid = FanoutValid
 ```
 
-#figure(fanoutTx-diagram, caption: [$mtxFanout$ transaction spending the $stClosed$ head output with unified accumulator $eta$ and distributing funds with outputs $o_1 dots.h o_m$.]) <fig:fanoutTx>
+#figure(fanoutTx-diagram, caption: [$mtxFanout$ transaction spending the $stClosed$ head output with accumulator $eta$ and distributing funds with outputs $o_1 dots.h o_m$.]) <fig:fanoutTx>
 
 === Intermediate Partial Fan-Out Transaction <sec:partial-fanout-tx>
 
@@ -1481,10 +1532,14 @@ The validator checks:
 + Transaction is posted after contestation deadline $txValidityMin > tfinal$.
 + The $m$ distributed outputs are verified as members of the accumulator $eta$ using the membership witness $pi$:
   $ accVerify(eta, {o_1, dots.h, o_m}, pi) = mtrue $
++ The distribution is complete, as for $mtxFanout$ (error `FinalPartialFanoutIncomplete`):
+  $ pi = accUTxO(emptyset) = G_1 $
 + Value is conserved:
   $ val_(sans("head"))^(sans("in")) = plus.o.big_(i=1)^(m) val(o_i) plus.o val_(sans("burned")) plus.o adaO $
 
-The final step's conditions form the `FinalPartialFanoutValid` bundle.
+The final step's conditions form the `FinalPartialFanoutValid` bundle (the
+completeness check is, as for $mtxFanout$, an implementation strengthening the
+bundle does not model).
 
 ```
 -- The last batch of a multi-step fan-out: like `FanoutValid` but from a `FanoutProgress` source.

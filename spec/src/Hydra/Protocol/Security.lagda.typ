@@ -359,24 +359,24 @@ from per-signature EUF-CMA plus the aggregation scheme's decomposition
 
 ```
 -- `snapMsg` is the §6 message SERIALISATION -- DEFINED (not postulated) as the same §3.1 concatenation
--- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#`), so the
--- off-chain certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message (consumed by
--- `sig-certifies` and the per-transaction `*-certified` corollaries in `SecurityProofs`). It is a
--- function of the snapshot's OWN identifying fields, so the verified message `msgOf snap` manifestly
--- depends only on those fields (two snapshots agreeing on them have the same message, by definition);
--- no injectivity is assumed (`_‖_` bottoms out in the law-free `concat`/`bytes`).
-snapMsg : ℍ → ℕ → ℕ → ℍ → ℍ → ℍ → ℍ
-snapMsg cid v s η# δ# κ# = cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#
+-- the on-chain signature conjuncts verify (`OC.snapshotSigOK`'s `cid ‖ v ‖ s ‖ η# ‖ η̂# ‖ δ# ‖ κ#`), so
+-- the off-chain certificate and the on-chain `sigOK` fields meet DEFINITIONALLY at the message
+-- (consumed by `sig-certifies` and the per-transaction `*-certified` corollaries in `SecurityProofs`).
+-- It is a function of the snapshot's OWN identifying fields, so the verified message `msgOf snap`
+-- manifestly depends only on those fields (two snapshots agreeing on them have the same message, by
+-- definition); no injectivity is assumed (`_‖_` bottoms out in the law-free `concat`/`bytes`).
+snapMsg : ℍ → ℕ → ℕ → ℍ → ℍ → ℍ → ℍ → ℍ
+snapMsg cid v s η# η̂# δ# κ# = cid ‖ v ‖ s ‖ η# ‖ η̂# ‖ δ# ‖ κ#
 
 -- The message a snapshot's aggregate signature is verified against: its own (cid, version, number,
--- η#, δ#, κ#), the §6 signing message cid‖v‖s‖η#‖δ#‖κ#. cid is constant within a head, so it does
--- not affect the proofs (which use `msgOf` abstractly), but carrying it keeps the message faithful
--- to the implementation. The decommit/commit-set hashes δ#/κ# are snapshot fields like η#: honest
--- signing leaves them unconstrained in the model (they are authenticated only through the signature),
--- exactly the status η# has.
+-- η#, η̂#, δ#, κ#), the §6 signing message cid‖v‖s‖η#‖η̂#‖δ#‖κ#. cid is constant within a head, so it
+-- does not affect the proofs (which use `msgOf` abstractly), but carrying it keeps the message
+-- faithful to the implementation. The applied-accumulator hash η̂# and the decommit/commit-set hashes
+-- δ#/κ# are snapshot fields like η#: honest signing leaves them unconstrained in the model (they are
+-- authenticated only through the signature), exactly the status η# has.
 msgOf : Snapshot → ℍ
 msgOf snap = snapMsg (Snapshot.cid snap) (Snapshot.version snap) (Snapshot.number snap)
-                     (Snapshot.etaHash snap) (Snapshot.decHash snap) (Snapshot.comHash snap)
+                     (Snapshot.etaHash snap) (Snapshot.appliedEtaHash snap) (Snapshot.decHash snap) (Snapshot.comHash snap)
 
 -- The operational check `confirm` performs: the aggregate built from THIS system's recorded signatures
 -- on `snap` verifies under the head key over `snap`'s message. System-relative (see above).

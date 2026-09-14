@@ -78,10 +78,10 @@ data Reachableᵛ : HeadDatum → Set where
         (Closed cid hk n cp v s η C tfin ada)
         (Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada) ct kh
     → Reachableᵛ (Closed cid hk n cp v s' η' (kh ∷ C) tfin' ada)
-  incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref δ#}
-    → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref δ# → Reachableᵛ d'
-  decrementᵛ : ∀ {ctx hk cid v d d' ξ s m κ#}
-    → Reachableᵛ d → DecrementValid ctx hk cid v d d' ξ s m κ# → Reachableᵛ d'
+  incrementᵛ : ∀ {ctx hk cid v d d' ξ s ref η̂# δ#}
+    → Reachableᵛ d → IncrementValid ctx hk cid v d d' ξ s ref η̂# δ# → Reachableᵛ d'
+  decrementᵛ : ∀ {ctx hk cid v d d' ξ s m η̂# κ#}
+    → Reachableᵛ d → DecrementValid ctx hk cid v d d' ξ s m η̂# κ# → Reachableᵛ d'
   partialᵛ : ∀ {ctx d d' m crs}
     → Reachableᵛ d → PartialFanoutValid ctx d d' m crs → Reachableᵛ d'
 ```

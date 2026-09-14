@@ -1,57 +1,46 @@
 {
     "samples": [
         {
-            "headId": "01010101010000010101010000010100",
+            "headId": "00010101010000000100000000000101",
             "signatures": {
                 "multiSignature": [
-                    "3a45bcd90e69c327b83ebc547dfca43af5223bb443b3519725b83ec5acbc5259c4b85c29d47ea91abbb6d2ca9aa3aabebefe9eb975f7e2a25cc26a18d4bcca08"
+                    "4455008c5b2be77a9dfcbde41adebf029b53e87e0b79f519735457e7bac47f428ae9b16ee83f64aca4946fec9ad87796e8ea99cd8d42578c954683ed02bd7204"
                 ]
             },
             "snapshot": {
-                "accumulator": "a9266fd507f392bd58ed97386b49fa94a78a32571d7dc2089a9fbd94d936a50b",
+                "accumulator": "b188654b2aabd84100f830d5287ce5a32fc8bd4ac2e1680a4c642fec879d5d28",
+                "appliedAccumulator": "3813b9b468f8bc8dc8c891393f8534d39b3d8c45b1f59565a343c2a829229927",
                 "confirmed": [],
-                "depositTxId": "0100010100010001000000000001010100000001000101010100000001010000",
-                "headId": "00000000000100010101010101000000",
-                "number": 1,
+                "depositTxId": null,
+                "headId": "01010100010101010001000001000001",
+                "number": 0,
                 "utxo": {
-                    "0001000100010000000101010100000001010001000000010100000101000000#71": {
-                        "address": "addr_test1xprmxlw3k3ucrphzrcmdkuf63slgu8udtczfpk68v7q9c2nsyc3g2x43eyv6yy87k9lfy95zhyt0nhzp44v0795ex20qvgnrjz",
+                    "0001010001010000000001000100010101000101010100000101000000010001#93": {
+                        "address": "addr_test1yqptr2fqrg5q5kdmhs7ekfm9226yzarutedrs0uxdupz7vhl98yaeqwlvdvdhq9j7gfrvmmfpp2782t2xljwgq0nn54qck0mtp",
                         "datum": null,
                         "datumhash": null,
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
                         "referenceScript": null,
                         "value": {
-                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                "61f792e0e3546d0f3834ee258895f6b5f62c1e3a": 7480276058161243165
-                            },
                             "lovelace": 45000000000000000
                         }
                     }
                 },
-                "utxoToCommit": {
-                    "0100000001010101010100000101000100000000010100000001010101010000#95": {
-                        "address": "addr_test1zr3hggzj8ka63d8s67jndm8fkjs73paa3ncuys4xgrrguytn002zcu9g69w8e4sm72gr5a0vuyqy8vxnusvrxhz3dfmsxahtdt",
-                        "datum": null,
-                        "datumhash": null,
-                        "inlineDatum": null,
-                        "inlineDatumRaw": null,
-                        "referenceScript": null,
-                        "value": {
-                            "lovelace": 969750
-                        }
-                    }
-                },
+                "utxoToCommit": null,
                 "utxoToDecommit": {
-                    "0001010001010100000000000101010100000100000101010101010000010000#41": {
-                        "address": "addr_test1xzpgtfzp7v62k2fkng2u47nr0zvynwqwsy7htnf8ag3dd5qw96jdt7f7yghh6f35q3gz9nm56xmfn7r2plv4lu4kexusj5a5dw",
+                    "0001000101010001000101000100000001000001000000000001000000000100#73": {
+                        "address": "addr_test1xzcvfn8ahvr50v4z50s9vx8qkshy5rg9nwlykmwnjfz6draa8k6895kgt2px3h97htk64mh0hl0z8q0xe6dtv7lfnsesn6arjc",
                         "datum": null,
-                        "datumhash": null,
+                        "datumhash": "aec88d01a8236142d28b020c94b972aa52d1cceaa8f63ed1d1a199d63fc73c87",
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
                         "referenceScript": null,
                         "value": {
-                            "lovelace": 45000000000000000
+                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                "b96e857bf2fc4581b65d35bd922ceb29a3aaaf0d0d48d2236e5b3580": 1741521054599964601
+                            },
+                            "lovelace": 1426610
                         }
                     }
                 },
@@ -60,5 +49,5 @@
             "tag": "SnapshotConfirmed"
         }
     ],
-    "seed": -1514470239
+    "seed": -1861313200
 }

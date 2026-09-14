@@ -58,6 +58,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
+          , appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
           , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash snapshot
           }
 
@@ -100,7 +101,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , headAdaOverhead = prevHeadAdaOverhead
           }
 
-  Snapshot{utxoToDecommit, number, version, accumulator} = snapshot
+  Snapshot{utxoToDecommit, number, version, accumulator, appliedAccumulator} = snapshot
 
 -- * Observation
 

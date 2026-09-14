@@ -89,9 +89,12 @@ healthyCloseAnySnapshot =
     , utxoToCommit = Nothing
     , utxoToDecommit = Nothing
     , depositTxId = Nothing
-    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing Nothing
+    , accumulator = Accumulator.buildFromUTxO @Tx healthySplitUTxOInHead
+    , appliedAccumulator = Accumulator.buildFromUTxO @Tx healthySplitUTxOInHead
     }
 
+-- | With nothing pending both signed accumulators are the same, so the applied
+-- hash equals this one.
 healthyCloseAnyAccumulatorHash :: Head.Hash
 healthyCloseAnyAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCloseAnySnapshot
@@ -194,7 +197,7 @@ genCloseAnyMutation (tx, _utxo) =
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber 0) headTxOut
     , SomeMutation (pure $ toErrorCode FailedCloseAny) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseAny{signature, accumulatorHash = healthyCloseAnyAccumulatorHash, decommitOutputsHash = healthyCloseAnyDecommitOutputsHash, commitOutputsHash = healthyCloseAnyCommitOutputsHash}
+        pure $ Head.Close Head.CloseAny{signature, accumulatorHash = healthyCloseAnyAccumulatorHash, appliedAccumulatorHash = healthyCloseAnyAccumulatorHash, decommitOutputsHash = healthyCloseAnyDecommitOutputsHash, commitOutputsHash = healthyCloseAnyCommitOutputsHash}
     , SomeMutation (pure $ toErrorCode FailedCloseAny) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCloseAnySnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -254,6 +257,7 @@ genCloseAnyMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyCloseAnySnapshot
                             , accumulatorHash = healthyCloseAnyAccumulatorHash
+                            , appliedAccumulatorHash = healthyCloseAnyAccumulatorHash
                             , decommitOutputsHash = healthyCloseAnyDecommitOutputsHash
                             , commitOutputsHash = healthyCloseAnyCommitOutputsHash
                             }

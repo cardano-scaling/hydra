@@ -38,10 +38,10 @@ open import Agda.Builtin.Nat using (_==_)
 -- abstraction map: abstract close-redeemer tag → concrete Reference tag.
 -- (The Haskell `HeadValidatorAgreement` test passes the matching `R.CloseTagᶜ` constructor directly.)
 closeTagOf : CloseType → R.CloseTagᶜ
-closeTagOf closeInitial     = R.closeInitialᶜ
-closeTagOf (closeAny _ _ _ _)    = R.closeAnyᶜ
-closeTagOf (closeUnused _ _ _ _) = R.closeUnusedᶜ
-closeTagOf (closeUsed _ _ _ _)   = R.closeUsedᶜ
+closeTagOf closeInitial            = R.closeInitialᶜ
+closeTagOf (closeAny _ _ _ _ _)    = R.closeAnyᶜ
+closeTagOf (closeUnused _ _ _ _ _) = R.closeUnusedᶜ
+closeTagOf (closeUsed _ _ _ _ _)   = R.closeUsedᶜ
 
 -- The injected boundary, mocked to `true` (the differential test supplies the same).
 mockOps : R.Ops
@@ -69,7 +69,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin closeInitial
    (&&-intro refl
    (&&-intro refl
    (&&-intro (==-sound dl) (≤ᴮ-sound vb)))))))
-closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η# δ# κ#)
+closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η# η̂# δ# κ#)
   record { step = close ; deadlineOK = dl ; anyOK = anyOK ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==-refl cp)
@@ -78,7 +78,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeAny ξ η# δ#
    (&&-intro (<→<ᵇ anyOK)
    (&&-intro refl
    (&&-intro (==-sound dl) (≤ᴮ-sound vb)))))))
-closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η# δ# κ#)
+closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η# η̂# δ# κ#)
   record { step = close ; deadlineOK = dl ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==-refl cp)
@@ -87,7 +87,7 @@ closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUnused ξ η# 
    (&&-intro refl
    (&&-intro refl
    (&&-intro (==-sound dl) (≤ᴮ-sound vb)))))))
-closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η# δ# κ#)
+closeValid→ref ctx cid hk n cp v η ada s′ η′ C tfin (closeUsed ξ η# η̂# δ# κ#)
   record { step = close ; deadlineOK = dl ; validityBounded = vb } =
     &&-intro (==ᵇ-refl v)
    (&&-intro (==-refl cp)
@@ -111,14 +111,14 @@ mockOpsInc = record { incCryptoOK = λ _ → true }
 -- conjunct follows from the SAME value equation `headValueIn +ᵛ depositsValue ≡ headValue` by the
 -- respective additivity law. Checking the non-ada total catches a native-token siphon the lovelace
 -- check alone misses.
-incrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref δ#
-  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref δ#
+incrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref η̂# δ#
+  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref η̂# δ#
   → R.incRefᵇ mockOpsInc
        (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (depositsValue ctx)) (adaOf (headValue ctx))
           (nonAdaOf (headValueIn ctx)) (nonAdaOf (depositsValue ctx)) (nonAdaOf (headValue ctx))
           (OutputRef.index ref) 0)
      ≡ true
-incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref δ# b =
+incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# b =
   &&-intro (==ᵇ-refl (suc v))
  (&&-intro (≡→==ᵇ (IncrementValid.depositFirstOutput b))
  (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValueIn ctx) (depositsValue ctx)))
@@ -133,32 +133,32 @@ incrementValid→ref ctx cid hk n cp v η ada η′ ξ s ref δ# b =
 -- as the ada/non-ada totals are, but per asset). So a reference per-asset reject ⇒ the spec rejects ⇒ the
 -- validator rejects. This catches a selective single-token siphon the two scalar totals miss. Inducts on
 -- the asset list; nil is `perAssetConservedᵇ [] = true`.
-incPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref δ# (assets : List (CId × Token))
-  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref δ#
+incPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# (assets : List (CId × Token))
+  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref η̂# δ#
   → R.perAssetConservedᵇ
        (map (λ k → R.mkAssetIOᶜ (quantityOfᴺ (headValueIn ctx) k)
                                 (quantityOfᴺ (depositsValue ctx) k)
                                 (quantityOfᴺ (headValue ctx) k)) assets)
      ≡ true
-incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref δ# []       b = refl
-incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref δ# (k ∷ ks) b =
+incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# []       b = refl
+incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# (k ∷ ks) b =
   &&-intro (==-sound (trans (sym (quantityOfᴺ-+ᵛ (headValueIn ctx) (depositsValue ctx) k))
                             (cong (λ w → quantityOfᴺ w k) (IncrementValid.valueOK b))))
-           (incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref δ# ks b)
+           (incPerAsset→ref ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# ks b)
 
 -- Decrement: version bumps AND the head value shrinks by the decommit. The reference's lovelace check
 -- `adaOut + adaDelta ≡ adaIn` follows from `decrementValueOK` (headValue +ᵛ decommitValue ≡ headValueIn)
 -- via the `adaOf` additivity law -- so a reference value-reject implies the spec rejects. The ada
 -- fields carry: adaIn = head input, adaDelta = decommit value, adaOut = head output (the larger side
 -- is the head INPUT, unlike increment).
-decrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m κ#
-  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m κ#
+decrementValid→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m η̂# κ#
+  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m η̂# κ#
   → R.decRefᵇ mockOpsInc
        (R.mkIncIOᶜ v (suc v) (adaOf (headValueIn ctx)) (adaOf (decommitValue ctx m)) (adaOf (headValue ctx))
           (nonAdaOf (headValueIn ctx)) (nonAdaOf (decommitValue ctx m)) (nonAdaOf (headValue ctx))
           0 (length (take m (drop 1 (Context.outputs ctx)))))
      ≡ true
-decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m κ# b =
+decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m η̂# κ# b =
   &&-intro (==ᵇ-refl (suc v))
  (&&-intro (<→<ᵇ (DecrementValid.decommitNonEmpty b))
  (&&-intro (==-sound (trans (sym (adaOf-+ᵛ (headValue ctx) (decommitValue ctx m)))
@@ -173,18 +173,18 @@ decrementValid→ref ctx cid hk n cp v η ada η′ ξ s m κ# b =
 -- additivity law `quantityOfᴺ-+ᵛ`. The caller supplies each AssetIOᶜ as (qIn := headValue, qDelta :=
 -- decommitValue, qOut := headValueIn), so the shared `perAssetConservedᵇ` sum-check `qIn + qDelta == qOut`
 -- IS this equation. Catches a selective single-token over-decommit the two scalar totals miss.
-decPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m κ# (assets : List (CId × Token))
-  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m κ#
+decPerAsset→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m η̂# κ# (assets : List (CId × Token))
+  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m η̂# κ#
   → R.perAssetConservedᵇ
        (map (λ k → R.mkAssetIOᶜ (quantityOfᴺ (headValue ctx) k)
                                 (quantityOfᴺ (decommitValue ctx m) k)
                                 (quantityOfᴺ (headValueIn ctx) k)) assets)
      ≡ true
-decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m κ# []       b = refl
-decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m κ# (k ∷ ks) b =
+decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m η̂# κ# []       b = refl
+decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m η̂# κ# (k ∷ ks) b =
   &&-intro (==-sound (trans (sym (quantityOfᴺ-+ᵛ (headValue ctx) (decommitValue ctx m) k))
                             (cong (λ w → quantityOfᴺ w k) (DecrementValid.valueOK b))))
-           (decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m κ# ks b)
+           (decPerAsset→ref ctx cid hk n cp v η ada η′ ξ s m η̂# κ# ks b)
 
 -- ── contest ─────────────────────────────────────────────────────────────────────────────────
 -- Version preserved (both v), snapshot strictly increases (s < s′ from the bundle), one contester
@@ -344,8 +344,8 @@ postulate refCodeOf : OutputRef → ℕ
 -- and Plutus constructor orders coincide). A definition, not a postulate: the coupling bridge below
 -- discharges `redeemerIndex (Increment …) == 0` by computation.
 redeemerIndex : HeadRedeemer → ℕ
-redeemerIndex (Increment _ _ _ _)        = 0
-redeemerIndex (Decrement _ _ _ _)        = 1
+redeemerIndex (Increment _ _ _ _ _)      = 0
+redeemerIndex (Decrement _ _ _ _ _)      = 1
 redeemerIndex (Close _)                  = 2
 redeemerIndex (Contest _)                = 3
 redeemerIndex (Fanout _ _ _)             = 4
@@ -354,19 +354,19 @@ redeemerIndex (FinalPartialFanout _ _ _) = 6
 
 -- Joint claim bundle ⇒ the extracted claim checker. The before-deadline and own-head conjuncts come
 -- from the νDeposit side (`ClaimTxValid.depositSideOK`); the Increment-redeemer coupling comes from
--- the νHEAD side - the joint bundle's head input is spent with `Increment ξ s ref δ#` BY TYPE
+-- the νHEAD side - the joint bundle's head input is spent with `Increment ξ s ref η̂# δ#` BY TYPE
 -- (`ClaimTxValid.headSideOK`'s step), so its pinned index is 0 definitionally and the reference's
 -- `headRedeemerIdxC == 0` conjunct is discharged by `refl`. The claims-this-deposit coupling
 -- (deposit.ak's ref equality, `claimedRefCodeC == ownRefCodeC`) is likewise definitional here: the
 -- joint bundle carries one `ref` shared by both sides, so both codes are `refCodeOf ref` and the
 -- conjunct is `==-sound refl`. No mock and no new postulate: the only assumed pieces remain the
 -- `cidToNat`/`refCodeOf` encodings (used with `cong`/`refl`, no injectivity).
-claimTxValid→ref : ∀ ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref δ#
-  → claimTxValid ctx (mkDepositDatum cid tRec C) (Open hcid hk n cp v η ada) headOut ξ s ref δ#
+claimTxValid→ref : ∀ ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref η̂# δ#
+  → claimTxValid ctx (mkDepositDatum cid tRec C) (Open hcid hk n cp v η ada) headOut ξ s ref η̂# δ#
   → R.claimRefᵇ
       (R.mkClaimIOᶜ tRec (ValidityInterval.hi (Context.validity ctx)) (cidToNat cid) (cidToNat hcid)
-         (redeemerIndex (Increment ξ s ref δ#)) (refCodeOf ref) (refCodeOf ref)) ≡ true
-claimTxValid→ref ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref δ# b =
+         (redeemerIndex (Increment ξ s ref η̂# δ#)) (refCodeOf ref) (refCodeOf ref)) ≡ true
+claimTxValid→ref ctx cid tRec C hcid hk n cp v η ada headOut ξ s ref η̂# δ# b =
   &&-intro (≤ᴮ-sound (ClaimValid.beforeRecoverDeadline (ClaimTxValid.depositSideOK b)))
  (&&-intro (==-sound (cong cidToNat (ClaimValid.claimedByOwnHead (ClaimTxValid.depositSideOK b))))
  -- the redeemer-index conjunct computes away (`redeemerIndex (Increment …) == 0` is `true`), leaving
@@ -422,16 +422,16 @@ closeParticipant→ref : ∀ ctx cid hk n cp v η ada s′ η′ C tfin ct
 closeParticipant→ref ctx cid hk n cp v η ada s′ η′ C tfin ct b =
   participantSigned→ref cid ctx (CloseValid.participantSigned b)
 
-incrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref δ#
-  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref δ#
+incrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s ref η̂# δ#
+  → incrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s ref η̂# δ#
   → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
-incrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s ref δ# b =
+incrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s ref η̂# δ# b =
   participantSigned→ref cid ctx (IncrementValid.participantSigned b)
 
-decrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m κ#
-  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m κ#
+decrementParticipant→ref : ∀ ctx cid hk n cp v η ada η′ ξ s m η̂# κ#
+  → decrementValid ctx (Open cid hk n cp v η ada) (Open cid hk n cp (suc v) η′ ada) ξ s m η̂# κ#
   → R.participantSignedRefᵇ (R.mkSignerIOᶜ (signerCodes ctx) (ptCodes cid ctx)) ≡ true
-decrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s m κ# b =
+decrementParticipant→ref ctx cid hk n cp v η ada η′ ξ s m η̂# κ# b =
   participantSigned→ref cid ctx (DecrementValid.participantSigned b)
 
 contestParticipant→ref : ∀ ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin′ ct

@@ -106,7 +106,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot, snapshotUTxO)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
 -- * The Coordinated Head protocol
 
@@ -350,15 +350,28 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
                 let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    nextCombined = combinedUTxO nextUTxO mUtxoToCommit mUtxoToDecommit
                     -- The predecessor is confirmed at this point (see
-                    -- requireReqSn and waitNoSnapshotInFlight), so its
-                    -- accumulator covers exactly 'snapshotUTxO prevSnapshot'
-                    -- and can be updated by the UTxO delta instead of
-                    -- re-serializing and re-hashing every output.
+                    -- requireReqSn and waitNoSnapshotInFlight), so its two
+                    -- accumulators cover exactly its own two owed sets (see
+                    -- 'Accumulator.buildFromSnapshotUTxOs') and can be updated by
+                    -- the UTxO delta instead of re-serializing and re-hashing
+                    -- every output.
                     prevSnapshot = getSnapshot confirmedSnapshot
-                    accumulator = Accumulator.applyUTxODelta prevSnapshot.accumulator (snapshotUTxO prevSnapshot) nextCombined
-                 in requireValidAccumulatorSize accumulator $ do
+                    accumulator =
+                      Accumulator.applyUTxODelta
+                        prevSnapshot.accumulator
+                        (combinedUTxO prevSnapshot.utxo Nothing prevSnapshot.utxoToDecommit)
+                        (combinedUTxO nextUTxO Nothing mUtxoToDecommit)
+                    appliedAccumulator
+                      -- Nothing pending: both accumulators are the same value,
+                      -- share the thunk so the commitment is computed once.
+                      | isNothing mUtxoToCommit && isNothing mUtxoToDecommit = accumulator
+                      | otherwise =
+                          Accumulator.applyUTxODelta
+                            prevSnapshot.appliedAccumulator
+                            (combinedUTxO prevSnapshot.utxo prevSnapshot.utxoToCommit Nothing)
+                            (combinedUTxO nextUTxO mUtxoToCommit Nothing)
+                 in requireValidAccumulatorSize accumulator $ requireValidAccumulatorSize appliedAccumulator $ do
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here
                       let nextSnapshot =
@@ -374,6 +387,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                                 -- claim this very deposit, see 'Hydra.Tx.Snapshot'.
                                 depositTxId = mDepositTxId
                               , accumulator
+                              , appliedAccumulator
                               }
 
                       -- Spec: 𝜂 ← combine(𝑈)
@@ -1474,16 +1488,12 @@ mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
     { utxo
     , utxoToCommit = effectiveCommit
     , utxoToDecommit = effectiveDecommit
-    , -- Always use the snapshot's original (unfiltered) full UTxO set to rebuild
-      -- the accumulator that matches the closed datum.
-      utxoForProof = snapshotUTxO snapshot
     , headSeed
     , contestationDeadline
     }
  where
   (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
-  snapshot = getSnapshot confirmedSnapshot
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = snapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
 
 -- | Client request to fan out a user-selected subset of a freshly closed head.
 -- Validates the selection is a non-empty sub-multiset (by content) of the
@@ -1620,11 +1630,10 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
       -- Already in 'FanoutProgress' on chain, so any continuation may finalize.
       finalize = emitPartialFanoutStep remaining remaining DatumFanoutProgress confirmedSnapshot version headSeed contestationDeadline
       continue
-        -- The head's remaining set is now empty: emit the final (burning) step,
-        -- which also distributes any pre-settled UTxO. This must happen regardless
-        -- of mode — otherwise a selection that drains everything (e.g. when a
-        -- pre-settled decommit UTxO keeps the on-chain accumulator non-empty) would
-        -- stop at 'AwaitingSelection' and wedge the head, never burning the tokens.
+        -- The head's remaining set is now empty: emit the final (burning) step.
+        -- This must happen regardless of mode — otherwise a selection that
+        -- drains everything would stop at 'AwaitingSelection' and wedge the
+        -- head, never burning the tokens.
         | nullOutputs remaining = finalize
         | otherwise = case newMode of
             AutoDrain -> finalize
@@ -1799,7 +1808,6 @@ emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version he
           { postChainTx =
               FinalPartialFanoutTx
                 { utxoToDistribute = remaining
-                , presettledUTxO = presettled
                 , headSeed
                 , contestationDeadline
                 }
@@ -1816,17 +1824,13 @@ emitPartialFanoutStep target remaining onChainDatum confirmedSnapshot version he
                 }
           }
  where
-  fullUTxO = fanoutUTxOFromSnapshot confirmedSnapshot version
-  -- Pre-settled elements: in the snapshot accumulator but never distributed
-  -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
-  presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) fullUTxO
+  -- The set the on-chain datum commits to. Close stores the accumulator over
+  -- exactly the fan-out-able set (see 'Hydra.Tx.Close.closeTx'), and every
+  -- partial step removes what it distributed, so this is the full set from a
+  -- @Closed@ head and the not-yet-distributed set from @FanoutProgress@.
   utxoForProof
-    -- First step from a @Closed@ head: the datum's accumulator commits to the
-    -- full snapshot UTxO.
-    | onChainDatum == DatumClosed = snapshotUTxO (getSnapshot confirmedSnapshot)
-    -- Otherwise the head is in @FanoutProgress@, whose accumulator commits to the
-    -- not-yet-distributed set plus any pre-settled elements.
-    | otherwise = remaining <> presettled
+    | onChainDatum == DatumClosed = fanoutUTxOFromSnapshot confirmedSnapshot version
+    | otherwise = remaining
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the

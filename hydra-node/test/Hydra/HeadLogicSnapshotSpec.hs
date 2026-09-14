@@ -86,6 +86,7 @@ spec = do
         let poisoned =
               (testSnapshot 1 0 [] mempty :: Snapshot SimpleTx)
                 { accumulator = error "signableBytes forced during WHNF"
+                , appliedAccumulator = error "signableBytes forced during WHNF"
                 }
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
 
@@ -271,4 +272,5 @@ testSnapshot number version confirmed utxo =
         , utxoToDecommit = mempty
         , depositTxId = Nothing
         , accumulator
+        , appliedAccumulator = accumulator
         }

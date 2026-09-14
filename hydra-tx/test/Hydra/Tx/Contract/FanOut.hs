@@ -33,7 +33,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (dperiod, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.Hydra.Tx.Utils (adaOnly, splitUTxO)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
@@ -57,7 +57,6 @@ healthyFanoutTx =
         (fst healthyFanoutSnapshotUTxO)
         Nothing
         (Just $ snd healthyFanoutSnapshotUTxO)
-        healthyFanoutUTxO
         (healthyHeadInput, healthyHeadOutput)
         healthySlotNo
         healthyHeadTokenScript
@@ -107,15 +106,16 @@ fanoutTxWithOverlappingSets =
 
   decommitUTxO = UTxO.fromList [shared, ownToDecommit]
 
-  utxoForProof = utxo <> decommitUTxO
+  -- The set the closed datum commits to: the union, so the shared entry counts once.
+  owedUTxO = utxo <> decommitUTxO
 
   headOutput =
-    modifyTxOutValue (<> UTxO.totalValue utxoForProof) $
+    modifyTxOutValue (<> UTxO.totalValue owedUTxO) $
       mkHeadOutput @CtxUTxO
         testNetworkId
         testPolicyId
         (verificationKeyToOnChainId <$> healthyParticipants)
-        (mkTxOutDatumInline (mkFanoutDatum (Accumulator.buildFromUTxO @Tx utxoForProof)))
+        (mkTxOutDatumInline (mkFanoutDatum (Accumulator.buildFromUTxO @Tx owedUTxO)))
 
   tx =
     fromRight (error "FanOut overlapping fixture: proof creation failed") $
@@ -124,7 +124,6 @@ fanoutTxWithOverlappingSets =
         utxo
         Nothing
         (Just decommitUTxO)
-        utxoForProof
         (healthyHeadInput, headOutput)
         healthySlotNo
         healthyHeadTokenScript
@@ -161,9 +160,12 @@ healthyContestationDeadline =
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
+-- | The accumulator the closed datum commits to: exactly what the fanout
+-- distributes, i.e. the snapshot UTxO together with the (still pending)
+-- decommit, which is 'healthyFanoutUTxO' as a whole.
 healthyFanoutSnapshotAccumulator :: Accumulator.HydraAccumulator
 healthyFanoutSnapshotAccumulator =
-  Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) Nothing (Just $ snd healthyFanoutSnapshotUTxO)
+  Accumulator.buildFromUTxO @Tx healthyFanoutUTxO
 
 crsSize :: Int
 crsSize = Accumulator.requiredCRSPointCount healthyFanoutSnapshotAccumulator
@@ -210,6 +212,9 @@ data FanoutMutation
     MutateThreadTokenQuantity
   | MutateAddUnexpectedOutput
   | MutateFanoutOutputValue
+  | -- | Swap a distributed output for one of EQUAL value at another address.
+    -- Value conservation still holds, so only membership can reject it.
+    MutateFanoutSwapEqualValueOutput
   | MutateDecommitOutputValue
   | -- | Inject an unrelated v_deposit input into a healthy Fanout.
     FanoutAbsorbForeignDeposit
@@ -219,6 +224,11 @@ data FanoutMutation
     -- A substituted powers-of-tau setup lets a crafted fanout forge membership
     -- proofs and redirect funds, so the CRS datum content must be validated.
     MutateFanoutNonCanonicalCRS
+  | -- | Leave one owed output out of the proven prefix, with a valid membership
+    -- proof for the rest. Membership holds, but the quotient is then not the
+    -- empty-set commitment: the closed datum commits to exactly the owed set, so
+    -- a fanout may not omit any of it (GHSA-f825-9gwc-h5xq lockout angle).
+    MutateFanoutOmitOutput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -252,6 +262,11 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] (drop noOfUtxoToOutputs outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateFanoutSwapEqualValueOutput <$> do
+        let outs = txOuts' tx
+        (ix, out) <- elements (zip [0 .. UTxO.size healthyFanoutUTxO - 1] outs)
+        address' <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress out)
+        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutAddress (const address') out)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateHeadAdaOverhead <$> do
         -- Changing headAdaOverhead in the input datum shifts the expected conservation
         -- baseline, so the on-chain headInValue == outputs + overhead check fails.
@@ -288,6 +303,27 @@ genFanoutMutation (tx, _utxo) =
             [ AddReferenceInput substitutedCRSIn substitutedCRSOut
             , ChangeHeadRedeemer substitutedRedeemer
             ]
+    , pure $
+        SomeMutation (pure $ toErrorCode FanoutIncomplete) MutateFanoutOmitOutput $
+          let n = UTxO.size healthyFanoutUTxO - 1
+              -- The proven prefix is the first n transaction outputs, whatever
+              -- their TxIn was in the head; the proof is over their content.
+              provenPrefix = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take n (txOuts' tx))
+              partialProof =
+                bls12_381_G1_uncompress $
+                  toBuiltin $
+                    either error id $
+                      Accumulator.createMembershipProofFromUTxO @Tx
+                        provenPrefix
+                        healthyFanoutSnapshotAccumulator
+                        (Accumulator.crsG1Points crsSize)
+              ScriptRegistry{crsReference} = scriptRegistry
+           in ChangeHeadRedeemer
+                Head.Fanout
+                  { Head.numberOfFanoutOutputs = fromIntegral n
+                  , Head.proof = partialProof
+                  , Head.crsRef = toPlutusTxOutRef (fst crsReference)
+                  }
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
         extraIn <- genTxIn
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1

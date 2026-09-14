@@ -319,9 +319,11 @@ dryRunIncrementTx ctx spendableUTxO headId currentSnapshot depositDraftTx upperV
           , utxoToCommit = Just deposited
           , utxoToDecommit = Nothing
           , depositTxId = Just depositTxId
-          , -- Only the constant-size hash of the accumulator ends up in the
-            -- transaction.
+          , -- Only the constant-size hashes of the accumulators end up in the
+            -- transaction, so the fabricated snapshot reuses the current one for
+            -- both rather than committing to the deposit for a dry run.
             accumulator
+          , appliedAccumulator = accumulator
           }
       signatures = case currentSnapshot of
         -- Real multi-signature of the right multiplicity; that it does not
@@ -588,18 +590,16 @@ fanout ::
   Maybe UTxO ->
   -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
-  -- | Full snapshot UTxO for accumulator (matches closed datum)
-  UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Either FanoutTxError Tx
-fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo = do
+fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- extractProgressDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof closedThreadUTxO deadlineSlotNo headTokenScript
+  fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
     & first FailedToCreateFanoutProof
  where
   headTokenScript = mkHeadTokenScript seedTxIn
@@ -657,13 +657,12 @@ preparePartialFanout ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | UTxO used to verify the on-chain accumulator commitment. For the first fanout
-  -- step this is utxoForProof (the snapshot's full set, including any decommit UTxOs
-  -- that may already have been removed from the head by a DecrementTx). For subsequent
-  -- FanoutProgress steps it is the not-yet-distributed set plus any pre-settled
-  -- elements, which the remaining set only equals when the whole of it is being
-  -- distributed: a user selection is a sub-multiset of it, matched by output
-  -- content rather than by 'TxIn'.
+  -- | UTxO used to verify the on-chain accumulator commitment: everything still
+  -- in the head. For the first fanout step this is the fan-out-able set the
+  -- closed datum commits to; for subsequent FanoutProgress steps it is the
+  -- not-yet-distributed set, which the remaining set only equals when the whole
+  -- of it is being distributed: a user selection is a sub-multiset of it, matched
+  -- by output content rather than by 'TxIn'.
   UTxO ->
   -- | Remaining UTxOs to distribute
   UTxO ->
@@ -719,15 +718,13 @@ finalPartialFanout ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | All remaining UTxOs to distribute
-  UTxO ->
-  -- | Pre-settled UTxO: elements in the snapshot accumulator that are never
-  -- distributed (e.g. a decommit UTxO paid out before close). mempty in normal case.
+  -- | All remaining UTxOs to distribute, which is exactly the set the
+  -- FanoutProgress datum commits to.
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Either PartialFanoutError Tx
-finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlotNo = do
+finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -737,7 +734,7 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO de
     _ -> Left WrongDatum
   -- The accumulator verified against the datum here is the one the membership
   -- proof is built against, rather than a second build over the same set.
-  fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
+  fullAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry

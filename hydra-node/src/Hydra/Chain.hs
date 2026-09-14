@@ -86,28 +86,31 @@ data PostChainTx tx
       , openVersion :: SnapshotVersion
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
-  | FanoutTx
+  | -- | Full fanout of a closed head. The closed datum commits to exactly the
+    -- fan-out-able set, i.e. 'utxo' plus whichever of the pending commit /
+    -- decommit still applies at the on-chain version, so that union is both what
+    -- is distributed and what the membership proof is built against.
+    FanoutTx
       { utxo :: UTxOType tx
       , utxoToCommit :: Maybe (UTxOType tx)
       , utxoToDecommit :: Maybe (UTxOType tx)
-      , utxoForProof :: UTxOType tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
   | -- | Non-final partial fanout of a user-selected subset. Distributes
     -- 'utxoToDistribute' (dynamically chunked to fit) and leaves the head in the
-    -- 'FanoutProgress' state without burning tokens. 'utxoForProof' is the full
-    -- accumulator UTxO matching the current on-chain datum (everything still in
-    -- the head plus any pre-settled elements).
+    -- 'FanoutProgress' state without burning tokens. 'utxoForProof' is the UTxO
+    -- the current on-chain datum commits to: everything still in the head.
     PartialFanoutTx
       { utxoToDistribute :: UTxOType tx
       , utxoForProof :: UTxOType tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
-  | FinalPartialFanoutTx
+  | -- | Final partial fanout: distributes everything still in the head, which is
+    -- exactly what the 'FanoutProgress' datum commits to, and burns the tokens.
+    FinalPartialFanoutTx
       { utxoToDistribute :: UTxOType tx
-      , presettledUTxO :: UTxOType tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }

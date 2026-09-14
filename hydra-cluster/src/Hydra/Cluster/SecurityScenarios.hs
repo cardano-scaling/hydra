@@ -479,7 +479,8 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
             , Snapshot.depositTxId = Just deposit1TxId
-            , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.accumulator = fst $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 
@@ -498,6 +499,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef deposit1In
+                , Head.appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ snd $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
                 , Head.decommitOutputsHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
                 }
         headWitness =
@@ -519,7 +521,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.contestationPeriod = prevPeriod
             , Head.depositPeriod = prevDepositPeriod
             , Head.version = prevVersion + 1
-            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ fst $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         headOut' =
@@ -721,7 +723,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             , Head.snapshotNumber = 0
             , Head.contesters = []
             , Head.contestationDeadline = contestationDeadline
-            , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty Nothing Nothing
+            , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromUTxO @CAPI.Tx mempty
             , Head.headAdaOverhead = 0
             }
 
@@ -870,7 +872,8 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
             , Snapshot.depositTxId = Just leaderDepositTxId
-            , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.accumulator = fst $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 
@@ -889,6 +892,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef leaderDepositIn
+                , Head.appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ snd $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
                 , Head.decommitOutputsHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
                 }
         headWitness =
@@ -910,7 +914,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.contestationPeriod = prevPeriod
             , Head.depositPeriod = prevDepositPeriod
             , Head.version = prevVersion + 1
-            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ fst $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         -- Head value grows by ONLY the leader's small deposit; the

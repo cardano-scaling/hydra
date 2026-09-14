@@ -62,6 +62,8 @@ data HeadError
   | DepositNotFirstOutput
   | DecrementZeroOutputs
   | MustNotSpendOtherScripts
+  | FanoutIncomplete
+  | FinalPartialFanoutIncomplete
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -127,3 +129,5 @@ instance ToErrorCode HeadError where
     DepositNotFirstOutput -> "H69"
     DecrementZeroOutputs -> "H70"
     MustNotSpendOtherScripts -> "H71"
+    FanoutIncomplete -> "H72"
+    FinalPartialFanoutIncomplete -> "H73"

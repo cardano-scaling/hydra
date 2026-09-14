@@ -85,6 +85,10 @@ healthyContestAccumulatorHash :: Head.Hash
 healthyContestAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
+healthyContestAppliedAccumulatorHash :: Head.Hash
+healthyContestAppliedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ appliedAccumulator healthyContestSnapshot
+
 healthyContestDecommitOutputsHash :: Head.Hash
 healthyContestDecommitOutputsHash =
   toBuiltin $ hashUTxO @Tx (fromMaybe mempty (utxoToDecommit healthyContestSnapshot))
@@ -195,6 +199,7 @@ genContestMutation (tx, _utxo) =
             Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
+              , appliedAccumulatorHash = healthyContestAppliedAccumulatorHash
               , decommitOutputsHash = healthyContestDecommitOutputsHash
               , commitOutputsHash = healthyContestCommitOutputsHash
               }
@@ -218,6 +223,7 @@ genContestMutation (tx, _utxo) =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
                     , accumulatorHash = healthyContestAccumulatorHash
+                    , appliedAccumulatorHash = healthyContestAppliedAccumulatorHash
                     , decommitOutputsHash = healthyContestDecommitOutputsHash
                     , commitOutputsHash = healthyContestCommitOutputsHash
                     }
@@ -243,6 +249,7 @@ genContestMutation (tx, _utxo) =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
                             , accumulatorHash = healthyContestAccumulatorHash
+                            , appliedAccumulatorHash = healthyContestAppliedAccumulatorHash
                             , decommitOutputsHash = healthyContestDecommitOutputsHash
                             , commitOutputsHash = healthyContestCommitOutputsHash
                             }

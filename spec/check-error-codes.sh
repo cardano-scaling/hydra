@@ -102,7 +102,7 @@ H34 ContesterNotIncluded tested
 H35 WrongNumberOfSigners untested:variant-gap
 H36 SignerAlreadyContested tested
 H37 FailedContestUnused tested
-H38 FailedContestUsed untested:variant-gap
+H38 FailedContestUsed tested
 H39 FanoutUTxOHashMismatch tested
 H41 LowerBoundBeforeContestationDeadline tested
 H42 FanoutNoLowerBoundDefined untested:validity-plumbing
@@ -127,6 +127,8 @@ H68 InvalidCRSDatum tested
 H69 DepositNotFirstOutput tested
 H70 DecrementZeroOutputs tested
 H71 MustNotSpendOtherScripts tested
+H72 FanoutIncomplete tested
+H73 FinalPartialFanoutIncomplete tested
 LEDGER
 )
 

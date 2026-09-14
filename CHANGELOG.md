@@ -10,6 +10,27 @@ changes.
 
 ## UNRELEASED
 
+- **BREAKING** Fix GHSA-f825-9gwc-h5xq: a non-final partial fanout step could
+  distribute a snapshot member whose value had already left the head (a decommit
+  paid out by a decrement before close, or a deposit whose increment never
+  landed), paying it a second time out of the value backing everyone else's
+  outputs and leaving the remaining head value short or locked forever. The
+  closed head's accumulator commitment used to cover the whole snapshot set
+  including such pre-settled outputs, and the partial step only checked
+  membership. A snapshot now carries two signed accumulators, one for each of
+  the two sets the head can owe at close time (pending decommit still inside,
+  or pending commit absorbed), and `Close`/`Contest` must store the one matching
+  their redeemer kind, so the on-chain commitment describes exactly the outputs
+  still owed. The full and final fanout additionally require the membership
+  proof to be the empty-set commitment, i.e. no owed output may be left out
+  (`FanoutIncomplete` H72, `FinalPartialFanoutIncomplete` H73). This changes
+  the signed snapshot message, the close/contest/increment/decrement redeemers
+  and the head validator script hash; all parties of a head must upgrade
+  together and heads open on the previous scripts cannot be closed with the new
+  node. Snapshot JSON gains an informational `appliedAccumulator` hash; the
+  `FanoutTx` chain effect drops `utxoForProof` and `FinalPartialFanoutTx` drops
+  `presettledUTxO`.
+
 - Speed up posting a partial fanout step: the chunk size search was bounded by
   the size of the set being distributed, so a 4000-output head built twelve
   candidate transactions per step, the first of them carrying over a thousand

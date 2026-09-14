@@ -111,19 +111,30 @@ buildFromUTxO utxo =
   let elements = utxoToElement @tx <$> outputsOfUTxO @tx utxo
    in build elements
 
--- | Build an accumulator from snapshot UTxOs, including commit and decommit UTxOs.
+-- | Build the two accumulators a snapshot commits to, see 'Hydra.Tx.Snapshot'.
 --
--- Combines all UTxOs that could potentially be fanned out — main snapshot,
--- commit, and decommit — and delegates to 'buildFromUTxO' on the merged set.
+-- When a snapshot is signed nobody knows yet whether its pending increment or
+-- decrement will land on chain before the head is closed, and which outputs the
+-- head owes at close time depends on that. So the parties sign a commitment for
+-- each of the two futures:
+--
+--   * the /snapshot/ accumulator, over the head's content while it stays at the
+--     snapshot's version: the snapshot UTxO plus a pending decommit (still inside
+--     until the decrement lands); a pending commit is not yet inside.
+--   * the /applied/ accumulator, over the head's content once the pending action
+--     has been applied on chain: the snapshot UTxO plus a pending commit (the
+--     increment absorbed it); a pending decommit has been paid out.
+--
+-- Close and Contest store the one matching their redeemer kind (Unused/Any and
+-- Used respectively, 'Hydra.Contract.Head.checkClose'), so the on-chain
+-- commitment always describes exactly the outputs a fanout must distribute.
+-- With nothing pending both are the same value and are computed once.
+--
 -- Merging via UTxO union keeps the same canonical TxIn-sorted element order
--- used by every other accumulator call site ('computeFullFanoutUTxO',
--- 'partialFanout' staleness check, 'emitNextFanoutStep'), so the commitment
--- stored in the snapshot and all downstream proofs are built from the same
--- element set by construction.
---
--- Note: the underlying 'HydraAccumulator' is a 'Map' keyed by element bytes,
--- so insertion order is irrelevant for the commitment value; the merge is done
--- here for explicit consistency with the rest of the fanout code paths.
+-- used by every other accumulator call site, so the commitments stored in the
+-- snapshot and all downstream proofs are built from the same element sets by
+-- construction (the underlying 'HydraAccumulator' is a 'Map' keyed by element
+-- bytes, so insertion order does not affect the commitment value).
 buildFromSnapshotUTxOs ::
   forall tx.
   IsTx tx =>
@@ -133,10 +144,17 @@ buildFromSnapshotUTxOs ::
   Maybe (UTxOType tx) ->
   -- | UTxOs to be decommitted (if any)
   Maybe (UTxOType tx) ->
-  -- | The resulting accumulator containing all UTxOs
-  HydraAccumulator
+  -- | The snapshot accumulator and the applied accumulator
+  (HydraAccumulator, HydraAccumulator)
 buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
-  buildFromUTxO @tx $ combinedUTxO utxo mUtxoToCommit mUtxoToDecommit
+  case (mUtxoToCommit, mUtxoToDecommit) of
+    (Nothing, Nothing) -> (base, base)
+    _ ->
+      ( buildFromUTxO @tx $ combinedUTxO utxo Nothing mUtxoToDecommit
+      , buildFromUTxO @tx $ combinedUTxO utxo mUtxoToCommit Nothing
+      )
+ where
+  base = buildFromUTxO @tx utxo
 
 -- | Update an accumulator from one snapshot's combined UTxO set to the next
 -- by adding and removing only the changed outputs, avoiding the per-output

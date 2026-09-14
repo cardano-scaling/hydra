@@ -38,7 +38,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (verifySnapshotSignature)
+import Hydra.Contract.HeadError (HeadError (PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
@@ -57,9 +59,9 @@ import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, 
 import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
-import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
+import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedNoPendingTx, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
-import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUsedMutation, healthyContestUsedTx)
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
@@ -68,7 +70,7 @@ import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation,
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
@@ -82,7 +84,7 @@ import Test.Hydra.Tx.Gen (
   propTransactionEvaluates,
   shrinkUTxO,
  )
-import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
+import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation, propTransactionFailsPhase2)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -146,7 +148,7 @@ spec = parallel $ do
                   , contestationDeadline = 2_000_000_000_000
                   , accumulatorCommitment =
                       Accumulator.getAccumulatorCommitment $
-                        Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+                        Accumulator.buildFromUTxO @Tx mempty
                   , headAdaOverhead = 0
                   }
           -- minUTxOValue adds maxWord64 internally, so the base must have 0 lovelace
@@ -205,6 +207,8 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+    prop "closes a stale snapshot with nothing pending as CloseUsed" $
+      propTransactionEvaluates healthyCloseOutdatedNoPendingTx
   describe "CloseCommitUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCommitPendingTx
@@ -226,11 +230,16 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
-  describe "ContestUsed" $ do
+  describe "ContestDecommit (pending, ContestUnused)" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestDecMutation
+  describe "ContestUsed (decommit paid out before close)" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyContestUsedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyContestUsedTx genContestUsedMutation
   describe "ContestCommit" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestIncTx
@@ -266,6 +275,26 @@ spec = parallel $ do
       -- but a partial step still distributes the selected UTxOs, so funds are
       -- recoverable via selection regardless of the stuck token.
       propTransactionEvaluates healthyPartialFanoutTxWithUnburnedToken
+    prop "rejects distributing a pre-settled output (GHSA-f825-9gwc-h5xq)" $
+      -- Regression: the distributed output is a snapshot member whose value
+      -- already left the head (a decommit paid out before close). Before the fix
+      -- the closed datum committed to the whole snapshot set, so this step paid
+      -- it a second time out of the pool backing everyone else's outputs and
+      -- left the final step's strict value equation unsatisfiable (theft and
+      -- lockout). Close now stores the accumulator over the owed set only, so the
+      -- output is not a member.
+      propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] presettledFanoutAttackTx
+    prop "rejects distributing a pre-settled output from FanoutProgress (GHSA-f825-9gwc-h5xq)" $
+      -- Same drain posted mid-fanout.
+      propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] presettledFanoutAttackFromProgressTx
+    prop "closes with CloseUsed after a settled decommit" $
+      -- The close the fixtures above are derived from must itself be valid,
+      -- otherwise they would exercise a closed state no head can reach.
+      propTransactionEvaluates presettledCloseTx
+    prop "accepts distributing live outputs after a settled decommit" $
+      -- A head closed after a settled decommit must still validate partial
+      -- fanouts of its live outputs.
+      propTransactionEvaluates liveFanoutWithPresettledTx
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFinalPartialFanoutTx
@@ -341,14 +370,14 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
-  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, utxoToDecommit} :: Snapshot Tx) ->
+  forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator, appliedAccumulator, utxoToDecommit} :: Snapshot Tx) ->
     forAll (resize 3 arbitrary) $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (commitOutputsHash snapshot)) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, toBuiltin (Accumulator.getAccumulatorHash accumulator), toBuiltin (Accumulator.getAccumulatorHash appliedAccumulator), toBuiltin (hashUTxO @Tx (fromMaybe mempty utxoToDecommit)), toBuiltin (commitOutputsHash snapshot)) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)

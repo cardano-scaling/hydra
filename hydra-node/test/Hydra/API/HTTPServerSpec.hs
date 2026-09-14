@@ -607,8 +607,8 @@ apiServerSpec = do
                 case confirmedSnapshot of
                   InitialSnapshot{headId} -> InitialSnapshot{headId}
                   ConfirmedSnapshot{snapshot, signatures} ->
-                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, depositTxId, accumulator} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, depositTxId, accumulator}
+                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator} = snapshot
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -758,6 +758,7 @@ apiServerSpec = do
                 , utxoToDecommit = mempty
                 , depositTxId = Nothing
                 , accumulator
+                , appliedAccumulator = accumulator
                 }
             event =
               TimedServerOutput

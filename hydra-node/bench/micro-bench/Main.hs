@@ -170,6 +170,7 @@ mkSnapshotConfirmed tx n =
       , depositTxId = Nothing
       , utxoToDecommit = Nothing
       , accumulator = Accumulator.buildFromUTxO @Tx u
+      , appliedAccumulator = Accumulator.buildFromUTxO @Tx u
       }
 
   u = generateWith (genUTxOSized n) 42

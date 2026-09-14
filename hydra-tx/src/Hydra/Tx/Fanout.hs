@@ -31,10 +31,6 @@ fanoutTx ::
   Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
-  -- | Full snapshot UTxO (utxo <> commit <> decommit) used to rebuild the accumulator
-  -- matching the closed datum. May differ from the fanned-out outputs when an
-  -- incremental action was already applied on-chain before close.
-  UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -42,7 +38,7 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Either Text Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput, headOutput) deadlineSlotNo headTokenScript = do
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript = do
   fanoutProof <- computeFanoutProof
   pure $
     unsafeBuildTransaction $
@@ -70,8 +66,12 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput
   crsScriptRef =
     fst (crsReference scriptRegistry)
 
+  -- The closed datum commits to exactly the set the head still owes, which is
+  -- what this transaction distributes, so the accumulator the proof is built
+  -- against is the one over 'allToFanout'. The validator also requires the
+  -- proof to be the empty-set commitment, i.e. nothing may be left out.
   accumulator =
-    Accumulator.buildFromUTxO @Tx utxoForProof
+    Accumulator.buildFromUTxO @Tx allToFanout
 
   -- Everything this transaction distributes. The on-chain check reads the
   -- membership proof against the first 'numberOfFanoutOutputs' outputs, so the
@@ -204,12 +204,10 @@ finalPartialFanoutTx ::
   ScriptRegistry ->
   -- | All remaining UTxOs to distribute in this final fanout
   UTxO ->
-  -- | Accumulator the head output's datum commits to: the UTxOs distributed
-  -- here plus any pre-settled ones, elements the accumulator holds but that
-  -- were already paid out on-chain (e.g. via a DecrementTx before close). The
-  -- membership proof is against this, so the caller passing the accumulator it
-  -- already verified against the datum is what makes the on-chain identity
-  -- @A_current = P_distribute * commitment(presettled)@ hold.
+  -- | Accumulator the head output's datum commits to, i.e. exactly the UTxOs
+  -- distributed here. The membership proof is against this, so the caller
+  -- passing the accumulator it already verified against the datum is what
+  -- makes the on-chain identity @A = P_distribute * G1@ hold.
   HydraAccumulator ->
   -- | Head state-machine output to spend
   (TxIn, TxOut CtxUTxO) ->

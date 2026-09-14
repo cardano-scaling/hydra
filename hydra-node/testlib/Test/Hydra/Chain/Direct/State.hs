@@ -463,8 +463,7 @@ genFanoutTx numParties = do
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
   let spendableUTxO = getKnownUTxO stClosed
-  let utxoForProof = toFanout <> fold toCommit
-  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing utxoForProof deadlineSlotNo)
+  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
 
 -- | Generate UTxO to fan out: either ada-only outputs, or arbitrary outputs
 -- carrying native tokens and datums. Output size feeds into the accumulator
@@ -546,8 +545,9 @@ genClosedStateForFanoutOfSize numParties n = do
   pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
 
 -- | Generate a closed state where a decommit was applied on-chain before close,
--- i.e. @ClosedState.version > snapshot.version@. The closed datum accumulator
--- includes the decommit UTxOs; the distribution set (u0) excludes them.
+-- i.e. @ClosedState.version > snapshot.version@. The decommit UTxOs left the
+-- head with the decrement, so the closed datum accumulator (the snapshot's
+-- applied one) and the distribution set (u0) both exclude them.
 genClosedStateWithAppliedDecommit ::
   Int ->
   Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
@@ -573,9 +573,10 @@ genClosedStateWithAppliedDecommit numParties = do
 
 -- | Generate a closed state where a commit (IncrementTx) was applied on-chain
 -- AFTER the last confirmed snapshot, i.e. @ClosedState.version > snapshot.version@.
--- The closed datum accumulator includes both the snapshot UTxOs and the pending
--- commit UTxO; the commit UTxO is NOT yet incorporated into the confirmed snapshot
--- (it lives in 'utxoToCommit').  Returns @(ctx, closedState, spendableUTxO,
+-- The closed datum accumulator (the snapshot's applied one) includes both the
+-- snapshot UTxOs and the pending commit UTxO; the commit UTxO is NOT yet
+-- incorporated into the confirmed snapshot (it lives in 'utxoToCommit').
+-- Returns @(ctx, closedState, spendableUTxO,
 -- deadlineSlotNo, u0, commitUTxO)@ where @commitUTxO@ is guaranteed to sort last
 -- among all fanout outputs so that a single @PartialFanoutTx@ can distribute @u0@
 -- and leave @commitUTxO@ as the sole remaining output for @FinalPartialFanoutTx@.
@@ -609,10 +610,9 @@ genClosedStateWithPendingCommit numParties = do
 
 -- | Generate a closed state where a commit (IncrementTx) was snapshot-included
 -- but NOT yet confirmed on-chain, i.e. @ClosedState.version == snapshot.version@.
--- The closed datum accumulator includes 'commitUTxO' (it is in 'snapshotUTxO') but
--- 'computeFullFanoutUTxO' excludes it, so it is pre-settled (in accumulator, never
--- distributed).  Returns @(ctx, closedState, spendableUTxO, deadlineSlotNo, u0,
--- commitUTxO)@.
+-- The deposit never entered the head, so the closed datum accumulator (the
+-- snapshot's own) and 'computeFullFanoutUTxO' both exclude 'commitUTxO'.
+-- Returns @(ctx, closedState, spendableUTxO, deadlineSlotNo, u0, commitUTxO)@.
 genClosedStateWithUnconfirmedCommit ::
   Int ->
   Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
@@ -791,10 +791,10 @@ genStClosed ctx utxo utxoToCommit utxoToDecommit = do
           , 0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->
-          let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+          let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
            in ( number snap
               , ConfirmedSnapshot
-                  { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit, accumulator}
+                  { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit, accumulator, appliedAccumulator}
                   , signatures
                   }
               , utxo
@@ -954,13 +954,11 @@ unsafeFanout ::
   Maybe UTxO ->
   -- | Snapshot decommit UTxO to fanout
   Maybe UTxO ->
-  -- | Full snapshot UTxO for accumulator (matches closed datum)
-  UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo
+unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
 
 -- | Construct a partial fanout transaction that distributes a subset of UTxOs:
 -- 'preparePartialFanout' followed by 'partialFanoutFromPlan'.
@@ -1018,7 +1016,7 @@ unsafeFinalPartialFanout ::
   SlotNo ->
   Tx
 unsafeFinalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo =
-  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute mempty deadlineSlotNo
+  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

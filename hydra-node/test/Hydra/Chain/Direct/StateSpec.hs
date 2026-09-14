@@ -325,40 +325,40 @@ spec = parallel $ do
             === Left StaleChainState
     prop "decommit paid out before close: batch tx can be built" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
-          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _decommitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 u0 u0 deadlineSlotNo
             `shouldSatisfy` isRight
     prop "decommit paid out before close: batch tx evaluates on-chain" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _decommitUTxO) ->
           let evalUTxO = spendableUTxO <> getKnownUTxO ctx
-           in case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
+           in case partialFanout ctx spendableUTxO seedTxIn 1 u0 u0 deadlineSlotNo of
                 Left err -> counterexample ("partialFanout build failed: " <> show err) False
                 Right tx -> propTransactionEvaluates (tx, evalUTxO)
     prop "pending deposit not confirmed on-chain: batch tx can be built" $
       forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
-          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _commitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 u0 u0 deadlineSlotNo
             `shouldSatisfy` isRight
     prop "remaining accumulator equals a fresh build over what is left" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
           forAll (choose (1, UTxO.size u0 - 1)) $ \chunkSize ->
             propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize u0 u0 deadlineSlotNo
-    prop "remaining accumulator equals a fresh build with pre-settled elements" $
+    prop "remaining accumulator equals a fresh build after a settled decommit" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _decommitUTxO) ->
           forAll (choose (1, UTxO.size u0 - 1)) $ \chunkSize ->
-            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize (u0 <> decommitUTxO) u0 deadlineSlotNo
+            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn chunkSize u0 u0 deadlineSlotNo
     -- HeadLogic validates a client selection by output content and explicitly
     -- ignores TxIns ('Hydra.HeadLogic.isSubMultisetOf'), so the same TxIn can
     -- carry a different TxOut in the selection than in the set the accumulator
     -- was built from. A TxIn-keyed difference then reads the wrong element.
     prop "selection holding outputs under other TxIns: accumulator still rebuilds" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _decommitUTxO) ->
           onCrossPairedSelection u0 $ \selection ->
-            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) selection deadlineSlotNo
+            propRemainingAccumulatorRebuilds ctx spendableUTxO seedTxIn 1 u0 selection deadlineSlotNo
     prop "selection holding outputs under other TxIns: batch tx evaluates on-chain" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
@@ -375,7 +375,7 @@ spec = parallel $ do
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
           let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn 1 u0 deadlineSlotNo
-           in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty mempty deadlineSlotNo of
+           in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
                 Left StaleChainState -> property True
                 other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
     prop "deposit confirmed on-chain before close: final batch distributes it" $
@@ -385,28 +385,28 @@ spec = parallel $ do
               evalUTxO = spendableUTxO <> getKnownUTxO ctx
               (_, partialTx) = findFittingPartialChunk evalUTxO ctx spendableUTxO seedTxIn fullUTxO deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO mempty deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO deadlineSlotNo
                 `shouldSatisfy` isRight
     prop "decommit paid out before close: final batch succeeds after initial batch" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
-          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _decommitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 u0 u0 deadlineSlotNo of
             Left err -> counterexample ("partialFanout failed: " <> show err) False
             Right partialTx ->
               let fanoutProgressUTxO = utxoFromTx partialTx
                   remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
-               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining decommitUTxO deadlineSlotNo of
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining deadlineSlotNo of
                     Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
                     Right _ -> property True
     prop "pending deposit not confirmed on-chain: final batch succeeds after initial batch" $
       forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
-          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo of
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, _commitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 u0 u0 deadlineSlotNo of
             Left err -> counterexample ("partialFanout failed: " <> show err) False
             Right partialTx ->
               let fanoutProgressUTxO = utxoFromTx partialTx
                   remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
-               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining commitUTxO deadlineSlotNo of
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining deadlineSlotNo of
                     Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
                     Right _ -> property True
     prop "succeeds when snapshot UTxO has duplicate TxOut values" $
@@ -415,7 +415,7 @@ spec = parallel $ do
           let partialTx = unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize u0WithDups deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
               remaining = UTxO.fromList (drop chunkSize (UTxO.toList u0WithDups))
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining mempty deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining deadlineSlotNo
                 `shouldSatisfy` isRight
     prop "HeadLogic computes non-empty remaining UTxO when snapshot contains duplicate TxOut values" $
       forAllBlind (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
@@ -635,8 +635,7 @@ propIsValid forAllTx =
       \utxo tx -> propTransactionEvaluates (tx, utxo)
 
 -- | The commitment a partial fanout puts in the continuing head output must be
--- one over everything the step leaves behind: what it did not distribute, plus
--- the pre-settled elements the accumulator commits to but never pays out.
+-- one over everything the step leaves behind: what it did not distribute.
 --
 -- The on-chain check is @A = P_K * A'@ against the @A@ in the head datum, so
 -- the two ways of arriving at @A'@ - removing the distributed outputs from the

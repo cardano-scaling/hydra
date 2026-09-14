@@ -36,8 +36,8 @@
 #
 # Bridge-layer trust ledger (what each trusted item assumes; the HeadValidatorAgreement test covers each
 # against the real validator/crypto where constructible).
-#   Ops mocks (const-true boundaries the reference delegates). The snapshot signature is the 6-tuple
-#   message cid‖v‖s‖η#‖δ#‖κ# (accumulator + decommit-/commit-output-set hashes):
+#   Ops mocks (const-true boundaries the reference delegates). The snapshot signature is the 7-tuple
+#   message cid‖v‖s‖η#‖η̂#‖δ#‖κ# (snapshot + applied accumulator hashes, decommit-/commit-output-set hashes):
 #     closeCryptoOK    close snapshot signature + accumulator-commitment hash (real Ed25519 in the test,
 #                      incl. a tampered-δ#/κ# reject)
 #     incCryptoOK      increment/decrement snapshot signature incl. the recomputed commit-set hash

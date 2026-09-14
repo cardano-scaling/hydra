@@ -72,7 +72,7 @@ initTx networkId pparams seedTxIn participants parameters =
           , contestationDeadline = POSIXTime (toInteger (maxBound @Word64))
           , accumulatorCommitment =
               Accumulator.getAccumulatorCommitment $
-                Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+                Accumulator.buildFromUTxO @Tx mempty
           , headAdaOverhead = toInteger (maxBound @Word64)
           }
 
@@ -88,7 +88,7 @@ initTx networkId pparams seedTxIn participants parameters =
           , contestationPeriod = ContestationPeriod.toChain contestationPeriod
           , depositPeriod = DepositPeriod.toChain depositPeriod
           , version = 0
-          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx mempty
           , headAdaOverhead = let Coin n = selectLovelace worstCaseMinLovelace in n
           }
 

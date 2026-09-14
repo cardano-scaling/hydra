@@ -80,6 +80,13 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
 -- not ideal but for now we want to keep track of both fields (de/commit) since
 -- we might want to support batch de/commits too in the future, but having both fields
 -- be Maybe UTxO introduces a lot of checks if the value is Nothing or mempty.
+--
+-- TODO: Remove this type. Since GHSA-f825-9gwc-h5xq, 'Hydra.Tx.Close.closeTx'
+-- no longer distinguishes 'ToCommit' from 'ToDecommit' (which accumulator to
+-- store is decided by comparing the snapshot version with the open version),
+-- so the only remaining uses are picking 'CloseAny' when nothing is pending
+-- and rejecting a snapshot with both a commit and a decommit. Both can be
+-- expressed directly on the snapshot's 'utxoToCommit' / 'utxoToDecommit'.
 data IncrementalAction = ToCommit | ToDecommit | NoThing deriving stock (Eq, Show)
 
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction

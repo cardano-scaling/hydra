@@ -69,7 +69,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, accumulator, utxoToDecommit} = snapshot
+  Snapshot{number, version, accumulator, appliedAccumulator, utxoToDecommit} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -90,14 +90,26 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
 
+  appliedAccHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
+
   decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
 
   commitHash = toBuiltin $ commitOutputsHash snapshot
 
-  contestRedeemer =
-    if version == openVersion
-      then Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
-      else Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+  -- Whether the snapshot's pending increment/decrement has already been applied
+  -- on chain; selects the redeemer kind and, with it, which of the two signed
+  -- accumulators the closed datum commits to (see 'Hydra.Tx.Close.closeTx').
+  pendingActionApplied = version /= openVersion
+
+  accumulatorInHead
+    | pendingActionApplied = appliedAccumulator
+    | otherwise = accumulator
+
+  contestRedeemer
+    | pendingActionApplied =
+        Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
+    | otherwise =
+        Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
@@ -125,7 +137,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion
-          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulatorInHead
           , headAdaOverhead = closedHeadAdaOverhead
           }
 

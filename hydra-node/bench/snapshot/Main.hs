@@ -36,7 +36,7 @@ import Hydra.Network.Message (Message (AckSn, ReqSn))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (HeadParameters (..), Snapshot (..), txId)
-import Hydra.Tx.Accumulator (buildFromSnapshotUTxOs, getAccumulatorHash)
+import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash)
 import Hydra.Tx.Crypto (Signature, sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
@@ -62,7 +62,7 @@ benchCell n m = do
   (seedUTxO, txs) <- generate $ genFixedSizeSequenceOfSimplePaymentTransactions m
   background <- generate $ genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size seedUTxO))
   let utxo = seedUTxO <> background
-      acc0 = buildFromSnapshotUTxOs @Tx utxo Nothing Nothing
+      acc0 = buildFromUTxO @Tx utxo
       snap0 =
         Snapshot
           { headId = testHeadId
@@ -74,6 +74,7 @@ benchCell n m = do
           , utxoToDecommit = Nothing
           , depositTxId = Nothing
           , accumulator = acc0
+          , appliedAccumulator = acc0
           }
       st =
         NodeInSync
@@ -124,7 +125,7 @@ benchCell n m = do
           -- them once per UTxO size.
           <> concat
             [ [ bench "accumulator-only" $
-                  whnf (\u -> getAccumulatorHash (buildFromSnapshotUTxOs @Tx u Nothing Nothing)) utxo
+                  whnf (getAccumulatorHash . buildFromUTxO @Tx) utxo
               , bench "sign-only" $ whnf (sign aliceSk) snap0
               ]
             | m == 1
