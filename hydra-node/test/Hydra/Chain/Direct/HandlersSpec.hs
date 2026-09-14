@@ -9,6 +9,7 @@ import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
+  CtxUTxO,
   ExecutionUnits (..),
   ScriptExecutionError (..),
   ScriptWitnessIndex (..),
@@ -16,11 +17,19 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   Tx,
   TxIn,
+  TxOut,
   UTxO,
+  calculateMinimumUTxO,
+  fromCtxUTxOTxOut,
   fromLedgerTx,
   getChainPoint,
+  lovelaceToValue,
+  modifyTxOutValue,
+  negateValue,
+  selectLovelace,
+  shelleyBasedEra,
   toLedgerTx,
-  txOuts', calculateMinimumUTxO, shelleyBasedEra, fromCtxUTxOTxOut, modifyTxOutValue, negateValue, lovelaceToValue, selectLovelace,
+  txOuts',
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
@@ -28,6 +37,7 @@ import Test.QuickCheck.Hedgehog (hedgehog)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (IsValid (..), isValidTxL, ppMaxTxSizeL)
+import Cardano.Ledger.Shelley.API qualified as Ledger
 import Control.Lens ((.~))
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
@@ -45,7 +55,8 @@ import Hydra.Chain.Direct.Handlers (
   getLatest,
   history,
   newLocalChainState,
-  rejectOversizedDeposit, rejectLowDeposits,
+  rejectOversizedDeposit,
+  rejectUnobservableDeposit,
  )
 import Hydra.Chain.Direct.State (
   ChainContext (..),
@@ -62,7 +73,7 @@ import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandlePara
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), coverFee_)
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import Hydra.Tx (ConfirmedSnapshot (..), mkSimpleBlueprintTx)
+import Hydra.Tx (ConfirmedSnapshot (..), mkHeadId, mkSimpleBlueprintTx)
 import Hydra.Tx.Accumulator (deployedFanoutBatchSize)
 import Hydra.Tx.Deposit (depositTx, observeDepositTx)
 import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
@@ -93,6 +104,7 @@ import Test.QuickCheck (
   Positive (..),
   choose,
   chooseEnum,
+  conjoin,
   counterexample,
   cover,
   elements,
@@ -105,7 +117,7 @@ import Test.QuickCheck (
   property,
   suchThat,
   withMaxSuccess,
-  (===), (==>),
+  (===),
  )
 import Test.QuickCheck.Monadic (
   assert,
@@ -115,8 +127,6 @@ import Test.QuickCheck.Monadic (
   run,
   stop,
  )
-import qualified Cardano.Ledger.Shelley.API as Ledger
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do
@@ -719,11 +729,13 @@ spec = do
     -- original value, and 'observeDepositTx' refuses the tx the node drafted.
     prop "accepted deposits stay observable after coverFee tops up min ADA" $
       forAll (genUTxOWithUniquePolicyTokensOfSize 1) $ \tokenUTxO ->
-        forAll arbitrary $ \(headId, deadline) ->
-          forAllBlind (genUTxOAdaOnlyOfSize 1) $ \feeUTxO ->
-            let -- Put the deposited output in the danger band: enough ADA for
+        forAll (mkHeadId <$> arbitrary) $ \headId ->
+          forAll arbitrary $ \deadline ->
+            forAllBlind (genUTxOAdaOnlyOfSize 1) $ \feeUTxO ->
+              let
+                -- Put the deposited output in the danger band: enough ADA for
                 -- itself, not enough for the deposit output that wraps it.
-                atOwnMinimum :: _
+                atOwnMinimum :: TxOut CtxUTxO -> TxOut CtxUTxO
                 atOwnMinimum o =
                   let minLovelace = calculateMinimumUTxO shelleyBasedEra Fixture.pparams (fromCtxUTxOTxOut o)
                    in modifyTxOutValue (\v -> v <> negateValue (lovelaceToValue (selectLovelace v)) <> lovelaceToValue minLovelace) o
@@ -732,11 +744,25 @@ spec = do
                 walletUTxO = UTxO.fromList $ second (modifyTxOutValue (<> lovelaceToValue 20_000_000)) <$> UTxO.toList feeUTxO
                 toLedgerMap = Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra
                 drafted = depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx utxo) (SlotNo 1) deadline Nothing
-             in case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap utxo) (toLedgerMap walletUTxO) (toLedgerTx drafted) of
+               in
+                case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap utxo) (toLedgerMap walletUTxO) (toLedgerTx drafted) of
                   Left err -> property False & counterexample ("coverFee failed: " <> show err)
                   Right finalized ->
-                    isRight (rejectLowDeposits Fixture.pparams utxo) ==> isJust (observeDepositTx Fixture.testNetworkId (fromLedgerTx finalized))
-                      & counterexample (renderTxWithUTxO (utxo <> walletUTxO) (fromLedgerTx finalized))
+                    case rejectUnobservableDeposit Fixture.testNetworkId (fromLedgerTx finalized) of
+                      Left DepositTooLow{providedValue, minimumValue} ->
+                        let outstanding = minimumValue - providedValue
+                            toppedUp = UTxO.fromList $ second (modifyTxOutValue (<> lovelaceToValue outstanding)) <$> UTxO.toList utxo
+                            drafted' = depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx toppedUp) (SlotNo 1) deadline Nothing
+                         in case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap toppedUp) (toLedgerMap walletUTxO) (toLedgerTx drafted') of
+                              Left err -> property False & counterexample ("coverFee (topped up) failed: " <> show err)
+                              Right finalized' ->
+                                conjoin
+                                  [ providedValue === UTxO.totalLovelace utxo
+                                  , outstanding > 0 & counterexample "outstanding amount should be positive"
+                                  , isJust (observeDepositTx Fixture.testNetworkId (fromLedgerTx finalized')) & counterexample "topped-up deposit not observable"
+                                  , isRight (rejectUnobservableDeposit Fixture.testNetworkId (fromLedgerTx finalized')) & counterexample "topped-up deposit still rejected"
+                                  ]
+                      other -> property False & counterexample ("expected DepositTooLow, got: " <> show other)
 
 -- | Generate a byte-count limit that straddles the real serialised size of
 -- @tx@, giving roughly equal probability of the size check passing or failing.

@@ -28,6 +28,7 @@ import Hydra.Cardano.Api (
   ByronAddr,
   ChainPoint (..),
   LedgerEra,
+  NetworkId,
   Tx,
   TxId,
   TxIn,
@@ -36,15 +37,19 @@ import Hydra.Cardano.Api (
   Value,
   calculateMinimumUTxO,
   chainPointToSlotNo,
+  findTxOutByAddress,
   fromCtxUTxOTxOut,
   getChainPoint,
   getTxBody,
   getTxId,
   liftEither,
+  selectLovelace,
   serialiseToCBOR,
   shelleyBasedEra,
   throwError,
+  toCtxUTxOTxOut,
   toLedgerValue,
+  toShelleyNetwork,
   txOutAddress,
   txOutValue,
   txOuts',
@@ -105,7 +110,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import Hydra.Tx.Deposit (DepositObservation (..), decodeDepositDatum, depositAddress, depositTx, observeDepositTx)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.IsTx (combinedUTxO)
@@ -315,12 +320,35 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             let depositDraftTx = depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress
             l1PParams <- lift $ getPParams wallet
             liftEither $ rejectOversizedDeposit l1PParams ctx spendableUTxO headId currentSnapshot depositDraftTx validBeforeSlot
-            lift $ finalizeTx wallet ctx spendableUTxO lookupUTxO depositDraftTx
+            finalizedTx <- lift $ finalizeTx wallet ctx spendableUTxO lookupUTxO depositDraftTx
+            liftEither $ rejectUnobservableDeposit (networkId ctx) finalizedTx
+            pure finalizedTx
     , -- Submit a cardano transaction to the cardano-node using the
       -- LocalTxSubmission protocol.
       submitTx
     , checkNonADAAssets = checkNonADAAssetsUTxO . snapshotUTxO . getSnapshot
     }
+
+-- | Reject a drafted deposit the node would never observe on chain.
+--
+-- 'observeDepositTx' requires the deposit output's value to equal the value
+-- recorded in its datum. Balancing tops every output up to its minimum ADA,
+-- and the deposit output needs more than the deposited outputs themselves
+-- because its inline datum embeds them. The datum keeps the original value,
+-- so the finalized transaction would be ignored by every node, never reach
+-- L2 and only be recoverable by hand. Report how much ADA is missing instead.
+rejectUnobservableDeposit :: NetworkId -> Tx -> Either (PostTxError Tx) ()
+rejectUnobservableDeposit networkId tx
+  | isJust (observeDepositTx networkId tx) = Right ()
+  | otherwise =
+      case findTxOutByAddress (depositAddress networkId) tx of
+        Just (_, depositOut)
+          | Just (_, deposited, _) <- decodeDepositDatum (toShelleyNetwork networkId) (toCtxUTxOTxOut depositOut)
+          , let providedValue = UTxO.totalLovelace deposited
+          , let minimumValue = selectLovelace (txOutValue depositOut)
+          , providedValue < minimumValue ->
+              Left DepositTooLow{providedValue, minimumValue}
+        _ -> Left FailedToConstructDepositTx{failureReason = "Drafted deposit transaction would not be observed by hydra-node"}
 
 -- Check each UTxO entry against the minADAUTxO value.
 -- Throws 'DepositTooLow' exception.

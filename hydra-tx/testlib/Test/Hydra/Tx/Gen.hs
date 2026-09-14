@@ -428,6 +428,7 @@ instance Arbitrary HeadSeed where
   arbitrary = UnsafeHeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
 instance Arbitrary HeadId where
+  -- TODO: Generate 28 byte hashes instead since  all cardano script hashes are 28 bytes in length.
   arbitrary = UnsafeHeadId . BS.pack <$> vectorOf 16 arbitrary
 
 instance Arbitrary ContestationPeriod where
