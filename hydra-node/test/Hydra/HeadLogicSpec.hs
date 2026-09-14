@@ -1899,33 +1899,16 @@ spec =
             -- Snapshot 1 (version 0) committing the deposit; the increment
             -- settles this snapshot on chain.
             incrementingSnapshot1 =
-              Snapshot
-                { headId = testHeadId
-                , version = 0
-                , number = 1
-                , confirmed = []
-                , utxo = mempty
-                , utxoToCommit = Just depositedUTxO
-                , utxoToDecommit = Nothing
-                , depositTxId = Just depositTxId'
-                , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
-                }
+              withAccumulators
+                (testSnapshot 1 0 [] mempty)
+                  { utxoToCommit = Just depositedUTxO
+                  , depositTxId = Just depositTxId'
+                  }
 
             -- Snapshot 2 (version 1), confirmed after the version bump; holds
             -- no commit, so once it is confirmed the incrementing snapshot is
             -- no longer in 'confirmedSnapshot'.
-            postIncrementSnapshot =
-              Snapshot
-                { headId = testHeadId
-                , version = 1
-                , number = 2
-                , confirmed = []
-                , utxo = depositedUTxO
-                , utxoToCommit = Nothing
-                , utxoToDecommit = Nothing
-                , depositTxId = Nothing
-                , accumulator = Accumulator.buildFromSnapshotUTxOs depositedUTxO Nothing Nothing
-                }
+            postIncrementSnapshot = testSnapshot 2 1 [] depositedUTxO
 
             -- Drive the head to just after 'CommitFinalized': the deposit is
             -- observed at slot 1, activated by a tick, committed by snapshot 1
@@ -1950,30 +1933,10 @@ spec =
             -- Snapshot 1 (version 0) decommitting the outputs of 'decommitTx';
             -- the decrement settles this snapshot on chain.
             decrementingSnapshot1 =
-              Snapshot
-                { headId = testHeadId
-                , version = 0
-                , number = 1
-                , confirmed = []
-                , utxo = mempty
-                , utxoToCommit = Nothing
-                , utxoToDecommit = Just (utxoRef 3)
-                , depositTxId = Nothing
-                , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
-                }
+              withAccumulators
+                (testSnapshot 1 0 [] mempty){utxoToDecommit = Just (utxoRef 3)}
 
-            postDecrementSnapshot =
-              Snapshot
-                { headId = testHeadId
-                , version = 1
-                , number = 2
-                , confirmed = []
-                , utxo = mempty
-                , utxoToCommit = Nothing
-                , utxoToDecommit = Nothing
-                , depositTxId = Nothing
-                , accumulator = Accumulator.buildFromSnapshotUTxOs (mempty :: UTxOType SimpleTx) Nothing Nothing
-                }
+            postDecrementSnapshot = testSnapshot 2 1 [] (mempty :: UTxOType SimpleTx)
 
             -- Drive the head to just after 'DecommitFinalized': the decommit is
             -- requested, snapshotted and the decrement observed at slot 3
@@ -2385,17 +2348,8 @@ spec =
           s0 <- afterDecommitFinalized
           let decommitTx2 = aValidTx 7
               decrementingSnapshot2 =
-                Snapshot
-                  { headId = testHeadId
-                  , version = 1
-                  , number = 2
-                  , confirmed = []
-                  , utxo = mempty
-                  , utxoToCommit = Nothing
-                  , utxoToDecommit = Just (utxoRef 7)
-                  , depositTxId = Nothing
-                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 7))
-                  }
+                withAccumulators
+                  (testSnapshot 2 1 [] mempty){utxoToDecommit = Just (utxoRef 7)}
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step . receiveMessage $ ReqDec{transaction = decommitTx2}
             step . receiveMessage $ ReqSn 1 2 [] (Just decommitTx2) Nothing
@@ -4266,3 +4220,11 @@ testSnapshot number version confirmed utxo =
     , accumulator = Accumulator.buildFromUTxO utxo
     , appliedAccumulator = Accumulator.buildFromUTxO utxo
     }
+
+-- | Recompute both accumulators of a snapshot from its UTxO fields. Use this
+-- after adjusting 'utxoToCommit' or 'utxoToDecommit' on a 'testSnapshot'.
+withAccumulators :: IsTx tx => Snapshot tx -> Snapshot tx
+withAccumulators snapshot@Snapshot{utxo, utxoToCommit, utxoToDecommit} =
+  snapshot{accumulator, appliedAccumulator}
+ where
+  (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
