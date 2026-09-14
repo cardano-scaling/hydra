@@ -1004,8 +1004,7 @@ propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 
 -- | The commitment a partial fanout puts in the continuing head output
 --   must be one over everything the step leaves behind: what it did not
---   distribute, plus the pre-settled elements the accumulator commits to
---   but never pays out.
+--   distribute.
 --   
 --   The on-chain check is <tt>A = P_K * A'</tt> against the <tt>A</tt> in
 --   the head datum, so the two ways of arriving at <tt>A'</tt> - removing

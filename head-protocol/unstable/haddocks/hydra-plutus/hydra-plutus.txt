@@ -232,6 +232,8 @@ InvalidCRSDatum :: HeadError
 DepositNotFirstOutput :: HeadError
 DecrementZeroOutputs :: HeadError
 MustNotSpendOtherScripts :: HeadError
+FanoutIncomplete :: HeadError
+FinalPartialFanoutIncomplete :: HeadError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.HeadError.HeadError
 
 module Hydra.Contract.HeadTokensError
@@ -596,7 +598,10 @@ OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> Depo
 -- | Spec: v
 [$sel:version:OpenDatum] :: OpenDatum -> SnapshotVersion
 
--- | Digest of the accumulator hash for the last confirmed snapshot
+-- | Digest of the last confirmed snapshot's accumulator commitment: the
+--   outputs the head owes while it is at that snapshot's version (see
+--   <a>Snapshot</a>). Informational only; the fanout paths read the
+--   commitment itself from the <a>ClosedDatum</a>.
 [$sel:accumulatorHash:OpenDatum] :: OpenDatum -> Hash
 
 -- | Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO
@@ -632,7 +637,10 @@ ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> DepositPeriod 
 -- | Spec: tfinal
 [$sel:contestationDeadline:ClosedDatum] :: ClosedDatum -> POSIXTime
 
--- | KZG commitment to the full UTxO set.
+-- | KZG commitment to exactly the UTxO set the head still owes, i.e. the
+--   outputs a fanout must distribute. Close/Contest select it from the two
+--   signed candidates of the closing snapshot by redeemer kind (see
+--   <a>CloseRedeemer</a>).
 [$sel:accumulatorCommitment:ClosedDatum] :: ClosedDatum -> BuiltinBLS12_381_G1_Element
 
 -- | Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO
@@ -670,13 +678,23 @@ CloseInitial :: CloseRedeemer
 
 -- | Any snapshot which doesn't contain anything to inc/decrement but
 --   snapshot number is higher than zero.
-CloseAny :: [Signature] -> Hash -> Hash -> Hash -> CloseRedeemer
+CloseAny :: [Signature] -> Hash -> Hash -> Hash -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | Digest of the accumulator hash
+-- | Digest of the snapshot's accumulator commitment: the outputs the head
+--   owes while it is still at the snapshot's version, i.e. with a pending
+--   decommit still inside and a pending commit not yet inside. Selected as
+--   the stored commitment by the Any/Unused cases.
 [$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
+
+-- | Digest of the snapshot's applied accumulator commitment: the outputs
+--   the head owes once the pending increment/decrement of the snapshot has
+--   been applied on chain, i.e. with a pending commit inside and a pending
+--   decommit paid out. Selected as the stored commitment by the Used case.
+--   Equal to <a>ContestRedeemer</a> when nothing is pending.
+[$sel:appliedAccumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω); empty-list hash when the
 --   signed snapshot has no pending decommit. Binds Uω into the
@@ -690,13 +708,23 @@ CloseAny :: [Signature] -> Hash -> Hash -> Hash -> CloseRedeemer
 
 -- | Closing snapshot refers to the current state version (pending inc/dec
 --   not yet applied)
-CloseUnused :: [Signature] -> Hash -> Hash -> Hash -> CloseRedeemer
+CloseUnused :: [Signature] -> Hash -> Hash -> Hash -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | Digest of the accumulator hash
+-- | Digest of the snapshot's accumulator commitment: the outputs the head
+--   owes while it is still at the snapshot's version, i.e. with a pending
+--   decommit still inside and a pending commit not yet inside. Selected as
+--   the stored commitment by the Any/Unused cases.
 [$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
+
+-- | Digest of the snapshot's applied accumulator commitment: the outputs
+--   the head owes once the pending increment/decrement of the snapshot has
+--   been applied on chain, i.e. with a pending commit inside and a pending
+--   decommit paid out. Selected as the stored commitment by the Used case.
+--   Equal to <a>ContestRedeemer</a> when nothing is pending.
+[$sel:appliedAccumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω); empty-list hash when the
 --   signed snapshot has no pending decommit. Binds Uω into the
@@ -710,13 +738,23 @@ CloseUnused :: [Signature] -> Hash -> Hash -> Hash -> CloseRedeemer
 
 -- | Closing snapshot refers to the previous state version (pending inc/dec
 --   already applied)
-CloseUsed :: [Signature] -> Hash -> Hash -> Hash -> CloseRedeemer
+CloseUsed :: [Signature] -> Hash -> Hash -> Hash -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | Digest of the accumulator hash
+-- | Digest of the snapshot's accumulator commitment: the outputs the head
+--   owes while it is still at the snapshot's version, i.e. with a pending
+--   decommit still inside and a pending commit not yet inside. Selected as
+--   the stored commitment by the Any/Unused cases.
 [$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
+
+-- | Digest of the snapshot's applied accumulator commitment: the outputs
+--   the head owes once the pending increment/decrement of the snapshot has
+--   been applied on chain, i.e. with a pending commit inside and a pending
+--   decommit paid out. Selected as the stored commitment by the Used case.
+--   Equal to <a>ContestRedeemer</a> when nothing is pending.
+[$sel:appliedAccumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω); empty-list hash when the
 --   signed snapshot has no pending decommit. Binds Uω into the
@@ -733,13 +771,23 @@ data ContestRedeemer
 
 -- | Contesting snapshot refers to the current state version (inc/dec not
 --   yet applied, or no pending action)
-ContestUnused :: [Signature] -> Hash -> Hash -> Hash -> ContestRedeemer
+ContestUnused :: [Signature] -> Hash -> Hash -> Hash -> Hash -> ContestRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:ContestUnused] :: ContestRedeemer -> [Signature]
 
--- | Digest of the accumulator hash
+-- | Digest of the snapshot's accumulator commitment: the outputs the head
+--   owes while it is still at the snapshot's version, i.e. with a pending
+--   decommit still inside and a pending commit not yet inside. Selected as
+--   the stored commitment by the Any/Unused cases.
 [$sel:accumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
+
+-- | Digest of the snapshot's applied accumulator commitment: the outputs
+--   the head owes once the pending increment/decrement of the snapshot has
+--   been applied on chain, i.e. with a pending commit inside and a pending
+--   decommit paid out. Selected as the stored commitment by the Used case.
+--   Equal to <a>ContestRedeemer</a> when nothing is pending.
+[$sel:appliedAccumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω); empty-list hash when the
 --   signed snapshot has no pending decommit. Binds Uω into the
@@ -753,13 +801,23 @@ ContestUnused :: [Signature] -> Hash -> Hash -> Hash -> ContestRedeemer
 
 -- | Contesting snapshot refers to the previous state version (pending
 --   inc/dec already applied)
-ContestUsed :: [Signature] -> Hash -> Hash -> Hash -> ContestRedeemer
+ContestUsed :: [Signature] -> Hash -> Hash -> Hash -> Hash -> ContestRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:ContestUnused] :: ContestRedeemer -> [Signature]
 
--- | Digest of the accumulator hash
+-- | Digest of the snapshot's accumulator commitment: the outputs the head
+--   owes while it is still at the snapshot's version, i.e. with a pending
+--   decommit still inside and a pending commit not yet inside. Selected as
+--   the stored commitment by the Any/Unused cases.
 [$sel:accumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
+
+-- | Digest of the snapshot's applied accumulator commitment: the outputs
+--   the head owes once the pending increment/decrement of the snapshot has
+--   been applied on chain, i.e. with a pending commit inside and a pending
+--   decommit paid out. Selected as the stored commitment by the Used case.
+--   Equal to <a>ContestRedeemer</a> when nothing is pending.
+[$sel:appliedAccumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω); empty-list hash when the
 --   signed snapshot has no pending decommit. Binds Uω into the
@@ -773,10 +831,16 @@ ContestUsed :: [Signature] -> Hash -> Hash -> Hash -> ContestRedeemer
 
 -- | Sub-type for increment transition
 data IncrementRedeemer
-IncrementRedeemer :: [Signature] -> SnapshotNumber -> TxOutRef -> Hash -> IncrementRedeemer
+IncrementRedeemer :: [Signature] -> SnapshotNumber -> TxOutRef -> Hash -> Hash -> IncrementRedeemer
 [$sel:signature:IncrementRedeemer] :: IncrementRedeemer -> [Signature]
 [$sel:snapshotNumber:IncrementRedeemer] :: IncrementRedeemer -> SnapshotNumber
 [$sel:increment:IncrementRedeemer] :: IncrementRedeemer -> TxOutRef
+
+-- | Digest of the signed snapshot's applied accumulator commitment (the
+--   owed set once this increment has landed). Needed to reconstruct the
+--   multi-signed message; the snapshot's other accumulator hash comes from
+--   the output datum.
+[$sel:appliedAccumulatorHash:IncrementRedeemer] :: IncrementRedeemer -> Hash
 
 -- | Digest of the ordered decommit outputs (Uω) of the signed snapshot.
 --   Needed to reconstruct the multi-signed message; commit and decommit
@@ -786,7 +850,7 @@ IncrementRedeemer :: [Signature] -> SnapshotNumber -> TxOutRef -> Hash -> Increm
 
 -- | Sub-type for decrement transition with auxiliary data as needed.
 data DecrementRedeemer
-DecrementRedeemer :: [Signature] -> SnapshotNumber -> Integer -> Hash -> DecrementRedeemer
+DecrementRedeemer :: [Signature] -> SnapshotNumber -> Integer -> Hash -> Hash -> DecrementRedeemer
 
 -- | Spec: ξ
 [$sel:signature:DecrementRedeemer] :: DecrementRedeemer -> [Signature]
@@ -796,6 +860,12 @@ DecrementRedeemer :: [Signature] -> SnapshotNumber -> Integer -> Hash -> Decreme
 
 -- | Spec: m
 [$sel:numberOfDecommitOutputs:DecrementRedeemer] :: DecrementRedeemer -> Integer
+
+-- | Digest of the signed snapshot's applied accumulator commitment (the
+--   owed set once this decrement has landed). Needed to reconstruct the
+--   multi-signed message; the snapshot's other accumulator hash comes from
+--   the output datum.
+[$sel:appliedAccumulatorHash:DecrementRedeemer] :: DecrementRedeemer -> Hash
 
 -- | Digest of the ordered commit outputs (Uα) of the signed snapshot.
 --   Needed to reconstruct the multi-signed message; a decrement's snapshot
@@ -928,14 +998,15 @@ headOutputDatum :: ScriptContext -> Datum
 getTxOutDatum :: TxOut -> Datum
 
 -- | Verify the multi-signature of a snapshot using given constituents
---   <a>FanoutProgressDatum</a>, <a>ClosedDatum</a>, <tt>number</tt>, and
---   <a>ContestRedeemer</a>. See 'SignableRepresentation Snapshot' for more
---   details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
+--   <a>FanoutProgressDatum</a>, <a>ClosedDatum</a>, <tt>number</tt>,
+--   <a>ContestRedeemer</a>, <a>DecrementRedeemer</a>,
+--   <a>IncrementRedeemer</a> and <a>DecrementRedeemer</a>. See
+--   'SignableRepresentation Snapshot' for more details.
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash) -> [Signature] -> Bool
 
 -- | Verify individual party signature of a snapshot. See
 --   'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash) -> Party -> Signature -> Bool
 unappliedValidator :: CompiledCode (BuiltinByteString -> ValidatorType)
 compiledValidator :: CompiledCode ValidatorType
 

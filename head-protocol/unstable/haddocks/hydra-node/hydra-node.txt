@@ -166,28 +166,35 @@ ContestTx :: HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot tx
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:openVersion:InitTx] :: PostChainTx tx -> SnapshotVersion
 [$sel:contestingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
-FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+
+-- | Full fanout of a closed head. The closed datum commits to exactly the
+--   fan-out-able set, i.e. <a>$sel:utxo:InitTx</a> plus whichever of the
+--   pending commit / decommit still applies at the on-chain version, so
+--   that union is both what is distributed and what the membership proof
+--   is built against.
+FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxo:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:utxoToCommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
 [$sel:utxoToDecommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
-[$sel:utxoForProof:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
 -- | Non-final partial fanout of a user-selected subset. Distributes
 --   <a>$sel:utxoToDistribute:InitTx</a> (dynamically chunked to fit) and
 --   leaves the head in the <tt>FanoutProgress</tt> state without burning
---   tokens. <a>$sel:utxoForProof:InitTx</a> is the full accumulator UTxO
---   matching the current on-chain datum (everything still in the head plus
---   any pre-settled elements).
+--   tokens. <a>$sel:utxoForProof:InitTx</a> is the UTxO the current
+--   on-chain datum commits to: everything still in the head.
 PartialFanoutTx :: UTxOType tx -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:utxoForProof:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
-FinalPartialFanoutTx :: UTxOType tx -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+
+-- | Final partial fanout: distributes everything still in the head, which
+--   is exactly what the <tt>FanoutProgress</tt> datum commits to, and
+--   burns the tokens.
+FinalPartialFanoutTx :: UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
-[$sel:presettledUTxO:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
@@ -963,7 +970,7 @@ FailedToCreateFanoutProof :: Text -> FanoutTxError
 
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
 --   off-chain agreed <a>UTxO</a> set to fan out.
-fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO -> SlotNo -> Either FanoutTxError Tx
+fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
 
 -- | Errors that can occur when constructing partial or final-partial
 --   fanout transactions.
@@ -1023,7 +1030,7 @@ partialFanoutFromPlan :: ChainContext -> PartialFanoutPlan -> Int -> SlotNo -> E
 -- | Construct the final partial fanout transaction that distributes all
 --   remaining UTxOs and burns all head tokens. Reads FanoutProgressDatum
 --   from the head output.
-finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Read and decode the head state from a head script output.
 readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State

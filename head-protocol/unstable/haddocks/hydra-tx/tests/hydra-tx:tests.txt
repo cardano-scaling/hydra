@@ -57,6 +57,11 @@ healthyOutdatedSnapshotVersion :: SnapshotVersion
 -- | Decommit snapshot which refers to the previous open state version.
 --   That is, <a>healthyOpenStateVersion</a> - 1.
 healthyOutdatedSnapshot :: Snapshot Tx
+
+-- | The decrement already landed, so the decommit left the head: the
+--   snapshot accumulator still covers both halves, the applied one only
+--   the in-head half. CloseUsed must store the latter.
+healthyOutdatedAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyOutdatedOpenDatum :: State
 
 -- | In the outdated case, the used snapshot version is exactly one lower
@@ -64,9 +69,23 @@ healthyOutdatedOpenDatum :: State
 healthyOpenStateVersion :: SnapshotVersion
 healthyOutdatedConfirmedClosingSnapshot :: ConfirmedSnapshot Tx
 healthyOutdatedAccumulatorHash :: Hash
+healthyOutdatedAppliedAccumulatorHash :: Hash
 healthyOutdatedDecommitOutputsHash :: Hash
 healthyOutdatedCommitOutputsHash :: Hash
 healthyCloseOutdatedTx :: (Tx, UTxO)
+
+-- | Nothing pending, but another snapshot's action bumped the head version
+--   past this one. Must close as CloseUsed, not CloseAny.
+healthyCloseOutdatedNoPendingTx :: (Tx, UTxO)
+
+-- | Close the outdated open head (<a>healthyOutdatedOpenDatum</a>) with
+--   the given snapshot, deriving the incremental action from its pending
+--   commit/decommit.
+mkCloseOutdatedTx :: Snapshot Tx -> (Tx, UTxO)
+scriptRegistry :: ScriptRegistry
+healthyOutdatedDatum :: TxOutDatum CtxUTxO
+healthyOutdatedLookupUTxO :: UTxO
+healthyOutdatedOpenThreadOutput :: OpenThreadOutput
 data CloseMutation
 
 -- | Ensures the close transaction's continuing output is paid to νHead.
@@ -111,6 +130,14 @@ MutateMultipleRequiredSigner :: CloseMutation
 --   
 --   Ensures the output state is consistent with the redeemer.
 MutateCloseUTxOHash :: CloseMutation
+
+-- | Stores the snapshot's own (non-applied) accumulator, which still
+--   counts the decommit the decrement already paid out. Both hashes are
+--   signed, so only the redeemer-kind selection in
+--   mustBindAccumulatorCommitment rejects this. Storing it is what let a
+--   later partial fanout pay the decommit a second time
+--   (GHSA-f825-9gwc-h5xq).
+MutateStoreSnapshotAccumulator :: CloseMutation
 
 -- | Invalidates the tx by changing claimed closing type. i.e. claim the
 --   snapshot is current but provide signatures from an previous version
@@ -193,7 +220,13 @@ healthyCurrentSnapshotVersion :: SnapshotVersion
 --   after one or more snapshot have been agreed upon between the members.
 healthyCloseCurrentTx :: (Tx, UTxO)
 healthyCurrentSnapshot :: Snapshot Tx
+
+-- | The decommit is pending (its decrement has not landed), so the head
+--   still owes it: the snapshot accumulator covers both halves, the
+--   applied one only the in-head half. CloseUnused must store the former.
+healthyCurrentAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyCurrentAccumulatorHash :: Hash
+healthyCurrentAppliedAccumulatorHash :: Hash
 healthyCurrentDecommitOutputsHash :: Hash
 healthyCurrentCommitOutputsHash :: Hash
 
@@ -297,6 +330,12 @@ MutateContestationPeriod :: CloseMutation
 --   commitment and verifies the multi-signature against it, so a wrong
 --   commitment makes the signature check fail.
 MutateAccumulatorCommitment :: CloseMutation
+
+-- | Stores the snapshot's other signed accumulator, the applied one, which
+--   excludes the pending decommit still held by the head. The signature
+--   covers both hashes, so this is only caught by the redeemer-kind
+--   selection in mustBindAccumulatorCommitment (GHSA-f825-9gwc-h5xq).
+MutateStoreAppliedAccumulator :: CloseMutation
 MutateCloseHeadAdaOverhead :: CloseMutation
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
 
@@ -370,7 +409,13 @@ healthyDepositTxId :: TxId
 --   state version. Exercises the (ToCommit, False) branch of
 --   headAdaOverhead computation in closeTx.
 healthyCommitAppliedSnapshot :: Snapshot Tx
+
+-- | The increment landed, so the deposit is in the head: the applied
+--   accumulator covers in-head UTxO plus deposit, the snapshot one only
+--   the in-head UTxO. CloseUsed must store the former.
+healthyCommitAppliedAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyCommitAppliedAccumulatorHash :: Hash
+healthyCommitAppliedAppliedAccumulatorHash :: Hash
 healthyCommitAppliedDecommitOutputsHash :: Hash
 healthyCommitAppliedCommitOutputsHash :: Hash
 
@@ -406,6 +451,11 @@ MutateContesters :: CloseMutation
 MutateValueInOutput :: CloseMutation
 MutateContestationPeriod :: CloseMutation
 MutateAccumulatorCommitment :: CloseMutation
+
+-- | Stores the snapshot's own accumulator, which leaves out the deposit
+--   the increment already moved into the head: that value could then never
+--   be fanned out. Only the redeemer-kind selection rejects this.
+MutateStoreSnapshotAccumulator :: CloseMutation
 MutateCloseSignatures :: CloseMutation
 MutateCloseType :: CloseMutation
 MutateCloseHeadAdaOverhead :: CloseMutation
@@ -433,7 +483,13 @@ healthyCommitPendingSnapshotVersion :: SnapshotVersion
 --   version. Exercises the (ToCommit, True) branch of headAdaOverhead
 --   computation in closeTx.
 healthyCommitPendingSnapshot :: Snapshot Tx
+
+-- | The increment has not landed, so the deposit is not in the head: the
+--   snapshot accumulator covers the in-head UTxO only, the applied one
+--   adds the deposit. CloseUnused must store the former.
+healthyCommitPendingAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyCommitPendingAccumulatorHash :: Hash
+healthyCommitPendingAppliedAccumulatorHash :: Hash
 healthyCommitPendingDecommitOutputsHash :: Hash
 healthyCommitPendingCommitOutputsHash :: Hash
 healthyCommitPendingOpenDatum :: State
@@ -464,6 +520,12 @@ MutateContesters :: CloseMutation
 MutateValueInOutput :: CloseMutation
 MutateContestationPeriod :: CloseMutation
 MutateAccumulatorCommitment :: CloseMutation
+
+-- | Stores the applied accumulator, which counts a deposit the head never
+--   absorbed (GHSA-f825-9gwc-h5xq): a later fanout would pay it out of
+--   other participants' value. Only the redeemer-kind selection rejects
+--   this.
+MutateStoreAppliedAccumulator :: CloseMutation
 MutateCloseHeadAdaOverhead :: CloseMutation
 genCloseCommitUnusedMutation :: (Tx, UTxO) -> Gen SomeMutation
 genMutatedDeadline :: Gen POSIXTime
@@ -479,6 +541,9 @@ healthyCloseAnySnapshotVersion :: SnapshotVersion
 -- | Snapshot with no incremental action at all. Exercises the NoThing
 --   branch of headAdaOverhead and the CloseAny redeemer path in closeTx.
 healthyCloseAnySnapshot :: Snapshot Tx
+
+-- | With nothing pending both signed accumulators are the same, so the
+--   applied hash equals this one.
 healthyCloseAnyAccumulatorHash :: Hash
 healthyCloseAnyDecommitOutputsHash :: Hash
 healthyCloseAnyCommitOutputsHash :: Hash
@@ -535,6 +600,10 @@ splitContestUTxO :: (UTxO, UTxO)
 splitUTxOInHead :: UTxO
 splitUTxOToDecommit :: UTxO
 healthyContestSnapshot :: Snapshot Tx
+
+-- | The contested snapshot's two signed accumulators: with the pending
+--   decommit (still in the head, the contest is Unused) and without it.
+healthyContestAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyClosedState :: State
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthySlotNo :: SlotNo
@@ -566,7 +635,12 @@ healthyContestIncSnapshotNumber :: SnapshotNumber
 -- | Snapshot with a pending commit, exercising the ToCommit accumulator
 --   path.
 healthyContestIncSnapshot :: Snapshot Tx
+
+-- | The contested snapshot's two signed accumulators: without the pending
+--   deposit (not in the head yet, the contest is Unused) and with it.
+healthyContestIncAccumulators :: (HydraAccumulator, HydraAccumulator)
 healthyContestIncAccumulatorHash :: Hash
+healthyContestIncAppliedAccumulatorHash :: Hash
 healthyContestIncDecommitOutputsHash :: Hash
 healthyContestIncCommitOutputsHash :: Hash
 
@@ -580,6 +654,11 @@ data ContestIncMutation
 ContestUnusedIncAlterRedeemerCommitHash :: ContestIncMutation
 ContestUsedIncAlterAccumulatorCommitment :: ContestIncMutation
 ContestUnusedIncAlterAccumulatorCommitment :: ContestIncMutation
+
+-- | Stores the applied accumulator, which counts a deposit the head never
+--   absorbed. Both hashes are signed, so only the redeemer-kind selection
+--   rejects this (GHSA-f825-9gwc-h5xq).
+ContestUnusedIncStoreAppliedAccumulator :: ContestIncMutation
 ContestUsedIncMutateSnapshotVersion :: ContestIncMutation
 ContestUnusedIncMutateSnapshotVersion :: ContestIncMutation
 genContestIncMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -590,15 +669,56 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestInc.ContestIncMut
 
 module Hydra.Tx.Contract.Contest.ContestDec
 healthyContestAccumulatorHash :: Hash
+healthyContestAppliedAccumulatorHash :: Hash
 healthyContestDecommitOutputsHash :: Hash
 healthyContestCommitOutputsHash :: Hash
+
+-- | The head was closed after the DecrementTx of
+--   <a>healthyContestSnapshot</a> had happened, so the open (and closed)
+--   version is one ahead of the snapshot's.
+healthyContestUsedOpenVersion :: SnapshotVersion
+
+-- | Closed head at <a>healthyContestUsedOpenVersion</a> with an older
+--   snapshot.
+healthyClosedUsedState :: State
+healthyClosedUsedHeadTxOut :: TxOut CtxUTxO
+
+-- | Healthy contest with the ContestUsed redeemer: the contesting snapshot
+--   is one version behind the head because its decommit was already paid
+--   out, so the head holds <a>Snapshot</a> only and the stored commitment
+--   must be the snapshot's <a>$sel:appliedAccumulator:Snapshot</a>.
+healthyContestUsedTx :: (Tx, UTxO)
+data ContestUsedMutation
+
+-- | A wrong signature must be rejected by the ContestUsed signature check.
+ContestUsedAlterSignature :: ContestUsedMutation
+
+-- | Stores the snapshot's own accumulator, which still counts the decommit
+--   the decrement already paid out. Both hashes are signed, so only the
+--   redeemer-kind selection rejects this (GHSA-f825-9gwc-h5xq).
+ContestUsedStoreSnapshotAccumulator :: ContestUsedMutation
+ContestUsedAlterAccumulatorCommitment :: ContestUsedMutation
+
+-- | Claiming ContestUnused for a snapshot one version behind fails the
+--   signature check at the current version.
+ContestUsedClaimUnused :: ContestUsedMutation
+genContestUsedMutation :: (Tx, UTxO) -> Gen SomeMutation
 data ContestDecMutation
 ContestUnusedDecAlterRedeemerDecommitHash :: ContestDecMutation
 ContestUsedDecAlterAccumulatorCommitment :: ContestDecMutation
 ContestUnusedDecAlterAccumulatorCommitment :: ContestDecMutation
+
+-- | Stores the applied accumulator, which excludes the pending decommit
+--   the head still holds. Both hashes are signed, so only the
+--   redeemer-kind selection rejects this (GHSA-f825-9gwc-h5xq).
+ContestUnusedDecStoreAppliedAccumulator :: ContestDecMutation
 ContestUsedDecMutateSnapshotVersion :: ContestDecMutation
 ContestUnusedDecMutateSnapshotVersion :: ContestDecMutation
 genContestDecMutation :: (Tx, UTxO) -> Gen SomeMutation
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestDec.ContestUsedMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestDec.ContestUsedMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Contest.ContestDec.ContestUsedMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestDec.ContestUsedMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestDec.ContestDecMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestDec.ContestDecMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Contest.ContestDec.ContestDecMutation
@@ -606,6 +726,7 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestDec.ContestDecMut
 
 module Hydra.Tx.Contract.Contest.ContestCurrent
 healthyContestAccumulatorHash :: Hash
+healthyContestAppliedAccumulatorHash :: Hash
 healthyContestDecommitOutputsHash :: Hash
 healthyContestCommitOutputsHash :: Hash
 data ContestMutation
@@ -738,8 +859,16 @@ healthySignature :: MultiSignature (Snapshot Tx)
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotVersion :: SnapshotVersion
 healthySnapshot :: Snapshot Tx
+
+-- | Snapshot accumulator (with the decommit still inside) and applied
+--   accumulator (without it, once this decrement has paid it out).
 healthyAccumulator :: HydraAccumulator
+
+-- | Snapshot accumulator (with the decommit still inside) and applied
+--   accumulator (without it, once this decrement has paid it out).
+healthyAppliedAccumulator :: HydraAccumulator
 healthyAccumulatorHash :: ByteString
+healthyAppliedAccumulatorHash :: ByteString
 healthyContestationPeriod :: ContestationPeriod
 healthyUTxO :: UTxO
 healthyDatum :: State
@@ -911,6 +1040,10 @@ healthyFanoutUTxO :: UTxO
 healthySlotNo :: SlotNo
 healthyContestationDeadline :: UTCTime
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
+
+-- | The accumulator the closed datum commits to: exactly what the fanout
+--   distributes, i.e. the snapshot UTxO together with the (still pending)
+--   decommit, which is <a>healthyFanoutUTxO</a> as a whole.
 healthyFanoutSnapshotAccumulator :: HydraAccumulator
 crsSize :: Int
 healthyFanoutDatum :: State
@@ -928,6 +1061,10 @@ MutateValidityBeforeDeadline :: FanoutMutation
 MutateThreadTokenQuantity :: FanoutMutation
 MutateAddUnexpectedOutput :: FanoutMutation
 MutateFanoutOutputValue :: FanoutMutation
+
+-- | Swap a distributed output for one of EQUAL value at another address.
+--   Value conservation still holds, so only membership can reject it.
+MutateFanoutSwapEqualValueOutput :: FanoutMutation
 MutateDecommitOutputValue :: FanoutMutation
 
 -- | Inject an unrelated v_deposit input into a healthy Fanout.
@@ -942,6 +1079,13 @@ MutateHeadAdaOverhead :: FanoutMutation
 --   membership proofs and redirect funds, so the CRS datum content must be
 --   validated.
 MutateFanoutNonCanonicalCRS :: FanoutMutation
+
+-- | Leave one owed output out of the proven prefix, with a valid
+--   membership proof for the rest. Membership holds, but the quotient is
+--   then not the empty-set commitment: the closed datum commits to exactly
+--   the owed set, so a fanout may not omit any of it (GHSA-f825-9gwc-h5xq
+--   lockout angle).
+MutateFanoutOmitOutput :: FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.FanOut.FanoutMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.FanOut.FanoutMutation
@@ -981,6 +1125,10 @@ MutateFinalPartialFanoutBurnTokens :: FinalPartialFanoutMutation
 -- | Changing an output value breaks the membership proof
 MutateFinalPartialFanoutOutputValue :: FinalPartialFanoutMutation
 
+-- | Swap a distributed output for one of EQUAL value at another address,
+--   so value conservation still holds and only membership can reject it.
+MutateFinalPartialFanoutSwapEqualValueOutput :: FinalPartialFanoutMutation
+
 -- | Replacing the input datum's accumulator commitment invalidates the KZG
 --   membership proof
 MutateFinalPartialFanoutWrongAccumulator :: FinalPartialFanoutMutation
@@ -992,9 +1140,12 @@ MutateFinalPartialFanoutOutputCount :: FinalPartialFanoutMutation
 -- | Correct CRS address + reference script but a NON-CANONICAL SRS datum.
 MutateFinalPartialFanoutNonCanonicalCRS :: FinalPartialFanoutMutation
 
--- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's
---   value is left unaccounted.
-MutateFinalPartialFanoutStealAda :: FinalPartialFanoutMutation
+-- | Claim N-1 outputs in the redeemer with a valid proof; the N-th member
+--   is left out. Membership holds for the N-1, but the quotient is the
+--   omitted member's commitment rather than the empty set, so the final
+--   step is not complete (and the N-th UTxO's value would be left
+--   unaccounted).
+MutateFinalPartialFanoutOmitOutput :: FinalPartialFanoutMutation
 
 -- | Set numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
 --   This is the fund-theft vector: empty subset makes e(A,G2)=e(proof,G2)
@@ -1030,7 +1181,15 @@ healthySnapshotNumber :: SnapshotNumber
 healthySnapshotVersion :: SnapshotVersion
 healthySnapshot :: Snapshot Tx
 healthyAccumulatorHash :: ByteString
+healthyAppliedAccumulatorHash :: ByteString
+
+-- | Snapshot accumulator (in-head UTxO only) and applied accumulator (with
+--   the deposit this increment moves into the head).
 healthyAccumulator :: HydraAccumulator
+
+-- | Snapshot accumulator (in-head UTxO only) and applied accumulator (with
+--   the deposit this increment moves into the head).
+healthyAppliedAccumulator :: HydraAccumulator
 healthyContestationPeriod :: ContestationPeriod
 healthyUTxO :: UTxO
 healthyDatum :: State
@@ -1177,6 +1336,8 @@ healthyDistributeUTxO :: UTxO
 healthyRemainingUTxO :: UTxO
 healthySlotNo :: SlotNo
 healthyContestationDeadline :: UTCTime
+healthyContestationPeriodSeconds :: Integer
+healthyContestationPeriod :: ContestationPeriod
 
 -- | Accumulator covering all UTxOs in the snapshot (used for the input
 --   commitment).
@@ -1197,6 +1358,7 @@ healthyClosedDatum :: ClosedDatum
 --   <a>partialFanoutTx</a> (and as the input datum for the intermediate
 --   case).
 healthyProgressDatum :: FanoutProgressDatum
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParties :: [Party]
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyHeadInput :: TxIn
@@ -1232,12 +1394,67 @@ unburnedToken :: Value
 --   participant can recover funds via selection regardless of the stuck
 --   token; only the residual head output (holding it) stays stuck.
 healthyPartialFanoutTxWithUnburnedToken :: (Tx, UTxO)
+
+-- | The decommit that settled before the close. Drawn from the same
+--   generated list as <a>healthyFullUTxO</a> but past the entries it
+--   takes, so it is disjoint from the live set.
+presettledUTxO :: UTxO
+
+-- | The closing snapshot: the live set in <a>Snapshot</a>, the settled
+--   decommit still pending in <a>$sel:utxoToDecommit:Snapshot</a>, signed
+--   at version 0.
+presettledSnapshot :: Snapshot Tx
+presettledConfirmedSnapshot :: ConfirmedSnapshot Tx
+presettledOpenHeadInput :: TxIn
+
+-- | The open head after the DecrementTx landed: version 1, and only the
+--   live set's value left in it.
+presettledOpenHeadOutput :: TxOut CtxUTxO
+
+-- | Close validity bounds chosen so the resulting contestation deadline is
+--   <a>healthyContestationDeadline</a>, which the fanout fixtures'
+--   <a>healthySlotNo</a> is past.
+presettledCloseUpperBound :: PointInTime
+presettledCloseLowerBoundSlot :: SlotNo
+
+-- | The <tt>CloseUsed</tt> transaction closing the head with
+--   <a>presettledSnapshot</a> at open version 1.
+presettledCloseTx :: (Tx, UTxO)
+
+-- | The closed head output produced by <a>presettledCloseTx</a>.
+presettledClosedHeadInput :: TxIn
+presettledClosedHeadOutput :: TxOut CtxUTxO
+presettledClosedDatum :: ClosedDatum
+presettledProgressDatum :: FanoutProgressDatum
+
+-- | A partial fanout step spending <a>presettledClosedHeadOutput</a> (with
+--   the given input state as datum) and distributing the given outputs.
+mkPresettledPartialFanoutTx :: State -> UTxO -> (Tx, UTxO)
+
+-- | Distributes ONLY the pre-settled output, shrinking the continuing head
+--   output by value the head no longer holds. This paid that output a
+--   second time out of the pool backing everyone else's outputs and left
+--   the final step's strict value equation unsatisfiable. With the closed
+--   datum committing to the live set only, the pre-settled output is not a
+--   member and the step fails with <a>PartialFanoutMembershipFailed</a>.
+presettledFanoutAttackTx :: (Tx, UTxO)
+
+-- | The same drain posted mid-fanout, from a FanoutProgress input.
+presettledFanoutAttackFromProgressTx :: (Tx, UTxO)
+
+-- | Distributing live outputs from a head closed after a settled decommit
+--   must stay valid.
+liveFanoutWithPresettledTx :: (Tx, UTxO)
 data PartialFanoutMutation
 MutatePartialFanoutValidityBeforeDeadline :: PartialFanoutMutation
 
 -- | Partial fanout must NOT burn tokens (unlike full fanout)
 MutatePartialFanoutBurnTokens :: PartialFanoutMutation
 MutatePartialFanoutOutputValue :: PartialFanoutMutation
+
+-- | Swap a distributed output for one of EQUAL value at another address,
+--   so value conservation still holds and only membership can reject it.
+MutatePartialFanoutSwapEqualValueOutput :: PartialFanoutMutation
 
 -- | Steal Ada by reducing the continuing head output and adding a personal
 --   output

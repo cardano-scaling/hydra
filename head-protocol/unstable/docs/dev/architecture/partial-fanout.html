@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.25ad7a0f.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.431f054e.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -48,18 +48,37 @@ from a client, see the <a href="/head-protocol/unstable/docs/how-to/selective-fa
 <p>The head does not store the individual UTxOs on-chain while it is open. Instead
 it keeps a single <em>commitment</em> to the confirmed snapshot, a
 <a href="/head-protocol/unstable/haddocks/hydra-tx/Hydra-Tx-Accumulator.html" target="_blank" rel="noopener noreferrer"><code>HydraAccumulator</code></a>.</p>
-<p>The snapshot&#x27;s UTxO set, together with any pending commit or decommit, is turned
-into elements: each output is serialised to its <code>BuiltinData</code> bytes and hashed
-down to one <em>element</em>, a scalar. The elements <code>s₁, …, sₙ</code> define a polynomial</p>
+<p>A UTxO set is turned into elements: each output is serialised to its
+<code>BuiltinData</code> bytes and hashed down to one <em>element</em>, a scalar. The elements
+<code>s₁, …, sₙ</code> define a polynomial</p>
 <div class="codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">A(X) = (X − s₁)·(X − s₂)·…·(X − sₙ)</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
 <p>which is committed as a single <code>BLS12-381</code> G1 point <code>A(τ)·G1</code>. This point is the
 <em>accumulator commitment</em>. Identical outputs hash to identical elements, so the
 accumulator is a multiset and keeps their multiplicity.</p>
-<p>While the head is open, all parties sign a blake2b-256 hash of that commitment,
-the <code>accumulatorHash</code>, and the <code>OpenDatum</code> carries it. <code>Close</code> verifies the
-signature and stores the commitment point itself in the <code>ClosedDatum</code>, checking
-that hashing the point reproduces the signed hash. So a whole snapshot, however
-many outputs it has, is pinned on-chain by one 48-byte group element.</p>
+<p>The commitment stored in a closed head has to describe exactly the outputs the
+head still owes, because that is what the fanout paths distribute and what the
+head output&#x27;s value backs. Which outputs those are depends on something not
+known when a snapshot is signed: whether the snapshot&#x27;s pending increment or
+decrement lands on chain before the head is closed. A pending decommit stays
+inside the head until its decrement lands, and a pending commit only enters the
+head once its increment lands. So every snapshot carries <em>two</em> accumulators and
+the parties sign both hashes:</p>
+<ul>
+<li>the snapshot accumulator, over the snapshot UTxO plus a pending decommit:
+what the head owes while it stays at the snapshot&#x27;s version</li>
+<li>the applied accumulator, over the snapshot UTxO plus a pending commit: what
+the head owes once the pending action has been applied on chain</li>
+</ul>
+<p>With nothing pending the two are the same value. While the head is open the
+<code>OpenDatum</code> carries the snapshot accumulator&#x27;s hash for reference. <code>Close</code> and
+<code>Contest</code> verify the signature over both hashes and store one commitment point
+in the <code>ClosedDatum</code>, selected by redeemer kind: <code>Unused</code>/<code>Any</code> (the head is
+still at the snapshot&#x27;s version) store the snapshot accumulator, <code>Used</code> (the
+pending action was applied) stores the applied one, each checked by hashing the
+point and comparing against the signed hash. Storing the other candidate would
+let a fanout pay out an output whose value already left the head, or leave value
+no output can claim. So a whole snapshot, however many outputs it has, is pinned
+on-chain by one 48-byte group element that means &quot;still owed&quot;.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="membership-proofs">Membership proofs<a href="#membership-proofs" class="hash-link" aria-label="Direct link to Membership proofs" title="Direct link to Membership proofs">​</a></h2>
 <p>To fan out a subset <code>S</code> of the outputs, the node has to prove that <code>S</code> really was
 part of the committed set. <code>S</code> defines its own polynomial
@@ -81,6 +100,14 @@ over the distributed subset is exactly the accumulator over the outputs that
 remain, which the step has to publish in the continuing head output anyway. The
 validator uses that new commitment as the proof, which both verifies membership
 and forces the remaining accumulator to be correct.</p>
+<p>Since the commitment covers exactly the owed outputs, the two terminal
+transactions also require <em>completeness</em>: their proof, the quotient after
+removing everything they distribute, has to be the commitment to the empty set
+(the G1 generator). Leaving an owed output out of a <code>Fanout</code> or
+<code>FinalPartialFanout</code> is rejected with <code>FanoutIncomplete</code> or
+<code>FinalPartialFanoutIncomplete</code>, and an intermediate step that would empty the
+accumulator is rejected because the last batch has to be the token-burning final
+one.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="the-crs">The CRS<a href="#the-crs" class="hash-link" aria-label="Direct link to The CRS" title="Direct link to The CRS">​</a></h2>
 <p>To evaluate <code>P_S(τ)·G2</code> on-chain the validator needs the <em>powers of tau</em> in G2:</p>
 <div class="codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">[G2, τ·G2, τ²·G2, …]</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>

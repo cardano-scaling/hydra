@@ -568,23 +568,37 @@ build :: [ByteString] -> HydraAccumulator
 --   original set, which is essential for partial fanout functionality.
 buildFromUTxO :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator
 
--- | Build an accumulator from snapshot UTxOs, including commit and
---   decommit UTxOs.
+-- | Build the two accumulators a snapshot commits to, see <a>Snapshot</a>.
 --   
---   Combines all UTxOs that could potentially be fanned out — main
---   snapshot, commit, and decommit — and delegates to <a>buildFromUTxO</a>
---   on the merged set. Merging via UTxO union keeps the same canonical
---   TxIn-sorted element order used by every other accumulator call site
---   (<tt>computeFullFanoutUTxO</tt>, <tt>partialFanout</tt> staleness
---   check, <tt>emitNextFanoutStep</tt>), so the commitment stored in the
---   snapshot and all downstream proofs are built from the same element set
---   by construction.
+--   When a snapshot is signed nobody knows yet whether its pending
+--   increment or decrement will land on chain before the head is closed,
+--   and which outputs the head owes at close time depends on that. So the
+--   parties sign a commitment for each of the two futures:
 --   
---   Note: the underlying <a>HydraAccumulator</a> is a <a>Map</a> keyed by
---   element bytes, so insertion order is irrelevant for the commitment
---   value; the merge is done here for explicit consistency with the rest
---   of the fanout code paths.
-buildFromSnapshotUTxOs :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator
+--   <ul>
+--   <li>the <i>snapshot</i> accumulator, over the head's content while it
+--   stays at the snapshot's version: the snapshot UTxO plus a pending
+--   decommit (still inside until the decrement lands); a pending commit is
+--   not yet inside.</li>
+--   <li>the <i>applied</i> accumulator, over the head's content once the
+--   pending action has been applied on chain: the snapshot UTxO plus a
+--   pending commit (the increment absorbed it); a pending decommit has
+--   been paid out.</li>
+--   </ul>
+--   
+--   Close and Contest store the one matching their redeemer kind
+--   (Unused/Any and Used respectively, <a>checkClose</a>), so the on-chain
+--   commitment always describes exactly the outputs a fanout must
+--   distribute. With nothing pending both are the same value and are
+--   computed once.
+--   
+--   Merging via UTxO union keeps the same canonical TxIn-sorted element
+--   order used by every other accumulator call site, so the commitments
+--   stored in the snapshot and all downstream proofs are built from the
+--   same element sets by construction (the underlying
+--   <a>HydraAccumulator</a> is a <a>Map</a> keyed by element bytes, so
+--   insertion order does not affect the commitment value).
+buildFromSnapshotUTxOs :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> (HydraAccumulator, HydraAccumulator)
 
 -- | Update an accumulator from one snapshot's combined UTxO set to the
 --   next by adding and removing only the changed outputs, avoiding the
@@ -799,7 +813,7 @@ newtype SnapshotVersion
 UnsafeSnapshotVersion :: Natural -> SnapshotVersion
 fromChainSnapshotVersion :: SnapshotVersion -> SnapshotVersion
 data Snapshot tx
-Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
+Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> HydraAccumulator -> Snapshot tx
 [$sel:headId:Snapshot] :: Snapshot tx -> HeadId
 
 -- | Open state version this snapshot is based on. Spec: v
@@ -832,8 +846,36 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 -- | UTxO to be decommitted. Spec: Uω
 [$sel:utxoToDecommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
--- | The cryptographic accumulator built from UTxO hashes. Spec: A
+-- | What the head holds if the pending L1 tx (increment or decrement) has
+--   not happened:
+--   
+--   <pre>
+--   utxo &lt;&gt; utxoToDecommit
+--   </pre>
+--   
+--   A decommit is still in the head until its DecrementTx lands, and a
+--   deposit is not in the head until its IncrementTx lands. Close/Contest
+--   store this one when the head is still at this snapshot's
+--   <a>$sel:version:Snapshot</a> (redeemers Any/Unused). Spec: A
 [$sel:accumulator:Snapshot] :: Snapshot tx -> HydraAccumulator
+
+-- | What the head holds after the pending L1 tx happened:
+--   
+--   <pre>
+--   utxo &lt;&gt; utxoToCommit
+--   </pre>
+--   
+--   The decommit was paid out, the deposit was absorbed. Close/Contest
+--   store this one when the head moved past this snapshot's
+--   <a>$sel:version:Snapshot</a> (redeemer Used).
+--   
+--   Both are signed, because when the snapshot is signed nobody knows yet
+--   which of the two will be true at close time, and the closed head must
+--   commit to exactly what it holds so that fanout cannot pay out a UTxO
+--   twice. With nothing pending both fields are the same value. Never
+--   transmitted, always rebuilt from the UTxO sets, see
+--   <a>buildFromSnapshotUTxOs</a>.
+[$sel:appliedAccumulator:Snapshot] :: Snapshot tx -> HydraAccumulator
 
 -- | Digest of a snapshot's pending commit (Uα) as bound into its
 --   signature: the ordered commit outputs together with the id of the
@@ -976,6 +1018,14 @@ module Hydra.Tx.Utils
 --   (de/commit) since we might want to support batch de/commits too in the
 --   future, but having both fields be Maybe UTxO introduces a lot of
 --   checks if the value is Nothing or mempty.
+--   
+--   TODO: Remove this type. Since GHSA-f825-9gwc-h5xq, <a>closeTx</a> no
+--   longer distinguishes <a>ToCommit</a> from <a>ToDecommit</a> (which
+--   accumulator to store is decided by comparing the snapshot version with
+--   the open version), so the only remaining uses are picking
+--   <tt>CloseAny</tt> when nothing is pending and rejecting a snapshot
+--   with both a commit and a decommit. Both can be expressed directly on
+--   the snapshot's <tt>utxoToCommit</tt> / <tt>utxoToDecommit</tt>.
 data IncrementalAction
 ToCommit :: IncrementalAction
 ToDecommit :: IncrementalAction
@@ -1090,7 +1140,7 @@ module Hydra.Tx.Fanout
 -- | Create the fanout transaction, which distributes the closed state
 --   accordingly. The head validator allows fanout only &gt; deadline, so
 --   we need to set the lower bound to be deadline + 1 slot.
-fanoutTx :: ScriptRegistry -> UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO -> (TxIn, TxOut CtxUTxO) -> SlotNo -> PlutusScript -> Either Text Tx
+fanoutTx :: ScriptRegistry -> UTxO -> Maybe UTxO -> Maybe UTxO -> (TxIn, TxOut CtxUTxO) -> SlotNo -> PlutusScript -> Either Text Tx
 
 -- | Create a partial fanout transaction that distributes a subset of UTxOs
 --   and produces a <tt>FanoutProgress</tt> head output with an updated
