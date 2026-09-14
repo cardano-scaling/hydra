@@ -11,5 +11,9 @@
 # Finishing code changes
 
 - Always run `just lint` and iterate on fixes after finishing code changes
-- Run `just test && just check` as a final step; it's resource-intensive so prefer to do as few times as possible
+- Run `just check` as a final step; it's resource-intensive so prefer to do as few times as possible
+  - `just check` runs six of the eight test-suites as nix flake checks, so an
+    unchanged package's suite is skipped rather than re-run. hydra-cluster and
+    hydra-tui have no flake check, so use `just test hydra-cluster` /
+    `just test hydra-tui` for those.
 - Make sure any documentation is also updated; you can look in `docs/` to find it
