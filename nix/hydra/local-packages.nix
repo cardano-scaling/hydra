@@ -26,5 +26,20 @@ _: {
       "secret"
       "test-network-ports"
     ];
+
+    # The subset with a `test-suite` stanza, i.e. the packages for which
+    # `hsPkgs.<pkg>.checks.tests` exists. A literal list rather than something
+    # derived from `hsPkgs`, so that project.nix can consume it without a
+    # `_module.args` cycle.
+    _module.args.testSuitePackageNames = [
+      "hydra-agda"
+      "hydra-chain-observer"
+      "hydra-cluster"
+      "hydra-node"
+      "hydra-plutus"
+      "hydra-plutus-extras"
+      "hydra-tui"
+      "hydra-tx"
+    ];
   };
 }

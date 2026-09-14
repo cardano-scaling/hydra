@@ -124,6 +124,13 @@ Nix builds of our own packages (`nix build`, `nix develop .#*-tests`,
 unaffected; `just lint` runs the equivalent strict cabal build when you want to
 check warnings without nix.
 
+`just check` also *runs* most of the test-suites, as the flake checks
+`test-<package>` (see `nix/hydra/test-checks.nix`). Nix caches a passing run,
+so a package whose sources have not changed does not re-run its suite at all.
+hydra-cluster (real cardano-node devnets) and hydra-tui (needs a tty) are not
+among them and still run via `just test <package>` or
+`nix develop .#<package>-tests --command tests`.
+
 #### Code quality
 
 You can run the code quality check locally with
