@@ -1488,14 +1488,15 @@ fanoutStepStateChange headId step remainingOutputs =
 -- disagree, and so that no caller can pair a step with sets it does not go with.
 data NextFanoutStep tx
   = -- | The target is the whole remainder and the head is already in
-    -- @FanoutProgress@ on chain: the final step, distributing the rest along with
-    -- any pre-settled outputs, and burning the head tokens.
-    FinalStep {stepDistribute :: UTxOType tx, stepPresettled :: UTxOType tx}
+    -- @FanoutProgress@ on chain: the final step, distributing the rest and
+    -- burning the head tokens.
+    FinalStep {stepDistribute :: UTxOType tx}
   | -- | The target is the whole remainder but the head output still carries the
-    -- @Closed@ datum, which the final step is not valid against. Posting it as a
-    -- non-final step instead would empty the head and wedge it beyond both
-    -- finalizing and reverting, and the validator does not reliably stop that
-    -- (#2855). Covering everything is a full fanout, so post that.
+    -- @Closed@ datum, which the final step is not valid against. Posted as a
+    -- non-final step it would empty the head, which 'mustNotBeLastBatch' rejects,
+    -- so the chunk search settles for one output less and the head needs a second
+    -- transaction to finish — and cannot be drained at all when a single output
+    -- is left. Covering everything is a full fanout, so post that (#2855).
     FullFanoutStep
   | -- | The target is a strict subset: a non-final chunk distributing it, proved
     -- against the set the head's current datum commits to.
@@ -1517,21 +1518,16 @@ nextFanoutStep ::
 nextFanoutStep confirmedSnapshot version target remaining onChainDatum
   | target `sameOutputs` remaining =
       case onChainDatum of
-        DatumFanoutProgress -> FinalStep{stepDistribute = remaining, stepPresettled = presettled}
+        DatumFanoutProgress -> FinalStep{stepDistribute = remaining}
         DatumClosed -> FullFanoutStep
   | otherwise = PartialStep{stepDistribute = target, stepProof = proofSet}
  where
-  -- Pre-settled elements: in the snapshot accumulator but never distributed
-  -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
-  presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) (fanoutUTxOFromSnapshot confirmedSnapshot version)
-
+  -- The set the on-chain datum commits to: the fan-out-able set from a @Closed@
+  -- head, and the not-yet-distributed set once the head is in @FanoutProgress@,
+  -- since every step removes exactly what it distributed.
   proofSet = case onChainDatum of
-    -- First step from a @Closed@ head: the datum's accumulator commits to the
-    -- full snapshot UTxO.
-    DatumClosed -> snapshotUTxO (getSnapshot confirmedSnapshot)
-    -- Otherwise the head is in @FanoutProgress@, whose accumulator commits to the
-    -- not-yet-distributed set plus any pre-settled elements.
-    DatumFanoutProgress -> remaining <> presettled
+    DatumClosed -> fanoutUTxOFromSnapshot confirmedSnapshot version
+    DatumFanoutProgress -> remaining
 
 -- | Given the on-chain @version@ and a snapshot's own version, decide which of a
 -- pending commit / decommit is still to be distributed on fanout. When the
@@ -1884,6 +1880,30 @@ onChainFanoutDatum distributed
   | nullOutputs distributed = DatumClosed
   | otherwise = DatumFanoutProgress
 
+-- | The mode a recorded selection leaves the driver in. A selection covering the
+-- whole remainder with nothing distributed yet is not distributed as a selection
+-- at all: 'nextFanoutStep' routes it to a full fanout and the driver auto-drains
+-- the rest, so that is the mode it has to be recorded under.
+--
+-- 'fanoutStepStateChange' never pairs the two - such a step is a
+-- 'FullFanoutStep', recorded as 'HeadFanoutInitiated' - so this only normalises
+-- a selection recorded before that routing existed and replayed here. Without it
+-- the re-posts ('repostFanoutStep') would post the full fanout that
+-- 'nextFanoutStep' decides on while the mode kept claiming a selection is being
+-- distributed, which is what every 'HeadPartiallyFannedOut' then reports.
+recordedSelectionMode ::
+  IsTx tx =>
+  -- | Distributed so far
+  UTxOType tx ->
+  -- | The head's full remaining set
+  UTxOType tx ->
+  -- | The recorded selection
+  UTxOType tx ->
+  FanoutMode tx
+recordedSelectionMode distributed remaining selection
+  | nullOutputs distributed && selection `sameOutputs` remaining = AutoDrain
+  | otherwise = DistributingSelection selection
+
 -- | Post the transaction a decided 'NextFanoutStep' calls for. The chain layer
 -- chunks a full fanout, and sizes a partial one, dynamically.
 --
@@ -1902,13 +1922,12 @@ emitFanoutStep ::
   Outcome tx
 emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
   case step of
-    FinalStep{stepDistribute, stepPresettled} ->
+    FinalStep{stepDistribute} ->
       cause
         OnChainEffect
           { postChainTx =
               FinalPartialFanoutTx
-                { utxoToDistribute = remaining
-                , presettledUTxO = stepPresettled
+                { utxoToDistribute = stepDistribute
                 , headSeed
                 , contestationDeadline
                 }
@@ -1926,14 +1945,6 @@ emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
                 , contestationDeadline
                 }
           }
- where
-  -- The set the on-chain datum commits to. Close stores the accumulator over
-  -- exactly the fan-out-able set (see 'Hydra.Tx.Close.closeTx'), and every
-  -- partial step removes what it distributed, so this is the full set from a
-  -- @Closed@ head and the not-yet-distributed set from @FanoutProgress@.
-  utxoForProof
-    | onChainDatum == DatumClosed = fanoutUTxOFromSnapshot confirmedSnapshot version
-    | otherwise = remaining
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
@@ -2919,9 +2930,10 @@ applyEvent st = \case
       -- First selective partial fanout from a freshly closed head: enter the
       -- 'PartialFanout' state with nothing distributed yet.
       Closed cst@ClosedState{chainState} ->
-        closedToFanoutProgress cst chainState remainingOutputs mempty (DistributingSelection selection)
+        closedToFanoutProgress cst chainState remainingOutputs mempty (recordedSelectionMode mempty remainingOutputs selection)
       -- Continuing: just record the new active selection.
-      FanoutProgress pfs -> FanoutProgress pfs{mode = DistributingSelection selection}
+      FanoutProgress pfs@PartialFanoutState{distributedOutputs} ->
+        FanoutProgress pfs{mode = recordedSelectionMode distributedOutputs remainingOutputs selection}
       _otherState -> st
   HeadFanoutReverted{} ->
     case st of

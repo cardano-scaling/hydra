@@ -31,14 +31,13 @@ changes.
   `FanoutTx` chain effect drops `utxoForProof` and `FinalPartialFanoutTx` drops
   `presettledUTxO`.
 
-- Fix a head wedging in `FanoutProgress` when a client selects the whole
-  remainder before any chunk has landed. The on-chain datum is still `Closed`
-  at that point, so the selection went out as a non-final partial fanout that
-  emptied the head: it could then only be finalized by a zero-output final
-  fanout, which the validator rejects, and could no longer be reverted either,
-  leaving its tokens unburnable and its ada overhead locked.
-  Selecting everything now means a full fanout, the way it already did from a
-  freshly closed head, and the node drains the rest automatically.
+- A `PartialFanout` naming everything that is left now posts a full fanout, the
+  way it already did from a freshly closed head, and the node drains the rest
+  automatically. Before any chunk has landed the on-chain datum is still
+  `Closed`, so such a selection went out as a non-final partial fanout instead,
+  which cannot empty the head: the chunk search settled for one output less and
+  the head needed a second transaction to finish, and a head with a single
+  output left could not be drained this way at all.
   [#2855](https://github.com/cardano-scaling/hydra/issues/2855)
 
 - Speed up posting a partial fanout step: the chunk size search was bounded by

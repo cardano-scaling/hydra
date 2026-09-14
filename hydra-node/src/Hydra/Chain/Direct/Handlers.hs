@@ -260,12 +260,12 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             -- chunk size.
             --
             -- 'Hydra.HeadLogic.nextFanoutStep' keeps it that way for every
-            -- producer of this transaction, and says there why a step covering
-            -- the whole remainder would wedge the head.
+            -- producer of this transaction: a target covering the whole
+            -- remainder becomes a full fanout or the final step instead.
             --
-            -- That is a node-side invariant only: the validator does not enforce
-            -- it, so a modified node can still post such a step and have it
-            -- accepted.
+            -- Nothing breaks if it ever stops holding: 'mustNotBeLastBatch'
+            -- rejects a chunk that would empty the head, so the search settles
+            -- for a smaller one and the head needs another transaction.
             findFittingFanoutTx
               tracer
               wallet

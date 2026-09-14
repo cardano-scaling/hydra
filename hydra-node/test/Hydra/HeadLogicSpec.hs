@@ -2270,10 +2270,10 @@ spec =
       -- Regression for #2855. With nothing distributed the on-chain datum is
       -- still 'Closed', so a selection covering the whole remainder cannot go
       -- out as a final step - and as a non-final one it empties the head, which
-      -- only 'mustNotBeLastBatch' would stop, and a non-empty pre-settled set
-      -- keeps that check happy. The head is then unfinalizable (a zero-output
-      -- final fanout is rejected) and unrevertable. Selecting everything means a
-      -- full fanout, so it is routed there instead.
+      -- 'mustNotBeLastBatch' rejects: the chunk search then settles for one
+      -- output less, so the head needs a second transaction to finish, and a
+      -- single remaining output cannot be drained this way at all. Selecting
+      -- everything means a full fanout, so it is routed there instead.
       it "client partial fanout selecting everything before any chunk landed posts a full fanout" $ do
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             -- The state a first selection leaves behind: a subset is being
@@ -2301,10 +2301,10 @@ spec =
           other -> failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
 
       -- The same wedging step is reachable without any client input: a node that
-      -- persisted a whole-remainder selection before the guard existed
-      -- reconstructs 'DistributingSelection' verbatim on replay, and a rollback
-      -- re-posts it. Deciding in 'nextFanoutStep' rather than the client
-      -- handler is what covers this.
+      -- persisted a whole-remainder selection before the guard existed still has
+      -- it in its state, and a rollback re-posts whatever step that state is on.
+      -- Deciding in 'nextFanoutStep' rather than the client handler is what
+      -- covers this.
       it "rollback re-post of a whole-remainder selection before any chunk landed posts a full fanout" $ do
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection remaining)
@@ -2316,6 +2316,35 @@ spec =
         outcome `hasNoEffectSatisfying` \case
           OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
           OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+
+      -- Such a selection is never recorded now ('fanoutStepStateChange' emits
+      -- 'HeadFanoutInitiated' for it instead), so the only way into that state is
+      -- replaying one recorded before the guard existed. Replay normalises it to
+      -- the mode the step it actually posts implies, so the re-posts above cannot
+      -- drain the whole head while every 'HeadPartiallyFannedOut' keeps reporting
+      -- a selection is being distributed.
+      it "replaying a whole-remainder selection recorded before any chunk landed switches to auto-drain" $ do
+        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 1)))
+            recorded =
+              aggregateState st $
+                Continue [HeadPartialFanoutSelected{headId = testHeadId, remainingOutputs = remaining, selection = remaining}] []
+        headState recorded `shouldSatisfy` \case
+          FanoutProgress PartialFanoutState{mode = AutoDrain} -> True
+          _ -> False
+
+      -- A selection covering the remainder once chunks have landed is a genuine
+      -- final step ('FinalStep'), posted as one: it stays a recorded selection.
+      it "replaying a whole-remainder selection after a chunk landed stays a selection" $ do
+        let remaining = Set.fromList [SimpleTxOut 2]
+            distributed = Set.fromList [SimpleTxOut 1]
+            st = inFanoutProgressDistributed threeParties remaining distributed AwaitingSelection
+            recorded =
+              aggregateState st $
+                Continue [HeadPartialFanoutSelected{headId = testHeadId, remainingOutputs = remaining, selection = remaining}] []
+        headState recorded `shouldSatisfy` \case
+          FanoutProgress PartialFanoutState{mode = DistributingSelection sel} -> sel == remaining
           _ -> False
 
       it "client partial fanout selecting a strict subset before any chunk landed still posts a partial fanout" $ do
