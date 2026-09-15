@@ -4753,6 +4753,17 @@ type GetTimeHandle m = m TimeHandle
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
 mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
+
+-- | Reject a drafted deposit the node would never observe on chain.
+--   
+--   <a>observeDepositTx</a> requires the deposit output's value to equal
+--   the value recorded in its datum. Balancing tops every output up to its
+--   minimum ADA, and the deposit output needs more than the deposited
+--   outputs themselves because its inline datum embeds them. The datum
+--   keeps the original value, so the finalized transaction would be
+--   ignored by every node, never reach L2 and only be recoverable by hand.
+--   Report how much ADA is missing instead.
+rejectUnobservableDeposit :: NetworkId -> Tx -> Either (PostTxError Tx) ()
 rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Reject any UTxO containing a Byron address, which cannot be

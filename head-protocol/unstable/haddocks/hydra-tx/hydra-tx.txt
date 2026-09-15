@@ -1211,7 +1211,13 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   output, - the deposit script output actually contains the deposited
 --   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
+
+-- | Decode head id, deposited UTxO and deadline from a deposit output's
+--   datum. Does NOT check the datum against the output's value;
+--   <a>observeDepositTxOut</a> adds that guard.
+decodeDepositDatum :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
 observeDepositTxOut :: Network -> TxOut CtxUTxO -> Maybe (HeadId, UTxO, POSIXTime)
+deserializeRoundTripping :: Network -> Commit -> Maybe (TxIn, TxOut CtxUTxO)
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Deposit.DepositObservation
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Deposit.DepositObservation
 instance GHC.Generics.Generic Hydra.Tx.Deposit.DepositObservation
