@@ -6,7 +6,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Aeson (eitherDecodeFileStrict)
 import Hydra.Cardano.Api (LedgerEra, PParams, TxIx (..), UTxO, textEnvelopeToJSON, toShelleyNetwork, pattern TxIn)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
+import Hydra.Tx.Deposit (decodeDepositDatum, depositTx)
 import Hydra.Tx.Recover (recoverTx)
 import Options (Command (..), DepositOptions (..), RecoverOptions (..), parseHydraCommand)
 
@@ -33,8 +33,8 @@ main =
           case UTxO.resolveTxIn (TxIn recoverTxId (TxIx 0)) utxo of
             Nothing -> die "failed to resolve deposited UTxO with provided TxIn"
             Just depositedTxOut -> do
-              case observeDepositTxOut network depositedTxOut of
-                Nothing -> die "Failed to observe deposit UTxO"
+              case decodeDepositDatum network depositedTxOut of
+                Nothing -> die "Failed to decode deposit UTxO"
                 Just (_, deposited, _) -> do
                   let recoverTransaction = recoverTx recoverTxId deposited recoverSlotNo
                   writeFileLBS outFile $ textEnvelopeToJSON Nothing recoverTransaction

@@ -10,6 +10,19 @@ changes.
 
 ## UNRELEASED
 
+- Fixed the `/commit` endpoint handing out deposit transactions the node could
+  never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
+  When the deposited value did not cover the minimum ADA of the deposit output
+  (its inline datum embeds the deposited outputs, so a token UTxO at its own
+  minimum ADA is a typical case), balancing topped the output up while the
+  datum kept the original value, and the observer rejected the mismatch. The
+  funds ended up locked at the deposit script with no `CommitRecorded` and
+  could not be recovered through the node. The node now runs the observation
+  on the finalized transaction and fails the request with `DepositTooLow`,
+  reporting the deposited and required lovelace. `hydra-tx recover` no longer
+  requires the deposit output value to match its datum, so such deposits can
+  be recovered with it.
+
 - **BREAKING** Fix GHSA-f825-9gwc-h5xq: a non-final partial fanout step could
   distribute a snapshot member whose value had already left the head (a decommit
   paid out by a decrement before close, or a deposit whose increment never

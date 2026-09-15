@@ -3022,7 +3022,13 @@ components:
               type: string
         - title: DepositTooLow
           description: |
-            Raised if the user requests a deposit using too small UTxO.
+            Raised if the user requests a deposit whose value does not cover the
+            minimum ADA of the deposit output. That output embeds the deposited
+            outputs in its inline datum, so it needs more ADA than the deposited
+            outputs would on their own. `providedValue` is the lovelace being
+            deposited and `minimumValue` the lovelace the deposit output
+            requires. Depositing the same outputs with at least the difference
+            more lovelace makes the request succeed.
           type: object
           additionalProperties: false
           required:
