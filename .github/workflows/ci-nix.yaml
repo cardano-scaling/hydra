@@ -56,8 +56,33 @@ jobs:
       with:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
+    # Build the flake check instead of running the suite directly: nix caches
+    # the passing *run*, so a package whose sources did not change substitutes
+    # from cachix and the suite does not run at all. See nix/hydra/test-checks.nix.
+    #
+    # A failed build has no output, so the JUnit report is recovered from the
+    # build directory that --keep-failed leaves behind; TMPDIR is that same
+    # directory inside the sandbox, so the suite's withTempDir logs land there
+    # too (see the Upload logs step).
     - name: ❓ Test
-      if: ${{ matrix.package != 'hydra-tui' }}
+      if: ${{ !contains(fromJSON('["hydra-cluster","hydra-tui"]'), matrix.package) }}
+      run: |
+        sys=$(nix eval --impure --raw --expr builtins.currentSystem)
+        mkdir -p ${{ matrix.package }}/test-reports
+        if out=$(nix build --no-link --keep-failed --print-out-paths \
+                   ".#checks.$sys.test-${{ matrix.package }}"); then
+          cp "$out/junit.xml" ${{ matrix.package }}/test-reports/junit.xml
+        else
+          sudo chmod -R a+rX /tmp/nix-build-*-check* 2>/dev/null || true
+          find /tmp -maxdepth 4 -path '*nix-build-*-check*' -name junit.xml \
+            -exec cp {} ${{ matrix.package }}/test-reports/junit.xml ';' || true
+          exit 1
+        fi
+
+    # hydra-cluster spawns real cardano-node devnets and hydra-tui needs a tty,
+    # so neither has a flake check; they keep running in their dev shell.
+    - name: ❓ Test (cluster)
+      if: ${{ matrix.package == 'hydra-cluster' }}
       run: |
         cd ${{ matrix.package }} # To ensure the `./golden` files are available.
         mkdir -p test-reports
@@ -96,7 +121,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-logs-${{ matrix.package }}-${{ matrix.os }}
-        path: /tmp/nix-shell.*/*/logs/*
+        path: |
+          /tmp/nix-shell.*/*/logs/*
+          /tmp/nix-build-*-check*/**/logs/*
         if-no-files-found: ignore
 
   spec:

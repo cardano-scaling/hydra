@@ -11,6 +11,7 @@ license-files:
 
 data-files:
   json-schemas/api.yaml
+  json-schemas/cardanonical/cardano.json
   json-schemas/common.yaml
 
 extra-source-files: networks.json
@@ -500,6 +501,7 @@ test-suite tests
     , time
     , tls
     , typed-process
+    , warp
     , websockets
 
   ghc-options:    -threaded -rtsopts

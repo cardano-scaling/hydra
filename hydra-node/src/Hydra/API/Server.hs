@@ -51,10 +51,12 @@ import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
 import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
+import Network.Socket (Socket)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
+  runSettingsSocket,
   setBeforeMainLoop,
   setHost,
   setOnException,
@@ -62,7 +64,7 @@ import Network.Wai.Handler.Warp (
   setPort,
   setTimeout,
  )
-import Network.Wai.Handler.WarpTLS (runTLS, tlsSettings)
+import Network.Wai.Handler.WarpTLS (runTLS, runTLSSocket, tlsSettings)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.Wai.Middleware.Cors (simpleCors)
 import Network.WebSockets (
@@ -81,6 +83,12 @@ data APIServerConfig = APIServerConfig
   , tlsCertPath :: Maybe FilePath
   , tlsKeyPath :: Maybe FilePath
   , apiTransactionTimeout :: ApiTransactionTimeout
+  , listenSocket :: Maybe Socket
+  -- ^ Serve on this already-bound socket instead of binding 'port'. The node
+  -- binds its own (see 'Hydra.Node.Run'); tests pass a socket they allocated
+  -- so that the port cannot be taken in the gap between picking it and
+  -- binding it. 'host' and 'port' are still used for logging and for the
+  -- 'RunServerException' context.
   }
 
 withAPIServer ::
@@ -185,21 +193,25 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
             )
       )
  where
-  APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
+  APIServerConfig{host, port, tlsCertPath, tlsKeyPath, listenSocket} = config
 
   EventSource{sourceEvents} = eventSource
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of
       (Just cert, Just key) ->
-        runTLS (tlsSettings cert key) settings app
+        case listenSocket of
+          Just sock -> runTLSSocket (tlsSettings cert key) settings sock app
+          Nothing -> runTLS (tlsSettings cert key) settings app
       -- TODO: better error handling
       (Just _, Nothing) ->
         die "TLS certificate provided without key"
       (Nothing, Just _) ->
         die "TLS key provided without certificate"
       _ ->
-        runSettings settings app
+        case listenSocket of
+          Just sock -> runSettingsSocket settings sock app
+          Nothing -> runSettings settings app
 
   onIOException ioException =
     throwIO

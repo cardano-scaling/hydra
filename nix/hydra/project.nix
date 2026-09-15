@@ -1,5 +1,5 @@
 { self, ... }: {
-  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, ... }:
+  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, testSuitePackageNames, ... }:
     let
       mkProject = extraModules: pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
@@ -103,6 +103,17 @@
             packages.cardano-ledger-shelley.doHaddock = false;
             packages.ouroboros-network.doHaddock = false;
             packages.hydra-cardano-api.doHaddock = false;
+          }
+          # Make every test-suite write a JUnit report next to itself, so the
+          # `checks.test-*` runs (nix/hydra/test-checks.nix) can hand one to
+          # CI's report publisher. `testFlags` is read only by haskell.nix's
+          # lib/check.nix, never by the component builder, so this does not
+          # invalidate the test binaries already in the cachix. The path is
+          # relative to the package directory, which is where check.nix runs.
+          {
+            packages = pkgs.lib.genAttrs testSuitePackageNames (_: {
+              components.tests.tests.testFlags = [ "--xml=junit.xml" ];
+            });
           }
         ] ++ extraModules;
       };

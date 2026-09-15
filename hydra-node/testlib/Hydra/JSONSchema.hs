@@ -11,13 +11,14 @@ import Control.Arrow (left)
 import Control.Lens (Traversal', at, (?~), (^..), (^?))
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (key, _Array, _String)
 import Data.List qualified as List
-import Data.Text (pack, takeWhileEnd)
+import Data.Text (pack, stripPrefix, takeWhileEnd)
 import Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import Data.Yaml qualified as Yaml
 import Paths_hydra_node qualified as Pkg
-import System.Directory (copyFile, listDirectory, removePathForcibly)
+import System.Directory (copyFile, createDirectoryIfMissing, doesDirectoryExist, listDirectory, removePathForcibly)
 import System.Exit (ExitCode (..))
 import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
 import System.IO.Error (IOError, isDoesNotExistError)
@@ -95,12 +96,24 @@ validateJSONWith checkJsonSchema schemaFilePath selector value = do
           , toText err <> toText out
           ]
  where
-  copySchemasTo dir = do
-    let sourceDir = takeDirectory schemaFilePath
-    files <- listDirectory sourceDir
-    let schemaFiles = filter (\fp -> takeExtension fp `elem` [".json", ".yaml"]) files
-    forM_ schemaFiles $ \fp ->
-      copyFile (sourceDir </> fp) (dir </> takeFileName fp)
+  copySchemasTo = copySchemaTree (takeDirectory schemaFilePath)
+
+-- | Copy a directory of schemas into another directory, recursing into
+-- subdirectories so that relative '$ref's into them (e.g. cardanonical)
+-- resolve next to the schema handed to check-jsonschema.
+copySchemaTree :: FilePath -> FilePath -> IO ()
+copySchemaTree sourceDir dir = do
+  entries <- listDirectory sourceDir
+  forM_ entries $ \entry -> do
+    let from = sourceDir </> entry
+    isDir <- doesDirectoryExist from
+    if isDir
+      then do
+        createDirectoryIfMissing True (dir </> entry)
+        copySchemaTree from (dir </> entry)
+      else
+        when (takeExtension entry `elem` [".json", ".yaml"]) $
+          copyFile from (dir </> takeFileName entry)
 
 -- | Validate an 'Arbitrary' value against a JSON schema.
 --
@@ -239,9 +252,16 @@ withJsonSpecifications action = do
   -- way: this cleanup does not retry, so give anything writing into the
   -- directory its own 'withTempDir'.
   dir <- createTempDir "Hydra_APISpec"
+  -- Referenced schema directories, e.g. cardanonical, get copied verbatim so
+  -- that the localised $refs below resolve inside 'dir'.
+  forM_ specFiles $ \entry -> do
+    isDir <- liftIO $ doesDirectoryExist (specDir </> entry)
+    when isDir $ liftIO $ do
+      createDirectoryIfMissing True (dir </> entry)
+      copySchemaTree (specDir </> entry) (dir </> entry)
   forM_ specFiles $ \file -> do
     when (takeExtension file == ".yaml") $ do
-      spec <- Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
+      spec <- localiseRefs <$> Yaml.decodeFileThrow @_ @Aeson.Value (specDir </> file)
       let spec' = addField "$id" ("file://" <> dir <> "/") spec
       liftIO $ Aeson.encodeFile (dir </> takeBaseName file <.> "json") spec'
       -- XXX: We need to write the specFile as .yaml although it is a JSON document now,
@@ -250,6 +270,30 @@ withJsonSpecifications action = do
   r <- action dir
   liftIO $ removePathForcibly dir
   pure r
+
+-- | Published base URL of this repository's own schema files, as written in
+-- the '$ref's of 'api.yaml'.
+publishedSchemaBaseUrl :: Text
+publishedSchemaBaseUrl =
+  "https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/json-schemas/"
+
+-- | Rewrite '$ref's into our own published schemas to paths relative to the
+-- materialised schema directory. Combined with the "file://" '$id' set above,
+-- validation then resolves them from this checkout rather than downloading
+-- master, which both keeps the tests off the network and makes them check the
+-- schemas actually under review.
+localiseRefs :: Aeson.Value -> Aeson.Value
+localiseRefs = \case
+  Aeson.Object o -> Aeson.Object (KeyMap.mapWithKey rewrite o)
+  Aeson.Array a -> Aeson.Array (localiseRefs <$> a)
+  v -> v
+ where
+  rewrite :: Aeson.Key -> Aeson.Value -> Aeson.Value
+  rewrite k = \case
+    Aeson.String t
+      | k == "$ref" ->
+          Aeson.String (fromMaybe t (stripPrefix publishedSchemaBaseUrl t))
+    v -> localiseRefs v
 
 addField :: ToJSON a => Aeson.Key -> a -> Aeson.Value -> Aeson.Value
 addField k v = withObject (at k ?~ toJSON v)
