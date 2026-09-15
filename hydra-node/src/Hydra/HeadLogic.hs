@@ -1180,8 +1180,12 @@ onOpenChainDecrementTx ::
   SnapshotVersion ->
   -- | Outputs removed by the decrement
   UTxOType tx ->
+  -- | Number of the snapshot the decrement settled
+  SnapshotNumber ->
+  -- | Multisignature carried by the decrement redeemer
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO =
+onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO observedSnapshotNumber observedSignatures =
   newState
     DecommitFinalized
       { chainState = newChainState
@@ -1189,11 +1193,31 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , newVersion
       , distributedUTxO
       }
-    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot (setExistingDeposit pendingDeposits currentDepositTxId)
+    <> adoptObservedSnapshotOrRequestNext
  where
+  -- Same reasoning as in 'onOpenChainIncrementTx': the decrement proves the
+  -- snapshot it settled is fully signed, so adopt it if it is the one in flight.
+  adoptObservedSnapshotOrRequestNext =
+    case seenSnapshot of
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, utxoToDecommit = seenDecommit}, signableBytes}
+        | observedSnapshotNumber == seenSnNumber
+        , seenSnapshotVersion + 1 == newVersion
+        , isJust seenDecommit
+        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
+            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) localTxs version newVersion (LastSeenSnapshot seenSnNumber) nextDeposit
+      _ ->
+        maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot nextDeposit
+
+  nextDeposit = setExistingDeposit pendingDeposits currentDepositTxId
+
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
   CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot} = coordinatedHeadState
+
+  HeadParameters{parties} = parameters
+
+  vkeys = vkey <$> parties
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -2411,10 +2435,11 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         onOpenChainIncrementTx env openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
         onOpenChainDecrementTx env (eligibleDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO
+        onOpenChainDecrementTx env (depositsForHead ourHeadId pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed

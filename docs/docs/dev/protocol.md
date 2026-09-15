@@ -83,6 +83,8 @@ Note that any node that posts increment transaction will also pay the fees even 
 
 Upon observing increment transaction we remove the corresponding deposit from the local pending deposits and the process can start again.
 
+The increment transaction carries the full multisignature of the snapshot it settles in its redeemer. If a node is still collecting `AckSn` for that very snapshot when it observes the increment, it verifies that multisignature and adopts the snapshot as confirmed. This way a peer that withholds its `AckSn` after completing the multisignature locally cannot leave the other nodes stuck behind an in-flight snapshot they can never confirm.
+
 :::note
 Since we can potentially request many deposits, the leader will increment only one of them. While others stay pending. An honest snapshot leader _should_ consider all pending deposit and try to include it in a snapshot.
 :::
@@ -186,3 +188,5 @@ sequenceDiagram
     Chain ->> Node A: OnDecrementTx
     Node A -->> Alice: DecommitFinalized
 ```
+
+As with increments, the decrement redeemer carries the settled snapshot's multisignature, and a node still collecting `AckSn` for that snapshot adopts it as confirmed upon observing the decrement.

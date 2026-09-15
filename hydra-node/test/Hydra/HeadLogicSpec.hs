@@ -1257,6 +1257,76 @@ spec =
               chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
             _ -> fail "expected Open state"
 
+        it "DecommitFinalized adopts the in-flight snapshot when the decrement carries its full multisignature" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToDecommit = Just (utxoRef 99)
+                  } ::
+                  Snapshot SimpleTx
+              -- Carol never delivers her AckSn.
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , decommitTx = Just decommitTx
+                    }
+              decrement =
+                observeTx $
+                  OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.decommitTx `shouldBe` Nothing
+              chs.confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+            _ -> fail "expected Open state"
+
+        it "DecommitFinalized keeps the in-flight snapshot when the decrement's multisignature does not verify" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToDecommit = Just (utxoRef 99)
+                  } ::
+                  Snapshot SimpleTx
+              otherSnapshot = testSnapshot 1 3 [] (utxoRefs [7])
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              -- Complete, but over a different snapshot.
+              bogusSigs =
+                Crypto.aggregateInOrder
+                  (Map.fromList [(alice, sign aliceSk otherSnapshot), (bob, sign bobSk otherSnapshot), (carol, sign carolSk otherSnapshot)])
+                  threeParties
+              confirmedSn = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , decommitTx = Just decommitTx
+                    }
+              decrement =
+                observeTx $
+                  OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = bogusSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.confirmedSnapshot `shouldBe` confirmedSn
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
+            _ -> fail "expected Open state"
+
         it "CommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
           let localUTxO = utxoRefs [1]
               confirmedSn =
