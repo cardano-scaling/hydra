@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.e35292eb.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.ace405ff.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -172,10 +172,36 @@ against those limits in the node, and only the winning one is submitted. Nothing
 is submitted speculatively and rejected by the chain.</p>
 <p>The last transaction cannot be an ordinary partial step: it must be the <em>final</em>
 fanout, which distributes the rest and burns the head tokens. The node handles
-that boundary itself. Once the head is in <code>FanoutProgress</code>, a selection covering
-everything that is left is posted as the final transaction. Selecting the whole
-set out of a freshly closed head is instead treated as a plain <code>Fanout</code>, which is
-what it means, and takes the single-transaction or automatic-drain path above.</p>
+that boundary itself. Once a first chunk has landed, a selection covering
+everything that is left is posted as the final transaction.</p>
+<p>Before that it cannot be: the head output still carries the <code>Closed</code> datum, which
+the final fanout is not valid against. A selection covering the whole remainder
+at that point is treated as a plain <code>Fanout</code> instead — which is what it means —
+and takes the single-transaction or automatic-drain path above, with the node
+draining whatever is left automatically. That applies both to selecting the whole
+set out of a freshly closed head and to selecting the whole remainder while an
+earlier selection is still in flight.</p>
+<p>In that second case the two transactions race for the head output, and only one
+of them can win. If the full fanout wins, it drains the head and the earlier step
+never lands.</p>
+<p>If the earlier step wins, the full fanout is aimed at a head output that has
+moved on and cannot succeed. What the node makes of that depends on what it has
+observed by the time the failure reaches it, and a rejected post is deliberately
+held back for one block so the observation usually gets there first:</p>
+<ul>
+<li>it had already observed the step, so the transaction is never built: the
+failure is ignored, since the observation drives the next step anyway</li>
+<li>it built and submitted the transaction, and observed the step before the
+rejection came back: the client is told the post failed, and the node carries
+on draining from the observation</li>
+<li>it still has not observed the step: the client is told, and since nothing has
+been distributed the head reverts to <code>Closed</code></li>
+</ul>
+<p>After such a revert, observing the earlier step puts the head back into
+<code>FanoutProgress</code>, this time with the node waiting for a selection rather than
+driving, the same as any other party&#x27;s step. Further <code>PartialFanout</code> commands
+drain it from there; a plain <code>Fanout</code> is refused, since the head is in
+<code>FanoutProgress</code> by then.</p>
 <p>A selection that is empty, or that is not contained in what is left, is refused
 with a <code>CommandFailed</code> and changes nothing.</p>
 <p>Fanout is also sticky: either command moves the head into <code>FanoutProgress</code> right

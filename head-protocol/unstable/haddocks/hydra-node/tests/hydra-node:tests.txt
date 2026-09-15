@@ -733,6 +733,11 @@ inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
 --   treated as <tt>FanoutProgress</tt> (some outputs already distributed).
 inFanoutProgressWith :: [Party] -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
 
+-- | Like <a>inFanoutProgressWith</a> but with a caller-chosen distributed
+--   set. An empty one means no chunk has landed yet, so the on-chain datum
+--   is still <a>Closed</a> and a final fanout is not valid.
+inFanoutProgressDistributed :: [Party] -> Set SimpleTxOut -> Set SimpleTxOut -> FanoutMode SimpleTx -> NodeState SimpleTx
+
 -- | Like <a>inFanoutProgressWith</a> but in <a>AutoDrain</a> mode, as if a
 --   plain <a>Fanout</a> kicked off the (chunked) fanout.
 inAutoDrainProgress :: [Party] -> Set SimpleTxOut -> NodeState SimpleTx

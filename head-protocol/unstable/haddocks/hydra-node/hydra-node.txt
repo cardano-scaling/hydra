@@ -3573,6 +3573,34 @@ instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.API.HT
 --   <a>applyEvent</a> branch.
 module Hydra.HeadLogic
 
+-- | Which transaction the next fanout step has to be, carrying the sets
+--   that transaction needs. Decided once by <a>nextFanoutStep</a> so that
+--   callers deciding what else to record and <a>emitFanoutStep</a>
+--   deciding what to post cannot disagree, and so that no caller can pair
+--   a step with sets it does not go with.
+data NextFanoutStep tx
+
+-- | The target is the whole remainder and the head is already in
+--   <tt>FanoutProgress</tt> on chain: the final step, distributing the
+--   rest and burning the head tokens.
+FinalStep :: UTxOType tx -> NextFanoutStep tx
+[$sel:stepDistribute:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+
+-- | The target is the whole remainder but the head output still carries
+--   the <tt>Closed</tt> datum, which the final step is not valid against.
+--   Posted as a non-final step it would empty the head, which
+--   <tt>mustNotBeLastBatch</tt> rejects, so the chunk search settles for
+--   one output less and the head needs a second transaction to finish —
+--   and cannot be drained at all when a single output is left. Covering
+--   everything is a full fanout, so post that (#2855).
+FullFanoutStep :: NextFanoutStep tx
+
+-- | The target is a strict subset: a non-final chunk distributing it,
+--   proved against the set the head's current datum commits to.
+PartialStep :: UTxOType tx -> UTxOType tx -> NextFanoutStep tx
+[$sel:stepDistribute:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+[$sel:stepProof:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+
 -- | Which on-chain head datum the next fanout step will be posted against:
 --   still <tt>Closed</tt> (no partial fanout has landed yet) or already
 --   <tt>FanoutProgress</tt>. A <a>FinalPartialFanoutTx</a> (which burns
@@ -3891,15 +3919,45 @@ onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> Snap
 --   (then → <a>IdleState</a> once the final fanout is observed).
 onClosedClientFanout :: IsTx tx => ClosedState tx -> Outcome tx
 
+-- | The state change that goes with a fanout step, for the callers that
+--   own the head state: taking the driver role, or recording the selection
+--   being distributed. Decided here once rather than in each handler.
+--   
+--   The selection comes from the step rather than the caller, so a step
+--   can only ever be recorded against the set it actually distributes.
+fanoutStepStateChange :: HeadId -> NextFanoutStep tx -> UTxOType tx -> Outcome tx
+
+-- | Post the transaction a decided <a>NextFanoutStep</a> calls for. The
+--   chain layer chunks a full fanout, and sizes a partial one,
+--   dynamically.
+--   
+--   Transactions only: any accompanying state change belongs to the caller
+--   that owns the head state, via <a>fanoutStepStateChange</a>. That keeps
+--   this safe to call where effects can be applied but state changes
+--   cannot, as in the startup re-post in <a>runHydraNode</a>.
+emitFanoutStep :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Outcome tx
+
 -- | Compute the full UTxO set to be fanned out, combining snapshot utxo
 --   with utxoToCommit/utxoToDecommit based on version.
 computeFullFanoutUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
 
--- | Build the full automatic <a>FanoutTx</a> from a confirmed snapshot at
---   the given on-chain version. Shared by <a>onClosedClientFanout</a> and
---   the rollback re-post in <a>FanoutProgress</a>
---   (<a>repostFanoutStep</a>).
-mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+-- | Decide the next fanout step. The multiset comparison here is the only
+--   one needed: callers pass the result on rather than re-deriving it.
+nextFanoutStep :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx -> UTxOType tx -> OnChainFanoutDatum -> NextFanoutStep tx
+
+-- | Whether two UTxO sets have the same outputs (by content, as a
+--   multiset). The <tt>a == b</tt> short-circuit avoids the O(n²) multiset
+--   comparison in the common case where both arguments are the same
+--   tracked set (e.g. the auto-drain <tt>sameOutputs remaining
+--   remaining</tt> check on every observed chunk), which is exactly the
+--   large-UTxO heads partial fanout targets.
+sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
+
+-- | The fan-out-able UTxO of a confirmed snapshot at the given on-chain
+--   version: the snapshot UTxO plus a pending commit (if the increment
+--   landed on chain) or a pending decommit (if the decrement has not
+--   landed yet).
+fanoutUTxOFromSnapshot :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx
 
 -- | Given the on-chain <tt>version</tt> and a snapshot's own version,
 --   decide which of a pending commit / decommit is still to be distributed
@@ -3910,11 +3968,19 @@ mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed
 --   <a>mkFullFanoutTx</a> and <a>fanoutUTxOFromSnapshot</a>.
 effectiveCommitDecommit :: SnapshotVersion -> SnapshotVersion -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> (Maybe (UTxOType tx), Maybe (UTxOType tx))
 
+-- | Build the full automatic <a>FanoutTx</a> from a confirmed snapshot at
+--   the given on-chain version. Shared by <a>onClosedClientFanout</a> and
+--   the rollback re-post in <a>FanoutProgress</a>
+--   (<a>repostFanoutStep</a>).
+mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+
 -- | Client request to fan out a user-selected subset of a freshly closed
 --   head. Validates the selection is a non-empty sub-multiset (by content)
---   of the fan-out-able UTxO, transitions the head into
---   <a>PartialFanout</a> (in <a>DistributingSelection</a> mode) and emits
---   the first <a>PartialFanoutTx</a>.
+--   of the fan-out-able UTxO, then transitions the head into
+--   <a>PartialFanout</a> and posts whichever step <a>nextFanoutStep</a>
+--   decides on: a strict subset records the selection and posts a
+--   <a>PartialFanoutTx</a>, while a selection covering the whole head is a
+--   full fanout and drains it automatically instead.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>PartialFanoutState</a>
 onClosedClientPartialFanout :: IsTx tx => ClosedState tx -> UTxOType tx -> Outcome tx
@@ -3928,30 +3994,12 @@ nullOutputs :: IsTx tx => UTxOType tx -> Bool
 --   is validated against what is actually still in the head.
 isSubMultisetOf :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 
--- | Whether two UTxO sets have the same outputs (by content, as a
---   multiset). The <tt>a == b</tt> short-circuit avoids the O(n²) multiset
---   comparison in the common case where both arguments are the same
---   tracked set (e.g. the auto-drain <tt>sameOutputs remaining
---   remaining</tt> check on every observed chunk), which is exactly the
---   large-UTxO heads partial fanout targets.
-sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
-
--- | Emit the next partial fanout on-chain effect.
---   
---   <ul>
---   <li>When the chunk source <tt>target</tt> covers the entire remaining
---   set and the head is already in <tt>FanoutProgress</tt> on chain, emit
---   the final <a>FinalPartialFanoutTx</a> that distributes the rest and
---   burns the head tokens.</li>
---   <li>Otherwise emit a non-final <a>PartialFanoutTx</a> drawing from
---   <tt>target</tt>. The chain layer sizes the actual on-chain chunk
---   dynamically.</li>
---   </ul>
-emitPartialFanoutStep :: IsTx tx => UTxOType tx -> UTxOType tx -> OnChainFanoutDatum -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Outcome tx
-
 -- | Client request to continue a selective partial fanout. Validates the
---   selection against the current <a>StateChanged</a>, records it as the
---   active selection and emits the next step.
+--   selection against the current <a>StateChanged</a> and emits whichever
+--   step <a>nextFanoutStep</a> decides on, which is not always a recorded
+--   selection: one covering the whole remainder finalizes the head, or, if
+--   nothing has been distributed yet, becomes a full fanout that drains it
+--   automatically.
 --   
 --   <b>Transition</b>: <a>PartialFanoutState</a> →
 --   <a>PartialFanoutState</a>
@@ -3999,12 +4047,6 @@ onPartialFanoutChainPartialFanoutTx :: IsTx tx => PartialFanoutState tx -> Chain
 --   <b>Transition</b>: <a>PartialFanoutState</a> → <a>IdleState</a>
 onPartialFanoutChainFanoutTx :: IsTx tx => PartialFanoutState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
 
--- | The fan-out-able UTxO of a confirmed snapshot at the given on-chain
---   version: the snapshot UTxO plus a pending commit (if the increment
---   landed on chain) or a pending decommit (if the decrement has not
---   landed yet).
-fanoutUTxOFromSnapshot :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx
-
 -- | Build the <a>PartialFanout</a> (<a>FanoutProgress</a>) head state from
 --   a closed head, carrying over the snapshot/parameters and using the
 --   given chain state, remaining and distributed UTxO and fanout
@@ -4020,10 +4062,34 @@ closedToFanoutProgress :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> 
 --   <tt>ReadyToFanout</tt>.
 fanoutProgressToClosed :: PartialFanoutState tx -> ClosedState tx
 
--- | Whether a <a>PostChainTx</a> is one of the fanout-posting transactions
---   (used to scope the optimistic-fanout revert to genuine fanout post
---   failures).
-isFanoutPostChainTx :: PostChainTx tx -> Bool
+-- | The step this node is currently driving. <a>Nothing</a> while a manual
+--   fanout waits on the next selection, where nothing is pending.
+currentFanoutStep :: IsTx tx => PartialFanoutState tx -> Maybe (NextFanoutStep tx)
+
+-- | Whether a posted transaction is the one a given step posts, telling a
+--   failure of the step this node is driving from one it has already moved
+--   past.
+--   
+--   Compares the distributed set, not just the transaction shape, since
+--   two selections can both be non-final steps. By content, because naming
+--   the same outputs under other inputs is a valid way to ask for the same
+--   set.
+matchesFanoutStep :: IsTx tx => NextFanoutStep tx -> PostChainTx tx -> Bool
+
+-- | The mode a recorded selection leaves the driver in. A selection
+--   covering the whole remainder with nothing distributed yet is not
+--   distributed as a selection at all: <a>nextFanoutStep</a> routes it to
+--   a full fanout and the driver auto-drains the rest, so that is the mode
+--   it has to be recorded under.
+--   
+--   <a>fanoutStepStateChange</a> never pairs the two - such a step is a
+--   <a>FullFanoutStep</a>, recorded as <a>HeadFanoutInitiated</a> - so
+--   this only normalises a selection recorded before that routing existed
+--   and replayed here. Without it the re-posts (<a>repostFanoutStep</a>)
+--   would post the full fanout that <a>nextFanoutStep</a> decides on while
+--   the mode kept claiming a selection is being distributed, which is what
+--   every <tt>HeadPartiallyFannedOut</tt> then reports.
+recordedSelectionMode :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx -> FanoutMode tx
 
 -- | Re-post the next fanout step after a chain rollback while in
 --   <a>FanoutProgress</a>, so the fanout resumes instead of stalling with
@@ -4035,10 +4101,9 @@ isFanoutPostChainTx :: PostChainTx tx -> Bool
 --   to reconstruct fanout progress across a divergent rollback (the same
 --   limitation the general rollback handling has).
 --   
---   <tt>distributedOutputs</tt> being empty means no partial fanout has
---   landed on chain yet (the head datum is still <tt>Closed</tt>);
---   otherwise the datum is <tt>FanoutProgress</tt> and a
---   <a>FinalPartialFanoutTx</a> is possible.
+--   Which step that is comes from <a>currentFanoutStep</a>, the same
+--   derivation the revert guard uses to tell this step's failure from a
+--   superseded one's.
 repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
 
 -- | Detect our view of the chain going out of sync and issue a
@@ -4611,7 +4676,6 @@ changes :: [StateChanged tx] -> Outcome tx
 newState :: StateChanged tx -> Outcome tx
 noop :: Outcome tx
 wait :: WaitReason tx -> Outcome tx
-instance GHC.Classes.Eq Hydra.HeadLogic.OnChainFanoutDatum
 
 module Hydra.Node.Util
 
