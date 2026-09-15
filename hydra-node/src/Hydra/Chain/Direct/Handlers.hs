@@ -580,9 +580,9 @@ convertObservation TimeHandle{slotToUTCTime} = \case
   Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
   Increment IncrementObservation{headId, newVersion, depositTxId} ->
-    pure OnIncrementTx{headId, newVersion, depositTxId}
+    pure OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber = 0, signatures = mempty}
   Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
-    pure OnDecrementTx{headId, newVersion, distributedUTxO}
+    pure OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber = 0, signatures = mempty}
   Close CloseObservation{headId, snapshotNumber, contestationDeadline} ->
     pure OnCloseTx{headId, snapshotNumber, contestationDeadline}
   Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->

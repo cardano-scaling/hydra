@@ -341,3 +341,9 @@ getSnapshot = \case
   ConfirmedSnapshot{snapshot} -> snapshot
  where
   emptyAccumulator = Accumulator.buildFromUTxO @tx mempty
+
+-- | Signatures of a confirmed snapshot; the initial snapshot has none.
+confirmedSignatures :: ConfirmedSnapshot tx -> MultiSignature (Snapshot tx)
+confirmedSignatures = \case
+  InitialSnapshot{} -> mempty
+  ConfirmedSnapshot{signatures} -> signatures

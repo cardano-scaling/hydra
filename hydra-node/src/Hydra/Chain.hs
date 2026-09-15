@@ -34,10 +34,12 @@ import Hydra.Tx (
   HeadParameters (..),
   HeadSeed,
   IsTx (..),
+  Snapshot,
   SnapshotNumber,
   SnapshotVersion,
   UTxOType,
  )
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
@@ -152,11 +154,15 @@ data OnChainTx tx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
+      , snapshotNumber :: SnapshotNumber
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
       , distributedUTxO :: UTxOType tx
+      , snapshotNumber :: SnapshotNumber
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnCloseTx
       { headId :: HeadId

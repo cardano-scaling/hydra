@@ -61,7 +61,7 @@ import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Contract.Close.CloseAny (genCloseAnyMutation, healthyCloseAnyTx)
 import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, healthyCloseCommitPendingTx)
 import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
-import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
+import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialAfterIncrementTx, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedNoPendingTx, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
@@ -86,6 +86,7 @@ import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
   propTransactionEvaluates,
+  propTransactionFailsEvaluation,
   shrinkUTxO,
  )
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, propMutation, propTransactionFailsPhase2)
@@ -248,6 +249,8 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
+    prop "is rejected once the head moved past version 0" $
+      propTransactionFailsEvaluation healthyCloseInitialAfterIncrementTx
   describe "CloseUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx

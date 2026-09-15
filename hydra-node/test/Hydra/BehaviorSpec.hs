@@ -72,7 +72,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import Hydra.Tx.Party (Party (..), deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, confirmedSignatures, getSnapshot)
 import Test.Hydra.Ledger (nextChainSlot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
 import Test.Hydra.Tx.Fixture (
@@ -591,6 +591,27 @@ spec = parallel $ do
 
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` member 11
+
+        it "adopts a deposit snapshot settled on-chain even if a peer withholds its AckSn" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  -- Bob completes the multisignature locally and posts the
+                  -- increment; both nodes observe it and bump to version 1.
+                  depositHead chain [n1, n2] depositUTxO
+                  -- Alice still holds the initial snapshot while snapshot 1 is
+                  -- in flight waiting for Bob's AckSn. Any further ReqSn waits
+                  -- behind it, on Bob's node too, since Alice never acks it.
+                  -- A stuck head confirms no snapshot with this transaction on
+                  -- either node.
+                  send n1 (NewTx (aValidTx 42))
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} ->
+                      guard (42 `elem` (txId <$> confirmed))
+                    _ -> Nothing
 
         it "can process multiple commits" $
           shouldRunInSim $ do
@@ -1334,6 +1355,16 @@ withSimulatedChainAndNetwork ::
   m a
 withSimulatedChainAndNetwork = withSimulatedChainAndSlowNetwork 0 0
 
+withSimulatedChainAndNetworkWithholdingAckSn ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  Party ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndNetworkWithholdingAckSn dishonest =
+  bracket
+    (simulatedChainAndNetworkUsing (createNetworkWithholdingAckSn dishonest) 0 SimpleChainState{slot = ChainSlot 0})
+    (cancel . tickThread)
+
 -- | Simulated chain and network where the network and/or chain observations
 -- can be delivered with a configurable delay. Handy to reproduce race
 -- conditions related to message ordering.
@@ -1478,6 +1509,28 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
+-- | A network where the given party never delivers its 'AckSn' to peers. The
+-- party still receives its own AckSn, so it can complete the multisignature
+-- locally and post the increment/decrement, while the other nodes remain one
+-- signature short.
+createNetworkWithholdingAckSn ::
+  MonadAsync m =>
+  Party ->
+  DraftHydraNode tx m ->
+  TVar m [HydraNode tx m] ->
+  Network m (Message tx)
+createNetworkWithholdingAckSn dishonest node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
+    allNodes <- readTVarIO nodes
+    forM_ allNodes $ \HydraNode{inputQueue, env = Environment{party = receiver}} ->
+      case msg of
+        AckSn{} | sender == dishonest && receiver /= dishonest -> pure ()
+        _ -> enqueue inputQueue $ mkNetworkInput sender msg
+
+  DraftHydraNode{env = Environment{party = sender}} = node
+
 -- | Delivers messages asynchronously after a
 -- configurable delay. When the delay exceeds the chain's block time (20s),
 -- on-chain events arrive at nodes before network echoes, reproducing
@@ -1514,17 +1567,21 @@ toOnChainTx now = \case
       { headId
       , newVersion = version + 1
       , depositTxId
+      , snapshotNumber = number
+      , signatures = confirmedSignatures incrementingSnapshot
       }
    where
-    Snapshot{version} = getSnapshot incrementingSnapshot
+    Snapshot{version, number} = getSnapshot incrementingSnapshot
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId
       , newVersion = version + 1
       , distributedUTxO = fromMaybe mempty utxoToDecommit
+      , snapshotNumber = number
+      , signatures = confirmedSignatures decrementingSnapshot
       }
    where
-    Snapshot{version, utxoToDecommit} = getSnapshot decrementingSnapshot
+    Snapshot{version, number, utxoToDecommit} = getSnapshot decrementingSnapshot
   CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId
