@@ -602,15 +602,22 @@ spec = parallel $ do
                   -- Bob completes the multisignature locally and posts the
                   -- increment; both nodes observe it and bump to version 1.
                   depositHead chain [n1, n2] depositUTxO
-                  -- Alice still holds the initial snapshot while snapshot 1 is
-                  -- in flight waiting for Bob's AckSn. Any further ReqSn waits
-                  -- behind it, on Bob's node too, since Alice never acks it.
-                  -- A stuck head confirms no snapshot with this transaction on
-                  -- either node.
+                  -- Alice never receives Bob's AckSn, but the increment carries
+                  -- the full multisignature on-chain: she adopts snapshot 1
+                  -- from the observation.
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Having adopted it, Alice is no longer blocked behind an
+                  -- in-flight snapshot and acks Bob's next ReqSn. Bob still
+                  -- withholds his AckSns, so Alice cannot confirm snapshot 2
+                  -- herself. Bob can, and only with Alice's signature, which
+                  -- proves she has moved on.
                   send n1 (NewTx (aValidTx 42))
-                  waitUntilMatch [n1, n2] $ \case
-                    SnapshotConfirmed{snapshot = Snapshot{confirmed}} ->
-                      guard (42 `elem` (txId <$> confirmed))
+                  waitUntilMatch [n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                      guard (number == 2 && 42 `elem` (txId <$> confirmed))
                     _ -> Nothing
 
         it "can process multiple commits" $

@@ -97,6 +97,7 @@ import Hydra.Tx (
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
+  MultiSignature,
   Signature,
   Verified (..),
   aggregateInOrder,
@@ -1125,14 +1126,35 @@ onOpenChainIncrementTx ::
   SnapshotVersion ->
   -- | Deposit TxId
   TxIdType tx ->
+  SnapshotNumber ->
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
+onOpenChainIncrementTx env openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
+    <> adoptObservedSnapshotOrRequestNext
  where
+  -- The increment proves on-chain that the snapshot it settled is fully
+  -- signed. If that is the one we are still collecting AckSns for, adopt it
+  -- with the on-chain multisignature instead of waiting on a peer.
+  adoptObservedSnapshotOrRequestNext =
+    case seenSnapshot of
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, depositTxId = seenDepositTxId}, signableBytes}
+        | observedSnapshotNumber == seenSnNumber
+        , seenSnapshotVersion + 1 == newVersion
+        , seenDepositTxId == Just depositTxId
+        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
+            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) localTxs version newVersion (LastSeenSnapshot seenSnNumber) Nothing
+      _ ->
+        maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
+
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
   CoordinatedHeadState{localTxs, confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
+
+  HeadParameters{parties} = parameters
+
+  vkeys = vkey <$> parties
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -2383,10 +2405,10 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
-      <> onOpenChainTick env chainTime (eligibleDeposits openState pendingDeposits) openState
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
+      <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx env openState newChainState newVersion depositTxId
+        onOpenChainIncrementTx env openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
