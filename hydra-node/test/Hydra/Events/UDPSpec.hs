@@ -16,7 +16,7 @@ spec = do
   describe "putEvent" $ do
     it "sends datagram" $ do
       withUDPServerSocket $ \socket port -> do
-        withUDPEventSink "0.0.0.0" (show port) $ \sink -> do
+        withUDPEventSink "127.0.0.1" (show port) $ \sink -> do
           let event = 123 :: EventId
           putEvent sink event
           (received, _) <- recvFrom socket
@@ -24,19 +24,19 @@ spec = do
 
     it "allows concurrent usage" $ do
       withUDPServerSocket $ \_ port -> do
-        withUDPEventSink @EventId "0.0.0.0" (show port) $ \EventSink{putEvent} -> do
+        withUDPEventSink @EventId "127.0.0.1" (show port) $ \EventSink{putEvent} -> do
           concurrentlyLabelled_ ("put-event-123", putEvent 123) ("put-event-456", putEvent 456)
 
   it "supports multiple instances" $ do
     withUDPServerSocket $ \_ port -> do
-      withUDPEventSink @EventId "0.0.0.0" (show port) $ \s1 -> do
-        withUDPEventSink @EventId "0.0.0.0" (show port) $ \s2 -> do
+      withUDPEventSink @EventId "127.0.0.1" (show port) $ \s1 -> do
+        withUDPEventSink @EventId "127.0.0.1" (show port) $ \s2 -> do
           putEvent s1 123
           putEvent s2 456
 
       runResourceT $ do
-        s1 <- newUDPEventSink @EventId "0.0.0.0" (show port)
-        s2 <- newUDPEventSink @EventId "0.0.0.0" (show port)
+        s1 <- newUDPEventSink @EventId "127.0.0.1" (show port)
+        s2 <- newUDPEventSink @EventId "127.0.0.1" (show port)
         lift $ putEvent s1 123
         lift $ putEvent s2 456
 
@@ -44,6 +44,10 @@ spec = do
 -- the action. Binding port 0 directly avoids probing for a free port with a
 -- separate socket, which is racy (and the previous TCP probe said nothing
 -- about UDP availability anyway).
+--
+-- The listener binds INADDR_ANY, but the sinks above must send to 127.0.0.1
+-- rather than 0.0.0.0: sending a datagram to 0.0.0.0 only reaches the local
+-- host on Linux, and fails with EHOSTUNREACH on macOS.
 withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
 withUDPServerSocket action =
   bracket (serverSocket ("0.0.0.0", 0)) stop $ \socket -> do
