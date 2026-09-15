@@ -6,9 +6,10 @@ module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
 
+import Cardano.Binary (Decoder)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -154,6 +155,10 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
+  , finalizedCommit :: Maybe (FinalizedSnapshot tx)
+  -- ^ The last snapshot whose increment settled on chain, see 'FinalizedSnapshot'.
+  , finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+  -- ^ The last snapshot whose decrement settled on chain, see 'FinalizedSnapshot'.
   }
   deriving stock (Generic)
 
@@ -162,11 +167,58 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
+-- | Tag of the current on-disk\/wire layout, which carries 'finalizedCommit'
+-- and 'finalizedDecommit'. The fields are a bare concatenation with no length
+-- prefix, so a layout change is only decodable when the tag distinguishes it:
+-- 'coordinatedHeadStateCBORTagV1' names the layout written before those fields
+-- existed and is still accepted, letting a node replay an event log from an
+-- earlier version.
+coordinatedHeadStateCBORTag :: Text
+coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
+
+-- | Tag of the layout without 'finalizedCommit'\/'finalizedDecommit'. Decoded,
+-- never written.
+coordinatedHeadStateCBORTagV1 :: Text
+coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
+
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR = genericToCBOR
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit} =
+    toCBOR coordinatedHeadStateCBORTag
+      <> toCBOR localUTxO
+      <> toCBOR localTxs
+      <> toCBOR allTxs
+      <> toCBOR confirmedSnapshot
+      <> toCBOR seenSnapshot
+      <> toCBOR currentDepositTxId
+      <> toCBOR decommitTx
+      <> toCBOR version
+      <> toCBOR finalizedCommit
+      <> toCBOR finalizedDecommit
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == coordinatedHeadStateCBORTag -> decode True
+        | tag == coordinatedHeadStateCBORTagV1 -> decode False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
+   where
+    decode :: Bool -> Decoder s (CoordinatedHeadState tx)
+    decode hasFinalized = do
+      localUTxO <- fromCBOR
+      localTxs <- fromCBOR
+      allTxs <- fromCBOR
+      confirmedSnapshot <- fromCBOR
+      seenSnapshot <- fromCBOR
+      currentDepositTxId <- fromCBOR
+      decommitTx <- fromCBOR
+      version <- fromCBOR
+      -- A state from before these fields existed retains no finalized
+      -- commit/decommit: rollback re-posting is unavailable for increments and
+      -- decrements finalized before the upgrade, like it was at the time.
+      finalizedCommit <- if hasFinalized then fromCBOR else pure Nothing
+      finalizedDecommit <- if hasFinalized then fromCBOR else pure Nothing
+      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit}
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -388,4 +440,29 @@ instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
   toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
+  fromCBOR = genericFromCBOR
+
+-- | A snapshot whose settlement transaction (the increment of its commit, or
+-- the decrement of its decommit) was observed on chain, retained when the
+-- settlement is applied ('CommitFinalized'\/'DecommitFinalized') so it can be
+-- re-posted if a rollback later erases it. The signed snapshot must be kept
+-- here because 'confirmedSnapshot' may advance past it, and only this snapshot
+-- can settle its commit\/decommit on-chain. Kept until overwritten by the next
+-- settlement of the same kind; 'observedAtSlot' makes stale entries inert
+-- (re-post only when a rollback reaches strictly before it).
+data FinalizedSnapshot tx = FinalizedSnapshot
+  { snapshot :: ConfirmedSnapshot tx
+  , observedAtSlot :: ChainSlot
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FinalizedSnapshot tx)
+deriving stock instance IsTx tx => Show (FinalizedSnapshot tx)
+deriving anyclass instance IsTx tx => ToJSON (FinalizedSnapshot tx)
+deriving anyclass instance IsTx tx => FromJSON (FinalizedSnapshot tx)
+
+instance IsTx tx => ToCBOR (FinalizedSnapshot tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
   fromCBOR = genericFromCBOR

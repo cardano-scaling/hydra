@@ -47,7 +47,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
+import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState, pendingDeposits)
 import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
@@ -109,7 +109,6 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
-    pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
     networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
     -- Track seen snapshots across the event stream history so that SnapshotConfirmed
     -- events (which may omit the snapshot) can be reconstructed for clients.
@@ -125,7 +124,6 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
                 lift $ atomically $ do
                   update nodeStateP stateChanged
                   update commitInfoP stateChanged
-                  update pendingDepositsP stateChanged
                   update networkInfoP stateChanged
             )
     (notifyServerRunning, waitForServerRunning) <- setupServerNotification
@@ -155,7 +153,12 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
                   pparams
                   (atomically $ getLatest nodeStateP)
                   (atomically $ getLatest commitInfoP)
-                  (atomically $ getLatest pendingDepositsP)
+                  -- Pending deposits are served from the full 'NodeState'
+                  -- aggregate: it is the only read model that handles rollback
+                  -- semantics (a rewound 'ChainRolledBack' resurfaces or drops
+                  -- deposits), so a bespoke projection would diverge from the
+                  -- node state after any rollback.
+                  (Map.keys . pendingDeposits <$> atomically (getLatest nodeStateP))
                   callback
                   (apiTransactionTimeout config)
                   responseChannel
@@ -173,7 +176,6 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
                     atomically $ do
                       update nodeStateP stateChanged
                       update commitInfoP stateChanged
-                      update pendingDepositsP stateChanged
                       update networkInfoP stateChanged
                     -- Send to the client if it maps to a server output
                     case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
@@ -300,15 +302,6 @@ seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
 seenSnapshotOf ns = case headState ns of
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _ _}} -> Just sn
   _ -> Nothing
-
--- | Projection to obtain the list of pending deposits.
-projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
-projectPendingDeposits txIds = \case
-  StateChanged.Checkpoint{state} -> Map.keys (pendingDeposits state)
-  StateChanged.DepositRecorded{depositTxId} -> depositTxId : txIds
-  StateChanged.DepositRecovered{depositTxId} -> filter (/= depositTxId) txIds
-  StateChanged.CommitFinalized{depositTxId} -> filter (/= depositTxId) txIds
-  _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
 -- NOTE: We only project 'HeadId' when the Head is 'Open' since that is when

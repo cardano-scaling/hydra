@@ -3821,6 +3821,8 @@ components:
         - currentDepositTxId
         - decommitTx
         - version
+        - finalizedCommit
+        - finalizedDecommit
       properties:
         localUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
@@ -3848,6 +3850,14 @@ components:
             - $ref: "api.yaml#/components/schemas/Transaction"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        finalizedCommit:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
+        finalizedDecommit:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
 
     Deposit:
       type: object
@@ -3869,6 +3879,44 @@ components:
           $ref: "api.yaml#/components/schemas/UTCTime"
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
+
+    TrackedDeposit:
+      type: object
+      additionalProperties: false
+      description: |
+        A deposit with its L1 lifecycle slots: the slot its deposit transaction
+        was observed at and, once consumed by an increment or recover, the slot
+        of that consuming transaction. A rollback rewinds the view using these
+        slots.
+      required:
+        - deposit
+        - recordedAt
+        - consumedAt
+      properties:
+        deposit:
+          $ref: "api.yaml#/components/schemas/Deposit"
+        recordedAt:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        consumedAt:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/ChainSlot"
+
+    FinalizedSnapshot:
+      type: object
+      additionalProperties: false
+      description: |
+        A snapshot whose settlement transaction (increment or decrement)
+        settled on-chain, retained so the settlement can be re-posted if a
+        rollback later erases it.
+      required:
+        - snapshot
+        - observedAtSlot
+      properties:
+        snapshot:
+          $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+        observedAtSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
 
     ChainPointTime:
       type: object
@@ -3893,7 +3941,7 @@ components:
           required:
             - tag
             - headState
-            - pendingDeposits
+            - deposits
             - chainPointTime
           properties:
             tag:
@@ -3901,12 +3949,12 @@ components:
               enum: ["NodeInSync"]
             headState:
               $ref: "api.yaml#/components/schemas/HeadState"
-            pendingDeposits:
+            deposits:
               type: object
               propertyNames:
                 $ref: "api.yaml#/components/schemas/TxId"
-              items:
-                $ref: "api.yaml#/components/schemas/Deposit"
+              additionalProperties:
+                $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
         - title: NodeCatchingUp
@@ -3915,7 +3963,7 @@ components:
           required:
             - tag
             - headState
-            - pendingDeposits
+            - deposits
             - chainPointTime
           properties:
             tag:
@@ -3923,12 +3971,12 @@ components:
               enum: ["NodeCatchingUp"]
             headState:
               $ref: "api.yaml#/components/schemas/HeadState"
-            pendingDeposits:
+            deposits:
               type: object
               propertyNames:
                 $ref: "api.yaml#/components/schemas/TxId"
-              items:
-                $ref: "api.yaml#/components/schemas/Deposit"
+              additionalProperties:
+                $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
 
