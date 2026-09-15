@@ -15,13 +15,13 @@ import Hydra.Ledger.Cardano.Builder (
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature (..), fromPlutusSignatures, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, decommitOutputsHash, fromChainSnapshotVersion)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, decommitOutputsHash, fromChainSnapshotNumber, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -124,6 +124,8 @@ data IncrementObservation = IncrementObservation
   , newVersion :: SnapshotVersion
   , depositTxId :: TxId
   , deposited :: UTxO
+  , snapshotNumber :: SnapshotNumber
+  , signatures :: MultiSignature (Snapshot Tx)
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -147,9 +149,10 @@ observeIncrementTx networkId utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
+    (Head.Open{}, Head.Increment Head.IncrementRedeemer{signature, snapshotNumber}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
+      signatures <- fromPlutusSignatures signature
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure
@@ -158,6 +161,8 @@ observeIncrementTx networkId utxo tx = do
               , newVersion = fromChainSnapshotVersion version
               , depositTxId
               , deposited
+              , snapshotNumber = fromChainSnapshotNumber snapshotNumber
+              , signatures
               }
         _ -> Nothing
     _ -> Nothing

@@ -442,3 +442,11 @@ toPlutusSignatures (HydraMultiSignature sigs) =
   toPlutusSignature :: Signature a -> OnChain.Signature
   toPlutusSignature (HydraSignature sig) =
     Plutus.toBuiltin $ rawSerialiseSigDSIGN sig
+
+-- | Inverse of 'toPlutusSignatures'. Fails if any signature bytes are malformed.
+fromPlutusSignatures :: [OnChain.Signature] -> Maybe (MultiSignature a)
+fromPlutusSignatures sigs = HydraMultiSignature <$> traverse fromPlutusSignature sigs
+ where
+  fromPlutusSignature :: OnChain.Signature -> Maybe (Signature a)
+  fromPlutusSignature sig =
+    HydraSignature <$> rawDeserialiseSigDSIGN (Plutus.fromBuiltin sig)
