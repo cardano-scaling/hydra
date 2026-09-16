@@ -3852,8 +3852,7 @@ components:
         - currentDepositTxId
         - decommitTx
         - version
-        - finalizedCommit
-        - finalizedDecommit
+        - settlements
       properties:
         localUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
@@ -3881,14 +3880,17 @@ components:
             - $ref: "api.yaml#/components/schemas/Transaction"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
-        finalizedCommit:
-          oneOf:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
-        finalizedDecommit:
-          oneOf:
-            - type: "null"
-            - $ref: "api.yaml#/components/schemas/FinalizedSnapshot"
+        settlements:
+          type: object
+          description: |
+            Snapshots whose increment or decrement settled on-chain and may
+            still be erased by a rollback, keyed by the snapshot version they
+            were based on (as a decimal string).
+          propertyNames:
+            type: string
+            pattern: "^[0-9]+$"
+          additionalProperties:
+            $ref: "api.yaml#/components/schemas/Settlement"
 
     Deposit:
       type: object
@@ -3933,21 +3935,49 @@ components:
             - type: "null"
             - $ref: "api.yaml#/components/schemas/ChainSlot"
 
-    FinalizedSnapshot:
+    Settlement:
       type: object
       additionalProperties: false
       description: |
-        A snapshot whose settlement transaction (increment or decrement)
-        settled on-chain, retained so the settlement can be re-posted if a
-        rollback later erases it.
+        A signed snapshot whose settlement transaction (increment or
+        decrement) settled on-chain, retained so the settlement can be
+        re-posted if a rollback later erases it. Its confirmed transactions
+        are not retained.
       required:
         - snapshot
-        - observedAtSlot
+        - status
       properties:
         snapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
-        observedAtSlot:
-          $ref: "api.yaml#/components/schemas/ChainSlot"
+        status:
+          $ref: "api.yaml#/components/schemas/SettlementStatus"
+
+    SettlementStatus:
+      description: |
+        Whether a retained settlement is on the chain the node follows: landed
+        at the given slot, or erased by a rollback and due for re-posting.
+      oneOf:
+        - title: Landed
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - observedAtSlot
+          properties:
+            tag:
+              type: string
+              enum: ["Landed"]
+            observedAtSlot:
+              $ref: "api.yaml#/components/schemas/ChainSlot"
+        - title: Erased
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+          properties:
+            tag:
+              type: string
+              enum: ["Erased"]
 
     ChainPointTime:
       type: object

@@ -223,8 +223,8 @@ spec = parallel $ do
                 <> toCBOR utxoToDecommit
       decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
 
-  -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
-  -- between two released layouts, same situation as 'Snapshot' above.
+  -- 'CoordinatedHeadState' gained 'settlements' between two released layouts,
+  -- same situation as 'Snapshot' above.
   describe "CoordinatedHeadState layouts" $ do
     let chs = generateWith (resize 3 arbitrary) 42 :: CoordinatedHeadState Tx
         CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} = chs
@@ -232,7 +232,7 @@ spec = parallel $ do
     it "writes the current layout under a tag of its own" $
       serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' coordinatedHeadStateCBORTag)
 
-    it "decodes the layout written before finalizedCommit/finalizedDecommit existed" $ do
+    it "decodes the layout written before settlements existed" $ do
       let legacy =
             toStrictByteString $
               toCBOR coordinatedHeadStateCBORTagV1
@@ -244,7 +244,7 @@ spec = parallel $ do
                 <> toCBOR currentDepositTxId
                 <> toCBOR decommitTx
                 <> toCBOR version
-      decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
+      decodeFull' legacy `shouldBe` Right chs{settlements = mempty}
 
   -- 'NodeState' gained deposit lifecycle tracking between two released
   -- layouts, same situation as 'Snapshot' above. The legacy layout carries a

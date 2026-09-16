@@ -154,11 +154,12 @@ changes.
   deposit and could strand its funds
   [#2741](https://github.com/cardano-scaling/hydra/issues/2741). The node now
   tracks each deposit with its L1 lifecycle slots and rewinds that view on
-  rollback, retains the signed snapshot that authorized a settled increment or
-  decrement, and re-posts the settling transaction when a rollback erases it.
-  A deposit whose finalized increment was rolled back can neither be recovered
-  nor proposed for a new snapshot — re-posting the increment is the only way it
-  settles.
+  rollback, retains every signed snapshot that authorized a settled increment
+  or decrement until no rollback can reach it anymore, and re-posts the erased
+  settling transactions one at a time in version order when a rollback erases
+  them. A deposit whose finalized increment was rolled back can neither be
+  recovered nor proposed for a new snapshot — re-posting the increment is the
+  only way it settles.
   * Persisted state (`hydra.db`) from earlier versions still replays: the CBOR
     codecs keep decoders for the `NodeState` and `CoordinatedHeadState` layouts
     written before the new fields existed. Increments or decrements finalized
@@ -166,7 +167,8 @@ changes.
     unavailable for them, as it was before the upgrade.
   * On the API, `NodeState` now serializes deposits with their lifecycle
     slots (a `deposits` field replaces `pendingDeposits`) and
-    `CoordinatedHeadState` gains `finalizedCommit` and `finalizedDecommit`.
+    `CoordinatedHeadState` gains `settlements`, the retained snapshots keyed
+    by the version they were based on.
   * `GET /deposits` now reflects rollbacks: it is served from the node state
     (which rewinds its deposit view on rollback) instead of a projection that
     only tracked deposit lifecycle events.

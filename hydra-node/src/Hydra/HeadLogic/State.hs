@@ -155,10 +155,9 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
-  , finalizedCommit :: Maybe (FinalizedSnapshot tx)
-  -- ^ The last snapshot whose increment settled on chain, see 'FinalizedSnapshot'.
-  , finalizedDecommit :: Maybe (FinalizedSnapshot tx)
-  -- ^ The last snapshot whose decrement settled on chain, see 'FinalizedSnapshot'.
+  , settlements :: !(Settlements tx)
+  -- ^ Snapshots whose increment or decrement settled on chain and may still be
+  -- erased by a rollback, see 'Settlements'.
   }
   deriving stock (Generic)
 
@@ -167,22 +166,20 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
--- | Tag of the current on-disk\/wire layout, which carries 'finalizedCommit'
--- and 'finalizedDecommit'. The fields are a bare concatenation with no length
--- prefix, so a layout change is only decodable when the tag distinguishes it:
--- 'coordinatedHeadStateCBORTagV1' names the layout written before those fields
--- existed and is still accepted, letting a node replay an event log from an
--- earlier version.
+-- | Tag of the current on-disk\/wire layout, which carries 'settlements'. The
+-- fields are a bare concatenation with no length prefix, so a layout change is
+-- only decodable when the tag distinguishes it: 'coordinatedHeadStateCBORTagV1'
+-- names the layout written before that field existed and is still accepted,
+-- letting a node replay an event log from an earlier version.
 coordinatedHeadStateCBORTag :: Text
 coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
 
--- | Tag of the layout without 'finalizedCommit'\/'finalizedDecommit'. Decoded,
--- never written.
+-- | Tag of the layout without 'settlements'. Decoded, never written.
 coordinatedHeadStateCBORTagV1 :: Text
 coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
 
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit} =
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements} =
     toCBOR coordinatedHeadStateCBORTag
       <> toCBOR localUTxO
       <> toCBOR localTxs
@@ -192,8 +189,7 @@ instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
       <> toCBOR currentDepositTxId
       <> toCBOR decommitTx
       <> toCBOR version
-      <> toCBOR finalizedCommit
-      <> toCBOR finalizedDecommit
+      <> toCBOR settlements
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
   fromCBOR =
@@ -216,9 +212,8 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
       -- A state from before these fields existed retains no finalized
       -- commit/decommit: rollback re-posting is unavailable for increments and
       -- decrements finalized before the upgrade, like it was at the time.
-      finalizedCommit <- if hasFinalized then fromCBOR else pure Nothing
-      finalizedDecommit <- if hasFinalized then fromCBOR else pure Nothing
-      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit}
+      settlements <- if hasFinalized then fromCBOR else pure mempty
+      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements}
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -442,27 +437,43 @@ instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
   fromCBOR = genericFromCBOR
 
--- | A snapshot whose settlement transaction (the increment of its commit, or
--- the decrement of its decommit) was observed on chain, retained when the
--- settlement is applied ('CommitFinalized'\/'DecommitFinalized') so it can be
--- re-posted if a rollback later erases it. The signed snapshot must be kept
--- here because 'confirmedSnapshot' may advance past it, and only this snapshot
--- can settle its commit\/decommit on-chain. Kept until overwritten by the next
--- settlement of the same kind; 'observedAtSlot' makes stale entries inert
--- (re-post only when a rollback reaches strictly before it).
-data FinalizedSnapshot tx = FinalizedSnapshot
+-- | Whether a retained settlement is on the chain the node currently follows.
+-- Marked at rollback time, see 'ChainRolledBack'.
+data SettlementStatus
+  = Landed {observedAtSlot :: ChainSlot}
+  | Erased
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR SettlementStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SettlementStatus where
+  fromCBOR = genericFromCBOR
+
+-- | Retained settlements, keyed by the snapshot version they were based on.
+-- The settlement with key @v@ bumped the on-chain version to @v + 1@, so keys
+-- are consecutive and key order is the order the settlements must land in.
+type Settlements tx = Map.Map SnapshotVersion (Settlement tx)
+
+-- | A signed snapshot whose increment or decrement settled on chain, kept so
+-- it can be re-posted if a rollback erases that settlement. The snapshot's
+-- 'confirmed' txs are blanked on retention: they are not signed and no tx
+-- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
+-- it on decode.
+data Settlement tx = Settlement
   { snapshot :: ConfirmedSnapshot tx
-  , observedAtSlot :: ChainSlot
+  , status :: SettlementStatus
   }
   deriving stock (Generic)
 
-deriving stock instance IsTx tx => Eq (FinalizedSnapshot tx)
-deriving stock instance IsTx tx => Show (FinalizedSnapshot tx)
-deriving anyclass instance IsTx tx => ToJSON (FinalizedSnapshot tx)
-deriving anyclass instance IsTx tx => FromJSON (FinalizedSnapshot tx)
+deriving stock instance IsTx tx => Eq (Settlement tx)
+deriving stock instance IsTx tx => Show (Settlement tx)
+deriving anyclass instance IsTx tx => ToJSON (Settlement tx)
+deriving anyclass instance IsTx tx => FromJSON (Settlement tx)
 
-instance IsTx tx => ToCBOR (FinalizedSnapshot tx) where
+instance IsTx tx => ToCBOR (Settlement tx) where
   toCBOR = genericToCBOR
 
-instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
+instance IsTx tx => FromCBOR (Settlement tx) where
   fromCBOR = genericFromCBOR

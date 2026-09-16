@@ -11,12 +11,13 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
   FanoutMode (..),
-  FinalizedSnapshot (..),
   HeadState (..),
   IdleState (..),
   OpenState (..),
   PartialFanoutState (..),
   SeenSnapshot (..),
+  Settlement (..),
+  SettlementStatus (..),
   mkSeenSnapshot,
  )
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
@@ -67,5 +68,8 @@ instance ArbitraryIsTx tx => Arbitrary (FanoutMode tx) where
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PartialFanoutState tx) where
   arbitrary = genericArbitrary
 
-instance ArbitraryIsTx tx => Arbitrary (FinalizedSnapshot tx) where
+instance ArbitraryIsTx tx => Arbitrary (Settlement tx) where
+  arbitrary = genericArbitrary
+
+instance Arbitrary SettlementStatus where
   arbitrary = genericArbitrary
