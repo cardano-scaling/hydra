@@ -1,10 +1,5 @@
 -- | Tests for the @?address=@ output filter applied by 'Hydra.API.WSServer'.
---
--- The filter decides what a client connected with an address sees. Getting it
--- wrong either leaks other parties' transactions or silently hides a client's
--- own, and neither shows up as an error anywhere. These are the filter's
--- semantics; 'Hydra.API.ServerSpec' covers the server-side wiring that reaches
--- them.
+-- 'Hydra.API.ServerSpec' covers the server-side wiring that reaches it.
 module Hydra.API.ServerOutputFilterSpec where
 
 import Hydra.Prelude
@@ -18,8 +13,12 @@ import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
+import Test.Hydra.API.ServerOutput ()
+import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
-import Test.Hydra.Tx.Gen (genVerificationKey)
+import Test.Hydra.Tx.Gen (genKeyPair)
+import Test.QuickCheck (generate)
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 
 spec :: Spec
 spec = parallel $ do
@@ -27,16 +26,16 @@ spec = parallel $ do
     it "passes a snapshot whose confirmed tx pays the address" $
       snapshotConfirmed [txPayingTo [aliceAddress]] `shouldPassFor` aliceAddress
 
-    it "drops a snapshot when no confirmed tx pays the address" $
+    it "drops a snapshot when no confirmed tx involves the address" $
       snapshotConfirmed [txPayingTo [bobAddress]] `shouldDropFor` aliceAddress
 
-    -- A snapshot can confirm no transaction at all (it may only settle a
-    -- deposit or a decommit). Such a snapshot carries no address, so an
-    -- address-filtered client never hears about it.
-    it "drops a snapshot confirming no transactions" $
-      snapshotConfirmed [] `shouldDropFor` aliceAddress
+    -- A snapshot confirming no transaction settles only a deposit or a
+    -- decommit. It carries no address, so it is not withheld: the filter
+    -- narrows what a client sees rather than hiding addressless events.
+    it "passes a snapshot confirming no transactions" $
+      snapshotConfirmed [] `shouldPassFor` aliceAddress
 
-    it "passes when any one of several confirmed txs pays the address" $
+    it "passes when any one of several confirmed txs involves the address" $
       snapshotConfirmed [txPayingTo [bobAddress], txPayingTo [carolAddress, aliceAddress]]
         `shouldPassFor` aliceAddress
 
@@ -44,10 +43,21 @@ spec = parallel $ do
       snapshotConfirmed [txPayingTo [bobAddress, carolAddress, aliceAddress]]
         `shouldPassFor` aliceAddress
 
+  -- The snapshot in which a client's funds leave the head is the one it most
+  -- needs, and a transaction spending a UTxO in full leaves no output to match.
+  describe "spending from the address" $ do
+    it "passes a snapshot whose confirmed tx spends from the address" $
+      snapshotConfirmed [aliceSpendsTo bobAddress] `shouldPassFor` aliceAddress
+
+    it "still drops that snapshot for an uninvolved address" $
+      snapshotConfirmed [aliceSpendsTo bobAddress] `shouldDropFor` carolAddress
+
+    it "passes for both the sender and the recipient" $ do
+      snapshotConfirmed [aliceSpendsTo bobAddress] `shouldPassFor` bobAddress
+      snapshotConfirmed [aliceSpendsTo bobAddress] `shouldPassFor` aliceAddress
+
   describe "address comparison" $ do
-    -- The filter compares serialised addresses exactly, so anything that is
-    -- not one of the outputs' own bech32 forms matches nothing at all.
-    it "does not match a well-formed address that is not an output" $
+    it "does not match a well-formed address that is not involved" $
       snapshotConfirmed [txPayingTo [aliceAddress, bobAddress]] `shouldDropFor` carolAddress
 
     it "does not match a string that is not an address" $ do
@@ -59,32 +69,30 @@ spec = parallel $ do
       snapshotConfirmed [txPayingTo [aliceAddress]] `shouldDrop` Text.init addr
       snapshotConfirmed [txPayingTo [aliceAddress]] `shouldDrop` (addr <> "x")
 
-    -- The address a client puts in its query string comes from
-    -- 'serialiseAddress' on an 'AddressInEra', while the filter derives the
-    -- output's own text via 'serialiseToBech32' on the unwrapped Shelley
-    -- address. They have to agree or every filtered client sees nothing.
-    it "agrees with the serialiseAddress form a client would send" $
-      snapshotConfirmed [txPayingTo [aliceAddress]] `shouldPass` serialiseAddress aliceAddress
-
-  -- Everything that is not a 'SnapshotConfirmed' carries no transaction the
-  -- filter could inspect, so it reaches the client regardless of the address.
-  describe "other outputs" $
-    for_ otherOutputs $ \(name, out) ->
-      it ("passes " <> name) $
-        out `shouldPassFor` carolAddress
+  -- Enumerated rather than sampled: adding a filtering arm for any other
+  -- output would otherwise go unnoticed. Several of them do carry a
+  -- transaction ('TxInvalid', 'DecommitRequested', 'DecommitInvalid'), so
+  -- passing them is a decision, not a consequence of having nothing to match.
+  it "passes every output other than SnapshotConfirmed" $ do
+    others <- serverOutputsOtherThanSnapshotConfirmed
+    length others `shouldSatisfy` (> 1)
+    forM_ others $ \(name, out) ->
+      unless (matches out (bech32Of carolAddress)) . failure $
+        name <> " was filtered out"
 
 -- * Fixtures
 
--- | Three distinct payment addresses on the test network.
+aliceKeys, bobKeys, carolKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+aliceKeys = genKeyPair `generateWith` 1
+bobKeys = genKeyPair `generateWith` 2
+carolKeys = genKeyPair `generateWith` 3
+
 aliceAddress, bobAddress, carolAddress :: AddressInEra
-aliceAddress = addressFor 1
-bobAddress = addressFor 2
-carolAddress = addressFor 3
+aliceAddress = mkVkAddress testNetworkId (fst aliceKeys)
+bobAddress = mkVkAddress testNetworkId (fst bobKeys)
+carolAddress = mkVkAddress testNetworkId (fst carolKeys)
 
-addressFor :: Int -> AddressInEra
-addressFor seed = mkVkAddress testNetworkId (genVerificationKey `generateWith` seed)
-
--- | A transaction paying 2 Ada to each of the given addresses.
+-- | A transaction paying 2 Ada to each of the given addresses, unsigned.
 txPayingTo :: [AddressInEra] -> Tx
 txPayingTo addresses =
   unsafeBuildTransaction $
@@ -95,6 +103,11 @@ txPayingTo addresses =
         | address <- addresses
         ]
 
+-- | Signed by Alice and paying only to the given address, so her witness is
+-- all the filter has to go on.
+aliceSpendsTo :: AddressInEra -> Tx
+aliceSpendsTo recipient = signTx (snd aliceKeys) (txPayingTo [recipient])
+
 snapshotConfirmed :: [Tx] -> ServerOutput Tx
 snapshotConfirmed confirmed =
   SnapshotConfirmed
@@ -103,23 +116,14 @@ snapshotConfirmed confirmed =
     , signatures = mempty
     }
 
--- | A representative output per non-'SnapshotConfirmed' shape: one carrying no
--- transaction, one carrying a UTxO and one carrying a transaction of its own.
-otherOutputs :: [(String, ServerOutput Tx)]
-otherOutputs =
-  [ ("HeadIsOpen", HeadIsOpen{headId = testHeadId, parties = []})
-  , ("TxValid", TxValid{headId = testHeadId, transactionId = getTxId (getTxBody (txPayingTo [aliceAddress]))})
-  , ("HeadIsFinalized", HeadIsFinalized{headId = testHeadId, finalizedUTxO = mempty})
-  ,
-    ( "DecommitRequested"
-    , DecommitRequested
-        { headId = testHeadId
-        , decommitTx = txPayingTo [aliceAddress]
-        , utxoToDecommit = mempty
-        }
-    )
-  , ("NetworkConnected", NetworkConnected)
-  ]
+serverOutputsOtherThanSnapshotConfirmed :: IO [(String, ServerOutput Tx)]
+serverOutputsOtherThanSnapshotConfirmed = do
+  ADTArbitrary{adtCAPs} <- generate $ toADTArbitrary (Proxy @(ServerOutput Tx))
+  pure
+    [ (capConstructor, capArbitrary)
+    | ConstructorArbitraryPair{capConstructor, capArbitrary} <- adtCAPs
+    , capConstructor /= "SnapshotConfirmed"
+    ]
 
 -- * Helpers
 
@@ -141,8 +145,6 @@ matches output =
  where
   timed = TimedServerOutput{seq = 0, time = posixSecondsToUTCTime 0, output}
 
--- | The bech32 form of an address, as the filter derives it from a transaction
--- output.
 bech32Of :: AddressInEra -> Text
 bech32Of = \case
   ShelleyAddressInEra addr -> serialiseToBech32 addr

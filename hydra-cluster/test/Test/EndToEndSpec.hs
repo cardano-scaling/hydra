@@ -44,6 +44,7 @@ import Hydra.Cluster.Fixture (
   carolSk,
  )
 import Hydra.Cluster.Scenarios (
+  canCloseWithLongContestationPeriod,
   canDecommit,
   canDeposit,
   canDepositConcurrently,
@@ -236,6 +237,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             singlePartyHeadFullLifeCycle tracer tmpDir mkTestTiming
+      it "can close with long deadline" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canCloseWithLongContestationPeriod tracer tmpDir
       it "can deposit utxo" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $

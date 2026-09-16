@@ -1003,6 +1003,48 @@ persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
       -- polling for it would succeed immediately and assert nothing.
       getSnapshotUTxO n1 `shouldReturn` mempty
 
+-- | Close a head whose contestation period is a week, on a real node started
+-- from the chain tip.
+--
+-- Not reducible to a unit test: the point is that
+-- 'calculateTxUpperBoundFromContestationPeriod' caps the close transaction's
+-- upper validity bound at 'maxGraceTime', keeping it inside the ledger's
+-- forecast horizon. StateSpec's close properties pass their validity bounds in
+-- directly and never reach that code, and the io-sim tests install an era
+-- history without a horizon, so only a real node exercises it.
+canCloseWithLongContestationPeriod ::
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  ChainBackendOptions ->
+  [TxId] ->
+  IO ()
+canCloseWithLongContestationPeriod tracer workDir opts hydraScriptsTxId = do
+  refuelIfNeeded tracer opts Alice 100_000_000
+  -- Start hydra-node on chain tip
+  tip <- runBackend opts queryTip
+  blockTime <- runBackend opts getBlockTime
+  let oneWeek = 60 * 60 * 24 * 7
+      Timing{depositPeriod = defaultDepositPeriod} = mkTestTiming blockTime
+  aliceChainConfig <-
+    chainConfigFor' Alice workDir opts hydraScriptsTxId [] oneWeek defaultDepositPeriod defaultDepositPeriod
+      <&> modifyConfig (\config -> config{startChainFrom = Just tip})
+  let hydraTracer = contramap FromHydraNode tracer
+  withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
+    -- Initialize & open head
+    send n1 $ input "Init" []
+    _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+    -- Close head
+    send n1 $ input "Close" []
+    void $
+      waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+  traceRemainingFunds Alice
+ where
+  traceRemainingFunds actor = do
+    (actorVk, _) <- keysFor actor
+    utxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
+    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+
 canSubmitTransactionThroughAPI ::
   Tracer IO EndToEndLog ->
   FilePath ->
