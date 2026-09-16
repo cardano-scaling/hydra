@@ -1236,7 +1236,7 @@ OpenState :: HeadParameters -> CoordinatedHeadState tx -> ChainStateType tx -> H
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx) -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
@@ -1267,6 +1267,29 @@ CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> Confir
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
+
+-- | The last snapshot whose increment settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedCommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | The last snapshot whose decrement settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedDecommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a> and
+--   <a>$sel:finalizedDecommit:CoordinatedHeadState</a>. The fields are a
+--   bare concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it:
+--   <a>coordinatedHeadStateCBORTagV1</a> names the layout written before
+--   those fields existed and is still accepted, letting a node replay an
+--   event log from an earlier version.
+coordinatedHeadStateCBORTag :: Text
+
+-- | Tag of the layout without
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a>/<a>$sel:finalizedDecommit:CoordinatedHeadState</a>.
+--   Decoded, never written.
+coordinatedHeadStateCBORTagV1 :: Text
 
 -- | Data structure to help in tracking whether we have seen or requested a
 --   ReqSn already and if seen, the signatures we collected already.
@@ -1300,9 +1323,8 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteStrin
 [$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ~ByteString
 
 -- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from
---   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
---   stay in sync.
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
+--   enforcing the invariant that they stay in sync.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -1373,13 +1395,29 @@ PartialFanoutState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Chain
 
 -- | Drives the chunk source for the next step (see <a>FanoutMode</a>).
 [$sel:mode:PartialFanoutState] :: PartialFanoutState tx -> FanoutMode tx
+
+-- | A snapshot whose settlement transaction (the increment of its commit,
+--   or the decrement of its decommit) was observed on chain, retained when
+--   the settlement is applied
+--   (<tt>CommitFinalized</tt>/<tt>DecommitFinalized</tt>) so it can be
+--   re-posted if a rollback later erases it. The signed snapshot must be
+--   kept here because <a>CoordinatedHeadState</a> may advance past it, and
+--   only this snapshot can settle its commit/decommit on-chain. Kept until
+--   overwritten by the next settlement of the same kind;
+--   <a>$sel:observedAtSlot:FinalizedSnapshot</a> makes stale entries inert
+--   (re-post only when a rollback reaches strictly before it).
+data FinalizedSnapshot tx
+FinalizedSnapshot :: ConfirmedSnapshot tx -> ChainSlot -> FinalizedSnapshot tx
+[$sel:snapshot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ConfirmedSnapshot tx
+[$sel:observedAtSlot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ChainSlot
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.IdleState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.ClosedState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.FanoutMode tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.PartialFanoutState tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.HeadState tx)
@@ -1411,18 +1449,24 @@ instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainSta
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.PartialFanoutState tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.FinalizedSnapshot tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.HeadState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.HeadState tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.OpenState tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.OpenState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.FinalizedSnapshot tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.FanoutMode tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.FanoutMode tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.ClosedState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.ClosedState tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.OpenState tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.OpenState tx)
-instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
-instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.SeenSnapshot tx)
@@ -2055,6 +2099,21 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 [$sel:txid:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 [$sel:error:ReqSnNumberInvalid] :: RequirementFailure tx -> ValidationError
 NoMatchingDeposit :: RequirementFailure tx
+
+-- | The deposit is claimed by a signed snapshot whose increment settled
+--   on-chain but was rolled back: its funds are already accounted for in
+--   the head, so recovering them on-chain would corrupt the L2 ledger. The
+--   increment is re-posted instead, see #2741.
+RecoverBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit is claimed by an already signed snapshot whose
+--   increment settled on-chain but was rolled back (which is the only way
+--   it resurfaces in the pending deposits): signing a second snapshot
+--   claiming it would double claim the deposit. Only re-posting the
+--   increment settles it, see #2741.
+ReqSnDepositBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
@@ -2561,6 +2620,71 @@ instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
 
 module Hydra.Node.State
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+
+-- | A deposit with its L1 lifecycle slots. Deposits are L1-derived state,
+--   so a rollback must rewind the view (<a>rollbackDeposits</a>): a
+--   deposit recorded after the rolled-back slot vanishes (its deposit
+--   transaction was erased), and a consumption after it is undone (the
+--   erased increment or recover resurfaces the deposit). Forward
+--   re-observation of the new chain then converges the view again. Only
+--   L1-derived state may rewind like this; L2 state (snapshots,
+--   signatures) never rolls back.
+data TrackedDeposit tx
+TrackedDeposit :: Deposit tx -> ChainSlot -> Maybe ChainSlot -> TrackedDeposit tx
+[$sel:deposit:TrackedDeposit] :: TrackedDeposit tx -> Deposit tx
+
+-- | Slot at which the deposit transaction was observed.
+[$sel:recordedAt:TrackedDeposit] :: TrackedDeposit tx -> ChainSlot
+
+-- | Slot at which a consuming transaction (increment or recover) was
+--   observed, if any. A consumed deposit is no longer pending, but is
+--   retained for <a>depositRetentionHorizon</a> so a rollback can
+--   resurface it.
+[$sel:consumedAt:TrackedDeposit] :: TrackedDeposit tx -> Maybe ChainSlot
+type TrackedDeposits tx = Map (TxIdType tx) (TrackedDeposit tx)
+
+-- | Track the given deposits with a fresh lifecycle (recorded at slot 0,
+--   unconsumed). Used to lift state serialized before lifecycle tracking
+--   existed, reproducing the old (rollback unaware) behavior for those
+--   deposits.
+trackedFromPending :: PendingDeposits tx -> TrackedDeposits tx
+
+-- | Deposits pending as observed on chain: the tracked deposits not
+--   consumed yet.
+pendingDeposits :: NodeState tx -> PendingDeposits tx
+
+-- | Record a newly observed deposit at the given slot. Re-recording an id
+--   (its deposit transaction re-landed after a rollback) starts a fresh
+--   lifecycle.
+recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+
+-- | Update a tracked deposit (e.g. on status changes); its lifecycle slots
+--   are unaffected. Unknown ids are ignored.
+updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+
+-- | Mark a deposit consumed at the given slot: its increment or recover
+--   was observed on chain. Re-consuming (the consuming transaction
+--   re-landed after a rollback) re-stamps the slot, so a rollback of the
+--   re-landed transaction still resurfaces the deposit.
+consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeState tx
+
+-- | Rewind the deposit view to the given (rolled back) slot, see
+--   <a>TrackedDeposit</a>.
+rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
+
+-- | Drop consumed deposits beyond <a>depositRetentionHorizon</a>: no
+--   rollback can resurface them anymore, so retaining them would only grow
+--   persisted state with every deposit ever settled. Called on the deposit
+--   write paths, which is enough because only deposit churn creates
+--   consumed entries. Unconsumed deposits are never pruned — an expired
+--   deposit stays recoverable indefinitely.
+pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
+
+-- | How long consumed deposits are retained for rollbacks: sized to cover
+--   the deepest rollback Cardano can produce (the security parameter k =
+--   2160 blocks, roughly 12 hours at one block per 20 slots) with a
+--   three-fold margin.
+depositRetentionHorizon :: ChainSlot
 data ChainPointTime
 ChainPointTime :: ChainSlot -> UTCTime -> NominalDiffTime -> ChainPointTime
 
@@ -2576,23 +2700,51 @@ data NodeState tx
 
 -- | Normal operation of the node where it is connected and has a recent
 --   view of the chain.
-NodeInSync :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
+NodeInSync :: HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+-- | Deposits as observed on chain, with their L1 lifecycle (see
+--   <a>TrackedDeposit</a>); read the pending view via
+--   <a>pendingDeposits</a>. TODO: could even move the chain state here
+--   (also see todo below) , chainState :: ChainStateType tx
+[$sel:deposits:NodeInSync] :: NodeState tx -> TrackedDeposits tx
 [$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
 
 -- | Node is catching up on its view of the chain and should behave
 --   differently.
-NodeCatchingUp :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
+NodeCatchingUp :: HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+-- | Deposits as observed on chain, with their L1 lifecycle (see
+--   <a>TrackedDeposit</a>); read the pending view via
+--   <a>pendingDeposits</a>. TODO: could even move the chain state here
+--   (also see todo below) , chainState :: ChainStateType tx
+[$sel:deposits:NodeInSync] :: NodeState tx -> TrackedDeposits tx
 [$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
+
+-- | Tags of the current on-disk/wire layout, which tracks deposit
+--   lifecycles (<a>TrackedDeposits</a>). The fields are a bare
+--   concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it: the V1 tags name the layout
+--   with a plain pending deposit map written before lifecycle tracking
+--   existed and are still accepted, lifted via <a>trackedFromPending</a>
+--   like the <a>FromJSON</a> instance above.
+nodeInSyncCBORTag :: Text
+
+-- | Tags of the current on-disk/wire layout, which tracks deposit
+--   lifecycles (<a>TrackedDeposits</a>). The fields are a bare
+--   concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it: the V1 tags name the layout
+--   with a plain pending deposit map written before lifecycle tracking
+--   existed and are still accepted, lifted via <a>trackedFromPending</a>
+--   like the <a>FromJSON</a> instance above.
+nodeCatchingUpCBORTag :: Text
+
+-- | Tags of the layout without deposit lifecycles. Decoded, never written.
+nodeInSyncCBORTagV1 :: Text
+
+-- | Tags of the layout without deposit lifecycles. Decoded, never written.
+nodeCatchingUpCBORTagV1 :: Text
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime
 initialChainTime :: UTCTime
@@ -2631,17 +2783,25 @@ instance GHC.Show.Show Hydra.Node.State.DepositStatus
 instance GHC.Classes.Eq Hydra.Node.State.DepositStatus
 instance GHC.Generics.Generic Hydra.Node.State.DepositStatus
 instance GHC.Generics.Generic (Hydra.Node.State.Deposit tx)
+instance GHC.Generics.Generic (Hydra.Node.State.TrackedDeposit tx)
 instance GHC.Generics.Generic (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.TrackedDeposit tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.Node.State.NodeState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.Node.State.NodeState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.Deposit tx)
+instance (view GHC.Types.~ Hydra.Node.State.PendingDeposits tx) => GHC.Records.HasField "pendingDeposits" (Hydra.Node.State.NodeState tx) view
+instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.NodeState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.TrackedDeposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.Deposit tx)
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Node.State.DepositStatus
@@ -3677,7 +3837,7 @@ onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenSt
 --   <a>selectNextDeposit</a> refuses to start a *new* commit while a
 --   decommit is pending — only one already in flight can win, and that one
 --   stops being selected once it settles and leaves
---   <a>$sel:pendingDeposits:NodeInSync</a>.
+--   <tt>pendingDeposits</tt>.
 selectNextIncrementalAction :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> (Maybe tx, Maybe (TxIdType tx))
 
 -- | Process a snapshot request (<a>ReqSn</a>) from party.
@@ -3692,7 +3852,16 @@ selectNextIncrementalAction :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType 
 --   pruned to only contain still applicable transactions.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenNetworkReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx -> ChainSlot -> OpenState tx -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+onOpenNetworkReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx -> ChainSlot -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+
+-- | The deposit claimed by a retained finalized increment
+--   (<a>$sel:finalizedCommit:CoordinatedHeadState</a>), if any. Such a
+--   deposit only resurfaces in <tt>pendingDeposits</tt> when a rollback
+--   erased its increment, and it is settled solely by re-posting that
+--   increment (<a>maybeRepostIncrementTx</a>): it must never be proposed
+--   for a snapshot again (the deposited funds are already counted in the
+--   head) nor recovered (that would corrupt the L2 ledger). See #2741.
+finalizedDepositTxId :: IsTx tx => Maybe (FinalizedSnapshot tx) -> Maybe (TxIdType tx)
 
 -- | Process a snapshot acknowledgement (<a>AckSn</a>) from a party.
 --   
@@ -3713,14 +3882,14 @@ onOpenNetworkAckSn :: IsTx tx => Environment -> PendingDeposits tx -> OpenState 
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a> Client request
 --   to recover a deposit by posting a recover transaction on-chain. Works
 --   in any head state (Open, Closed, or Idle after fanout). Deposits from
---   a previous head are never cleared from
---   <a>$sel:pendingDeposits:NodeInSync</a> on fanout, so recovery remains
---   available after a head closes. A new head only sees its own deposits
---   via <a>depositsForHead</a>, so old deposits are never accidentally
---   ingested into L2. On-chain, the deposit validator only enforces that
---   the deadline has passed and that the recovered outputs match the
---   originals — it does not require the head to still be active.
-onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> TxIdType tx -> Outcome tx
+--   a previous head are never cleared from <tt>pendingDeposits</tt> on
+--   fanout, so recovery remains available after a head closes. A new head
+--   only sees its own deposits via <a>depositsForHead</a>, so old deposits
+--   are never accidentally ingested into L2. On-chain, the deposit
+--   validator only enforces that the deadline has passed and that the
+--   recovered outputs match the originals — it does not require the head
+--   to still be active.
+onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> Maybe (TxIdType tx) -> TxIdType tx -> Outcome tx
 
 -- | Client request to decommit UTxO from the head.
 --   
@@ -3755,8 +3924,8 @@ onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -
 
 -- | The pending deposit that a local
 --   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> still refers to,
---   if any: the deposit must be registered in
---   <a>$sel:pendingDeposits:NodeInSync</a> and not <a>Expired</a>.
+--   if any: the deposit must be registered in <tt>pendingDeposits</tt> and
+--   not <a>Expired</a>.
 --   
 --   Being registered and unexpired is what makes a recorded deposit id
 --   something the head may still act on, and nothing else should be
@@ -3770,7 +3939,7 @@ onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -
 --   up waiting on a deposit that is unclaimable, or already gone, and that
 --   wait never resolves.
 existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
-determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
+determineNextDepositStatus :: Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 
 -- | Process the chain (and time) advancing in any head state.
 --   
@@ -3791,11 +3960,15 @@ onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> Op
 --   transactions, request the next snapshot with the bumped version after
 --   a commit or decommit finalises on-chain.
 --   
---   Guards: * Only fires when 'version /= newVersion' to avoid duplicate
+--   Guards: * Only fires when <a>StateChanged</a> is ahead of the local
+--   <a>CoordinatedHeadState</a>: this avoids duplicate
 --   <a>SnapshotRequestDecided</a> events when multiple parties post the
 --   same on-chain tx and each posting produces a separate finalisation
---   observation. * Skips when AckSns are already being collected
---   (<a>SeenSnapshot</a>): the in-flight snapshot will complete and
+--   observation, and it keeps a finalization re-landing after a rollback
+--   (its <a>StateChanged</a> is at or behind the local version, which
+--   never rolls back) from requesting a snapshot with a stale version. *
+--   Skips when AckSns are already being collected (<a>SeenSnapshot</a>):
+--   the in-flight snapshot will complete and
 --   <tt>maybeRequestNextSnapshot</tt> will chain the next one with the
 --   bumped version. Firing here would use stale
 --   <a>$sel:localTxs:CoordinatedHeadState</a> and cause
@@ -3813,8 +3986,8 @@ maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> Sn
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
---   and remove the increment UTxO from
---   <a>$sel:pendingDeposits:NodeInSync</a> from the local state.
+--   and remove the increment UTxO from <tt>pendingDeposits</tt> from the
+--   local state.
 --   
 --   Finally, if the client observing happens to be the leader, then a new
 --   ReqSn is broadcasted.
@@ -3839,8 +4012,8 @@ onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenSt
 --   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
 --   <a>Nothing</a>.</li>
 --   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
---   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a> and
---   not <a>Expired</a>, returns the original <tt>currentDeposit</tt>.</li>
+--   <tt>txId</tt> is present in <tt>pendingDeposits</tt> and not
+--   <a>Expired</a>, returns the original <tt>currentDeposit</tt>.</li>
 --   <li>Otherwise, returns <a>Nothing</a>.</li>
 --   </ul>
 --   
@@ -3858,13 +4031,27 @@ setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Ma
 --   whose confirmed snapshot contains a matching utxoToCommit. The
 --   rollback may have erased the original on-chain IncrementTx
 --   observation.
-maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> ConfirmedSnapshot tx -> Outcome tx
+--   
+--   If the increment was already finalized (<a>CommitFinalized</a>
+--   consumed the deposit and <a>CoordinatedHeadState</a> may have advanced
+--   past the incrementing snapshot), fall back to the retained
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a> — but only when the
+--   rollback reaches strictly before its observation slot; otherwise the
+--   increment is still on chain and re-posting would only produce noise.
+--   See #2741.
+maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> ChainSlot -> Outcome tx
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit
 --   whose confirmed snapshot contains a matching utxoToDecommit. The
 --   rollback may have erased the original on-chain DecrementTx
 --   observation.
-maybeRepostDecrementTx :: HeadSeed -> HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Outcome tx
+--   
+--   If the decrement was already finalized (<a>DecommitFinalized</a>
+--   cleared <a>StateChanged</a> and <a>CoordinatedHeadState</a> may have
+--   advanced past the decrementing snapshot), fall back to the retained
+--   <a>$sel:finalizedDecommit:CoordinatedHeadState</a> — but only when the
+--   rollback reaches strictly before its observation slot. See #2741.
+maybeRepostDecrementTx :: HeadSeed -> HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> ChainSlot -> Outcome tx
 
 -- | Client request to close the head. This leads to a close transaction on
 --   chain using the latest confirmed snaphshot of the <a>OpenState</a>.
@@ -4121,11 +4308,55 @@ nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
 --   Prefers a deposit already tracked in
 --   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> (if still
 --   pending). Falls back to the oldest active deposit from
---   <a>$sel:pendingDeposits:NodeInSync</a>, but only when neither a
---   decommit is pending nor the last confirmed snapshot already included a
---   deposit (to avoid double-posting <a>IncrementTx</a> before
---   <a>CommitFinalized</a> removes the deposit).
+--   <tt>pendingDeposits</tt>, but only when neither a decommit is pending
+--   nor the last confirmed snapshot already included a deposit (to avoid
+--   double-posting <a>IncrementTx</a> before <a>CommitFinalized</a>
+--   removes the deposit).
 selectNextDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
+
+-- | The deposits handlers of an open head may act on: scoped to the head
+--   and excluding the deposit claimed by the retained finalized increment
+--   (see <a>finalizedDepositTxId</a>).
+eligibleDeposits :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+
+-- | The deposit blocked by a retained finalized increment of an open head,
+--   if any.
+--   
+--   Deliberately <a>Nothing</a> for any other head state: an increment can
+--   only settle into an open head, so once the head closes the retained
+--   snapshot can never claim the deposit on-chain anymore. The resurfaced
+--   deposit's escape hatch is then to recover it (after its deadline) and
+--   exclude the deposited outputs from the fanout via <a>PartialFanout</a>
+--   — so <a>Recover</a> must not stay blocked after close.
+openFinalizedDeposit :: IsTx tx => HeadState tx -> Maybe (TxIdType tx)
+
+-- | Update the retained <a>$sel:finalizedCommit:CoordinatedHeadState</a>
+--   on (re-)observation of an increment claiming <tt>depositTxId</tt>:
+--   
+--   <ul>
+--   <li>the locally confirmed snapshot claims it: retain that snapshot —
+--   only it can re-claim the deposit if a rollback erases the increment,
+--   and <a>CoordinatedHeadState</a> may advance past it;</li>
+--   <li>the already retained snapshot claims it: the increment re-landed
+--   (e.g. re-posted after a rollback) — re-stamp the observation slot, so
+--   a rollback of the re-landed increment still triggers a re-post;</li>
+--   <li>neither: the observation raced local snapshot confirmation
+--   (another party collected the last AckSn and posted first) — retention
+--   happens once the snapshot confirms, see the <a>SnapshotConfirmed</a>
+--   branch of <a>applyEvent</a>.</li>
+--   </ul>
+--   
+--   See #2741.
+retainFinalizedCommit :: IsTx tx => ChainSlot -> TxIdType tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
+
+-- | Update the retained <a>$sel:finalizedDecommit:CoordinatedHeadState</a>
+--   on (re-)observation of a decrement bumping to <tt>newVersion</tt>; the
+--   counterpart of <a>retainFinalizedCommit</a>. A snapshot is tied to the
+--   decrement by identity, not by merely carrying a decommit: only the
+--   decrement of that very snapshot bumps the version to exactly one past
+--   the snapshot's (with a second decommit racing, the locally confirmed
+--   snapshot may still be the previous, already settled one).
+retainFinalizedDecommit :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
 updateCatchingUpHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 updateInSyncHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
@@ -4243,6 +4474,21 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 [$sel:txid:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 [$sel:error:ReqSnNumberInvalid] :: RequirementFailure tx -> ValidationError
 NoMatchingDeposit :: RequirementFailure tx
+
+-- | The deposit is claimed by a signed snapshot whose increment settled
+--   on-chain but was rolled back: its funds are already accounted for in
+--   the head, so recovering them on-chain would corrupt the L2 ledger. The
+--   increment is re-posted instead, see #2741.
+RecoverBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit is claimed by an already signed snapshot whose
+--   increment settled on-chain but was rolled back (which is the only way
+--   it resurfaces in the pending deposits): signing a second snapshot
+--   claiming it would double claim the deposit. Only re-posting the
+--   increment settles it, see #2741.
+ReqSnDepositBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
@@ -4253,7 +4499,7 @@ ReqSnUTxOSetTooLarge :: Int -> Int -> RequirementFailure tx
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx) -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
@@ -4284,6 +4530,14 @@ CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> Confir
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
+
+-- | The last snapshot whose increment settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedCommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | The last snapshot whose decrement settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedDecommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 --   overall protocol state, but also the off-chain
@@ -4408,6 +4662,21 @@ PartialFanoutState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Chain
 -- | Drives the chunk source for the next step (see <a>FanoutMode</a>).
 [$sel:mode:PartialFanoutState] :: PartialFanoutState tx -> FanoutMode tx
 
+-- | A snapshot whose settlement transaction (the increment of its commit,
+--   or the decrement of its decommit) was observed on chain, retained when
+--   the settlement is applied
+--   (<tt>CommitFinalized</tt>/<tt>DecommitFinalized</tt>) so it can be
+--   re-posted if a rollback later erases it. The signed snapshot must be
+--   kept here because <a>CoordinatedHeadState</a> may advance past it, and
+--   only this snapshot can settle its commit/decommit on-chain. Kept until
+--   overwritten by the next settlement of the same kind;
+--   <a>$sel:observedAtSlot:FinalizedSnapshot</a> makes stale entries inert
+--   (re-post only when a rollback reaches strictly before it).
+data FinalizedSnapshot tx
+FinalizedSnapshot :: ConfirmedSnapshot tx -> ChainSlot -> FinalizedSnapshot tx
+[$sel:snapshot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ConfirmedSnapshot tx
+[$sel:observedAtSlot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ChainSlot
+
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
 newtype IdleState tx
@@ -4424,9 +4693,8 @@ getChainState :: HeadState tx -> ChainStateType tx
 isCollectingAcks :: SeenSnapshot tx -> Bool
 
 -- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from
---   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
---   stay in sync.
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
+--   enforcing the invariant that they stay in sync.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -5497,9 +5765,6 @@ updateSeenSnapshot :: Maybe (Snapshot tx) -> StateChanged tx -> Maybe (Snapshot 
 -- | Extract the snapshot currently in <a>SeenSnapshot</a> from a
 --   <a>NodeState</a>, if any.
 seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
-
--- | Projection to obtain the list of pending deposits.
-projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged tx -> [TxIdType tx]
 
 -- | Projection to obtain <a>CommitInfo</a> needed to draft commit
 --   transactions. NOTE: We only project <tt>HeadId</tt> when the Head is
