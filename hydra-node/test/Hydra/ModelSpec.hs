@@ -80,11 +80,12 @@ import Test.Hydra.Prelude hiding (after)
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Monad.Class.MonadTimer ()
 import Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
+import Data.List (nub, (\\))
 import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Typeable (cast)
-import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
+import Hydra.BehaviorSpec (RequeueMode (..), TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (..),
@@ -94,7 +95,9 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
+  genPartyKeysExactly,
   genPayment,
+  genSeedWith,
   headUTxO,
   runMonad,
   toRealUTxO,
@@ -103,14 +106,16 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
+import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.IsTx (UTxOType)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, resize, vectorOf, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -132,6 +137,7 @@ import Test.QuickCheck.StateModel (
   Annotated (..),
   HasVariables (..),
   Step ((:=)),
+  Var,
   precondition,
   runActions,
   pattern Actions,
@@ -147,16 +153,10 @@ spec = do
     prop "not generate actions with 0 Ada" $ withMaxSuccess 10000 propDoesNotGenerate0AdaUTxO
     prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
+  -- The default random walk settles every deposit and decommit before the
+  -- next action, see 'concurrentSettlements'.
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  -- Heavy: run the deep-stress version only on nightly, where it does not
-  -- compete with the rest of the suite for CPU (a starved io-sim schedule
-  -- makes the driver's waits time out spuriously, cf. ServerSpec). The default
-  -- suite still exercises deposits, decommits and divergent-fork rollbacks
-  -- through 'check model' and 'check model balances', which share the same
-  -- generators.
-  around_ onlyNightly $
-    prop "check model balances under load with divergent forks @nightly" propStressModelBalances
   -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
@@ -166,6 +166,77 @@ spec = do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
     prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
+  -- Scripted settlement/rollback interleavings. Each drives an open head into
+  -- a specific settlement race, forks the chain and then requires the head to
+  -- still close and fan out its whole confirmed UTxO. Only the keys are
+  -- random, so a handful of runs each is enough.
+  context "settlements under divergent forks" $ do
+    prop "two finalized decrements are both erased by a fork" $
+      propScripted twoFinalizedDecrementsErased
+    prop "a fork erases the deposit transaction and its increment" $
+      propScripted depositAndIncrementErasedThenRelanded
+    prop "a second fork erases the re-posted increment" $
+      propScripted rePostedIncrementErasedAgain
+  -- Scripted fanouts of a head holding more outputs than one fanout
+  -- transaction can distribute, so the node fans out in steps: driven
+  -- automatically by 'Fanout' or one selection at a time by 'PartialFanout',
+  -- with forks erasing steps along the way.
+  context "partial fanout" $ do
+    prop "a manual fanout distributes the selections in turn" $
+      propScripted manualPartialFanout
+  -- Properties that find open bugs, pending ('xprop') until those are fixed.
+  -- Re-enable them to check the fix.
+  --
+  -- The concurrent random walk lets several deposits and decommits settle at
+  -- the same time as L2 traffic and divergent forks. It finds:
+  --
+  --   * A deposit that activates while a snapshot is in flight is never
+  --     committed: 'DepositActivated' parks it in 'currentDepositTxId', but
+  --     'onOpenChainTick' only requests a snapshot while that is 'Nothing'
+  --     and 'maybeRequestNextSnapshot' only when there are local
+  --     transactions. The deposit expires.
+  --   * A snapshot requested while an increment or decrement is still
+  --     settling can carry a stale version: a party that observed the
+  --     settlement first parks the request on 'WaitOnSnapshotVersion' until
+  --     its TTL drops it, and the leader never re-requests. No later snapshot
+  --     confirms.
+  --   * Settlements erased by a fork are not all re-posted.
+  --
+  -- The scripted settlement scenarios pin the last point down: only the last
+  -- finalized increment/decrement is retained, the two re-post branches are
+  -- alternatives instead of both, and re-posts are fire-and-forget (a later
+  -- settlement is not posted again once the earlier one re-lands).
+  --
+  -- The scripted fanout scenarios show the same gap for a fanout in progress:
+  -- after a fork erases a landed step, the node's fanout bookkeeping is ahead
+  -- of the chain. Automatic mode re-posts the next step instead of the erased
+  -- one, which cannot land, and manual mode posts nothing at all since it
+  -- waits for the client. The head is never fully fanned out.
+  context "pending until the open settlement bugs are fixed" $ do
+    xprop "check model with concurrent settlements" $
+      forAllDL concurrentWalk propHydraModel
+    xprop "check model balances with concurrent settlements" $
+      within 30000000 $
+        forAllDL concurrentWalk checkModelBalances
+    -- Heavy: run the deep-stress version only on nightly, where it does not
+    -- compete with the rest of the suite for CPU (a starved io-sim schedule
+    -- makes the driver's waits time out spuriously, cf. ServerSpec).
+    around_ onlyNightly $
+      xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
+    xprop "two finalized increments are both erased by a fork" $
+      propScripted twoFinalizedIncrementsErased
+    xprop "a finalized increment is erased while the next increment is in flight" $
+      propScripted finalizedIncrementErasedWithNextInFlight
+    xprop "a finalized increment and decrement are both erased by a fork" $
+      propScripted finalizedIncrementAndDecrementErased
+    xprop "new settlements requested during a replay settle in order" $
+      propScripted newSettlementsDuringReplay
+    xprop "a fork erases a step of an automatic fanout" $
+      propScripted autoFanoutStepErased
+    xprop "a fork erases two steps of an automatic fanout" $
+      propScripted autoFanoutTwoStepsErased
+    xprop "a fork erases a step of a manual fanout" $
+      propScripted manualFanoutStepErased
 
 propFanoutLimit :: Int -> Property
 propFanoutLimit limit =
@@ -179,6 +250,7 @@ propFanoutLimit limit =
           { seedKeys = [(aliceSk, head aliceCardanoSks)]
           , contestationPeriod = UnsafeContestationPeriod 10
           , additionalUTxO = utxo
+          , concurrentSettlements = False
           }
     headId <- action $ Init alice
     void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -188,6 +260,284 @@ propFanoutLimit limit =
 
 propDL :: DL WorldState () -> Property
 propDL d = forAllDL d propHydraModel
+
+-- | Like 'propDL' for scripted scenarios where only the keys are random.
+-- Shrinking is off: it cannot simplify a fixed script, it only reruns it
+-- hundreds of times with varied values (a failing run takes ~0.3s, a shrunk
+-- one took minutes).
+propScripted :: DL WorldState () -> Property
+propScripted d = withMaxSuccess 5 $ noShrinking $ forAllDL d propHydraModel
+
+-- * Settlement races under divergent forks
+
+-- | Open a head of @n@ parties, each owning one UTxO that can be deposited,
+-- and return the head id variable together with each party's deposit fuel.
+--
+-- Funds only enter the head through deposits (it opens empty), so every
+-- scenario starts from here. The 'Wait' leaves room for deep forks that must
+-- stay clear of the head-opening transactions.
+openHeadWithDepositFuel :: Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
+openHeadWithDepositFuel n = do
+  seedKeys <- forAllNonVariableQ $ withGenQ (genPartyKeysExactly n) (const True) (const [])
+  let fuel = [(deriveParty hk, [(ck, lovelaceToValue 10_000_000)]) | (hk, ck) <- seedKeys]
+  action_ $
+    Seed
+      { seedKeys
+      , contestationPeriod = UnsafeContestationPeriod 10
+      , additionalUTxO = concatMap snd fuel
+      , concurrentSettlements = True
+      }
+  leader <- case fuel of
+    (party, _) : _ -> pure party
+    [] -> error "openHeadWithDepositFuel: no parties"
+  headId <- action $ Init leader
+  action_ $ Model.Wait 200
+  pure (headId, fuel)
+
+-- | The fuel of a two-party head, see 'openHeadWithDepositFuel'.
+twoParties :: [(Party, UTxOType Payment)] -> ((Party, UTxOType Payment), (Party, UTxOType Payment))
+twoParties = \case
+  [a, b] -> (a, b)
+  other -> error $ "expected two parties, got " <> show (length other)
+
+-- | The fuel of a three-party head, see 'openHeadWithDepositFuel'.
+threeParties :: [(Party, UTxOType Payment)] -> ((Party, UTxOType Payment), (Party, UTxOType Payment), (Party, UTxOType Payment))
+threeParties = \case
+  [a, b, c] -> (a, b, c)
+  other -> error $ "expected three parties, got " <> show (length other)
+
+-- | Payment decommitting a party's deposited fuel back to itself.
+decommitFuel :: UTxOType Payment -> Payment
+decommitFuel fuel = case fuel of
+  (ck, value) : _ -> Payment{from = ck, to = ck, value}
+  [] -> error "decommitFuel: no fuel"
+
+-- | The head must still settle after the fork: confirm an L2 transaction,
+-- close and fan out the whole confirmed UTxO (checked by the 'Fanout'
+-- postcondition). A head wedged on an erased settlement fails here, either
+-- because the close cannot land (its snapshot is ahead of the on-chain
+-- version) or because the fanout does not match.
+headStillSettles :: DL WorldState ()
+headStillSettles = do
+  st <- getModelStateDL
+  case st of
+    WorldState{hydraState = Open{}} -> do
+      (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+      tx <- action $ Model.NewTx party payment
+      eventually (ObserveConfirmedTx tx)
+      action_ $ Model.Close party
+      void $ action $ Model.Fanout party
+    _ -> pure ()
+  action_ Model.StopTheWorld
+
+-- | Scenario 1: two deposits settle back to back, then a fork erases both
+-- increments for good (no mempool re-inclusion). Both must be re-posted.
+twoFinalizedIncrementsErased :: DL WorldState ()
+twoFinalizedIncrementsErased = do
+  (headId, fuel) <- openHeadWithDepositFuel 2
+  let ((_, fuelA), (_, fuelB)) = twoParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized a
+  action_ $ Model.ObserveCommitFinalized b
+  -- Deep enough to erase both increments (a couple of blocks apart), shallow
+  -- enough to keep both deposit transactions: they land back to back, at
+  -- least 5 blocks (the activation period) before A's increment.
+  action_ Model.RollbackAndFork{numberOfBlocks = 4, requeueErased = RequeueNone}
+  headStillSettles
+
+-- | Scenario 2: deposit B's transaction is on chain before A's increment
+-- lands. Right after A settles, B's snapshot is approved and its increment is
+-- in flight; a shallow fork then erases A's increment but keeps B's deposit.
+-- Timing dependent by nature; the random walk covers the rest of this space.
+finalizedIncrementErasedWithNextInFlight :: DL WorldState ()
+finalizedIncrementErasedWithNextInFlight = do
+  (headId, fuel) <- openHeadWithDepositFuel 2
+  let ((_, fuelA), (_, fuelB)) = twoParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized a
+  -- Fork as soon as B's snapshot is confirmed, while its increment is in
+  -- flight. Deposit transactions re-land (B is still pending), the erased
+  -- increment does not. B's snapshot confirms about one block after A's
+  -- increment, so 2 reaches A's increment; the deposits are 8 blocks older.
+  action_ $ Model.ObserveCommitApproved b
+  action_ Model.RollbackAndFork{numberOfBlocks = 2, requeueErased = RequeueDeposits}
+  action_ $ Model.ObserveCommitFinalized b
+  headStillSettles
+
+-- | Scenario 3: two decommits settle back to back (a second decommit is only
+-- accepted once the first is finalized), then a fork erases both decrements.
+twoFinalizedDecrementsErased :: DL WorldState ()
+twoFinalizedDecrementsErased = do
+  (headId, fuel) <- openHeadWithDepositFuel 3
+  let ((partyA, fuelA), (partyB, fuelB), (_, fuelC)) = threeParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  b <- action $ Model.SubmitDeposit headId fuelB
+  c <- action $ Model.SubmitDeposit headId fuelC
+  action_ $ Model.ObserveCommitFinalized a
+  action_ $ Model.ObserveCommitFinalized b
+  action_ $ Model.ObserveCommitFinalized c
+  dA <- action $ Model.SubmitDecommit partyA (decommitFuel fuelA)
+  action_ $ Model.ObserveDecommitFinalized dA
+  dB <- action $ Model.SubmitDecommit partyB (decommitFuel fuelB)
+  action_ $ Model.ObserveDecommitFinalized dB
+  action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
+  headStillSettles
+
+-- | Scenario 4: an increment and then a decrement settle in consecutive
+-- versions; a fork erases both. The decrement can only re-land after the
+-- increment did.
+finalizedIncrementAndDecrementErased :: DL WorldState ()
+finalizedIncrementAndDecrementErased = do
+  (headId, fuel) <- openHeadWithDepositFuel 2
+  let ((partyA, fuelA), (_, fuelB)) = twoParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  action_ $ Model.ObserveCommitFinalized a
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized b
+  dA <- action $ Model.SubmitDecommit partyA (decommitFuel fuelA)
+  action_ $ Model.ObserveDecommitFinalized dA
+  action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
+  headStillSettles
+
+-- | While erased settlements are being re-posted, L2 keeps going: a new
+-- decommit and a new deposit are requested right after the fork. Their
+-- snapshots are signed at the local version, ahead of the chain, so their
+-- settlements must queue behind the replayed ones and land in version order.
+newSettlementsDuringReplay :: DL WorldState ()
+newSettlementsDuringReplay = do
+  (headId, fuel) <- openHeadWithDepositFuel 3
+  let ((partyA, fuelA), (_, fuelB), (_, fuelC)) = threeParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized a
+  action_ $ Model.ObserveCommitFinalized b
+  action_ Model.RollbackAndFork{numberOfBlocks = 4, requeueErased = RequeueNone}
+  -- New work while the two increments are being re-posted.
+  dA <- action $ Model.SubmitDecommit partyA (decommitFuel fuelA)
+  c <- action $ Model.SubmitDeposit headId fuelC
+  -- The erased increments re-land first, then the new settlements.
+  action_ $ Model.ObserveCommitFinalized a
+  action_ $ Model.ObserveCommitFinalized b
+  action_ $ Model.ObserveDecommitFinalized dA
+  action_ $ Model.ObserveCommitFinalized c
+  headStillSettles
+
+-- | Scenario 5: a deep fork erases the deposit transaction itself along with
+-- its increment; the mempool re-includes the deposit, so the increment must
+-- be re-posted once the deposit is observed again.
+depositAndIncrementErasedThenRelanded :: DL WorldState ()
+depositAndIncrementErasedThenRelanded = do
+  (headId, fuel) <- openHeadWithDepositFuel 2
+  let ((_, fuelA), _) = twoParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  action_ $ Model.ObserveCommitFinalized a
+  -- The deposit lands ~8 blocks before its increment (up to half a deposit
+  -- period of grace, 5 blocks of activation, snapshotting); 11 reaches past
+  -- it, and the fork never goes past the head-opening transactions anyway.
+  action_ Model.RollbackAndFork{numberOfBlocks = 11, requeueErased = RequeueAll}
+  action_ $ Model.ObserveCommitFinalized a
+  headStillSettles
+
+-- * Partial fanout
+
+-- | Open a single-party head holding @n@ outputs of 1 ADA, each owned by a
+-- different key, and close it. More than 'fanoutOutputThreshold' outputs do
+-- not fit one fanout transaction, so the fanout takes several steps; how many
+-- outputs each step carries is decided by the node from the script budget.
+closedHeadWithManyOutputs :: Int -> DL WorldState (UTxOType Payment)
+closedHeadWithManyOutputs n = do
+  ownerKeys <- forAllNonVariableQ $ withGenQ (vectorOf n arbitrary `suchThat` ((== n) . length . nub)) (const True) (const [])
+  aliceCardanoSk <- case ownerKeys of
+    k : _ -> pure k
+    [] -> error "closedHeadWithManyOutputs: n must be > 0"
+  let utxo = (,lovelaceToValue 1_000_000) <$> ownerKeys
+  action_ $
+    Seed
+      { seedKeys = [(aliceSk, aliceCardanoSk)]
+      , contestationPeriod = UnsafeContestationPeriod 10
+      , additionalUTxO = utxo
+      , concurrentSettlements = False
+      }
+  headId <- action $ Init alice
+  action_ $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
+  action_ Close{party = alice}
+  pure utxo
+
+-- NOTE: The fork scenarios use @numberOfBlocks = 1@: it erases exactly the tip
+-- block, which holds the step observed just before.
+
+-- | The automatic fanout is in progress and a fork erases its latest step.
+-- The node must re-post it (the step is expected to be reported a second
+-- time) and the head must still be fully fanned out.
+autoFanoutStepErased :: DL WorldState ()
+autoFanoutStepErased = do
+  -- The node sizes each step by the script budget, about 23 outputs here, so
+  -- this takes one partial step before the final one.
+  void $ closedHeadWithManyOutputs (3 * fanoutOutputThreshold)
+  action_ $ Model.StartFanout alice
+  action_ $ Model.ObservePartialFanoutSteps 1
+  action_ Model.RollbackAndFork{numberOfBlocks = 1, requeueErased = RequeueNone}
+  action_ $ Model.ObservePartialFanoutSteps 2
+  void $ action $ Model.ObserveFanoutFinalized alice
+  action_ Model.StopTheWorld
+
+-- | Like 'autoFanoutStepErased' but with two partial steps landed, of which
+-- the fork erases the second: the node has to post that step again while its
+-- bookkeeping is already at the final one.
+autoFanoutTwoStepsErased :: DL WorldState ()
+autoFanoutTwoStepsErased = do
+  void $ closedHeadWithManyOutputs (6 * fanoutOutputThreshold)
+  action_ $ Model.StartFanout alice
+  action_ $ Model.ObservePartialFanoutSteps 2
+  action_ Model.RollbackAndFork{numberOfBlocks = 1, requeueErased = RequeueNone}
+  action_ $ Model.ObservePartialFanoutSteps 3
+  void $ action $ Model.ObserveFanoutFinalized alice
+  action_ Model.StopTheWorld
+
+-- | Manual mode: the client hands the node two selections in turn. The
+-- second one drains the head, so it ends in the final fanout.
+manualPartialFanout :: DL WorldState ()
+manualPartialFanout = do
+  utxo <- closedHeadWithManyOutputs (2 * fanoutOutputThreshold + 5)
+  let (firstSelection, rest) = splitAt fanoutOutputThreshold utxo
+  action_ $ Model.PartialFanoutStep alice firstSelection
+  action_ $ Model.PartialFanoutStep alice rest
+  void $ action $ Model.ObserveFanoutFinalized alice
+  action_ Model.StopTheWorld
+
+-- | Manual mode with a fork erasing the first selection's step before the
+-- client hands over the next selection. The node must post the erased step
+-- again (the step is expected to be reported a second time) before the head
+-- can be drained.
+manualFanoutStepErased :: DL WorldState ()
+manualFanoutStepErased = do
+  utxo <- closedHeadWithManyOutputs (2 * fanoutOutputThreshold + 5)
+  let (firstSelection, rest) = splitAt fanoutOutputThreshold utxo
+  action_ $ Model.PartialFanoutStep alice firstSelection
+  action_ Model.RollbackAndFork{numberOfBlocks = 1, requeueErased = RequeueNone}
+  action_ $ Model.ObservePartialFanoutSteps 2
+  action_ $ Model.PartialFanoutStep alice rest
+  void $ action $ Model.ObserveFanoutFinalized alice
+  action_ Model.StopTheWorld
+
+-- | Scenario 6: a fork erases a finalized increment, the re-post lands, and
+-- a second fork erases the re-posted increment as well.
+rePostedIncrementErasedAgain :: DL WorldState ()
+rePostedIncrementErasedAgain = do
+  (headId, fuel) <- openHeadWithDepositFuel 2
+  let ((_, fuelA), _) = twoParties fuel
+  a <- action $ Model.SubmitDeposit headId fuelA
+  action_ $ Model.ObserveCommitFinalized a
+  -- The fork helper lets the chain run on for three blocks afterwards, so the
+  -- re-posted increment is already a few blocks deep when the second fork
+  -- hits: 3 reaches it while staying clear of the deposit (5+ blocks back).
+  action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
+  action_ $ Model.ObserveCommitFinalized a
+  action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
+  action_ $ Model.ObserveCommitFinalized a
+  headStillSettles
 
 propHydraModel :: Actions WorldState -> Property
 propHydraModel actions =
@@ -213,13 +563,22 @@ propStressModelBalances :: Property
 propStressModelBalances =
   within 600000000 $
     withMaxSuccess 20 $
-      forAllShrink (resize 100 arbitrary) shrink checkModelBalances
+      mapSize (const 100) $
+        forAllDL concurrentWalk checkModelBalances
+
+-- | A random walk with 'concurrentSettlements': deposits and decommits may
+-- overlap each other, L2 traffic and forks of every 'RequeueMode'.
+concurrentWalk :: DL WorldState ()
+concurrentWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
+  action_ seed
+  anyActions_
 
 checkModelBalances :: Actions WorldState -> Property
 checkModelBalances actions =
   runIOSimProp $ do
     (metadata, _symEnv) <- runActions actions
-    let WorldState{hydraParties, hydraState} = underlyingState metadata
+    let WorldState{hydraParties, hydraState, pendingCommits} = underlyingState metadata
     -- XXX: This wait time is arbitrary and corresponds to 3 "blocks" from
     -- the underlying simulated chain which produces a block every 20s. It
     -- should be enough to ensure all nodes' threads terminate their actions
@@ -230,17 +589,23 @@ checkModelBalances actions =
     assert (parties == Map.keysSet nodes)
     forM_ parties $ \p -> do
       run $ lift $ threadDelay 1
-      assertBalancesInOpenHeadAreConsistent hydraState nodes p
+      assertBalancesInOpenHeadAreConsistent hydraState (concatMap snd pendingCommits) nodes p
  where
   waitForAMinute :: MonadDelay m => m ()
   waitForAMinute = threadDelay 60
 
+-- | The node's head UTxO must contain everything the model has as confirmed,
+-- and nothing else except commits still pending in the model: those were
+-- submitted but not observed as finalized ('SubmitDeposit'), so the node may
+-- or may not have absorbed them yet.
 assertBalancesInOpenHeadAreConsistent ::
   GlobalState ->
+  -- | Pending (unobserved) commits, see 'pendingCommits'.
+  UTxOType Payment ->
   Map Party (TestHydraClient Tx (IOSim s)) ->
   Party ->
   PropertyM (RunMonad (IOSim s)) ()
-assertBalancesInOpenHeadAreConsistent world nodes p = do
+assertBalancesInOpenHeadAreConsistent world pendingCommitted nodes p = do
   assert (p `member` nodes)
   let node = nodes ! p
   case world of
@@ -249,11 +614,17 @@ assertBalancesInOpenHeadAreConsistent world nodes p = do
       let sorted :: [TxOut x] -> [TxOut x]
           sorted = sortOn (\o -> (txOutAddress o, selectLovelace (txOutValue o)))
       let expected = sorted (toTxOuts confirmedUTxO)
+      let pendingOuts = sorted (toTxOuts pendingCommitted)
       let actual = sorted (UTxO.txOutputs utxo)
+      let missing = expected \\ actual
+          unexpected = (actual \\ expected) \\ pendingOuts
       stop $
-        expected === actual
+        (null missing && null unexpected)
           & counterexample ("actual: \n  " <> intercalate "\n  " (map renderTxOut actual))
           & counterexample ("expected: \n  " <> intercalate "\n  " (map renderTxOut expected))
+          & counterexample ("pending commits: \n  " <> intercalate "\n  " (map renderTxOut pendingOuts))
+          & counterexample ("missing: \n  " <> intercalate "\n  " (map renderTxOut missing))
+          & counterexample ("unexpected: \n  " <> intercalate "\n  " (map renderTxOut unexpected))
           & counterexample ("Incorrect balance for party " <> show p)
     _ -> do
       pure ()
@@ -281,6 +652,7 @@ propIsDistributive f x y =
 partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
   anyActions_
+  settlePending
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion = 0}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
@@ -296,6 +668,7 @@ partyContestsToWrongClosedSnapshot = do
 fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 fanoutContainsWholeConfirmedUTxO = do
   anyActions_
+  settlePending
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
@@ -306,6 +679,17 @@ fanoutContainsWholeConfirmedUTxO = do
       void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld
+
+-- | Observe every settlement the random walk left pending, so that the steps
+-- after it ('NewTx', 'Close', ...) are not blocked by their preconditions.
+settlePending :: DL WorldState ()
+settlePending = do
+  WorldState{hydraState, pendingCommits, pendingDecommits} <- getModelStateDL
+  case hydraState of
+    Open{} -> do
+      forM_ (fst <$> pendingCommits) $ action_ . Model.ObserveCommitFinalized
+      forM_ (fst <$> pendingDecommits) $ action_ . Model.ObserveDecommitFinalized
+    _ -> pure ()
 
 nonConflictingTx :: WorldState -> Quantification (Party, Payment.Payment)
 nonConflictingTx st =
@@ -326,6 +710,7 @@ nonConflictingTx st =
 conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
+  settlePending
   getModelStateDL >>= \case
     st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
@@ -343,6 +728,7 @@ propDoesNotGenerate0AdaUTxO (Actions actions) =
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
     _anyVar := (ActionWithPolarity (Model.Deposit _ utxo) _) -> any contains0Ada utxo
+    _anyVar := (ActionWithPolarity (Model.SubmitDeposit _ utxo) _) -> any contains0Ada utxo
     _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _) -> value == lovelaceToValue 0
     _anyOtherStep -> False
 

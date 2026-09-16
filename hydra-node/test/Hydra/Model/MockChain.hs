@@ -27,7 +27,7 @@ import Data.Sequence qualified as Seq
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ServerOutput (getConfirmedSnapshot)
-import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
+import Hydra.BehaviorSpec (RequeueMode (..), SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
@@ -78,6 +78,7 @@ import Hydra.NodeSpec (mockServer)
 import Hydra.Tx (txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.Deposit (observeDepositTx)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty)
@@ -89,7 +90,6 @@ import Test.Hydra.Ledger (collectTransactions)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon, evaluateTx)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
-import Test.QuickCheck (getPositive)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
@@ -168,7 +168,15 @@ mockChainAndNetwork tr seedKeys = do
             , ownParty
             , scriptRegistry
             }
-    let getTimeHandle = pure $ fixedTimeHandleIndefiniteHorizon `generateWith` 42
+    -- The time handle follows the mock chain's tip, as a real node's would.
+    -- Deposits are drafted at the current slot and so only activate after
+    -- 'depositActivation' (5 blocks) — well after their deposit transaction
+    -- landed, like in production. With a fixed slot every deposit looked old
+    -- enough to activate on the next tick, so deposit and increment landed in
+    -- adjacent blocks and no fork could erase one without the other.
+    let getTimeHandle = do
+          (ChainSlot slotNum, _, _, _) <- readTVarIO chain
+          pure $ timeHandleAt (SlotNo $ fromIntegral slotNum)
     let DraftHydraNode{inputQueue = InputQueue{enqueue}} = draftNode
     -- Validate transactions on submission and queue them for inclusion if valid.
     let submitTx tx =
@@ -429,12 +437,17 @@ mockChainAndNetwork tr seedKeys = do
     -- NOTE: Single transaction for the same reason as in 'doRollForward'.
     mPoint <- atomically $ do
       (slotNum, position, blocks, _) <- readTVar chain
-      case Seq.lookup (fromIntegral $ position - nbBlocks) blocks of
-        Just (header, _, utxo) -> do
-          writeTVar chain (slotNum, position - nbBlocks + 1, blocks, utxo)
-          pure $ Just (getChainPoint header)
-        Nothing ->
-          pure Nothing
+      -- Roll back exactly @nbBlocks@ blocks: the block before them becomes
+      -- the new tip.
+      let tipIndex = toInteger position - toInteger nbBlocks - 1
+      if tipIndex < 0
+        then pure Nothing
+        else case Seq.lookup (fromInteger tipIndex) blocks of
+          Just (header, _, utxo) -> do
+            writeTVar chain (slotNum, fromInteger tipIndex + 1, blocks, utxo)
+            pure $ Just (getChainPoint header)
+          Nothing ->
+            pure Nothing
     case mPoint of
       Just point -> do
         allHandlers <- fmap chainHandler <$> readTVarIO nodes
@@ -444,31 +457,38 @@ mockChainAndNetwork tr seedKeys = do
 
   -- Rollback the chain and continue on a divergent fork: unlike
   -- 'rollbackAndForward', which re-serves the very same blocks, the rolled
-  -- back blocks are dropped. When @requeue@, their transactions are
-  -- re-submitted (a real chain switch re-includes transactions from the
-  -- mempool where still valid) and re-land in later blocks at later slots;
-  -- without it they are gone for good and only transactions (re-)posted by
-  -- the nodes reacting to the rollback make it onto the new chain.
+  -- back blocks are dropped. The 'RequeueMode' selects which of their
+  -- transactions are re-submitted (a real chain switch re-includes
+  -- transactions from the mempool where still valid) and re-land in later
+  -- blocks at later slots; the others are gone for good and only
+  -- transactions (re-)posted by the nodes reacting to the rollback make it
+  -- onto the new chain.
   rollbackAndFork ::
     TVar m [MockHydraNode m] ->
     TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
     TQueue m Tx ->
     Natural ->
-    Bool ->
+    RequeueMode ->
     m ()
-  rollbackAndFork nodes chain queue numberOfBlocks requeue = do
+  rollbackAndFork nodes chain queue numberOfBlocks requeueMode = do
+    let requeues tx = case requeueMode of
+          RequeueAll -> True
+          -- A deposit transaction only creates an output at the deposit
+          -- script; it does not spend the head output and stays valid.
+          RequeueDeposits -> isJust (observeDepositTx testNetworkId tx)
+          RequeueNone -> False
     mPoint <- atomically $ do
       (slotNum, position, blocks, _utxo) <- readTVar chain
-      -- Same rollback point arithmetic as 'doRollBackward': the block at
-      -- @position - numberOfBlocks@ becomes the new tip — but never fork past
-      -- the block containing the head's init tx (the one spending
-      -- 'seedInput'): a permanently erased init makes the head unrecoverable
-      -- by design (see the known limitations in docs/dev/rollbacks) and is
-      -- not the scenario this simulates.
+      -- Same rollback point arithmetic as 'doRollBackward': exactly
+      -- @numberOfBlocks@ blocks are erased and the one before them becomes
+      -- the new tip — but never fork past the block containing the head's
+      -- init tx (the one spending 'seedInput'): a permanently erased init
+      -- makes the head unrecoverable by design (see the known limitations in
+      -- docs/dev/rollbacks) and is not the scenario this simulates.
       let initIndex =
             fromMaybe 0 $
               Seq.findIndexR (\(_, txs, _) -> any (elem seedInput . txIns') txs) blocks
-          tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks)
+          tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks - 1)
       if tipIndex < 0
         then pure Nothing
         else case Seq.lookup (fromInteger tipIndex) blocks of
@@ -477,7 +497,7 @@ mockChainAndNetwork tr seedKeys = do
             let kept = Seq.take (fromInteger tipIndex + 1) blocks
                 erased = concatMap (\(_, txs, _) -> txs) $ toList $ Seq.drop (fromInteger tipIndex + 1) blocks
             writeTVar chain (slotNum, fromInteger tipIndex + 1, kept, blockUTxO)
-            when requeue $ forM_ erased (writeTQueue queue)
+            forM_ (filter requeues erased) (writeTQueue queue)
             pure $ Just (getChainPoint header)
     case mPoint of
       Nothing -> pure ()
@@ -512,16 +532,15 @@ mockChainAndNetwork tr seedKeys = do
     writeTVar chain (newSlot, position, blocks :|> (header, txs', utxo'), utxo')
     pure dropped
 
--- | Construct fixed 'TimeHandle' that starts from 0 and has the era horizon far in the future.
--- This is used in our 'Model' tests and we want to make sure the tests finish before
--- the horizon is reached to prevent the 'PastHorizon' exceptions.
-fixedTimeHandleIndefiniteHorizon :: Gen TimeHandle
-fixedTimeHandleIndefiniteHorizon = do
-  let startSeconds = 0
-  let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
-  uptimeSeconds <- getPositive <$> arbitrary
-  let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
-  pure $ mkTimeHandle currentSlotNo (SystemStart startTime) eraHistoryWithoutHorizon
+-- | A 'TimeHandle' at the given slot, for a chain that starts at time 0 and
+-- has the era horizon far in the future. This is used in our 'Model' tests and
+-- we want to make sure the tests finish before the horizon is reached to
+-- prevent the 'PastHorizon' exceptions.
+timeHandleAt :: SlotNo -> TimeHandle
+timeHandleAt currentSlotNo =
+  mkTimeHandle currentSlotNo (SystemStart startTime) eraHistoryWithoutHorizon
+ where
+  startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime 0
 
 -- | A trimmed down ledger whose only purpose is to validate
 -- on-chain scripts.

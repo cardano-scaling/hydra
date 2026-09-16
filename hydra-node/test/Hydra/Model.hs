@@ -41,8 +41,9 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
 import Hydra.BehaviorSpec (
+  RequeueMode (..),
   SimulatedChainNetwork (..),
   TestHydraClient (..),
   createHydraNodeWithEventStore,
@@ -73,7 +74,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, suchThat, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -97,6 +98,26 @@ data WorldState = WorldState
   -- commits /all/ of one signer's available UTxO at once ('toRealUTxO'
   -- assigns mocked TxIns per signer starting from index 0, so two separate
   -- deposits by the same signer would collide).
+  , pendingCommits :: [(Var TxId, UTxOType Payment)]
+  -- ^ Deposits submitted via 'SubmitDeposit' and recorded on chain, but not
+  -- yet observed as finalized ('ObserveCommitFinalized'). Several can be in
+  -- flight at once, which is what lets a fork erase one settlement while
+  -- another is pending.
+  , pendingDecommits :: [(Var UTxO, Payment)]
+  -- ^ Decommits submitted via 'SubmitDecommit' whose snapshot is confirmed
+  -- but whose decrement is not yet observed as finalized
+  -- ('ObserveDecommitFinalized').
+  , settledCommits :: [Var TxId]
+  -- ^ Commits already observed as finalized, once per observation. They may
+  -- be observed again: a fork that erases the increment makes it re-land
+  -- (re-posted by the nodes or re-included from the mempool), which the nodes
+  -- report as a second 'CommitFinalized'; the n-th observation waits for the
+  -- n-th report.
+  , settledDecommits :: [Var UTxO]
+  -- ^ Decommits already observed as finalized, once per observation; see
+  -- 'settledCommits'.
+  , concurrentSettlements :: Bool
+  -- ^ Generator mode, set by 'Seed'.
   }
   deriving stock (Eq, Show)
 
@@ -129,11 +150,34 @@ data GlobalState
   | Closed
       { headParameters :: HeadParameters
       , closedUTxO :: UTxOType Payment
+      , unsettledAtClose :: UTxOType Payment
+      -- ^ Outputs of settlements still pending when the head was closed: a
+      -- pending commit's deposit, or a pending decommit's payout. Whether the
+      -- settlement landed before the close is a race the model does not
+      -- track, so each of these may or may not be part of the fanout.
+      , fanoutDriving :: FanoutDriving
+      -- ^ How the fanout is being driven, if it has started.
+      , fannedOut :: UTxOType Payment
+      -- ^ Outputs already handed to 'PartialFanoutStep' in manual mode.
       }
-  | Final {finalUTxO :: UTxOType Payment}
+  | Final
+      { finalUTxO :: UTxOType Payment
+      , unsettledAtFinal :: UTxOType Payment
+      -- ^ See 'unsettledAtClose'.
+      }
   deriving stock (Eq, Show)
 
 newtype OffChainState = OffChainState {confirmedUTxO :: UTxOType Payment}
+  deriving stock (Eq, Show)
+
+-- | How a closed head's fanout is driven. A plain 'Fanout' drains the head
+-- automatically, possibly in several steps; 'PartialFanoutStep' hands the node
+-- one selection at a time and the node only drains what it was given. The two
+-- cannot be mixed: once a partial fanout started, 'Fanout' is rejected.
+data FanoutDriving
+  = FanoutNotStarted
+  | FanoutAutoDraining
+  | FanoutManual
   deriving stock (Eq, Show)
 
 -- This is needed to be able to use `WorldState` inside DL formulae
@@ -150,15 +194,49 @@ instance StateModel WorldState where
       { seedKeys :: [(Secret (SigningKey HydraKey), CardanoSigningKey)]
       , contestationPeriod :: ContestationPeriod
       , additionalUTxO :: UTxOType Payment
+      , concurrentSettlements :: Bool
       } ->
+      -- \^ Whether the random walk may have several deposits/decommits in
+      -- flight at once ('SubmitDeposit' & co., forks in every 'RequeueMode')
+      -- or settles each one before the next ('Deposit'/'Decommit', forks
+      -- re-landing everything). See 'genOpenActions'.
+      --
+      -- TODO: Remove this switch and always settle concurrently. The
+      -- sequential walk only exists because the concurrent one still finds
+      -- open bugs (see the pending properties in 'Hydra.ModelSpec'); once
+      -- those are fixed, every property should hold under concurrent
+      -- settlements.
+
       Action WorldState ()
     Init :: Party -> Action WorldState HeadId
     Deposit :: {headIdVar :: Var HeadId, utxoToDeposit :: UTxOType Payment} -> Action WorldState ()
     Decommit :: {party :: Party, decommitTx :: Payment} -> Action WorldState ()
+    -- Non-blocking variants of 'Deposit' and 'Decommit': submit and wait only
+    -- until the deposit is recorded on chain (resp. the decommit's snapshot is
+    -- confirmed), then observe settlement separately. This is what allows
+    -- several settlements to be in flight when a fork hits.
+    -- NOTE: No records possible here, see 'Fanout'.
+    SubmitDeposit :: Var HeadId -> UTxOType Payment -> Action WorldState TxId
+    -- Wait until the snapshot claiming the deposit is confirmed, i.e. its
+    -- increment is in flight. Observation only, used by scripted scenarios.
+    ObserveCommitApproved :: Var TxId -> Action WorldState ()
+    ObserveCommitFinalized :: Var TxId -> Action WorldState ()
+    -- Returns the decommitted UTxO as built on L2, to match the decrement's
+    -- distributed outputs exactly in 'ObserveDecommitFinalized'.
+    SubmitDecommit :: Party -> Payment -> Action WorldState UTxO
+    ObserveDecommitFinalized :: Var UTxO -> Action WorldState ()
     Close :: {party :: Party} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
     Fanout :: Party -> Action WorldState UTxO
+    -- Non-blocking fanout, in steps: start draining automatically, or hand
+    -- the node one selection to distribute (manual mode), observe partial
+    -- steps landing, and finally observe the head being finalized. Lets a
+    -- fork hit while the fanout is in progress. Used by scripted scenarios.
+    StartFanout :: Party -> Action WorldState ()
+    PartialFanoutStep :: Party -> UTxOType Payment -> Action WorldState ()
+    ObservePartialFanoutSteps :: Int -> Action WorldState ()
+    ObserveFanoutFinalized :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -166,9 +244,10 @@ instance StateModel WorldState where
     ObserveHeadIsOpen :: Action WorldState ()
     RollbackAndForward :: Natural -> Action WorldState ()
     -- Rollback onto a divergent fork: the rolled back blocks are dropped (not
-    -- re-served); their transactions are re-submitted when 'requeueErased'
-    -- (mempool re-inclusion), otherwise only what the nodes re-post lands.
-    RollbackAndFork :: {numberOfBlocks :: Natural, requeueErased :: Bool} -> Action WorldState ()
+    -- re-served); 'requeueErased' says which of their transactions are
+    -- re-submitted (mempool re-inclusion), the rest only land if the nodes
+    -- re-post them.
+    RollbackAndFork :: {numberOfBlocks :: Natural, requeueErased :: RequeueMode} -> Action WorldState ()
     -- Crash a node (in-flight inputs are lost) and restart it from its event
     -- store, re-syncing the chain from genesis.
     RestartNode :: Party -> Action WorldState ()
@@ -180,10 +259,15 @@ instance StateModel WorldState where
       { hydraParties = mempty
       , hydraState = Start
       , availableToDeposit = mempty
+      , pendingCommits = mempty
+      , pendingDecommits = mempty
+      , settledCommits = mempty
+      , settledDecommits = mempty
+      , concurrentSettlements = False
       }
 
   arbitraryAction :: VarContext -> WorldState -> Gen (Any (Action WorldState))
-  arbitraryAction _ st@WorldState{hydraParties, hydraState, availableToDeposit} =
+  arbitraryAction _ st@WorldState{hydraParties, hydraState, availableToDeposit, pendingCommits, pendingDecommits, concurrentSettlements} =
     case hydraState of
       Start -> Some <$> genSeed
       Idle{} -> Some <$> genInit hydraParties
@@ -211,8 +295,22 @@ instance StateModel WorldState where
           <> [(1, genRestartNode) | restartNodeEnabled]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
           <> [(10, genNewTx) | length confirmedUTxO > 1]
-          <> [(2, genDecommit) | length confirmedUTxO > 1]
-          <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
+          <> settlementActions headIdVar confirmedUTxO
+
+    -- With 'concurrentSettlements', settlements are submitted and observed as
+    -- separate actions so that several can be in flight when a fork hits; see
+    -- 'SubmitDeposit'. Observation is weighted higher so most pending
+    -- settlements do get observed within a sequence. Without, every
+    -- settlement completes before the next action.
+    settlementActions headIdVar confirmedUTxO
+      | concurrentSettlements =
+          [(2, genSubmitDecommit) | length confirmedUTxO > 1]
+            <> [(3, genObserveDecommitFinalized) | not $ null pendingDecommits]
+            <> [(2, genSubmitDeposit headIdVar) | not $ null availableToDeposit]
+            <> [(3, genObserveCommitFinalized) | not $ null pendingCommits]
+      | otherwise =
+          [(2, genDecommit) | length confirmedUTxO > 1]
+            <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
     -- NOTE: Deposits all of one signer's available UTxO at once, see
     -- 'availableToDeposit'. Only signers with available UTxO qualify: an
@@ -222,8 +320,22 @@ instance StateModel WorldState where
       let utxoToDeposit = filter ((sk ==) . fst) availableToDeposit
       pure $ Some Deposit{headIdVar, utxoToDeposit}
 
-    genDecommit = do
+    genDecommit =
       genPayment st >>= \(party, tx) -> pure . Some $ Decommit party tx
+
+    genSubmitDeposit headIdVar = do
+      sk <- elements (nub $ fst <$> availableToDeposit)
+      let utxoToDeposit = filter ((sk ==) . fst) availableToDeposit
+      pure $ Some $ SubmitDeposit headIdVar utxoToDeposit
+
+    genObserveCommitFinalized =
+      Some . ObserveCommitFinalized . fst <$> elements pendingCommits
+
+    genSubmitDecommit =
+      genPayment st >>= \(party, tx) -> pure . Some $ SubmitDecommit party tx
+
+    genObserveDecommitFinalized =
+      Some . ObserveDecommitFinalized . fst <$> elements pendingDecommits
 
     genNewTx = genPayment st >>= \(party, transaction) -> pure . Some $ NewTx party transaction
 
@@ -238,8 +350,15 @@ instance StateModel WorldState where
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
 
     genRollbackAndFork = do
-      numberOfBlocks <- choose (1, 2)
-      requeueErased <- elements [True, False]
+      -- Deep enough to reach a settlement observed a couple of blocks ago
+      -- while a later one is still in flight.
+      numberOfBlocks <- choose (1, 4)
+      -- Only the concurrent walk relies on the nodes re-posting erased
+      -- settlements; the sequential one lets the mempool re-land them.
+      requeueErased <-
+        if concurrentSettlements
+          then elements [RequeueAll, RequeueDeposits, RequeueNone]
+          else pure RequeueAll
       pure . Some $ RollbackAndFork{numberOfBlocks = wordToNatural numberOfBlocks, requeueErased}
 
     genRestartNode =
@@ -264,21 +383,64 @@ instance StateModel WorldState where
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
+  precondition WorldState{hydraState = Open{headIdVar}} (SubmitDeposit var utxoToDeposit) =
+    var == headIdVar
+      && not (null utxoToDeposit)
+  precondition WorldState{hydraState = Open{}, pendingCommits} (ObserveCommitApproved var) =
+    var `elem` (fst <$> pendingCommits)
+  precondition WorldState{hydraState = Open{}, pendingCommits, settledCommits} (ObserveCommitFinalized var) =
+    var `elem` (fst <$> pendingCommits) || var `elem` settledCommits
+  precondition WorldState{hydraState = Open{headParameters, offChainState}, pendingDecommits} (SubmitDecommit party decommitTx) =
+    party `elem` headParameters.parties
+      && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
+      -- A decommit requested while another one is unsettled is rejected right
+      -- away ('DecommitAlreadyInFlight'): decommits are sequential by design.
+      -- One requested while a deposit is unsettled is fine, see
+      -- 'performSubmitDecommit'.
+      && null pendingDecommits
+  precondition WorldState{hydraState = Open{}, pendingDecommits, settledDecommits} (ObserveDecommitFinalized var) =
+    var `elem` (fst <$> pendingDecommits) || var `elem` settledDecommits
   precondition WorldState{hydraState = Open{}} (ObserveConfirmedTx _) =
     True
   precondition WorldState{hydraState = Open{}} ObserveHeadIsOpen =
     True
-  precondition WorldState{hydraState = Closed{headParameters}} (Fanout party) =
+  precondition WorldState{hydraState = Closed{headParameters, fanoutDriving}} (Fanout party) =
     party `elem` headParameters.parties
-  precondition WorldState{hydraState = Open{headParameters, onChainVersion}} (CloseWithInitialSnapshot p) =
+      && fanoutDriving == FanoutNotStarted
+  precondition WorldState{hydraState = Closed{headParameters, fanoutDriving}} (StartFanout party) =
+    party `elem` headParameters.parties
+      && fanoutDriving == FanoutNotStarted
+  precondition WorldState{hydraState = Closed{headParameters, fanoutDriving, closedUTxO, fannedOut}} (PartialFanoutStep party selection) =
+    party `elem` headParameters.parties
+      && fanoutDriving /= FanoutAutoDraining
+      && not (null selection)
+      && all (`elem` (closedUTxO \\ fannedOut)) selection
+  precondition WorldState{hydraState = Closed{fanoutDriving}} (ObservePartialFanoutSteps n) =
+    fanoutDriving /= FanoutNotStarted && n > 0
+  precondition WorldState{hydraState = Closed{headParameters, fanoutDriving}} (ObserveFanoutFinalized party) =
+    party `elem` headParameters.parties
+      && fanoutDriving /= FanoutNotStarted
+  precondition WorldState{hydraState = Open{headParameters, onChainVersion}, pendingCommits, pendingDecommits} (CloseWithInitialSnapshot p) =
     -- Only head members have a node to close with; keeps shrinking from
     -- rebinding the action to a party outside the (shrunk) seed. Closing with
     -- the initial snapshot (and open version 0) is only valid on-chain while
-    -- no increment or decrement has settled.
+    -- no increment or decrement has settled — nor is about to.
     p `elem` headParameters.parties
       && onChainVersion == 0
-  precondition WorldState{hydraState = Open{}} RollbackAndFork{} =
-    True
+      && null pendingCommits
+      && null pendingDecommits
+  -- A fork while the fanout is in progress: the node has to re-post the step
+  -- that was erased.
+  precondition WorldState{hydraState = Closed{fanoutDriving}} RollbackAndFork{} =
+    fanoutDriving /= FanoutNotStarted
+  precondition WorldState{hydraState = Open{}, pendingCommits} RollbackAndFork{requeueErased} =
+    -- A fork that drops deposit transactions for good may hit one that is
+    -- only a few blocks old: those funds are then simply gone from L1 (the
+    -- depositor would have to deposit again), which the model does not track.
+    -- Settled deposits are safe: their deposit transaction precedes the
+    -- increment by at least the activation period (5 blocks), more than the
+    -- generated fork depth.
+    requeueErased /= RequeueNone || null pendingCommits
   precondition WorldState{hydraState = Open{headParameters}} (RestartNode p) =
     p `elem` headParameters.parties
   precondition WorldState{hydraState} (RollbackAndForward _) =
@@ -293,10 +455,10 @@ instance StateModel WorldState where
   precondition _ _ =
     False
 
-  nextState s@WorldState{hydraState, availableToDeposit} a result =
+  nextState s@WorldState{hydraState, availableToDeposit, pendingCommits, pendingDecommits, settledCommits, settledDecommits} a result =
     case a of
-      Seed{seedKeys, contestationPeriod, additionalUTxO} ->
-        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO}
+      Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements} ->
+        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO, concurrentSettlements}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys
@@ -321,43 +483,57 @@ instance StateModel WorldState where
           _ -> error "unexpected state"
       Deposit{utxoToDeposit} ->
         s
-          { hydraState = updateWithIncrementalCommit hydraState
+          { hydraState = settleCommit utxoToDeposit hydraState
           , availableToDeposit = availableToDeposit \\ utxoToDeposit
           }
-       where
-        updateWithIncrementalCommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
-            hs
-              { offChainState =
-                  OffChainState{confirmedUTxO = utxoToDeposit <> confirmedUTxO}
-              , onChainVersion = onChainVersion + 1
-              }
-          _ -> error "unexpected state"
       Decommit _party tx ->
-        s{hydraState = updateWithDecommit hydraState}
-       where
-        decommitted = (from tx, value tx)
-
-        updateWithDecommit = \case
-          hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
-            hs
-              { offChainState =
-                  OffChainState{confirmedUTxO = List.delete decommitted confirmedUTxO}
-              , onChainVersion = onChainVersion + 1
+        s{hydraState = settleDecommit tx (removeDecommitted tx hydraState)}
+      -- The deposit leaves the pool right away, but only counts as in the
+      -- head (and bumps the on-chain version) once observed as finalized.
+      SubmitDeposit _ utxoToDeposit ->
+        s
+          { availableToDeposit = availableToDeposit \\ utxoToDeposit
+          , pendingCommits = (result, utxoToDeposit) : pendingCommits
+          }
+      ObserveCommitApproved _ -> s
+      ObserveCommitFinalized var ->
+        case List.lookup var pendingCommits of
+          -- Re-observation of an already settled commit: only count it.
+          Nothing -> s{settledCommits = var : settledCommits}
+          Just utxo ->
+            s
+              { hydraState = settleCommit utxo hydraState
+              , pendingCommits = filter ((/= var) . fst) pendingCommits
+              , settledCommits = var : settledCommits
               }
-          _ -> error "unexpected state"
+      -- The decommitted output leaves the L2 ledger with the snapshot (which
+      -- 'SubmitDecommit' waits for), the on-chain version bumps with the
+      -- decrement.
+      SubmitDecommit _ tx ->
+        s
+          { hydraState = removeDecommitted tx hydraState
+          , pendingDecommits = (result, tx) : pendingDecommits
+          }
+      ObserveDecommitFinalized var ->
+        case List.lookup var pendingDecommits of
+          Nothing -> s{settledDecommits = var : settledDecommits}
+          Just tx ->
+            s
+              { hydraState = settleDecommit tx hydraState
+              , pendingDecommits = filter ((/= var) . fst) pendingDecommits
+              , settledDecommits = var : settledDecommits
+              }
       Close{} ->
-        s{hydraState = updateWithClose hydraState}
-       where
-        updateWithClose = \case
-          Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
-          _ -> error "unexpected state"
+        closeWith hydraState
       Fanout{} ->
         s{hydraState = updateWithFanout hydraState}
-       where
-        updateWithFanout = \case
-          Closed{closedUTxO} -> Final closedUTxO
-          _ -> error "unexpected state"
+      ObserveFanoutFinalized{} ->
+        s{hydraState = updateWithFanout hydraState}
+      StartFanout{} ->
+        s{hydraState = startAutoFanout hydraState}
+      PartialFanoutStep _ selection ->
+        s{hydraState = manualFanoutStep selection hydraState}
+      ObservePartialFanoutSteps{} -> s
       (NewTx _ tx) ->
         s{hydraState = updateWithNewTx hydraState}
        where
@@ -371,11 +547,7 @@ instance StateModel WorldState where
               }
           _ -> error "unexpected state"
       CloseWithInitialSnapshot _ ->
-        s{hydraState = updateWithClose hydraState}
-       where
-        updateWithClose = \case
-          Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
-          _ -> error "unexpected state"
+        closeWith hydraState
       RollbackAndForward _numberOfBlocks -> s
       RollbackAndFork{} -> s
       RestartNode{} -> s
@@ -383,6 +555,38 @@ instance StateModel WorldState where
       ObserveConfirmedTx _ -> s
       ObserveHeadIsOpen -> s
       StopTheWorld -> s
+   where
+    updateWithFanout = \case
+      Closed{closedUTxO, unsettledAtClose} -> Final{finalUTxO = closedUTxO, unsettledAtFinal = unsettledAtClose}
+      _ -> error "unexpected state"
+
+    startAutoFanout = \case
+      c@Closed{} -> c{fanoutDriving = FanoutAutoDraining}
+      _ -> error "unexpected state"
+
+    manualFanoutStep selection = \case
+      c@Closed{fannedOut} -> c{fanoutDriving = FanoutManual, fannedOut = fannedOut <> selection}
+      _ -> error "unexpected state"
+
+    -- Closing settles the pending lists: whatever was still in flight may or
+    -- may not make it into the head, see 'unsettledAtClose'.
+    closeWith = \case
+      Open{offChainState = OffChainState{confirmedUTxO}, headParameters} ->
+        s
+          { hydraState =
+              Closed
+                { headParameters
+                , closedUTxO = confirmedUTxO
+                , unsettledAtClose =
+                    concatMap snd pendingCommits
+                      <> [(to, value) | (_, Payment{to, value}) <- pendingDecommits]
+                , fanoutDriving = FanoutNotStarted
+                , fannedOut = mempty
+                }
+          , pendingCommits = mempty
+          , pendingDecommits = mempty
+          }
+      _ -> error "unexpected state"
 
   shrinkAction _ctx _st = \case
     seed@Seed{seedKeys, additionalUTxO} -> do
@@ -392,14 +596,47 @@ instance StateModel WorldState where
       pure $ Some $ seed{seedKeys = seedKeys', additionalUTxO = filter ((`elem` cardanoKeys') . fst) additionalUTxO}
     _other -> []
 
+-- | Add a finalized commit to the head's UTxO and bump the on-chain version.
+settleCommit :: UTxOType Payment -> GlobalState -> GlobalState
+settleCommit utxo = \case
+  hs@Open{offChainState = OffChainState{confirmedUTxO}, onChainVersion} ->
+    hs
+      { offChainState = OffChainState{confirmedUTxO = utxo <> confirmedUTxO}
+      , onChainVersion = onChainVersion + 1
+      }
+  _ -> error "unexpected state"
+
+-- | Remove a decommitted output from the head's UTxO (it leaves the L2 ledger
+-- with the snapshot carrying the decommit).
+removeDecommitted :: Payment -> GlobalState -> GlobalState
+removeDecommitted tx = \case
+  hs@Open{offChainState = OffChainState{confirmedUTxO}} ->
+    hs{offChainState = OffChainState{confirmedUTxO = List.delete (from tx, value tx) confirmedUTxO}}
+  _ -> error "unexpected state"
+
+-- | Account for a finalized decrement: bump the on-chain version.
+settleDecommit :: Payment -> GlobalState -> GlobalState
+settleDecommit _ = \case
+  hs@Open{onChainVersion} -> hs{onChainVersion = onChainVersion + 1}
+  _ -> error "unexpected state"
+
 instance HasVariables WorldState where
-  getAllVariables WorldState{hydraState} = case hydraState of
-    Open{headIdVar} -> Set.singleton $ Some headIdVar
-    _ -> mempty
+  getAllVariables WorldState{hydraState, pendingCommits, pendingDecommits, settledCommits, settledDecommits} =
+    Set.fromList (Some . fst <$> pendingCommits)
+      <> Set.fromList (Some . fst <$> pendingDecommits)
+      <> Set.fromList (Some <$> settledCommits)
+      <> Set.fromList (Some <$> settledDecommits)
+      <> case hydraState of
+        Open{headIdVar} -> Set.singleton $ Some headIdVar
+        _ -> mempty
 
 instance HasVariables (Action WorldState a) where
   getAllVariables = \case
     Deposit{headIdVar} -> Set.singleton $ Some headIdVar
+    SubmitDeposit headIdVar _ -> Set.singleton $ Some headIdVar
+    ObserveCommitApproved var -> Set.singleton $ Some var
+    ObserveCommitFinalized var -> Set.singleton $ Some var
+    ObserveDecommitFinalized var -> Set.singleton $ Some var
     ObserveConfirmedTx tx -> Set.singleton $ Some tx
     _other -> mempty
 
@@ -416,8 +653,13 @@ deriving stock instance Eq (Action WorldState a)
 restartNodeEnabled :: Bool
 restartNodeEnabled = True
 
+-- | The default seed settles each deposit and decommit before the next
+-- action, see 'concurrentSettlements'.
 genSeed :: Gen (Action WorldState ())
-genSeed = do
+genSeed = genSeedWith False
+
+genSeedWith :: Bool -> Gen (Action WorldState ())
+genSeedWith concurrentSettlements = do
   seedKeys <- resize maximumNumberOfParties partyKeys
   contestationPeriod <- genContestationPeriod
   -- NOTE: Unique (signer, value) pairs: 'toRealUTxO' derives mocked TxIns
@@ -426,7 +668,7 @@ genSeed = do
     sk <- snd <$> elements seedKeys
     value <- genAdaValue
     pure (sk, value)
-  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO}
+  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements}
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
@@ -469,6 +711,16 @@ partyKeys =
     numParties <- choose (1, len)
     hks <- nub <$> vectorOf numParties arbitrary
     cks <- nub . fmap (CardanoSigningKey . mkSecret) <$> vectorOf numParties genSigningKey
+    pure $ zip hks cks
+
+-- | Exactly @n@ distinct parties, for scripted scenarios (see 'partyKeys').
+genPartyKeysExactly :: Int -> Gen [(Secret (SigningKey HydraKey), CardanoSigningKey)]
+genPartyKeysExactly n =
+  gen `suchThat` ((== n) . length)
+ where
+  gen = do
+    hks <- nub <$> vectorOf n arbitrary
+    cks <- nub . fmap (CardanoSigningKey . mkSecret) <$> vectorOf n genSigningKey
     pure $ zip hks cks
 
 -- * Running the model
@@ -555,11 +807,25 @@ instance
     counterexamplePost ("State:    " <> show st)
 
     case action of
-      Fanout{} ->
-        case hydraState st of
-          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (snd <$> UTxO.toList result)
-          _ -> pure False
+      Fanout{} -> fanoutDistributedEverything result
+      ObserveFanoutFinalized{} -> fanoutDistributedEverything result
       _ -> pure True
+   where
+    -- The fanout must distribute everything confirmed in the head, and nothing
+    -- else but outputs of settlements that were still pending at close (see
+    -- 'unsettledAtClose').
+    fanoutDistributedEverything :: UTxO -> PostconditionM (RunMonad m) Bool
+    fanoutDistributedEverything distributed =
+      case hydraState st of
+        Final{finalUTxO, unsettledAtFinal} -> do
+          let expected = sortTxOuts (toTxOuts finalUTxO)
+              actual = sortTxOuts (snd <$> UTxO.toList distributed)
+              missing = expected \\ actual
+              unexpected = (actual \\ expected) \\ sortTxOuts (toTxOuts unsettledAtFinal)
+          counterexamplePost ("Missing from fanout:    " <> show missing)
+          counterexamplePost ("Unexpected in fanout:   " <> show unexpected)
+          pure (null missing && null unexpected)
+        _ -> pure False
 
   monitoring (s, s') _action _lookup _result =
     decorateTransitions
@@ -579,10 +845,29 @@ instance
         performDeposit headId utxo
       Decommit party tx ->
         performDecommit party tx
+      SubmitDeposit headIdVar utxo ->
+        performSubmitDeposit (lookup headIdVar) utxo
+      ObserveCommitApproved var ->
+        performObserveCommitApproved (fromMaybe mempty $ List.lookup var (pendingCommits st))
+      ObserveCommitFinalized var ->
+        -- The n-th observation of this commit waits for its n-th report.
+        performObserveCommitFinalized (1 + length (filter (== var) (settledCommits st))) (lookup var)
+      SubmitDecommit party tx ->
+        performSubmitDecommit party tx
+      ObserveDecommitFinalized var ->
+        performObserveDecommitFinalized (1 + length (filter (== var) (settledDecommits st))) (lookup var)
       Close party ->
         performClose party
       Fanout party ->
         performFanout party
+      StartFanout party ->
+        performStartFanout party
+      PartialFanoutStep party selection ->
+        performPartialFanoutStep party selection
+      ObservePartialFanoutSteps n ->
+        performObservePartialFanoutSteps n
+      ObserveFanoutFinalized party ->
+        performObserveFanoutFinalized party
       NewTx party transaction ->
         performNewTx party transaction
       Wait delay ->
@@ -719,9 +1004,7 @@ performDeposit ::
 performDeposit headId utxoToDeposit = do
   nodes <- gets nodes
   SimulatedChainNetwork{simulateDeposit} <- gets chain
-  -- NOTE: We always use a deadline far enough in the future to make sure the
-  -- deposit results in given utxo added.
-  deadline <- addUTCTime (3 * toNominalDiffTime testDepositPeriod) <$> getCurrentTime
+  deadline <- depositDeadline
   lift $ do
     txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
     waitUntilMatch (elems nodes) $ \case
@@ -731,6 +1014,180 @@ performDeposit headId utxoToDeposit = do
       CommitRecorded{} | null utxoToDeposit -> Just ()
       CommitFinalized{depositTxId} -> guard $ txid == depositTxId
       _ -> Nothing
+
+-- | Deadline for deposits made by the model: far enough in the future that the
+-- deposit is still claimable once it activates (at @created +
+-- depositActivation@, with @created@ up to half a deposit period ahead of
+-- submission) even when several deposits settle one after the other, each
+-- taking a few blocks. It expires at @deadline - depositPeriod@.
+depositDeadline :: MonadTime m => RunMonad m UTCTime
+depositDeadline = addUTCTime (8 * toNominalDiffTime testDepositPeriod) <$> getCurrentTime
+
+-- | Submit a deposit and wait until every node has recorded it on chain. Its
+-- settlement is observed separately, see 'performObserveCommitFinalized'.
+performSubmitDeposit ::
+  (MonadThrow m, MonadTimer m, MonadDelay m, MonadTime m) =>
+  HeadId ->
+  [(CardanoSigningKey, Value)] ->
+  RunMonad m TxId
+performSubmitDeposit headId utxoToDeposit = do
+  nodes <- gets nodes
+  SimulatedChainNetwork{simulateDeposit} <- gets chain
+  deadline <- depositDeadline
+  lift $ do
+    txid <- simulateDeposit headId (toRealUTxO utxoToDeposit) deadline
+    waitForOutputs ("deposit " <> show txid <> " recorded") 1 (elems nodes) $ \case
+      CommitRecorded{pendingDeposit} -> txid == pendingDeposit
+      _ -> False
+    pure txid
+
+-- | Wait until every node has confirmed a snapshot claiming the given deposit
+-- ('CommitApproved'): the increment is now in flight.
+performObserveCommitApproved ::
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  UTxOType Payment ->
+  RunMonad m ()
+performObserveCommitApproved deposited = do
+  nodes <- gets nodes
+  let expected = sortTxOuts (UTxO.txOutputs (toRealUTxO deposited))
+  lift . waitForOutputs "commit approved" 1 (elems nodes) $ \case
+    CommitApproved{utxoToCommit} -> sortTxOuts (UTxO.txOutputs utxoToCommit) == expected
+    _ -> False
+
+-- | Wait until every node has reported the increment claiming the given
+-- deposit for the n-th time. A wedged settlement surfaces here as a timeout.
+performObserveCommitFinalized ::
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  Int ->
+  TxId ->
+  RunMonad m ()
+performObserveCommitFinalized n txid = do
+  nodes <- gets nodes
+  lift . waitForOutputs ("commit " <> show txid <> " finalized (" <> show n <> ". time)") n (elems nodes) $ \case
+    CommitFinalized{depositTxId} -> txid == depositTxId
+    _ -> False
+
+-- | Wait until every node's output history holds at least @n@ outputs
+-- matching the predicate, or fail after 'observationTimeout'.
+--
+-- Unlike 'waitUntilMatch' this does not consume outputs, so settlements can
+-- be observed in any order (several may be in flight and finalize in an order
+-- the model does not control) and repeatedly (a settlement re-landing after a
+-- fork is reported again). It also does not swallow reports that arrive
+-- earlier than expected, e.g. a decrement observed on chain before its
+-- snapshot confirmed locally.
+waitForOutputs ::
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  String ->
+  Int ->
+  [TestHydraClient Tx m] ->
+  (ServerOutput Tx -> Bool) ->
+  m ()
+waitForOutputs what n nodes p =
+  waitUntilHistory (what <> " " <> show n <> " time(s)") nodes $ \outs ->
+    length (filter p outs) >= n
+
+-- | Wait until every node's output history satisfies the predicate, or fail
+-- after 'observationTimeout'. See 'waitForOutputs'.
+waitUntilHistory ::
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  String ->
+  [TestHydraClient Tx m] ->
+  ([ServerOutput Tx] -> Bool) ->
+  m ()
+waitUntilHistory what nodes p =
+  timeout observationTimeout (forM_ nodes waitOne) >>= \case
+    Just () -> pure ()
+    Nothing -> do
+      satisfied <- forM nodes (fmap p . serverOutputs)
+      failure $
+        "waitUntilHistory: not all nodes reported " <> what <> " within " <> show observationTimeout <> "; per node: " <> show satisfied
+ where
+  waitOne node = do
+    outs <- serverOutputs node
+    unless (p outs) $ threadDelay 1 >> waitOne node
+
+-- | How long an observation waits for the nodes to report something. Every
+-- observed step (a settlement landing, re-landing after a fork, a snapshot
+-- confirming) takes a handful of blocks of 20s, so an hour is generous while
+-- still failing a wedged head reasonably fast.
+observationTimeout :: DiffTime
+observationTimeout = 3600
+
+-- | Request a decommit and wait until every node has confirmed the snapshot
+-- carrying it ('DecommitApproved'), i.e. the outputs have left the L2 ledger
+-- and the decrement is in flight. Its settlement is observed separately, see
+-- 'performObserveDecommitFinalized'.
+performSubmitDecommit ::
+  forall m.
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  Party ->
+  Payment ->
+  RunMonad m UTxO
+performSubmitDecommit party tx = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForOpen thisNode
+
+  (i, o) <-
+    lift (waitForUTxOToSpend mempty (from tx) (value tx) thisNode) >>= \case
+      Left u -> error $ "Cannot execute SubmitDecommit for " <> show tx <> ", no spendable UTxO in " <> show u
+      Right ok -> pure ok
+
+  let realTx =
+        either
+          (error . show)
+          id
+          (case from tx of CardanoSigningKey sk -> mkSimpleTx (i, o) (decommitRecipient tx, value tx) sk)
+
+  let decommitted = utxoFromTx realTx
+      decommitTxId = getTxId (getTxBody realTx)
+      -- NOTE: Sync on the confirmed snapshot carrying the decommit rather than
+      -- on 'DecommitApproved', which not every node emits.
+      approved = \case
+        SnapshotConfirmed{snapshot} ->
+          (sortTxOuts . UTxO.txOutputs <$> Snapshot.utxoToDecommit snapshot) == Just (sortTxOuts (UTxO.txOutputs decommitted))
+        _ -> False
+      -- A decommit requested while a deposit is unsettled is parked by the
+      -- node; if the deposit does not settle within the request's TTL the
+      -- node rejects it. A client then simply asks again once the deposit is
+      -- through, which is what this does.
+      rejectedForPendingDeposit = \case
+        DecommitInvalid{decommitTx, decommitInvalidReason = DepositInFlight{}} ->
+          getTxId (getTxBody decommitTx) == decommitTxId
+        _ -> False
+      submit :: Int -> RunMonad m ()
+      submit attempt
+        | attempt > maxAttempts =
+            failure $ "SubmitDecommit " <> show decommitTxId <> " rejected " <> show maxAttempts <> " times for a deposit in flight"
+        | otherwise = do
+            party `sendsInput` Input.Decommit realTx
+            lift . waitUntilHistory ("snapshot with decommit " <> show decommitTxId <> " confirmed (attempt " <> show attempt <> ")") (elems nodes) $ \outs ->
+              any approved outs || length (filter rejectedForPendingDeposit outs) >= attempt
+            outs <- lift $ serverOutputs thisNode
+            unless (any approved outs) $ submit (attempt + 1)
+  submit 1
+  pure decommitted
+ where
+  maxAttempts = 5 :: Int
+
+-- | Wait until every node has reported the decrement distributing the given
+-- decommitted UTxO for the n-th time.
+performObserveDecommitFinalized ::
+  (MonadThrow m, MonadTimer m, MonadDelay m) =>
+  Int ->
+  UTxO ->
+  RunMonad m ()
+performObserveDecommitFinalized n decommitted = do
+  nodes <- gets nodes
+  lift . waitForOutputs ("decommit finalized (" <> show n <> ". time)") n (elems nodes) $ \case
+    DecommitFinalized{distributedUTxO} ->
+      sortTxOuts (UTxO.txOutputs distributedUTxO) == sortTxOuts (UTxO.txOutputs decommitted)
+    _ -> False
+
+decommitRecipient :: Payment -> AddressInEra
+decommitRecipient tx = case to tx of
+  CardanoSigningKey sk -> mkVkAddress testNetworkId (getVerificationKey sk)
 
 performDecommit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
@@ -878,7 +1335,9 @@ performClose party = do
             pollFor 60 >>= \case
               True -> pure ()
               False -> closeWithRetry (n - 1)
-  closeWithRetry 10
+  -- Three attempts a minute apart: the race this covers resolves within a
+  -- block or two, and a head that cannot close should fail fast.
+  closeWithRetry 3
  where
   isOpen :: NodeState Tx -> Bool
   isOpen st' = case headState st' of
@@ -887,11 +1346,25 @@ performClose party = do
 
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
+  performStartFanout party
+  performObserveFanoutFinalized party
+
+-- | Send 'Fanout' once the head is ready for it, without waiting for the
+-- fanout to complete.
+performStartFanout :: (MonadSTM m, MonadThrow m, MonadDelay m) => Party -> RunMonad m ()
+performStartFanout party = do
   nodes <- gets nodes
-  let thisNode = nodes ! party
-  waitForReadyToFanout thisNode
+  waitForReadyToFanout (nodes ! party)
   party `sendsInput` Input.Fanout
-  findInOutput thisNode (100 :: Int)
+
+-- | Wait for the head to be finalized on the given party's node and return
+-- what the fanout distributed.
+performObserveFanoutFinalized :: (MonadSTM m, MonadThrow m, MonadDelay m) => Party -> RunMonad m UTxO
+performObserveFanoutFinalized party = do
+  nodes <- gets nodes
+  -- A fanout may take several partial steps of one block (20s) each, so give
+  -- it well over a handful of blocks.
+  findInOutput (nodes ! party) (600 :: Int)
  where
   findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
   findInOutput node n
@@ -906,6 +1379,36 @@ performFanout party = do
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
+
+-- | Hand the node a selection to fan out (manual mode) and wait until every
+-- node reports all of it distributed: over one or more partial steps, or by
+-- the final fanout if the selection drains the head.
+performPartialFanoutStep :: (MonadThrow m, MonadTimer m, MonadDelay m) => Party -> UTxOType Payment -> RunMonad m ()
+performPartialFanoutStep party selection = do
+  nodes <- gets nodes
+  waitForReadyToFanout (nodes ! party)
+  party `sendsInput` Input.PartialFanout{utxoToFanout = toRealUTxO selection}
+  let expected = sortTxOuts (toTxOuts selection)
+      distributedSoFar :: [ServerOutput Tx] -> [TxOut CtxUTxO]
+      distributedSoFar outs =
+        concat
+          [ UTxO.txOutputs u
+          | out <- outs
+          , u <- case out of
+              HeadPartiallyFannedOut{distributedUTxO} -> [distributedUTxO]
+              HeadIsFinalized{finalizedUTxO} -> [finalizedUTxO]
+              _ -> []
+          ]
+  lift . waitUntilHistory ("partial fanout of " <> show (length selection) <> " outputs") (elems nodes) $ \outs ->
+    null (expected \\ sortTxOuts (distributedSoFar outs))
+
+-- | Wait until every node has reported at least @n@ partial fanout steps.
+performObservePartialFanoutSteps :: (MonadThrow m, MonadTimer m, MonadDelay m) => Int -> RunMonad m ()
+performObservePartialFanoutSteps n = do
+  nodes <- gets nodes
+  lift . waitForOutputs (show n <> " partial fanout steps") n (elems nodes) $ \case
+    HeadPartiallyFannedOut{} -> True
+    _ -> False
 
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performCloseWithInitialSnapshot st party = do
@@ -930,7 +1433,7 @@ performRollbackAndForward numberOfBlocks = do
   SimulatedChainNetwork{rollbackAndForward} <- gets chain
   lift $ rollbackAndForward numberOfBlocks
 
-performRollbackAndFork :: (MonadThrow m, MonadTimer m) => Natural -> Bool -> RunMonad m ()
+performRollbackAndFork :: (MonadThrow m, MonadTimer m) => Natural -> RequeueMode -> RunMonad m ()
 performRollbackAndFork numberOfBlocks requeueErased = do
   SimulatedChainNetwork{rollbackAndFork} <- gets chain
   lift $ rollbackAndFork numberOfBlocks requeueErased
@@ -1012,18 +1515,6 @@ mkMockTxIn (CardanoSigningKey sk) ix =
   -- NOTE: Ugly, works because both binary representations are 32-byte long.
   tid = unsafeDeserialize' (serialize' vk)
 
--- | Like '===', but works in PostconditionM.
-(===) :: (Eq a, Show a, Monad m) => a -> a -> PostconditionM m Bool
-x === y = do
-  counterexamplePost (show x <> "\n" <> interpret res <> "\n" <> show y)
-  pure res
- where
-  res = x == y
-
-  interpret :: Bool -> String
-  interpret True = "=="
-  interpret False = "/="
-
 waitForUTxOToSpend ::
   forall m.
   MonadDelay m =>
@@ -1032,19 +1523,21 @@ waitForUTxOToSpend ::
   Value ->
   TestHydraClient Tx m ->
   m (Either UTxO (TxIn, TxOut CtxUTxO))
-waitForUTxOToSpend utxo key value node = go 100
+waitForUTxOToSpend utxo key value node = go utxo 100
  where
-  go :: Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
-  go = \case
+  -- Reports the head UTxO as last seen when giving up, not the caller's
+  -- initial one, so a missing output can be told from an empty head.
+  go :: UTxO -> Int -> m (Either UTxO (TxIn, TxOut CtxUTxO))
+  go lastSeen = \case
     0 ->
-      pure $ Left utxo
+      pure $ Left lastSeen
     n -> do
       u <- headUTxO node
       if u /= mempty
         then case find matchPayment (UTxO.toList u) of
-          Nothing -> go (n - 1)
+          Nothing -> go u (n - 1)
           Just (txIn, txOut) -> pure $ Right (txIn, txOut)
-        else go (n - 1)
+        else go u (n - 1)
 
   matchPayment p@(_, txOut) =
     isOwned key p && value == txOutValue txOut

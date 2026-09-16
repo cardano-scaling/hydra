@@ -1251,16 +1251,31 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   { connectNode :: DraftHydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
-  , rollbackAndFork :: Natural -> Bool -> m ()
+  , rollbackAndFork :: Natural -> RequeueMode -> m ()
   -- ^ Rollback the given number of blocks and continue on a divergent fork:
-  -- the rolled-back blocks are dropped instead of re-served. The 'Bool' says
-  -- whether their transactions are re-submitted (mempool re-inclusion on a
-  -- real chain switch); without it, only transactions (re-)posted by the
-  -- nodes make it onto the new chain.
+  -- the rolled-back blocks are dropped instead of re-served. The
+  -- 'RequeueMode' says which of their transactions are re-submitted (mempool
+  -- re-inclusion on a real chain switch); the others are gone for good and
+  -- only transactions (re-)posted by the nodes make it onto the new chain.
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
   , closeWithInitialSnapshot :: Party -> m ()
   , getChainHistory :: m [ChainEvent tx]
   }
+
+-- | Which transactions erased by a fork ('rollbackAndFork') are re-submitted
+-- and re-land on the new chain, as a mempool would re-include them.
+data RequeueMode
+  = -- | Every erased transaction re-lands.
+    RequeueAll
+  | -- | Only deposit transactions re-land. They are independent of the head
+    -- and stay valid on the new chain, while the head's own settlement
+    -- transactions (increment, decrement, close, ...) were built on a head
+    -- output that no longer exists and are dropped. This is the realistic
+    -- case for a fork erasing settlements.
+    RequeueDeposits
+  | -- | Nothing re-lands.
+    RequeueNone
+  deriving stock (Eq, Show, Generic)
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 dummySimulatedChainNetwork =
