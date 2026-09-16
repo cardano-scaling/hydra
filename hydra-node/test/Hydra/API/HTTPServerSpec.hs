@@ -29,10 +29,17 @@ import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInva
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   UTxO,
+  calculateMinimumUTxO,
+  fromCtxUTxOTxOut,
+  lovelaceToValue,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   renderTxIn,
   serialiseToTextEnvelope,
+  shelleyBasedEra,
+  pattern ReferenceScriptNone,
+  pattern TxOut,
+  pattern TxOutDatumNone,
  )
 import Hydra.Chain (Chain, PostTxError (..), draftDepositTx, submitTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
@@ -47,7 +54,7 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (UTxOType, txId)
+import Hydra.Tx.IsTx (TxIdType, UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -60,7 +67,7 @@ import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.Ledger.Simple (utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
-import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genDatum, genTxOut, genTxOutWithReferenceScript, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
   choose,
   counterexample,
@@ -690,6 +697,36 @@ apiServerSpec = do
                             else Just $ "\ninlineDatumRaw not found in body:\n" <> show body
                   }
 
+    -- The list is served straight from the 'projectPendingDeposits' read
+    -- model, so a client polling for its own deposit sees exactly what the
+    -- projection holds.
+    describe "GET /commits" $ do
+      responseChannel <- runIO newTChanIO
+      -- The head state plays no part: the handler serves the read model as-is.
+      let anyHeadState = Open (generateWith arbitrary 42)
+      prop "responds with the pending deposit transaction ids" $ \(pendingTxIds :: [TxIdType Tx]) ->
+        withApplication
+          ( httpApp @Tx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure NodeInSync{headState = anyHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
+              cantCommit
+              (pure pendingTxIds)
+              putClientInput
+              300
+              responseChannel
+          )
+          $ get "/commits"
+            `shouldRespondWith` 200
+              { matchBody = MatchBody $ \_ body ->
+                  if Aeson.decode body == Just pendingTxIds
+                    then Nothing
+                    else Just $ "\nexpected " <> show pendingTxIds <> " in body:\n" <> show body
+              }
+
     -- TODO: change API to POST /deposits
     describe "POST /commit" $ do
       let getHeadId = pure $ IncrementalCommit (generateWith arbitrary 42)
@@ -759,6 +796,28 @@ apiServerSpec = do
                 minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
             _ -> property True
+
+      -- The props above use ada-only outputs, whose minimum is the floor. A
+      -- datum and a reference script both add bytes and so raise the minimum,
+      -- which is what a client committing a script output actually trips over.
+      prop "rejects a deposit whose datum and reference script raise the minimum" $
+        forAll genTxOutWithReferenceScript $ \o ->
+          forAll genDatum $ \d ->
+            forAll arbitrary $ \i ->
+              let TxOut addr _ _ refScript = o
+                  -- Floor for an ada-only output at the same address: any
+                  -- output carrying a datum and a reference script on top needs
+                  -- strictly more, so paying only the floor must be rejected.
+                  bare = TxOut addr mempty TxOutDatumNone ReferenceScriptNone
+                  floorValue = calculateMinimumUTxO shelleyBasedEra pparams (fromCtxUTxOTxOut bare)
+                  decorated = TxOut addr (lovelaceToValue floorValue) d refScript
+               in case rejectLowDeposits pparams (UTxO.singleton i decorated) of
+                    Left DepositTooLow{providedValue, minimumValue} ->
+                      property (providedValue < minimumValue)
+                        & counterexample ("provided " <> show providedValue <> " minimum " <> show minimumValue)
+                    other ->
+                      property False
+                        & counterexample ("expected DepositTooLow, got " <> show other)
 
       -- A deposit is fine exactly when each of its outputs is fine on its own.
       -- Check the whole-UTxO verdict against checking every output individually:

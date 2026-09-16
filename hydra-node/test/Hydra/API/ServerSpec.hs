@@ -19,17 +19,18 @@ import Control.Lens ((^?))
 import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _Number)
+import Data.Aeson.Lens (key, _Number, _String)
 import Data.EventSource (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.ClientInput (ClientInput (Init))
-import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), InvalidInput (..), ServerOutputConfig (..), WithAddressedTx (..), WithUTxO (..), input)
+import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, projectCommitInfo, projectNetworkInfo, sendMessage, withAPIServer)
+import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), ClientMessage (..), CommitInfo (..), InvalidInput (..), NetworkInfo (..), ServerOutputConfig (..), TimedServerOutput, WithAddressedTx (..), WithUTxO (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.API.WSServer (mkServerOutputConfig, queryParamsOf, shouldServeHistory)
 import Hydra.Chain (
@@ -41,8 +42,9 @@ import Hydra.Chain (
  )
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogicSpec (inIdleState, inOpenState, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Network (PortNumber)
+import Hydra.Network (Host (..), PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Options (defaultRunOptions)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -62,6 +64,7 @@ import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
@@ -434,6 +437,60 @@ spec =
                       echoed `shouldBe` encodeBase16 garbage
                     Right other -> failure $ "Expected ApiInvalidInput, but got: " <> show other
 
+    -- The filter's own semantics live in 'Hydra.API.ServerOutputFilterSpec'.
+    -- What matters here is the wiring that spec cannot reach: the address from
+    -- the query string arriving at the filter, both output paths consulting
+    -- it, and client messages bypassing it.
+    describe "address filtering" $ do
+      it "consults the filter with the address from the query string" $
+        showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
+          event <- generate genStateEventForApi
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServerWithFilter sock port alice (mockSource []) (onlyAddress "addr_test1vp") tracer $ \(EventSink{putEvent}, _) ->
+              withClient port "/?address=addr_test1vp" $ \matching ->
+                withClient port "/?address=addr_test1vq" $ \other -> do
+                  waitMatch 5 matching $ guard . matchGreetings
+                  waitMatch 5 other $ guard . matchGreetings
+                  putEvent event
+                  waitMatch 5 matching $ guard . (== toJSON (timedOutputOf event))
+                  receivesNothing other
+
+      it "drops rejected outputs from the live stream" $
+        showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
+          event <- generate genStateEventForApi
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServerWithFilter sock port alice (mockSource []) rejectEverything tracer $ \(EventSink{putEvent}, _) ->
+              withClient port "/?address=addr_test1vp" $ \con -> do
+                -- Greetings are sent before the filter applies, so they still arrive.
+                waitMatch 5 con $ guard . matchGreetings
+                putEvent event
+                receivesNothing con
+
+      -- Replayed history goes through 'forwardHistory', a separate call site
+      -- from the live stream, so it needs its own assertion.
+      it "drops rejected outputs from replayed history" $
+        showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
+          event <- generate genStateEventForApi
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServerWithFilter sock port alice (mockSource [event]) rejectEverything tracer $ \_ ->
+              withClient port "/?history=yes&address=addr_test1vp" $ \con -> do
+                waitMatch 5 con $ guard . matchGreetings
+                receivesNothing con
+
+      -- A 'ClientMessage' carries no transaction to match an address against,
+      -- so a filtered client must still receive it; otherwise an error or a
+      -- rejected command would silently never reach it.
+      it "never filters client messages" $
+        showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
+          let message :: ClientMessage SimpleTx
+              message = RejectedInputBecauseUnsynced{clientInput = Init, drift = 1}
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServerWithFilter sock port alice (mockSource []) rejectEverything tracer $ \(_, server) ->
+              withClient port "/?address=addr_test1vp" $ \con -> do
+                waitMatch 5 con $ guard . matchGreetings
+                sendMessage server message
+                waitMatch 5 con $ guard . (== toJSON message)
+
     describe "connection query string" $ do
       let configFor = mkServerOutputConfig . queryParamsOf
           addressIn = addressInTx . configFor
@@ -494,6 +551,191 @@ spec =
               WSS.connect allowAnyParams "127.0.0.1" (show port) "/" [] $ \(conn, _) -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
+    -- 'mkTimedServerOutputFromStateEvent' decides which internal state changes
+    -- reach clients and as what. Every other test of the output pipeline
+    -- computes its expectation by calling that same function, so it cannot
+    -- catch a mapping that sends the wrong output or silently stops surfacing
+    -- one. Hence a table naming each translation, checked against the
+    -- constructors that actually exist.
+    describe "state change to client output" $ do
+      it "classifies exactly the state changes that exist" $ do
+        actual <- stateChangeConstructors
+        sort (fst <$> surfacedOutputs) `shouldBe` sort actual
+
+      it "translates each state change to its expected output" $ do
+        samples <- sampleStateChanges
+        forM_ samples $ \(name, stateChanged) -> do
+          expected <-
+            maybe (failure $ "state change " <> name <> " is not in surfacedOutputs") pure $
+              List.lookup name surfacedOutputs
+          event <- generate $ genStateEvent stateChanged
+          let actual = outputTagOf <$> mkTimedServerOutputFromStateEvent (Just aSeenSnapshot) event
+          unless (actual == expected) . failure $
+            name <> ": expected " <> show expected <> " but got " <> show actual
+
+      -- Why the seen-snapshot argument exists: on the normal signing path a
+      -- 'SnapshotConfirmed' carries no snapshot of its own, so with none seen
+      -- there is nothing to send and the client hears nothing at all.
+      it "cannot surface a confirmed snapshot it has never seen" $ do
+        event <-
+          generate . genStateEvent $
+            Outcome.SnapshotConfirmed{headId = testHeadId, snapshot = Nothing, signatures = mempty}
+        mkTimedServerOutputFromStateEvent Nothing event `shouldSatisfy` isNothing
+        outputTagOf
+          <$> mkTimedServerOutputFromStateEvent (Just aSeenSnapshot) event
+            `shouldBe` Just "SnapshotConfirmed"
+
+    -- Read models served by the HTTP API. A wrong arm in either fails
+    -- silently: deposits stop being draftable, or 'Greetings' reports the
+    -- wrong connectivity.
+    describe "projectCommitInfo" $ do
+      it "allows committing once the head is open" $
+        projectCommitInfo CannotCommit anOpenedHead `shouldBe` IncrementalCommit testHeadId
+
+      it "stops allowing commits once the head is closed" $
+        projectCommitInfo (IncrementalCommit testHeadId) aClosedHead `shouldBe` CannotCommit
+
+      -- A rotated event log replays as a single 'Checkpoint', so the head id
+      -- has to be recoverable from it rather than only from 'HeadOpened'.
+      it "recovers the head id from a checkpoint of an open head" $
+        projectCommitInfo CannotCommit (Outcome.Checkpoint $ inOpenState [alice])
+          `shouldSatisfy` \case
+            IncrementalCommit _ -> True
+            CannotCommit -> False
+
+      it "does not allow commits from a checkpoint of a head that is not open" $
+        projectCommitInfo (IncrementalCommit testHeadId) (Outcome.Checkpoint inIdleState)
+          `shouldBe` CannotCommit
+
+      it "leaves the decision untouched for every unrelated state change" $ do
+        others <- stateChangesOtherThan ["Checkpoint", "HeadOpened", "HeadClosed"]
+        forM_ others $ \(name, stateChanged) ->
+          unless (projectCommitInfo (IncrementalCommit testHeadId) stateChanged == IncrementalCommit testHeadId) . failure $
+            name <> " changed the commit info"
+
+    describe "projectNetworkInfo" $ do
+      it "records the network as connected and disconnected" $ do
+        networkConnected (projectNetworkInfo disconnected Outcome.NetworkConnected) `shouldBe` True
+        networkConnected (projectNetworkInfo connected Outcome.NetworkDisconnected) `shouldBe` False
+
+      -- Peers are only known through the network, so a disconnect has to clear
+      -- them rather than leave stale ones behind.
+      it "forgets all peers when the network disconnects" $
+        peersInfo (projectNetworkInfo connectedTo Outcome.NetworkDisconnected) `shouldBe` mempty
+
+      it "tracks each peer separately" $ do
+        let afterBoth =
+              projectNetworkInfo connected Outcome.PeerConnected{peer = peerA}
+                & flip projectNetworkInfo Outcome.PeerConnected{peer = peerB}
+                & flip projectNetworkInfo Outcome.PeerDisconnected{peer = peerB}
+        peersInfo afterBoth `shouldBe` Map.fromList [(peerA, True), (peerB, False)]
+
+      it "leaves the info untouched for every unrelated state change" $ do
+        others <-
+          stateChangesOtherThan
+            ["NetworkConnected", "NetworkDisconnected", "PeerConnected", "PeerDisconnected"]
+        forM_ others $ \(name, stateChanged) ->
+          unless (projectNetworkInfo connectedTo stateChanged == connectedTo) . failure $
+            name <> " changed the network info"
+
+-- * State change translation fixtures
+
+-- | Which client output each 'StateChanged' is surfaced as, by constructor
+-- name; 'Nothing' for the ones deliberately kept internal. Adding a state
+-- change without classifying it here fails
+-- "classifies exactly the state changes that exist".
+surfacedOutputs :: [(String, Maybe Text)]
+surfacedOutputs =
+  [ ("HeadOpened", Just "HeadIsOpen")
+  , ("HeadClosed", Just "HeadIsClosed")
+  , ("HeadContested", Just "HeadIsContested")
+  , ("HeadIsReadyToFanout", Just "ReadyToFanout")
+  , ("HeadFannedOut", Just "HeadIsFinalized")
+  , ("HeadPartialFannedOut", Just "HeadPartiallyFannedOut")
+  , ("HeadFanoutInitiated", Nothing)
+  , ("HeadPartialFanoutSelected", Nothing)
+  , ("HeadFanoutReverted", Nothing)
+  , ("TransactionAppliedToLocalUTxO", Just "TxValid")
+  , ("TxInvalid", Just "TxInvalid")
+  , ("SnapshotConfirmed", Just "SnapshotConfirmed")
+  , ("IgnoredHeadInitializing", Just "IgnoredHeadInitializing")
+  , ("DecommitRecorded", Just "DecommitRequested")
+  , ("DecommitInvalid", Just "DecommitInvalid")
+  , ("DecommitApproved", Just "DecommitApproved")
+  , ("DecommitFinalized", Just "DecommitFinalized")
+  , ("DepositRecorded", Just "CommitRecorded")
+  , ("DepositActivated", Just "DepositActivated")
+  , ("DepositExpired", Just "DepositExpired")
+  , ("DepositRecovered", Just "CommitRecovered")
+  , ("CommitApproved", Just "CommitApproved")
+  , ("CommitFinalized", Just "CommitFinalized")
+  , ("NetworkConnected", Just "NetworkConnected")
+  , ("NetworkDisconnected", Just "NetworkDisconnected")
+  , ("NetworkVersionMismatch", Just "NetworkVersionMismatch")
+  , ("NetworkClusterIDMismatch", Just "NetworkClusterIDMismatch")
+  , ("PeerConnected", Just "PeerConnected")
+  , ("PeerDisconnected", Just "PeerDisconnected")
+  , ("TransactionReceived", Nothing)
+  , ("SnapshotRequested", Nothing)
+  , ("SnapshotRequestDecided", Nothing)
+  , ("PartySignedSnapshot", Nothing)
+  , ("ChainRolledBack", Nothing)
+  , ("TickObserved", Nothing)
+  , ("LocalStateCleared", Just "SnapshotSideLoaded")
+  , ("Checkpoint", Just "EventLogRotated")
+  , ("NodeUnsynced", Just "NodeUnsynced")
+  , ("NodeSynced", Just "NodeSynced")
+  ]
+
+-- | One sample value per 'StateChanged' constructor, paired with its name.
+sampleStateChanges :: IO [(String, Outcome.StateChanged SimpleTx)]
+sampleStateChanges = do
+  ADTArbitrary{adtCAPs} <- generate $ toADTArbitrary (Proxy @(Outcome.StateChanged SimpleTx))
+  pure [(capConstructor, capArbitrary) | ConstructorArbitraryPair{capConstructor, capArbitrary} <- adtCAPs]
+
+stateChangeConstructors :: IO [String]
+stateChangeConstructors = fmap fst <$> sampleStateChanges
+
+-- | Samples for every constructor except the named ones.
+stateChangesOtherThan :: [String] -> IO [(String, Outcome.StateChanged SimpleTx)]
+stateChangesOtherThan handled =
+  filter ((`notElem` handled) . fst) <$> sampleStateChanges
+
+outputTagOf :: TimedServerOutput SimpleTx -> Text
+outputTagOf output =
+  fromMaybe "<untagged>" $ toJSON output ^? key "tag" . _String
+
+aSeenSnapshot :: Snapshot SimpleTx
+aSeenSnapshot = testSnapshot 1 0 [] mempty
+
+anOpenedHead :: Outcome.StateChanged SimpleTx
+anOpenedHead =
+  Outcome.HeadOpened
+    { parameters = generateWith arbitrary 42
+    , chainState = 0
+    , headId = testHeadId
+    , headSeed = generateWith arbitrary 42
+    , parties = [alice]
+    }
+
+aClosedHead :: Outcome.StateChanged SimpleTx
+aClosedHead =
+  Outcome.HeadClosed
+    { headId = testHeadId
+    , snapshotNumber = 1
+    , chainState = 0
+    , contestationDeadline = generateWith arbitrary 42
+    }
+
+peerA, peerB :: Host
+peerA = Host "10.0.0.1" 5001
+peerB = Host "10.0.0.2" 5002
+
+connected, disconnected, connectedTo :: NetworkInfo
+connected = NetworkInfo{networkConnected = True, peersInfo = mempty}
+disconnected = NetworkInfo{networkConnected = False, peersInfo = mempty}
+connectedTo = connected{peersInfo = Map.fromList [(peerA, True)]}
+
 sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
 sendsAnErrorWhenInputCannotBeDecoded sock port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -546,6 +788,38 @@ allowEverythingServerOutputFilter =
     { txContainsAddr = \_ _ -> True
     }
 
+-- | Rejects every output, so anything a client still receives reached it
+-- without passing the filter.
+rejectEverything :: ServerOutputFilter tx
+rejectEverything =
+  ServerOutputFilter
+    { txContainsAddr = \_ _ -> False
+    }
+
+-- | Accepts outputs only for one address, so which address the server asked
+-- about is observable from which client receives the output.
+onlyAddress :: Text -> ServerOutputFilter tx
+onlyAddress wanted =
+  ServerOutputFilter
+    { txContainsAddr = \_ addr -> addr == wanted
+    }
+
+-- | The 'TimedServerOutput' a client is expected to receive for an event.
+timedOutputOf :: StateEvent SimpleTx -> TimedServerOutput SimpleTx
+timedOutputOf event =
+  fromMaybe (error "event does not map to a server output") $
+    mkTimedServerOutputFromStateEvent Nothing event
+
+-- | Assert that nothing more arrives on a connection. Used where the
+-- expectation is an absence, so it has to wait out a full second rather than
+-- return on a match.
+receivesNothing :: HasCallStack => Connection -> Expectation
+receivesNothing con =
+  timeout 1 (receiveData con) >>= \case
+    Nothing -> pure ()
+    Just (msg :: LByteString) ->
+      failure $ "expected no further message, but received: " <> show msg
+
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
@@ -595,7 +869,33 @@ withTestAPIServerWithCallback ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServerWithCallback listenSocket port actor eventSource tracer =
-  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter
+  withTestAPIServer' listenSocket port actor eventSource allowEverythingServerOutputFilter tracer
+
+-- | Like 'withTestAPIServer', but with an explicit 'ServerOutputFilter'.
+withTestAPIServerWithFilter ::
+  Socket ->
+  PortNumber ->
+  Party ->
+  EventSource (StateEvent SimpleTx) IO ->
+  ServerOutputFilter SimpleTx ->
+  Tracer IO APIServerLog ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
+  IO ()
+withTestAPIServerWithFilter sock port actor eventSource outputFilter tracer =
+  withTestAPIServer' (Just sock) port actor eventSource outputFilter tracer noop
+
+withTestAPIServer' ::
+  Maybe Socket ->
+  PortNumber ->
+  Party ->
+  EventSource (StateEvent SimpleTx) IO ->
+  ServerOutputFilter SimpleTx ->
+  Tracer IO APIServerLog ->
+  (ClientInput SimpleTx -> IO ()) ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
+  IO ()
+withTestAPIServer' listenSocket port actor eventSource outputFilter tracer =
+  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams outputFilter
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000, listenSocket}
 
