@@ -29,7 +29,7 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.ClientInput (ClientInput (Init))
-import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, projectCommitInfo, projectNetworkInfo, projectPendingDeposits, sendMessage, withAPIServer)
+import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, projectCommitInfo, projectNetworkInfo, sendMessage, withAPIServer)
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), ClientMessage (..), CommitInfo (..), InvalidInput (..), NetworkInfo (..), ServerOutput (..), ServerOutputConfig (..), TimedServerOutput (..), WithAddressedTx (..), WithUTxO (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.API.WSServer (mkServerOutputConfig, queryParamsOf, shouldServeHistory)
@@ -47,11 +47,10 @@ import Hydra.HeadLogicSpec (inIdleState, inOpenState, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Network (Host (..), PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
-import Hydra.Node.State (Deposit, NodeState (..))
 import Hydra.Options (defaultRunOptions)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (TxIdType, txId, utxoFromTx)
+import Hydra.Tx.IsTx (txId, utxoFromTx)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
@@ -674,32 +673,6 @@ spec =
             unless (projectCommitInfo priorValue stateChanged == priorValue) . failure $
               name <> " changed the commit info from " <> show priorValue
 
-    -- Served verbatim by GET /commits, whose own test stubs this out.
-    describe "projectPendingDeposits" $ do
-      it "records a newly observed deposit" $
-        projectPendingDeposits [] (depositRecorded 1) `shouldBe` [1]
-
-      it "forgets a deposit once it is recovered" $
-        projectPendingDeposits [1, 2] (depositRecovered 1) `shouldBe` [2]
-
-      it "forgets a deposit once its commit is finalized" $
-        projectPendingDeposits [1, 2] (commitFinalized 1) `shouldBe` [2]
-
-      -- A rotated event log replays as one 'Checkpoint', so the whole list has
-      -- to come back from it rather than being rebuilt from the deposit events.
-      it "takes the whole list from a checkpoint" $ do
-        let checkpointed = inIdleState{pendingDeposits = Map.fromList [(7, aDeposit), (9, aDeposit)]}
-        projectPendingDeposits [1] (Outcome.Checkpoint checkpointed) `shouldBe` [7, 9]
-
-      it "leaves the list untouched for every unrelated state change" $ do
-        others <-
-          stateChangesOtherThan
-            ["Checkpoint", "DepositRecorded", "DepositRecovered", "CommitFinalized"]
-        forM_ others $ \(name, stateChanged) ->
-          forM_ [[], [1, 2]] $ \priorValue ->
-            unless (projectPendingDeposits priorValue stateChanged == priorValue) . failure $
-              name <> " changed the pending deposits from " <> show priorValue
-
     describe "projectNetworkInfo" $ do
       it "records the network as connected and disconnected" $ do
         networkConnected (projectNetworkInfo disconnected Outcome.NetworkConnected) `shouldBe` True
@@ -814,27 +787,6 @@ aClosedHead =
     , chainState = 0
     , contestationDeadline = generateWith arbitrary 42
     }
-
-depositRecorded, depositRecovered, commitFinalized :: TxIdType SimpleTx -> Outcome.StateChanged SimpleTx
-depositRecorded depositTxId =
-  Outcome.DepositRecorded
-    { chainState = 0
-    , headId = testHeadId
-    , depositTxId
-    , deposited = mempty
-    , created = arbitraryTime
-    , deadline = arbitraryTime
-    }
-depositRecovered depositTxId =
-  Outcome.DepositRecovered{chainState = 0, headId = testHeadId, depositTxId, recovered = mempty}
-commitFinalized depositTxId =
-  Outcome.CommitFinalized{chainState = 0, headId = testHeadId, newVersion = 1, depositTxId}
-
-arbitraryTime :: UTCTime
-arbitraryTime = generateWith arbitrary 42
-
-aDeposit :: Deposit SimpleTx
-aDeposit = generateWith arbitrary 42
 
 peerA, peerB :: Host
 peerA = Host "10.0.0.1" 5001

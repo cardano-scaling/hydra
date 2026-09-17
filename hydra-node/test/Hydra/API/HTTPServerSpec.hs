@@ -712,7 +712,7 @@ apiServerSpec = do
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeInSync{headState = anyHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = anyHeadState, deposits = mempty, chainPointTime = zeroChainPointTime})
               cantCommit
               (pure pendingTxIds)
               putClientInput
