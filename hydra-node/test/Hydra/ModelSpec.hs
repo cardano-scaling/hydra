@@ -184,8 +184,9 @@ spec = do
   context "partial fanout" $ do
     prop "a manual fanout distributes the selections in turn" $
       propScripted manualPartialFanout
-  -- Properties that find open bugs, pending ('xprop') until those are fixed.
-  -- Re-enable them to check the fix.
+  -- Scripted settlement replays plus the properties that still find open
+  -- bugs. The settlement scenarios pass since the retained settlements map
+  -- (#2741); the rest stay pending ('xprop') until the bugs below are fixed.
   --
   -- The concurrent random walk lets several deposits and decommits settle at
   -- the same time as L2 traffic and divergent forks. It finds:
@@ -200,19 +201,18 @@ spec = do
   --     settlement first parks the request on 'WaitOnSnapshotVersion' until
   --     its TTL drops it, and the leader never re-requests. No later snapshot
   --     confirms.
-  --   * Settlements erased by a fork are not all re-posted.
   --
-  -- The scripted settlement scenarios pin the last point down: only the last
-  -- finalized increment/decrement is retained, the two re-post branches are
-  -- alternatives instead of both, and re-posts are fire-and-forget (a later
-  -- settlement is not posted again once the earlier one re-lands).
+  -- Both walks currently fail with the driver's 'waitUntilMatch' timing out
+  -- on all nodes. The two bugs above are the known causes; which one each
+  -- counterexample hits is not pinned down yet.
   --
-  -- The scripted fanout scenarios show the same gap for a fanout in progress:
-  -- after a fork erases a landed step, the node's fanout bookkeeping is ahead
-  -- of the chain. Automatic mode re-posts the next step instead of the erased
-  -- one, which cannot land, and manual mode posts nothing at all since it
-  -- waits for the client. The head is never fully fanned out.
-  context "pending until the open settlement bugs are fixed" $ do
+  -- The scripted fanout scenarios show the same class of gap for a fanout in
+  -- progress: after a fork erases a landed step, the node's fanout
+  -- bookkeeping is ahead of the chain. Automatic mode re-posts the next step
+  -- instead of the erased one, which cannot land, and manual mode posts
+  -- nothing at all since it waits for the client. The head is never fully
+  -- fanned out.
+  context "settlement and fanout rollback stress" $ do
     xprop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
     xprop "check model balances with concurrent settlements" $
@@ -220,16 +220,17 @@ spec = do
         forAllDL concurrentWalk checkModelBalances
     -- Heavy: run the deep-stress version only on nightly, where it does not
     -- compete with the rest of the suite for CPU (a starved io-sim schedule
-    -- makes the driver's waits time out spuriously, cf. ServerSpec).
+    -- makes the driver's waits time out spuriously, cf. ServerSpec). Pending
+    -- with the walks above: it is the same generator, only deeper.
     around_ onlyNightly $
       xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
-    xprop "two finalized increments are both erased by a fork" $
+    prop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
-    xprop "a finalized increment is erased while the next increment is in flight" $
+    prop "a finalized increment is erased while the next increment is in flight" $
       propScripted finalizedIncrementErasedWithNextInFlight
-    xprop "a finalized increment and decrement are both erased by a fork" $
+    prop "a finalized increment and decrement are both erased by a fork" $
       propScripted finalizedIncrementAndDecrementErased
-    xprop "new settlements requested during a replay settle in order" $
+    prop "new settlements requested during a replay settle in order" $
       propScripted newSettlementsDuringReplay
     xprop "a fork erases a step of an automatic fanout" $
       propScripted autoFanoutStepErased

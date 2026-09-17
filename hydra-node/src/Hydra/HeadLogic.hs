@@ -83,7 +83,7 @@ import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), consumeDeposit, depositRetentionHorizon, depositsForHead, recordDeposit, rollbackDeposits, syncedStatus, updateDeposit)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), consumeDeposit, depositsForHead, recordDeposit, retentionCutoff, rollbackDeposits, syncedStatus, updateDeposit)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Tx (
   HeadId,
@@ -980,6 +980,8 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
 
 determineNextDepositStatus :: forall tx. Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 determineNextDepositStatus env pendingDeposits chainTime =
+  -- NOTE: the annotation (and hence the forall) disambiguates the record
+  -- update: 'status' is also a field of 'Settlement'.
   (\deposit -> (deposit :: Deposit tx){status = determineStatus deposit}) <$> pendingDeposits
  where
   determineStatus Deposit{created, deadline}
@@ -1146,7 +1148,7 @@ onOpenChainIncrementTx ::
 onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion depositTxId =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
     <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
-    <> continueReplay pendingDeposits openState newChainState newVersion
+    <> repostAfterRelanding pendingDeposits openState newChainState newVersion
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1186,7 +1188,7 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , distributedUTxO
       }
     <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot (setExistingDeposit pendingDeposits currentDepositTxId)
-    <> continueReplay pendingDeposits openState newChainState newVersion
+    <> repostAfterRelanding pendingDeposits openState newChainState newVersion
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1923,9 +1925,9 @@ emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
 -- rolled-back transaction gone and nothing re-posted. This mirrors the
 -- Increment/Decrement re-post on rollback ('repostNextSettlement'): it uses the
 -- current best-effort bookkeeping and, like those re-posts, assumes the
--- rolled-back transactions re-appear — it does
--- not attempt to reconstruct fanout progress across a divergent rollback (the
--- same limitation the general rollback handling has).
+-- rolled-back transactions re-appear — it does not attempt to reconstruct
+-- fanout progress across a divergent rollback (the same limitation the general
+-- rollback handling has).
 --
 -- Which step that is comes from 'currentFanoutStep', the same derivation the
 -- revert guard uses to tell this step's failure from a superseded one's.
@@ -2099,6 +2101,8 @@ selectNextIncrementalAction pendingDeposits currentDepositTxId mDecommitTx mConf
     Just depositTxId -> (Nothing, Just depositTxId)
     Nothing -> (mDecommitTx, Nothing)
 
+-- ** Settlement retention and re-posting (#2741)
+
 -- | The deposits claimed by retained increments. Such a deposit only resurfaces
 -- in 'pendingDeposits' when a rollback erased its increment, and it is settled
 -- solely by re-posting that increment ('repostNextSettlement'): it must never
@@ -2132,8 +2136,7 @@ openRetainedDeposits = \case
 -- on-chain version to @newVersion@, if it is the locally confirmed one (based
 -- on the version right below, carrying a commit or decommit): only it can
 -- settle again if a rollback erases the settlement, and 'confirmedSnapshot'
--- may advance past it. Its 'confirmed' txs are dropped: they are not signed
--- and no tx builder reads them.
+-- may advance past it. The confirmed txs are blanked, see 'Settlement'.
 --
 -- Nothing is retained when the observation raced local snapshot confirmation
 -- (another party collected the last AckSn and posted first): retention then
@@ -2156,6 +2159,14 @@ retainSettlement slot newVersion confirmedSnapshot settlements =
             settlements
     _ -> settlements
 
+-- | Record the settlement observed bumping the on-chain version to
+-- @newVersion@ at @slot@: retain the confirmed snapshot if it is the one that
+-- settled (see 'retainSettlement'), and (re-)stamp the retained entry as
+-- landed (see 'landSettlement').
+recordSettlement :: ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Settlements tx -> Settlements tx
+recordSettlement slot newVersion confirmedSnapshot =
+  landSettlement slot newVersion . retainSettlement slot newVersion confirmedSnapshot
+
 -- | Record that the retained settlement bumping the on-chain version to
 -- @newVersion@ (re-)landed at the given slot, so a rollback erasing it again
 -- still triggers a re-post.
@@ -2173,16 +2184,16 @@ markErased rolledBackSlot = Map.map $ \case
     | rolledBackSlot < observedAtSlot -> Settlement{snapshot, status = Erased}
   s -> s
 
--- | Drop the retained settlements no rollback can reach anymore, sized like
--- 'depositRetentionHorizon'. Erased settlements are due for re-posting and
--- never dropped.
+-- | Drop the retained settlements no rollback can reach anymore, see
+-- 'retentionCutoff'. This is what bounds the map: without it, an open head
+-- would retain one snapshot per settlement forever.
+--
+-- Erased settlements are never dropped: they are due for re-posting, and the
+-- lowest one gates every later re-post ('nextErasedSettlement').
 pruneSettlements :: ChainSlot -> Settlements tx -> Settlements tx
-pruneSettlements (ChainSlot slot) = Map.filter $ \Settlement{status} -> case status of
-  Landed{observedAtSlot} -> observedAtSlot > cutoff
+pruneSettlements slot = Map.filter $ \Settlement{status} -> case status of
+  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff slot
   Erased -> True
- where
-  cutoff = case depositRetentionHorizon of
-    ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
 
 -- | Update the retained settlements of an open head; any other head state is
 -- left alone.
@@ -2194,6 +2205,10 @@ onSettlements f = \case
 -- | The erased settlement with the lowest version, which is the one the chain
 -- can accept next: a rollback regressed the on-chain version to its base
 -- version, and each settlement bumps the version by one.
+--
+-- An entry is only ever marked erased by 'markErased', from an exact
+-- observation slot, so an erased entry always denotes a settlement that must
+-- re-land; the lowest one gates all later re-posts.
 nextErasedSettlement :: Settlements tx -> Maybe (Settlement tx)
 nextErasedSettlement = find (\Settlement{status} -> status == Erased) . Map.elems
 
@@ -2212,7 +2227,7 @@ postSettlement headSeed headId headParameters snapshot =
 --
 -- Erased settlements are re-posted one at a time in version order: the chain
 -- only accepts the lowest one, and the next is posted when it is observed
--- re-landing ('continueReplay'). Posting them all at once would fail every one
+-- re-landing ('repostAfterRelanding'). Posting them all at once would fail every one
 -- but the first. Only when no retained settlement is erased is the in-flight
 -- settlement of the confirmed snapshot re-posted: its increment or decrement
 -- may have been in a rolled back block. See #2741.
@@ -2251,14 +2266,14 @@ repostNextSettlement OpenState{headSeed, headId, parameters, coordinatedHeadStat
 -- 'newVersion' is not ahead of the local 'version', which never rolls back, so
 -- this finalization was applied before and then erased by a rollback), post
 -- the next settlement due, see 'repostNextSettlement'.
-continueReplay ::
+repostAfterRelanding ::
   IsChainState tx =>
   PendingDeposits tx ->
   OpenState tx ->
   ChainStateType tx ->
   SnapshotVersion ->
   Outcome tx
-continueReplay pendingDeposits openState newChainState newVersion
+repostAfterRelanding pendingDeposits openState newChainState newVersion
   | newVersion <= version =
       repostNextSettlement openState pendingDeposits (landSettlement (chainStateSlot newChainState) newVersion settlements)
   | otherwise = noop
@@ -2697,7 +2712,7 @@ aggregateNodeState nodeState sc =
                                 , coordinatedHeadState =
                                     chs
                                       { currentDepositTxId = mfilter (/= depositTxId) chs.currentDepositTxId
-                                      , settlements = landSettlement (chainStateSlot chainState) newVersion $ retainSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+                                      , settlements = recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
                                       }
                                 }
                         }
@@ -2722,7 +2737,7 @@ aggregateNodeState nodeState sc =
                                         seenSnapshot = case seenSnapshot of
                                           SeenSnapshot{} -> seenSnapshot
                                           _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
-                                      , settlements = landSettlement (chainStateSlot chainState) newVersion $ retainSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+                                      , settlements = recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
                                       }
                                 }
                         }
@@ -3058,7 +3073,7 @@ applyEvent st = \case
               os
                 { chainState
                 , coordinatedHeadState =
-                    chs{settlements = landSettlement (chainStateSlot chainState) newVersion $ retainSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements}
+                    chs{settlements = recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements}
                 }
         | otherwise ->
             Open
@@ -3080,7 +3095,7 @@ applyEvent st = \case
                         -- erases the just observed decrement, 'confirmedSnapshot'
                         -- may have advanced past it and this is the only snapshot
                         -- that can settle the decommit on-chain.
-                        settlements = landSettlement (chainStateSlot chainState) newVersion $ retainSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+                        settlements = recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
                       }
                 }
       _otherState -> st

@@ -200,7 +200,7 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
    where
     decode :: Bool -> Decoder s (CoordinatedHeadState tx)
-    decode hasFinalized = do
+    decode hasSettlements = do
       localUTxO <- fromCBOR
       localTxs <- fromCBOR
       allTxs <- fromCBOR
@@ -209,11 +209,62 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
       currentDepositTxId <- fromCBOR
       decommitTx <- fromCBOR
       version <- fromCBOR
-      -- A state from before these fields existed retains no finalized
-      -- commit/decommit: rollback re-posting is unavailable for increments and
-      -- decrements finalized before the upgrade, like it was at the time.
-      settlements <- if hasFinalized then fromCBOR else pure mempty
+      -- A state from before this field existed retains no settlements:
+      -- rollback re-posting is unavailable for increments and decrements
+      -- finalized before the upgrade, like it was at the time.
+      settlements <- if hasSettlements then fromCBOR else pure mempty
       pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements}
+
+-- *** Settlements
+
+-- | Whether a retained settlement is on the chain the node currently follows.
+-- Marked at rollback time, see 'ChainRolledBack'.
+data SettlementStatus
+  = Landed {observedAtSlot :: ChainSlot}
+  | Erased
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR SettlementStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SettlementStatus where
+  fromCBOR = genericFromCBOR
+
+-- | Retained settlements, keyed by the snapshot version they were based on.
+-- The settlement with key @v@ bumped the on-chain version to @v + 1@, so keys
+-- are consecutive and key order is the order the settlements must land in.
+--
+-- One entry is retained per increment or decrement that settles, and entries
+-- are dropped once no rollback can reach them anymore, so the map holds as
+-- many snapshots as the head settles within the retention horizon (see
+-- 'Hydra.Node.State.depositRetentionHorizon'). Each entry keeps a whole
+-- snapshot UTxO, so a head settling frequently pays for that in memory and in
+-- every persisted checkpoint; slimming the retained payload is left to a
+-- follow-up.
+type Settlements tx = Map.Map SnapshotVersion (Settlement tx)
+
+-- | A signed snapshot whose increment or decrement settled on chain, kept so
+-- it can be re-posted if a rollback erases that settlement. The snapshot's
+-- 'confirmed' txs are blanked on retention: they are not signed and no tx
+-- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
+-- it on decode.
+data Settlement tx = Settlement
+  { snapshot :: ConfirmedSnapshot tx
+  , status :: SettlementStatus
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (Settlement tx)
+deriving stock instance IsTx tx => Show (Settlement tx)
+deriving anyclass instance IsTx tx => ToJSON (Settlement tx)
+deriving anyclass instance IsTx tx => FromJSON (Settlement tx)
+
+instance IsTx tx => ToCBOR (Settlement tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (Settlement tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -435,45 +486,4 @@ instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
   toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR = genericFromCBOR
-
--- | Whether a retained settlement is on the chain the node currently follows.
--- Marked at rollback time, see 'ChainRolledBack'.
-data SettlementStatus
-  = Landed {observedAtSlot :: ChainSlot}
-  | Erased
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR SettlementStatus where
-  toCBOR = genericToCBOR
-
-instance FromCBOR SettlementStatus where
-  fromCBOR = genericFromCBOR
-
--- | Retained settlements, keyed by the snapshot version they were based on.
--- The settlement with key @v@ bumped the on-chain version to @v + 1@, so keys
--- are consecutive and key order is the order the settlements must land in.
-type Settlements tx = Map.Map SnapshotVersion (Settlement tx)
-
--- | A signed snapshot whose increment or decrement settled on chain, kept so
--- it can be re-posted if a rollback erases that settlement. The snapshot's
--- 'confirmed' txs are blanked on retention: they are not signed and no tx
--- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
--- it on decode.
-data Settlement tx = Settlement
-  { snapshot :: ConfirmedSnapshot tx
-  , status :: SettlementStatus
-  }
-  deriving stock (Generic)
-
-deriving stock instance IsTx tx => Eq (Settlement tx)
-deriving stock instance IsTx tx => Show (Settlement tx)
-deriving anyclass instance IsTx tx => ToJSON (Settlement tx)
-deriving anyclass instance IsTx tx => FromJSON (Settlement tx)
-
-instance IsTx tx => ToCBOR (Settlement tx) where
-  toCBOR = genericToCBOR
-
-instance IsTx tx => FromCBOR (Settlement tx) where
   fromCBOR = genericFromCBOR
