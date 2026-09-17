@@ -38,7 +38,32 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, selectNextIncrementalAction, setExistingDeposit, update)
+import Hydra.HeadLogic (
+  ClosedState (..),
+  CoordinatedHeadState (..),
+  Effect (..),
+  FanoutMode (..),
+  HeadState (..),
+  Input (..),
+  LogicError (..),
+  OpenState (..),
+  Outcome (..),
+  PartialFanoutState (..),
+  RequirementFailure (..),
+  SideLoadRequirementFailure (..),
+  StateChanged (..),
+  TTL,
+  WaitReason (..),
+  aggregateState,
+  cause,
+  maxTxsPerSnapshot,
+  newState,
+  noop,
+  retainSettlement,
+  selectNextIncrementalAction,
+  setExistingDeposit,
+  update,
+ )
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementStatus (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -2756,6 +2781,133 @@ spec =
             case update soloAliceEnv ledger now s1 (ClientInput (Recover dep)) of
               Error (RequireFailed RecoverBlockedByFinalizedCommit{depositTxId = blocked}) -> blocked `shouldBe` dep
               other -> expectationFailure $ "Expected RecoverBlockedByFinalizedCommit, got: " <> show other
+
+        it "retaining a later snapshot does not clobber the settlement that landed" $ do
+          -- 'applyEvent SnapshotConfirmed' calls 'retainSettlement' with the
+          -- LOCAL version, so a snapshot confirmed one version behind the chain
+          -- (the race where another party's settlement was observed before our
+          -- own AckSn completed) satisfies 'version + 1 == newVersion' and used
+          -- to replace the entry for that version wholesale. That swaps in a
+          -- snapshot whose settlement was never observed, re-stamps
+          -- 'observedAtSlot', and downgrades 'Erased' back to 'Landed'. From
+          -- there 'nextErasedSettlement' finds nothing, 'repostNextSettlement'
+          -- short-circuits on the retained key, and the erased increment is
+          -- never re-posted: the local version stays above the chain's for
+          -- good, which a close cannot express.
+          let landed = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+              -- A later snapshot at the same version, re-carrying the same commit.
+              later =
+                ConfirmedSnapshot
+                  { snapshot =
+                      withAccumulators
+                        (testSnapshot 2 0 [] mempty)
+                          { utxoToCommit = Just depositedUTxO
+                          , depositTxId = Just depositTxId'
+                          }
+                  , signatures = Crypto.aggregate []
+                  }
+              erased = Map.singleton 0 Settlement{snapshot = landed, status = Erased}
+          retainSettlement (ChainSlot 9) 1 later erased `shouldBe` erased
+          -- A first retention is unaffected.
+          Map.keys (retainSettlement (ChainSlot 9) 1 later mempty) `shouldBe` [0]
+
+        it "re-carries a locally expired deposit the confirmed snapshot still claims" $ do
+          -- The node's expiry margin sits a whole 'depositPeriod' ahead of the
+          -- on-chain deadline, so a deposit bound into the confirmed snapshot
+          -- can be 'Expired' locally while its increment can still land.
+          -- 'existingDeposit' dropped it and the fallback arm is blocked by the
+          -- confirmed commit, so the leader requested a snapshot that silently
+          -- DROPPED its own pending commit. Every party signs that, and the
+          -- deposited outputs end up in neither accumulator: confiscated.
+          --
+          -- 'currentDepositTxId' is deliberately left empty, so the only thing
+          -- that can put the deposit into the ReqSn is the confirmed snapshot's
+          -- own claim, not the queued-deposit preference.
+          now <- getCurrentTime
+          let expiredDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Expired
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , version = 0
+                      , currentDepositTxId = Nothing
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqTx (aValidTx 7))
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositTxId'
+              _ -> False
+
+        it "signs a ReqSn re-carrying a locally expired deposit the confirmed snapshot claims" $ do
+          -- Receiver half of the case above. Every party's copy of the deposit
+          -- expires together, so refusing the re-carried claim with
+          -- 'RequestedDepositExpired' would leave a round that nobody signs,
+          -- the leader included when it processes its own ReqSn.
+          now <- getCurrentTime
+          let expiredDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Expired
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version = 0
+                      , currentDepositTxId = Just depositTxId'
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+            `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
+              _ -> False
+
+        it "holds a decommit back while the confirmed snapshot's commit is unsettled and its deposit expired locally" $ do
+          -- 'existingDeposit' ignores an 'Expired' deposit, so the decommit used
+          -- to be recorded and the leader then proposed a snapshot carrying it
+          -- and dropping the unsettled commit: the deposited outputs count as
+          -- neither applied nor pending in that snapshot. Only the confirmed
+          -- snapshot's own claim holds a decommit back this way; an expired
+          -- deposit that was merely queued still does not (see the ReqDec tests).
+          now <- getCurrentTime
+          let expiredDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Expired
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , version = 0
+                      , currentDepositTxId = Just depositTxId'
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage ReqDec{transaction = decommitTx'})
+            `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUTxO}
 
         it "prunes retained settlements no rollback can reach anymore, but never erased ones" $ do
           now <- getCurrentTime

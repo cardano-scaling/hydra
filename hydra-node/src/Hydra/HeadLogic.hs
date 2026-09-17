@@ -267,7 +267,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
                         pendingDeposits
                         currentDepositTxId
                         decommitTx
-                        (getSnapshot confirmedSnapshot).utxoToCommit
+                        (unsettledCommit version (getSnapshot confirmedSnapshot))
                  in ReqSn
                       version
                       nextSn
@@ -464,22 +464,28 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
             | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
             | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
+            -- The confirmed snapshot's own pending commit, re-carried by the
+            -- leader (see 'selectNextDeposit'). Identity, not just content:
+            -- two deposits can record the same UTxO, and only the one bound
+            -- into the confirmed snapshot is the commit being settled. The
+            -- deposit's local status does not apply here: the claim is already
+            -- signed and its increment is in flight, so the node's own expiry
+            -- margin cannot stop it landing (see 'stillClaimable'). Refusing
+            -- it would leave a round that nobody signs, since every party's
+            -- copy expires together.
+            | sv == confVersion
+            , confDepositTxId == Just depositTxId
+            , confUTxOToCommit == Just deposited ->
+                cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
-            | otherwise ->
-                -- NOTE: this makes the commits sequential in a sense that you can't
-                -- commit unless the previous commit is settled.
-                if sv == confVersion && isJust confUTxOToCommit
-                  then
-                    -- NOTE: identity, not just content. Two deposits can record
-                    -- the same UTxO, and only the one bound into the confirmed
-                    -- snapshot is the pending commit being settled.
-                    if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
-                      then cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
-                      else Error $ RequireFailed ReqSnCommitNotSettled
-                  else do
-                    let activeUTxOAfterCommit = activeUTxOAfterDecommit <> deposited
-                    cont (activeUTxOAfterCommit, Just deposited)
+            -- NOTE: this makes the commits sequential in a sense that you can't
+            -- commit unless the previous commit is settled.
+            | sv == confVersion && isJust confUTxOToCommit ->
+                Error $ RequireFailed ReqSnCommitNotSettled
+            | otherwise -> do
+                let activeUTxOAfterCommit = activeUTxOAfterDecommit <> deposited
+                cont (activeUTxOAfterCommit, Just deposited)
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
@@ -696,11 +702,12 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 
   maybeRequestNextSnapshot previous outcome = do
     let nextSn = previous.number + 1
+        unsettled = unsettledCommit version previous
         (nextDecommitTx, nextDeposit) =
-          selectNextIncrementalAction pendingDeposits currentDepositTxId decommitTx previous.utxoToCommit
+          selectNextIncrementalAction pendingDeposits currentDepositTxId decommitTx unsettled
         carriesNewAction =
-          (isJust nextDeposit && nextDeposit /= previous.depositTxId)
-            || (isJust nextDecommitTx && isNothing previous.utxoToDecommit)
+          (isJust nextDeposit && nextDeposit /= fmap snd unsettled)
+            || (isJust nextDecommitTx && isNothing (unsettledDecommit version previous))
     -- A snapshot carrying only a deposit or a decommit is legitimate, which is
     -- exactly what 'onOpenChainTick' requests. Requiring local txs here left a
     -- queued deposit or decommit unrequested on a head with no L2 traffic,
@@ -920,16 +927,14 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
   -- would never resolve. Only a registered, unexpired deposit holds a decommit back.
   waitOnApplicableDecommit cont
     | Just (depositTxId, deposit) <- existingDeposit pendingDeposits currentDepositTxId =
-        let commitUTxO = deposit.deposited
-         in if ttl > 0
-              then wait $ WaitOnUnresolvedCommit{commitUTxO}
-              else
-                newState
-                  DecommitInvalid
-                    { headId
-                    , decommitTx
-                    , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
-                    }
+        holdBackFor depositTxId deposit.deposited
+    -- The confirmed snapshot's own commit is in flight until its increment
+    -- lands, whatever the deposit's local status (see 'stillClaimable').
+    -- Recording a decommit past it would make the leader propose a snapshot
+    -- that drops that commit: the deposited outputs then count as neither
+    -- applied nor pending and are lost at close.
+    | Just (commitUTxO, depositTxId) <- stillClaimable pendingDeposits (unsettledCommit version (getSnapshot confirmedSnapshot)) =
+        holdBackFor depositTxId commitUTxO
     | otherwise =
         case mExistingDecommitTx of
           Nothing ->
@@ -961,6 +966,20 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
                     , decommitInvalidReason =
                         DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
                     }
+
+  -- Wait for the commit in flight while ttl remains; once exhausted reject
+  -- with 'DepositInFlight' (mirroring the branches above) so the client can
+  -- act, e.g. recover the deposit, instead of the request being silently
+  -- dropped.
+  holdBackFor depositTxId commitUTxO
+    | ttl > 0 = wait $ WaitOnUnresolvedCommit{commitUTxO}
+    | otherwise =
+        newState
+          DecommitInvalid
+            { headId
+            , decommitTx
+            , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
+            }
 
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
@@ -1116,7 +1135,13 @@ onOpenChainTick env chainTime pendingDeposits st =
     , currentDepositTxId
     } = coordinatedHeadState
 
-  Snapshot{number = confirmedSn, depositTxId = confirmedDepositTxId} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+
+  -- The deposit the confirmed snapshot still has pending on chain, if any. Read
+  -- through 'unsettledCommit' rather than off the snapshot, so that a confirmed
+  -- snapshot left one version behind the chain does not look like a commit in
+  -- flight forever.
+  confirmedDepositTxId = snd <$> unsettledCommit version (getSnapshot confirmedSnapshot)
 
   OpenState{coordinatedHeadState, parameters} = st
 
@@ -2067,12 +2092,60 @@ nextActiveDepositId deposits =
     [] -> Nothing
     xs -> Just (fst (minimumBy (comparing ((.created) . snd)) xs))
 
+-- | The commit the given confirmed snapshot still has pending on chain: the
+-- deposited outputs and the deposit they came from. 'Nothing' once the local
+-- version has moved past the snapshot's, which means the increment landed and
+-- the commit is applied rather than pending.
+--
+-- Read this instead of the snapshot's 'utxoToCommit' directly. A confirmed
+-- snapshot can sit one version behind the chain (the race where another party's
+-- settlement is observed before our own AckSn completes), and treating its
+-- already applied commit as still in flight blocks every later deposit and
+-- decommit from being requested at all.
+unsettledCommit :: SnapshotVersion -> Snapshot tx -> Maybe (UTxOType tx, TxIdType tx)
+unsettledCommit version Snapshot{version = snapshotVersion, utxoToCommit, depositTxId}
+  -- The complement of the 'version > snapshotVersion' applied test used by
+  -- 'SnapshotRequested' and 'LocalStateCleared'; equal to '==' today, since
+  -- the local version never trails the confirmed snapshot's, but spelled so
+  -- the two cannot drift, and so that if they ever did a claim is re-carried
+  -- once too often rather than dropped.
+  | version <= snapshotVersion = (,) <$> utxoToCommit <*> depositTxId
+  | otherwise = Nothing
+
+-- | The decommit the given confirmed snapshot still has pending on chain, with
+-- the same reasoning as 'unsettledCommit'.
+unsettledDecommit :: SnapshotVersion -> Snapshot tx -> Maybe (UTxOType tx)
+unsettledDecommit version Snapshot{version = snapshotVersion, utxoToDecommit}
+  | version <= snapshotVersion = utxoToDecommit
+  | otherwise = Nothing
+
+-- | Restrict an unsettled commit (see 'unsettledCommit') to one whose deposit
+-- is still tracked, which is what makes it a claim the increment in flight can
+-- still settle. Once the deposit was recovered on L1 its outputs left the head
+-- for good and the claim must be dropped instead.
+--
+-- The deposit's local status is deliberately not consulted: the node's expiry
+-- margin sits a whole 'depositPeriod' ahead of the on-chain deadline, and the
+-- claim is already signed, so an increment can land for a deposit this node
+-- already marked 'Expired'. Every party's copy expires together, so treating
+-- that claim as gone would either drop it from the next snapshot (losing the
+-- deposited outputs at close) or leave a snapshot round that nobody signs.
+stillClaimable :: IsTx tx => PendingDeposits tx -> Maybe (UTxOType tx, TxIdType tx) -> Maybe (UTxOType tx, TxIdType tx)
+stillClaimable pendingDeposits = mfilter (\(_, depositTxId) -> Map.member depositTxId pendingDeposits)
+
 -- | Select the deposit to include in the next snapshot.
 --
--- Prefers a deposit already tracked in 'currentDepositTxId' (if still pending).
--- Falls back to the oldest active deposit from 'pendingDeposits', but only
--- when neither a decommit is pending nor the last confirmed snapshot already
--- included a deposit (to avoid double-posting 'IncrementTx' before
+-- An unsettled commit of the confirmed snapshot is re-carried first, whatever
+-- the deposit's local status, as long as the deposit is still there to be
+-- claimed. Dropping it would confirm a snapshot in which the deposited outputs
+-- count as neither applied nor pending, and they are then lost at close. The
+-- node's expiry margin sits a whole 'depositPeriod' ahead of the on-chain
+-- deadline, so 'Expired' locally does not mean the increment cannot land.
+--
+-- Otherwise prefers a deposit already tracked in 'currentDepositTxId' (if still
+-- pending). Falls back to the oldest active deposit from 'pendingDeposits', but
+-- only when neither a decommit is pending nor the confirmed snapshot has an
+-- unsettled commit (to avoid double-posting 'IncrementTx' before
 -- 'CommitFinalized' removes the deposit).
 selectNextDeposit ::
   IsTx tx =>
@@ -2080,14 +2153,20 @@ selectNextDeposit ::
   Maybe (TxIdType tx) ->
   -- | Pending decommit tx
   Maybe tx ->
-  -- | utxoToCommit of the last relevant confirmed snapshot
-  Maybe (UTxOType tx) ->
+  -- | The confirmed snapshot's unsettled commit, see 'unsettledCommit'
+  Maybe (UTxOType tx, TxIdType tx) ->
   Maybe (TxIdType tx)
-selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit =
-  setExistingDeposit pendingDeposits currentDepositTxId
-    <|> case (mDecommitTx, mConfirmedUtxoToCommit) of
+selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mUnsettledCommit =
+  claimToReCarry
+    <|> setExistingDeposit pendingDeposits currentDepositTxId
+    <|> case (mDecommitTx, mUnsettledCommit) of
       (Nothing, Nothing) -> nextActiveDepositId pendingDeposits
       _ -> Nothing
+ where
+  -- Only while the deposit is still tracked: once it was recovered on L1 its
+  -- outputs left the head for good, so the claim must be dropped rather than
+  -- re-carried, and every receiving party would reject it anyway.
+  claimToReCarry = snd <$> stillClaimable pendingDeposits mUnsettledCommit
 
 -- | Reject a decommit that materializes no output.
 -- 'Hydra.Contract.Head.checkDecrement' requires at least one, so such a decommit
@@ -2131,11 +2210,11 @@ selectNextIncrementalAction ::
   Maybe (TxIdType tx) ->
   -- | Pending decommit tx
   Maybe tx ->
-  -- | utxoToCommit of the last relevant confirmed snapshot
-  Maybe (UTxOType tx) ->
+  -- | The confirmed snapshot's unsettled commit, see 'unsettledCommit'
+  Maybe (UTxOType tx, TxIdType tx) ->
   (Maybe tx, Maybe (TxIdType tx))
-selectNextIncrementalAction pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit =
-  case selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit of
+selectNextIncrementalAction pendingDeposits currentDepositTxId mDecommitTx mUnsettledCommit =
+  case selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mUnsettledCommit of
     Just depositTxId -> (Nothing, Just depositTxId)
     Nothing -> (mDecommitTx, Nothing)
 
@@ -2191,7 +2270,20 @@ retainSettlement slot newVersion confirmedSnapshot settlements =
     ConfirmedSnapshot{snapshot = snapshot@Snapshot{version, utxoToCommit, utxoToDecommit}, signatures}
       | version + 1 == newVersion
       , isJust utxoToCommit || isJust utxoToDecommit ->
-          Map.insert
+          -- Keep an entry already retained for this version. That entry is the
+          -- snapshot whose settlement was actually observed, with its real
+          -- 'observedAtSlot' and its 'Erased' marking. A later snapshot at the
+          -- same version re-carries the same action but is not the one that
+          -- settled, and this function is also called with the local version
+          -- from the 'SnapshotConfirmed' race branch, so replacing the entry
+          -- would re-stamp the slot and undo 'markErased'. From there
+          -- 'nextErasedSettlement' finds nothing, 'repostNextSettlement'
+          -- short-circuits on the retained key, and the erased settlement is
+          -- never re-posted: the local version stays above the chain's for
+          -- good, which a close cannot express. A genuine re-landing is
+          -- re-stamped by 'landSettlement' instead.
+          Map.insertWith
+            (\_new old -> old)
             version
             Settlement{snapshot = ConfirmedSnapshot{snapshot = snapshot{confirmed = []}, signatures}, status = Landed slot}
             settlements
