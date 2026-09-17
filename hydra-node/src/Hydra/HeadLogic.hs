@@ -698,7 +698,20 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     let nextSn = previous.number + 1
         (nextDecommitTx, nextDeposit) =
           selectNextIncrementalAction pendingDeposits currentDepositTxId decommitTx previous.utxoToCommit
-    if isLeader parameters party nextSn && not (null localTxs)
+        carriesNewAction =
+          (isJust nextDeposit && nextDeposit /= previous.depositTxId)
+            || (isJust nextDecommitTx && isNothing previous.utxoToDecommit)
+    -- A snapshot carrying only a deposit or a decommit is legitimate, which is
+    -- exactly what 'onOpenChainTick' requests. Requiring local txs here left a
+    -- queued deposit or decommit unrequested on a head with no L2 traffic,
+    -- until the deposit expired.
+    --
+    -- Only when it carries something the just confirmed snapshot does not
+    -- carry already: the queued deposit or decommit stays queued until its
+    -- increment or decrement lands on chain, so firing on it again would
+    -- request one snapshot per round trip (and re-post the settlement with
+    -- each confirmation) until then.
+    if isLeader parameters party nextSn && (not (null localTxs) || carriesNewAction)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
@@ -1041,11 +1054,16 @@ onOpenChainTick env chainTime pendingDeposits st =
       -- XXX: This is smelly as we rely on Map <> to override entries (left
       -- biased). This is also weird because we want to actually apply the state
       -- change and also to determine the next active.
-      withNextActive (newActive <> newExpired <> pendingDeposits) $ \depositTxId ->
+      withNextActive currentDepositTxId (newActive <> newExpired <> pendingDeposits) $ \depositTxId ->
         -- REVIEW: this is not really a wait, but discard?
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
-          && isNothing currentDepositTxId
+          -- Nothing to request once the confirmed snapshot already claims this
+          -- deposit: it stays queued until its increment lands on chain, and
+          -- from then on it is settled by that increment, not by another
+          -- snapshot. Without this the tick would request one snapshot per
+          -- tick while the increment is in flight.
+          && Just depositTxId /= confirmedDepositTxId
           && not (snapshotInFlight seenSnapshot)
           && isLeader parameters party nextSn
           then
@@ -1058,15 +1076,32 @@ onOpenChainTick env chainTime pendingDeposits st =
           else
             noop
  where
-  -- Pending active deposits are selected in arrival order (FIFO).
-  withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
-  withNextActive deposits cont = do
+  -- Pending active deposits are selected in arrival order (FIFO), except that
+  -- the deposit already queued in 'currentDepositTxId' is requested first. A
+  -- 'DepositActivated' parks it there while a snapshot is in flight, and this
+  -- tick is then the only thing left to request it: the queued deposit used to
+  -- be this tick's own guard against requesting anything, so on a head with no
+  -- local txs to chain the next snapshot it sat there until it expired.
+  withNextActive ::
+    forall tx.
+    IsTx tx =>
+    Maybe (TxIdType tx) ->
+    Map (TxIdType tx) (Deposit tx) ->
+    (TxIdType tx -> Outcome tx) ->
+    Outcome tx
+  withNextActive queued deposits cont = do
     -- NOTE: Do not consider empty deposits.
     let p :: (x, Deposit tx) -> Bool
         p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
     case filter p (Map.toList deposits) of
       [] -> noop
-      xs -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
+      xs
+        -- Preferred only while it is still active: a queued deposit that
+        -- expired or was consumed must not hold up the others.
+        | Just depositTxId <- queued
+        , depositTxId `elem` (fst <$> xs) ->
+            cont depositTxId
+        | otherwise -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
 
   nextSn = confirmedSn + 1
 
@@ -1081,13 +1116,14 @@ onOpenChainTick env chainTime pendingDeposits st =
     , currentDepositTxId
     } = coordinatedHeadState
 
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn, depositTxId = confirmedDepositTxId} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, parameters} = st
 
--- | If this node is the snapshot leader and there are pending local transactions,
--- request the next snapshot with the bumped version after a commit or decommit
--- finalises on-chain.
+-- | If this node is the snapshot leader and there is anything to snapshot
+-- (pending local transactions, or a deposit to carry), request the next
+-- snapshot with the bumped version after a commit or decommit finalises
+-- on-chain.
 --
 -- Guards:
 --   * Only fires when 'newVersion' is ahead of the local 'version': this
@@ -1103,7 +1139,9 @@ onOpenChainTick env chainTime pendingDeposits st =
 --   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
 --     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
 --     re-request immediately with the new version to make progress without
---     waiting for the stale request's retries to exhaust.
+--     waiting for the stale request's retries to exhaust. This is the only
+--     thing that unparks the other parties, so it must also fire when the
+--     stale request carried a deposit and no local txs.
 --
 -- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
 -- finalisation passes 'Nothing' (deposit already included), while decommit
@@ -1120,7 +1158,7 @@ maybeRequestSnapshotAfterVersionBump ::
   Maybe (TxIdType tx) ->
   Outcome tx
 maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot depositTxId =
-  if isLeader parameters party nextSn && not (null localTxs) && newVersion > version && not (isCollectingAcks seenSnapshot)
+  if isLeader parameters party nextSn && (not (null localTxs) || isJust depositTxId) && newVersion > version && not (isCollectingAcks seenSnapshot)
     then
       newState SnapshotRequestDecided{snapshotNumber = nextSn}
         <> cause (NetworkEffect $ ReqSn newVersion nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing depositTxId)

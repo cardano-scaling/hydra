@@ -551,6 +551,45 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositId
             _ -> False
 
+        it "a queued deposit is requested by the tick when no snapshot chains one" $ do
+          -- Regression: 'DepositActivated' parks the deposit in
+          -- 'currentDepositTxId' while a snapshot is in flight. On a head with
+          -- no local txs nothing chains a snapshot afterwards (see
+          -- 'maybeRequestNextSnapshot'), and the queued deposit used to be the
+          -- tick's own guard against requesting anything, so it sat there
+          -- unrequested until it expired.
+          now <- getCurrentTime
+          let
+            depositId = 999
+            deposit =
+              Deposit
+                { headId = testHeadId
+                , deposited = utxoRef 50
+                , created = now
+                , deadline = addUTCTime (3 * 3600) now
+                , status = Active
+                }
+            singleParty = [alice]
+            -- The state 'DepositActivated' leaves behind: queued, pending and
+            -- with no local txs to carry a snapshot of their own.
+            s0 =
+              ( inOpenState' singleParty $
+                  coordinatedHeadState{currentDepositTxId = Just depositId}
+              )
+                { deposits = trackedFromPending (Map.singleton depositId deposit)
+                }
+            -- Just past activation, so the tick sees the deposit as Active.
+            tick =
+              ChainInput
+                Tick
+                  { chainTime = addUTCTime (2 + toNominalDiffTime aliceEnv.depositActivation) now
+                  , chainPoint = 1
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update aliceEnv ledger now' s0 tick `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositId
+            _ -> False
+
         it "DepositActivated from another head does not set currentDepositTxId" $ do
           now <- getCurrentTime
           otherHeadId :: HeadId <- generate arbitrary
