@@ -866,9 +866,9 @@ spec =
                     , status = Active
                     }
               decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-          selectNextIncrementalAction pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
+          selectNextIncrementalAction pendingDeposits (Just depositTxId) (Just decommitTx) 0 (testSnapshot 0 0 [] mempty)
             `shouldBe` (Nothing, Just depositTxId)
-          selectNextIncrementalAction pendingDeposits Nothing (Just decommitTx) Nothing
+          selectNextIncrementalAction pendingDeposits Nothing (Just decommitTx) 0 (testSnapshot 0 0 [] mempty)
             `shouldBe` (Just decommitTx, Nothing)
 
         it "ignores ReqDec when not in Open state" $ do
@@ -896,32 +896,37 @@ spec =
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
-        -- Spec §6.4 reqDec: wait U_α = ∅. A decommit must wait while a commit
-        -- (deposit) is pending, otherwise a later snapshot would carry both. This
-        -- is the missing symmetric counterpart to the guard on 'DepositActivated'.
+        -- Spec §6.4 reqDec: wait U_α = ∅. A snapshot must never carry both a
+        -- commit and a decommit. That is enforced where the snapshot is made:
+        -- the leader carries a pending commit first and the decommit in a
+        -- later round ('selectNextIncrementalAction'), and every receiver
+        -- rejects a proposal carrying both ('ReqSnBothCommitAndDecommit').
         --
-        -- "Pending" is what 'existingDeposit' decides: registered and unexpired. The
-        -- two states that are NOT pending yet still leave 'currentDepositTxId' set
-        -- each get a case below, because blocking on either waits on something that
-        -- can never settle.
-        it "waits on a ReqDec while a pending commit (deposit) is in flight" $ do
+        -- It must NOT be enforced by holding the ReqDec itself back on a
+        -- locally queued deposit. Whether a deposit is queued depends on
+        -- whether this node's own tick activated it before the broadcast
+        -- arrived, so the same ReqDec was refused on some nodes (DepositInFlight
+        -- once its TTL ran out) and recorded on others. The recording nodes
+        -- then held a decommit the leader never knew about, and it was never
+        -- proposed. The model's concurrent walk found this once the late-ReqSn
+        -- deadlock no longer masked it.
+        it "records a ReqDec while a deposit is queued and proposes the deposit first" $ do
           let s0 = reqDecStateWith threeParties (Just Active)
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
-            `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+          let outcome = update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+          outcome `hasStateChangedSatisfying` \case
+            DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId, decommitTx} -> depositTxId == Just reqDecDepositTxId && isNothing decommitTx
+            _ -> False
 
-        -- Once ttl is exhausted the pending-deposit wait turns into a rejection
-        -- (DepositInFlight) so the client learns it must recover the deposit,
-        -- rather than the ReqDec being silently dropped.
-        it "rejects a ReqDec with DepositInFlight once ttl is exhausted while a pending commit is in flight" $ do
+        it "records a ReqDec while a deposit is queued even with its ttl exhausted" $ do
           let s0 = reqDecStateWith threeParties (Just Active)
               reqDecEvent = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec{transaction = reqDecDecommitTx}}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now s0 reqDecEvent `hasStateChangedSatisfying` \case
-            DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}} ->
-              invalidTx == reqDecDecommitTx
-                && depositTxId == reqDecDepositTxId
-                && commitUTxO == reqDecDepositedUTxO
+            DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
             _ -> False
 
         -- An expired deposit must NOT hold a decommit back. 'DepositExpired' deliberately keeps the
@@ -1055,33 +1060,49 @@ spec =
             _ -> fail "expected Open state"
 
           -- 2. The stale ReqSn(v=3) arrives. The receiver's version is now 4,
-          --    so it cannot be processed; we wait (and TTL eventually drops it)
-          --    rather than erroring, since the symmetric race where a follower
-          --    is briefly behind a leader's bumped version must recover via
-          --    retry.
+          --    one ahead, and the proposal is based on its confirmed snapshot:
+          --    a straddle. It is signed at v=3, exactly as a party that has not
+          --    seen the decrement land signs it, so every AckSn is over the
+          --    same bytes (see 'waitOnSnapshotVersion'). Waiting here could
+          --    never resolve, since the local version never goes back down.
           let staleReqSn :: Input SimpleTx
               staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
-          update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
-            Wait WaitOnSnapshotVersion{waitingForVersion = 3} _ -> True
+          let straddled = update aliceEnv ledger now' s1 staleReqSn
+          straddled `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot = Snapshot{version = v}} -> v == 3
+            _ -> False
+          straddled `hasEffectSatisfying` \case
+            NetworkEffect (AckSn _ 1) -> True
             _ -> False
 
-          -- 3. A new ReqTx arrives — alice (leader for sn=2) can request a new
-          -- snapshot because snapshotInFlight is now False after the reset
-          let newTx = aValidTx 42
-              reqTx = receiveMessage $ ReqTx newTx
+          -- 3. The round completes one version behind the chain: every party
+          --    acks the straddled snapshot and it confirms at v=3 while the
+          --    local version stays 4. A new ReqTx then makes bob (leader for
+          --    sn=2 in a three party head) propose the next snapshot at the
+          --    bumped version, so the head is not stuck.
           s2 <- runHeadLogic aliceEnv ledger s1 $ do
-            step reqTx
+            step staleReqSn
             getState
-
-          -- Verify the head is not stuck: seenSnapshot should have advanced
-          -- (snapshot number will be based on confirmedSnapshot.number, not lastSeen)
-          case s2 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
-              chs.seenSnapshot `shouldSatisfy` \case
-                RequestedSnapshot{} -> True
-                _ -> False
+          straddledSnapshot <- case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot}}}} -> pure snapshot
+            other -> fail $ "expected the straddled snapshot in flight, got: " <> show other
+          s3 <- runHeadLogic aliceEnv ledger s2 $ do
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk straddledSnapshot) 1
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk straddledSnapshot) 1
+            step $ receiveMessageFrom carol $ AckSn (sign carolSk straddledSnapshot) 1
+            getState
+          case s3 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              (getSnapshot chs.confirmedSnapshot).version `shouldBe` 3
+              (getSnapshot chs.confirmedSnapshot).number `shouldBe` 1
             _ -> fail "expected Open state"
+          now'' <- nowFromSlot s3.chainPointTime.currentSlot
+          update bobEnv ledger now'' s3 (receiveMessage $ ReqTx (aValidTx 42))
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotVersion = 4, snapshotNumber = 2} -> True
+              _ -> False
 
         it "DecommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
           let localUTxO = utxoRefs [1]
@@ -2879,13 +2900,14 @@ spec =
               SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
               _ -> False
 
-        it "holds a decommit back while the confirmed snapshot's commit is unsettled and its deposit expired locally" $ do
-          -- 'existingDeposit' ignores an 'Expired' deposit, so the decommit used
-          -- to be recorded and the leader then proposed a snapshot carrying it
-          -- and dropping the unsettled commit: the deposited outputs count as
-          -- neither applied nor pending in that snapshot. Only the confirmed
-          -- snapshot's own claim holds a decommit back this way; an expired
-          -- deposit that was merely queued still does not (see the ReqDec tests).
+        it "records a decommit while the confirmed snapshot's commit is unsettled and proposes that commit first" $ do
+          -- The decommit used to be proposed straight away, dropping the
+          -- unsettled commit from the snapshot: the deposited outputs then
+          -- counted as neither applied nor pending. The commit is re-carried
+          -- first ('selectNextIncrementalAction') whatever the deposit's local
+          -- status, and the decommit follows in a later round. Holding the
+          -- ReqDec back instead would decide a broadcast on node-local state,
+          -- see the ReqDec tests.
           now <- getCurrentTime
           let expiredDeposit =
                 Deposit
@@ -2906,8 +2928,162 @@ spec =
                   { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
                   }
           now' <- nowFromSlot s0.chainPointTime.currentSlot
-          update soloAliceEnv ledger now' s0 (receiveMessage ReqDec{transaction = decommitTx'})
-            `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUTxO}
+          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage ReqDec{transaction = decommitTx'})
+          outcome `hasStateChangedSatisfying` \case
+            DecommitRecorded{decommitTx = recorded} -> recorded == decommitTx'
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId, decommitTx} -> depositTxId == Just depositTxId' && isNothing decommitTx
+            _ -> False
+
+        it "proposes a recorded decommit once the commit in flight has landed" $ do
+          -- The decommit was recorded while the confirmed snapshot's commit was
+          -- in flight, so every proposal carried the commit first. When the
+          -- increment then lands on a head with no local txs, nothing else
+          -- would propose the decommit: the tick only proposes deposits.
+          now <- getCurrentTime
+          let activeDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version = 0
+                      , currentDepositTxId = Just depositTxId'
+                      , decommitTx = Just decommitTx'
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' activeDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'})
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotVersion = 1, decommitTx = Just tx, depositTxId = Nothing} -> tx == decommitTx'
+              _ -> False
+
+        -- Straddle-signing (the late-ReqSn deadlock). The leader multicasts
+        -- ReqSn at version v; an increment lands and bumps this node to v+1
+        -- before the ReqSn arrives. Waiting for version v to come back can
+        -- never resolve, and the leader will not propose again while it is
+        -- collecting AckSns, so the head stops confirming. Instead this node
+        -- signs the proposal at v, exactly as the parties that have not seen
+        -- the bump do, so every AckSn is over the same bytes and the round
+        -- confirms one version behind the chain, a state 'CloseUsed' supports.
+        it "signs a ReqSn one version behind when its increment already finalized" $ do
+          now <- getCurrentTime
+          -- Version 1, snapshot 1@0 confirmed and its increment landed: the
+          -- deposit is consumed and retained, not pending.
+          s0 <- afterCommitFinalized now
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+          outcome `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} ->
+              version == 0 && utxoToCommit == Just depositedUTxO
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect (AckSn _ 2) -> True
+            _ -> False
+
+        it "refuses a straddling ReqSn whose increment a rollback erased" $ do
+          -- Same shape, but the rollback erased the increment: the deposit is
+          -- settled by re-posting the retained snapshot, never by signing a
+          -- new one that claims it again (#2741). The version check lets the
+          -- proposal through; the deposit check must still refuse it.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          now' <- nowFromSlot s1.chainPointTime.currentSlot
+          case update soloAliceEnv ledger now' s1 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId')) of
+            Error (RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId = blocked}) -> blocked `shouldBe` depositTxId'
+            other -> expectationFailure $ "Expected ReqSnDepositBlockedByFinalizedCommit, got: " <> show other
+
+        it "rejects a ReqSn two versions behind as unsatisfiable" $ do
+          -- Version is monotone, so a proposal two or more behind can never be
+          -- signed. Today it is parked until its TTL drops it in silence; a
+          -- terminal error says why. Only a one-version straddle is admitted.
+          let s0 =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 2 1 [] mempty, signatures = Crypto.aggregate []}
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 2}
+                    , version = 2
+                    }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 3 [] Nothing Nothing)
+            `shouldBe` Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 2})
+
+        it "rejects a ReqSn one version behind that is below the confirmed snapshot's version" $ do
+          -- One behind is only a straddle when it is based on the confirmed
+          -- snapshot. A proposal below the confirmed snapshot's own version
+          -- proposes a predecessor the head has moved past.
+          let s0 =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 3 2 [] mempty, signatures = Crypto.aggregate []}
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 3}
+                    , version = 2
+                    }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 1 4 [] Nothing Nothing)
+            `shouldBe` Error (RequireFailed ReqSvNumberInvalid{requestedSv = 1, lastSeenSv = 2})
+
+        it "still waits on a ReqSn ahead of its version" $ do
+          -- The direction that must stay a wait: this node's chain handler has
+          -- not processed the bump the leader already saw, so a retry resolves
+          -- it. Asserted next to the straddle so nobody collapses the two.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 2 2 [] Nothing Nothing)
+            `assertWait` WaitOnSnapshotVersion 2
+
+        it "does not propose the deposit of the snapshot it is just confirming" $ do
+          -- The race window with a rollback inside it. The increment landed
+          -- before our own AckSn completed (version 1, nothing retained yet,
+          -- since the race branch of 'SnapshotConfirmed' retains only as this
+          -- very outcome is applied), then a rollback erased it and the deposit
+          -- resurfaced as pending. When the last AckSn now confirms snapshot 1,
+          -- the next proposal is decided in the same step, and it must not
+          -- pick that deposit as a fresh claim: every party, this one
+          -- included, refuses the echo with ReqSnDepositBlockedByFinalizedCommit
+          -- once the retention has landed, and the leader is left in a round
+          -- nobody signs. The model's concurrent walk found this after the
+          -- late-ReqSn deadlock was fixed.
+          now <- getCurrentTime
+          let resurfaced =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = InitialSnapshot testHeadId
+                      , seenSnapshot = mkSeenSnapshot incrementingSnapshot1 mempty
+                      , version = 1
+                      , currentDepositTxId = Nothing
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' resurfaced)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1)
+          outcome `hasStateChangedSatisfying` \case
+            SnapshotConfirmed{} -> True
+            _ -> False
+          outcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositTxId'
+            _ -> False
 
         it "prunes retained settlements no rollback can reach anymore, but never erased ones" $ do
           now <- getCurrentTime

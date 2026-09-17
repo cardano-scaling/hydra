@@ -10,6 +10,49 @@ changes.
 
 ## UNRELEASED
 
+- Fixed three ways an open head stopped confirming snapshots, found by the
+  model's concurrent random walk once its deposits and decommits were allowed
+  to overlap:
+
+  - A `ReqSn` that reached a party after that party had already observed the
+    increment or decrement it was racing was parked on `WaitOnSnapshotVersion`
+    until its TTL dropped it, while the leader kept collecting `AckSn` for it:
+    the head deadlocked. Such a party now signs the proposal at the version it
+    was made at, exactly as the parties that have not seen the settlement yet
+    do, so the round confirms one version behind the chain, a state `Close`
+    already handles. A proposal two or more versions behind, or below the
+    confirmed snapshot's version, is rejected with `ReqSvNumberInvalid`
+    instead of waiting forever.
+
+  - A `ReqDec` was held back, and after its TTL rejected with
+    `DepositInFlight`, whenever this node had a deposit queued. Whether a
+    deposit is queued depends on the node's own clock, so the same request
+    was refused by some parties and recorded by others, and the recorded
+    decommit was never proposed. The request is now recorded on every party;
+    the leader carries a pending commit first and the decommit in a later
+    round, and a decommit recorded while a commit was in flight is proposed
+    once the increment lands.
+
+  - After a rollback erased a finalized increment while the snapshot claiming
+    it was still being acknowledged, the leader could propose that deposit
+    again and every party, itself included, refused the proposal. The deposit
+    bound into the confirmed snapshot is never proposed as a new claim.
+
+- Fixed a deposit that activated while a snapshot was in flight never being
+  proposed for one: it was queued, the tick refused to act while anything was
+  queued, and on a head with no other traffic it expired. The queued deposit
+  is now proposed on the next tick.
+
+- Fixed two ways the outputs of a deposit could be lost
+  ([#2741](https://github.com/cardano-scaling/hydra/issues/2741)): a deposit
+  this node had marked expired while its increment was still in flight was
+  dropped from the next snapshot, so its outputs counted as neither pending
+  nor applied; and a retained settlement could be overwritten by a later
+  snapshot at the same version, losing the mark that it had to be re-posted
+  after a rollback. The claim is now re-carried until it settles or the
+  deposit is recovered, and retention keeps the settlement that was actually
+  observed.
+
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
   When the deposited value did not cover the minimum ADA of the deposit output

@@ -479,9 +479,20 @@ spec = parallel $ do
       reqSnOutcome 0 0 0 2 alice `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
     it "a non-leader sender is the node's ReqSnNotLeader" $
       reqSnOutcome 0 0 0 1 bob `shouldBe` Error (RequireFailed $ ReqSnNotLeader 1 bob)
-    it "a version mismatch WAITS (WaitOnSnapshotVersion), which is non-accept" $
+    it "a version AHEAD of ours WAITS (WaitOnSnapshotVersion), which is non-accept" $
       reqSnOutcome 0 0 1 1 alice `assertWait` WaitOnSnapshotVersion 1
-    prop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
+    -- The node signs a proposal ONE version behind its own when it is based on
+    -- the confirmed snapshot (a straddle, see 'waitOnSnapshotVersion' in
+    -- HeadLogic), and rejects anything further behind as unsatisfiable.
+    -- 'signEligibleRef' has no input for the confirmed snapshot's version, so
+    -- it still rejects the straddle: on this fixture the point
+    -- (v = 0, v̂ = 1, ŝ = 0) disagrees. Pending until the reference gains that
+    -- input and is re-extracted (hydra-agda). The behaviour is pinned in
+    -- HeadLogicSpec ("signs a ReqSn one version behind ...", "rejects a ReqSn
+    -- two versions behind ...", "still waits on a ReqSn ahead of its version").
+    it "anchor: one version behind, based on the confirmed snapshot, is signed (straddle)" $
+      reqSnAccepts (reqSnOutcome 1 0 0 1 alice) `shouldBe` True
+    xprop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
       forAll (choose (0, 1)) $ \vHat ->
         forAll (choose (0, 2)) $ \v ->
           forAll (choose (0, 2)) $ \sHat ->
@@ -494,9 +505,16 @@ spec = parallel $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
       reqDecEligibleRef NoCommitP False `shouldBe` True
       reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
-    it "a pending deposit (commit in flight) makes the real node WAIT (WaitOnUnresolvedCommit)" $
-      reqDecOutcome CommitPendingP False
-        `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+    -- The node no longer holds a ReqDec back on a pending commit. Whether a
+    -- deposit is queued is decided by each node's own tick, so the same ReqDec
+    -- was refused on some nodes and recorded on others, and the recording
+    -- nodes held a decommit nobody proposed (found by the model's concurrent
+    -- walk). The commit-before-decommit order is enforced where the snapshot
+    -- is made instead ('selectNextIncrementalAction', 'ReqSnBothCommitAndDecommit').
+    -- 'reqDecEligibleRef' still models the hold, so it disagrees on
+    -- 'CommitPendingP'; pending until the reference follows (hydra-agda).
+    it "a pending deposit (commit in flight) no longer holds the real node back: it records" $
+      reqDecAccepts (reqDecOutcome CommitPendingP False) `shouldBe` True
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
       reqDecOutcome NoCommitP True
         `assertWait` WaitOnNotApplicableDecommitTx
@@ -511,7 +529,9 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- Pending on 'CommitPendingP' for the reason given above; the other three
+    -- commit states still agree (see the anchors).
+    xprop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $

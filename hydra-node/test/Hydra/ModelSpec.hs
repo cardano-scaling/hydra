@@ -184,38 +184,42 @@ spec = do
   context "partial fanout" $ do
     prop "a manual fanout distributes the selections in turn" $
       propScripted manualPartialFanout
-  -- Scripted settlement replays plus the properties that still find open
-  -- bugs. The settlement scenarios pass since the retained settlements map
-  -- (#2741); the rest stay pending ('xprop') until the bugs below are fixed.
-  --
   -- The concurrent random walk lets several deposits and decommits settle at
-  -- the same time as L2 traffic and divergent forks. It finds:
+  -- the same time as L2 traffic and divergent forks, and the scripted
+  -- settlement replays pin the settlement races it found. In order, the walk
+  -- found and now guards against:
   --
-  --   * A deposit that activates while a snapshot is in flight is never
-  --     committed: 'DepositActivated' parks it in 'currentDepositTxId', but
-  --     'onOpenChainTick' only requests a snapshot while that is 'Nothing'
-  --     and 'maybeRequestNextSnapshot' only when there are local
-  --     transactions. The deposit expires.
-  --   * A snapshot requested while an increment or decrement is still
-  --     settling can carry a stale version: a party that observed the
-  --     settlement first parks the request on 'WaitOnSnapshotVersion' until
-  --     its TTL drops it, and the leader never re-requests. No later snapshot
-  --     confirms.
+  --   * A deposit that activated while a snapshot was in flight was never
+  --     committed: 'DepositActivated' parked it in 'currentDepositTxId', the
+  --     tick refused to act while anything was queued, and the chained
+  --     request needed local transactions. It expired.
+  --   * A ReqSn that reached a party after that party had observed the
+  --     settlement it raced was parked on 'WaitOnSnapshotVersion' until its
+  --     TTL dropped it, while the leader kept collecting AckSns: a deadlock.
+  --     Such a party now signs at the proposed version, one behind its own
+  --     (see 'waitOnSnapshotVersion').
+  --   * A ReqDec was held back on a locally queued deposit and rejected once
+  --     its TTL ran out. Whether a deposit is queued depends on the node's own
+  --     tick, so the same request was refused by some parties and recorded by
+  --     others, whose decommit was then never proposed.
+  --   * After a rollback erased a finalized increment while the snapshot
+  --     claiming it was still being acknowledged, the leader proposed that
+  --     deposit again and every party refused the proposal.
   --
-  -- Both walks currently fail with the driver's 'waitUntilMatch' timing out
-  -- on all nodes. The two bugs above are the known causes; which one each
-  -- counterexample hits is not pinned down yet.
+  -- Each surfaced only once the previous one was fixed, so keep the walks
+  -- enabled: a new counterexample here is a new row for the table, not a
+  -- flake to retry.
   --
-  -- The scripted fanout scenarios show the same class of gap for a fanout in
-  -- progress: after a fork erases a landed step, the node's fanout
-  -- bookkeeping is ahead of the chain. Automatic mode re-posts the next step
-  -- instead of the erased one, which cannot land, and manual mode posts
-  -- nothing at all since it waits for the client. The head is never fully
-  -- fanned out.
+  -- The scripted fanout scenarios stay pending ('xprop'). They show the same
+  -- class of gap for a fanout in progress: after a fork erases a landed step,
+  -- the node's fanout bookkeeping is ahead of the chain. Automatic mode
+  -- re-posts the next step instead of the erased one, which cannot land, and
+  -- manual mode posts nothing at all since it waits for the client. The head
+  -- is never fully fanned out.
   context "settlement and fanout rollback stress" $ do
-    xprop "check model with concurrent settlements" $
+    prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
-    xprop "check model balances with concurrent settlements" $
+    prop "check model balances with concurrent settlements" $
       within 30000000 $
         forAllDL concurrentWalk checkModelBalances
     -- Heavy: run the deep-stress version only on nightly, where it does not
@@ -223,7 +227,7 @@ spec = do
     -- makes the driver's waits time out spuriously, cf. ServerSpec). Pending
     -- with the walks above: it is the same generator, only deeper.
     around_ onlyNightly $
-      xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
+      prop "check model balances under load with divergent forks @nightly" propStressModelBalances
     prop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
     prop "a finalized increment is erased while the next increment is in flight" $
