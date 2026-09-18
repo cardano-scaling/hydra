@@ -184,58 +184,69 @@ spec = do
   context "partial fanout" $ do
     prop "a manual fanout distributes the selections in turn" $
       propScripted manualPartialFanout
-  -- Properties that find open bugs, pending ('xprop') until those are fixed.
-  -- Re-enable them to check the fix.
-  --
+  -- A crash and restart at the moment a settlement landed, see
+  -- 'partyRestartedTwiceAfterSettlement'.
+  context "fail-recovery" $ do
+    prop "a party restarted twice right after a settlement still confirms snapshots" $
+      propScripted partyRestartedTwiceAfterSettlement
   -- The concurrent random walk lets several deposits and decommits settle at
-  -- the same time as L2 traffic and divergent forks. It finds:
+  -- the same time as L2 traffic and divergent forks, and the scripted
+  -- settlement replays pin the settlement races it found. In order, the walk
+  -- found and now guards against:
   --
-  --   * A deposit that activates while a snapshot is in flight is never
-  --     committed: 'DepositActivated' parks it in 'currentDepositTxId', but
-  --     'onOpenChainTick' only requests a snapshot while that is 'Nothing'
-  --     and 'maybeRequestNextSnapshot' only when there are local
-  --     transactions. The deposit expires.
-  --   * A snapshot requested while an increment or decrement is still
-  --     settling can carry a stale version: a party that observed the
-  --     settlement first parks the request on 'WaitOnSnapshotVersion' until
-  --     its TTL drops it, and the leader never re-requests. No later snapshot
-  --     confirms.
-  --   * Settlements erased by a fork are not all re-posted.
+  --   * A deposit that activated while a snapshot was in flight was never
+  --     committed: 'DepositActivated' parked it in 'currentDepositTxId', the
+  --     tick refused to act while anything was queued, and the chained
+  --     request needed local transactions. It expired.
+  --   * A ReqSn that reached a party after that party had observed the
+  --     settlement it raced was parked on 'WaitOnSnapshotVersion' until its
+  --     TTL dropped it, while the leader kept collecting AckSns: a deadlock.
+  --     Such a party now signs at the proposed version, one behind its own
+  --     (see 'waitOnSnapshotVersion').
+  --   * A ReqDec was held back on a locally queued deposit and rejected once
+  --     its TTL ran out. Whether a deposit is queued depends on the node's own
+  --     tick, so the same request was refused by some parties and recorded by
+  --     others, whose decommit was then never proposed.
+  --   * After a rollback erased a finalized increment while the snapshot
+  --     claiming it was still being acknowledged, the leader proposed that
+  --     deposit again and every party refused the proposal.
   --
-  -- The scripted settlement scenarios pin the last point down: only the last
-  -- finalized increment/decrement is retained, the two re-post branches are
-  -- alternatives instead of both, and re-posts are fire-and-forget (a later
-  -- settlement is not posted again once the earlier one re-lands).
+  -- Each surfaced only once the previous one was fixed, so keep the walks
+  -- enabled: a new counterexample here is a new row for the table, not a
+  -- flake to retry.
   --
-  -- The scripted fanout scenarios show the same gap for a fanout in progress:
-  -- after a fork erases a landed step, the node's fanout bookkeeping is ahead
-  -- of the chain. Automatic mode re-posts the next step instead of the erased
-  -- one, which cannot land, and manual mode posts nothing at all since it
-  -- waits for the client. The head is never fully fanned out.
-  context "pending until the open settlement bugs are fixed" $ do
-    xprop "check model with concurrent settlements" $
+  -- The scripted fanout scenarios pin the same class of gap for a fanout in
+  -- progress: after a fork erased a landed step, the node's fanout bookkeeping
+  -- was ahead of the chain. Automatic mode re-posted the next step instead of
+  -- the erased one, which could not land, and manual mode posted nothing at
+  -- all since it waited for the client, so the head was never fully fanned
+  -- out. Each landed step is now recorded with its slot and the progress is
+  -- rewound to the steps still on chain ('rewindFanoutProgress').
+  context "settlement and fanout rollback stress" $ do
+    prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
-    xprop "check model balances with concurrent settlements" $
+    prop "check model balances with concurrent settlements" $
       within 30000000 $
         forAllDL concurrentWalk checkModelBalances
     -- Heavy: run the deep-stress version only on nightly, where it does not
     -- compete with the rest of the suite for CPU (a starved io-sim schedule
-    -- makes the driver's waits time out spuriously, cf. ServerSpec).
+    -- makes the driver's waits time out spuriously, cf. ServerSpec). Pending
+    -- with the walks above: it is the same generator, only deeper.
     around_ onlyNightly $
-      xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
-    xprop "two finalized increments are both erased by a fork" $
+      prop "check model balances under load with divergent forks @nightly" propStressModelBalances
+    prop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
-    xprop "a finalized increment is erased while the next increment is in flight" $
+    prop "a finalized increment is erased while the next increment is in flight" $
       propScripted finalizedIncrementErasedWithNextInFlight
-    xprop "a finalized increment and decrement are both erased by a fork" $
+    prop "a finalized increment and decrement are both erased by a fork" $
       propScripted finalizedIncrementAndDecrementErased
-    xprop "new settlements requested during a replay settle in order" $
+    prop "new settlements requested during a replay settle in order" $
       propScripted newSettlementsDuringReplay
-    xprop "a fork erases a step of an automatic fanout" $
+    prop "a fork erases a step of an automatic fanout" $
       propScripted autoFanoutStepErased
-    xprop "a fork erases two steps of an automatic fanout" $
+    prop "a fork erases two steps of an automatic fanout" $
       propScripted autoFanoutTwoStepsErased
-    xprop "a fork erases a step of a manual fanout" $
+    prop "a fork erases a step of a manual fanout" $
       propScripted manualFanoutStepErased
 
 propFanoutLimit :: Int -> Property
@@ -265,8 +276,11 @@ propDL d = forAllDL d propHydraModel
 -- Shrinking is off: it cannot simplify a fixed script, it only reruns it
 -- hundreds of times with varied values (a failing run takes ~0.3s, a shrunk
 -- one took minutes).
+-- | Run a fixed script a few times. Only its keys are random, so the size only
+-- bounds the script's length: the DL generator gives up ("Looping") past
+-- 2 * size + 20 steps, and the first run has size 0.
 propScripted :: DL WorldState () -> Property
-propScripted d = withMaxSuccess 5 $ noShrinking $ forAllDL d propHydraModel
+propScripted d = withMaxSuccess 5 $ noShrinking $ mapSize (max 60) $ forAllDL d propHydraModel
 
 -- * Settlement races under divergent forks
 
@@ -422,6 +436,33 @@ newSettlementsDuringReplay = do
   action_ $ Model.ObserveCommitFinalized b
   action_ $ Model.ObserveDecommitFinalized dA
   action_ $ Model.ObserveCommitFinalized c
+  headStillSettles
+
+-- | A party is crashed and restarted twice in a row right after a settlement
+-- landed. A settlement lands as soon as one party holds all signatures of its
+-- snapshot, so for a slower party some acknowledgements can still be on their
+-- way when the next action runs. A restarted party picks those up from the
+-- network log; the second restart must not lose them, or that party never
+-- confirms the snapshot and the head never agrees on another one. Which party
+-- lags is a matter of network timing, so every party is restarted, after
+-- decommit rounds started off the block boundaries.
+partyRestartedTwiceAfterSettlement :: DL WorldState ()
+partyRestartedTwiceAfterSettlement = do
+  (headId, fuel) <- openHeadWithDepositFuel 4
+  -- The walk's own actions: they return as soon as the settlement landed,
+  -- unlike 'SubmitDecommit' which first waits for every party's confirmation.
+  forM_ fuel $ \(_, fuelP) ->
+    action_ $ Model.Deposit{headIdVar = headId, utxoToDeposit = fuelP}
+  -- Three parties decommit their fuel; the last party's stays in the head for
+  -- 'headStillSettles'.
+  forM_ (zip [7, 11, 13] (take 3 fuel)) $ \(delay, (party, fuelP)) -> do
+    -- Off the block boundary, so the round's acknowledgements spread around
+    -- the block in which the decrement lands.
+    action_ $ Model.Wait delay
+    action_ $ Model.Decommit{party, decommitTx = decommitFuel fuelP}
+    forM_ fuel $ \(p, _) -> do
+      action_ $ Model.RestartNode p
+      action_ $ Model.RestartNode p
   headStillSettles
 
 -- | Scenario 5: a deep fork erases the deposit transaction itself along with
