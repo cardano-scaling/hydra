@@ -205,6 +205,17 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     -- instance is reachable from untrusted client input (SideLoadSnapshot),
     -- and the accumulator hashes are what multisignatures verify against, so
     -- they must always be derived from the UTxO content.
+    --
+    -- SECURITY: the rebuilt accumulators are bottom when the UTxO set is larger
+    -- than the trusted setup can commit to ('computeG1CommitmentBytes' errors
+    -- above 'Accumulator.maxAccumulatorSize'), and they are lazy, so this decode
+    -- succeeds for a set of any size and the failure surfaces wherever the
+    -- accumulator is first forced. The size is deliberately not bounded here:
+    -- this codec is also the persistence format, replayed from the event store
+    -- at startup, where a rejected decode would stop the node from starting.
+    -- Every client API entry point bounds it instead, before the value can be
+    -- queued, logged or echoed -- see 'Hydra.API.ClientInput.validateClientInput'
+    -- and 'Hydra.API.HTTPServer.handleSideLoadSnapshot'.
     let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, depositTxId, accumulator, appliedAccumulator}
 
@@ -255,6 +266,10 @@ instance IsTx tx => FromCBOR (Snapshot tx) where
       -- increment of it cannot validate; only replaying it has to work.
       depositTxId <- if hasDepositTxId then fromCBOR else pure Nothing
       utxoToDecommit <- fromCBOR
+      -- SECURITY: as in the 'FromJSON' instance above, both accumulators are
+      -- rebuilt (never trusted from the wire) and are bottom above
+      -- 'Accumulator.maxAccumulatorSize'; the bound is enforced at the client
+      -- API boundary, not here.
       let (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs @tx utxo utxoToCommit utxoToDecommit
       pure Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, depositTxId, utxoToDecommit, accumulator, appliedAccumulator}
 

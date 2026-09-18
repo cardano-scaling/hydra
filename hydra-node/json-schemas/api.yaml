@@ -296,7 +296,10 @@ channels:
 
         Possible responses of this endpoint are:
           * 200: OK
-          * 400: when head is not open
+          * 400: when head is not open, or when the snapshot commits to more
+            outputs than the accumulator's trusted setup supports (its
+            commitment could never be computed, so the request is refused
+            before it reaches the head logic)
           * 404: when head was never open
           * 503: when head is out of sync with chain
       operationId: sideLoadSnapshotRequest
@@ -1660,6 +1663,28 @@ components:
           - tag
           - multisig
           - vkeys
+        - title: SideLoadUTxOSetTooLarge
+          description: >-
+            The snapshot commits to more outputs than the accumulator's trusted
+            setup supports, so its commitment could never be computed and the
+            head could never fan it out. Rejected by the API before the command
+            reaches the head logic.
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadUTxOSetTooLarge"]
+            utxoCount:
+              type: integer
+              minimum: 0
+            maxAllowed:
+              type: integer
+              minimum: 0
+          required:
+          - tag
+          - utxoCount
+          - maxAllowed
 
     IgnoredHeadInitializing:
       type: object

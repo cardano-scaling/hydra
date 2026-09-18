@@ -105,6 +105,24 @@ data SideLoadRequirementFailure tx
     SideLoadDepositTxIdInvalid {requestedDeposit :: Maybe (TxIdType tx), lastSeenDeposit :: Maybe (TxIdType tx)}
   | SideLoadUTxOToDecommitInvalid {requestedSd :: Maybe (UTxOType tx), lastSeenSd :: Maybe (UTxOType tx)}
   | SideLoadInvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
+  | -- | The snapshot commits to more outputs than the accumulator's trusted
+    -- setup supports, so its commitment could never be computed.
+    --
+    -- SECURITY: unlike its siblings, this one is raised at the client API
+    -- boundary rather than by the head logic, and it has to be: forcing an
+    -- over-capacity accumulator calls 'error' (see
+    -- 'Hydra.Tx.Accumulator.checkAccumulatorSize'), and by the time the head
+    -- logic sees an input the node has already traced it, which forces it. See
+    -- 'Hydra.API.ClientInput.validateClientInput'.
+    --
+    -- 'Hydra.HeadLogic.update' keeps an independent check for any future
+    -- producer that skips the boundary, reported as
+    -- 'SideLoadSnapshotFailed'. That route deliberately does not go through
+    -- 'sideLoadFailed': a 'SideLoadSnapshotRejected' client message echoes the
+    -- offending 'ClientInput' back, and encoding that echo would force the very
+    -- accumulator that cannot be computed. This constructor carries only the
+    -- two counts, so it is safe to report either way.
+    SideLoadUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}
   deriving stock (Generic)
 
 deriving stock instance (Eq (UTxOType tx), Eq (TxIdType tx)) => Eq (SideLoadRequirementFailure tx)

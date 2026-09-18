@@ -17,7 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Lens ((^?))
 import Control.Tracer.JSON (Tracer, showLogsOnFailure)
-import Data.Aeson (Value)
+import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
 import Data.EventSource (EventSink (..), EventSource (..), HasEventId (getEventId))
@@ -45,6 +45,8 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Options (defaultRunOptions)
+import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
@@ -52,7 +54,7 @@ import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
-import Test.Hydra.Ledger.Simple ()
+import Test.Hydra.Ledger.Simple (utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
@@ -325,6 +327,50 @@ spec =
       failAfter 5 $
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
+
+    -- The snapshot decodes fine; it is forcing its
+    -- accumulator that throws, and this server would do that while tracing the
+    -- input -- on the log writer thread, taking logging and eventually the
+    -- whole node with it. So the size has to be rejected as part of decoding.
+    -- The assertion that matters here is that the connection survives and stays
+    -- usable: a reply at all means nothing forced the accumulator.
+    it "sends an error when a side-loaded snapshot exceeds the accumulator limit" $
+      failAfter 5 $
+        showLogsOnFailure "ServerSpec" $ \tracer ->
+          withFreePort $ \port ->
+            withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+              withClient port "/" $ \con -> do
+                _greeting :: ByteString <- receiveData con
+                signatures <- generate (arbitrary @(MultiSignature (Snapshot SimpleTx)))
+                let bigCount = Accumulator.maxAccumulatorSize + 1
+                    oversized =
+                      Aeson.encode $
+                        Aeson.object
+                          [ "tag" .= Aeson.String "SideLoadSnapshot"
+                          , "snapshot"
+                              .= Aeson.object
+                                [ "tag" .= Aeson.String "ConfirmedSnapshot"
+                                , "snapshot"
+                                    .= Aeson.object
+                                      [ "headId" .= testHeadId
+                                      , "version" .= (0 :: Int)
+                                      , "number" .= (1 :: Int)
+                                      , "confirmed" .= ([] :: [SimpleTx])
+                                      , "utxo" .= utxoRefs [1 .. fromIntegral bigCount]
+                                      ]
+                                , "signatures" .= signatures
+                                ]
+                          ]
+                sendBinaryData con oversized
+                msg <- receiveData con
+                case Aeson.eitherDecode @InvalidInput msg of
+                  Left{} -> failure $ "Failed to decode output " <> show msg
+                  Right InvalidInput{reason} ->
+                    reason `shouldContain` show Accumulator.maxAccumulatorSize
+                -- Still alive and still serving.
+                sendBinaryData con ("not a valid message" :: ByteString)
+                _ :: ByteString <- receiveData con
+                pure ()
 
     describe "CBOR encoding" $ do
       it "sends a CBOR-encoded greeting when connecting with encoding=cbor" $

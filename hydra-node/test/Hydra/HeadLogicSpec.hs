@@ -3527,6 +3527,34 @@ spec =
 
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
 
+        -- This is the head logic's backstop; the primary defence is at the API
+        -- boundary, see 'validateClientInput' and the HTTPServer/WSServer specs.
+        -- Note the deliberate reuse of 'multisig1': reaching this must not
+        -- require a valid signature, and signing the oversized snapshot here
+        -- would itself force the accumulator and throw inside the test.
+        --
+        -- The backstop has to hold in every head state, not just an open one:
+        -- every other branch of 'handleClientInput' ends up echoing the input
+        -- back ('CommandFailed', 'UnhandledInput'), and those echoes force the
+        -- accumulator.
+        it "reject side load confirmed snapshot because UTxO set exceeds the accumulator limit" $ do
+          let bigCount = Accumulator.maxAccumulatorSize + 1
+              bigOutputs = utxoRefs (map fromIntegral [1 .. bigCount])
+              oversized = testSnapshot 2 0 [tx2] bigOutputs
+              oversizedInput = ClientInput (SideLoadSnapshot $ ConfirmedSnapshot oversized multisig1)
+              tooLarge :: Outcome SimpleTx
+              tooLarge = Error (SideLoadSnapshotFailed SideLoadUTxOSetTooLarge{utxoCount = bigCount, maxAllowed = Accumulator.maxAccumulatorSize})
+
+          now <- nowFromSlot startingState.chainPointTime.currentSlot
+          update bobEnv ledger now startingState oversizedInput `shouldBe` tooLarge
+
+          -- And in states that do not handle the command at all, and while the
+          -- node is still catching up -- each of which would otherwise reach a
+          -- different echo of the input ('CommandFailed',
+          -- 'RejectedInputBecauseUnsynced').
+          forM_ [inIdleState, inUnsyncedIdleState, inClosedState threeParties] $ \st ->
+            update bobEnv ledger now st oversizedInput `shouldBe` tooLarge
+
         it "reject side load confirmed snapshot because old snapshot number" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 

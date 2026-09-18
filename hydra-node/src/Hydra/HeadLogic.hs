@@ -27,7 +27,7 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ClientInput (ClientInput (..), validateClientInput)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Chain (
@@ -2283,12 +2283,35 @@ update ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger now nodeState ev =
-  case nodeState of
-    NodeCatchingUp{headState, chainPointTime} ->
-      updateCatchingUpHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
-    NodeInSync{headState, chainPointTime} ->
-      updateInSyncHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+update env ledger now nodeState ev
+  -- SECURITY: before anything else, in every head state and whether or not the
+  -- node is in sync. An accumulator over more elements than the trusted setup
+  -- supports has no commitment at all -- forcing it calls 'error', see
+  -- 'Hydra.Tx.Accumulator.checkAccumulatorSize'. Almost every way this input
+  -- can be turned away echoes it back to clients, and encoding that echo forces
+  -- the accumulator: 'RejectedInputBecauseUnsynced' while catching up,
+  -- 'CommandFailed' in a state that does not handle the command,
+  -- 'SideLoadSnapshotRejected' from the open-state checks, 'UnhandledInput'.
+  -- So an oversized snapshot has to be rejected here, ahead of all of them.
+  --
+  -- This is a backstop. The client API rejects such a snapshot before it is ever
+  -- queued (see 'Hydra.API.ClientInput.validateClientInput'), which it must,
+  -- since the node traces an input before the head logic sees it and tracing
+  -- forces the accumulator too. That is also where a client gets a useful
+  -- error. Reaching here means some new producer of 'SideLoadSnapshot' skipped
+  -- that check, so this only has to be safe, not informative -- hence 'Error'
+  -- via 'SideLoadSnapshotFailed', which carries the failure alone. Note this
+  -- cannot go through 'sideLoadFailed': that emits a 'SideLoadSnapshotRejected'
+  -- client message, which echoes the input.
+  | ClientInput clientInput <- ev
+  , Left (utxoCount, maxAllowed) <- validateClientInput clientInput =
+      Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
+  | otherwise =
+      case nodeState of
+        NodeCatchingUp{headState, chainPointTime} ->
+          updateCatchingUpHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+        NodeInSync{headState, chainPointTime} ->
+          updateInSyncHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
 
 updateCatchingUpHead ::
   IsChainState tx =>

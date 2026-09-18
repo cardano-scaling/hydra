@@ -8,6 +8,7 @@ module Hydra.Tx.Accumulator (
   computeG1CommitmentBytes,
   accumulatorSize,
   maxAccumulatorSize,
+  checkAccumulatorSize,
   deployedFanoutBatchSize,
   build,
   buildFromUTxO,
@@ -252,6 +253,26 @@ accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
 -- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
 maxAccumulatorSize :: Int
 maxAccumulatorSize = KZG.maxAccumulatorSize
+
+-- | Check an accumulator against the capacity of the embedded G1 CRS, yielding
+-- its size and the maximum when it does not fit.
+--
+-- SECURITY: 'computeG1CommitmentBytes' enforces this limit with 'error', and it
+-- is reached through the lazy commitment thunk of 'HydraAccumulator' -- i.e.
+-- from wherever that thunk is first forced, which includes 'ToJSON (Snapshot
+-- tx)' and 'getSignableRepresentation'. Every path that builds an accumulator
+-- from data this node did not produce itself must therefore check the size
+-- /before/ the value can be forced, traced or echoed. This check is safe to run
+-- on an over-capacity accumulator: like 'accumulatorSize' it only folds the
+-- element map and never touches the cached commitment or hash. See
+-- 'Hydra.API.ClientInput.validateClientInput' (the client API boundary) and
+-- 'Hydra.HeadLogic' (the protocol-logic backstop).
+checkAccumulatorSize :: HydraAccumulator -> Either (Int, Int) ()
+checkAccumulatorSize acc
+  | n > maxAccumulatorSize = Left (n, maxAccumulatorSize)
+  | otherwise = Right ()
+ where
+  n = accumulatorSize acc
 
 -- | Largest subset a single fanout transaction can distribute, re-exported from
 -- 'KZGTrustedSetup' for convenience.

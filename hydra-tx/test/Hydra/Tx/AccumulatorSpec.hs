@@ -8,10 +8,13 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (blsCompress)
 import Cardano.Crypto.Hash (Blake2b_224, Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
+import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
+import Data.Aeson (object, (.=))
+import Data.Aeson.Types (parseEither)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Map.Strict qualified as Map
 import GHC.ByteOrder (ByteOrder (BigEndian))
-import Hydra.Cardano.Api (Tx, UTxO)
+import Hydra.Cardano.Api (CtxUTxO, PaymentKey, Tx, TxId, TxIn (..), TxIx (..), TxOut, UTxO, VerificationKey)
 import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.KZGTrustedSetup (g1BuiltinPoints, g2BuiltinPoints)
@@ -26,13 +29,17 @@ import Hydra.Tx.Accumulator (
   defaultItems,
   getAccumulatorCommitment,
   getAccumulatorHash,
+  maxAccumulatorSize,
   removeOutputs,
   requiredCRSPointCount,
   unHydraAccumulator,
  )
+import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.IsTx (IsTx (outputsOfUTxO, utxoToElement))
+import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (bls12_381_G1_compress, bls12_381_G1_uncompress, bls12_381_G2_uncompress, byteStringToInteger, fromBuiltin, toBuiltin)
+import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Gen (genTxOutAdaOnly, genUTxOWithSimplifiedAddresses)
 import Test.QuickCheck (counterexample, forAll, property, resize, sublistOf, suchThat, (.&&.), (===), (==>))
 
@@ -142,6 +149,46 @@ spec = parallel $ do
     it "oversized accumulator errors when the commitment is forced" $ do
       let acc = unHydraAccumulator $ build (show <$> [1 .. (4096 :: Int)])
       (pure $! computeG1CommitmentBytes acc) `shouldThrow` anyErrorCall
+
+    -- The client-facing 'SideLoadSnapshot' command carries a
+    -- client-supplied UTxO map, and this decode is the only place it becomes an
+    -- accumulator. Nothing bounds it, and because both cached fields are lazy
+    -- thunks (and 'hydra-tx' has no StrictData) the decode itself always
+    -- succeeds -- the 'error' above detonates later, in whichever thread first
+    -- forces the accumulator. In the node that is the tracer's 'ToJSON', the
+    -- rejection message that echoes the input back, or multisignature
+    -- verification, none of which catch it.
+    --
+    -- The payload is built by hand rather than via 'toJSON' on a real
+    -- 'Snapshot' deliberately: 'toJSON' would itself force the accumulator
+    -- hashes to encode them, whereas the real wire payload never carries the
+    -- accumulators at all (decode always rebuilds them, see the SECURITY note
+    -- on 'FromJSON (Snapshot tx)').
+    it "an oversized client-supplied Snapshot decodes successfully, and forcing it throws" $ do
+      let vk = arbitrary `generateWith` 1 :: VerificationKey PaymentKey
+          txId' = arbitrary `generateWith` 1 :: TxId
+          txOut = genTxOutAdaOnly vk `generateWith` 1 :: TxOut CtxUTxO
+          oversizedUTxO =
+            UTxO.fromList
+              [(TxIn txId' (TxIx ix), txOut) | ix <- [0 .. fromIntegral maxAccumulatorSize]]
+          payload =
+            object
+              [ "headId" .= mkHeadId testPolicyId
+              , "version" .= (0 :: SnapshotVersion)
+              , "number" .= (1 :: SnapshotNumber)
+              , "confirmed" .= ([] :: [Tx])
+              , "utxo" .= oversizedUTxO
+              ]
+
+      decoded <- case parseEither parseJSON payload :: Either String (Snapshot Tx) of
+        Left err -> fail $ "expected decode to succeed, got: " <> err
+        Right s -> pure s
+
+      -- What 'getSignableRepresentation' does during multisignature
+      -- verification, and what 'ToJSON (Snapshot tx)' does when the node traces
+      -- or echoes the input: force the cached hash, hence the cached
+      -- commitment, hence the size check.
+      (pure $! getSignableRepresentation decoded) `shouldThrow` anyErrorCall
 
     describe "golden commitments (recorded from the PlutusTx path before the FFI swap)" $
       forM_ goldenCases $ \(caseName, els, expectedHex) ->

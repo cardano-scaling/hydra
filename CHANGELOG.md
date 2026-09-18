@@ -23,6 +23,19 @@ changes.
   requires the deposit output value to match its datum, so such deposits can
   be recovered with it.
 
+- Bound the UTxO set of a client-supplied snapshot. `POST /snapshot` and the
+  WebSocket `SideLoadSnapshot` command now reject a snapshot committing to more
+  outputs than the accumulator's trusted setup supports (4095) with a `400` /
+  `InvalidInput`, before the command is queued. Previously the size was
+  unchecked and the node crashed or hung when the snapshot's accumulator was
+  first forced. Both report the new `SideLoadUTxOSetTooLarge` side-load
+  requirement failure, and `Hydra.HeadLogic` rejects such a snapshot too.
+
+- The JSON log writer no longer dies on a message it cannot encode. It emits an
+  `UnencodableLogEntry` entry carrying the failure reason and keeps draining,
+  where previously a partial `ToJSON` killed the writer thread and every
+  subsequent trace blocked once the log queue filled.
+
 - **BREAKING** Fix GHSA-f825-9gwc-h5xq: a non-final partial fanout step could
   distribute a snapshot member whose value had already left the head (a decommit
   paid out by a decrement before close, or a deposit whose increment never

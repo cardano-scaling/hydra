@@ -44,8 +44,9 @@ import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Node.State (NodeState (..))
-import Hydra.Tx (ConfirmedSnapshot (..))
+import Hydra.Tx (ConfirmedSnapshot (..), HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
@@ -56,6 +57,7 @@ import Test.Hspec.Wai qualified as Wai
 import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.Chain.Direct.State ()
+import Test.Hydra.Ledger.Simple (utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
 import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
@@ -517,6 +519,59 @@ apiServerSpec = do
           $ do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot))
               `shouldRespondWith` 400{matchBody = matchJSON expectedBody}
+
+      -- The body is built by hand rather than by encoding a
+      -- Haskell value: encoding an oversized 'Snapshot' forces its accumulator
+      -- and would throw inside the test itself.
+      it "returns 400 for a snapshot above the accumulator limit, without enqueuing it" $ do
+        responseChannel <- newTChanIO
+        enqueued <- newIORef ([] :: [ClientInput SimpleTx])
+        signatures <- generate (arbitrary @(MultiSignature (Snapshot SimpleTx)))
+        headId <- generate (arbitrary @HeadId)
+        let bigCount = Accumulator.maxAccumulatorSize + 1
+            expectedFailure =
+              object
+                [ "tag" .= Aeson.String "SideLoadUTxOSetTooLarge"
+                , "utxoCount" .= bigCount
+                , "maxAllowed" .= Accumulator.maxAccumulatorSize
+                ]
+            body =
+              object
+                [ "tag" .= Aeson.String "ConfirmedSnapshot"
+                , "snapshot"
+                    .= object
+                      [ "headId" .= headId
+                      , "version" .= (0 :: Int)
+                      , "number" .= (1 :: Int)
+                      , "confirmed" .= ([] :: [SimpleTx])
+                      , "utxo" .= utxoRefs [1 .. fromIntegral bigCount]
+                      ]
+                , "signatures" .= signatures
+                ]
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              (\input -> modifyIORef' enqueued (input :))
+              10
+              responseChannel
+          )
+          $ do
+            -- Assert on the body, not just the status: a malformed payload would
+            -- also give 400 with nothing enqueued, which would make this test
+            -- pass without exercising the size check at all.
+            post "/snapshot" (Aeson.encode body)
+              `shouldRespondWith` 400{matchBody = matchJSON expectedFailure}
+        -- The security assertion: the node's event loop never sees it, so
+        -- nothing can force the accumulator -- not the tracer, not the
+        -- rejection that would echo the input back, not signature verification.
+        readIORef enqueued `shouldReturn` []
 
       it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO

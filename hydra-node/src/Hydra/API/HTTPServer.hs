@@ -18,7 +18,7 @@ import Data.ByteString.Short ()
 import Data.List qualified as List
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
-import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.ClientInput (ClientInput (..), validateClientInput)
 import Hydra.API.ServerOutput (ApiEncoding (..), ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.WireFormat (decodeWire, encodeWire)
 import Hydra.CBOR.Orphans ()
@@ -26,6 +26,7 @@ import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx, ledgerEraVersion)
 import Hydra.Chain (Chain (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.Environment (Environment (..))
@@ -595,9 +596,17 @@ handleSideLoadSnapshot ::
   LBS.ByteString ->
   IO Response
 handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+  -- SECURITY: validate before queueing. An oversized snapshot decodes fine but
+  -- detonates the moment its accumulator is forced -- in the tracer, in the
+  -- rejection that echoes it back, or in multisignature verification. See
+  -- 'validateClientInput'.
   case decodeWire reqEnc body :: Either String (SideLoadSnapshotRequest tx) of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
+    Right SideLoadSnapshotRequest{snapshot}
+      | Left (utxoCount, maxAllowed) <- validateClientInput (SideLoadSnapshot snapshot) ->
+          pure . respondApi respEnc status400 $
+            (SideLoadUTxOSetTooLarge{utxoCount, maxAllowed} :: SideLoadRequirementFailure tx)
     Right SideLoadSnapshotRequest{snapshot} -> do
       dupChannel <- atomically $ dupTChan responseChannel
       putClientInput $ SideLoadSnapshot snapshot

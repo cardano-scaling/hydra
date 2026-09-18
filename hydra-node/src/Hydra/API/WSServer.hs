@@ -16,7 +16,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
-import Hydra.API.ClientInput (ClientInput (SafeClose))
+import Hydra.API.ClientInput (ClientInput (SafeClose), validateClientInput)
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   ApiEncoding (..),
@@ -43,6 +43,7 @@ import Hydra.API.WireFormat (decodeWire, describeWire)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
@@ -77,7 +78,7 @@ data WsCodec tx = WsCodec
 --
 -- NOTE: Inputs are decoded per the negotiated encoding, never the frame type:
 -- some JSON clients (e.g. the TUI) send binary frames containing JSON.
-mkWsCodec :: IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
+mkWsCodec :: forall tx. IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
 mkWsCodec config con =
   case config.encoding of
     JsonEncoding ->
@@ -88,7 +89,7 @@ mkWsCodec config con =
           sendClientMessage = sendPlainJson
         , sendGreetings = sendPlainJson
         , sendInvalidInput = sendPlainJson
-        , decodeInput = decodeWire JsonEncoding
+        , decodeInput = decodeValidInput JsonEncoding
         , describeInput = describeWire JsonEncoding
         }
     CborEncoding ->
@@ -99,10 +100,27 @@ mkWsCodec config con =
           sendClientMessage = sendPlainCbor
         , sendGreetings = sendPlainCbor
         , sendInvalidInput = sendPlainCbor
-        , decodeInput = decodeWire CborEncoding
+        , decodeInput = decodeValidInput CborEncoding
         , describeInput = describeWire CborEncoding
         }
  where
+  -- SECURITY: validation is part of decoding so that no code path can observe
+  -- an input that has not been through it -- in particular the 'toJSON' trace
+  -- on the success branch of 'receiveInputs', which for an oversized
+  -- 'SideLoadSnapshot' would force the offending accumulator on the log writer
+  -- thread. See 'validateClientInput'.
+  --
+  -- 'InvalidInput' carries its reason as text, so the typed failure is rendered
+  -- rather than nested. It is safe to render: 'SideLoadUTxOSetTooLarge' holds
+  -- only the two counts, never the offending snapshot.
+  decodeValidInput :: ApiEncoding -> LBS.ByteString -> Either String (ClientInput tx)
+  decodeValidInput encoding bytes =
+    decodeWire encoding bytes >>= first tooLarge . validateClientInput
+   where
+    tooLarge :: (Int, Int) -> String
+    tooLarge (utxoCount, maxAllowed) =
+      show (SideLoadUTxOSetTooLarge{utxoCount, maxAllowed} :: SideLoadRequirementFailure tx)
+
   sendPlainJson :: ToJSON a => a -> IO ()
   sendPlainJson = sendTextData con . Aeson.encode
 

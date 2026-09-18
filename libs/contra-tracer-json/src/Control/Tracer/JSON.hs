@@ -39,7 +39,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Exception (IOException)
+import Control.Exception (AsyncException (HeapOverflow, StackOverflow), IOException, SomeAsyncException, SomeException, displayException, evaluate, fromException, throwIO)
 import Control.Monad (forM_, unless, void, when, (>=>))
 import Control.Monad.Class.MonadAsync (waitCatch)
 import Control.Monad.Class.MonadFork (MonadFork, myThreadId)
@@ -53,7 +53,7 @@ import Data.Aeson (FromJSON, ToJSON (..), pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
 import Data.Functor.Contravariant (contramap)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
@@ -147,7 +147,7 @@ withTracerOutputTo bufferingMode hdl namespace action = do
       -- unnoticed until the queue filled, at which point every 'traceWith' in
       -- the node blocks forever on a queue nobody drains.
       liftIO $
-        (forM_ entries (write . Aeson.encode) >> hFlush hdl)
+        (forM_ entries (encodeEntry >=> write) >> hFlush hdl)
           `catch` \(_ :: IOException) -> pure ()
       writeLogs queue closed
 
@@ -170,6 +170,79 @@ withTracerOutputTo bufferingMode hdl namespace action = do
   drainGraceSeconds = 5
 
   write bs = LBS.hPut hdl (bs <> "\n")
+
+  -- Encode and force, so a failure surfaces to the caller's handler rather than
+  -- later, wherever the lazy result happens to be consumed.
+  forceEncoded :: ToJSON entry => entry -> IO LBS.ByteString
+  forceEncoded x = let bytes = Aeson.encode x in bytes <$ evaluate (LBS.length bytes)
+
+  -- Run the substitute on any synchronous failure; cancellation still
+  -- propagates.
+  orSubstitute :: IO r -> (SomeException -> IO r) -> IO r
+  orSubstitute attempt substitute =
+    attempt `catch` \e -> if isCancellation e then throwIO e else substitute e
+
+  -- Only what a canceller raises.
+  --
+  -- 'SomeAsyncException' alone is too broad: 'AsyncException's own 'Exception'
+  -- instance wraps itself in it, so 'StackOverflow' and 'HeapOverflow' match as
+  -- well -- and those come out of the encoding work rather than from anybody
+  -- cancelling us. Rethrowing them would kill the writer on exactly the kind of
+  -- entry it is meant to survive, so they are excluded by name. 'ThreadKilled'
+  -- and 'UserInterrupt' do mean stop; so does anything else async, such as
+  -- 'AsyncCancelled' from the surrounding 'withAsync'.
+  isCancellation :: SomeException -> Bool
+  isCancellation e =
+    case fromException e :: Maybe AsyncException of
+      Just StackOverflow -> False
+      Just HeapOverflow -> False
+      Just _ -> True
+      Nothing -> isJust (fromException e :: Maybe SomeAsyncException)
+
+  -- Last resort, when even the diagnostic entry cannot be encoded. A constant,
+  -- so it has nothing left to fail on.
+  unencodableFallback :: LBS.ByteString
+  unencodableFallback = "{\"message\":{\"tag\":\"UnencodableLogEntry\"}}"
+
+  -- Encode one entry, forcing it here so that a partial 'ToJSON' cannot take
+  -- this thread down.
+  --
+  -- A 'ToJSON' instance reachable from a traced type can be partial: it may
+  -- force a value whose computation calls 'error' (for example a lazily cached
+  -- cryptographic commitment that is only computable for inputs below some
+  -- size). Left unguarded, that exception surfaces here rather than at the
+  -- 'traceWith' call site, and this thread dying is much worse than one lost
+  -- log line: it is deliberately not linked to its parent, so nothing notices
+  -- until the bounded queue fills, at which point every 'traceWith' in the
+  -- process blocks forever on a queue nobody drains. Substitute a diagnostic
+  -- entry for the one that cannot be encoded and keep the loop alive.
+  --
+  -- Cancellation is rethrown: the surrounding 'withAsync' must still be able to
+  -- stop this thread.
+  encodeEntry :: Envelope msg -> IO LBS.ByteString
+  encodeEntry envelope =
+    forceEncoded envelope `orSubstitute` \e ->
+      -- The substitute is forced here too. Returning it lazily would leave it to
+      -- be encoded by 'write', outside this handler, and it can fail in turn:
+      -- 'displayException' on an exception whose 'show' is partial throws, which
+      -- is precisely the escape this function exists to prevent. If even that
+      -- fails, fall back to constant bytes, which cannot.
+      forceEncoded (unencodable e) `orSubstitute` \_ -> pure unencodableFallback
+   where
+    Envelope{timestamp, threadId} = envelope
+
+    unencodable :: SomeException -> Envelope Aeson.Value
+    unencodable e =
+      Envelope
+        { timestamp
+        , threadId
+        , namespace
+        , message =
+            Aeson.object
+              [ "tag" .= ("UnencodableLogEntry" :: Text)
+              , "reason" .= Text.pack (displayException e)
+              ]
+        }
 
 -- | Capture logs and output them to stdout when an exception was raised by the
 -- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with

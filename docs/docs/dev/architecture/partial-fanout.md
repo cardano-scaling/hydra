@@ -256,6 +256,14 @@ A requested snapshot that would exceed this is rejected with
 `ReqSnUTxOSetTooLarge`, so the head cannot reach a state it would be unable to fan
 out.
 
+The same bound applies to a snapshot supplied by a client rather than by a peer.
+A [side-loaded snapshot](/docs/how-to/sideload-snapshot) above the limit is
+refused by the API with a `400` before it reaches the head logic, which keeps its
+own backstop (`SideLoadUTxOSetTooLarge`). The check has to happen at the
+boundary: an accumulator over more elements than the setup supports has no
+computable commitment at all, and the node forces that commitment as soon as it
+logs, echoes or signature-checks the snapshot.
+
 ### How much fits in one step
 
 Two separate limits bound a single fanout transaction:

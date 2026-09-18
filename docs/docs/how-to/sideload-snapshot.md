@@ -228,3 +228,15 @@ We can also check the transaction was included in the latest confirmed snapshot:
 ```shell
 curl -s 0.0.0.0:{4001,4002,4003}/snapshot | jq
 ```
+
+## Limits
+
+A side-loaded snapshot has to be one the head could actually close and fan out,
+so `POST /snapshot` refuses a snapshot committing to more than **4095** outputs
+(the capacity of the embedded KZG trusted setup, counting any pending commit or
+decommit alongside the UTxO set) with a `400`. See
+[head size limit](/docs/dev/architecture/partial-fanout#head-size-limit).
+
+Note also that the API is not authenticated. Keep `--api-host` on `localhost`,
+or put an authenticating proxy in front of it: any party that can reach this
+endpoint can side-load, and can also close the head.
