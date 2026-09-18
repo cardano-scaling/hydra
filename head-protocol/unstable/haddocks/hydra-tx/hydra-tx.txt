@@ -543,6 +543,23 @@ accumulatorSize :: HydraAccumulator -> Int
 --   for convenience.
 maxAccumulatorSize :: Int
 
+-- | Check an accumulator against the capacity of the embedded G1 CRS,
+--   yielding its size and the maximum when it does not fit.
+--   
+--   SECURITY: <a>computeG1CommitmentBytes</a> enforces this limit with
+--   <a>error</a>, and it is reached through the lazy commitment thunk of
+--   <a>HydraAccumulator</a> -- i.e. from wherever that thunk is first
+--   forced, which includes 'ToJSON (Snapshot tx)' and
+--   <tt>getSignableRepresentation</tt>. Every path that builds an
+--   accumulator from data this node did not produce itself must therefore
+--   check the size <i>before</i> the value can be forced, traced or
+--   echoed. This check is safe to run on an over-capacity accumulator:
+--   like <a>accumulatorSize</a> it only folds the element map and never
+--   touches the cached commitment or hash. See <a>validateClientInput</a>
+--   (the client API boundary) and <a>HeadLogic</a> (the protocol-logic
+--   backstop).
+checkAccumulatorSize :: HydraAccumulator -> Either (Int, Int) ()
+
 -- | Largest subset a single fanout transaction can distribute, re-exported
 --   from <tt>KZGTrustedSetup</tt> for convenience.
 deployedFanoutBatchSize :: Int

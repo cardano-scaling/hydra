@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.205d7797.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.b7007856.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -218,6 +218,13 @@ head to <code>Closed</code> rather than wedging it.</p>
 A requested snapshot that would exceed this is rejected with
 <code>ReqSnUTxOSetTooLarge</code>, so the head cannot reach a state it would be unable to fan
 out.</p>
+<p>The same bound applies to a snapshot supplied by a client rather than by a peer.
+A <a href="/head-protocol/unstable/docs/how-to/sideload-snapshot">side-loaded snapshot</a> above the limit is
+refused by the API with a <code>400</code> before it reaches the head logic, which keeps its
+own backstop (<code>SideLoadUTxOSetTooLarge</code>). The check has to happen at the
+boundary: an accumulator over more elements than the setup supports has no
+computable commitment at all, and the node forces that commitment as soon as it
+logs, echoes or signature-checks the snapshot.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="how-much-fits-in-one-step">How much fits in one step<a href="#how-much-fits-in-one-step" class="hash-link" aria-label="Direct link to How much fits in one step" title="Direct link to How much fits in one step">​</a></h3>
 <p>Two separate limits bound a single fanout transaction:</p>
 <ul>

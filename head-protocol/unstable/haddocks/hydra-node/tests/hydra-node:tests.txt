@@ -392,6 +392,25 @@ genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
 module Hydra.LoggingSpec
 spec :: Spec
 
+-- | A traced message whose <a>ToJSON</a> is partial, standing in for the
+--   node's real ones (an <tt>Input</tt> carrying a snapshot whose
+--   accumulator cannot be committed to).
+data Loggable
+Unencodable :: Loggable
+Overflowing :: Loggable
+Undescribable :: Loggable
+Encodable :: Int -> Loggable
+
+-- | An exception that cannot be rendered, so the diagnostic entry
+--   substituted for it cannot be encoded either. <tt>unencodable</tt>
+--   reaches this through <tt>SomeException'</tt>s own
+--   <a>displayException</a>, which delegates to the wrapped exception's.
+data Undescribed
+Undescribed :: Undescribed
+instance GHC.Show.Show Hydra.LoggingSpec.Undescribed
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.LoggingSpec.Loggable
+instance GHC.Exception.Type.Exception Hydra.LoggingSpec.Undescribed
+
 
 -- | A simplistic type of transactions useful for modelling purpose. a
 --   <a>Payment</a> is a simple transaction type that moves some amount of

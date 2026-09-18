@@ -32,6 +32,44 @@ PartialFanout :: UTxOType tx -> ClientInput tx
 [$sel:utxoToFanout:Init] :: ClientInput tx -> UTxOType tx
 SideLoadSnapshot :: ConfirmedSnapshot tx -> ClientInput tx
 [$sel:snapshot:Init] :: ClientInput tx -> ConfirmedSnapshot tx
+
+-- | Reject a client input this node must not process, before it is queued.
+--   
+--   SECURITY: <a>SideLoadSnapshot</a> is the one client command carrying a
+--   whole <a>Snapshot</a>, and decoding one rebuilds both of its
+--   accumulators from the client-supplied UTxO sets (<a>FromJSON</a>).
+--   That decode always succeeds regardless of size -- the accumulators'
+--   commitment and hash are lazy thunks -- and the over-capacity
+--   <a>error</a> inside <a>computeG1CommitmentBytes</a> then fires from
+--   wherever one of those thunks is first forced. In the node that is not
+--   a single place:
+--   
+--   <ul>
+--   <li>the tracer's 'ToJSON (Input tx)' in <a>stepHydraNode</a>, whose
+--   encoding runs on the log writer thread and would take logging (and
+--   then, once the log queue fills, the whole node) down with it;</li>
+--   <li>'ToJSON (ClientMessage tx)' when a rejection echoes the offending
+--   input back to WebSocket clients;</li>
+--   <li><tt>getSignableRepresentation</tt> during multisignature
+--   verification, on the node's main loop, which has no handler for
+--   it.</li>
+--   </ul>
+--   
+--   None of these can be guarded individually, so the size is bounded here
+--   instead: an oversized snapshot never enters the input queue, and the
+--   client gets a 400 / <tt>InvalidInput</tt> rather than a dead node.
+--   <a>HeadLogic</a> keeps an independent backstop for the same invariant.
+--   
+--   This must not force the accumulators, so it goes through
+--   <a>checkAccumulatorSize</a> (an element-map fold) and never
+--   <a>toJSON</a> or <a>getAccumulatorHash</a>.
+--   
+--   Reports the offending size and the maximum rather than a
+--   <a>SideLoadRequirementFailure</a>: that type transitively depends on
+--   this module (<tt>Input</tt> carries a <a>ClientInput</a>), so the
+--   callers build <tt>SideLoadUTxOSetTooLarge</tt> from these two numbers
+--   instead.
+validateClientInput :: IsTx tx => ClientInput tx -> Either (Int, Int) (ClientInput tx)
 instance GHC.Generics.Generic (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.API.ClientInput.ClientInput tx)
@@ -2147,6 +2185,27 @@ SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> S
 SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
 [$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
 [$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
+
+-- | The snapshot commits to more outputs than the accumulator's trusted
+--   setup supports, so its commitment could never be computed.
+--   
+--   SECURITY: unlike its siblings, this one is raised at the client API
+--   boundary rather than by the head logic, and it has to be: forcing an
+--   over-capacity accumulator calls <a>RequirementFailure</a> (see
+--   <a>checkAccumulatorSize</a>), and by the time the head logic sees an
+--   input the node has already traced it, which forces it. See
+--   <a>validateClientInput</a>.
+--   
+--   <a>update</a> keeps an independent check for any future producer that
+--   skips the boundary, reported as <a>SideLoadSnapshotFailed</a>. That
+--   route deliberately does not go through <tt>sideLoadFailed</tt>: a
+--   <tt>SideLoadSnapshotRejected</tt> client message echoes the offending
+--   <tt>ClientInput</tt> back, and encoding that echo would force the very
+--   accumulator that cannot be computed. This constructor carries only the
+--   two counts, so it is safe to report either way.
+SideLoadUTxOSetTooLarge :: Int -> Int -> SideLoadRequirementFailure tx
+[$sel:utxoCount:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
+[$sel:maxAllowed:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.LogicError tx)
@@ -4423,6 +4482,27 @@ SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> S
 SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
 [$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
 [$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
+
+-- | The snapshot commits to more outputs than the accumulator's trusted
+--   setup supports, so its commitment could never be computed.
+--   
+--   SECURITY: unlike its siblings, this one is raised at the client API
+--   boundary rather than by the head logic, and it has to be: forcing an
+--   over-capacity accumulator calls <a>RequirementFailure</a> (see
+--   <a>checkAccumulatorSize</a>), and by the time the head logic sees an
+--   input the node has already traced it, which forces it. See
+--   <a>validateClientInput</a>.
+--   
+--   <a>update</a> keeps an independent check for any future producer that
+--   skips the boundary, reported as <a>SideLoadSnapshotFailed</a>. That
+--   route deliberately does not go through <tt>sideLoadFailed</tt>: a
+--   <tt>SideLoadSnapshotRejected</tt> client message echoes the offending
+--   <tt>ClientInput</tt> back, and encoding that echo would force the very
+--   accumulator that cannot be computed. This constructor carries only the
+--   two counts, so it is safe to report either way.
+SideLoadUTxOSetTooLarge :: Int -> Int -> SideLoadRequirementFailure tx
+[$sel:utxoCount:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
+[$sel:maxAllowed:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
 data LogicError tx
 UnhandledInput :: Input tx -> HeadState tx -> LogicError tx
 [$sel:input:UnhandledInput] :: LogicError tx -> Input tx
@@ -5702,7 +5782,7 @@ WsCodec :: (TimedServerOutput tx -> IO ()) -> (ClientMessage tx -> IO ()) -> (Gr
 --   NOTE: Inputs are decoded per the negotiated encoding, never the frame
 --   type: some JSON clients (e.g. the TUI) send binary frames containing
 --   JSON.
-mkWsCodec :: IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
+mkWsCodec :: forall tx. IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
 wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
 
 -- | The query parameters of a websocket connection request path.
