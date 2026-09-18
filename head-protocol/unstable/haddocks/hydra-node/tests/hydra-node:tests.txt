@@ -14,18 +14,31 @@ spec :: Spec
 
 module Hydra.API.ServerSpec
 spec :: Spec
-sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
+sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
 matchGreetings :: Value -> Bool
 waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
 testClient :: TQueue IO Value -> TVar IO Int -> Connection -> IO ()
 dummyChainHandle :: Chain tx IO
 allowEverythingServerOutputFilter :: ServerOutputFilter tx
 noop :: Applicative m => a -> m ()
-withTestAPIServer :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Allocate a listening socket on a free port and hand both it and its
+--   port to the action. The server is then given the very socket it serves
+--   on, so the port cannot be taken in the gap between choosing it and
+--   binding it. That gap used to surface as a flaky
+--   <a>RunServerException</a> carrying "Address already in use".
+withFreeServerSocket :: (Socket -> PortNumber -> IO a) -> IO a
+withTestAPIServer :: Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Like <a>withTestAPIServer</a> but lets the server bind <tt>port</tt>
+--   itself. Only for the test that asserts a second server on the same
+--   port is refused: handing both servers one socket would let them both
+--   succeed.
+withTestAPIServerBindingPort :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
 
 -- | Like <a>withTestAPIServer</a>, but with an explicit callback invoked
 --   for every <a>ClientInput</a> received by the server.
-withTestAPIServerWithCallback :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+withTestAPIServerWithCallback :: Maybe Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
 
 -- | Connect to a websocket server running at given path. Fails if not
 --   connected within 2 seconds.
@@ -357,6 +370,10 @@ spec :: Spec
 --   to the action. Binding port 0 directly avoids probing for a free port
 --   with a separate socket, which is racy (and the previous TCP probe said
 --   nothing about UDP availability anyway).
+--   
+--   Everything here is on 127.0.0.1 rather than 0.0.0.0 deliberately: a
+--   datagram sent to 0.0.0.0 only reaches the local host on Linux, and
+--   fails with EHOSTUNREACH on macOS.
 withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
 
 

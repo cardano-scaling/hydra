@@ -5809,12 +5809,20 @@ Server :: (ClientMessage tx -> m ()) -> Server tx m
 -- | Send some output to all connected clients.
 [$sel:sendMessage:Server] :: Server tx m -> ClientMessage tx -> m ()
 data APIServerConfig
-APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTransactionTimeout -> APIServerConfig
+APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTransactionTimeout -> Maybe Socket -> APIServerConfig
 [$sel:host:APIServerConfig] :: APIServerConfig -> IP
 [$sel:port:APIServerConfig] :: APIServerConfig -> PortNumber
 [$sel:tlsCertPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:tlsKeyPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:apiTransactionTimeout:APIServerConfig] :: APIServerConfig -> ApiTransactionTimeout
+
+-- | Serve on this already-bound socket instead of binding
+--   <a>APIServerConfig</a>. The node binds its own (see <a>Run</a>); tests
+--   pass a socket they allocated so that the port cannot be taken in the
+--   gap between picking it and binding it. <a>APIServerConfig</a> and
+--   <a>APIServerConfig</a> are still used for logging and for the
+--   <a>RunServerException</a> context.
+[$sel:listenSocket:APIServerConfig] :: APIServerConfig -> Maybe Socket
 withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
