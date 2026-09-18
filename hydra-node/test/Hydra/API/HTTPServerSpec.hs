@@ -697,12 +697,13 @@ apiServerSpec = do
                             else Just $ "\ninlineDatumRaw not found in body:\n" <> show body
                   }
 
-    -- The list is served straight from the 'projectPendingDeposits' read
-    -- model, so a client polling for its own deposit sees exactly what the
-    -- projection holds.
+    -- The list is served straight from the caller's read model, so a client
+    -- polling for its own deposit sees exactly what that model holds. Where
+    -- the list comes from is 'Hydra.API.Server': the pending view of the
+    -- 'NodeState' aggregate.
     describe "GET /commits" $ do
       responseChannel <- runIO newTChanIO
-      -- The head state plays no part: the handler serves the read model as-is.
+      -- The head state plays no part here: the handler serves the list as-is.
       let anyHeadState = Open (generateWith arbitrary 42)
       prop "responds with the pending deposit transaction ids" $ \(pendingTxIds :: [TxIdType Tx]) ->
         withApplication
