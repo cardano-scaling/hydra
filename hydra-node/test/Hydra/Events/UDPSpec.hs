@@ -45,9 +45,9 @@ spec = do
 -- separate socket, which is racy (and the previous TCP probe said nothing
 -- about UDP availability anyway).
 --
--- The listener binds INADDR_ANY, but the sinks above must send to 127.0.0.1
--- rather than 0.0.0.0: sending a datagram to 0.0.0.0 only reaches the local
--- host on Linux, and fails with EHOSTUNREACH on macOS.
+-- Everything here is on 127.0.0.1 rather than 0.0.0.0 deliberately: a datagram
+-- sent to 0.0.0.0 only reaches the local host on Linux, and fails with
+-- EHOSTUNREACH on macOS.
 withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
 withUDPServerSocket action =
   bracket (serverSocket ("127.0.0.1", 0)) stop $ \socket -> do

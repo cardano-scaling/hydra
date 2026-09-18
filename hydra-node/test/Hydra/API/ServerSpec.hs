@@ -340,8 +340,8 @@ spec =
     it "sends an error when a side-loaded snapshot exceeds the accumulator limit" $
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
-          withFreePort $ \port ->
-            withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
               withClient port "/" $ \con -> do
                 _greeting :: ByteString <- receiveData con
                 signatures <- generate (arbitrary @(MultiSignature (Snapshot SimpleTx)))
