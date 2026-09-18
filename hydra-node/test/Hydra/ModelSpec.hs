@@ -210,12 +210,13 @@ spec = do
   -- enabled: a new counterexample here is a new row for the table, not a
   -- flake to retry.
   --
-  -- The scripted fanout scenarios stay pending ('xprop'). They show the same
-  -- class of gap for a fanout in progress: after a fork erases a landed step,
-  -- the node's fanout bookkeeping is ahead of the chain. Automatic mode
-  -- re-posts the next step instead of the erased one, which cannot land, and
-  -- manual mode posts nothing at all since it waits for the client. The head
-  -- is never fully fanned out.
+  -- The scripted fanout scenarios pin the same class of gap for a fanout in
+  -- progress: after a fork erased a landed step, the node's fanout bookkeeping
+  -- was ahead of the chain. Automatic mode re-posted the next step instead of
+  -- the erased one, which could not land, and manual mode posted nothing at
+  -- all since it waited for the client, so the head was never fully fanned
+  -- out. Each landed step is now recorded with its slot and the progress is
+  -- rewound to the steps still on chain ('rewindFanoutProgress').
   context "settlement and fanout rollback stress" $ do
     prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
@@ -236,11 +237,11 @@ spec = do
       propScripted finalizedIncrementAndDecrementErased
     prop "new settlements requested during a replay settle in order" $
       propScripted newSettlementsDuringReplay
-    xprop "a fork erases a step of an automatic fanout" $
+    prop "a fork erases a step of an automatic fanout" $
       propScripted autoFanoutStepErased
-    xprop "a fork erases two steps of an automatic fanout" $
+    prop "a fork erases two steps of an automatic fanout" $
       propScripted autoFanoutTwoStepsErased
-    xprop "a fork erases a step of a manual fanout" $
+    prop "a fork erases a step of a manual fanout" $
       propScripted manualFanoutStepErased
 
 propFanoutLimit :: Int -> Property

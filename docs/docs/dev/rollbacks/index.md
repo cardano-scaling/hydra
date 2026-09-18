@@ -52,6 +52,8 @@ For deposits and incremental commits/decommits while the head is open, this work
 
 - If the rollback erased the deposit transaction itself, the re-posted increment cannot land (the deposit UTxO does not exist on the new chain yet). The node re-posts the increment again when it observes the deposit transaction re-landing on the new chain.
 
+- A partial fanout in progress is rewound the same way. Each landed step is recorded with the slot it was observed at and the fanout mode it replaced. A rollback drops the steps past the rolled-back slot, so the erased steps' outputs count as still in the head again, the driver's mode goes back to what it was before them (an erased selection is the node's to distribute again; a passive observer keeps waiting), and the driver posts the next step from that rewound progress rather than from bookkeeping the chain no longer matches.
+
 If the settling transaction is re-observed on the new chain — whether it survived the fork, was re-included from the mempool, or was re-posted by any party — the corresponding state transition applies idempotently and the head continues as normal.
 
 :::warning

@@ -3394,6 +3394,7 @@ spec =
                               , remainingOutputs = mempty
                               , distributedOutputs = priorDistributed
                               , mode = AutoDrain
+                              , stepsLanded = []
                               }
                       }
                   _ -> closedState
@@ -3493,6 +3494,88 @@ spec =
           HeadPartialFannedOut{remainingOutputs} ->
             remainingOutputs == Set.difference allItems attackedDistributed
           _ -> False
+
+      -- A fork can erase a landed fanout step. The bookkeeping kept counting
+      -- it as distributed, so automatic mode re-posted the step AFTER it,
+      -- built against a datum the chain no longer had, and manual mode posted
+      -- nothing at all since it was waiting for the client. Progress is now
+      -- rewound to the steps still on the chain this node follows.
+      it "re-posts a fanout step a fork erased, from the progress still on chain" $ do
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            chunkB = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
+            s0 = inFanoutProgressDistributed threeParties allItems mempty AutoDrain
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+            observeStep slot chunk = observeTxAtSlot slot OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunk}
+        -- One step landed and the fork erased it: nothing is distributed any
+        -- more, so the whole set is posted again as a full fanout, against the
+        -- Closed datum, and not as a final step against a FanoutProgress datum.
+        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeStep 5 chunkA) >> getState
+        let erased = update bobEnv ledger now s1 (rollbackTo 4)
+        erased `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{}} -> True
+          _ -> False
+        erased `hasNoEffectSatisfying` \case
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
+          _ -> False
+        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
+        case headState s2 of
+          FanoutProgress PartialFanoutState{distributedOutputs, remainingOutputs} -> do
+            distributedOutputs `shouldBe` mempty
+            remainingOutputs `shouldBe` allItems
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+        -- Two steps landed and the fork erased the second: the first stays
+        -- distributed, and the final step covers everything else.
+        s3 <- runHeadLogic bobEnv ledger s1 $ step (observeStep 6 chunkB) >> getState
+        update bobEnv ledger now s3 (rollbackTo 5) `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
+            utxoToDistribute == Set.difference allItems chunkA
+          _ -> False
+
+      it "re-posts an erased manual selection instead of waiting for the client" $ do
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            selection = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            s0 = inFanoutProgressDistributed threeParties allItems mempty (DistributingSelection selection)
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = selection}) >> getState
+        -- The selection is fully distributed: the driver waits for the next one.
+        case headState s1 of
+          FanoutProgress PartialFanoutState{mode} -> mode `shouldBe` AwaitingSelection
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+        -- The fork erases that step: the selection is back in the head and it
+        -- is this node's job to distribute it, so it is posted again.
+        update bobEnv ledger now s1 (rollbackTo 4) `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute, utxoForProof}} ->
+            utxoToDistribute == selection && utxoForProof == allItems
+          _ -> False
+        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
+        case headState s2 of
+          FanoutProgress PartialFanoutState{mode, distributedOutputs} -> do
+            mode `shouldBe` DistributingSelection selection
+            distributedOutputs `shouldBe` mempty
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+
+      it "an observer keeps waiting after a fork erases a step it only observed" $ do
+        -- Only the driver advances a fanout. A passive observer's progress is
+        -- rewound like anyone's, but it must not start posting steps.
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            s0 = inFanoutProgressDistributed threeParties allItems mempty AwaitingSelection
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA}) >> getState
+        update bobEnv ledger now s1 (rollbackTo 4) `hasNoEffectSatisfying` \case
+          OnChainEffect{} -> True
+          _ -> False
+        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
+        case headState s2 of
+          FanoutProgress PartialFanoutState{mode, distributedOutputs, remainingOutputs} -> do
+            mode `shouldBe` AwaitingSelection
+            distributedOutputs `shouldBe` mempty
+            remainingOutputs `shouldBe` allItems
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
         let smallRemaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
@@ -4911,6 +4994,7 @@ inFanoutProgressDistributed parties remaining distributed mode =
         , remainingOutputs = remaining
         , distributedOutputs = distributed
         , mode
+        , stepsLanded = []
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties

@@ -22,7 +22,7 @@ module Hydra.HeadLogic (
 
 import Hydra.Prelude
 
-import Data.List (elemIndex, minimumBy)
+import Data.List (elemIndex, minimumBy, partition)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set ((\\))
@@ -64,6 +64,7 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
   FanoutMode (..),
+  FanoutStepLanded (..),
   HeadState (..),
   IdleState (IdleState, chainState),
   OpenState (..),
@@ -1875,8 +1876,10 @@ closedToFanoutProgress ::
   UTxOType tx ->
   UTxOType tx ->
   FanoutMode tx ->
+  -- | The steps already observed, see 'FanoutStepLanded'
+  [FanoutStepLanded tx] ->
   HeadState tx
-closedToFanoutProgress closedState chainState remaining distributed mode =
+closedToFanoutProgress closedState chainState remaining distributed mode stepsLanded =
   FanoutProgress
     PartialFanoutState
       { parameters
@@ -1889,6 +1892,7 @@ closedToFanoutProgress closedState chainState remaining distributed mode =
       , remainingOutputs = remaining
       , distributedOutputs = distributed
       , mode
+      , stepsLanded
       }
  where
   ClosedState{parameters, confirmedSnapshot, contestationDeadline, headId, headSeed, version} = closedState
@@ -2048,11 +2052,11 @@ emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
 -- rolled-back transaction gone and nothing re-posted. This mirrors the
--- Increment/Decrement re-post on rollback ('repostNextSettlement'): it uses the
--- current best-effort bookkeeping and, like those re-posts, assumes the
--- rolled-back transactions re-appear — it does not attempt to reconstruct
--- fanout progress across a divergent rollback (the same limitation the general
--- rollback handling has).
+-- Increment/Decrement re-post on rollback ('repostNextSettlement'). The caller
+-- passes the progress as rewound to the steps still on chain
+-- ('rewindFanoutProgress'): from the un-rewound bookkeeping, automatic mode
+-- posted the step after the erased one, built against a datum the chain no
+-- longer had, and manual mode posted nothing.
 --
 -- Which step that is comes from 'currentFanoutStep', the same derivation the
 -- revert guard uses to tell this step's failure from a superseded one's.
@@ -2070,6 +2074,43 @@ repostFanoutStep pfs =
       emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
  where
   PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
+
+-- | Rewind the fanout's progress to the steps still on the chain this node
+-- follows after a rollback to the given slot: the erased steps' outputs are
+-- back in the head, and the driver's mode goes back to what those steps
+-- replaced. See 'FanoutStepLanded'.
+--
+-- A step observed exactly at the rollback point is still on chain, so only
+-- steps strictly after it are erased, as for 'markErased'.
+rewindFanoutProgress :: IsTx tx => ChainSlot -> PartialFanoutState tx -> PartialFanoutState tx
+rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, version, mode, stepsLanded}
+  | null erased = pfs
+  | otherwise =
+      pfs
+        { stepsLanded = kept
+        , distributedOutputs = distributed
+        , remainingOutputs = removeDistributedOutputs (outputsOfUTxO distributed) (fanoutUTxOFromSnapshot confirmedSnapshot version)
+        , mode = rewoundMode
+        }
+ where
+  (kept, erased) = partition (\FanoutStepLanded{landedAt} -> landedAt <= rolledBackSlot) stepsLanded
+
+  distributed = foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) kept
+
+  -- The erased outputs that a selection of this node's was distributing are its
+  -- job again. A driver draining automatically covers them anyway, and an
+  -- observer, whose steps replaced no selection, must not start driving.
+  erasedSelected =
+    foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) [s | s@FanoutStepLanded{modeBefore = DistributingSelection{}} <- erased]
+
+  rewoundMode = case mode of
+    AutoDrain -> AutoDrain
+    DistributingSelection selection
+      | nullOutputs erasedSelected -> mode
+      | otherwise -> DistributingSelection (erasedSelected <> selection)
+    AwaitingSelection
+      | nullOutputs erasedSelected -> AwaitingSelection
+      | otherwise -> DistributingSelection erasedSelected
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.
@@ -2721,7 +2762,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
   (FanoutProgress partialFanoutState, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
       <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-      <> repostFanoutStep partialFanoutState
+      <> repostFanoutStep (rewindFanoutProgress (chainStateSlot rolledBackChainState) partialFanoutState)
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
@@ -3369,7 +3410,7 @@ applyEvent st = \case
       -- This node initiated a full automatic fanout: become the driver in
       -- 'AutoDrain' mode so its observations auto-continue to completion.
       Closed cst@ClosedState{chainState} ->
-        closedToFanoutProgress cst chainState remainingOutputs mempty AutoDrain
+        closedToFanoutProgress cst chainState remainingOutputs mempty AutoDrain []
       -- A target covering the whole remainder before anything landed is a full
       -- fanout too ('nextFanoutStep'), so the driver switches to draining
       -- automatically.
@@ -3380,7 +3421,7 @@ applyEvent st = \case
       -- First selective partial fanout from a freshly closed head: enter the
       -- 'PartialFanout' state with nothing distributed yet.
       Closed cst@ClosedState{chainState} ->
-        closedToFanoutProgress cst chainState remainingOutputs mempty (recordedSelectionMode mempty remainingOutputs selection)
+        closedToFanoutProgress cst chainState remainingOutputs mempty (recordedSelectionMode mempty remainingOutputs selection) []
       -- Continuing: just record the new active selection.
       FanoutProgress pfs@PartialFanoutState{distributedOutputs} ->
         FanoutProgress pfs{mode = recordedSelectionMode distributedOutputs remainingOutputs selection}
@@ -3395,24 +3436,34 @@ applyEvent st = \case
     case st of
       -- First partial fanout observed by a passive observer: transition from
       -- 'Closed' into 'PartialFanout' (using the observed chain state).
+      -- The observer had no mode to replace: waiting is what its erased step
+      -- rewinds to.
       Closed cst ->
-        closedToFanoutProgress cst chainState remainingOutputs newlyDistributed mode
-      -- Subsequent steps: accumulate distributed outputs and update remaining/mode.
-      FanoutProgress pfs@PartialFanoutState{distributedOutputs = priorDistributed} ->
+        closedToFanoutProgress cst chainState remainingOutputs newlyDistributed mode [landed AwaitingSelection]
+      -- Subsequent steps: accumulate distributed outputs, update remaining/mode
+      -- and record the step with the mode it replaces.
+      FanoutProgress pfs@PartialFanoutState{distributedOutputs = priorDistributed, mode = priorMode, stepsLanded} ->
         FanoutProgress
           pfs
             { chainState
             , remainingOutputs
             , distributedOutputs = priorDistributed <> newlyDistributed
             , mode
+            , stepsLanded = stepsLanded <> [landed priorMode]
             }
       _otherState -> st
+   where
+    landed modeBefore = FanoutStepLanded{landedAt = chainStateSlot chainState, stepOutputs = newlyDistributed, modeBefore}
   HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> Closed cst{readyToFanoutSent = True}
       _otherState -> st
   ChainRolledBack{chainState} ->
-    setChainState chainState st
+    case st of
+      -- The fanout's progress is chain-derived: rewind it to the steps still
+      -- on the chain this node follows, see 'rewindFanoutProgress'.
+      FanoutProgress pfs -> FanoutProgress (rewindFanoutProgress (chainStateSlot chainState) pfs){chainState}
+      _otherState -> setChainState chainState st
   TickObserved{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of

@@ -3788,6 +3788,7 @@ components:
         - remainingOutputs
         - distributedOutputs
         - mode
+        - stepsLanded
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3808,6 +3809,31 @@ components:
         distributedOutputs:
           $ref: "api.yaml#/components/schemas/UTxO"
         mode:
+          $ref: "api.yaml#/components/schemas/FanoutMode"
+        stepsLanded:
+          type: array
+          description: |
+            The partial fanout steps observed so far, oldest first. A rollback
+            rewinds the two sets above and the mode to the steps still on chain.
+          items:
+            $ref: "api.yaml#/components/schemas/FanoutStepLanded"
+
+    FanoutStepLanded:
+      type: object
+      description: |
+        A partial fanout step observed on chain: what it distributed, the slot
+        it landed at, and the fanout mode its observation replaced.
+      additionalProperties: false
+      required:
+        - landedAt
+        - stepOutputs
+        - modeBefore
+      properties:
+        landedAt:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        stepOutputs:
+          $ref: "api.yaml#/components/schemas/UTxO"
+        modeBefore:
           $ref: "api.yaml#/components/schemas/FanoutMode"
 
     FanoutMode:

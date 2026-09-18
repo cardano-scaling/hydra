@@ -43,6 +43,16 @@ changes.
   queued, and on a head with no other traffic it expired. The queued deposit
   is now proposed on the next tick.
 
+- Fixed a partial fanout never completing after a rollback erased one of its
+  landed steps. The fanout's progress had no notion of when a step landed, so
+  it could not be rewound: automatic mode re-posted the step after the erased
+  one, built against a datum the chain no longer had, and manual mode posted
+  nothing while waiting for the next selection. Each landed step is now
+  recorded with its slot and the mode it replaced, a rollback rewinds the
+  progress to the steps still on chain, and the erased step is posted again.
+  A fanout state persisted before this change decodes with no recorded steps
+  and behaves as before for them.
+
 - Fixed two ways the outputs of a deposit could be lost
   ([#2741](https://github.com/cardano-scaling/hydra/issues/2741)): a deposit
   this node had marked expired while its increment was still in flight was
