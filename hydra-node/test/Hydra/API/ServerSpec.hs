@@ -64,7 +64,6 @@ import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
-import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
@@ -73,14 +72,14 @@ spec :: Spec
 spec =
   do
     it "should fail on port in use" $ do
-      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withTestAPIServerBindingPort p alice (mockSource []) tracer
-        -- Deliberately takes a bare port rather than a bound socket: the point
-        -- is that the server binds it itself, so the second attempt is refused.
-        withFreePort $ \port -> do
-          -- We should not be able to start the server on the same port twice
-          withServerOnPort port $ \_ ->
-            withServerOnPort port (\_ -> failure "should have not started")
+      showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+        -- The first server serves a socket bound since allocation, so nothing
+        -- can take the port in a gap between picking it and binding it. The
+        -- second is handed the bare port and has to bind it itself, which is
+        -- what must be refused.
+        withFreeServerSocket $ \sock port ->
+          withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
+            withTestAPIServerBindingPort port alice (mockSource []) tracer (\_ -> failure "should have not started")
               `shouldThrow` \case
                 RunServerException{port = errorPort, ioException} ->
                   errorPort == port && isAlreadyInUseError ioException

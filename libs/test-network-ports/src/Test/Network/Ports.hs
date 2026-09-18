@@ -133,22 +133,16 @@ allocatePort mDerive =
     s <- bindSpecificLoopback p `onException` mapM_ close held
     bindAll (s : held) rest
 
--- | Find a free TCPv4 port for listening on @localhost@.
---
--- The port is unique for the lifetime of the test process, see 'allocatePort'.
-getRandomPort :: IO PortNumber
-getRandomPort = allocatePort Nothing
-
--- | Find a free TCPv4 port and pass it to the given 'action'.
---
--- NOTE: Should be used only for testing.
-withFreePort :: (PortNumber -> IO a) -> IO a
-withFreePort action = getRandomPort >>= action
-
--- | Like 'withFreePort' but also reserves the derived companion port,
--- in the same sense as 'randomUnusedTCPPortsWithDerived'. Use this for tests
--- that spin up a subprocess (such as etcd) which itself binds a port
+-- | Find a free TCPv4 port and reserve its derived companion port alongside
+-- it, in the same sense as 'randomUnusedTCPPortsWithDerived'. Use this for
+-- tests that spin up a subprocess (such as etcd) which itself binds a port
 -- computed from the configured one.
+--
+-- There is deliberately no bare-port variant: a port handed out as a number is
+-- free only until something else binds it, and every in-process server now
+-- takes an already-bound socket instead. A test that must exercise binding a
+-- port itself should first hold a bound socket on that port (as hydra-node's
+-- ServerSpec does for its port-in-use test), so the window never exists.
 withFreePortAndDerived :: (PortNumber -> PortNumber) -> (PortNumber -> IO a) -> IO a
 withFreePortAndDerived derive action = allocatePort (Just derive) >>= action
 
