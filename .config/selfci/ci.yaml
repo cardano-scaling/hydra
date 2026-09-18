@@ -6,8 +6,12 @@ job:
   command: |
     set -eou pipefail
 
+    # `just check` now runs six of the eight test-suites as cached flake
+    # checks (nix/hydra/test-checks.nix), so only the two without one are
+    # left to `just test`.
     just check
-    just test
+    just test hydra-cluster
+    just test hydra-tui
 
   # Command prefix for executing the command
   # Can be used to change the shell, or disable shell interpretation

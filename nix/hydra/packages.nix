@@ -1,7 +1,7 @@
 # A set of buildables we typically build for releases
 
 { self, ... }: {
-  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, hsPkgsProfiled, ... }: {
+  perSystem = { pkgs, system, lib, asZip, hsPkgs, hsPkgsBase, hsPkgsProfiled, hydraTestRuntime, ... }: {
     packages =
       let
         # Creates a fixed length string by padding with given filler as suffix.
@@ -93,34 +93,17 @@
           hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
         };
 
-        # Aiken resolves dependencies from the network unless they are already
-        # in its XDG cache. Pre-build the cache with the pinned stdlib so the
-        # blueprint test cannot fail on registry outages; GoldenSpec points
-        # aiken at it via HYDRA_AIKEN_CACHE.
-        #
-        # The version is read from aiken.toml so it cannot drift silently: a
-        # stdlib bump there makes this fetch fail on the stale hash (update
-        # the hash below alongside).
-        aikenCache =
-          let
-            aikenToml = builtins.replaceStrings [ "\n" ] [ " " ]
-              (builtins.readFile ../../hydra-plutus/aiken.toml);
-            stdlibVersion = builtins.head
-              (builtins.match ''.*name = "aiken-lang/stdlib" *version = "([^"]+)".*'' aikenToml);
-            aikenStdlib = pkgs.fetchzip {
-              url = "https://github.com/aiken-lang/stdlib/archive/refs/tags/${stdlibVersion}.zip";
-              hash = "sha256-PfnRpyt+8WAqC5No4RADag/UcFVjZhV1CtEgT8sPPKA=";
-            };
-          in
-          pkgs.runCommand "aiken-cache" { nativeBuildInputs = [ pkgs.zip ]; } ''
-            mkdir -p $out/aiken/packages work/stdlib-${stdlibVersion}
-            cp -r ${aikenStdlib}/. work/stdlib-${stdlibVersion}/
-            # zip records the permission bits and store files are read-only;
-            # extracting read-only directories into build/packages then breaks
-            # the very next mkdir inside them.
-            chmod -R u+w work
-            (cd work && zip -q -r -X $out/aiken/packages/aiken-lang-stdlib-${stdlibVersion}.zip stdlib-${stdlibVersion})
-          '';
+        # The six suites that also run as cached `checks.test-*`; their tools
+        # and env come from nix/hydra/test-runtime.nix so the shell and the
+        # check cannot drift. hydra-cluster and hydra-tui are spelled out
+        # below instead: they have no run check, and they need the
+        # revision-embedded executables.
+        mkTestShell = name:
+          let cfg = hydraTestRuntime.${name}; in
+          pkgs.mkShellNoCC ({
+            name = "${name}-tests";
+            buildInputs = [ nativePkgs.${name}.components.tests.tests ] ++ cfg.tools;
+          } // cfg.env);
       in
       rec {
         release =
@@ -158,39 +141,13 @@
 
         inherit (nativePkgs.hydraw.components.exes) hydraw;
 
-        hydra-plutus-tests = pkgs.mkShellNoCC {
-          name = "hydra-plutus-tests";
-          buildInputs = [
-            nativePkgs.hydra-plutus.components.tests.tests
-            pkgs.aiken
-          ];
-          HYDRA_AIKEN_CACHE = aikenCache;
-        };
+        hydra-agda-tests = mkTestShell "hydra-agda";
+        hydra-plutus-tests = mkTestShell "hydra-plutus";
+        hydra-plutus-extras-tests = mkTestShell "hydra-plutus-extras";
+        hydra-tx-tests = mkTestShell "hydra-tx";
+        hydra-chain-observer-tests = mkTestShell "hydra-chain-observer";
+        hydra-node-tests = mkTestShell "hydra-node";
 
-        hydra-plutus-extras-tests = pkgs.mkShellNoCC {
-          name = "hydra-plutus-extras-tests";
-          buildInputs = [ nativePkgs.hydra-plutus-extras.components.tests.tests ];
-        };
-        hydra-tx-tests = pkgs.mkShellNoCC {
-          name = "hydra-tx-tests";
-          buildInputs = [
-            nativePkgs.hydra-tx.components.tests.tests
-          ];
-        };
-        hydra-chain-observer-tests = pkgs.mkShellNoCC {
-          name = "hydra-chain-observer-tests";
-          buildInputs = [
-            nativePkgs.hydra-chain-observer.components.tests.tests
-          ];
-        };
-        hydra-node-tests = pkgs.mkShellNoCC {
-          name = "hydra-node-tests";
-          buildInputs = [
-            nativePkgs.hydra-node.components.tests.tests
-            pkgs.check-jsonschema
-            pkgs.etcd # For etcdctl command in tests
-          ];
-        };
         hydra-cluster-tests = pkgs.mkShellNoCC {
           name = "hydra-cluster-tests";
           buildInputs =

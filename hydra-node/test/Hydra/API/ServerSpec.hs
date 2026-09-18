@@ -50,7 +50,9 @@ import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS
+import Network.Socket (Socket, close)
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
+import Network.Wai.Handler.Warp qualified as Warp
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
@@ -67,7 +69,9 @@ spec =
   do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        let withServerOnPort p = withTestAPIServer p alice (mockSource []) tracer
+        let withServerOnPort p = withTestAPIServerBindingPort p alice (mockSource []) tracer
+        -- Deliberately takes a bare port rather than a bound socket: the point
+        -- is that the server binds it itself, so the second attempt is refused.
         withFreePort $ \port -> do
           -- We should not be able to start the server on the same port twice
           withServerOnPort port $ \_ ->
@@ -79,16 +83,16 @@ spec =
     it "greets" $ do
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
-          withFreePort $ \port ->
-            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServer sock port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
     it "Greetings should contain the hydra-node version" $ do
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
-          withFreePort $ \port ->
-            withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServer sock port alice (mockSource []) tracer $ \_ -> do
               withClient port "/" $ \conn -> do
                 version <- waitMatch 5 conn $ \v -> do
                   guard $ matchGreetings v
@@ -98,8 +102,8 @@ spec =
     it "sends server outputs to all connected clients" $ do
       queue <- newLabelledTQueueIO "queue"
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-        withFreePort $ \port -> do
-          withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
+        withFreeServerSocket $ \sock port -> do
+          withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
             semaphore <- newLabelledTVarIO "semaphore" 0
             withAsyncLabelled
               ( "concurrent-test-clients"
@@ -133,8 +137,8 @@ spec =
 
         queue1 <- newLabelledTQueueIO "queue1"
         queue2 <- newLabelledTQueueIO "queue2"
-        withFreePort $ \port -> do
-          withTestAPIServer port alice eventSource tracer $ \_ -> do
+        withFreeServerSocket $ \sock port -> do
+          withTestAPIServer sock port alice eventSource tracer $ \_ -> do
             semaphore <- newLabelledTVarIO "semaphore" 0
             withAsyncLabelled
               ( "concurrent-test-clients"
@@ -160,8 +164,8 @@ spec =
           monitor $ cover 1 (length events > 1) "more than one message when reconnecting"
           run $
             showLogsOnFailure "ServerSpec" $ \tracer ->
-              withFreePort $ \port ->
-                withTestAPIServer port alice (mockSource events) tracer $ \(EventSink{putEvent}, _) -> do
+              withFreeServerSocket $ \sock port ->
+                withTestAPIServer sock port alice (mockSource events) tracer $ \(EventSink{putEvent}, _) -> do
                   mapM_ putEvent events
                   withClient port "/?history=yes" $ \conn -> do
                     received <- failAfter 20 $ replicateM (length events + 1) (receiveData conn)
@@ -179,8 +183,8 @@ spec =
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
         run $
           showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource history) tracer $ \(EventSink{putEvent}, _) -> do
+            withFreeServerSocket $ \sock port ->
+              withTestAPIServer sock port alice (mockSource history) tracer $ \(EventSink{putEvent}, _) -> do
                 mapM_ putEvent history
                 -- start client that doesn't want to see the history. Passing
                 -- 'history=no' and passing nothing at all take the same branch
@@ -216,8 +220,8 @@ spec =
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
-        withFreePort $ \port ->
-          withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
+        withFreeServerSocket $ \sock port ->
+          withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) -> do
             snapshot <- generate arbitrary
             snapshotConfirmedMessage <-
               generate $
@@ -243,8 +247,8 @@ spec =
             -- running many of these in parallel and starving each server's
             -- WS read of CPU.
             showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $
-              withFreePort $ \port ->
-                withTestAPIServer port alice (mockSource events) tracer $ \_ -> do
+              withFreeServerSocket $ \sock port ->
+                withTestAPIServer sock port alice (mockSource events) tracer $ \_ -> do
                   withClient port "/?history=yes" $ \conn -> do
                     -- NOTE: Expect all history + greetings
                     received :: [ByteString] <- replicateM (length events + 1) (receiveData conn)
@@ -253,7 +257,7 @@ spec =
 
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
-        withFreePort $ \port -> do
+        withFreeServerSocket $ \sock port -> do
           -- Use a single headId throughout so the headId validation in
           -- 'aggregateNodeState' does not drop events from a mismatched head.
           headId <- generate arbitrary
@@ -268,7 +272,7 @@ spec =
                 ]
           let eventSource = mockSource existingStateChanges
 
-          withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
+          withTestAPIServer sock port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
             let generateSnapshot =
                   (Outcome.SnapshotConfirmed headId . Just <$> arbitrary) <*> arbitrary
 
@@ -303,7 +307,7 @@ spec =
 
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
-        withFreePort $ \port -> do
+        withFreeServerSocket $ \sock port -> do
           headIsOpenMsg@Outcome.HeadOpened{headId = openedHeadId} <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
           let generateSnapshot = generate $ (Outcome.SnapshotConfirmed openedHeadId . Just <$> arbitrary) <*> arbitrary
@@ -313,20 +317,19 @@ spec =
           let eventSource = mockSource stateEvents
 
           let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit
-          withTestAPIServer port alice eventSource tracer $ \_ -> do
+          withTestAPIServer sock port alice eventSource tracer $ \_ -> do
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
-          withTestAPIServer port alice eventSource tracer $ \_ -> do
+          withTestAPIServer sock port alice eventSource tracer $ \_ -> do
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just expectedUtxos
 
     it "sends an error when input cannot be decoded" $
       failAfter 5 $
-        withFreePort $
-          \port -> sendsAnErrorWhenInputCannotBeDecoded port
+        withFreeServerSocket sendsAnErrorWhenInputCannotBeDecoded
 
     -- The snapshot decodes fine; it is forcing its
     -- accumulator that throws, and this server would do that while tracing the
@@ -337,8 +340,8 @@ spec =
     it "sends an error when a side-loaded snapshot exceeds the accumulator limit" $
       failAfter 5 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
-          withFreePort $ \port ->
-            withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+          withFreeServerSocket $ \sock port ->
+            withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
               withClient port "/" $ \con -> do
                 _greeting :: ByteString <- receiveData con
                 signatures <- generate (arbitrary @(MultiSignature (Snapshot SimpleTx)))
@@ -376,8 +379,8 @@ spec =
       it "sends a CBOR-encoded greeting when connecting with encoding=cbor" $
         failAfter 5 $
           showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+            withFreeServerSocket $ \sock port ->
+              withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   bytes :: ByteString <- receiveData conn
                   case decodeFull' @(ApiMessage SimpleTx) bytes of
@@ -388,8 +391,8 @@ spec =
       it "sends server outputs CBOR-encoded to clients connected with encoding=cbor" $
         failAfter 5 $
           showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
+            withFreeServerSocket $ \sock port ->
+              withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
                   arbitraryEvent <- generate genStateEventForApi
@@ -406,10 +409,10 @@ spec =
       it "accepts CBOR-encoded client inputs when connected with encoding=cbor" $
         failAfter 5 $
           showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port -> do
+            withFreeServerSocket $ \sock port -> do
               inputs <- newLabelledTQueueIO "cbor-inputs"
               let recordInput = atomically . writeTQueue inputs
-              withTestAPIServerWithCallback port alice (mockSource []) tracer recordInput $ \_ ->
+              withTestAPIServerWithCallback (Just sock) port alice (mockSource []) tracer recordInput $ \_ ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
                   sendBinaryData conn $ serialize' (Init :: ClientInput SimpleTx)
@@ -418,8 +421,8 @@ spec =
       it "sends a CBOR-encoded InvalidInput when input is not valid CBOR" $
         failAfter 5 $
           showLogsOnFailure "ServerSpec" $ \tracer ->
-            withFreePort $ \port ->
-              withTestAPIServer port alice (mockSource []) tracer $ \_ ->
+            withFreeServerSocket $ \sock port ->
+              withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
                   let garbage = "not a valid CBOR message" :: ByteString
@@ -473,7 +476,7 @@ spec =
     describe "TLS support" $ do
       it "accepts TLS connections when configured" $ do
         showLogsOnFailure "ServerSpec" $ \tracer ->
-          withFreePort $ \port -> do
+          withFreeServerSocket $ \sock port -> do
             let config =
                   APIServerConfig
                     { host = "127.0.0.1"
@@ -481,6 +484,7 @@ spec =
                     , tlsCertPath = Just "test/tls/certificate.pem"
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
+                    , listenSocket = Just sock
                     }
                 initialChainState = 0
             withAPIServer @SimpleTx config defaultRunOptions testEnvironment alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
@@ -490,10 +494,10 @@ spec =
               WSS.connect allowAnyParams "127.0.0.1" (show port) "/" [] $ \(conn, _) -> do
                 waitMatch 5 conn $ guard . matchGreetings
 
-sendsAnErrorWhenInputCannotBeDecoded :: PortNumber -> Expectation
-sendsAnErrorWhenInputCannotBeDecoded port = do
+sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
+sendsAnErrorWhenInputCannotBeDecoded sock port = do
   showLogsOnFailure "ServerSpec" $ \tracer ->
-    withTestAPIServer port alice (mockSource []) tracer $ \_ -> do
+    withTestAPIServer sock port alice (mockSource []) tracer $ \_ -> do
       withClient port "/" $ \con -> do
         _greeting :: ByteString <- receiveData con
         sendBinaryData con invalidInput
@@ -545,19 +549,44 @@ allowEverythingServerOutputFilter =
 noop :: Applicative m => a -> m ()
 noop = const $ pure ()
 
+-- | Allocate a listening socket on a free port and hand both it and its port
+-- to the action. The server is then given the very socket it serves on, so the
+-- port cannot be taken in the gap between choosing it and binding it. That gap
+-- used to surface as a flaky 'RunServerException' carrying
+-- "Address already in use".
+withFreeServerSocket :: (Socket -> PortNumber -> IO a) -> IO a
+withFreeServerSocket action =
+  bracket Warp.openFreePort (close . snd) $ \(p, sock) ->
+    action sock (fromIntegral p)
+
 withTestAPIServer ::
+  Socket ->
   PortNumber ->
   Party ->
   EventSource (StateEvent SimpleTx) IO ->
   Tracer IO APIServerLog ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServer port actor eventSource tracer =
-  withTestAPIServerWithCallback port actor eventSource tracer noop
+withTestAPIServer sock port actor eventSource tracer =
+  withTestAPIServerWithCallback (Just sock) port actor eventSource tracer noop
+
+-- | Like 'withTestAPIServer' but lets the server bind @port@ itself. Only for
+-- the test that asserts a second server on the same port is refused: handing
+-- both servers one socket would let them both succeed.
+withTestAPIServerBindingPort ::
+  PortNumber ->
+  Party ->
+  EventSource (StateEvent SimpleTx) IO ->
+  Tracer IO APIServerLog ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
+  IO ()
+withTestAPIServerBindingPort port actor eventSource tracer =
+  withTestAPIServerWithCallback Nothing port actor eventSource tracer noop
 
 -- | Like 'withTestAPIServer', but with an explicit callback invoked for every
 -- 'ClientInput' received by the server.
 withTestAPIServerWithCallback ::
+  Maybe Socket ->
   PortNumber ->
   Party ->
   EventSource (StateEvent SimpleTx) IO ->
@@ -565,10 +594,10 @@ withTestAPIServerWithCallback ::
   (ClientInput SimpleTx -> IO ()) ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServerWithCallback port actor eventSource tracer =
+withTestAPIServerWithCallback listenSocket port actor eventSource tracer =
   withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter
  where
-  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
+  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000, listenSocket}
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.
