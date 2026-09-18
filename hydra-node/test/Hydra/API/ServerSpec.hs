@@ -937,8 +937,8 @@ withTestAPIServerWithCallback ::
   (ClientInput SimpleTx -> IO ()) ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServerWithCallback listenSocket port actor eventSource tracer =
-  withTestAPIServer' listenSocket port actor eventSource allowEverythingServerOutputFilter tracer
+withTestAPIServerWithCallback listenSocket port actor eventSource =
+  withTestAPIServer' listenSocket port actor eventSource allowEverythingServerOutputFilter
 
 -- | Like 'withTestAPIServer', but with an explicit 'ServerOutputFilter'.
 withTestAPIServerWithFilter ::
