@@ -184,6 +184,11 @@ spec = do
   context "partial fanout" $ do
     prop "a manual fanout distributes the selections in turn" $
       propScripted manualPartialFanout
+  -- A crash and restart at the moment a settlement landed, see
+  -- 'partyRestartedTwiceAfterSettlement'.
+  context "fail-recovery" $ do
+    prop "a party restarted twice right after a settlement still confirms snapshots" $
+      propScripted partyRestartedTwiceAfterSettlement
   -- The concurrent random walk lets several deposits and decommits settle at
   -- the same time as L2 traffic and divergent forks, and the scripted
   -- settlement replays pin the settlement races it found. In order, the walk
@@ -271,8 +276,11 @@ propDL d = forAllDL d propHydraModel
 -- Shrinking is off: it cannot simplify a fixed script, it only reruns it
 -- hundreds of times with varied values (a failing run takes ~0.3s, a shrunk
 -- one took minutes).
+-- | Run a fixed script a few times. Only its keys are random, so the size only
+-- bounds the script's length: the DL generator gives up ("Looping") past
+-- 2 * size + 20 steps, and the first run has size 0.
 propScripted :: DL WorldState () -> Property
-propScripted d = withMaxSuccess 5 $ noShrinking $ forAllDL d propHydraModel
+propScripted d = withMaxSuccess 5 $ noShrinking $ mapSize (max 60) $ forAllDL d propHydraModel
 
 -- * Settlement races under divergent forks
 
@@ -428,6 +436,33 @@ newSettlementsDuringReplay = do
   action_ $ Model.ObserveCommitFinalized b
   action_ $ Model.ObserveDecommitFinalized dA
   action_ $ Model.ObserveCommitFinalized c
+  headStillSettles
+
+-- | A party is crashed and restarted twice in a row right after a settlement
+-- landed. A settlement lands as soon as one party holds all signatures of its
+-- snapshot, so for a slower party some acknowledgements can still be on their
+-- way when the next action runs. A restarted party picks those up from the
+-- network log; the second restart must not lose them, or that party never
+-- confirms the snapshot and the head never agrees on another one. Which party
+-- lags is a matter of network timing, so every party is restarted, after
+-- decommit rounds started off the block boundaries.
+partyRestartedTwiceAfterSettlement :: DL WorldState ()
+partyRestartedTwiceAfterSettlement = do
+  (headId, fuel) <- openHeadWithDepositFuel 4
+  -- The walk's own actions: they return as soon as the settlement landed,
+  -- unlike 'SubmitDecommit' which first waits for every party's confirmation.
+  forM_ fuel $ \(_, fuelP) ->
+    action_ $ Model.Deposit{headIdVar = headId, utxoToDeposit = fuelP}
+  -- Three parties decommit their fuel; the last party's stays in the head for
+  -- 'headStillSettles'.
+  forM_ (zip [7, 11, 13] (take 3 fuel)) $ \(delay, (party, fuelP)) -> do
+    -- Off the block boundary, so the round's acknowledgements spread around
+    -- the block in which the decrement lands.
+    action_ $ Model.Wait delay
+    action_ $ Model.Decommit{party, decommitTx = decommitFuel fuelP}
+    forM_ fuel $ \(p, _) -> do
+      action_ $ Model.RestartNode p
+      action_ $ Model.RestartNode p
   headStillSettles
 
 -- | Scenario 5: a deep fork erases the deposit transaction itself along with
