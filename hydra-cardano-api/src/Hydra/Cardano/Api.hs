@@ -116,6 +116,7 @@ import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.BaseTypes as X (Network)
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Keys qualified as Ledger
 import Data.ByteString.Short (ShortByteString)
 import Prelude
@@ -188,6 +189,23 @@ pattern ShelleyKeyWitness{shelleyKeyWitness} <-
   where
     ShelleyKeyWitness =
       Cardano.Api.ShelleyKeyWitness shelleyBasedEra
+
+-- | Whether a transaction carries a key witness for the payment credential of
+-- the given address, i.e. whether it is signed by that address' owner.
+--
+-- This is how a transaction spending /from/ an address is recognised: inputs
+-- are bare references, and resolving them needs the UTxO they were created in,
+-- which a transaction on its own does not carry. Only key (not script)
+-- credentials are matched.
+isSignedByAddress :: AddressInEra -> Tx -> Bool
+isSignedByAddress addr Tx{txKeyWitnesses} =
+  case addr of
+    Cardano.Api.AddressInEra (Cardano.Api.ShelleyAddressInEra _) (Cardano.Api.ShelleyAddress _ (Ledger.KeyHashObj keyHash) _) ->
+      Ledger.asWitness keyHash `elem` witnessKeyHashes
+    _ -> False
+ where
+  witnessKeyHashes =
+    [Ledger.witVKeyHash w | ShelleyKeyWitness w <- txKeyWitnesses]
 
 -- ** PlutusScript
 

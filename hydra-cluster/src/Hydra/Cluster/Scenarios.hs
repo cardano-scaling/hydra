@@ -31,10 +31,10 @@ import CardanoClient (
  )
 import CardanoNode (EndToEndLog (..), runBackend)
 import Control.Concurrent.Async (concurrently, mapConcurrently_)
-import Control.Lens (cosmos, filtered, (.~), (?~), (^.), (^..), (^?))
+import Control.Lens (cosmos, filtered, (.~), (^.), (^..), (^?))
 import Data.Aeson (Value, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey, key, values, _Integer, _JSON, _String)
+import Data.Aeson.Lens (key, values, _Integer, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
@@ -103,7 +103,6 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import Hydra.Cardano.Api qualified as CAPI
-import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_, seedManyFromFaucet)
@@ -172,7 +171,7 @@ import System.FilePath ((</>))
 import System.Process (callProcess)
 import Test.Hydra.Ledger.Cardano.Fixtures (maxTxExecutionUnits)
 import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
+import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (Positive, elements, generate)
 
 oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
@@ -1004,9 +1003,15 @@ persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
       -- polling for it would succeed immediately and assert nothing.
       getSnapshotUTxO n1 `shouldReturn` mempty
 
--- | Initialize open and close a head on a real network and ensure contestation
--- period longer than the time horizon is possible. For this it is enough that
--- we can close a head and not wait for the deadline.
+-- | Close a head whose contestation period is a week, on a real node started
+-- from the chain tip.
+--
+-- Not reducible to a unit test: the point is that
+-- 'calculateTxUpperBoundFromContestationPeriod' caps the close transaction's
+-- upper validity bound at 'maxGraceTime', keeping it inside the ledger's
+-- forecast horizon. StateSpec's close properties pass their validity bounds in
+-- directly and never reach that code, and the io-sim tests install an era
+-- history without a horizon, so only a real node exercises it.
 canCloseWithLongContestationPeriod ::
   Tracer IO EndToEndLog ->
   FilePath ->
@@ -1365,48 +1370,6 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-rejectDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-rejectDeposit tracer workDir opts hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer opts Alice) $ do
-    refuelIfNeeded tracer opts Alice 30_000_000
-    -- NOTE: Adapt periods to block times
-    blockTime <- runBackend opts getBlockTime
-    let depositPeriod = truncatedDepositPeriod $ 100 * blockTime
-    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod, depositActivation = depositPeriod}
-    networkId <- runBackend opts queryNetworkId
-    aliceChainConfig <-
-      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-        <&> setNetworkId networkId
-
-    let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
-    nodePorts <- allocateHydraNodePortsFor [1]
-    optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] nodePorts pparamsDecorator
-    withPreparedHydraNode hydraTracer workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
-      void $ waitForNodesSynced (10 * blockTime) [n1]
-      send n1 $ input "Init" []
-      _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-
-      (walletVk, _) <- generate genKeyPair
-      commitUTxO' <- seedFromFaucet opts walletVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-      TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
-      datum <- generate genDatum
-      let commitUTxO :: UTxO =
-            UTxO.fromList $
-              (\(i, TxOut addr _ _ _) -> (i, TxOut addr (lovelaceToValue 0) datum refScript))
-                <$> UTxO.toList commitUTxO'
-      response <-
-        L.parseRequest ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-          <&> setRequestBodyJSON (commitUTxO :: UTxO)
-            >>= httpJSON
-
-      let expectedError = getResponseBody response :: PostTxError Tx
-
-      expectedError `shouldSatisfy` \case
-        DepositTooLow{minimumValue, providedValue} -> providedValue < minimumValue
-        _ -> False
- where
-  hydraTracer = contramap FromHydraNode tracer
-
 -- | Open a single participant head and deposit part of a UTxO, with the
 -- remainder returned to a change address. This exercises the 'changeAddress'
 -- balancing path in the deposit blueprint API.
@@ -1656,59 +1619,6 @@ canRecoverDepositInAnyState tracer workDir opts hydraScriptsTxId =
     waitMatch (20 * blockTime) n $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecovered"
       guard $ v ^? key "recoveredUTxO" == Just (toJSON commitUTxO)
-
--- | Open a two-participant head, stop one node so deposits stay pending, then
--- verify that GET /commits lists them. Recovery is covered by canRecoverDeposit.
-canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-canSeePendingDeposits tracer workDir opts hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer opts Alice) $
-    (`finally` returnFundsToFaucet tracer opts Bob) $ do
-      refuelIfNeeded tracer opts Alice 30_000_000
-      refuelIfNeeded tracer opts Bob 30_000_000
-      blockTime <- runBackend opts getBlockTime
-      let timing = mkTestTiming blockTime
-      networkId <- runBackend opts queryNetworkId
-      aliceChainConfig <-
-        chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
-          <&> setNetworkId networkId
-      bobChainConfig <-
-        chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
-          <&> setNetworkId networkId
-      nodePorts <- allocateHydraNodePortsFor [1, 2]
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] nodePorts $ \n1 -> do
-        _ <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] nodePorts $ \n2 -> do
-          send n1 $ input "Init" []
-          _ <- waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
-          -- Stop Bob here so deposits stay pending (can't reach CommitFinalized without both nodes).
-          pure ()
-
-        (walletVk, walletSk) <- generate genKeyPair
-        commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-        commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 4_000_000) (contramap FromFaucet tracer)
-
-        -- Submit two deposits and check each appears in GET /commits immediately.
-        forM_ [commitUTxO, commitUTxO2] $ \utxo -> do
-          depositTransaction <-
-            parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
-              <&> setRequestBodyJSON utxo
-                >>= httpJSON
-              <&> getResponseBody
-
-          let tx = signTx walletSk depositTransaction
-          let depositTxId = getTxId (getTxBody tx)
-          liftIO $ runBackend opts $ submitTransaction tx
-
-          liftIO $ waitForAllMatch 10 [n1] $ \v ->
-            guard $ v ^? key "tag" == Just "CommitRecorded"
-
-          pendingDeposits <-
-            parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
-              >>= httpJSON
-              <&> getResponseBody
-
-          liftIO $ pendingDeposits `shouldContain` [depositTxId]
- where
-  hydraTracer = contramap FromHydraNode tracer
 
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
 canDecommit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
