@@ -45,7 +45,23 @@ changes.
   queued, and on a head with no other traffic it expired. The queued deposit
   is now proposed on the next tick, and the tick proposes no deposit at all
   while the confirmed snapshot's own claim is still unsettled, since every
-  party refuses another claim until then.
+  party refuses another claim until then. Once that claimed deposit was
+  recovered on L1, the claim is dropped and a fresh deposit may be claimed at
+  the same version; parties no longer hold the dead claim against it.
+
+- Settlements erased by a rollback are now re-posted on every block until they
+  are observed landing again, instead of once at rollback time. A re-post that
+  failed, because the deposit was not back on chain yet or for any transient
+  reason, is retried, and a node restarted with an erased settlement re-posts
+  it too. An erased increment is only re-posted while its deposit is on the
+  chain the node follows.
+
+- Fixed a settlement being lost when a rollback erased it inside the window
+  between another party posting it and this node confirming the snapshot
+  itself. The retained entry was stamped as landed at the rolled-back slot
+  and never re-posted, which blocked the deposit for good. Version bumps
+  observed for a snapshot not yet confirmed locally are now noted with their
+  own status; `CoordinatedHeadState` gains `unretained` on the API.
 
 - Fixed a partial fanout never completing after a rollback erased one of its
   landed steps. The fanout's progress had no notion of when a step landed, so
@@ -54,8 +70,16 @@ changes.
   nothing while waiting for the next selection. Each landed step is now
   recorded with its slot and the mode it replaced, a rollback rewinds the
   progress to the steps still on chain, and the erased step is posted again.
-  A fanout state persisted before this change decodes with no recorded steps
-  and behaves as before for them.
+  A fanout state persisted before this change decodes with no recorded steps;
+  a rollback then only takes back the outputs of steps recorded since. On the
+  API, `PartialFanoutState` gains `stepsLanded` and `everLanded`. The driver
+  keeps its role when that re-post fails because the new fork already
+  re-included the erased step; before, it reverted to a passive observer.
+
+- The `DepositInFlight` decommit-invalid reason and the
+  `WaitOnUnresolvedCommit` wait reason are removed from the API: the node no
+  longer emits them since a `ReqDec` is recorded whether or not a deposit is
+  queued.
 
 - Fixed two ways the outputs of a deposit could be lost
   ([#2741](https://github.com/cardano-scaling/hydra/issues/2741)): a deposit

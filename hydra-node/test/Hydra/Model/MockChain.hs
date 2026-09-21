@@ -184,9 +184,19 @@ mockChainAndNetwork tr seedKeys = do
             -- NOTE: Determine the current "view" on the chain (important while
             -- rolled back, before new roll forwards were issued)
             (slot, position, blocks, globalUTxO) <- readTVar chain
-            let utxo = case Seq.lookup (fromIntegral position) blocks of
+            let blockUTxO' = case Seq.lookup (fromIntegral position) blocks of
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
+            -- A mempool validates against the ledger state with its own
+            -- transactions applied, so a submission conflicting with one
+            -- already queued (a re-post racing a requeued original, a second
+            -- party's copy of the same settlement) is rejected here, as
+            -- cardano-node would, rather than dropped in silence at block
+            -- inclusion. Queued transactions that do not apply are skipped:
+            -- they are the ones dropped at inclusion.
+            queued <- flushQueue queue
+            forM_ queued (writeTQueue queue)
+            let utxo = foldl' (\u q -> fromRight u (applyTransactions slot u [q])) blockUTxO' queued
             case applyTransactions slot utxo [tx] of
               Left (_tx, ValidationError{reason}) ->
                 -- A transaction that does not apply is rejected at submission,

@@ -244,7 +244,7 @@ spec = parallel $ do
                 <> toCBOR currentDepositTxId
                 <> toCBOR decommitTx
                 <> toCBOR version
-      decodeFull' legacy `shouldBe` Right chs{settlements = mempty}
+      decodeFull' legacy `shouldBe` Right chs{settlements = mempty, unretained = mempty}
 
   -- 'PartialFanoutState' gained 'stepsLanded' between two released layouts.
   -- The legacy layout is what 'genericToCBOR' wrote: the constructor name as
@@ -270,7 +270,7 @@ spec = parallel $ do
                 <> toCBOR remainingOutputs
                 <> toCBOR distributedOutputs
                 <> toCBOR mode
-      decodeFull' legacy `shouldBe` Right pfs{stepsLanded = []}
+      decodeFull' legacy `shouldBe` Right pfs{stepsLanded = [], everLanded = distributedOutputs /= mempty}
 
   -- 'NodeState' gained deposit lifecycle tracking between two released
   -- layouts, same situation as 'Snapshot' above. The legacy layout carries a

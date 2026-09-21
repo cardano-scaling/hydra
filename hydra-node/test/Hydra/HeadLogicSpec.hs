@@ -153,6 +153,7 @@ spec =
               , decommitTx = Nothing
               , version = 0
               , settlements = mempty
+              , unretained = mempty
               }
 
       it "reports if a requested tx is expired" $ do
@@ -907,8 +908,8 @@ spec =
         -- It must NOT be enforced by holding the ReqDec itself back on a
         -- locally queued deposit. Whether a deposit is queued depends on
         -- whether this node's own tick activated it before the broadcast
-        -- arrived, so the same ReqDec was refused on some nodes (DepositInFlight
-        -- once its TTL ran out) and recorded on others. The recording nodes
+        -- arrived, so the same ReqDec was refused on some nodes (as a deposit in
+        -- flight, once its TTL ran out) and recorded on others. The recording nodes
         -- then held a decommit the leader never knew about, and it was never
         -- proposed. The model's concurrent walk found this once the late-ReqSn
         -- deadlock no longer masked it.
@@ -2192,6 +2193,24 @@ spec =
             getState
           Map.member depositTxId' s'.pendingDeposits `shouldBe` True
 
+        it "re-posts an erased increment on every tick until it re-lands" $ do
+          -- The re-post at rollback time is fire and forget, and a node that
+          -- restarted with the erased entry never issued it at all. Each
+          -- block's tick retries, and stops once the increment is observed
+          -- again.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          let tick slot = ChainInput Tick{chainTime = now, chainPoint = slot}
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          update soloAliceEnv ledger now s1 (tick 4) `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step (tick 4)
+            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            getState
+          update soloAliceEnv ledger now s2 (tick 6) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+
         it "does not re-post IncrementTx when the rollback does not reach the finalized increment" $ do
           -- Rolling back TO the increment's slot means the increment is still
           -- on chain; re-posting would only produce PostTxOnChainFailed noise.
@@ -2529,6 +2548,35 @@ spec =
                 Snapshot{number} -> number == 1 && dep == depositTxId'
             _ -> False
 
+        it "retains a settlement erased inside the race window as erased, and re-posts it" $ do
+          -- The rollback happens inside the race window: the increment was
+          -- observed (version 1) before the local AckSn confirmed snapshot 1,
+          -- and erased before that AckSn arrived. Retention happens as the
+          -- snapshot confirms and must carry the erased status the bump was
+          -- noted with; a landed status stamped with the rolled back chain
+          -- slot would never be re-posted, and the deposit is blocked from
+          -- every other settlement.
+          now <- getCurrentTime
+          (s1, confirming) <- runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            step . ChainInput $
+              Tick
+                { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
+                , chainPoint = 2
+                }
+            step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step (rollbackTo 2 now)
+            o <- step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
+            s <- getState
+            pure (s, o)
+          settlementStatuses s1 `shouldBe` [Erased]
+          -- Confirming posts the increment, its deposit being pending again ...
+          confirming `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+          -- ... and so does every tick until it re-lands
+          update soloAliceEnv ledger now s1 (ChainInput Tick{chainTime = now, chainPoint = 4})
+            `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+
         it "re-posts DecrementTx after a rollback when the decrement observation raced snapshot confirmation" $ do
           now <- getCurrentTime
           s1 <- runHeadLogic soloAliceEnv ledger (inOpenState [alice]) $ do
@@ -2583,9 +2631,10 @@ spec =
         it "re-posts IncrementTx when the deposit is observed again after deposit and increment were both rolled back" $ do
           -- When the rollback reaches before the deposit itself, the increment
           -- re-post issued at rollback time cannot land (the deposit UTxO does
-          -- not exist on the new chain). Once the deposit tx re-lands, the
-          -- increment must be re-posted again — nothing else settles this
-          -- deposit ('retainedDeposits' blocks all alternatives).
+          -- not exist on the new chain), and the ticks post nothing either.
+          -- Once the deposit tx re-lands, the next tick re-posts the increment;
+          -- nothing else settles this deposit ('retainedDeposits' blocks all
+          -- alternatives).
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
@@ -2593,9 +2642,14 @@ spec =
             getState
           -- The rollback erased the deposit tx as well: not tracked anymore
           Map.member depositTxId' s1.pendingDeposits `shouldBe` False
+          update soloAliceEnv ledger now s1 (ChainInput Tick{chainTime = now, chainPoint = 1}) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
 
-          let outcome = update soloAliceEnv ledger now s1 (observeTxAtSlot 1 (mkDepositObserved now))
-          outcome `hasEffectSatisfying` \case
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            getState
+          update soloAliceEnv ledger now s2 (ChainInput Tick{chainTime = now, chainPoint = 2}) `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
                 Snapshot{number} -> number == 1 && dep == depositTxId'
@@ -2909,6 +2963,42 @@ spec =
           update soloAliceEnv ledger now' s0 (ChainInput Tick{chainTime = now, chainPoint = 2})
             `hasNoEffectSatisfying` \case
               NetworkEffect ReqSn{} -> True
+              _ -> False
+
+        it "proposes and signs a fresh deposit once the confirmed snapshot's claim was recovered" $ do
+          -- The deposit the confirmed snapshot claims was recovered on L1, so
+          -- its increment can never land and the claim is dropped. The leader
+          -- may then claim another deposit at the same version, and every
+          -- party must accept it rather than hold the dead claim against it.
+          now <- getCurrentTime
+          let otherActive =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO2
+                  , created = addUTCTime (-120) now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version = 0
+                      , currentDepositTxId = Nothing
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId2 otherActive)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (ChainInput Tick{chainTime = now, chainPoint = 2})
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotVersion = 0, depositTxId} -> depositTxId == Just depositTxId2
+              _ -> False
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId2))
+            `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} ->
+                version == 0 && utxoToCommit == Just depositedUTxO2
               _ -> False
 
         it "signs a ReqSn re-carrying a locally expired deposit the confirmed snapshot claims" $ do
@@ -3477,6 +3567,7 @@ spec =
                               , distributedOutputs = priorDistributed
                               , mode = AutoDrain
                               , stepsLanded = []
+                              , everLanded = priorDistributed /= mempty
                               }
                       }
                   _ -> closedState
@@ -3657,6 +3748,61 @@ spec =
             mode `shouldBe` AwaitingSelection
             distributedOutputs `shouldBe` mempty
             remainingOutputs `shouldBe` allItems
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+
+      it "keeps driving when the re-post after a fork fails because the erased step re-landed" $ do
+        -- A fork erased the only landed step: the progress rewinds to nothing
+        -- distributed and the full fanout is posted again. When the new fork
+        -- already re-included the erased step, that re-post fails at
+        -- submission. That is not a failed initiation: reverting to Closed
+        -- would make this node a passive observer of the fanout it drives,
+        -- while the re-landed step is about to be observed anyway.
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            s0 = inFanoutProgressDistributed threeParties allItems mempty AutoDrain
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        (s1, erased) <- runHeadLogic bobEnv ledger s0 $ do
+          step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA})
+          o <- step (rollbackTo 4)
+          s <- getState
+          pure (s, o)
+        postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf erased] of
+          tx : _ -> pure tx
+          [] -> failure "Expected the erased step to be re-posted"
+        let failed =
+              update bobEnv ledger now s1 . ChainInput $
+                PostTxError{postChainTx = postedTx, postTxError = FailedToConstructPartialFanoutTx, failingTx = Nothing}
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        failed `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
+          _ -> False
+        -- The re-landed step is observed and the drain goes on from it.
+        update bobEnv ledger now s1 (observeTxAtSlot 6 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA})
+          `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == Set.difference allItems chunkA
+            _ -> False
+
+      it "keeps outputs distributed before steps were recorded when a fork erases a recorded step" $ do
+        -- A state persisted before steps were recorded knows what it has
+        -- distributed, but not in which steps. When a fork erases a step
+        -- recorded since, only that step's outputs go back into the head.
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            chunkB = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
+            s0 = inFanoutProgressDistributed threeParties (Set.difference allItems chunkA) chunkA AutoDrain
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        s1 <- runHeadLogic bobEnv ledger s0 $ do
+          step (observeTxAtSlot 6 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkB})
+          step (rollbackTo 5)
+          getState
+        case headState s1 of
+          FanoutProgress PartialFanoutState{distributedOutputs, remainingOutputs} -> do
+            distributedOutputs `shouldBe` chunkA
+            remainingOutputs `shouldBe` Set.difference allItems chunkA
           other -> failure $ "Expected FanoutProgress, got: " <> show other
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
@@ -4505,6 +4651,7 @@ spec =
                           , decommitTx = Nothing
                           , version = 0
                           , settlements = mempty
+                          , unretained = mempty
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -4578,6 +4725,7 @@ spec =
                           , decommitTx = Nothing
                           , version = 0
                           , settlements = mempty
+                          , unretained = mempty
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -4638,6 +4786,7 @@ spec =
                           , decommitTx = Nothing
                           , version = 0
                           , settlements = mempty
+                          , unretained = mempty
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -4734,6 +4883,7 @@ spec =
                               , decommitTx = Nothing
                               , version = 0
                               , settlements = mempty
+                              , unretained = mempty
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
@@ -4782,6 +4932,7 @@ spec =
                             , decommitTx = Nothing
                             , version = 0
                             , settlements = mempty
+                            , unretained = mempty
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                       , headId = testHeadId
@@ -4955,6 +5106,7 @@ inOpenState parties =
       , decommitTx = Nothing
       , version = 0
       , settlements = mempty
+      , unretained = mempty
       }
  where
   u0 = mempty
@@ -4993,6 +5145,7 @@ reqDecStateWith parties mStatus =
       , decommitTx = Nothing
       , version = 0
       , settlements = mempty
+      , unretained = mempty
       }
   mkDeposit status =
     Deposit
@@ -5077,6 +5230,7 @@ inFanoutProgressDistributed parties remaining distributed mode =
         , distributedOutputs = distributed
         , mode
         , stepsLanded = []
+        , everLanded = distributed /= mempty
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties

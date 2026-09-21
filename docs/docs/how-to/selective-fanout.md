@@ -81,9 +81,10 @@ steps by itself; the other nodes only observe and wait. If that node goes offlin
 mid-fanout, the remainder is **not** drained automatically — any other party must resume it
 by issuing `PartialFanout` commands (selecting the remaining set) until the head is empty.
 
-If a step is rolled back on chain, the driving node re-posts the next fanout transaction to
-resume. As with all rollback handling, this assumes the rolled-back transactions eventually
-re-appear; a deeply divergent rollback may require re-issuing a `PartialFanout`.
+If a step is rolled back on chain, the driving node rewinds its progress to the steps still on
+chain and posts the erased step again: an automatic fanout keeps draining, and the outputs of an
+erased manual selection are the driver's to distribute again, so no `PartialFanout` needs to be
+re-issued. See the [rollbacks](../dev/rollbacks) page for details.
 
 :::
 

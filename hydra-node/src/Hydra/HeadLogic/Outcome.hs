@@ -250,7 +250,6 @@ data WaitReason tx
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
-  | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
   | WaitOnDepositObserved {depositTxId :: TxIdType tx}
   | WaitOnDepositActivation {depositTxId :: TxIdType tx}
