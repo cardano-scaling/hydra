@@ -1251,7 +1251,7 @@ waitUntilMatch nodes predicate = do
     raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
       -- A rejected increment/decrement submission is deliberate protocol noise:
       -- settlements are re-posted after rollbacks erring towards posting (see
-      -- 'repostNextSettlement' and 'repostErased') and a re-post can race a
+      -- 'repostInFlightSettlement' and 'repostErased') and a re-post can race a
       -- re-landed original.
       -- Keep waiting instead of failing the whole wait on it.
       Left PostTxOnChainFailed{postChainTx = IncrementTx{}} -> go seenOutputs (nid, n)

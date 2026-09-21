@@ -50,11 +50,12 @@ changes.
   the same version; parties no longer hold the dead claim against it.
 
 - Settlements erased by a rollback are now re-posted on every block until they
-  are observed landing again, instead of once at rollback time. A re-post that
-  failed, because the deposit was not back on chain yet or for any transient
-  reason, is retried, and a node restarted with an erased settlement re-posts
-  it too. An erased increment is only re-posted while its deposit is on the
-  chain the node follows.
+  are observed landing again, instead of once at rollback time. The first
+  block of the new fork gets to bring the transaction back by itself before
+  anything is posted, a re-post that failed is retried, and a node restarted
+  with an erased settlement re-posts it too. An erased increment is only
+  re-posted while its deposit is on the chain the node follows. A settlement
+  still in flight at rollback time is re-posted right away, as before.
 
 - Fixed a settlement being lost when a rollback erased it inside the window
   between another party posting it and this node confirming the snapshot
