@@ -473,9 +473,6 @@ instance IsTx tx => ToCBOR (FanoutMode tx) where
 instance IsTx tx => FromCBOR (FanoutMode tx) where
   fromCBOR = genericFromCBOR
 
--- | A closed head whose UTxO is being distributed across multiple fanout
--- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
--- that used to live in 'ClosedState'.
 -- | A partial fanout step observed on the chain this node follows: what it
 -- distributed, the slot it landed at, and the 'FanoutMode' it replaced. Kept
 -- so that a rollback can rewind the fanout's progress to the steps still on
@@ -501,6 +498,9 @@ instance IsTx tx => ToCBOR (FanoutStepLanded tx) where
 instance IsTx tx => FromCBOR (FanoutStepLanded tx) where
   fromCBOR = genericFromCBOR
 
+-- | A closed head whose UTxO is being distributed across multiple fanout
+-- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
+-- that used to live in 'ClosedState'.
 data PartialFanoutState tx = PartialFanoutState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx

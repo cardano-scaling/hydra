@@ -45,9 +45,11 @@ changes.
     `PartialFanoutState` gains `stepsLanded` and `everLanded`, `Environment`
     gains `rollbackHorizon`, `NodeState` serializes `deposits` with lifecycle
     slots in place of `pendingDeposits`, `GET /deposits` reflects rollbacks, and
-    `DepositInFlight` and `WaitOnUnresolvedCommit` are removed. Persisted state
-    from earlier versions still replays; settlements finalized before the
-    upgrade have no retained snapshot.
+    the `WaitOnUnresolvedCommit` wait reason is gone. The `DepositInFlight`
+    decommit-invalid reason is no longer emitted, but stays in the API and in
+    the codec, since it is part of a persisted event. Persisted state from
+    earlier versions still replays; settlements finalized before the upgrade
+    have no retained snapshot.
 
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
