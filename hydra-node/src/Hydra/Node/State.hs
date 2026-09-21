@@ -32,7 +32,8 @@ data TrackedDeposit tx = TrackedDeposit
   , consumedAt :: Maybe ChainSlot
   -- ^ Slot at which a consuming transaction (increment or recover) was
   -- observed, if any. A consumed deposit is no longer pending, but is retained
-  -- for 'depositRetentionHorizon' so a rollback can resurface it.
+  -- for the rollback horizon so a rollback can resurface it (see
+  -- 'pruneConsumedDeposits').
   }
   deriving stock (Generic)
 
@@ -68,12 +69,20 @@ instance view ~ PendingDeposits tx => HasField "pendingDeposits" (NodeState tx) 
 
 -- | Record a newly observed deposit at the given slot. Re-recording an id (its
 -- deposit transaction re-landed after a rollback) starts a fresh lifecycle.
-recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
-recordDeposit slot depositTxId deposit nodeState =
+recordDeposit ::
+  IsTx tx =>
+  -- | Rollback horizon, see 'pruneConsumedDeposits'
+  ChainSlot ->
+  ChainSlot ->
+  TxIdType tx ->
+  Deposit tx ->
+  NodeState tx ->
+  NodeState tx
+recordDeposit horizon slot depositTxId deposit nodeState =
   nodeState
     { deposits =
         Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
-          pruneConsumedDeposits slot (deposits nodeState)
+          pruneConsumedDeposits horizon slot (deposits nodeState)
     }
 
 -- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
@@ -86,12 +95,19 @@ updateDeposit depositTxId deposit nodeState =
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
 -- rollback) re-stamps the slot, so a rollback of the re-landed transaction
 -- still resurfaces the deposit.
-consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeState tx
-consumeDeposit slot depositTxId nodeState =
+consumeDeposit ::
+  IsTx tx =>
+  -- | Rollback horizon, see 'pruneConsumedDeposits'
+  ChainSlot ->
+  ChainSlot ->
+  TxIdType tx ->
+  NodeState tx ->
+  NodeState tx
+consumeDeposit horizon slot depositTxId nodeState =
   nodeState
     { deposits =
         Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
-          pruneConsumedDeposits slot (deposits nodeState)
+          pruneConsumedDeposits horizon slot (deposits nodeState)
     }
 
 -- | Rewind the deposit view to the given (rolled back) slot, see
@@ -104,30 +120,36 @@ rollbackDeposits slot nodeState =
     | recordedAt > slot = Nothing
     | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
 
--- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
+-- | Drop consumed deposits beyond the rollback horizon: no rollback can
 -- resurface them anymore, so retaining them would only grow persisted state
 -- with every deposit ever settled. Called on the deposit write paths, which is
 -- enough because only deposit churn creates consumed entries. Unconsumed
 -- deposits are never pruned — an expired deposit stays recoverable
 -- indefinitely.
-pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
-pruneConsumedDeposits slot =
-  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> retentionCutoff slot) consumedAt)
+--
+-- The horizon is the stability window of the network the node runs on, see
+-- 'Hydra.Node.Environment.rollbackHorizon'.
+pruneConsumedDeposits ::
+  -- | Rollback horizon
+  ChainSlot ->
+  -- | Current slot
+  ChainSlot ->
+  TrackedDeposits tx ->
+  TrackedDeposits tx
+pruneConsumedDeposits horizon slot =
+  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> retentionCutoff horizon slot) consumedAt)
 
--- | The slot before which no rollback can reach anymore, given the current
--- slot: anything observed at or before it is settled for good, see
--- 'depositRetentionHorizon'.
-retentionCutoff :: ChainSlot -> ChainSlot
-retentionCutoff (ChainSlot slot) =
-  case depositRetentionHorizon of
-    ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
-
--- | How long consumed deposits and retained settlements are kept for
--- rollbacks: sized to cover the deepest rollback Cardano can produce (the
--- security parameter k = 2160 blocks, roughly 12 hours at one block per 20
--- slots) with a three-fold margin.
-depositRetentionHorizon :: ChainSlot
-depositRetentionHorizon = ChainSlot 129600
+-- | The slot before which no rollback can reach anymore, given the rollback
+-- horizon and the current slot: anything observed at or before it is settled
+-- for good.
+retentionCutoff ::
+  -- | Rollback horizon
+  ChainSlot ->
+  -- | Current slot
+  ChainSlot ->
+  ChainSlot
+retentionCutoff (ChainSlot horizon) (ChainSlot slot) =
+  ChainSlot (if slot > horizon then slot - horizon else 0)
 
 data ChainPointTime = ChainPointTime
   { currentSlot :: ChainSlot

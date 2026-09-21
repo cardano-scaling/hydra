@@ -19,7 +19,7 @@ import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameter
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
@@ -90,16 +90,18 @@ run opts = do
     numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
     traceWith tracer' TrustedSetupLoaded{numG1Points}
     withMonitoring monitoringPort tracer' $ \tracer -> do
-      env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain chainConfig
+      -- The deepest rollback the chain can produce is its stability window
+      -- (3k/f slots), which the ledger derives from the same genesis.
+      env@Environment{party, otherParties, signingKey} <- initEnvironment (ChainSlot . fromIntegral $ stabilityWindow globals) opts
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
         withSQLiteEventStore (contramap SQLite tracer') dbFile stateFile $ \store -> do
-          eventStore@EventStore{eventSource} <- prepareEventStore store
+          eventStore@EventStore{eventSource} <- prepareEventStore env store
           -- NOTE: Add any custom sinks here
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []
           wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
@@ -154,14 +156,14 @@ run opts = do
     Offline cfg -> pure $ withOfflineChain cfg party otherParties
     Cardano cfg -> pure $ withCardanoChain (contramap DirectChain tracer) cfg party
 
-  prepareEventStore eventStore = do
+  prepareEventStore env eventStore = do
     case RotateAfter . getPositive <$> persistenceRotateAfter of
       Nothing ->
         pure eventStore
       Just rotationConfig -> do
         let initialState = initNodeState initialChainState
         let aggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
-            aggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
+            aggregator s StateEvent{stateChanged} = aggregateNodeState (rollbackHorizon env) s stateChanged
         newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
 
   RunOptions

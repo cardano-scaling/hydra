@@ -222,6 +222,11 @@ changes.
     slots (a `deposits` field replaces `pendingDeposits`) and
     `CoordinatedHeadState` gains `settlements`, the retained snapshots keyed
     by the version they were based on.
+  * Consumed deposits and retained settlements are dropped once no rollback
+    can reach them anymore. That horizon is now the stability window of the
+    network the node runs on (3k/f slots, from its genesis parameters, 36
+    hours on mainnet) instead of a constant sized for mainnet; `Environment`
+    (as sent in `Greetings`) gains `rollbackHorizon`.
   * `GET /deposits` now reflects rollbacks: it is served from the node state
     (which rewinds its deposit view on rollback) instead of a projection that
     only tracked deposit lifecycle events.

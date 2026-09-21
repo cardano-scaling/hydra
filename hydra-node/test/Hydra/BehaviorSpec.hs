@@ -73,6 +73,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Ledger (nextChainSlot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
+import Test.Hydra.Node.Fixture (testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -1685,7 +1686,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
   -- server output history (e.g. HeadIsOpen) is available like after a real
   -- fail-recovery.
   putEventsToSinks [apiSink] events
-  let nodeState = foldl' (\s StateEvent{stateChanged} -> aggregateNodeState s stateChanged) (initNodeState chainState) events
+  let nodeState = foldl' (\s StateEvent{stateChanged} -> aggregateNodeState testRollbackHorizon s stateChanged) (initNodeState chainState) events
   let chainStateHistory = foldl' (\h StateEvent{stateChanged} -> aggregateChainStateHistory h stateChanged) (initHistory chainState) events
   let lastEventId = getEventId <$> viaNonEmpty last events
   nodeStateHandler <- createNodeStateHandler lastEventId nodeState
@@ -1720,6 +1721,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
       , depositPeriod = dp
       , depositActivation = dp
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
+      , rollbackHorizon = testRollbackHorizon
       , participants
       , configuredPeers = ""
       }

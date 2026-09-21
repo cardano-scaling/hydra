@@ -2441,9 +2441,15 @@ markErased rolledBackSlot = Map.map $ \case
 --
 -- Erased settlements are never dropped: they are due for re-posting, and the
 -- lowest one gates every later re-post ('nextErasedSettlement').
-pruneSettlements :: ChainSlot -> Settlements tx -> Settlements tx
-pruneSettlements slot = Map.filter $ \Settlement{status} -> case status of
-  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff slot
+pruneSettlements ::
+  -- | Rollback horizon
+  ChainSlot ->
+  -- | Current slot
+  ChainSlot ->
+  Settlements tx ->
+  Settlements tx
+pruneSettlements horizon slot = Map.filter $ \Settlement{status} -> case status of
+  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff horizon slot
   Erased -> True
 
 -- | Update the retained settlements of an open head; any other head state is
@@ -2899,8 +2905,14 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
 -- Events carrying a 'HeadId' that does not match the current state are silently
 -- ignored, preventing cross-head state contamination during event replay.
 -- Events without a 'HeadId' are always applied.
-aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
-aggregateNodeState nodeState sc =
+aggregateNodeState ::
+  IsChainState tx =>
+  -- | Rollback horizon of the network, see 'Hydra.Node.Environment.rollbackHorizon'
+  ChainSlot ->
+  NodeState tx ->
+  StateChanged tx ->
+  NodeState tx
+aggregateNodeState rollbackHorizon nodeState sc =
   case (headIdOf (headState nodeState), eventHeadId sc) of
     (Just sid, Just eid) | sid /= eid -> nodeState
     _ ->
@@ -2913,7 +2925,7 @@ aggregateNodeState nodeState sc =
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 }
             DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
-              recordDeposit (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
+              recordDeposit rollbackHorizon (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
                 nodeState{headState = st}
             DepositActivated{depositTxId, deposit} ->
               updateDeposit depositTxId deposit $
@@ -2924,7 +2936,7 @@ aggregateNodeState nodeState sc =
               updateDeposit depositTxId deposit $
                 nodeState{headState = st}
             DepositRecovered{chainState, depositTxId} ->
-              consumeDeposit (chainStateSlot chainState) depositTxId $
+              consumeDeposit rollbackHorizon (chainStateSlot chainState) depositTxId $
                 case st of
                   Open os@OpenState{coordinatedHeadState} ->
                     nodeState
@@ -2943,7 +2955,7 @@ aggregateNodeState nodeState sc =
                   _ ->
                     nodeState{headState = st}
             CommitFinalized{chainState, newVersion, depositTxId} ->
-              consumeDeposit (chainStateSlot chainState) depositTxId $ case st of
+              consumeDeposit rollbackHorizon (chainStateSlot chainState) depositTxId $ case st of
                 Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot}}
                   -- Re-observation: the increment re-landed after a rollback
                   -- (the local 'version' never rolls back, so a 'newVersion'
@@ -3000,7 +3012,7 @@ aggregateNodeState nodeState sc =
                   nodeState{headState = st}
             TickObserved{chainPoint, chainTime} ->
               -- Retained settlements no rollback can reach anymore are dropped.
-              nodeState{headState = onSettlements (pruneSettlements (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
+              nodeState{headState = onSettlements (pruneSettlements rollbackHorizon (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
             ChainRolledBack{chainState} ->
               -- Deposits are L1-derived: restore the view at the rolled-back
               -- slot. Deposits whose consuming tx (increment/recover) was
@@ -3476,11 +3488,13 @@ applyEvent st = \case
 
 aggregateState ::
   IsChainState tx =>
+  -- | Rollback horizon, see 'aggregateNodeState'
+  ChainSlot ->
   NodeState tx ->
   Outcome tx ->
   NodeState tx
-aggregateState s outcome =
-  foldl' aggregateNodeState s $ collectStateChanged outcome
+aggregateState rollbackHorizon s outcome =
+  foldl' (aggregateNodeState rollbackHorizon) s $ collectStateChanged outcome
  where
   collectStateChanged :: Outcome tx -> [StateChanged tx]
   collectStateChanged = \case

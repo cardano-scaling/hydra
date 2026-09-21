@@ -1,31 +1,54 @@
 {
     "samples": [
         {
-            "chainSyncedStatus": "CatchingUp",
+            "chainSyncedStatus": "InSync",
             "currentSlot": 1,
             "env": {
-                "configuredPeers": "",
-                "contestationPeriod": 43200,
-                "depositActivation": 40480,
-                "depositPeriod": 47894,
-                "otherParties": [],
+                "configuredPeers": "\\",
+                "contestationPeriod": 86400,
+                "depositActivation": 5561,
+                "depositPeriod": 48604,
+                "otherParties": [
+                    {
+                        "vkey": "0e09ccad792ce856ea585baf51180f4cac6978b712873e8af3317d36af8562e5"
+                    }
+                ],
                 "participants": [],
                 "party": {
-                    "vkey": "79e89a0e5d9cbaee447d0e60ad6e35adf2cffef1f54a12a5746e371cfd9965c6"
+                    "vkey": "415cb31fb7e2cf509161603ccf7724f8adde362bb4178a3a9d133162e79de20f"
                 },
-                "unsyncedPeriod": 4950
+                "rollbackHorizon": 1,
+                "unsyncedPeriod": 81949
             },
             "headStatus": "FanningOut",
-            "hydraNodeVersion": "⢊",
+            "hydraNodeVersion": "",
             "me": {
-                "vkey": "d2c26418b2c549087472c67be0154aa83e32d9b92f08c19738263584b7d8582c"
+                "vkey": "6ab58b5208c2818c4ee2c3c52d58648fe0a6c9116a2b1fa09f7a42fcfb61b332"
             },
             "networkInfo": {
                 "networkConnected": true,
-                "peersInfo": {}
+                "peersInfo": {
+                    "0.0.0.0:1": false
+                }
+            },
+            "snapshotUtxo": {
+                "0000000000000101010101000100010000010000000001000001000000010000#92": {
+                    "address": "addr_test1vzz4vqcv62mums5a5aj43n0sptzvmz7rtdrunhr7sqr3fksccpzdl",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "d75524c8545c24c11d67990153d4839ae10fd5e65abf4d2666de67ef": {
+                            "5ff93f7b334bbf05dfa92289ac4c6f0f": 3518077761431470977
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
             },
             "tag": "Greetings"
         }
     ],
-    "seed": 1589386439
+    "seed": -310365906
 }
