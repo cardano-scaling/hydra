@@ -49,7 +49,7 @@ jobs:
             os: ubuntu-24.04-arm
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -60,24 +60,33 @@ jobs:
     # the passing *run*, so a package whose sources did not change substitutes
     # from cachix and the suite does not run at all. See nix/hydra/test-checks.nix.
     #
-    # A failed build has no output, so the JUnit report is recovered from the
-    # build directory that --keep-failed leaves behind; TMPDIR is that same
-    # directory inside the sandbox, so the suite's withTempDir logs land there
-    # too (see the Upload logs step).
+    # -L streams the suite's output into this log while it runs. Without it
+    # nix prints nothing until the build ends, so a run that hits the job
+    # timeout leaves no trace of which test it was in.
     - name: ❓ Test
       if: ${{ !contains(fromJSON('["hydra-cluster","hydra-tui"]'), matrix.package) }}
       run: |
         sys=$(nix eval --impure --raw --expr builtins.currentSystem)
         mkdir -p ${{ matrix.package }}/test-reports
-        if out=$(nix build --no-link --keep-failed --print-out-paths \
-                   ".#checks.$sys.test-${{ matrix.package }}"); then
-          cp "$out/junit.xml" ${{ matrix.package }}/test-reports/junit.xml
-        else
-          sudo chmod -R a+rX /tmp/nix-build-*-check* 2>/dev/null || true
-          find /tmp -maxdepth 4 -path '*nix-build-*-check*' -name junit.xml \
-            -exec cp {} ${{ matrix.package }}/test-reports/junit.xml ';' || true
-          exit 1
-        fi
+        out=$(nix build --no-link --keep-failed --print-out-paths -L \
+                ".#checks.$sys.test-${{ matrix.package }}")
+        cp "$out/junit.xml" ${{ matrix.package }}/test-reports/junit.xml
+
+    # A failed build has no output, so its JUnit report is recovered from the
+    # build directory that --keep-failed leaves behind; TMPDIR is that same
+    # directory inside the sandbox, so the suite's withTempDir logs land there
+    # too (see the Upload logs step). That directory belongs to the nix build
+    # user and is unreadable to the runner, so open it up before the uploads.
+    # A step of its own rather than a failure branch inside the Test step, so
+    # that it also runs when the job timeout kills that step; the upload
+    # otherwise dies on EACCES and the run leaves nothing behind.
+    - name: 🔓 Recover check output
+      if: ${{ always() && !contains(fromJSON('["hydra-cluster","hydra-tui"]'), matrix.package) }}
+      run: |
+        sudo chmod -R a+rX /tmp/nix-build-*-check* 2>/dev/null || true
+        mkdir -p ${{ matrix.package }}/test-reports
+        find /tmp -maxdepth 4 -path '*nix-build-*-check*' -name junit.xml \
+          -exec cp {} ${{ matrix.package }}/test-reports/junit.xml ';' || true
 
     # hydra-cluster spawns real cardano-node devnets and hydra-tui needs a tty,
     # so neither has a flake check; they keep running in their dev shell.
@@ -114,11 +123,11 @@ jobs:
     # failures produce files here. The glob deliberately matches any temp dir
     # with a logs/ subdirectory rather than specific withTempDir templates;
     # template renames silently broke a template-coupled glob before. The
-    # artifact name is matrix-keyed because upload-artifact@v4 requires
-    # unique names within a run.
+    # artifact name is matrix-keyed because upload-artifact requires unique
+    # names within a run.
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: test-logs-${{ matrix.package }}-${{ matrix.os }}
         path: |
@@ -134,7 +143,7 @@ jobs:
     timeout-minutes: 60
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -155,7 +164,7 @@ jobs:
     # The rendered PDF is the artefact a specification review actually wants to read, and the job
     # has just built it either way.
     - name: 📎 Upload the rendered specification
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: hydra-spec
         path: result-spec/hydra-spec.pdf
@@ -190,7 +199,7 @@ jobs:
             options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s --incremental-modes False --seed 2755'
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -205,7 +214,7 @@ jobs:
         nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmarks-${{matrix.package}}-${{matrix.tag}}
         path: benchmarks
@@ -213,7 +222,7 @@ jobs:
     # NOTE: This depends on the path used in hydra-cluster bench
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: hydra-cluster-bench-logs
         path: /tmp/nix-shell.*/bench-*/**/*.log

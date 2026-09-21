@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Hydra.API.ClientInputSpec qualified
 import Hydra.API.HTTPServerSpec qualified
+import Hydra.API.ServerOutputFilterSpec qualified
 import Hydra.API.ServerOutputSpec qualified
 import Hydra.API.ServerSpec qualified
 import Hydra.BehaviorSpec qualified
@@ -56,6 +57,7 @@ main =
     "hydra-node"
     [ testSpec "API.ClientInput" Hydra.API.ClientInputSpec.spec
     , testSpec "API.HTTPServer" Hydra.API.HTTPServerSpec.spec
+    , testSpec "API.ServerOutputFilter" Hydra.API.ServerOutputFilterSpec.spec
     , testSpec "API.ServerOutput" Hydra.API.ServerOutputSpec.spec
     , testSpec "API.Server" Hydra.API.ServerSpec.spec
     , testSpec "Behavior" Hydra.BehaviorSpec.spec

@@ -402,6 +402,39 @@ spec = parallel $ do
                   TxInvalid{transaction} -> guard $ transaction == tx''
                   _ -> Nothing
 
+      -- A transaction that never becomes applicable is dropped as 'TxInvalid'
+      -- once its TTL expires. The head has to stay usable afterwards: later
+      -- transactions still confirm, and the head still closes and fans out the
+      -- UTxO they produced. The ledger reason carried by 'TxInvalid' for a
+      -- transaction missing its witness is pinned in
+      -- 'Hydra.Ledger.CardanoSpec'; 'SimpleTx' has no notion of witnesses.
+      it "stays usable after a transaction was dropped as invalid" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead2 n1 n2
+                depositHead chain [n1, n2] $ utxoRefs [1, 2]
+
+                -- Spends an output the head never holds, so it cannot ever apply.
+                let neverApplicable = SimpleTx 1 (utxoRef 99) (utxoRef 100)
+                send n1 (NewTx neverApplicable)
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> guard $ transaction == neverApplicable
+                  _ -> Nothing
+
+                let nextTx = SimpleTx 2 (utxoRef 1) (utxoRef 3)
+                send n1 (NewTx nextTx)
+                waitUntil [n1, n2] $ TxValid testHeadId 2
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ nextTx `elem` confirmed
+                  _ -> Nothing
+
+                send n1 Close
+                waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                send n1 Fanout
+                waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [2, 3]}
+
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
           withSimulatedChainAndNetwork $ \chain ->

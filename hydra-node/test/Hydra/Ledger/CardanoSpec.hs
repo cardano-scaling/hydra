@@ -17,12 +17,12 @@ import Data.Aeson.Lens (key)
 import Data.Aeson.Types (parseEither)
 import Data.ByteString qualified as BS
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyCons, NonEmptyOne))
-import Data.Text (unpack)
+import Data.Text (isInfixOf, unpack)
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
-import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger (ValidationError (..), applyTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, cardanoLedger)
 import Hydra.Tx.IsTx (IsTx (..))
 import Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -43,7 +43,7 @@ import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Gen.Cardano.Api.Typed (genChainPoint)
-import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions, genSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
 import Test.QuickCheck (
@@ -193,6 +193,7 @@ spec =
       prop "works with valid transaction" appliesValidTransaction
       prop "works with valid transaction deserialised from JSON" appliesValidTransactionFromJSON
       prop "is equivalent to folding applyTxTo for valid transactions" applyTransactionsEquivalence
+      prop "rejects a transaction stripped of its key witness" rejectsUnwitnessedTransaction
 
     describe "Generators" $ do
       propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
@@ -243,6 +244,21 @@ applyTransactionsEquivalence =
         viaLedger = applyTransactions ledger slot utxo txs
         viaApplyTxTo = foldl' (flip applyTxTo) utxo txs
      in viaLedger === Right viaApplyTxTo
+
+-- | A transaction submitted to a head without its signature is rejected by the
+-- ledger, and the reason names the missing witness. The node passes that reason
+-- through verbatim in the @TxInvalid@ output, so clients match on this string.
+rejectsUnwitnessedTransaction :: Property
+rejectsUnwitnessedTransaction =
+  forAllBlind (genFixedSizeSequenceOfSimplePaymentTransactions 1) $ \(utxo, txs) ->
+    let unwitnessed = [makeSignedTransaction [] (getTxBody tx) | tx <- txs]
+     in case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo unwitnessed of
+          Left (_, ValidationError{reason}) ->
+            property ("MissingVKeyWitnessesUTXOW" `isInfixOf` reason)
+              & counterexample ("rejected for another reason: " <> unpack reason)
+          Right _ ->
+            property False
+              & counterexample "an unwitnessed transaction was accepted"
 
 appliesValidTransaction :: Property
 appliesValidTransaction =

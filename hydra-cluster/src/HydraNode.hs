@@ -157,16 +157,6 @@ scaledFailAfter seconds action = scaleWaitTime seconds >>= (`Prelude.failAfter` 
 waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> Aeson.Value -> IO ()
 waitFor tracer delay nodes v = waitForAll tracer delay nodes [v]
 
--- | Wait up to some time and succeed if no API server output matches the given predicate.
--- The window is deliberately NOT scaled by 'scaleWaitTime': the timeout here
--- is the success path, so scaling it would slow every passing run.
-waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO ()
-waitNoMatch delay client match = do
-  result <- try (void $ waitMatchWith delay client match) :: IO (Either SomeException ())
-  case result of
-    Left _ -> pure () -- Success: waitMatch failed to find a match
-    Right _ -> failure "waitNoMatch: A match was found when none was expected"
-
 -- | Wait up to some time for an API server output to match the given predicate.
 -- The budget is scaled to the environment, see 'scaleWaitTime'.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Aeson.Value -> Maybe a) -> IO a
