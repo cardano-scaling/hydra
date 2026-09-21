@@ -3282,6 +3282,68 @@ spec =
                       <> ": "
                       <> show outcome
 
+        -- The other half of the invariant. An honest leader carries the
+        -- confirmed snapshot's unsettled claim and nothing else
+        -- ('selectNextDeposit'), so every deviation from that is a proposal
+        -- only a faulty or hostile leader sends, and none may be signed: each
+        -- would confirm a snapshot whose accumulators do not account for the
+        -- deposited outputs, and if the increment still lands they are in the
+        -- head output and in none of them. Enumerated rather than tested one
+        -- at a time, so a deviation nobody thought of has to pass here too.
+        it "signs no deviation from the claim an honest leader would carry" $ do
+          now <- getCurrentTime
+          let stillPending :: Integer -> UTxOType SimpleTx -> (Integer, Deposit SimpleTx)
+              stillPending txId' utxo =
+                (txId', Deposit{headId = testHeadId, deposited = utxo, created = now, deadline = addUTCTime 600 now, status = Active})
+              withClaim :: SnapshotVersion -> Settlements SimpleTx -> NodeState SimpleTx
+              withClaim version settlements =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = signedIncrementingSnapshot1
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version
+                      , settlements
+                      }
+                )
+                  { deposits = trackedFromPending . Map.fromList $ [stillPending depositTxId' depositedUTxO, stillPending depositTxId2 depositedUTxO2]
+                  }
+              -- The claim is still unsettled in the first state, and settled
+              -- but one version behind us in the second.
+              -- The same, with a decommit pending instead of a commit.
+              withDecommit :: NodeState SimpleTx
+              withDecommit =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = decrementingSnapshot1, signatures = Crypto.aggregate []}
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                    , version = 0
+                    , decommitTx = Just decommitTx'
+                    }
+              states =
+                [ ("unsettled", withClaim 0 mempty)
+                , ("settled, and this node one version ahead", withClaim 1 (Map.singleton 0 Settlement{snapshot = signedIncrementingSnapshot1, status = Landed 3}))
+                , ("a decommit rather than a commit, unsettled", withDecommit)
+                ]
+              deviations =
+                [ ("drops the claim", Nothing, Nothing)
+                , ("swaps in another deposit", Just depositTxId2, Nothing)
+                , ("replaces it with a decommit", Nothing, Just (aValidTx 7))
+                , ("carries it and a decommit", Just depositTxId', Just (aValidTx 7))
+                ]
+              signs :: Outcome SimpleTx -> Bool
+              signs = \case
+                Continue{stateChanges, effects} ->
+                  any (\case SnapshotRequested{} -> True; _ -> False) stateChanges
+                    && any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
+                _ -> False
+          forM_ states $ \(claimIs, s) ->
+            forM_ deviations $ \(how, dep, dec) -> do
+              now' <- nowFromSlot s.chainPointTime.currentSlot
+              let outcome = update soloAliceEnv ledger now' s (receiveMessage $ ReqSn 0 2 [] dec dep)
+              when (signs outcome) $
+                expectationFailure $
+                  "Signed a request that " <> how <> ", with the claim " <> claimIs <> ": " <> show outcome
+
         it "rejects a ReqSn one version behind that swaps in a different deposit" $ do
           -- Only the confirmed snapshot's own commit may be carried again. A
           -- fork erased two increments here, so the first deposit is pending

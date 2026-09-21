@@ -530,6 +530,25 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   waitForDeposit activeUTxOAfterDecommit cont =
     case mDepositTxId of
+      -- A request at the confirmed snapshot's own version that carries no
+      -- deposit, while that snapshot's commit has not settled, drops the
+      -- claim. The deposited outputs then count as neither applied nor
+      -- pending, and if the increment still lands they sit in the head output
+      -- and in no accumulator. An honest leader carries the claim again
+      -- ('selectNextDeposit'), so refuse a request that does not.
+      --
+      -- Unless the deposit is gone, recovered on L1, where dropping the claim
+      -- is the right thing. That is a chain observation the leader may have
+      -- made before us, so wait for our own follower rather than refuse what
+      -- the others sign; see the note on unanimous refusals above.
+      Nothing
+        | sv == confVersion
+        , isJust confUTxOToCommit
+        , Just claimed <- confDepositTxId
+        , Map.member claimed pendingDeposits ->
+            if ttl > 0
+              then wait WaitOnUnsettledCommit{depositTxId = claimed}
+              else Error $ RequireFailed ReqSnCommitNotSettled
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
         -- A proposal one version behind us carries the confirmed snapshot's own
@@ -611,6 +630,20 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
+      -- A request at the confirmed snapshot's own version that carries no
+      -- decommit, while that snapshot's decommit has not settled, drops it.
+      -- The outputs left that snapshot's 'utxo' when it was signed, and
+      -- nothing would put them back, so they end up in neither accumulator of
+      -- the next one; if the decrement never lands they stay in the head
+      -- output with nothing to distribute them at fanout. An honest leader
+      -- carries the decommit again while 'decommitTx' is set
+      -- ('selectNextIncrementalAction'). The mirror of the commit case in
+      -- 'waitForDeposit', and decided only on the confirmed snapshot, which
+      -- every party agrees on, so this refuses outright.
+      Nothing
+        | sv == confVersion
+        , isJust confUTxOToDecommit ->
+            Error $ RequireFailed ReqSnDecommitNotSettled
       Nothing -> cont (confirmedUTxO, Nothing)
       -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
       --
