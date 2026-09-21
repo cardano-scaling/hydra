@@ -1063,36 +1063,36 @@ spec =
 
           -- 2. The stale ReqSn(v=3) arrives. The receiver's version is now 4,
           --    one ahead, and the proposal is based on its confirmed snapshot:
-          --    a straddle. It is signed at v=3, exactly as a party that has not
+          --    one version behind. It is signed at v=3, exactly as a party that has not
           --    seen the decrement land signs it, so every AckSn is over the
           --    same bytes (see 'waitOnSnapshotVersion'). Waiting here could
           --    never resolve, since the local version never goes back down.
           let staleReqSn :: Input SimpleTx
               staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
-          let straddled = update aliceEnv ledger now' s1 staleReqSn
-          straddled `hasStateChangedSatisfying` \case
+          let signedBehind = update aliceEnv ledger now' s1 staleReqSn
+          signedBehind `hasStateChangedSatisfying` \case
             SnapshotRequested{requestedSnapshot = Snapshot{version = v}} -> v == 3
             _ -> False
-          straddled `hasEffectSatisfying` \case
+          signedBehind `hasEffectSatisfying` \case
             NetworkEffect (AckSn _ 1) -> True
             _ -> False
 
           -- 3. The round completes one version behind the chain: every party
-          --    acks the straddled snapshot and it confirms at v=3 while the
+          --    acks the snapshot signed at v=3 and it confirms while the
           --    local version stays 4. A new ReqTx then makes bob (leader for
           --    sn=2 in a three party head) propose the next snapshot at the
           --    bumped version, so the head is not stuck.
           s2 <- runHeadLogic aliceEnv ledger s1 $ do
             step staleReqSn
             getState
-          straddledSnapshot <- case s2 of
+          behindSnapshot <- case s2 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot}}}} -> pure snapshot
-            other -> fail $ "expected the straddled snapshot in flight, got: " <> show other
+            other -> fail $ "expected the snapshot signed one version behind in flight, got: " <> show other
           s3 <- runHeadLogic aliceEnv ledger s2 $ do
-            step $ receiveMessageFrom alice $ AckSn (sign aliceSk straddledSnapshot) 1
-            step $ receiveMessageFrom bob $ AckSn (sign bobSk straddledSnapshot) 1
-            step $ receiveMessageFrom carol $ AckSn (sign carolSk straddledSnapshot) 1
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk behindSnapshot) 1
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk behindSnapshot) 1
+            step $ receiveMessageFrom carol $ AckSn (sign carolSk behindSnapshot) 1
             getState
           case s3 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
@@ -2871,6 +2871,46 @@ spec =
               NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositTxId'
               _ -> False
 
+        it "the tick proposes no other deposit while the confirmed snapshot's claim is unsettled" $ do
+          -- The tick picks the oldest Active deposit and skips the claimed one
+          -- once it expired locally, while its increment can still land. It
+          -- must then propose nothing: any other deposit is refused by every
+          -- party with 'ReqSnCommitNotSettled', the leader's own echo included,
+          -- and the leader would sit in 'RequestedSnapshot' until the
+          -- increment lands.
+          now <- getCurrentTime
+          let claimedExpired =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = addUTCTime (-200) now
+                  , deadline = addUTCTime 30 now
+                  , status = Expired
+                  }
+              otherActive =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO2
+                  , created = addUTCTime (-120) now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , version = 0
+                      , currentDepositTxId = Nothing
+                      }
+                )
+                  { deposits = trackedFromPending (Map.fromList [(depositTxId', claimedExpired), (depositTxId2, otherActive)])
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (ChainInput Tick{chainTime = now, chainPoint = 2})
+            `hasNoEffectSatisfying` \case
+              NetworkEffect ReqSn{} -> True
+              _ -> False
+
         it "signs a ReqSn re-carrying a locally expired deposit the confirmed snapshot claims" $ do
           -- Receiver half of the case above. Every party's copy of the deposit
           -- expires together, so refusing the re-carried claim with
@@ -2970,7 +3010,7 @@ spec =
               NetworkEffect ReqSn{snapshotVersion = 1, decommitTx = Just tx, depositTxId = Nothing} -> tx == decommitTx'
               _ -> False
 
-        -- Straddle-signing (the late-ReqSn deadlock). The leader multicasts
+        -- Signing one version behind (the late-ReqSn deadlock). The leader multicasts
         -- ReqSn at version v; an increment lands and bumps this node to v+1
         -- before the ReqSn arrives. Waiting for version v to come back can
         -- never resolve, and the leader will not propose again while it is
@@ -2993,7 +3033,47 @@ spec =
             NetworkEffect (AckSn _ 2) -> True
             _ -> False
 
-        it "refuses a straddling ReqSn whose increment a rollback erased" $ do
+        it "rejects a ReqSn one version behind that drops the settled commit" $ do
+          -- The party one version ahead is the one that knows the commit landed. The
+          -- parties that have not seen it sign whatever the leader proposes,
+          -- so letting this through would confirm a snapshot at version 0
+          -- without the commit the chain applied at version 1, which no close
+          -- redeemer can express.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing Nothing)
+            `shouldBe` Error (RequireFailed ReqSvBehindMustReCarry{requestedSv = 0, requestedDepositTxId = Nothing, requestedDecommitTxId = Nothing})
+
+        it "rejects a ReqSn one version behind that replaces the settled commit with a decommit" $ do
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] (Just decommitTx') Nothing)
+            `shouldBe` Error (RequireFailed ReqSvBehindMustReCarry{requestedSv = 0, requestedDepositTxId = Nothing, requestedDecommitTxId = Just (txId decommitTx')})
+
+        it "signs a ReqSn one version behind when its decrement already finalized" $ do
+          -- The decommit side of signing one version behind: the proposal re-carries the
+          -- decommit the confirmed snapshot pays out, whose decrement this
+          -- node already saw land.
+          s0 <- afterDecommitFinalized
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] (Just decommitTx') Nothing)
+          outcome `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToDecommit}} ->
+              version == 0 && utxoToDecommit == Just (utxoRef 3)
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect (AckSn _ 2) -> True
+            _ -> False
+
+        it "rejects a ReqSn one version behind that drops the settled decommit" $ do
+          s0 <- afterDecommitFinalized
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing Nothing)
+            `shouldBe` Error (RequireFailed ReqSvBehindMustReCarry{requestedSv = 0, requestedDepositTxId = Nothing, requestedDecommitTxId = Nothing})
+
+        it "refuses a ReqSn one version behind whose increment a rollback erased" $ do
           -- Same shape, but the rollback erased the increment: the deposit is
           -- settled by re-posting the retained snapshot, never by signing a
           -- new one that claims it again (#2741). The version check lets the
@@ -3009,7 +3089,7 @@ spec =
         it "rejects a ReqSn two versions behind as unsatisfiable" $ do
           -- Version is monotone, so a proposal two or more behind can never be
           -- signed. Today it is parked until its TTL drops it in silence; a
-          -- terminal error says why. Only a one-version straddle is admitted.
+          -- terminal error says why. Only one version behind is admitted.
           let s0 =
                 inOpenState' [alice] $
                   coordinatedHeadState
@@ -3022,7 +3102,7 @@ spec =
             `shouldBe` Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 2})
 
         it "rejects a ReqSn one version behind that is below the confirmed snapshot's version" $ do
-          -- One behind is only a straddle when it is based on the confirmed
+          -- One behind is only signable when it is based on the confirmed
           -- snapshot. A proposal below the confirmed snapshot's own version
           -- proposes a predecessor the head has moved past.
           let s0 =
@@ -3039,7 +3119,7 @@ spec =
         it "still waits on a ReqSn ahead of its version" $ do
           -- The direction that must stay a wait: this node's chain handler has
           -- not processed the bump the leader already saw, so a retry resolves
-          -- it. Asserted next to the straddle so nobody collapses the two.
+          -- it. Asserted next to the one-behind case so nobody collapses the two.
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           now' <- nowFromSlot s0.chainPointTime.currentSlot

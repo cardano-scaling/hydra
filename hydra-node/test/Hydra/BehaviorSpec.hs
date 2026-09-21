@@ -215,7 +215,7 @@ spec = parallel $ do
     -- After the deposit snapshot confirms (ver=0), maybeRequestNextSnapshot
     -- fires ReqSn(ver=0, sn=2) immediately for pending L2 txs. Then
     -- CommitFinalized bumps version to 1 before the echo returns (25s).
-    -- Both nodes then straddle: they sign the ver=0 echo (see
+    -- Both nodes then sign one version behind: they sign the ver=0 echo (see
     -- 'waitOnSnapshotVersion') and the round confirms one version behind the
     -- chain. Before that, the stale echo was parked until its TTL dropped it
     -- and nobody re-triggered ReqSn(ver=1): head permanently stuck.
@@ -242,7 +242,7 @@ spec = parallel $ do
               -- After the deposit snapshot confirms, the leader sends
               -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
               -- and bumps version to 1 before the echo returns. Both nodes
-              -- straddle: they sign the echo at ver=0 and the round confirms
+              -- sign one version behind: the echo at ver=0, and the round confirms
               -- one version behind the chain, carrying tx 999.
               waitUntilMatch [n1, n2] $ \case
                 SnapshotConfirmed{snapshot = Snapshot{confirmed}}

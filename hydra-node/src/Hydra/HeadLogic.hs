@@ -384,9 +384,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
                       let nextSnapshot =
                             Snapshot
                               { headId
-                              , -- The version proposed, not the local one: in a
-                                -- straddle they differ by one, and the signed
-                                -- bytes must equal those of the parties that
+                              , -- The version proposed, not the local one: for a
+                                -- proposal one version behind they differ, and the
+                                -- signed bytes must equal those of the parties that
                                 -- have not seen the bump ('waitOnSnapshotVersion').
                                 version = sv
                               , number = sn
@@ -440,7 +440,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   --
   --   * @sv == version@: the common case.
   --
-  --   * @sv + 1 == version && sv == confVersion@: a straddle. The leader
+  --   * @sv + 1 == version && sv == confVersion@: one version behind. The leader
   --     proposed at the version this node has since moved past, and the
   --     proposal is based on our confirmed snapshot. Parties that have not
   --     seen the bump yet sign it at @sv@, so this node does too (see the
@@ -449,6 +449,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   --     chain, a state 'CloseUsed' already supports. Waiting instead could
   --     never resolve, and the leader does not propose again while it is
   --     collecting AckSns, so the head would stop confirming snapshots.
+  --     Only when the proposal re-carries the settled action, see
+  --     'reCarriesSettledAction'.
   --
   --   * @sv > version@: our chain handler has not processed the bump the
   --     leader already saw; a retry resolves it, so this must stay a Wait.
@@ -458,9 +460,26 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   --     retries and then be dropped in silence.
   waitOnSnapshotVersion continue
     | sv == version = continue
-    | sv + 1 == version, sv == confVersion = continue
+    | sv + 1 == version
+    , sv == confVersion =
+        if reCarriesSettledAction
+          then continue
+          else Error $ RequireFailed ReqSvBehindMustReCarry{requestedSv = sv, requestedDepositTxId = mDepositTxId, requestedDecommitTxId = txId <$> mDecommitTx}
     | sv > version = wait $ WaitOnSnapshotVersion sv
     | otherwise = Error $ RequireFailed ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+
+  -- A proposal one version behind must carry exactly the confirmed snapshot's
+  -- action: the deposit it claims or the decommit it pays out, and nothing else. From
+  -- this node's point of view that action has landed, and the parties that
+  -- have not seen it land sign whatever the leader proposes. A proposal that
+  -- dropped it would confirm a snapshot at @sv@ without the action the chain
+  -- applied at @sv + 1@, which no close redeemer can express; one that
+  -- replaced it with a fresh deposit would count that deposit as absorbed
+  -- once the bump is applied, although no increment claimed it. An honest
+  -- leader at @sv@ always re-carries it ('selectNextIncrementalAction').
+  reCarriesSettledAction =
+    mDepositTxId == confDepositTxId
+      && (utxoFromTx <$> mDecommitTx) == confUTxOToDecommit
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
@@ -471,8 +490,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
-        -- A straddling proposal re-carrying the confirmed snapshot's own commit,
-        -- whose increment this node already saw land ('waitOnSnapshotVersion').
+        -- A proposal one version behind re-carrying the confirmed snapshot's own
+        -- commit, whose increment this node already saw land ('waitOnSnapshotVersion').
         -- The deposit is consumed and retained here, while the parties that
         -- have not seen the increment still hold it pending and sign a
         -- snapshot that carries it. Sign the same bytes, taking the deposited
@@ -639,8 +658,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   -- The base UTxO of the requested snapshot. The confirmed snapshot's pending
   -- commit is spendable exactly when its increment had landed as of the
-  -- version being signed, hence @sv@ and not the local version: in a straddle
-  -- the local version is one ahead, and keying on it would make this node's
+  -- version being signed, hence @sv@ and not the local version: for a proposal
+  -- one version behind the local version is one ahead, and keying on it would make this node's
   -- base UTxO, and so its signed bytes, differ from everyone else's.
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
@@ -1126,12 +1145,16 @@ onOpenChainTick env chainTime pendingDeposits st =
         -- REVIEW: this is not really a wait, but discard?
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
-          -- Nothing to request once the confirmed snapshot already claims this
-          -- deposit: it stays queued until its increment lands on chain, and
-          -- from then on it is settled by that increment, not by another
-          -- snapshot. Without this the tick would request one snapshot per
-          -- tick while the increment is in flight.
-          && Just depositTxId /= confirmedDepositTxId
+          -- Nothing to request while the confirmed snapshot's claim is still
+          -- unsettled: that deposit stays queued until its increment lands on
+          -- chain, and from then on it is settled by that increment, not by
+          -- another snapshot, so requesting it again would only send one
+          -- snapshot per tick. Any other deposit is refused by every party
+          -- until then ('ReqSnCommitNotSettled'), and the leader would sit in
+          -- 'RequestedSnapshot' on its own rejected echo. The claim itself may
+          -- not be the pick: 'withNextActive' skips it once it is no longer
+          -- Active locally, while its increment can still land.
+          && isNothing confirmedDepositTxId
           && not (snapshotInFlight seenSnapshot)
           && isLeader parameters party nextSn
           then
