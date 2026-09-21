@@ -109,7 +109,17 @@ _: {
           # `onlyNightly` (S3, Mithril, known networks, deep fuzz) stays
           # pending. Check-only, so `nix develop .#hydra-node-tests` and
           # `just stress-test` keep running the local-only test.
-          checkEnv.CI = "1";
+          checkEnv = {
+            CI = "1";
+            # etcd's darwin fsync is F_FULLFSYNC, a full device flush per WAL
+            # append (client/pkg/fileutil/sync_darwin.go), which throttles the
+            # aarch64-darwin builder to ~10 puts/s: "resends messages" pushes
+            # 1000 sequential puts and timed out at ~revision 600 of its 60s
+            # budget. Durability buys nothing for a sandbox tmpdir that is
+            # deleted after the run, so turn it off here. Check-only: local
+            # etcd keeps real fsync semantics.
+            ETCD_UNSAFE_NO_FSYNC = "true";
+          };
           fixtures = [
             "hydra-node/golden"
             # ConfigSpec loads ../demo/configs/*.yaml, which lives outside the

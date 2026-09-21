@@ -33,7 +33,7 @@ runs:
         auto-optimise-store = false
 
   - name: ❄ Cachix cache of nix derivations
-    uses: cachix/cachix-action@v15
+    uses: cachix/cachix-action@v17
     with:
       name: cardano-scaling
       authToken: '${{ inputs.authToken }}'

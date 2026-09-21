@@ -371,6 +371,7 @@ test-suite tests
   other-modules:
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
+    Hydra.API.ServerOutputFilterSpec
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec

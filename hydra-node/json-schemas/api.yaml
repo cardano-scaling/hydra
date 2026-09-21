@@ -65,7 +65,7 @@ channels:
               type: string
               enum: ["yes", "no"]
           address:
-            description: Specify whether the client wants see the transaction server outputs filtered by given address.
+            description: Only receive `SnapshotConfirmed` messages in which one of the confirmed transactions involves this address, either paying to it or spending from it. Spending is recognised from the transaction's signatures, so it is detected for key addresses and not for script addresses. Snapshots confirming no transaction, and every other server output, are not filtered. An empty value is ignored.
             schema:
               type: string
           encoding:

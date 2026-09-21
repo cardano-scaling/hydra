@@ -535,6 +535,7 @@ fanoutProgressMode = \case
 data CommitInfo
   = CannotCommit
   | IncrementalCommit HeadId
+  deriving stock (Eq, Show)
 
 -- | L2 Hydra network status information.
 data NetworkInfo = NetworkInfo
