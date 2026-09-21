@@ -16,10 +16,10 @@ changes.
   * Deposits are tracked with their L1 lifecycle slots and that view is rewound
     on rollback. Every settled increment or decrement is retained until no
     rollback can reach it; erased ones are re-posted one at a time, in version
-    order, on each block until they land again, and a restarted node resumes
-    them. Before, only the last settlement was retained, its re-post was fired
-    once, one erased before its snapshot confirmed locally was never re-posted,
-    and its deposit could be lost.
+    order, on each block once the node is in sync, until they land again, and
+    a restarted node resumes them. Before, only the last settlement was
+    retained, its re-post was fired once, one erased before its snapshot
+    confirmed locally was never re-posted, and its deposit could be lost.
   * A deposit whose settled increment was erased can neither be recovered nor
     claimed again while the head is open; once the head is closed, recovering
     it plus a partial fanout is the escape hatch.

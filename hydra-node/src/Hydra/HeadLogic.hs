@@ -2588,10 +2588,18 @@ repostInFlightSettlement OpenState{headSeed, headId, parameters, coordinatedHead
 -- landing again is refused by the chain, at no cost but a
 -- 'PostTxOnChainFailed'. The next erased one follows one block after the
 -- previous one landed. See #2741.
-repostErased :: IsTx tx => OpenState tx -> PendingDeposits tx -> Outcome tx
-repostErased OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
-  case nextErasedSettlement settlements of
-    Just Settlement{snapshot}
+--
+-- Nothing is posted while this node is catching up. Rolling forward through
+-- history brings a tick per block replayed, as fast as the node can process
+-- them, so posting here would submit the same transaction once per block the
+-- node is behind. Those submissions are built against a chain view that is
+-- behind as well, and the settlement may already have landed on the part of
+-- the chain the node has not reached yet. The first tick after the node is in
+-- sync posts it.
+repostErased :: IsTx tx => SyncedStatus -> OpenState tx -> PendingDeposits tx -> Outcome tx
+repostErased syncStatus OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
+  case (syncStatus, nextErasedSettlement settlements) of
+    (InSync, Just Settlement{snapshot})
       | canLand (getSnapshot snapshot) -> postSettlement headSeed headId parameters snapshot
     _ -> noop
  where
@@ -2747,7 +2755,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (eligibleDeposits openState pendingDeposits) openState
-      <> repostErased openState (depositsForHead openState.headId pendingDeposits)
+      <> repostErased syncStatus openState (depositsForHead openState.headId pendingDeposits)
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx env (depositsForHead headId pendingDeposits) openState newChainState newVersion depositTxId

@@ -2216,6 +2216,28 @@ spec =
             OnChainEffect{postChainTx = IncrementTx{}} -> True
             _ -> False
 
+        it "posts nothing on the ticks of blocks it replays while catching up" $ do
+          -- Rolling forward through history brings a tick per block replayed,
+          -- as fast as the node can process them, so posting here would submit
+          -- the same increment once per block the node is behind. Those
+          -- submissions are built against a chain view that is behind too, and
+          -- the settlement may already have landed on the part of the chain
+          -- the node has not reached yet.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          let behind =
+                NodeCatchingUp
+                  { headState = headState s1
+                  , deposits = deposits s1
+                  , chainPointTime = s1.chainPointTime
+                  }
+          update soloAliceEnv ledger now behind (tickSlot 4 now) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+          -- The same state in sync posts it, so only the sync status differs.
+          update soloAliceEnv ledger now s1 (tickSlot 4 now) `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+
         it "does not re-post IncrementTx when the rollback does not reach the finalized increment" $ do
           -- Rolling back TO the increment's slot means the increment is still
           -- on chain; re-posting would only produce PostTxOnChainFailed noise.
