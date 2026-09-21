@@ -42,8 +42,9 @@ defaultGlobals =
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
 
--- | The rollback horizon test environments run with: Cardano mainnet's
--- stability window (3k/f slots with k = 2160 and f = 0.05), 36 hours.
+-- | The rollback horizon test environments run with. This is Cardano
+-- mainnet's stability window, 3k/f slots with k = 2160 and f = 0.05, so 36
+-- hours.
 testRollbackHorizon :: ChainSlot
 testRollbackHorizon = ChainSlot 129600
 

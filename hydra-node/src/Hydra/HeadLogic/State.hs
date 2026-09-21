@@ -236,33 +236,36 @@ instance ToCBOR SettlementStatus where
 instance FromCBOR SettlementStatus where
   fromCBOR = genericFromCBOR
 
--- | Retained settlements, keyed by the snapshot version they were based on.
--- The settlement with key @v@ bumped the on-chain version to @v + 1@, so keys
--- are consecutive and key order is the order the settlements must land in.
+-- | Retained settlements, keyed by the version of the snapshot they were based
+-- on. The settlement at key @v@ bumped the on-chain version to @v + 1@, so the
+-- keys are consecutive, and key order is the order in which the settlements
+-- must land.
 --
--- One entry is retained per increment or decrement that settles, and entries
--- are dropped once no rollback can reach them anymore, so the map holds as
--- many snapshots as the head settles within the retention horizon (see
--- 'Hydra.Node.Environment.rollbackHorizon'). Each entry keeps a whole
--- snapshot UTxO, so a head settling frequently pays for that in memory and in
--- every persisted checkpoint; slimming the retained payload is left to a
--- follow-up.
+-- One entry per increment or decrement that settled. Entries are dropped once
+-- no rollback can reach them anymore, so the map holds as many snapshots as
+-- the head settles within the rollback horizon (see
+-- 'Hydra.Node.Environment.rollbackHorizon'). Each entry keeps a whole snapshot
+-- UTxO, so a head that settles often pays for that in memory and in every
+-- persisted checkpoint. Slimming the retained payload is left to a follow-up.
 type Settlements tx = Map.Map SnapshotVersion (Settlement tx)
 
--- | Version bumps observed on chain, an increment or decrement landing, whose
--- snapshot this node had not confirmed locally at the time: another party
--- collected the last AckSn and posted first. Keyed like 'Settlements'. An
--- entry holds the status the settlement would have as a retained one, is
--- marked erased and pruned exactly like one, and is consumed with that status
--- when the snapshot confirms (see the 'SnapshotConfirmed' branch of
--- 'Hydra.HeadLogic.applyEvent'), so a rollback in between is not lost.
+-- | Version bumps seen on chain, an increment or decrement landing, whose
+-- snapshot this node had not confirmed yet at the time, because another party
+-- collected the last signature and posted first. Keyed like 'Settlements'.
+--
+-- A note holds the status the settlement would have if it were retained. It is
+-- marked erased and pruned exactly like a retained settlement, and when the
+-- snapshot confirms, the retained entry takes the note's status (see the
+-- 'SnapshotConfirmed' branch of 'Hydra.HeadLogic.applyEvent'). Without the
+-- note, a rollback in that window would go unnoticed, and the settlement would
+-- be recorded as landed on a chain where it no longer exists.
 type UnretainedSettlements = Map.Map SnapshotVersion SettlementStatus
 
--- | A signed snapshot whose increment or decrement settled on chain, kept so
--- it can be re-posted if a rollback erases that settlement. The snapshot's
--- 'confirmed' txs are blanked on retention: they are not signed and no tx
--- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
--- it on decode.
+-- | A signed snapshot whose increment or decrement settled on chain, kept so it
+-- can be posted again if a rollback erases that settlement. The snapshot's
+-- 'confirmed' txs are blanked when it is retained: they are not signed and no
+-- tx builder reads them. Its 'utxo' has to stay, since the accumulators are
+-- rebuilt from it on decode.
 data Settlement tx = Settlement
   { snapshot :: ConfirmedSnapshot tx
   , status :: SettlementStatus
@@ -474,12 +477,12 @@ instance IsTx tx => FromCBOR (FanoutMode tx) where
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
 -- that used to live in 'ClosedState'.
 -- | A partial fanout step observed on the chain this node follows: what it
--- distributed, the slot it landed at, and the 'FanoutMode' its observation
--- replaced. Kept so a rollback can rewind the fanout's progress to the steps
--- still on chain ('Hydra.HeadLogic.rewindFanoutProgress'): the erased steps'
--- outputs are back in the head, and the driver's mode goes back to what it was
--- before them, so an erased selection is this node's to distribute again while
--- an observer's erased step leaves it waiting as before.
+-- distributed, the slot it landed at, and the 'FanoutMode' it replaced. Kept
+-- so that a rollback can rewind the fanout's progress to the steps still on
+-- chain ('Hydra.HeadLogic.rewindFanoutProgress'): the erased steps' outputs go
+-- back into the head, and the driver's mode goes back to what it was before
+-- them. An erased selection is then this node's to distribute again, while an
+-- observer whose step was erased keeps waiting as before.
 data FanoutStepLanded tx = FanoutStepLanded
   { landedAt :: ChainSlot
   , stepOutputs :: UTxOType tx
@@ -514,14 +517,16 @@ data PartialFanoutState tx = PartialFanoutState
   , mode :: FanoutMode tx
   -- ^ Drives the chunk source for the next step (see 'FanoutMode').
   , stepsLanded :: [FanoutStepLanded tx]
-  -- ^ The steps observed so far, oldest first: the chain-derived record the
-  --   two sets above and 'mode' are rewound from on a rollback.
+  -- ^ The steps observed so far, oldest first. This is the record, derived
+  --   from the chain, that the two sets above and 'mode' are rewound from on a
+  --   rollback.
   , everLanded :: Bool
   -- ^ Whether a step of this fanout was ever observed on chain, on any fork.
   --   A rollback that rewinds the progress to nothing distributed does not
-  --   reset it: a re-post failing then races the erased step re-landing, it
-  --   is not a failed initiation, and must not cost the driver role (see the
-  --   'PostTxError' arm of 'Hydra.HeadLogic.update').
+  --   reset it. A re-post that fails after such a rewind is racing the erased
+  --   step landing again; that is not a failed start, and it must not cost
+  --   this node the driver role (see the 'PostTxError' arm of
+  --   'Hydra.HeadLogic.update').
   }
   deriving stock (Generic)
 
@@ -579,6 +584,6 @@ instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
       -- A state written before steps were tracked cannot rewind them on a
       -- rollback, exactly as before the upgrade; steps landing from now on can.
       stepsLanded <- if hasSteps then fromCBOR else pure []
-      -- Such a state had distributed something only by observing steps land.
+      -- Such a state can only have distributed something by seeing a step land.
       everLanded <- if hasSteps then fromCBOR else pure (distributedOutputs /= mempty)
       pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded, everLanded}

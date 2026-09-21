@@ -188,12 +188,12 @@ mockChainAndNetwork tr seedKeys = do
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
             -- A mempool validates against the ledger state with its own
-            -- transactions applied, so a submission conflicting with one
-            -- already queued (a re-post racing a requeued original, a second
-            -- party's copy of the same settlement) is rejected here, as
-            -- cardano-node would, rather than dropped in silence at block
-            -- inclusion. Queued transactions that do not apply are skipped:
-            -- they are the ones dropped at inclusion.
+            -- transactions applied. So a submission that conflicts with one
+            -- already queued is rejected here, as cardano-node would, rather
+            -- than dropped in silence at block inclusion. That happens when a
+            -- re-post races a requeued original, or when a second party posts
+            -- its copy of the same settlement. Queued transactions that do not
+            -- apply are skipped, since those are the ones dropped at inclusion.
             queued <- flushQueue queue
             forM_ queued (writeTQueue queue)
             let utxo = foldl' (\u q -> fromRight u (applyTransactions slot u [q])) blockUTxO' queued
@@ -253,8 +253,8 @@ mockChainAndNetwork tr seedKeys = do
         now <- getCurrentTime
         let remaining = realToFrac $ addUTCTime (realToFrac latency) arrival `diffUTCTime` now
         when (remaining > 0) $ threadDelay remaining
-        -- Counted as consumed and handed to the node in one go: a crash in
-        -- between would lose the message (see below).
+        -- Count the message as consumed and hand it to the node in one go. A
+        -- crash in between would lose it (see below).
         mask_ $ do
           atomically bumpOffset
           enqueue (mkNetworkInput sender msg)
@@ -300,11 +300,11 @@ mockChainAndNetwork tr seedKeys = do
     -- snapshot the network log in one atomic step, so the log partitions
     -- cleanly: messages already logged are replayed below, later ones reach
     -- the freshly registered mailbox — no message lost or delivered twice.
-    -- A previous incarnation of this party (see 'performRestartNode' in the
-    -- model) stops consuming first: its delivery thread would otherwise keep
+    -- An earlier incarnation of this party (see 'performRestartNode' in the
+    -- model) stops consuming first. Otherwise its delivery thread keeps
     -- counting its mailbox as consumed by a node that no longer processes
-    -- anything, and the next reconnect would skip that many live messages.
-    -- What it had not delivered yet is replayed from the log below.
+    -- anything, and the next reconnect skips that many live messages. What it
+    -- had not delivered yet is replayed from the log below.
     previous <- filter (matchingParty ownParty) <$> readTVarIO nodes
     forM_ previous $ \MockHydraNode{deliveryThread = previousDelivery} -> cancel previousDelivery
     (pastMessages, ownOffset) <- atomically $ do
@@ -641,8 +641,8 @@ data MockHydraNode m = MockHydraNode
   -- ^ Pending network deliveries to this node (with their arrival time), see
   -- 'createMockNetwork'.
   , deliveryThread :: Async m ()
-  -- ^ The thread draining 'mailbox' into the node, stopped when the party
-  -- reconnects with a new incarnation (see 'connectNode').
+  -- ^ The thread draining 'mailbox' into the node. It is stopped when the
+  -- party reconnects as a new incarnation (see 'connectNode').
   }
 
 createMockChain ::

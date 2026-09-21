@@ -247,7 +247,7 @@ spec = parallel $ do
       decodeFull' legacy `shouldBe` Right chs{settlements = mempty, unretained = mempty}
 
   -- 'PartialFanoutState' gained 'stepsLanded' between two released layouts.
-  -- The legacy layout is what 'genericToCBOR' wrote: the constructor name as
+  -- The old layout is what 'genericToCBOR' wrote: the constructor name as the
   -- tag, then the fields in declaration order.
   describe "PartialFanoutState layouts" $ do
     let pfs = generateWith (resize 3 arbitrary) 42 :: PartialFanoutState Tx

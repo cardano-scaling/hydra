@@ -436,29 +436,26 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     | otherwise =
         wait $ WaitOnSnapshotNumber seenSn
 
-  -- Spec: wait v = v̂, refined into three cases, since the local version only
-  -- ever goes up:
+  -- Spec: wait v = v̂. Our version only ever goes up, so there are four cases:
   --
-  --   * @sv == version@: the common case.
+  --   * @sv == version@: the normal case.
   --
-  --   * @sv + 1 == version && sv == confVersion@: one version behind. The leader
-  --     proposed at the version this node has since moved past, and the
-  --     proposal is based on our confirmed snapshot. Parties that have not
-  --     seen the bump yet sign it at @sv@, so this node does too (see the
-  --     @version = sv@ and 'confirmedUTxO' bindings): every AckSn is then
-  --     over the same bytes, and the round confirms one version behind the
-  --     chain, a state 'CloseUsed' already supports. Waiting instead could
-  --     never resolve, and the leader does not propose again while it is
-  --     collecting AckSns, so the head would stop confirming snapshots.
-  --     Only when the proposal re-carries the settled action, see
-  --     'reCarriesSettledAction'.
+  --   * @sv + 1 == version && sv == confVersion@: the proposal is one version
+  --     behind us and based on our confirmed snapshot. The leader made it
+  --     before it saw the settlement land, and the parties that have not seen
+  --     it land either sign it at @sv@. We do the same (see @version = sv@ and
+  --     'confirmedUTxO'), so everyone signs the same bytes, and the round
+  --     confirms one version behind the chain, which 'CloseUsed' handles.
+  --     Waiting would never end, since the leader does not propose again while
+  --     it collects signatures. We only sign if the proposal carries the action
+  --     that settled, see 'reCarriesSettledAction'.
   --
-  --   * @sv > version@: our chain handler has not processed the bump the
-  --     leader already saw; a retry resolves it, so this must stay a Wait.
+  --   * @sv > version@: the leader saw a settlement land that our chain handler
+  --     has not processed yet. A retry fixes this, so we wait.
   --
-  --   * Anything else, two or more behind or below the confirmed snapshot's
-  --     own version, can never be signed. A Wait would only burn the queue's
-  --     retries and then be dropped in silence.
+  --   * Anything else can never be signed: two or more versions behind, or
+  --     below the confirmed snapshot's version. Waiting would only use up the
+  --     retries and then drop the message in silence, so we fail right away.
   waitOnSnapshotVersion continue
     | sv == version = continue
     | sv + 1 == version
@@ -469,15 +466,15 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     | sv > version = wait $ WaitOnSnapshotVersion sv
     | otherwise = Error $ RequireFailed ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
 
-  -- A proposal one version behind must carry exactly the confirmed snapshot's
-  -- action: the deposit it claims or the decommit it pays out, and nothing else. From
-  -- this node's point of view that action has landed, and the parties that
-  -- have not seen it land sign whatever the leader proposes. A proposal that
-  -- dropped it would confirm a snapshot at @sv@ without the action the chain
-  -- applied at @sv + 1@, which no close redeemer can express; one that
-  -- replaced it with a fresh deposit would count that deposit as absorbed
-  -- once the bump is applied, although no increment claimed it. An honest
-  -- leader at @sv@ always re-carries it ('selectNextIncrementalAction').
+  -- A proposal one version behind us must carry exactly what the confirmed
+  -- snapshot settled: the deposit it claims, or the decommit it pays out, and
+  -- nothing else. We saw that action land, while the parties that have not
+  -- seen it sign whatever the leader proposes. A proposal that drops the
+  -- action would confirm a snapshot without something the chain has already
+  -- applied, and no close redeemer can express that. A proposal that swaps in
+  -- a fresh deposit would make us count that deposit as absorbed once we apply
+  -- the bump, although no increment ever claimed it. An honest leader always
+  -- carries the action again ('selectNextIncrementalAction').
   reCarriesSettledAction =
     mDepositTxId == confDepositTxId
       && (utxoFromTx <$> mDecommitTx) == confUTxOToDecommit
@@ -491,13 +488,13 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
-        -- A proposal one version behind re-carrying the confirmed snapshot's own
-        -- commit, whose increment this node already saw land ('waitOnSnapshotVersion').
-        -- The deposit is consumed and retained here, while the parties that
-        -- have not seen the increment still hold it pending and sign a
-        -- snapshot that carries it. Sign the same bytes, taking the deposited
+        -- A proposal one version behind us carries the confirmed snapshot's own
+        -- commit again ('waitOnSnapshotVersion'). We already saw its increment
+        -- land, so here the deposit is consumed and retained, while the parties
+        -- that have not seen the increment still hold it pending and sign a
+        -- snapshot carrying it. Sign the same bytes, taking the deposited
         -- outputs from the confirmed snapshot. Only while the retained
-        -- settlement is 'Landed': once a rollback erased the increment, the
+        -- settlement is landed: once a rollback erased the increment, the
         -- deposit is settled by re-posting that snapshot and never by a new
         -- claim (#2741), which the next guard refuses.
         | sv == confVersion
@@ -507,10 +504,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
             cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
       Just depositTxId
         -- The deposit is already claimed by a signed snapshot whose increment
-        -- settled on-chain: it only resurfaces in 'pendingDeposits' when a
-        -- rollback erased that increment, and honest leaders exclude it from
-        -- selection (see 'eligibleDeposits'). Reject rather than sign a
-        -- second snapshot claiming the same deposit, see #2741.
+        -- landed. It is only pending again because a rollback erased that
+        -- increment, and an honest leader never proposes it ('eligibleDeposits').
+        -- Refuse rather than sign a second snapshot claiming it, see #2741.
         | depositTxId `Set.member` retainedDeposits settlements ->
             Error $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
       Just depositTxId ->
@@ -527,15 +523,14 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
             | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
             | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
-            -- The confirmed snapshot's own pending commit, re-carried by the
-            -- leader (see 'selectNextDeposit'). Identity, not just content:
-            -- two deposits can record the same UTxO, and only the one bound
-            -- into the confirmed snapshot is the commit being settled. The
-            -- deposit's local status does not apply here: the claim is already
-            -- signed and its increment is in flight, so the node's own expiry
-            -- margin cannot stop it landing (see 'stillClaimable'). Refusing
-            -- it would leave a round that nobody signs, since every party's
-            -- copy expires together.
+            -- The leader carries the confirmed snapshot's own pending commit
+            -- again (see 'selectNextDeposit'). Match by identity, not by
+            -- content: two deposits can record the same UTxO, and only the one
+            -- bound into the confirmed snapshot is being settled. The deposit's
+            -- local status does not matter here: the claim is signed and its
+            -- increment is in flight, so our own expiry margin cannot stop it
+            -- from landing (see 'stillClaimable'). Refusing would leave a round
+            -- nobody signs, since every party's copy expires at the same time.
             | sv == confVersion
             , confDepositTxId == Just depositTxId
             , confUTxOToCommit == Just deposited ->
@@ -653,8 +648,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit}} -> utxoToDecommit
 
   -- Whether the settlement of the confirmed snapshot's own commit or decommit
-  -- was observed on the chain this node follows: retained at its version and
-  -- not marked erased by a rollback (see 'retainSettlement', 'markErased').
+  -- landed on the chain we follow: it is retained at its version and no
+  -- rollback marked it erased (see 'retainSettlement', 'markErased').
   confirmedSettlementLanded =
     case Map.lookup confVersion settlements of
       Just Settlement{status = Landed{}} -> True
@@ -663,10 +658,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   seenSn = seenSnapshotNumber seenSnapshot
 
   -- The base UTxO of the requested snapshot. The confirmed snapshot's pending
-  -- commit is spendable exactly when its increment had landed as of the
-  -- version being signed, hence @sv@ and not the local version: for a proposal
-  -- one version behind the local version is one ahead, and keying on it would make this node's
-  -- base UTxO, and so its signed bytes, differ from everyone else's.
+  -- commit is spendable only if its increment had landed at the version being
+  -- signed. That is why this keys on @sv@ and not on our own version: for a
+  -- proposal one version behind us, using our version would give this node a
+  -- different base UTxO, and so different signed bytes, than everyone else.
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
     ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
@@ -789,16 +784,15 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
         carriesNewAction =
           (isJust nextDeposit && nextDeposit /= fmap snd unsettled)
             || (isJust nextDecommitTx && isNothing (unsettledDecommit version previous))
-    -- A snapshot carrying only a deposit or a decommit is legitimate, which is
-    -- exactly what 'onOpenChainTick' requests. Requiring local txs here left a
-    -- queued deposit or decommit unrequested on a head with no L2 traffic,
-    -- until the deposit expired.
+    -- A snapshot carrying only a deposit or a decommit is fine; the tick
+    -- requests exactly that. Requiring local txs here left a queued deposit or
+    -- decommit unrequested on a head with no traffic, until the deposit
+    -- expired.
     --
-    -- Only when it carries something the just confirmed snapshot does not
-    -- carry already: the queued deposit or decommit stays queued until its
-    -- increment or decrement lands on chain, so firing on it again would
-    -- request one snapshot per round trip (and re-post the settlement with
-    -- each confirmation) until then.
+    -- Request only if the snapshot carries something new. A queued deposit or
+    -- decommit stays queued until its increment or decrement lands, so firing
+    -- on it again would request one snapshot per round trip, and re-post the
+    -- settlement each time, until then.
     if isLeader parameters party nextSn && (not (null localTxs) || carriesNewAction)
       then
         outcome
@@ -994,21 +988,20 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
         <> maybeRequestSnapshot
  where
   -- Spec: wait 𝑈𝛼 = ∅. A snapshot must never carry both a commit and a
-  -- decommit, and must never drop a commit still in flight. Both are enforced
-  -- where the snapshot is made, not here: the leader carries a pending commit
-  -- first and the recorded decommit in a later round
+  -- decommit, and must never drop a commit that is still in flight. Both are
+  -- enforced where the snapshot is proposed, not here: the leader carries the
+  -- pending commit first and the recorded decommit in a later round
   -- ('selectNextIncrementalAction'), and every receiver rejects a proposal
   -- carrying both ('ReqSnBothCommitAndDecommit').
   --
-  -- A ReqDec is a broadcast, and every party must reach the same decision on
-  -- it. Whether a deposit is queued locally is decided by this node's own
-  -- tick, so holding the ReqDec back on it (and rejecting it as a deposit in
-  -- flight once its ttl ran out) refused the same request on some
-  -- nodes and recorded it on others; the recording nodes then held a decommit
-  -- the leader never knew about, and it was never proposed. The model's
-  -- concurrent walk found this once the late-ReqSn deadlock stopped masking
-  -- it. Only network-derived state may decide here: an in-flight decommit,
-  -- and whether the transaction applies.
+  -- A ReqDec is a broadcast, and every party must decide the same way. Whether
+  -- a deposit is queued locally depends on this node's own tick. Holding the
+  -- ReqDec back on that, and rejecting it once its ttl ran out, refused the
+  -- same request on some nodes and recorded it on others. The nodes that
+  -- recorded it then held a decommit the leader never knew about, and it was
+  -- never proposed. The model's concurrent walk found this once the late-ReqSn
+  -- deadlock stopped hiding it. Only state that every party shares may decide
+  -- here: a decommit already in flight, and whether the transaction applies.
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
       Nothing ->
@@ -1041,11 +1034,11 @@ onOpenNetworkReqDec env ledger ttl currentSlot pendingDeposits openState decommi
                     DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
                 }
 
-  -- Through the same selector as every other proposal site: a pending commit
-  -- (a queued deposit, or the confirmed snapshot's unsettled claim) is carried
-  -- first and the decommit just recorded follows in a later round. That is
-  -- what keeps a snapshot from carrying both, and from dropping an unsettled
-  -- commit; see 'waitOnApplicableDecommit' for why the ReqDec itself is not
+  -- Go through the same selector as every other proposal site: a pending
+  -- commit (a queued deposit, or the confirmed snapshot's unsettled claim) is
+  -- carried first, and the decommit just recorded follows in a later round.
+  -- That keeps a snapshot from carrying both, and from dropping an unsettled
+  -- commit. See 'waitOnApplicableDecommit' for why the ReqDec itself is not
   -- held back instead.
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
@@ -1152,14 +1145,14 @@ onOpenChainTick env chainTime pendingDeposits st =
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
           -- Nothing to request while the confirmed snapshot's claim is still
-          -- unsettled: that deposit stays queued until its increment lands on
-          -- chain, and from then on it is settled by that increment, not by
-          -- another snapshot, so requesting it again would only send one
-          -- snapshot per tick. Any other deposit is refused by every party
-          -- until then ('ReqSnCommitNotSettled'), and the leader would sit in
-          -- 'RequestedSnapshot' on its own rejected echo. The claim itself may
-          -- not be the pick: 'withNextActive' skips it once it is no longer
-          -- Active locally, while its increment can still land.
+          -- unsettled. That deposit stays queued until its increment lands, and
+          -- from then on the increment settles it, not another snapshot, so
+          -- requesting it again would send one snapshot per tick. Every party
+          -- refuses any other deposit until then ('ReqSnCommitNotSettled'), and
+          -- the leader would sit in 'RequestedSnapshot' on its own rejected
+          -- echo. The claim may not even be the pick: 'withNextActive' skips
+          -- it once it is no longer active locally, while its increment can
+          -- still land.
           && isNothing confirmedDepositTxId
           && not (snapshotInFlight seenSnapshot)
           && isLeader parameters party nextSn
@@ -1173,12 +1166,12 @@ onOpenChainTick env chainTime pendingDeposits st =
           else
             noop
  where
-  -- Pending active deposits are selected in arrival order (FIFO), except that
-  -- the deposit already queued in 'currentDepositTxId' is requested first. A
-  -- 'DepositActivated' parks it there while a snapshot is in flight, and this
-  -- tick is then the only thing left to request it: the queued deposit used to
-  -- be this tick's own guard against requesting anything, so on a head with no
-  -- local txs to chain the next snapshot it sat there until it expired.
+  -- Pending active deposits are picked in arrival order, except that the
+  -- deposit already queued in 'currentDepositTxId' goes first. It is parked
+  -- there when it activates while a snapshot is in flight, and this tick is
+  -- then the only thing left to request it. The queued deposit used to be the
+  -- tick's own reason not to request anything, so on a head with no local txs
+  -- it sat there until it expired.
   withNextActive ::
     forall tx.
     IsTx tx =>
@@ -1215,49 +1208,47 @@ onOpenChainTick env chainTime pendingDeposits st =
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
-  -- The deposit the confirmed snapshot still has pending on chain, if any. Read
-  -- through 'unsettledCommit' rather than off the snapshot, so that a confirmed
-  -- snapshot left one version behind the chain does not look like a commit in
-  -- flight forever.
+  -- The deposit the confirmed snapshot still has pending on chain, if any.
+  -- Read through 'unsettledCommit' rather than off the snapshot, so that a
+  -- confirmed snapshot left one version behind the chain does not look like a
+  -- commit in flight forever, and through 'stillClaimable', so that a
+  -- recovered deposit does not either.
   confirmedDepositTxId = snd <$> stillClaimable pendingDeposits (unsettledCommit version (getSnapshot confirmedSnapshot))
 
   OpenState{coordinatedHeadState, parameters} = st
 
--- | If this node is the snapshot leader and there is anything to snapshot
--- (pending local transactions, a deposit to carry, or a decommit recorded
--- while the commit was in flight), request the next snapshot with the bumped
--- version after a commit or decommit finalises on-chain.
+-- | If this node is the snapshot leader and there is something to snapshot
+-- (local transactions, a deposit to carry, or a decommit recorded while the
+-- commit was in flight), request the next snapshot with the bumped version
+-- after a commit or decommit lands on chain.
 --
 -- Guards:
---   * Only fires when 'newVersion' is ahead of the local 'version': this
---     avoids duplicate 'SnapshotRequestDecided' events when multiple parties
---     post the same on-chain tx and each posting produces a separate
---     finalisation observation, and it keeps a finalization re-landing after a
---     rollback (its 'newVersion' is at or behind the local version, which
---     never rolls back) from requesting a snapshot with a stale version.
---   * Skips when AckSns are already being collected ('SeenSnapshot'): the
---     in-flight snapshot will complete, because every party can sign it. The
---     parties that saw the version bump before the ReqSn sign it one version
---     behind their own (see 'waitOnSnapshotVersion'), and
---     'maybeRequestNextSnapshot' then chains the next one with the bumped
---     version. Firing here would use stale 'localTxs' and cause
---     'BadInputsUTxO' on other parties.
---   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
---     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
---     re-request immediately with the new version to make progress without
---     waiting for the stale request's retries to exhaust. This is the only
---     thing that unparks the other parties, so it must also fire when the
---     stale request carried a deposit and no local txs.
+--   * Only when 'newVersion' is ahead of our 'version'. Several parties post
+--     the same transaction and each posting is observed, so this avoids one
+--     'SnapshotRequestDecided' per observation. It also keeps a settlement
+--     that landed again after a rollback (its 'newVersion' is at or behind our
+--     version, which never goes down) from requesting a snapshot with a stale
+--     version.
+--   * Not while signatures are being collected ('SeenSnapshot'). That snapshot
+--     will complete, because every party can sign it: those that saw the bump
+--     before the ReqSn sign one version behind their own (see
+--     'waitOnSnapshotVersion'), and 'maybeRequestNextSnapshot' then requests
+--     the next one with the bumped version. Firing here would use stale
+--     'localTxs' and cause 'BadInputsUTxO' on other parties.
+--   * Allowed in 'RequestedSnapshot': our own request at the old version is
+--     still on its way. Requesting again at the new version costs nothing,
+--     since every party rejects a second request for the same number as a
+--     duplicate, and it covers the case where the first one was lost.
 --
--- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
--- finalisation passes 'Nothing' (deposit already included), while decommit
--- finalisation passes the next queued deposit if one is pending. The optional
--- decommit is one recorded while the commit was in flight: every proposal
--- carried the commit first, and on a head with no local txs nothing else would
--- propose it now that the increment landed. Commit finalisation passes it;
--- decommit finalisation passes 'Nothing', since the decommit that settled is
--- being cleared and no other could be recorded meanwhile. A deposit wins over
--- the decommit, as in 'selectNextIncrementalAction'.
+-- The optional 'depositTxId' goes into the 'ReqSn': commit finalisation passes
+-- 'Nothing', since the deposit is already included, and decommit finalisation
+-- passes the next queued deposit if there is one. The optional decommit is one
+-- recorded while the commit was in flight: every proposal carried the commit
+-- first, and on a head with no local txs nothing else would propose it now
+-- that the increment landed. Commit finalisation passes it; decommit
+-- finalisation passes 'Nothing', since the decommit that settled is being
+-- cleared and no other could be recorded meanwhile. A deposit wins over the
+-- decommit, as in 'selectNextIncrementalAction'.
 maybeRequestSnapshotAfterVersionBump ::
   IsTx tx =>
   HeadParameters ->
@@ -2082,11 +2073,10 @@ emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
 -- rolled-back transaction gone and nothing re-posted. This mirrors the
--- Increment/Decrement re-post on rollback ('repostErased'). The caller
--- passes the progress as rewound to the steps still on chain
--- ('rewindFanoutProgress'): from the un-rewound bookkeeping, automatic mode
--- posted the step after the erased one, built against a datum the chain no
--- longer had, and manual mode posted nothing.
+-- Increment/Decrement re-post ('repostErased'). The caller passes the progress
+-- rewound to the steps still on chain ('rewindFanoutProgress'). Without the
+-- rewind, automatic mode posted the step after the erased one, built against
+-- a datum the chain no longer had, and manual mode posted nothing.
 --
 -- Which step that is comes from 'currentFanoutStep', the same derivation the
 -- revert guard uses to tell this step's failure from a superseded one's.
@@ -2105,13 +2095,13 @@ repostFanoutStep pfs =
  where
   PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
 
--- | Rewind the fanout's progress to the steps still on the chain this node
--- follows after a rollback to the given slot: the erased steps' outputs are
--- back in the head, and the driver's mode goes back to what those steps
--- replaced. See 'FanoutStepLanded'.
+-- | Rewind the fanout's progress after a rollback to the given slot, to the
+-- steps still on the chain we follow. The erased steps' outputs are back in
+-- the head, and the driver's mode goes back to what those steps replaced. See
+-- 'FanoutStepLanded'.
 --
 -- A step observed exactly at the rollback point is still on chain, so only
--- steps strictly after it are erased, as for 'markErased'.
+-- steps strictly after it are erased, as in 'markErased'.
 rewindFanoutProgress :: IsTx tx => ChainSlot -> PartialFanoutState tx -> PartialFanoutState tx
 rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, version, mode, stepsLanded, distributedOutputs}
   | null erased = pfs
@@ -2125,14 +2115,15 @@ rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, ve
  where
   (kept, erased) = partition (\FanoutStepLanded{landedAt} -> landedAt <= rolledBackSlot) stepsLanded
 
-  -- By subtraction of the erased steps, not as the sum of the kept ones: a
-  -- state persisted before steps were recorded has distributed outputs with
-  -- no step to account for them, and those stay distributed.
+  -- Subtract the erased steps' outputs rather than sum the kept ones. A state
+  -- persisted before steps were recorded has distributed outputs that no step
+  -- accounts for, and those must stay distributed.
   distributed = removeDistributedOutputs (outputsOfUTxO (foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) erased)) distributedOutputs
 
-  -- The erased outputs that a selection of this node's was distributing are its
-  -- job again. A driver draining automatically covers them anyway, and an
-  -- observer, whose steps replaced no selection, must not start driving.
+  -- The outputs of an erased step that one of this node's selections was
+  -- distributing are its job again. A driver draining automatically covers
+  -- them anyway, and an observer, whose steps replaced no selection, must not
+  -- start driving.
   erasedSelected =
     foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) [s | s@FanoutStepLanded{modeBefore = DistributingSelection{}} <- erased]
 
@@ -2229,22 +2220,21 @@ nextActiveDepositId deposits =
     xs -> Just (fst (minimumBy (comparing ((.created) . snd)) xs))
 
 -- | The commit the given confirmed snapshot still has pending on chain: the
--- deposited outputs and the deposit they came from. 'Nothing' once the local
--- version has moved past the snapshot's, which means the increment landed and
--- the commit is applied rather than pending.
+-- deposited outputs and the deposit they came from. 'Nothing' once our version
+-- moved past the snapshot's: the increment landed, so the commit is applied
+-- rather than pending.
 --
--- Read this instead of the snapshot's 'utxoToCommit' directly. A confirmed
--- snapshot can sit one version behind the chain (the race where another party's
--- settlement is observed before our own AckSn completes), and treating its
--- already applied commit as still in flight blocks every later deposit and
--- decommit from being requested at all.
+-- Read this instead of the snapshot's 'utxoToCommit'. A confirmed snapshot can
+-- sit one version behind the chain, when another party's settlement lands
+-- before our own signatures complete, and treating its applied commit as still
+-- in flight would block every later deposit and decommit.
 unsettledCommit :: SnapshotVersion -> Snapshot tx -> Maybe (UTxOType tx, TxIdType tx)
 unsettledCommit version Snapshot{version = snapshotVersion, utxoToCommit, depositTxId}
-  -- The complement of the 'version > snapshotVersion' applied test used by
-  -- 'SnapshotRequested' and 'LocalStateCleared'; equal to '==' today, since
-  -- the local version never trails the confirmed snapshot's, but spelled so
-  -- the two cannot drift, and so that if they ever did a claim is re-carried
-  -- once too often rather than dropped.
+  -- The opposite of the 'version > snapshotVersion' test that
+  -- 'SnapshotRequested' and 'LocalStateCleared' use for "applied". Today this
+  -- equals '==', since our version never trails the confirmed snapshot's. It
+  -- is spelled this way so the two tests cannot drift apart, and so that if
+  -- they ever did, a claim is carried once too often rather than dropped.
   | version <= snapshotVersion = (,) <$> utxoToCommit <*> depositTxId
   | otherwise = Nothing
 
@@ -2255,51 +2245,50 @@ unsettledDecommit version Snapshot{version = snapshotVersion, utxoToDecommit}
   | version <= snapshotVersion = utxoToDecommit
   | otherwise = Nothing
 
--- | Restrict an unsettled commit (see 'unsettledCommit') to one whose deposit
--- is still tracked, which is what makes it a claim the increment in flight can
+-- | Keep an unsettled commit (see 'unsettledCommit') only while its deposit is
+-- still tracked. That is what makes it a claim the increment in flight can
 -- still settle. Once the deposit was recovered on L1 its outputs left the head
--- for good and the claim must be dropped instead.
+-- for good, and the claim must be dropped.
 --
--- The deposit's local status is deliberately not consulted: the node's expiry
--- margin sits a whole 'depositPeriod' ahead of the on-chain deadline, and the
--- claim is already signed, so an increment can land for a deposit this node
--- already marked 'Expired'. Every party's copy expires together, so treating
--- that claim as gone would either drop it from the next snapshot (losing the
--- deposited outputs at close) or leave a snapshot round that nobody signs.
+-- The deposit's local status is ignored on purpose. Our expiry margin is a
+-- whole 'depositPeriod' ahead of the on-chain deadline, and the claim is
+-- already signed, so the increment can land for a deposit we marked expired.
+-- Every party's copy expires at the same time, so treating that claim as gone
+-- would either drop it from the next snapshot, losing the deposited outputs at
+-- close, or leave a round nobody signs.
 stillClaimable :: IsTx tx => PendingDeposits tx -> Maybe (UTxOType tx, TxIdType tx) -> Maybe (UTxOType tx, TxIdType tx)
 stillClaimable pendingDeposits = mfilter (\(_, depositTxId) -> Map.member depositTxId pendingDeposits)
 
--- | Select the deposit to include in the next snapshot, given the local
--- version and the confirmed snapshot the next one builds on.
+-- | Pick the deposit to include in the next snapshot, given our version and
+-- the confirmed snapshot the next one builds on.
 --
--- An unsettled commit of the confirmed snapshot is re-carried first, whatever
--- the deposit's local status, as long as the deposit is still there to be
--- claimed. Dropping it would confirm a snapshot in which the deposited outputs
--- count as neither applied nor pending, and they are then lost at close. The
--- node's expiry margin sits a whole 'depositPeriod' ahead of the on-chain
--- deadline, so 'Expired' locally does not mean the increment cannot land.
+-- The confirmed snapshot's unsettled commit is carried again first, whatever
+-- the deposit's local status, as long as the deposit is still there to claim.
+-- Dropping it would confirm a snapshot in which the deposited outputs count as
+-- neither applied nor pending, and they would be lost at close. Our expiry
+-- margin is a whole 'depositPeriod' ahead of the on-chain deadline, so
+-- expired locally does not mean the increment cannot land.
 --
--- Otherwise prefers a deposit already tracked in 'currentDepositTxId' (if still
--- pending). Falls back to the oldest active deposit from 'pendingDeposits', but
--- only when neither a decommit is pending nor the confirmed snapshot has an
--- unsettled commit (to avoid double-posting 'IncrementTx' before
--- 'CommitFinalized' removes the deposit).
+-- Otherwise the deposit queued in 'currentDepositTxId' goes first, if it is
+-- still pending. Then the oldest active deposit, but only when no decommit is
+-- pending and the confirmed snapshot has no unsettled commit, so that we do
+-- not post a second increment before 'CommitFinalized' removes the deposit.
 --
--- The confirmed snapshot's own deposit is never a fresh claim: it is re-carried
--- above while unsettled, and done once its increment landed. It can still sit
+-- The confirmed snapshot's own deposit is never a fresh claim: it is carried
+-- again while unsettled, and done once its increment landed. It can still sit
 -- in 'pendingDeposits' when a rollback erased that increment before the
 -- snapshot confirmed locally, because the race branch of 'SnapshotConfirmed'
 -- retains it only as the confirming outcome is applied, after the next
--- proposal was decided. Proposing it anew is refused by every party
+-- proposal was decided. Proposing it again would be refused by every party
 -- ('ReqSnDepositBlockedByFinalizedCommit'), the leader's own echo included,
--- which leaves the leader in a round nobody signs.
+-- leaving the leader in a round nobody signs.
 selectNextDeposit ::
   IsTx tx =>
   PendingDeposits tx ->
   Maybe (TxIdType tx) ->
   -- | Pending decommit tx
   Maybe tx ->
-  -- | The local version
+  -- | Our version
   SnapshotVersion ->
   -- | The confirmed snapshot the next one builds on
   Snapshot tx ->
@@ -2362,7 +2351,7 @@ selectNextIncrementalAction ::
   Maybe (TxIdType tx) ->
   -- | Pending decommit tx
   Maybe tx ->
-  -- | The local version
+  -- | Our version
   SnapshotVersion ->
   -- | The confirmed snapshot the next one builds on
   Snapshot tx ->
@@ -2374,11 +2363,11 @@ selectNextIncrementalAction pendingDeposits currentDepositTxId mDecommitTx versi
 
 -- ** Settlement retention and re-posting (#2741)
 
--- | The deposits claimed by retained increments. Such a deposit only resurfaces
--- in 'pendingDeposits' when a rollback erased its increment, and it is settled
--- solely by re-posting that increment ('repostErased'): it must never
--- be proposed for a snapshot again (the deposited funds are already counted in
--- the head) nor recovered (that would corrupt the L2 ledger). See #2741.
+-- | The deposits claimed by retained increments. Such a deposit is only pending
+-- again because a rollback erased its increment, and only re-posting that
+-- increment settles it ('repostErased'). It must never be proposed for a
+-- snapshot again, since the head already counts its funds, nor recovered,
+-- which would corrupt the L2 ledger. See #2741.
 retainedDeposits :: IsTx tx => Settlements tx -> Set (TxIdType tx)
 retainedDeposits =
   Set.fromList . mapMaybe (\Settlement{snapshot} -> (getSnapshot snapshot).depositTxId) . Map.elems
@@ -2392,27 +2381,27 @@ eligibleDeposits OpenState{headId, coordinatedHeadState} =
 
 -- | The deposits blocked by the retained increments of an open head.
 --
--- Deliberately empty for any other head state: an increment can only settle
--- into an open head, so once the head closes the retained snapshots can never
--- claim their deposits on-chain anymore. The resurfaced deposit's escape hatch
--- is then to recover it (after its deadline) and exclude the deposited outputs
--- from the fanout via 'PartialFanout' — so 'Recover' must not stay blocked
--- after close.
+-- Empty for any other head state on purpose. An increment can only settle into
+-- an open head, so once the head closes the retained snapshots can never claim
+-- their deposits again. The way out for such a deposit is then to recover it
+-- after its deadline and leave the deposited outputs out of the fanout with
+-- 'PartialFanout', so 'Recover' must not stay blocked after close.
 openRetainedDeposits :: IsTx tx => HeadState tx -> Set (TxIdType tx)
 openRetainedDeposits = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}} -> retainedDeposits settlements
   _ -> mempty
 
--- | Retain the snapshot whose increment or decrement was observed bumping the
--- on-chain version to @newVersion@, if it is the locally confirmed one (based
--- on the version right below, carrying a commit or decommit): only it can
--- settle again if a rollback erases the settlement, and 'confirmedSnapshot'
--- may advance past it. The confirmed txs are blanked, see 'Settlement'.
+-- | Retain the snapshot whose increment or decrement was seen bumping the
+-- on-chain version to @newVersion@, if that is the locally confirmed snapshot
+-- (based on the version just below, carrying a commit or decommit). Only that
+-- snapshot can settle again if a rollback erases the settlement, and
+-- 'confirmedSnapshot' may move past it. Its confirmed txs are blanked, see
+-- 'Settlement'.
 --
--- Nothing is retained when the observation raced local snapshot confirmation
--- (another party collected the last AckSn and posted first): retention then
--- happens once the snapshot confirms, see the 'SnapshotConfirmed' branch of
--- 'applyEvent'. See #2741.
+-- Nothing is retained when the observation came before the snapshot confirmed
+-- locally, because another party collected the last signature and posted
+-- first. Retention then happens when the snapshot confirms, see the
+-- 'SnapshotConfirmed' branch of 'applyEvent'. See #2741.
 retainSettlement ::
   ChainSlot ->
   SnapshotVersion ->
@@ -2422,9 +2411,8 @@ retainSettlement ::
 retainSettlement slot = retainSettlementWith (Landed slot)
 
 -- | 'retainSettlement' with the status the entry gets: landed at the
--- observation slot, or the status noted for an unretained bump (see
--- 'UnretainedSettlements') when the snapshot confirms after its settlement was
--- observed.
+-- observation slot, or the status noted for a version bump whose snapshot had
+-- not confirmed yet (see 'UnretainedSettlements').
 retainSettlementWith ::
   SettlementStatus ->
   SnapshotVersion ->
@@ -2437,17 +2425,15 @@ retainSettlementWith status newVersion confirmedSnapshot settlements =
       | version + 1 == newVersion
       , isJust utxoToCommit || isJust utxoToDecommit ->
           -- Keep an entry already retained for this version. That entry is the
-          -- snapshot whose settlement was actually observed, with its real
-          -- 'observedAtSlot' and its 'Erased' marking. A later snapshot at the
-          -- same version re-carries the same action but is not the one that
-          -- settled, and this function is also called with the local version
-          -- from the 'SnapshotConfirmed' race branch, so replacing the entry
-          -- would re-stamp the slot and undo 'markErased'. From there
-          -- 'nextErasedSettlement' finds nothing, so 'repostErased' posts
-          -- nothing, and the erased settlement is never re-posted: the local
-          -- version stays above the chain's for good, which a close cannot
-          -- express. A genuine re-landing is re-stamped by 'landSettlement'
-          -- instead.
+          -- snapshot whose settlement was actually observed, with its real slot
+          -- and its erased mark. A later snapshot at the same version carries
+          -- the same action but is not the one that settled, and this function
+          -- is also called with our own version from the 'SnapshotConfirmed'
+          -- race branch. Replacing the entry would re-stamp the slot and undo
+          -- 'markErased'; 'nextErasedSettlement' would then find nothing,
+          -- 'repostErased' would post nothing, and our version would stay above
+          -- the chain's for good, which a close cannot express. A settlement
+          -- that really landed again is re-stamped by 'landSettlement' instead.
           Map.insertWith
             (\_new old -> old)
             version
@@ -2455,20 +2441,20 @@ retainSettlementWith status newVersion confirmedSnapshot settlements =
             settlements
     _ -> settlements
 
--- | Record the settlement observed bumping the on-chain version to
--- @newVersion@ at @slot@: retain the confirmed snapshot if it is the one that
--- settled (see 'retainSettlement'), (re-)stamp the retained entry as landed
--- (see 'landSettlement'), and when nothing is retained at that version, note
--- the bump for the snapshot still to confirm (see 'recordUnretained').
+-- | Record a settlement seen bumping the on-chain version to @newVersion@ at
+-- @slot@: retain the confirmed snapshot if it is the one that settled
+-- ('retainSettlement'), stamp the retained entry as landed ('landSettlement'),
+-- and if nothing is retained at that version, note the bump for the snapshot
+-- still to confirm ('recordUnretained').
 recordSettlement :: ChainSlot -> SnapshotVersion -> CoordinatedHeadState tx -> CoordinatedHeadState tx
 recordSettlement slot newVersion chs@CoordinatedHeadState{confirmedSnapshot, settlements, unretained} =
   chs{settlements = settlements', unretained = recordUnretained slot newVersion settlements' unretained}
  where
   settlements' = landSettlement slot newVersion (retainSettlement slot newVersion confirmedSnapshot settlements)
 
--- | Note the bump to @newVersion@ observed at @slot@ when its snapshot is not
--- retained: the snapshot has not confirmed locally yet, see
--- 'UnretainedSettlements'. Once the key is retained the note is consumed.
+-- | Note a bump to @newVersion@ seen at @slot@ whose snapshot is not retained,
+-- because it has not confirmed locally yet, see 'UnretainedSettlements'. Once
+-- that version is retained the note is dropped.
 recordUnretained :: ChainSlot -> SnapshotVersion -> Settlements tx -> UnretainedSettlements -> UnretainedSettlements
 recordUnretained slot newVersion settlements unretained
   | newVersion == 0 = unretained
@@ -2478,16 +2464,16 @@ recordUnretained slot newVersion settlements unretained
   key = newVersion - 1
 
 -- | Record that the retained settlement bumping the on-chain version to
--- @newVersion@ (re-)landed at the given slot, so a rollback erasing it again
--- still triggers a re-post.
+-- @newVersion@ landed, or landed again, at the given slot, so that a rollback
+-- erasing it again still leads to a re-post.
 landSettlement :: ChainSlot -> SnapshotVersion -> Settlements tx -> Settlements tx
 landSettlement slot newVersion settlements
   | newVersion == 0 = settlements
   | otherwise = Map.adjust (\Settlement{snapshot} -> Settlement{snapshot, status = Landed slot}) (newVersion - 1) settlements
 
--- | Mark the retained settlements a rollback to the given slot erased. The
--- rollback point is the last common block, so a settlement observed exactly
--- there is still on chain: strictly (<).
+-- | Mark the retained settlements and notes that a rollback to the given slot
+-- erased. The rollback point is the last block both chains share, so a
+-- settlement observed exactly there is still on chain: strictly (<).
 markErased :: ChainSlot -> CoordinatedHeadState tx -> CoordinatedHeadState tx
 markErased rolledBackSlot chs@CoordinatedHeadState{settlements, unretained} =
   chs
@@ -2499,12 +2485,12 @@ markErased rolledBackSlot chs@CoordinatedHeadState{settlements, unretained} =
     Landed{observedAtSlot} | rolledBackSlot < observedAtSlot -> Erased
     status -> status
 
--- | Drop the retained settlements no rollback can reach anymore, see
--- 'retentionCutoff'. This is what bounds the map: without it, an open head
--- would retain one snapshot per settlement forever.
+-- | Drop the retained settlements and notes no rollback can reach anymore, see
+-- 'retentionCutoff'. This bounds the map; without it an open head would keep
+-- one snapshot per settlement forever.
 --
--- Erased settlements are never dropped: they are due for re-posting, and the
--- lowest one gates every later re-post ('nextErasedSettlement').
+-- Erased entries are never dropped: they still have to be re-posted, and the
+-- lowest one holds back every later re-post ('nextErasedSettlement').
 pruneSettlements ::
   -- | Rollback horizon
   ChainSlot ->
@@ -2530,12 +2516,12 @@ onCoordinatedHeadState f = \case
   other -> other
 
 -- | The erased settlement with the lowest version, which is the one the chain
--- can accept next: a rollback regressed the on-chain version to its base
--- version, and each settlement bumps the version by one.
+-- accepts next: the rollback took the on-chain version back to its base, and
+-- each settlement bumps the version by one.
 --
--- An entry is only ever marked erased by 'markErased', from an exact
--- observation slot, so an erased entry always denotes a settlement that must
--- re-land; the lowest one gates all later re-posts.
+-- Only 'markErased' marks an entry erased, from an exact observation slot, so
+-- an erased entry always means a settlement that must land again; the lowest
+-- one holds back all later re-posts.
 nextErasedSettlement :: Settlements tx -> Maybe (Settlement tx)
 nextErasedSettlement = find (\Settlement{status} -> status == Erased) . Map.elems
 
@@ -2550,15 +2536,15 @@ postSettlement headSeed headId headParameters snapshot =
     _ -> noop
 
 -- | Re-post the in-flight settlement of the confirmed snapshot, given the
--- retained settlements as they are after a rollback or a re-landing: its
--- increment or decrement was posted at confirmation and never observed, so it
--- may have been in a rolled back block.
+-- retained settlements as they are after a rollback, or after one landed
+-- again. Its
+-- increment or decrement was posted when the snapshot confirmed and never
+-- observed, so it may have been in a rolled back block.
 --
--- Nothing is posted while a retained settlement is erased: the chain only
+-- Nothing is posted while a retained settlement is erased. The chain only
 -- accepts the lowest version, so the erased ones must land first, in order,
--- which the ticks take care of ('repostErased'). The in-flight one follows
--- when the last erased one is observed re-landing ('repostAfterRelanding').
--- See #2741.
+-- which the ticks do ('repostErased'). The in-flight one follows when the last
+-- erased one is seen landing again ('repostAfterRelanding'). See #2741.
 repostInFlightSettlement ::
   IsTx tx =>
   OpenState tx ->
@@ -2567,8 +2553,8 @@ repostInFlightSettlement ::
   Outcome tx
 repostInFlightSettlement OpenState{headSeed, headId, parameters, coordinatedHeadState} pendingDeposits settlements
   | isJust (nextErasedSettlement settlements) = noop
-  -- A retained confirmed snapshot is not in flight: its settlement was
-  -- observed and is on chain.
+  -- The confirmed snapshot is retained, so its settlement was observed and is
+  -- on chain: nothing is in flight.
   | Map.member (getSnapshot confirmedSnapshot).version settlements = noop
   | otherwise = repostInFlight
  where
@@ -2589,18 +2575,19 @@ repostInFlightSettlement OpenState{headSeed, headId, parameters, coordinatedHead
     _ -> noop
 
 -- | Post, on a tick, the erased settlement due next, while it can land: a
--- decrement always can, an increment only once its deposit is on the chain
--- this node follows (the rollback may have erased the deposit tx too).
+-- decrement always can, an increment only once its deposit is back on the
+-- chain we follow, since the rollback may have erased the deposit tx too.
 --
 -- Erased settlements are posted here and nowhere else. Every block brings a
 -- tick after its observations, so this runs once per block until the
--- settlement is observed re-landing, which marks it landed again: a post that
--- failed for a transient reason is retried, a node restarted with an erased
--- entry resumes by itself, and the first block of the new fork gets to bring
--- the settlement back on its own, as a fork built from the same mempool
--- usually does, before anything is posted at all. A duplicate of one already
--- re-landing is refused by the chain, at no cost but a 'PostTxOnChainFailed'.
--- The next erased one follows one block after the previous landed. See #2741.
+-- settlement is seen landing again, which marks it landed. A post that failed
+-- for a passing reason is retried on the next block. A node restarted with an
+-- erased entry resumes by itself. And the first block of the new fork gets to
+-- bring the settlement back on its own before anything is posted, which a
+-- fork built from the same mempool usually does. A duplicate of one already
+-- landing again is refused by the chain, at no cost but a
+-- 'PostTxOnChainFailed'. The next erased one follows one block after the
+-- previous one landed. See #2741.
 repostErased :: IsTx tx => OpenState tx -> PendingDeposits tx -> Outcome tx
 repostErased OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
   case nextErasedSettlement settlements of
@@ -2611,11 +2598,11 @@ repostErased OpenState{headSeed, headId, parameters, coordinatedHeadState = Coor
   canLand Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId} = Map.member depositTxId pendingDeposits
   canLand _ = True
 
--- | After an increment or decrement was observed: if it re-landed (its
--- 'newVersion' is not ahead of the local 'version', which never rolls back, so
--- this finalization was applied before and then erased by a rollback) and it
--- was the last erased one, post the in-flight settlement it was holding back,
--- see 'repostInFlightSettlement'.
+-- | After an increment or decrement was observed: if it landed again (its
+-- 'newVersion' is not ahead of our 'version', which never goes down, so this
+-- settlement was applied before and then erased by a rollback) and it was the
+-- last erased one, post the in-flight settlement it was holding back, see
+-- 'repostInFlightSettlement'.
 repostAfterRelanding ::
   IsChainState tx =>
   PendingDeposits tx ->
@@ -2807,9 +2794,9 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
   -- Node-level: deposit/recover observations scoped to our head
   (Open OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
-        -- A retained deposit observed *again* means a rollback erased both
-        -- the deposit and its increment, and the deposit tx just re-landed
-        -- on the new chain: the next tick re-posts the increment, see
+        -- A retained deposit observed again means a rollback erased both the
+        -- deposit and its increment, and the deposit tx just landed again on
+        -- the new chain. The next tick re-posts the increment, see
         -- 'repostErased'.
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
@@ -2839,7 +2826,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     | otherwise ->
         Continue [] []
   -- Open + Rollback: re-post the in-flight settlement, which may have been in
-  -- a rolled back block; the erased ones are posted by the ticks that follow
+  -- a rolled back block. The erased ones are posted by the ticks that follow
   -- ('repostErased'). See #2741.
   (Open openState@OpenState{headId, coordinatedHeadState}, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
@@ -2880,12 +2867,12 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- and leaves the earlier chunk behind — and reverting on its failure would
     -- drop the driver role for a transaction nobody is waiting on.
     --
-    -- Nor once any step ever landed ('everLanded'): a fork can erase every
-    -- landed step and rewind the progress to nothing distributed, and the
-    -- re-post issued then fails when the new fork already re-included the
-    -- erased step. That is a race the observation of the re-landed step
-    -- resolves, not a failed initiation; reverting would make this node a
-    -- passive observer of a fanout it was driving.
+    -- Nor once any step ever landed ('everLanded'). A fork can erase every
+    -- landed step and rewind the progress to nothing distributed. The re-post
+    -- issued then fails when the new fork already brought the erased step
+    -- back. That is a race which observing the step land again resolves, not
+    -- a failed start; reverting would turn this node into a passive observer
+    -- of a fanout it was driving.
     | PartialFanoutState{headId, distributedOutputs, everLanded} <- pfs
     , nullOutputs distributedOutputs
     , not everLanded
@@ -3082,15 +3069,15 @@ aggregateNodeState rollbackHorizon nodeState sc =
                                         -- depositTxId, but we should not verify this here.
                                         currentDepositTxId = Nothing
                                       , localUTxO = localUTxO <> maybe mempty (.deposited) (Map.lookup depositTxId nodeState.pendingDeposits)
-                                      , -- A snapshot already in SeenSnapshot still completes now
-                                        -- that this node's version moved past its own: every
-                                        -- party can sign it, those that saw the bump before the
-                                        -- ReqSn one version behind their own (see
-                                        -- 'waitOnSnapshotVersion'). Preserve it so it confirms and
-                                        -- 'maybeRequestNextSnapshot' chains the next one with the
-                                        -- bumped version; only reset when nothing is in-flight.
-                                        -- (A local SeenSnapshot only proves THIS party echoed the
-                                        -- ReqSn, not that every party did.)
+                                      , -- A snapshot already in 'SeenSnapshot' still completes now
+                                        -- that our version moved past its own: every party can
+                                        -- sign it, those that saw the bump before the ReqSn one
+                                        -- version behind their own (see 'waitOnSnapshotVersion').
+                                        -- Keep it so it confirms and 'maybeRequestNextSnapshot'
+                                        -- requests the next one with the bumped version; reset
+                                        -- only when nothing is in flight. (A local 'SeenSnapshot'
+                                        -- only proves this party echoed the ReqSn, not that every
+                                        -- party did.)
                                         seenSnapshot = case seenSnapshot of
                                           SeenSnapshot{} -> seenSnapshot
                                           _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
@@ -3103,13 +3090,13 @@ aggregateNodeState rollbackHorizon nodeState sc =
               -- Retained settlements no rollback can reach anymore are dropped.
               nodeState{headState = onCoordinatedHeadState (pruneSettlements rollbackHorizon (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
             ChainRolledBack{chainState} ->
-              -- Deposits are L1-derived: restore the view at the rolled-back
-              -- slot. Deposits whose consuming tx (increment/recover) was
-              -- erased resurface, deposits whose deposit tx was erased vanish;
-              -- forward re-observation converges the view again. See #2741.
-              -- Retained settlements observed after the rolled back slot are
-              -- no longer on chain: mark them so they get re-posted in order,
-              -- see 'repostErased'.
+              -- Deposits are derived from L1: restore the view at the rolled
+              -- back slot. A deposit whose increment or recover was erased is
+              -- pending again, a deposit whose deposit tx was erased is gone,
+              -- and observing the new chain brings the view back in line. See
+              -- #2741. Retained settlements observed after the rolled back slot
+              -- are no longer on chain: mark them, so the ticks re-post them in
+              -- order, see 'repostErased'.
               rollbackDeposits (chainStateSlot chainState) $
                 nodeState{headState = onCoordinatedHeadState (markErased (chainStateSlot chainState)) st, chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}}
             NodeUnsynced{chainSlot, chainTime, drift} ->
@@ -3322,13 +3309,13 @@ applyEvent st = \case
             -- The snapshot's settling transaction (increment/decrement) may
             -- have been observed on chain *before* this local confirmation
             -- (another party collected the last AckSn and posted first) —
-            -- recognizable by 'version' already bumped one past the
-            -- snapshot's. Nothing could be retained at observation time (see
-            -- 'retainSettlement'), so retain now, with the status the bump
-            -- was noted with ('UnretainedSettlements'): a rollback in between
-            -- has marked it erased there, and stamping the current chain slot
-            -- instead would call the erased settlement landed, since the
-            -- chain state was rewound too, so it would never be re-posted.
+            -- recognizable by 'version' already being one past the snapshot's.
+            -- Nothing could be retained at observation time (see
+            -- 'retainSettlement'), so retain now, with the status the bump was
+            -- noted with ('UnretainedSettlements'). A rollback in between marked
+            -- that note erased. Stamping the current chain slot instead would
+            -- call the erased settlement landed, since the chain state was
+            -- rewound too, and it would never be re-posted.
             let confirmed = ConfirmedSnapshot{snapshot, signatures}
                 status = fromMaybe (Landed (chainStateSlot chainState)) (Map.lookup snapshot.version chs.unretained)
              in Open
@@ -3339,8 +3326,8 @@ applyEvent st = \case
                           , seenSnapshot = LastSeenSnapshot snapshot.number
                           , settlements = retainSettlementWith status version confirmed chs.settlements
                           , -- Snapshots confirm in order, so every note at or below
-                            -- this snapshot's version is consumed or dead: this
-                            -- bounds the notes by what is still to confirm.
+                            -- this version is used up or dead. Dropping them keeps
+                            -- the notes bounded.
                             unretained = Map.filterWithKey (\k _ -> k > snapshot.version) chs.unretained
                           }
                     }
@@ -3446,15 +3433,15 @@ applyEvent st = \case
                     (recordSettlement (chainStateSlot chainState) newVersion chs)
                       { decommitTx = Nothing
                       , version = newVersion
-                      , -- A snapshot already in SeenSnapshot still completes now
-                        -- that this node's version moved past its own: every
-                        -- party can sign it, those that saw the bump before the
-                        -- ReqSn one version behind their own (see
-                        -- 'waitOnSnapshotVersion'). Preserve it so it confirms and
-                        -- 'maybeRequestNextSnapshot' chains the next one with the
-                        -- bumped version; only reset when nothing is in-flight.
-                        -- (A local SeenSnapshot only proves THIS party echoed the
-                        -- ReqSn, not that every party did.)
+                      , -- A snapshot already in 'SeenSnapshot' still completes now
+                        -- that our version moved past its own: every party can
+                        -- sign it, those that saw the bump before the ReqSn one
+                        -- version behind their own (see 'waitOnSnapshotVersion').
+                        -- Keep it so it confirms and 'maybeRequestNextSnapshot'
+                        -- requests the next one with the bumped version; reset
+                        -- only when nothing is in flight. (A local 'SeenSnapshot'
+                        -- only proves this party echoed the ReqSn, not that every
+                        -- party did.)
                         seenSnapshot = case seenSnapshot of
                           SeenSnapshot{} -> seenSnapshot
                           _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}

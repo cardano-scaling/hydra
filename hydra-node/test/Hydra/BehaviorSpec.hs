@@ -218,7 +218,7 @@ spec = parallel $ do
     -- Both nodes then sign one version behind: they sign the ver=0 echo (see
     -- 'waitOnSnapshotVersion') and the round confirms one version behind the
     -- chain. Before that, the stale echo was parked until its TTL dropped it
-    -- and nobody re-triggered ReqSn(ver=1): head permanently stuck.
+    -- and nobody asked for a ReqSn at ver=1, so the head was stuck for good.
     it "snapshot does not get stuck on CommitFinalized version race with slow network" $
       shouldRunInSim $
         withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
@@ -242,8 +242,8 @@ spec = parallel $ do
               -- After the deposit snapshot confirms, the leader sends
               -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
               -- and bumps version to 1 before the echo returns. Both nodes
-              -- sign one version behind: the echo at ver=0, and the round confirms
-              -- one version behind the chain, carrying tx 999.
+              -- sign one version behind, the echo at ver=0, and the round
+              -- confirms one version behind the chain, carrying tx 999.
               waitUntilMatch [n1, n2] $ \case
                 SnapshotConfirmed{snapshot = Snapshot{confirmed}}
                   | aValidTx 999 `elem` confirmed -> Just ()
@@ -415,9 +415,9 @@ spec = parallel $ do
       -- A transaction that never becomes applicable is dropped as 'TxInvalid'
       -- once its TTL expires. The head has to stay usable afterwards: later
       -- transactions still confirm, and the head still closes and fans out the
-      -- UTxO they produced. The ledger reason carried by 'TxInvalid' for a
+      -- UTxO they produced. The ledger reason 'TxInvalid' carries for a
       -- transaction missing its witness is pinned in
-      -- 'Hydra.Ledger.CardanoSpec'; 'SimpleTx' has no notion of witnesses.
+      -- 'Hydra.Ledger.CardanoSpec', since 'SimpleTx' has no witnesses.
       it "stays usable after a transaction was dropped as invalid" $
         shouldRunInSim $
           withSimulatedChainAndNetwork $ \chain ->
@@ -1251,8 +1251,8 @@ waitUntilMatch nodes predicate = do
     raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
       -- A rejected increment/decrement submission is deliberate protocol noise:
       -- settlements are re-posted after rollbacks erring towards posting (see
-      -- 'repostInFlightSettlement' and 'repostErased') and a re-post can race a
-      -- re-landed original.
+      -- 'repostInFlightSettlement' and 'repostErased') and such a post can race
+      -- the original landing again.
       -- Keep waiting instead of failing the whole wait on it.
       Left PostTxOnChainFailed{postChainTx = IncrementTx{}} -> go seenOutputs (nid, n)
       Left PostTxOnChainFailed{postChainTx = DecrementTx{}} -> go seenOutputs (nid, n)

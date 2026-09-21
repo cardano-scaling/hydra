@@ -13,14 +13,14 @@
 --     to the real @isLeader@ in 'Hydra.OffChainLeaderSpec'), so the composed decision is fully Agda-derived.
 --
 --   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
---     ('DecommitRecorded'). An in-flight decommit makes the node WAIT ('WaitOnNotApplicableDecommitTx'
---     with 'DecommitAlreadyInFlight'), which is non-accept. A PENDING deposit no longer holds the
---     node back (the commit-before-decommit order is enforced where the snapshot is proposed), while
---     the reference still models that hold, so that one point of the commit axis is masked until
---     the reference follows. The commit axis is the reference's 'HsPendingCommit', not a Bool, so
---     this test cannot decide which commits count: an expired or already-recovered deposit is a
---     state the node reaches (it clears @currentDepositTxId@ on neither) and the reference is what
---     says those do not block.
+--     ('DecommitRecorded'). A decommit already in flight makes the node WAIT
+--     ('WaitOnNotApplicableDecommitTx' with 'DecommitAlreadyInFlight'), which is non-accept. A
+--     pending deposit no longer holds the node back, since the commit-before-decommit order is
+--     enforced where the snapshot is proposed. The reference still models that hold, so that one
+--     point of the commit axis is masked until the reference follows. The commit axis is the
+--     reference's 'HsPendingCommit', not a Bool, so this test cannot decide which commits count:
+--     an expired or already recovered deposit is a state the node reaches, since it clears
+--     @currentDepositTxId@ on neither, and the reference is what says those do not block.
 --
 --   * @reqSnNotBothRef@ / @reqSnDecommitOutputsRef@ / @reqSnDepositSettledRef@ vs
 --     @onOpenNetworkReqSn@'s incremental-action guards: a request carrying both a deposit and a
@@ -489,16 +489,17 @@ spec = parallel $ do
       reqSnOutcome 0 0 0 1 bob `shouldBe` Error (RequireFailed $ ReqSnNotLeader 1 bob)
     it "a version AHEAD of ours WAITS (WaitOnSnapshotVersion), which is non-accept" $
       reqSnOutcome 0 0 1 1 alice `assertWait` WaitOnSnapshotVersion 1
-    -- The node signs a proposal ONE version behind its own when it is based on
+    -- The node signs a proposal one version behind its own when it is based on
     -- the confirmed snapshot (see 'waitOnSnapshotVersion' in HeadLogic), and
-    -- rejects anything further behind as unsatisfiable. 'signEligibleRef' has
-    -- no input for the confirmed snapshot's version, so it still rejects the
-    -- one-behind case: on this fixture that is the point (v = 0, v̂ = 1, ŝ = 0),
-    -- where the confirmed snapshot is the initial one at version 0. That point
-    -- is masked below until the reference gains the input and is re-extracted
-    -- (hydra-agda); the rest of the grid stays live. The behaviour is pinned in
-    -- HeadLogicSpec ("signs a ReqSn one version behind ...", "rejects a ReqSn
-    -- two versions behind ...", "still waits on a ReqSn ahead of its version").
+    -- rejects anything further behind, which can never be signed.
+    -- 'signEligibleRef' has no input for the confirmed snapshot's version, so
+    -- it still rejects the one-behind case. On this fixture that is the point
+    -- (v = 0, v̂ = 1, ŝ = 0), where the confirmed snapshot is the initial one at
+    -- version 0. That point is masked below until the reference gains the input
+    -- and is extracted again (hydra-agda), and the rest of the grid stays live.
+    -- The behaviour is pinned in HeadLogicSpec ("signs a ReqSn one version
+    -- behind ...", "rejects a ReqSn two versions behind ...", "still waits on a
+    -- ReqSn ahead of its version").
     it "anchor: one version behind, based on the confirmed snapshot, is signed" $
       reqSnAccepts (reqSnOutcome 1 0 0 1 alice) `shouldBe` True
     prop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender), except one version behind" $
@@ -515,14 +516,15 @@ spec = parallel $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
       reqDecEligibleRef NoCommitP False `shouldBe` True
       reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
-    -- The node no longer holds a ReqDec back on a pending commit. Whether a
-    -- deposit is queued is decided by each node's own tick, so the same ReqDec
-    -- was refused on some nodes and recorded on others, and the recording
-    -- nodes held a decommit nobody proposed (found by the model's concurrent
-    -- walk). The commit-before-decommit order is enforced where the snapshot
-    -- is made instead ('selectNextIncrementalAction', 'ReqSnBothCommitAndDecommit').
-    -- 'reqDecEligibleRef' still models the hold, so it disagrees on
-    -- 'CommitPendingP'; pending until the reference follows (hydra-agda).
+    -- The node no longer holds a ReqDec back on a pending commit. Each node's
+    -- own tick decides whether a deposit is queued, so the same ReqDec was
+    -- refused on some nodes and recorded on others, and the ones that recorded
+    -- it held a decommit nobody proposed. The model's concurrent walk found
+    -- this. The commit-before-decommit order is enforced where the snapshot is
+    -- proposed instead ('selectNextIncrementalAction',
+    -- 'ReqSnBothCommitAndDecommit'). 'reqDecEligibleRef' still models the hold,
+    -- so it disagrees on 'CommitPendingP' until the reference follows
+    -- (hydra-agda).
     it "a pending deposit (commit in flight) no longer holds the real node back: it records" $
       reqDecAccepts (reqDecOutcome CommitPendingP False) `shouldBe` True
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
@@ -539,8 +541,8 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    -- 'CommitPendingP' is masked for the reason given above (its anchor is
-    -- the test right after the first one); the other three commit states are
+    -- 'CommitPendingP' is masked for the reason given above, and the test
+    -- right after the first one anchors it. The other three commit states are
     -- checked against the reference on both decommit axes.
     prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?), except a pending commit" $
       \decommitInFlight ->

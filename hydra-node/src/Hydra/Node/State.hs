@@ -32,8 +32,8 @@ data TrackedDeposit tx = TrackedDeposit
   , consumedAt :: Maybe ChainSlot
   -- ^ Slot at which a consuming transaction (increment or recover) was
   -- observed, if any. A consumed deposit is no longer pending, but is retained
-  -- for the rollback horizon so a rollback can resurface it (see
-  -- 'pruneConsumedDeposits').
+  -- for the rollback horizon, so that a rollback can make it pending again
+  -- (see 'pruneConsumedDeposits').
   }
   deriving stock (Generic)
 
@@ -120,12 +120,11 @@ rollbackDeposits slot nodeState =
     | recordedAt > slot = Nothing
     | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
 
--- | Drop consumed deposits beyond the rollback horizon: no rollback can
--- resurface them anymore, so retaining them would only grow persisted state
--- with every deposit ever settled. Called on the deposit write paths, which is
+-- | Drop consumed deposits older than the rollback horizon: no rollback can
+-- bring them back, so keeping them would only grow the persisted state with
+-- every deposit ever settled. Called on the deposit write paths, which is
 -- enough because only deposit churn creates consumed entries. Unconsumed
--- deposits are never pruned — an expired deposit stays recoverable
--- indefinitely.
+-- deposits are never dropped: an expired deposit stays recoverable for good.
 --
 -- The horizon is the stability window of the network the node runs on, see
 -- 'Hydra.Node.Environment.rollbackHorizon'.
@@ -139,9 +138,8 @@ pruneConsumedDeposits ::
 pruneConsumedDeposits horizon slot =
   Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> retentionCutoff horizon slot) consumedAt)
 
--- | The slot before which no rollback can reach anymore, given the rollback
--- horizon and the current slot: anything observed at or before it is settled
--- for good.
+-- | The slot no rollback can reach anymore, given the rollback horizon and the
+-- current slot: anything observed at or before it is settled for good.
 retentionCutoff ::
   -- | Rollback horizon
   ChainSlot ->

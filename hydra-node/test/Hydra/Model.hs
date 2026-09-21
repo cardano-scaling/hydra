@@ -1449,11 +1449,11 @@ performRestartNode st party = do
       let otherParties = filter (/= party) allParties
       (testClient, newThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
       -- The node picks up the network messages it had not consumed before the
-      -- crash (see 'connectNode'): they are queued for processing and count as
+      -- crash (see 'connectNode'). They are queued for processing and count as
       -- delivered from then on, like a persisted etcd revision. Let it process
-      -- them before the next action: crashed again in the same instant, it
-      -- would lose them for good, and a lost AckSn leaves the party unable to
-      -- ever confirm that snapshot.
+      -- them before the next action: crashing again in the same instant would
+      -- lose them for good, and a party that loses an AckSn can never confirm
+      -- that snapshot.
       lift $ threadDelay 1
       modify $ \n ->
         n

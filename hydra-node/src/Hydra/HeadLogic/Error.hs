@@ -56,9 +56,9 @@ data RequirementFailure tx
   | ReqSnDecommitNotSettled
   | ReqSnCommitNotSettled
   | -- | A proposal one version behind ours (see
-    -- 'Hydra.HeadLogic.onOpenNetworkReqSn') must re-carry the confirmed
-    -- snapshot's commit or decommit, whose settlement this node already saw
-    -- land, and nothing else. The parties that have not seen it land sign
+    -- 'Hydra.HeadLogic.onOpenNetworkReqSn') must carry the confirmed
+    -- snapshot's commit or decommit again, whose settlement this node already
+    -- saw land, and nothing else. The parties that have not seen it land sign
     -- whatever the leader proposes, so a party one version ahead is the one
     -- that can refuse a proposal dropping or replacing that action.
     ReqSvBehindMustReCarry {requestedSv :: SnapshotVersion, requestedDepositTxId :: Maybe (TxIdType tx), requestedDecommitTxId :: Maybe (TxIdType tx)}

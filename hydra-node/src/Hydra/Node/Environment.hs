@@ -33,9 +33,9 @@ data Environment = Environment
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
   , rollbackHorizon :: ChainSlot
   -- ^ How deep the chain can roll back, in slots: the stability window of the
-  -- network it runs on (3k/f, from its genesis parameters). An observation at
-  -- least this many slots old is settled for good, which is what bounds the
-  -- deposits and settlements retained for rollbacks.
+  -- network it runs on (3k/f, from its genesis parameters). Anything observed
+  -- at least this many slots ago can no longer be rolled back, which is what
+  -- bounds the deposits and settlements kept for rollbacks.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }

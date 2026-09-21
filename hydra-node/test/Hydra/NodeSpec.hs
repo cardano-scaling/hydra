@@ -90,7 +90,7 @@ spec = parallel $ do
       -- A consumption AT the rolled back slot is still on chain.
       pendingDeposits (rollbackDeposits (ChainSlot 10) s1) `shouldBe` mempty
 
-    -- Consumed deposits beyond the rollback horizon can never be
+    -- Consumed deposits older than the rollback horizon can never be
     -- resurfaced by a rollback (no real chain rolls back that deep), so they
     -- are pruned to bound the persisted state; unconsumed deposits stay
     -- recoverable indefinitely.
