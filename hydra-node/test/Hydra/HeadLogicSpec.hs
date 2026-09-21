@@ -64,7 +64,7 @@ import Hydra.HeadLogic (
   setExistingDeposit,
   update,
  )
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementStatus (..), getHeadParameters, mkSeenSnapshot)
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementStatus (..), Settlements, getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -73,7 +73,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -2040,6 +2040,9 @@ spec =
                   , depositTxId = Just depositTxId'
                   }
 
+            signedIncrementingSnapshot1 =
+              ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+
             -- Snapshot 2 (version 1), confirmed after the version bump; holds
             -- no commit, so once it is confirmed the incrementing snapshot is
             -- no longer in 'confirmedSnapshot'.
@@ -3217,6 +3220,67 @@ spec =
           outcome `hasEffectSatisfying` \case
             NetworkEffect (AckSn _ 2) -> True
             _ -> False
+
+        -- A snapshot round cannot be abandoned, so a party that refuses what
+        -- the others sign stops the head confirming for good. The decision
+        -- must therefore not depend on state a party may not share. These are
+        -- the node-local dimensions the branch made irrelevant, enumerated:
+        -- what this node makes of the claimed deposit's status, whether it has
+        -- that deposit queued, whether its chain follower has seen the
+        -- settlement, and whether a rollback then erased it. Each of the three
+        -- version-race bugs was one cell of this table deciding differently.
+        it "decides a re-carried claim the same way whatever this node has seen" $ do
+          now <- getCurrentTime
+          let retained :: SettlementStatus -> Settlements SimpleTx
+              retained status =
+                Map.singleton 0 Settlement{snapshot = signedIncrementingSnapshot1, status}
+              -- What this node's chain follower has made of the increment:
+              -- not seen, seen landing, or seen and then erased by a rollback.
+              chainViews = [(0, mempty), (1, retained (Landed 3)), (1, retained Erased)]
+              deposit :: DepositStatus -> Deposit SimpleTx
+              deposit status =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status
+                  }
+              stateFor :: (SnapshotVersion, Settlements SimpleTx) -> DepositStatus -> Maybe Integer -> NodeState SimpleTx
+              stateFor (version, settlements) status queued =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = signedIncrementingSnapshot1
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version
+                      , currentDepositTxId = queued
+                      , settlements
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' (deposit status))
+                  }
+              signsTheClaim :: Outcome SimpleTx -> Bool
+              signsTheClaim = \case
+                Continue{stateChanges, effects} ->
+                  any (\case SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} -> version == 0 && utxoToCommit == Just depositedUTxO; _ -> False) stateChanges
+                    && any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
+                _ -> False
+          forM_ chainViews $ \view ->
+            forM_ [Active, Expired, Inactive] $ \status ->
+              forM_ [Nothing, Just depositTxId', Just depositTxId2] $ \queued -> do
+                let s = stateFor view status queued
+                now' <- nowFromSlot s.chainPointTime.currentSlot
+                let outcome = update soloAliceEnv ledger now' s (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+                unless (signsTheClaim outcome) $
+                  expectationFailure $
+                    "Refused the confirmed snapshot's own claim with version "
+                      <> show (fst view)
+                      <> ", deposit "
+                      <> show status
+                      <> ", queued "
+                      <> show queued
+                      <> ": "
+                      <> show outcome
 
         it "rejects a ReqSn one version behind that swaps in a different deposit" $ do
           -- Only the confirmed snapshot's own commit may be carried again. A

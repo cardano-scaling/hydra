@@ -96,7 +96,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', observeTx, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
-import Hydra.Network.Message (Message (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), trackedFromPending)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
@@ -322,6 +322,13 @@ reqSnSettleOutcome :: Integer -> Outcome SimpleTx
 reqSnSettleOutcome depositTxId =
   update aliceEnv simpleLedger time0 settleState $
     receiveMessageFrom bob (ReqSn 0 2 [] Nothing (Just depositTxId))
+
+-- | 'reqSnSettleOutcome' with the request's ttl spent, so the waits it would
+-- otherwise take become their terminal refusal.
+reqSnSettleOutcomeWithTtl :: Natural -> Integer -> Outcome SimpleTx
+reqSnSettleOutcomeWithTtl ttl depositTxId =
+  update aliceEnv simpleLedger time0 settleState $
+    NetworkInput ttl ReceivedMessage{sender = bob, msg = ReqSn 0 2 [] Nothing (Just depositTxId)}
 
 -- ── deposit status on tick ───────────────────────────────────────────────────────────────────────────
 
@@ -577,9 +584,15 @@ spec = parallel $ do
     it "anchor: settling the same-version pending commit with the bound deposit is signed by the real node" $ do
       reqSnDepositSettledRef True 7 7 `shouldBe` True
       reqSnAccepts (reqSnSettleOutcome 7) `shouldBe` True
-    it "a look-alike deposit (same recorded UTxO, different tx-id) is the node's ReqSnCommitNotSettled" $ do
+    -- The node waits first and only refuses once the request's ttl is spent.
+    -- The leader may have seen the pending claim recovered while this node has
+    -- not, and a refusal the other parties do not make stops the head (see the
+    -- note on unanimous refusals in 'Hydra.HeadLogic.onOpenNetworkReqSn').
+    -- Both are non-accept, so the reference is unaffected.
+    it "a look-alike deposit (same recorded UTxO, different tx-id) is not settled by the real node" $ do
       reqSnDepositSettledRef True 7 8 `shouldBe` False
-      reqSnSettleOutcome 8 `shouldBe` Error (RequireFailed ReqSnCommitNotSettled)
+      reqSnSettleOutcome 8 `assertWait` WaitOnUnsettledCommit{depositTxId = 8}
+      reqSnSettleOutcomeWithTtl 0 8 `shouldBe` Error (RequireFailed ReqSnCommitNotSettled)
     prop "reqSnDepositSettledRef === real same-version settlement across the registered deposits" $
       forAll (elements [7, 8]) $ \d ->
         reqSnDepositSettledRef True 7 d === reqSnAccepts (reqSnSettleOutcome d)

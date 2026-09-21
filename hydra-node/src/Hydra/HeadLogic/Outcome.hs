@@ -252,6 +252,11 @@ data WaitReason tx
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
   | WaitOnDepositObserved {depositTxId :: TxIdType tx}
+  | -- | The confirmed snapshot still claims a deposit this node has, so the
+    -- request cannot claim another one yet. The leader may have seen that
+    -- claim recovered while this node has not, so this waits for our own
+    -- chain follower rather than refusing what other parties sign.
+    WaitOnUnsettledCommit {depositTxId :: TxIdType tx}
   | WaitOnDepositActivation {depositTxId :: TxIdType tx}
   | WaitOnNodeInSync {currentSlot :: ChainSlot}
   deriving stock (Generic)
