@@ -12,46 +12,6 @@ spec :: Spec
 module Hydra.API.ServerOutputSpec
 spec :: Spec
 
-module Hydra.API.ServerSpec
-spec :: Spec
-sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
-matchGreetings :: Value -> Bool
-waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
-testClient :: TQueue IO Value -> TVar IO Int -> Connection -> IO ()
-dummyChainHandle :: Chain tx IO
-allowEverythingServerOutputFilter :: ServerOutputFilter tx
-noop :: Applicative m => a -> m ()
-
--- | Allocate a listening socket on a free port and hand both it and its
---   port to the action. The server is then given the very socket it serves
---   on, so the port cannot be taken in the gap between choosing it and
---   binding it. That gap used to surface as a flaky
---   <a>RunServerException</a> carrying "Address already in use".
-withFreeServerSocket :: (Socket -> PortNumber -> IO a) -> IO a
-withTestAPIServer :: Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
-
--- | Like <a>withTestAPIServer</a> but lets the server bind <tt>port</tt>
---   itself. Only for the test that asserts a second server on the same
---   port is refused: handing both servers one socket would let them both
---   succeed.
-withTestAPIServerBindingPort :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
-
--- | Like <a>withTestAPIServer</a>, but with an explicit callback invoked
---   for every <a>ClientInput</a> received by the server.
-withTestAPIServerWithCallback :: Maybe Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
-
--- | Connect to a websocket server running at given path. Fails if not
---   connected within 2 seconds.
-withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
-mockSource :: Monad m => [a] -> EventSource a m
-waitForValue :: HasCallStack => PortNumber -> (Value -> Maybe ()) -> IO ()
-
--- | Wait up to some time for an API server output to match the given
---   predicate.
-waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
-shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
-genStateEventForApi :: Gen (StateEvent SimpleTx)
-
 
 -- | Tests for the <a>ToCBOR</a> / <a>FromCBOR</a> codecs of hydra-node
 --   types.
@@ -672,6 +632,12 @@ shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expe
 -- | Test that the <a>PParams</a> To/FromJSON instances to roundtrip.
 roundtripPParams :: PParams LedgerEra -> Property
 applyTransactionsEquivalence :: Property
+
+-- | A transaction submitted to a head without its signature is rejected by
+--   the ledger, and the reason names the missing witness. The node passes
+--   that reason through verbatim in the <tt>TxInvalid</tt> output, so
+--   clients match on this string.
+rejectsUnwitnessedTransaction :: Property
 appliesValidTransaction :: Property
 appliesValidTransactionFromJSON :: Property
 
@@ -983,11 +949,147 @@ instance Data.EventSource.HasEventId Hydra.Events.RotationSpec.TrivialEvent
 module Hydra.Logging.MonitoringSpec
 spec :: Spec
 
+-- | The metrics <a>withMonitoring</a> always registers.
+protocolMetrics :: [Text]
+
+-- | Registered only when the RTS collects statistics, see
+--   <tt>registerRtsMetrics</tt>.
+rtsMetrics :: [Text]
+
+-- | The metric names a scrape actually exposes: the identifier starting
+--   each sample line, with the suffixes Prometheus appends to a histogram
+--   removed.
+--   
+--   Matching whole names rather than substrings is the point: renaming a
+--   counter to, say, <tt>hydra_head_inputs_total</tt> has to be caught,
+--   and the old name is a prefix of the new one.
+scrapedMetricNames :: Text -> [Text]
+
+-- | <a>withMonitoring</a> forks its server and returns immediately, so a
+--   scrape can arrive before the socket is listening.
+scrapeMetrics :: Int -> IO Text
+
 module Hydra.HeadLogicSnapshotSpec
 spec :: Spec
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_thereIsAlwaysALeader :: Property
 testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+module Hydra.API.ServerSpec
+spec :: Spec
+
+-- | Which client output each <tt>StateChanged</tt> is surfaced as, by
+--   constructor name; <a>Nothing</a> for the ones deliberately kept
+--   internal. Adding a state change without classifying it here fails
+--   "classifies exactly the state changes that exist".
+surfacedOutputs :: [(String, Maybe Text)]
+
+-- | One sample value per <tt>StateChanged</tt> constructor, paired with
+--   its name.
+sampleStateChanges :: IO [(String, StateChanged SimpleTx)]
+stateChangeConstructors :: IO [String]
+
+-- | Samples for every constructor except the named ones.
+stateChangesOtherThan :: [String] -> IO [(String, StateChanged SimpleTx)]
+outputTagOf :: TimedServerOutput SimpleTx -> Text
+aSeenSnapshot :: Snapshot SimpleTx
+anOpenedHead :: StateChanged SimpleTx
+aClosedHead :: StateChanged SimpleTx
+peerA :: Host
+peerB :: Host
+connected :: NetworkInfo
+disconnected :: NetworkInfo
+connectedTo :: NetworkInfo
+sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
+matchGreetings :: Value -> Bool
+waitForClients :: (MonadSTM m, Ord a, Num a) => TVar m a -> m ()
+testClient :: TQueue IO Value -> TVar IO Int -> Connection -> IO ()
+dummyChainHandle :: Chain tx IO
+allowEverythingServerOutputFilter :: ServerOutputFilter tx
+
+-- | Rejects every output, so anything a client still receives reached it
+--   without passing the filter.
+rejectEverything :: ServerOutputFilter tx
+
+-- | Accepts outputs only for one address, so which address the server
+--   asked about is observable from which client receives the output.
+onlyAddress :: Text -> ServerOutputFilter tx
+
+-- | The <a>TimedServerOutput</a> a client is expected to receive for an
+--   event.
+timedOutputOf :: StateEvent SimpleTx -> TimedServerOutput SimpleTx
+
+-- | The next frame on a connection, without skipping over any.
+nextFrame :: HasCallStack => Connection -> IO Value
+
+-- | Assert that nothing more arrives on a connection. Used where the
+--   expectation is an absence, so it has to wait out a full second rather
+--   than return on a match.
+receivesNothing :: HasCallStack => Connection -> Expectation
+noop :: Applicative m => a -> m ()
+
+-- | Allocate a listening socket on a free port and hand both it and its
+--   port to the action. The server is then given the very socket it serves
+--   on, so the port cannot be taken in the gap between choosing it and
+--   binding it. That gap used to surface as a flaky
+--   <a>RunServerException</a> carrying "Address already in use".
+withFreeServerSocket :: (Socket -> PortNumber -> IO a) -> IO a
+withTestAPIServer :: Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Like <a>withTestAPIServer</a> but lets the server bind <tt>port</tt>
+--   itself. Only for the test that asserts a second server on the same
+--   port is refused: handing both servers one socket would let them both
+--   succeed.
+withTestAPIServerBindingPort :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Like <a>withTestAPIServer</a>, but with an explicit callback invoked
+--   for every <a>ClientInput</a> received by the server.
+withTestAPIServerWithCallback :: Maybe Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Like <a>withTestAPIServer</a>, but with an explicit
+--   <a>ServerOutputFilter</a>.
+withTestAPIServerWithFilter :: Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> ServerOutputFilter SimpleTx -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+withTestAPIServer' :: Maybe Socket -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> ServerOutputFilter SimpleTx -> Tracer IO APIServerLog -> (ClientInput SimpleTx -> IO ()) -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Connect to a websocket server running at given path. Fails if not
+--   connected within 2 seconds.
+withClient :: PortNumber -> String -> (Connection -> IO ()) -> IO ()
+mockSource :: Monad m => [a] -> EventSource a m
+waitForValue :: HasCallStack => PortNumber -> (Value -> Maybe ()) -> IO ()
+
+-- | Wait up to some time for an API server output to match the given
+--   predicate.
+waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
+shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
+genStateEventForApi :: Gen (StateEvent SimpleTx)
+
+
+-- | Tests for the <tt>?address=</tt> output filter applied by
+--   <a>WSServer</a>. <a>ServerSpec</a> covers the server-side wiring that
+--   reaches it.
+module Hydra.API.ServerOutputFilterSpec
+spec :: Spec
+aliceKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+bobKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+carolKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+aliceAddress :: AddressInEra
+bobAddress :: AddressInEra
+carolAddress :: AddressInEra
+
+-- | A transaction paying 2 Ada to each of the given addresses, unsigned.
+txPayingTo :: [AddressInEra] -> Tx
+
+-- | Signed by Alice and paying only to the given address, so her witness
+--   is all the filter has to go on.
+aliceSpendsTo :: AddressInEra -> Tx
+snapshotConfirmed :: [Tx] -> ServerOutput Tx
+serverOutputsOtherThanSnapshotConfirmed :: IO [(String, ServerOutput Tx)]
+shouldPassFor :: HasCallStack => ServerOutput Tx -> AddressInEra -> Expectation
+shouldDropFor :: HasCallStack => ServerOutput Tx -> AddressInEra -> Expectation
+shouldPass :: HasCallStack => ServerOutput Tx -> Text -> Expectation
+shouldDrop :: HasCallStack => ServerOutput Tx -> Text -> Expectation
+matches :: ServerOutput Tx -> Text -> Bool
+bech32Of :: AddressInEra -> Text
 
 module Hydra.API.HTTPServerSpec
 spec :: Spec

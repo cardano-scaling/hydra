@@ -1,4 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679490487"><span id="local-6989586621679490488"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679490489"><span id="local-6989586621679490490"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Contract.Contest.ContestInc</span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-4"></span><span>
@@ -287,11 +287,11 @@ a -&gt; TxOutDatum ctx era
 </span><span id="line-129"></span><span id="healthyContestIncTx"><span class="annot"><span class="annottext">healthyContestIncTx :: (Tx, UTxO)
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncTx"><span class="hs-identifier hs-var hs-var">healthyContestIncTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-130"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679490692"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679490693"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490694"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679490695"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-131"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-132"></span><span>  </span><span id="local-6989586621679490693"><span class="annot"><span class="annottext">lookupUTxO :: UTxO
-</span><a href="#local-6989586621679490693"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-132"></span><span>  </span><span id="local-6989586621679490695"><span class="annot"><span class="annottext">lookupUTxO :: UTxO
+</span><a href="#local-6989586621679490695"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-133"></span><span>    </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO -&gt; UTxO
 forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="annot"><span class="annottext">TxIn
@@ -301,10 +301,10 @@ forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO
 </span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679490697"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><a href="#local-6989586621679490699"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
 </span><span id="line-135"></span><span>
-</span><span id="line-136"></span><span>  </span><span id="local-6989586621679490692"><span class="annot"><span class="annottext">tx :: Tx
-</span><a href="#local-6989586621679490692"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>  </span><span id="local-6989586621679490694"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679490694"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-137"></span><span>    </span><span class="annot"><span class="annottext">ScriptRegistry
 -&gt; VerificationKey PaymentKey
 -&gt; HeadId
@@ -317,7 +317,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 -&gt; Tx
 </span><span class="hs-identifier hs-var">contestTx</span></span><span>
 </span><span id="line-138"></span><span>      </span><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679490697"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
+</span><a href="#local-6989586621679490699"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span>
 </span><span id="line-139"></span><span>      </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
 </span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthyContesterVerificationKey"><span class="hs-identifier hs-var">healthyContesterVerificationKey</span></a></span><span>
 </span><span id="line-140"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
@@ -339,17 +339,17 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-identifier hs-var">slotLength</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
 </span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySlotNo"><span class="hs-identifier hs-var">healthySlotNo</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-146"></span><span>      </span><span class="annot"><span class="annottext">ClosedThreadOutput
-</span><a href="#local-6989586621679490699"><span class="hs-identifier hs-var">closedThreadOutput</span></a></span><span>
+</span><a href="#local-6989586621679490701"><span class="hs-identifier hs-var">closedThreadOutput</span></a></span><span>
 </span><span id="line-147"></span><span>
-</span><span id="line-148"></span><span>  </span><span id="local-6989586621679490697"><span class="annot"><span class="annottext">scriptRegistry :: ScriptRegistry
-</span><a href="#local-6989586621679490697"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry
+</span><span id="line-148"></span><span>  </span><span id="local-6989586621679490699"><span class="annot"><span class="annottext">scriptRegistry :: ScriptRegistry
+</span><a href="#local-6989586621679490699"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry
 </span><span class="hs-identifier hs-var">genScriptRegistry</span></span><span> </span><span class="annot"><span class="annottext">Gen ScriptRegistry -&gt; Int -&gt; ScriptRegistry
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span>
 </span><span id="line-149"></span><span>
-</span><span id="line-150"></span><span>  </span><span id="local-6989586621679490699"><span class="annot"><span class="annottext">closedThreadOutput :: ClosedThreadOutput
-</span><a href="#local-6989586621679490699"><span class="hs-identifier hs-var hs-var">closedThreadOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-150"></span><span>  </span><span id="local-6989586621679490701"><span class="annot"><span class="annottext">closedThreadOutput :: ClosedThreadOutput
+</span><a href="#local-6989586621679490701"><span class="hs-identifier hs-var hs-var">closedThreadOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-151"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ClosedThreadOutput</span></span><span>
 </span><span id="line-152"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:closedThreadUTxO:ClosedThreadOutput :: (TxIn, TxOut CtxUTxO)
 </span><span class="hs-identifier hs-var">closedThreadUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
@@ -375,8 +375,8 @@ forall a. Gen a -&gt; Int -&gt; a
 </span><span id="line-159"></span><span>
 </span><span id="line-160"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyIncSignature"><span class="hs-identifier hs-type">healthyIncSignature</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MultiSignature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span>
 </span><span id="line-161"></span><span id="healthyIncSignature"><span class="annot"><span class="annottext">healthyIncSignature :: SnapshotNumber -&gt; MultiSignature (Snapshot Tx)
-</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyIncSignature"><span class="hs-identifier hs-var hs-var">healthyIncSignature</span></a></span></span><span> </span><span id="local-6989586621679490707"><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679490707"><span class="hs-identifier hs-var">number</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyIncSignature"><span class="hs-identifier hs-var hs-var">healthyIncSignature</span></a></span></span><span> </span><span id="local-6989586621679490709"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679490709"><span class="hs-identifier hs-var">number</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-162"></span><span>  </span><span class="annot"><span class="annottext">[Signature (Snapshot Tx)] -&gt; MultiSignature (Snapshot Tx)
 forall a. [Signature a] -&gt; MultiSignature a
 </span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
@@ -385,9 +385,9 @@ forall a.
 SignableRepresentation a =&gt;
 Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
-</span><a href="#local-6989586621679490708"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncSnapshot"><span class="hs-identifier hs-var">healthyContestIncSnapshot</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var hs-type">number</span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679490708"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
-</span><a href="#local-6989586621679490708"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey HydraKey)]
+</span><a href="#local-6989586621679490710"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncSnapshot"><span class="hs-identifier hs-var">healthyContestIncSnapshot</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var hs-type">number</span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679490710"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621679490710"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey HydraKey)]
 </span><a href="Hydra.Tx.Contract.Contest.Healthy.html#healthySigningKeys"><span class="hs-identifier hs-var">healthySigningKeys</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-163"></span><span>
 </span><span id="line-164"></span><span class="hs-keyword">data</span><span> </span><span id="ContestIncMutation"><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestIncMutation"><span class="hs-identifier hs-var">ContestIncMutation</span></a></span></span><span>
@@ -400,7 +400,7 @@ Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
 </span><span id="line-171"></span><span>    </span><span id="ContestUnusedIncStoreAppliedAccumulator"><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestUnusedIncStoreAppliedAccumulator"><span class="hs-identifier hs-var">ContestUnusedIncStoreAppliedAccumulator</span></a></span></span><span>
 </span><span id="line-172"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContestUsedIncMutateSnapshotVersion"><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestUsedIncMutateSnapshotVersion"><span class="hs-identifier hs-var">ContestUsedIncMutateSnapshotVersion</span></a></span></span><span>
 </span><span id="line-173"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="ContestUnusedIncMutateSnapshotVersion"><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestUnusedIncMutateSnapshotVersion"><span class="hs-identifier hs-var">ContestUnusedIncMutateSnapshotVersion</span></a></span></span><span>
-</span><span id="line-174"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490716"><span id="local-6989586621679490718"><span class="annot"><span class="annottext">(forall x. ContestIncMutation -&gt; Rep ContestIncMutation x)
+</span><span id="line-174"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490718"><span id="local-6989586621679490720"><span class="annot"><span class="annottext">(forall x. ContestIncMutation -&gt; Rep ContestIncMutation x)
 -&gt; (forall x. Rep ContestIncMutation x -&gt; ContestIncMutation)
 -&gt; Generic ContestIncMutation
 forall x. Rep ContestIncMutation x -&gt; ContestIncMutation
@@ -411,7 +411,7 @@ $cfrom :: forall x. ContestIncMutation -&gt; Rep ContestIncMutation x
 from :: forall x. ContestIncMutation -&gt; Rep ContestIncMutation x
 $cto :: forall x. Rep ContestIncMutation x -&gt; ContestIncMutation
 to :: forall x. Rep ContestIncMutation x -&gt; ContestIncMutation
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490722"><span id="local-6989586621679490724"><span id="local-6989586621679490727"><span class="annot"><span class="annottext">Int -&gt; ContestIncMutation -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490724"><span id="local-6989586621679490726"><span id="local-6989586621679490729"><span class="annot"><span class="annottext">Int -&gt; ContestIncMutation -&gt; ShowS
 [ContestIncMutation] -&gt; ShowS
 ContestIncMutation -&gt; String
 (Int -&gt; ContestIncMutation -&gt; ShowS)
@@ -426,7 +426,7 @@ $cshow :: ContestIncMutation -&gt; String
 show :: ContestIncMutation -&gt; String
 $cshowList :: [ContestIncMutation] -&gt; ShowS
 showList :: [ContestIncMutation] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490731"><span id="local-6989586621679490739"><span id="local-6989586621679490745"><span id="local-6989586621679490759"><span id="local-6989586621679490761"><span id="local-6989586621679490765"><span id="local-6989586621679490769"><span id="local-6989586621679490772"><span class="annot"><span class="annottext">Int -&gt; ContestIncMutation
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490733"><span id="local-6989586621679490741"><span id="local-6989586621679490747"><span id="local-6989586621679490761"><span id="local-6989586621679490763"><span id="local-6989586621679490767"><span id="local-6989586621679490771"><span id="local-6989586621679490774"><span class="annot"><span class="annottext">Int -&gt; ContestIncMutation
 ContestIncMutation -&gt; Int
 ContestIncMutation -&gt; [ContestIncMutation]
 ContestIncMutation -&gt; ContestIncMutation
@@ -475,7 +475,7 @@ $cenumFromThenTo :: ContestIncMutation
 -&gt; ContestIncMutation -&gt; ContestIncMutation -&gt; [ContestIncMutation]
 enumFromThenTo :: ContestIncMutation
 -&gt; ContestIncMutation -&gt; ContestIncMutation -&gt; [ContestIncMutation]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490776"><span id="local-6989586621679490778"><span class="annot"><span class="annottext">ContestIncMutation
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490778"><span id="local-6989586621679490780"><span class="annot"><span class="annottext">ContestIncMutation
 ContestIncMutation
 -&gt; ContestIncMutation -&gt; Bounded ContestIncMutation
 forall a. a -&gt; a -&gt; Bounded a
@@ -487,9 +487,9 @@ maxBound :: ContestIncMutation
 </span><span id="line-175"></span><span>
 </span><span id="line-176"></span><span class="annot"><a href="Hydra.Tx.Contract.Contest.ContestInc.html#genContestIncMutation"><span class="hs-identifier hs-type">genContestIncMutation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeMutation</span></span><span>
 </span><span id="line-177"></span><span id="genContestIncMutation"><span class="annot"><span class="annottext">genContestIncMutation :: (Tx, UTxO) -&gt; Gen SomeMutation
-</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#genContestIncMutation"><span class="hs-identifier hs-var hs-var">genContestIncMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490781"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679490781"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490782"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679490782"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#genContestIncMutation"><span class="hs-identifier hs-var hs-var">genContestIncMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490783"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679490783"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490784"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679490784"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-178"></span><span>  </span><span class="annot"><span class="annottext">[Gen SomeMutation] -&gt; Gen SomeMutation
 forall a. HasCallStack =&gt; [Gen a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">oneof</span></span><span>
@@ -513,8 +513,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-identifier hs-var">ChangeHeadRedeemer</span></span><span> </span><span class="annot"><span class="annottext">(Input -&gt; SomeMutation) -&gt; Gen Input -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-180"></span><span>        </span><span id="local-6989586621679490787"><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx)
-</span><a href="#local-6989586621679490787"><span class="hs-identifier hs-var">mutatedSignature</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (MultiSignature (Snapshot Tx))
+</span><span id="line-180"></span><span>        </span><span id="local-6989586621679490789"><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx)
+</span><a href="#local-6989586621679490789"><span class="hs-identifier hs-var">mutatedSignature</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (MultiSignature (Snapshot Tx))
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MultiSignature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-181"></span><span>        </span><span class="annot"><span class="annottext">Input -&gt; Gen Input
@@ -527,21 +527,21 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">Head.Contest</span></span><span>
 </span><span id="line-183"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Head.ContestUnused</span></span><span>
 </span><span id="line-184"></span><span>              </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:signature:ContestUnused :: [Hash]
-</span><a href="#local-6989586621679490790"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx) -&gt; [Hash]
+</span><a href="#local-6989586621679490792"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx) -&gt; [Hash]
 forall a. MultiSignature a -&gt; [Hash]
 </span><span class="hs-identifier hs-var">toPlutusSignatures</span></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx)
-</span><a href="#local-6989586621679490787"><span class="hs-identifier hs-var">mutatedSignature</span></a></span><span>
+</span><a href="#local-6989586621679490789"><span class="hs-identifier hs-var">mutatedSignature</span></a></span><span>
 </span><span id="line-185"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:accumulatorHash:ContestUnused :: Hash
-</span><a href="#local-6989586621679490791"><span class="hs-identifier hs-var">accumulatorHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+</span><a href="#local-6989586621679490793"><span class="hs-identifier hs-var">accumulatorHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncAccumulatorHash"><span class="hs-identifier hs-var">healthyContestIncAccumulatorHash</span></a></span><span>
 </span><span id="line-186"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:appliedAccumulatorHash:ContestUnused :: Hash
-</span><a href="#local-6989586621679490792"><span class="hs-identifier hs-var">appliedAccumulatorHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+</span><a href="#local-6989586621679490794"><span class="hs-identifier hs-var">appliedAccumulatorHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncAppliedAccumulatorHash"><span class="hs-identifier hs-var">healthyContestIncAppliedAccumulatorHash</span></a></span><span>
 </span><span id="line-187"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:decommitOutputsHash:ContestUnused :: Hash
-</span><a href="#local-6989586621679490793"><span class="hs-identifier hs-var">decommitOutputsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+</span><a href="#local-6989586621679490795"><span class="hs-identifier hs-var">decommitOutputsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncDecommitOutputsHash"><span class="hs-identifier hs-var">healthyContestIncDecommitOutputsHash</span></a></span><span>
 </span><span id="line-188"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:commitOutputsHash:ContestUnused :: Hash
-</span><a href="#local-6989586621679490794"><span class="hs-identifier hs-var">commitOutputsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
+</span><a href="#local-6989586621679490796"><span class="hs-identifier hs-var">commitOutputsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hash
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#healthyContestIncCommitOutputsHash"><span class="hs-identifier hs-var">healthyContestIncCommitOutputsHash</span></a></span><span>
 </span><span id="line-189"></span><span>              </span><span class="hs-special">}</span><span>
 </span><span id="line-190"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ContestIncMutation -&gt; Mutation -&gt; SomeMutation
@@ -566,8 +566,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Gen (TxOut CtxTx) -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-191"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490799"><span class="annot"><span class="annottext">wrongCommitment :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490799"><span class="hs-identifier hs-var hs-var">wrongCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
+</span><span id="line-191"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490801"><span class="annot"><span class="annottext">wrongCommitment :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var hs-var">wrongCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">Accumulator.getAccumulatorCommitment</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
 </span><span class="hs-identifier hs-var">Accumulator.build</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;wrong&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
@@ -578,7 +578,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; TxOut CtxTx -&gt; Gen (TxOut CtxTx)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 forall a.
@@ -586,7 +586,7 @@ forall a.
 (a -&gt; a) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 </span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element -&gt; State -&gt; State
 </span><span class="hs-identifier hs-var">replaceAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490799"><span class="hs-identifier hs-var">wrongCommitment</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">wrongCommitment</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-193"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ContestIncMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
@@ -609,8 +609,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Gen (TxOut CtxTx) -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-194"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490804"><span class="annot"><span class="annottext">wrongCommitment :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490804"><span class="hs-identifier hs-var hs-var">wrongCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
+</span><span id="line-194"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490806"><span class="annot"><span class="annottext">wrongCommitment :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679490806"><span class="hs-identifier hs-var hs-var">wrongCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">Accumulator.getAccumulatorCommitment</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[ByteString] -&gt; HydraAccumulator
 </span><span class="hs-identifier hs-var">Accumulator.build</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;wrong&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
@@ -621,7 +621,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; TxOut CtxTx -&gt; Gen (TxOut CtxTx)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 forall a.
@@ -629,7 +629,7 @@ forall a.
 (a -&gt; a) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 </span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element -&gt; State -&gt; State
 </span><span class="hs-identifier hs-var">replaceAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490804"><span class="hs-identifier hs-var">wrongCommitment</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490806"><span class="hs-identifier hs-var">wrongCommitment</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-196"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ContestIncMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
@@ -652,8 +652,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Gen (TxOut CtxTx) -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-197"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490805"><span class="annot"><span class="annottext">appliedCommitment :: BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490805"><span class="hs-identifier hs-var hs-var">appliedCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
+</span><span id="line-197"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490807"><span class="annot"><span class="annottext">appliedCommitment :: BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679490807"><span class="hs-identifier hs-var hs-var">appliedCommitment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HydraAccumulator -&gt; BuiltinBLS12_381_G1_Element
 </span><span class="hs-identifier hs-var">Accumulator.getAccumulatorCommitment</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(HydraAccumulator, HydraAccumulator) -&gt; HydraAccumulator
 forall a b. (a, b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">(HydraAccumulator, HydraAccumulator)
@@ -665,7 +665,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; TxOut CtxTx -&gt; Gen (TxOut CtxTx)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx -&gt; (TxOut CtxTx -&gt; TxOut CtxTx) -&gt; TxOut CtxTx
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 forall a.
@@ -673,7 +673,7 @@ forall a.
 (a -&gt; a) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
 </span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element -&gt; State -&gt; State
 </span><span class="hs-identifier hs-var">replaceAccumulatorCommitment</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679490805"><span class="hs-identifier hs-var">appliedCommitment</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490807"><span class="hs-identifier hs-var">appliedCommitment</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-199"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ContestIncMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
@@ -690,8 +690,8 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestUsedIncMutateSnapshotVersion"><span class="hs-identifier hs-var">ContestUsedIncMutateSnapshotVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-200"></span><span>        </span><span id="local-6989586621679490807"><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679490807"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
+</span><span id="line-200"></span><span>        </span><span id="local-6989586621679490809"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679490809"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
 forall a. Integral a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrarySizedNatural</span></span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
 -&gt; (SnapshotVersion -&gt; Bool) -&gt; Gen SnapshotVersion
@@ -720,8 +720,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; SnapshotVersion
 forall a. Integral a =&gt; a -&gt; SnapshotVersion
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679490807"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
+</span><a href="#local-6989586621679490809"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
 </span><span id="line-202"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ContestIncMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
@@ -738,8 +738,8 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Contest.ContestInc.html#ContestUnusedIncMutateSnapshotVersion"><span class="hs-identifier hs-var">ContestUnusedIncMutateSnapshotVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-203"></span><span>        </span><span id="local-6989586621679490809"><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679490809"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
+</span><span id="line-203"></span><span>        </span><span id="local-6989586621679490811"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679490811"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
 forall a. Integral a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrarySizedNatural</span></span><span> </span><span class="annot"><span class="annottext">Gen SnapshotVersion
 -&gt; (SnapshotVersion -&gt; Bool) -&gt; Gen SnapshotVersion
@@ -768,12 +768,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; SnapshotVersion
 forall a. Integral a =&gt; a -&gt; SnapshotVersion
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679490809"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
+</span><a href="#local-6989586621679490811"><span class="hs-identifier hs-var">mutatedSnapshotVersion</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
 </span><span id="line-205"></span><span>    </span><span class="hs-special">]</span><span>
 </span><span id="line-206"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-207"></span><span>  </span><span id="local-6989586621679490801"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx
-</span><a href="#local-6989586621679490801"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
+</span><span id="line-207"></span><span>  </span><span id="local-6989586621679490803"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx
+</span><a href="#local-6989586621679490803"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
 forall a. HasCallStack =&gt; Maybe a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier hs-var">fromJust</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (TxOut CtxTx) -&gt; TxOut CtxTx)
 -&gt; Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
@@ -781,7 +781,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679490781"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int -&gt; Maybe (TxOut CtxTx)
+</span><a href="#local-6989586621679490783"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int -&gt; Maybe (TxOut CtxTx)
 forall a. [a] -&gt; Int -&gt; Maybe a
 </span><span class="hs-operator hs-var">!!?</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span>

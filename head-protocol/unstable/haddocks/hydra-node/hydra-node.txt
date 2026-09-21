@@ -3290,6 +3290,8 @@ instance GHC.Generics.Generic (Hydra.API.ServerOutput.ServerOutput tx)
 instance GHC.Generics.Generic (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.API.ServerOutput.TimedServerOutput tx)
+instance GHC.Show.Show Hydra.API.ServerOutput.CommitInfo
+instance GHC.Classes.Eq Hydra.API.ServerOutput.CommitInfo
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.ServerOutput.NetworkInfo
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.ServerOutput.NetworkInfo
 instance GHC.Generics.Generic Hydra.API.ServerOutput.NetworkInfo
@@ -3625,6 +3627,14 @@ newtype ServerOutputFilter tx
 ServerOutputFilter :: (TimedServerOutput tx -> Text -> Bool) -> ServerOutputFilter tx
 [$sel:txContainsAddr:ServerOutputFilter] :: ServerOutputFilter tx -> TimedServerOutput tx -> Text -> Bool
 serverOutputFilter :: ServerOutputFilter Tx
+
+-- | Whether a transaction involves the given address, by paying to it or
+--   by spending from it.
+--   
+--   Both directions matter to a client watching its own address: the
+--   snapshot in which its funds leave the head is the one it most needs,
+--   and a transaction that spends a UTxO in full leaves no output behind
+--   to match on.
 matchingAddr :: Text -> Tx -> Bool
 
 module Hydra.API.HTTPServer

@@ -62,21 +62,18 @@ ephemeralRangeCheck :: ()
 --   stay registered, so they are never tried again.
 allocatePort :: Maybe (PortNumber -> PortNumber) -> IO PortNumber
 
--- | Find a free TCPv4 port for listening on <tt>localhost</tt>.
+-- | Find a free TCPv4 port and reserve its derived companion port
+--   alongside it, in the same sense as
+--   <a>randomUnusedTCPPortsWithDerived</a>. Use this for tests that spin
+--   up a subprocess (such as etcd) which itself binds a port computed from
+--   the configured one.
 --   
---   The port is unique for the lifetime of the test process, see
---   <a>allocatePort</a>.
-getRandomPort :: IO PortNumber
-
--- | Find a free TCPv4 port and pass it to the given <tt>action</tt>.
---   
---   NOTE: Should be used only for testing.
-withFreePort :: (PortNumber -> IO a) -> IO a
-
--- | Like <a>withFreePort</a> but also reserves the derived companion port,
---   in the same sense as <a>randomUnusedTCPPortsWithDerived</a>. Use this
---   for tests that spin up a subprocess (such as etcd) which itself binds
---   a port computed from the configured one.
+--   There is deliberately no bare-port variant: a port handed out as a
+--   number is free only until something else binds it, and every
+--   in-process server now takes an already-bound socket instead. A test
+--   that must exercise binding a port itself should first hold a bound
+--   socket on that port (as hydra-node's ServerSpec does for its
+--   port-in-use test), so the window never exists.
 withFreePortAndDerived :: (PortNumber -> PortNumber) -> (PortNumber -> IO a) -> IO a
 
 -- | Find the specified number of free ports, mutually unique for the

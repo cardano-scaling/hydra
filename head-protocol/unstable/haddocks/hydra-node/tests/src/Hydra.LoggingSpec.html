@@ -33,53 +33,53 @@ forall (m :: * -&gt; *) r.
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;logging-spec&quot;</span></span><span> </span><span class="annot"><span class="annottext">(([Char] -&gt; IO ()) -&gt; IO ()) -&gt; ([Char] -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727391"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679727391"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-21"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679727392"><span class="annot"><span class="annottext">logFile :: [Char]
-</span><a href="#local-6989586621679727392"><span class="hs-identifier hs-var hs-var">logFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679727391"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729138"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679729138"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-21"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679729139"><span class="annot"><span class="annottext">logFile :: [Char]
+</span><a href="#local-6989586621679729139"><span class="hs-identifier hs-var hs-var">logFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679729138"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;log.jsonl&quot;</span></span><span>
 </span><span id="line-22"></span><span>      </span><span class="annot"><span class="annottext">[Char] -&gt; IOMode -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall a. [Char] -&gt; IOMode -&gt; (Handle -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withFile</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679727392"><span class="hs-identifier hs-var">logFile</span></a></span><span> </span><span class="annot"><span class="annottext">IOMode
+</span><a href="#local-6989586621679729139"><span class="hs-identifier hs-var">logFile</span></a></span><span> </span><span class="annot"><span class="annottext">IOMode
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.IOMode.html#WriteMode"><span class="hs-identifier hs-var">WriteMode</span></a></span><span> </span><span class="annot"><span class="annottext">((Handle -&gt; IO ()) -&gt; IO ()) -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727395"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727395"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729142"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729142"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-23"></span><span>        </span><span class="annot"><span class="annottext">BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withTracerOutputTo</span></span><span> </span><span class="annot"><span class="annottext">BufferMode
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#LineBuffering"><span class="hs-identifier hs-var">LineBuffering</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727395"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729142"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;test&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Tracer IO Value -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727397"><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727397"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729144"><span class="annot"><span class="annottext">Tracer IO Value
+</span><a href="#local-6989586621679729144"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-24"></span><span>          </span><span class="annot"><span class="annottext">Tracer IO Value -&gt; Value -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727397"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><a href="#local-6989586621679729144"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><span id="line-25"></span><span>      </span><span id="local-6989586621679727398"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679727398"><span class="hs-identifier hs-var">captured</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO ByteString
+</span><span id="line-25"></span><span>      </span><span id="local-6989586621679729145"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679729145"><span class="hs-identifier hs-var">captured</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO ByteString
 forall (m :: * -&gt; *). MonadIO m =&gt; [Char] -&gt; m ByteString
 </span><span class="hs-identifier hs-var">readFileBS</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679727392"><span class="hs-identifier hs-var">logFile</span></a></span><span>
+</span><a href="#local-6989586621679729139"><span class="hs-identifier hs-var">logFile</span></a></span><span>
 </span><span id="line-26"></span><span>      </span><span class="annot"><span class="annottext">Text -&gt; [Char]
 forall a. ToString a =&gt; a -&gt; [Char]
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679727398"><span class="hs-identifier hs-var">captured</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679729145"><span class="hs-identifier hs-var">captured</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;{\&quot;foo\&quot;:42}&quot;</span></span><span>
@@ -97,28 +97,28 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a. ((Handle, Handle) -&gt; IO a) -&gt; IO a
-</span><a href="#local-6989586621679727403"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679729150"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
 -&gt; ((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679727404"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727404"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679727405"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727405"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679729151"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729151"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679729152"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729152"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withTracerOutputTo</span></span><span> </span><span class="annot"><span class="annottext">BufferMode
 </span><span class="hs-identifier hs-var">defaultLogBuffering</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727405"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729152"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;test&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Tracer IO Value -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727406"><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727406"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729153"><span class="annot"><span class="annottext">Tracer IO Value
+</span><a href="#local-6989586621679729153"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-33"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO Value -&gt; Value -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727406"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><a href="#local-6989586621679729153"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
@@ -127,8 +127,8 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-34"></span><span>        </span><span class="hs-comment">-- The writer thread is asynchronous, so this blocks until it has both</span><span>
 </span><span id="line-35"></span><span>        </span><span class="hs-comment">-- written and flushed the entry.</span><span>
-</span><span id="line-36"></span><span>        </span><span id="local-6989586621679727407"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679727407"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; IO Text -&gt; IO Text
+</span><span id="line-36"></span><span>        </span><span id="local-6989586621679729154"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729154"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; IO Text -&gt; IO Text
 forall (m :: * -&gt; *) a.
 (HasCallStack, MonadTimer m, MonadThrow m) =&gt;
 NominalDiffTime -&gt; m a -&gt; m a
@@ -137,11 +137,11 @@ NominalDiffTime -&gt; m a -&gt; m a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Text
 </span><span class="hs-identifier hs-var">Text.IO.hGetLine</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727404"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
+</span><a href="#local-6989586621679729151"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
 </span><span id="line-37"></span><span>        </span><span class="annot"><span class="annottext">Text -&gt; [Char]
 forall a. ToString a =&gt; a -&gt; [Char]
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679727407"><span class="hs-identifier hs-var">line</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679729154"><span class="hs-identifier hs-var">line</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;{\&quot;foo\&quot;:42}&quot;</span></span><span>
@@ -157,27 +157,27 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-40"></span><span>    </span><span class="annot"><span class="annottext">((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a. ((Handle, Handle) -&gt; IO a) -&gt; IO a
-</span><a href="#local-6989586621679727403"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679729150"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
 -&gt; ((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679727410"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727410"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679727411"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727411"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679729157"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729157"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679729158"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729158"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-41"></span><span>      </span><span class="annot"><span class="annottext">BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) msg a.
 (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =&gt;
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withTracerOutputTo</span></span><span> </span><span class="annot"><span class="annottext">BufferMode
 </span><span class="hs-identifier hs-var">defaultLogBuffering</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727411"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729158"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;test&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Tracer IO Value -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727412"><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727412"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729159"><span class="annot"><span class="annottext">Tracer IO Value
+</span><a href="#local-6989586621679729159"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-42"></span><span>        </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.html#hClose"><span class="hs-identifier hs-var">hClose</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727410"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
+</span><a href="#local-6989586621679729157"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
 </span><span id="line-43"></span><span>        </span><span class="hs-comment">-- Writing to a pipe nobody reads raises an IOException, as GHC ignores</span><span>
 </span><span id="line-44"></span><span>        </span><span class="hs-comment">-- SIGPIPE. The writer has to survive that: were it to die, the queue</span><span>
 </span><span id="line-45"></span><span>        </span><span class="hs-comment">-- would fill and every subsequent 'traceWith' would block forever.</span><span>
@@ -202,18 +202,18 @@ forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-identifier hs-var">defaultQueueSize</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO ()) -&gt; IO ()) -&gt; (Int -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727415"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727415"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729162"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679729162"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-48"></span><span>            </span><span class="annot"><span class="annottext">Tracer IO Value -&gt; Value -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679727412"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><a href="#local-6989586621679729159"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727415"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679729162"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-49"></span><span>
 </span><span id="line-50"></span><span>  </span><span class="hs-comment">-- A 'ToJSON' reachable from a traced type can be</span><span>
 </span><span id="line-51"></span><span>  </span><span class="hs-comment">-- partial: the node traces client inputs, and a side-loaded snapshot's</span><span>
@@ -232,12 +232,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a. ((Handle, Handle) -&gt; IO a) -&gt; IO a
-</span><a href="#local-6989586621679727403"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679729150"><span class="hs-identifier hs-var">withPipe</span></a></span><span> </span><span class="annot"><span class="annottext">(((Handle, Handle) -&gt; IO ()) -&gt; IO ())
 -&gt; ((Handle, Handle) -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679727416"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727416"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679727417"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727417"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679729163"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729163"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679729164"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729164"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-58"></span><span>      </span><span class="annot"><span class="annottext">BufferMode
 -&gt; Handle -&gt; Text -&gt; (Tracer IO Loggable -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) msg a.
@@ -245,12 +245,12 @@ forall (m :: * -&gt; *) msg a.
 BufferMode -&gt; Handle -&gt; Text -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withTracerOutputTo</span></span><span> </span><span class="annot"><span class="annottext">BufferMode
 </span><span class="hs-identifier hs-var">defaultLogBuffering</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727417"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729164"><span class="hs-identifier hs-var">writeEnd</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;test&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Tracer IO Loggable -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO Loggable -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727418"><span class="annot"><span class="annottext">Tracer IO Loggable
-</span><a href="#local-6989586621679727418"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729165"><span class="annot"><span class="annottext">Tracer IO Loggable
+</span><a href="#local-6989586621679729165"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-59"></span><span>        </span><span class="annot"><span class="annottext">[Loggable] -&gt; (Loggable -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
@@ -260,17 +260,17 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="Hydra.LoggingSpec.html#Overflowing"><span class="hs-identifier hs-var">Overflowing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Loggable
 </span><a href="Hydra.LoggingSpec.html#Undescribable"><span class="hs-identifier hs-var">Undescribable</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Loggable -&gt; IO ()) -&gt; IO ()) -&gt; (Loggable -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727422"><span class="annot"><span class="annottext">Loggable
-</span><a href="#local-6989586621679727422"><span class="hs-identifier hs-var">poison</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729169"><span class="annot"><span class="annottext">Loggable
+</span><a href="#local-6989586621679729169"><span class="hs-identifier hs-var">poison</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-60"></span><span>          </span><span class="annot"><span class="annottext">Tracer IO Loggable -&gt; Loggable -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Loggable
-</span><a href="#local-6989586621679727418"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">Loggable
-</span><a href="#local-6989586621679727422"><span class="hs-identifier hs-var">poison</span></a></span><span>
+</span><a href="#local-6989586621679729165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">Loggable
+</span><a href="#local-6989586621679729169"><span class="hs-identifier hs-var">poison</span></a></span><span>
 </span><span id="line-61"></span><span>          </span><span class="hs-comment">-- Loudly, not silently: the offending entry is replaced by a</span><span>
 </span><span id="line-62"></span><span>          </span><span class="hs-comment">-- diagnostic one rather than dropped.</span><span>
-</span><span id="line-63"></span><span>          </span><span id="local-6989586621679727423"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679727423"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; IO Text -&gt; IO Text
+</span><span id="line-63"></span><span>          </span><span id="local-6989586621679729170"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679729170"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; IO Text -&gt; IO Text
 forall (m :: * -&gt; *) a.
 (HasCallStack, MonadTimer m, MonadThrow m) =&gt;
 NominalDiffTime -&gt; m a -&gt; m a
@@ -279,11 +279,11 @@ NominalDiffTime -&gt; m a -&gt; m a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Text
 </span><span class="hs-identifier hs-var">Text.IO.hGetLine</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727416"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
+</span><a href="#local-6989586621679729163"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
 </span><span id="line-64"></span><span>          </span><span class="annot"><span class="annottext">Text -&gt; [Char]
 forall a. ToString a =&gt; a -&gt; [Char]
 </span><span class="hs-identifier hs-var">toString</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679727423"><span class="hs-identifier hs-var">line</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679729170"><span class="hs-identifier hs-var">line</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;UnencodableLogEntry&quot;</span></span><span>
@@ -309,25 +309,25 @@ forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-identifier hs-var">defaultQueueSize</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO ()) -&gt; IO ()) -&gt; (Int -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727424"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727424"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729171"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679729171"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-68"></span><span>            </span><span class="annot"><span class="annottext">Tracer IO Loggable -&gt; Loggable -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Loggable
-</span><a href="#local-6989586621679727418"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Loggable
+</span><a href="#local-6989586621679729165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Loggable
 </span><a href="Hydra.LoggingSpec.html#Encodable"><span class="hs-identifier hs-var">Encodable</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727424"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679729171"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-69"></span><span>            </span><span class="annot"><span class="annottext">IO Text -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Text -&gt; IO ()) -&gt; IO Text -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Text
 </span><span class="hs-identifier hs-var">Text.IO.hGetLine</span></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727416"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
+</span><a href="#local-6989586621679729163"><span class="hs-identifier hs-var">readEnd</span></a></span><span>
 </span><span id="line-70"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-71"></span><span>  </span><span id="local-6989586621679727194"><span class="annot"><a href="#local-6989586621679727403"><span class="hs-identifier hs-type">withPipe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679727194"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679727194"><span class="hs-identifier hs-type">a</span></a></span></span><span>
-</span><span id="line-72"></span><span>  </span><span id="local-6989586621679727403"><span class="annot"><span class="annottext">withPipe :: forall a. ((Handle, Handle) -&gt; IO a) -&gt; IO a
-</span><a href="#local-6989586621679727403"><span class="hs-identifier hs-var hs-var">withPipe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Handle, Handle)
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679728941"><span class="annot"><a href="#local-6989586621679729150"><span class="hs-identifier hs-type">withPipe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679728941"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679728941"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679729150"><span class="annot"><span class="annottext">withPipe :: forall a. ((Handle, Handle) -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621679729150"><span class="hs-identifier hs-var hs-var">withPipe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Handle, Handle)
 -&gt; ((Handle, Handle) -&gt; IO ())
 -&gt; ((Handle, Handle) -&gt; IO a)
 -&gt; IO a
@@ -341,22 +341,22 @@ m a -&gt; (a -&gt; m b) -&gt; (a -&gt; m c) -&gt; m c
 -&gt; ((Handle, Handle) -&gt; IO a)
 -&gt; IO a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679727437"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727437"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679727438"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727438"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679729184"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729184"><span class="hs-identifier hs-var">readEnd</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679729185"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729185"><span class="hs-identifier hs-var">writeEnd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">[Handle] -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727437"><span class="hs-identifier hs-var">readEnd</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727438"><span class="hs-identifier hs-var">writeEnd</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Handle -&gt; IO ()) -&gt; IO ()) -&gt; (Handle -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679729184"><span class="hs-identifier hs-var">readEnd</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729185"><span class="hs-identifier hs-var">writeEnd</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Handle -&gt; IO ()) -&gt; IO ()) -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679727439"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727439"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679729186"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679729186"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-74"></span><span>      </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.html#hClose"><span class="hs-identifier hs-var">hClose</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679727439"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (IOException -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679729186"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (IOException -&gt; IO ()) -&gt; IO ()
 forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
 forall (m :: * -&gt; *) e a.
 (MonadCatch m, Exception e) =&gt;
@@ -372,9 +372,9 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-78"></span><span class="hs-comment">-- to).</span><span>
 </span><span id="line-79"></span><span class="hs-keyword">data</span><span> </span><span id="Loggable"><span class="annot"><a href="Hydra.LoggingSpec.html#Loggable"><span class="hs-identifier hs-var">Loggable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Unencodable"><span class="annot"><a href="Hydra.LoggingSpec.html#Unencodable"><span class="hs-identifier hs-var">Unencodable</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Overflowing"><span class="annot"><a href="Hydra.LoggingSpec.html#Overflowing"><span class="hs-identifier hs-var">Overflowing</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Undescribable"><span class="annot"><a href="Hydra.LoggingSpec.html#Undescribable"><span class="hs-identifier hs-var">Undescribable</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Encodable"><span class="annot"><a href="Hydra.LoggingSpec.html#Encodable"><span class="hs-identifier hs-var">Encodable</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
 </span><span id="line-80"></span><span>
-</span><span id="line-81"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679727443"><span id="local-6989586621679727446"><span id="local-6989586621679727449"><span id="local-6989586621679727452"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html#Loggable"><span class="hs-identifier hs-type">Loggable</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679727469"><span class="annot"><span class="annottext">toJSON :: Loggable -&gt; Value
-</span><a href="#local-6989586621679727469"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-81"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679729190"><span id="local-6989586621679729193"><span id="local-6989586621679729196"><span id="local-6989586621679729199"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html#Loggable"><span class="hs-identifier hs-type">Loggable</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679729216"><span class="annot"><span class="annottext">toJSON :: Loggable -&gt; Value
+</span><a href="#local-6989586621679729216"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">Loggable
 </span><a href="Hydra.LoggingSpec.html#Unencodable"><span class="hs-identifier hs-var">Unencodable</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
@@ -395,21 +395,21 @@ forall a e. Exception e =&gt; e -&gt; a
 forall a e. Exception e =&gt; e -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.html#throw"><span class="hs-identifier hs-var">throw</span></a></span><span> </span><span class="annot"><span class="annottext">Undescribed
 </span><a href="Hydra.LoggingSpec.html#Undescribed"><span class="hs-identifier hs-var">Undescribed</span></a></span><span>
-</span><span id="line-91"></span><span>    </span><span class="annot"><a href="Hydra.LoggingSpec.html#Encodable"><span class="hs-identifier hs-type">Encodable</span></a></span><span> </span><span id="local-6989586621679727473"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727473"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span id="line-91"></span><span>    </span><span class="annot"><a href="Hydra.LoggingSpec.html#Encodable"><span class="hs-identifier hs-type">Encodable</span></a></span><span> </span><span id="local-6989586621679729220"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679729220"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679727473"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679729220"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-92"></span><span>
 </span><span id="line-93"></span><span class="hs-comment">-- | An exception that cannot be rendered, so the diagnostic entry substituted</span><span>
 </span><span id="line-94"></span><span class="hs-comment">-- for it cannot be encoded either. 'unencodable' reaches this through</span><span>
 </span><span id="line-95"></span><span class="hs-comment">-- 'SomeException''s own 'displayException', which delegates to the wrapped</span><span>
 </span><span id="line-96"></span><span class="hs-comment">-- exception's.</span><span>
 </span><span id="line-97"></span><span class="hs-keyword">data</span><span> </span><span id="Undescribed"><span class="annot"><a href="Hydra.LoggingSpec.html#Undescribed"><span class="hs-identifier hs-var">Undescribed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Undescribed"><span class="annot"><a href="Hydra.LoggingSpec.html#Undescribed"><span class="hs-identifier hs-var">Undescribed</span></a></span></span><span>
-</span><span id="line-98"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679727476"><span id="local-6989586621679727478"><span id="local-6989586621679727482"><span class="annot"><span class="annottext">Int -&gt; Undescribed -&gt; [Char] -&gt; [Char]
+</span><span id="line-98"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679729223"><span id="local-6989586621679729225"><span id="local-6989586621679729229"><span class="annot"><span class="annottext">Int -&gt; Undescribed -&gt; [Char] -&gt; [Char]
 [Undescribed] -&gt; [Char] -&gt; [Char]
 Undescribed -&gt; [Char]
 (Int -&gt; Undescribed -&gt; [Char] -&gt; [Char])
@@ -427,8 +427,8 @@ $cshowList :: [Undescribed] -&gt; [Char] -&gt; [Char]
 showList :: [Undescribed] -&gt; [Char] -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-99"></span><span>
-</span><span id="line-100"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679727490"><span id="local-6989586621679727493"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html#Undescribed"><span class="hs-identifier hs-type">Undescribed</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-101"></span><span>  </span><span id="local-6989586621679727504"><span class="annot"><span class="annottext">displayException :: Undescribed -&gt; [Char]
+</span><span id="line-100"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679729237"><span id="local-6989586621679729240"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.LoggingSpec.html#Undescribed"><span class="hs-identifier hs-type">Undescribed</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621679729251"><span class="annot"><span class="annottext">displayException :: Undescribed -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#displayException"><span class="hs-identifier hs-var hs-var hs-var hs-var">displayException</span></a></span></span><span> </span><span class="annot"><span class="annottext">Undescribed
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Char]
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a

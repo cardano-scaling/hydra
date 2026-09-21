@@ -1,0 +1,614 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Tests for the @?address=@ output filter applied by 'Hydra.API.WSServer'.</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- 'Hydra.API.ServerSpec' covers the server-side wiring that reaches it.</span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.API.ServerOutputFilterSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Text</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html"><span class="hs-identifier">Data.Time.Clock.POSIX</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier">posixSecondsToUTCTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.API.ServerOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ServerOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TimedServerOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.API.ServerOutputFilter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ServerOutputFilter</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">serverOutputFilter</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genTxIn</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html"><span class="hs-identifier">Hydra.HeadLogicSpec</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier">testSnapshot</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano.Builder</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">addTxInsSpending</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unsafeBuildTransaction</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.API.ServerOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Chain.Direct.State</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">testHeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testNetworkId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genKeyPair</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">generate</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Arbitrary.ADT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ConstructorArbitraryPair</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toADTArbitrary</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-24"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Spec -&gt; Spec
+forall a. SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;SnapshotConfirmed&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes a snapshot whose confirmed tx pays the address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-27"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;drops a snapshot when no confirmed tx involves the address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-30"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDropFor"><span class="hs-operator hs-var">`shouldDropFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-comment">-- A snapshot confirming no transaction settles only a deposit or a</span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-comment">-- decommit. It carries no address, so it is not withheld: the filter</span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-comment">-- narrows what a client sees rather than hiding addressless events.</span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes a snapshot confirming no transactions&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-36"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes when any one of several confirmed txs involves the address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-39"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var">carolAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span>
+</span><span id="line-40"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes when the address is any one of a tx's outputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-43"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var">carolAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span>
+</span><span id="line-44"></span><span>        </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-comment">-- The snapshot in which a client's funds leave the head is the one it most</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-comment">-- needs, and a transaction spending a UTxO in full leaves no output to match.</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;spending from the address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes a snapshot whose confirmed tx spends from the address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-50"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-var">aliceSpendsTo</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;still drops that snapshot for an uninvolved address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-var">aliceSpendsTo</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDropFor"><span class="hs-operator hs-var">`shouldDropFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var">carolAddress</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes for both the sender and the recipient&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-var">aliceSpendsTo</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span>
+</span><span id="line-57"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-var">aliceSpendsTo</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-operator hs-var">`shouldPassFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;address comparison&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not match a well-formed address that is not involved&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var">bobAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDropFor"><span class="hs-operator hs-var">`shouldDropFor`</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var">carolAddress</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not match a string that is not an address&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-operator hs-var">`shouldDrop`</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;invalid&quot;</span></span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-operator hs-var">`shouldDrop`</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not match an address truncated or extended by one character&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-68"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679756508"><span class="annot"><span class="annottext">addr :: Text
+</span><a href="#local-6989586621679756508"><span class="hs-identifier hs-var hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; Text
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-var">bech32Of</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span>
+</span><span id="line-69"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-operator hs-var">`shouldDrop`</span></a></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text
+Text -&gt; Text
+</span><span class="hs-identifier hs-var">Text.init</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756508"><span class="hs-identifier hs-var">addr</span></a></span><span>
+</span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">[Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var">snapshotConfirmed</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var">aliceAddress</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-operator hs-var">`shouldDrop`</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756508"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;x&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-comment">-- Enumerated rather than sampled: adding a filtering arm for any other</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-comment">-- output would otherwise go unnoticed. Several of them do carry a</span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-comment">-- transaction ('TxInvalid', 'DecommitRequested', 'DecommitInvalid'), so</span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-comment">-- passing them is a decision, not a consequence of having nothing to match.</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;passes every output other than SnapshotConfirmed&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621679756511"><span class="annot"><span class="annottext">[(String, ServerOutput Tx)]
+</span><a href="#local-6989586621679756511"><span class="hs-identifier hs-var">others</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [(String, ServerOutput Tx)]
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#serverOutputsOtherThanSnapshotConfirmed"><span class="hs-identifier hs-var">serverOutputsOtherThanSnapshotConfirmed</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">[(String, ServerOutput Tx)] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[(String, ServerOutput Tx)]
+</span><a href="#local-6989586621679756511"><span class="hs-identifier hs-var">others</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int -&gt; Bool) -&gt; Expectation
+forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">[(String, ServerOutput Tx)]
+-&gt; ((String, ServerOutput Tx) -&gt; Expectation) -&gt; Expectation
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[(String, ServerOutput Tx)]
+</span><a href="#local-6989586621679756511"><span class="hs-identifier hs-var">others</span></a></span><span> </span><span class="annot"><span class="annottext">(((String, ServerOutput Tx) -&gt; Expectation) -&gt; Expectation)
+-&gt; ((String, ServerOutput Tx) -&gt; Expectation) -&gt; Expectation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679756517"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679756517"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679756518"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756518"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Expectation -&gt; Expectation
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ServerOutput Tx -&gt; Text -&gt; Bool
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#matches"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756518"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AddressInEra -&gt; Text
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-var">bech32Of</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var">carolAddress</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; Expectation)
+-&gt; (String -&gt; Expectation) -&gt; String -&gt; Expectation
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Expectation
+forall (m :: * -&gt; *) a.
+(HasCallStack, MonadThrow m) =&gt;
+String -&gt; m a
+</span><span class="hs-identifier hs-var">failure</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Expectation) -&gt; String -&gt; Expectation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679756517"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot; was filtered out&quot;</span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- * Fixtures</span></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#aliceKeys"><span class="hs-identifier hs-type">aliceKeys</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#bobKeys"><span class="hs-identifier hs-type">bobKeys</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#carolKeys"><span class="hs-identifier hs-type">carolKeys</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span id="aliceKeys"><span class="annot"><span class="annottext">aliceKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceKeys"><span class="hs-identifier hs-var hs-var">aliceKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genKeyPair</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; Int -&gt; (VerificationKey PaymentKey, SigningKey PaymentKey)
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-87"></span><span id="bobKeys"><span class="annot"><span class="annottext">bobKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobKeys"><span class="hs-identifier hs-var hs-var">bobKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genKeyPair</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; Int -&gt; (VerificationKey PaymentKey, SigningKey PaymentKey)
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-88"></span><span id="carolKeys"><span class="annot"><span class="annottext">carolKeys :: (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolKeys"><span class="hs-identifier hs-var hs-var">carolKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><span class="hs-identifier hs-var">genKeyPair</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; Int -&gt; (VerificationKey PaymentKey, SigningKey PaymentKey)
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-type">aliceAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-type">bobAddress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-type">carolAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span>
+</span><span id="line-91"></span><span id="aliceAddress"><span class="annot"><span class="annottext">aliceAddress :: AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceAddress"><span class="hs-identifier hs-var hs-var">aliceAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; VerificationKey PaymentKey
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceKeys"><span class="hs-identifier hs-var">aliceKeys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span id="bobAddress"><span class="annot"><span class="annottext">bobAddress :: AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobAddress"><span class="hs-identifier hs-var hs-var">bobAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; VerificationKey PaymentKey
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bobKeys"><span class="hs-identifier hs-var">bobKeys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span id="carolAddress"><span class="annot"><span class="annottext">carolAddress :: AddressInEra
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolAddress"><span class="hs-identifier hs-var hs-var">carolAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
+forall era.
+IsShelleyBasedEra era =&gt;
+NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
+</span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; VerificationKey PaymentKey
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#carolKeys"><span class="hs-identifier hs-var">carolKeys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="annot"><span class="hs-comment">-- | A transaction paying 2 Ada to each of the given addresses, unsigned.</span></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-type">txPayingTo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-97"></span><span id="txPayingTo"><span class="annot"><span class="annottext">txPayingTo :: [AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var hs-var">txPayingTo</span></a></span></span><span> </span><span id="local-6989586621679756529"><span class="annot"><span class="annottext">[AddressInEra]
+</span><a href="#local-6989586621679756529"><span class="hs-identifier hs-var">addresses</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><span class="annottext">HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
+TxBodyContent BuildTx -&gt; Tx
+</span><span class="hs-identifier hs-var">unsafeBuildTransaction</span></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+</span><span class="hs-identifier hs-var">defaultTxBodyContent</span></span><span>
+</span><span id="line-100"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+</span><span class="hs-identifier hs-var">addTxInsSpending</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Gen TxIn
+</span><span class="hs-identifier hs-var">genTxIn</span></span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; Int -&gt; TxIn
+forall a. Gen a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`generateWith`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span>
+</span><span id="line-101"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
+-&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
+-&gt; TxBodyContent BuildTx
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era] -&gt; TxBodyContent BuildTx -&gt; TxBodyContent BuildTx
+forall era build.
+[TxOut CtxTx era]
+-&gt; TxBodyContent build era -&gt; TxBodyContent build era
+</span><span class="hs-identifier hs-var">addTxOuts</span></span><span>
+</span><span id="line-102"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">AddressInEra
+-&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx Era
+forall ctx.
+AddressInEra
+-&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
+</span><span class="hs-identifier hs-var">TxOut</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679756534"><span class="hs-identifier hs-var">address</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
+</span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Lovelace
+</span><span class="hs-number">2_000_000</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
+forall ctx. TxOutDatum ctx
+</span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
+</span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
+</span><span id="line-103"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679756534"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679756534"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[AddressInEra]
+</span><a href="#local-6989586621679756529"><span class="hs-identifier hs-var">addresses</span></a></span><span>
+</span><span id="line-104"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- | Signed by Alice and paying only to the given address, so her witness is</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- all the filter has to go on.</span><span>
+</span><span id="line-108"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-type">aliceSpendsTo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-109"></span><span id="aliceSpendsTo"><span class="annot"><span class="annottext">aliceSpendsTo :: AddressInEra -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceSpendsTo"><span class="hs-identifier hs-var hs-var">aliceSpendsTo</span></a></span></span><span> </span><span id="local-6989586621679756538"><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679756538"><span class="hs-identifier hs-var">recipient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Tx -&gt; Tx
+forall era.
+IsShelleyBasedEra era =&gt;
+SigningKey PaymentKey -&gt; Tx era -&gt; Tx era
+</span><span class="hs-identifier hs-var">signTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+-&gt; SigningKey PaymentKey
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#aliceKeys"><span class="hs-identifier hs-var">aliceKeys</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[AddressInEra] -&gt; Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#txPayingTo"><span class="hs-identifier hs-var">txPayingTo</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">AddressInEra
+</span><a href="#local-6989586621679756538"><span class="hs-identifier hs-var">recipient</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-type">snapshotConfirmed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-112"></span><span id="snapshotConfirmed"><span class="annot"><span class="annottext">snapshotConfirmed :: [Tx] -&gt; ServerOutput Tx
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#snapshotConfirmed"><span class="hs-identifier hs-var hs-var">snapshotConfirmed</span></a></span></span><span> </span><span id="local-6989586621679756541"><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621679756541"><span class="hs-identifier hs-var">confirmed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotConfirmed</span></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:headId:NetworkConnected :: HeadId
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><span class="hs-identifier hs-var">testHeadId</span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:snapshot:NetworkConnected :: Snapshot Tx
+</span><span class="hs-identifier hs-var">snapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+-&gt; SnapshotVersion -&gt; [Tx] -&gt; UTxOType Tx -&gt; Snapshot Tx
+forall tx.
+IsTx tx =&gt;
+SnapshotNumber
+-&gt; SnapshotVersion -&gt; [tx] -&gt; UTxOType tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier hs-var">testSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621679756541"><span class="hs-identifier hs-var">confirmed</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType Tx
+UTxO
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:signatures:NetworkConnected :: MultiSignature (Snapshot Tx)
+</span><span class="hs-identifier hs-var">signatures</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot Tx)
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#serverOutputsOtherThanSnapshotConfirmed"><span class="hs-identifier hs-type">serverOutputsOtherThanSnapshotConfirmed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-120"></span><span id="serverOutputsOtherThanSnapshotConfirmed"><span class="annot"><span class="annottext">serverOutputsOtherThanSnapshotConfirmed :: IO [(String, ServerOutput Tx)]
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#serverOutputsOtherThanSnapshotConfirmed"><span class="hs-identifier hs-var hs-var">serverOutputsOtherThanSnapshotConfirmed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ADTArbitrary</span></span><span class="hs-special">{</span><span id="local-6989586621679756547"><span class="annot"><span class="annottext">[ConstructorArbitraryPair (ServerOutput Tx)]
+adtCAPs :: [ConstructorArbitraryPair (ServerOutput Tx)]
+adtCAPs :: forall a. ADTArbitrary a -&gt; [ConstructorArbitraryPair a]
+</span><a href="#local-6989586621679756547"><span class="hs-identifier hs-var hs-var">adtCAPs</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (ADTArbitrary (ServerOutput Tx))
+-&gt; IO (ADTArbitrary (ServerOutput Tx))
+forall a. Gen a -&gt; IO a
+</span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen (ADTArbitrary (ServerOutput Tx))
+ -&gt; IO (ADTArbitrary (ServerOutput Tx)))
+-&gt; Gen (ADTArbitrary (ServerOutput Tx))
+-&gt; IO (ADTArbitrary (ServerOutput Tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Proxy (ServerOutput Tx) -&gt; Gen (ADTArbitrary (ServerOutput Tx))
+forall a. ToADTArbitrary a =&gt; Proxy a -&gt; Gen (ADTArbitrary a)
+</span><span class="hs-identifier hs-var">toADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall t. Proxy t
+forall {k} (t :: k). Proxy t
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>  </span><span class="annot"><span class="annottext">[(String, ServerOutput Tx)] -&gt; IO [(String, ServerOutput Tx)]
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679756550"><span class="hs-identifier hs-var">capConstructor</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756551"><span class="hs-identifier hs-var">capArbitrary</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConstructorArbitraryPair</span></span><span class="hs-special">{</span><span id="local-6989586621679756550"><span class="annot"><span class="annottext">String
+capConstructor :: String
+capConstructor :: forall a. ConstructorArbitraryPair a -&gt; String
+</span><a href="#local-6989586621679756550"><span class="hs-identifier hs-var hs-var">capConstructor</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679756551"><span class="annot"><span class="annottext">ServerOutput Tx
+capArbitrary :: ServerOutput Tx
+capArbitrary :: forall a. ConstructorArbitraryPair a -&gt; a
+</span><a href="#local-6989586621679756551"><span class="hs-identifier hs-var hs-var">capArbitrary</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[ConstructorArbitraryPair (ServerOutput Tx)]
+</span><a href="#local-6989586621679756547"><span class="hs-identifier hs-var">adtCAPs</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679756550"><span class="hs-identifier hs-var">capConstructor</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;SnapshotConfirmed&quot;</span></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="annot"><span class="hs-comment">-- * Helpers</span></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-identifier hs-type">shouldPassFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Expectation</span></span><span>
+</span><span id="line-131"></span><span id="shouldPassFor"><span class="annot"><span class="annottext">shouldPassFor :: HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPassFor"><span class="hs-identifier hs-var hs-var">shouldPassFor</span></a></span></span><span> </span><span id="local-6989586621679756559"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756559"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPass"><span class="hs-identifier hs-var">shouldPass</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756559"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Expectation)
+-&gt; (AddressInEra -&gt; Text) -&gt; AddressInEra -&gt; Expectation
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; Text
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-var">bech32Of</span></a></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDropFor"><span class="hs-identifier hs-type">shouldDropFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Expectation</span></span><span>
+</span><span id="line-134"></span><span id="shouldDropFor"><span class="annot"><span class="annottext">shouldDropFor :: HasCallStack =&gt; ServerOutput Tx -&gt; AddressInEra -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDropFor"><span class="hs-identifier hs-var hs-var">shouldDropFor</span></a></span></span><span> </span><span id="local-6989586621679756564"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756564"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-identifier hs-var">shouldDrop</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756564"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Expectation)
+-&gt; (AddressInEra -&gt; Text) -&gt; AddressInEra -&gt; Expectation
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; Text
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-var">bech32Of</span></a></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPass"><span class="hs-identifier hs-type">shouldPass</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Expectation</span></span><span>
+</span><span id="line-137"></span><span id="shouldPass"><span class="annot"><span class="annottext">shouldPass :: HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldPass"><span class="hs-identifier hs-var hs-var">shouldPass</span></a></span></span><span> </span><span id="local-6989586621679756572"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756572"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span id="local-6989586621679756573"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756573"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx -&gt; Text -&gt; Bool
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#matches"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756572"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756573"><span class="hs-identifier hs-var">address</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-identifier hs-type">shouldDrop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Expectation</span></span><span>
+</span><span id="line-140"></span><span id="shouldDrop"><span class="annot"><span class="annottext">shouldDrop :: HasCallStack =&gt; ServerOutput Tx -&gt; Text -&gt; Expectation
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#shouldDrop"><span class="hs-identifier hs-var hs-var">shouldDrop</span></a></span></span><span> </span><span id="local-6989586621679756580"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756580"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span id="local-6989586621679756581"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756581"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx -&gt; Text -&gt; Bool
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#matches"><span class="hs-identifier hs-var">matches</span></a></span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756580"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679756581"><span class="hs-identifier hs-var">address</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#matches"><span class="hs-identifier hs-type">matches</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-143"></span><span id="matches"><span class="annot"><span class="annottext">matches :: ServerOutput Tx -&gt; Text -&gt; Bool
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#matches"><span class="hs-identifier hs-var hs-var">matches</span></a></span></span><span> </span><span id="local-6989586621679756582"><span class="annot"><span class="annottext">ServerOutput Tx
+</span><a href="#local-6989586621679756582"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><span class="annottext">ServerOutputFilter Tx -&gt; TimedServerOutput Tx -&gt; Text -&gt; Bool
+forall tx.
+ServerOutputFilter tx -&gt; TimedServerOutput tx -&gt; Text -&gt; Bool
+</span><span class="hs-identifier hs-var">txContainsAddr</span></span><span> </span><span class="annot"><span class="annottext">ServerOutputFilter Tx
+</span><span class="hs-identifier hs-var">serverOutputFilter</span></span><span> </span><span class="annot"><span class="annottext">TimedServerOutput Tx
+</span><a href="#local-6989586621679756584"><span class="hs-identifier hs-var">timed</span></a></span><span>
+</span><span id="line-145"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>  </span><span id="local-6989586621679756584"><span class="annot"><span class="annottext">timed :: TimedServerOutput Tx
+</span><a href="#local-6989586621679756584"><span class="hs-identifier hs-var hs-var">timed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:seq:TimedServerOutput :: Natural
+</span><span class="hs-identifier hs-var">seq</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:time:TimedServerOutput :: UTCTime
+</span><span class="hs-identifier hs-var">time</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">POSIXTime -&gt; UTCTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier hs-var">posixSecondsToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">POSIXTime
+</span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ServerOutput Tx
+output :: ServerOutput Tx
+$sel:output:TimedServerOutput :: ServerOutput Tx
+</span><a href="#local-6989586621679756582"><span class="hs-identifier hs-var hs-var">output</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="annot"><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-type">bech32Of</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-149"></span><span id="bech32Of"><span class="annot"><span class="annottext">bech32Of :: AddressInEra -&gt; Text
+</span><a href="Hydra.API.ServerOutputFilterSpec.html#bech32Of"><span class="hs-identifier hs-var hs-var">bech32Of</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddressInEra</span></span><span> </span><span id="local-6989586621679756590"><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621679756590"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr -&gt; Text
+forall a. SerialiseAsBech32 a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">serialiseToBech32</span></span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621679756590"><span class="hs-identifier hs-var">addr</span></a></span><span>
+</span><span id="line-151"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ByronAddressInEra</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;unexpected Byron address in fixture&quot;</span></span><span>
+</span><span id="line-152"></span></pre></body></html>
