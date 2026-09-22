@@ -14,6 +14,16 @@ module Hydra.HeadLogic.Settlements (
   tryInsertSettlement,
   trySettlementsFromMap,
   emptySettlements,
+  firstErasedSettlement,
+  pruneRetainedSettlements,
+  UnretainedSettlements,
+  unretainedEntries,
+  unretainedFromMap,
+  mapUnretainedStatuses,
+  insertUnretained,
+  deleteUnretained,
+  unretainedAfter,
+  pruneUnretained,
 ) where
 
 import Hydra.Prelude
@@ -76,6 +86,10 @@ instance FromCBOR SettlementStatus where
 data Settlements tx = Settlements
   { entries :: Map SnapshotVersion (Settlement tx)
   , deposits :: Set (TxIdType tx)
+  , erasedSettlementVersions :: Set SnapshotVersion
+  , oldestSettlementSlot :: ~(Maybe ChainSlot)
+  -- ^ Derived once per change and shared across ticks. Laziness avoids
+  -- scanning intermediate states while hydrating an event log.
   }
 
 deriving stock instance IsTx tx => Eq (Settlements tx)
@@ -104,7 +118,7 @@ instance IsTx tx => FromCBOR (Settlements tx) where
 
 emptySettlements :: Settlements tx
 emptySettlements =
-  Settlements Map.empty Set.empty
+  Settlements Map.empty Set.empty Set.empty Nothing
 
 data SettlementConflict tx
   = DepositAlreadyClaimed (Set (TxIdType tx))
@@ -141,6 +155,8 @@ tryInsertSettlement entry current
         current
           { entries = Map.insert version entry current.entries
           , deposits = Set.union current.deposits (settlementDepositIds entry)
+          , erasedSettlementVersions = if entry.status == Erased then Set.insert version current.erasedSettlementVersions else current.erasedSettlementVersions
+          , oldestSettlementSlot = earlierLandedSlot current.oldestSettlementSlot entry.status
           }
  where
   version = (getSnapshot entry.snapshot).version
@@ -169,16 +185,26 @@ trySettlementsFromMap =
 -- | Change an observation without changing the retained deposit claims.
 adjustSettlementStatus :: SnapshotVersion -> SettlementStatus -> Settlements tx -> Settlements tx
 adjustSettlementStatus version status settlements@Settlements{entries} =
-  settlements{entries = Map.adjust (\entry -> entry{status}) version entries}
+  case Map.lookup version entries of
+    Nothing -> settlements
+    Just entry
+      | entry.status == status -> settlements
+      | otherwise ->
+          let updatedEntries = Map.insert version entry{status} entries
+           in settlements
+                { entries = updatedEntries
+                , erasedSettlementVersions = (if status == Erased then Set.insert else Set.delete) version settlements.erasedSettlementVersions
+                , oldestSettlementSlot = oldestLandedSlot (map (.status) $ Map.elems updatedEntries)
+                }
 
 mapSettlementStatuses :: (SettlementStatus -> SettlementStatus) -> Settlements tx -> Settlements tx
 mapSettlementStatuses f settlements@Settlements{entries} =
-  settlements{entries = Map.map (\entry -> entry{status = f entry.status}) entries}
+  indexSettlementStatuses settlements{entries = Map.map (\entry -> entry{status = f entry.status}) entries}
 
 -- | Remove entries and release their deposit claims.
 filterSettlements :: forall tx. IsTx tx => (SettlementStatus -> Bool) -> Settlements tx -> Settlements tx
 filterSettlements keep settlements@Settlements{entries} =
-  foldl' removeClaim settlements{entries = retained} removed
+  indexSettlementStatuses $ foldl' removeClaim settlements{entries = retained} removed
  where
   (retained, removed) = Map.partition (keep . (.status)) entries
   removeClaim :: Settlements tx -> Settlement tx -> Settlements tx
@@ -191,3 +217,95 @@ filterSettlements keep settlements@Settlements{entries} =
 settlementDepositIds :: IsTx tx => Settlement tx -> Set (TxIdType tx)
 settlementDepositIds =
   Set.fromList . maybeToList . settlementDeposit
+
+-- | Rebuild only status-derived indexes; deposit claims do not change on rollback.
+indexSettlementStatuses :: Settlements tx -> Settlements tx
+indexSettlementStatuses settlements@Settlements{entries} =
+  settlements
+    { erasedSettlementVersions = Map.keysSet $ Map.filter ((== Erased) . (.status)) entries
+    , oldestSettlementSlot = oldestLandedSlot (map (.status) $ Map.elems entries)
+    }
+
+earlierLandedSlot :: Maybe ChainSlot -> SettlementStatus -> Maybe ChainSlot
+earlierLandedSlot oldest = \case
+  Erased -> oldest
+  Landed slot -> Just $! maybe slot (min slot) oldest
+
+oldestLandedSlot :: [SettlementStatus] -> Maybe ChainSlot
+oldestLandedSlot = foldl' earlierLandedSlot Nothing
+
+-- | Skip the full expiry scan until at least one landed entry can expire.
+pruneRetainedSettlements :: IsTx tx => ChainSlot -> Settlements tx -> Settlements tx
+pruneRetainedSettlements cutoff settlements
+  | maybe False (<= cutoff) settlements.oldestSettlementSlot =
+      filterSettlements (\case Landed slot -> slot > cutoff; Erased -> True) settlements
+  | otherwise = settlements
+
+-- | The lowest erased version is the only settlement the chain can accept next.
+firstErasedSettlement :: Settlements tx -> Maybe (Settlement tx)
+firstErasedSettlement settlements = do
+  version <- Set.lookupMin settlements.erasedSettlementVersions
+  Map.lookup version settlements.entries
+
+-- | Version bumps seen on chain, an increment or decrement landing, whose
+-- snapshot this node had not confirmed yet at the time, because another party
+-- collected the last signature and posted first. Keyed like 'Settlements'.
+--
+-- A note holds the status the settlement would have if it were retained. It is
+-- marked erased and pruned exactly like a retained settlement, and when the
+-- snapshot confirms, the retained entry takes the note's status (see the
+-- 'SnapshotConfirmed' branch of 'Hydra.HeadLogic.applyEvent'). Without the
+-- note, a rollback in that window would go unnoticed, and the settlement would
+-- be recorded as landed on a chain where it no longer exists.
+data UnretainedSettlements = UnretainedSettlements
+  { unretainedEntries :: Map.Map SnapshotVersion SettlementStatus
+  , oldestUnretainedSlot :: ~(Maybe ChainSlot)
+  }
+  deriving stock (Eq, Show)
+
+instance ToJSON UnretainedSettlements where
+  toJSON = toJSON . unretainedEntries
+  toEncoding = toEncoding . unretainedEntries
+
+instance FromJSON UnretainedSettlements where
+  parseJSON value = unretainedFromMap <$> parseJSON value
+
+instance ToCBOR UnretainedSettlements where
+  toCBOR = toCBOR . unretainedEntries
+
+instance FromCBOR UnretainedSettlements where
+  fromCBOR = unretainedFromMap <$> fromCBOR
+
+instance Semigroup UnretainedSettlements where
+  a <> b = unretainedFromMap (Map.union a.unretainedEntries b.unretainedEntries)
+
+instance Monoid UnretainedSettlements where
+  mempty = UnretainedSettlements mempty Nothing
+
+-- | The earliest landed slot is derived once per change, as for retained entries.
+unretainedFromMap :: Map.Map SnapshotVersion SettlementStatus -> UnretainedSettlements
+unretainedFromMap notes = UnretainedSettlements notes (oldestLandedSlot $ Map.elems notes)
+
+mapUnretainedStatuses :: (SettlementStatus -> SettlementStatus) -> UnretainedSettlements -> UnretainedSettlements
+mapUnretainedStatuses f = unretainedFromMap . Map.map f . unretainedEntries
+
+insertUnretained :: SnapshotVersion -> SettlementStatus -> UnretainedSettlements -> UnretainedSettlements
+insertUnretained version status = unretainedFromMap . Map.insert version status . unretainedEntries
+
+deleteUnretained :: SnapshotVersion -> UnretainedSettlements -> UnretainedSettlements
+deleteUnretained version notes
+  | Map.member version notes.unretainedEntries = unretainedFromMap $ Map.delete version notes.unretainedEntries
+  | otherwise = notes
+
+-- | Confirmation consumes its matching note before discarding older versions.
+unretainedAfter :: SnapshotVersion -> UnretainedSettlements -> UnretainedSettlements
+unretainedAfter version notes
+  | maybe False ((<= version) . fst) (Map.lookupMin notes.unretainedEntries) =
+      unretainedFromMap $ snd (Map.split version notes.unretainedEntries)
+  | otherwise = notes
+
+pruneUnretained :: ChainSlot -> UnretainedSettlements -> UnretainedSettlements
+pruneUnretained cutoff notes
+  | maybe False (<= cutoff) notes.oldestUnretainedSlot =
+      unretainedFromMap $ Map.filter (\case Landed slot -> slot > cutoff; Erased -> True) notes.unretainedEntries
+  | otherwise = notes
