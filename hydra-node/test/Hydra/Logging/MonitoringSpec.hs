@@ -70,9 +70,7 @@ spec = do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
-        let scrape =
-              Text.lines . decodeUtf8 . responseBody
-                <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
+        let scrape = Text.lines <$> scrapeMetrics p
 
         traceWith tracer (Node $ BroadcastBacklog 7 4)
         traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastStalled 7 NoProgress] mempty))
