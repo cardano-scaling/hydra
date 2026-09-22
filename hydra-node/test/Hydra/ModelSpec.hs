@@ -85,6 +85,7 @@ import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Typeable (cast)
+import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed, snapshot))
 import Hydra.BehaviorSpec (RequeueMode (..), TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -95,6 +96,7 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
+  genFaultySeed,
   genPartyKeysExactly,
   genPayment,
   genSeedWith,
@@ -104,18 +106,23 @@ import Hydra.Model (
   toTxOuts,
  )
 import Hydra.Model qualified as Model
+import Hydra.Model.MockChain (FaultMode (..), bogusDepositId, deviateFrom)
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
+import Hydra.Network.Message (Message (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.IsTx (UTxOType)
+import Hydra.Tx.IsTx qualified as IsTx
 import Hydra.Tx.Party (Party (..), deriveParty)
+import Hydra.Tx.Snapshot (Snapshot (..))
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxShrinks, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, conjoin, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxShrinks, withMaxSuccess, within)
+import Test.QuickCheck qualified as QC
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -143,6 +150,7 @@ import Test.QuickCheck.StateModel (
   pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
+import Text.Printf (printf)
 
 instance HasVariables Payment.CardanoSigningKey where
   getAllVariables = mempty
@@ -150,6 +158,7 @@ instance HasVariables Payment.CardanoSigningKey where
 spec :: Spec
 spec = do
   context "modeling" $ do
+    reportWalkActionMix
     prop "not generate actions with 0 Ada" $ withMaxSuccess 10000 propDoesNotGenerate0AdaUTxO
     prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
@@ -189,6 +198,19 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
+    prop "a party misbehaving on the network does not stop the head" $
+      propScripted headSurvivesFaultyParty
+    prop "check model with a party misbehaving on the network" $
+      forAllDL faultyWalk propHydraModel
+    prop "a replaced proposal is never the one an honest leader would send" propReplacingDeviates
+    -- The same party, now sending those deviations in place of the honest
+    -- proposal rather than alongside it, so the head is allowed to stop and
+    -- only what the parties confirmed before it did is judged. See
+    -- 'checkSnapshotsAreSound'.
+    prop "a party replacing its proposals cannot make the head lose track of funds" $
+      within 60000000 $
+        withMaxSuccess 50 $
+          forAllDL soundnessWalk checkSnapshotsAreSound
   -- The concurrent random walk lets several deposits and decommits settle at
   -- the same time as L2 traffic and divergent forks, and the scripted
   -- settlement replays pin down the races it found. In the order it found
@@ -261,6 +283,7 @@ propFanoutLimit limit =
           , contestationPeriod = UnsafeContestationPeriod 10
           , additionalUTxO = utxo
           , concurrentSettlements = False
+          , faultyParty = Nothing
           }
     headId <- action $ Init alice
     void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -290,7 +313,21 @@ propScripted d = withMaxSuccess 5 $ noShrinking $ mapSize (max 60) $ forAllDL d 
 -- scenario starts from here. The 'Wait' leaves room for deep forks that must
 -- stay clear of the head-opening transactions.
 openHeadWithDepositFuel :: Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
-openHeadWithDepositFuel n = do
+openHeadWithDepositFuel = openHeadWith (const Nothing)
+
+-- | 'openHeadWithDepositFuel' with the last party misbehaving on the network
+-- in the given way, see 'FaultMode'. Not the first, which leads the head's
+-- opening.
+openHeadWithFaultyParty :: FaultMode -> Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
+openHeadWithFaultyParty mode = openHeadWith $ \fuel -> case reverse fuel of
+  (party, _) : _ -> Just (party, mode)
+  [] -> Nothing
+
+openHeadWith ::
+  ([(Party, UTxOType Payment)] -> Maybe (Party, FaultMode)) ->
+  Int ->
+  DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
+openHeadWith pickFaulty n = do
   seedKeys <- forAllNonVariableQ $ withGenQ (genPartyKeysExactly n) (const True) (const [])
   let fuel = [(deriveParty hk, [(ck, lovelaceToValue 10_000_000)]) | (hk, ck) <- seedKeys]
   action_ $
@@ -299,10 +336,11 @@ openHeadWithDepositFuel n = do
       , contestationPeriod = UnsafeContestationPeriod 10
       , additionalUTxO = concatMap snd fuel
       , concurrentSettlements = True
+      , faultyParty = pickFaulty fuel
       }
   leader <- case fuel of
     (party, _) : _ -> pure party
-    [] -> error "openHeadWithDepositFuel: no parties"
+    [] -> error "openHeadWith: no parties"
   headId <- action $ Init leader
   action_ $ Model.Wait 200
   pure (headId, fuel)
@@ -397,6 +435,87 @@ twoFinalizedDecrementsErased = do
   action_ $ Model.ObserveDecommitFinalized dB
   action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
   headStillSettles
+
+-- | A party misbehaving on the network must not stop the head. It stays
+-- honest in the role where a fault wedges the head by design, so what is left
+-- is noise the head is meant to survive: every message twice, an
+-- acknowledgement for the round just finished, and proposals for the numbers
+-- either side of each round it leads. See
+-- 'Hydra.Model.MockChain.faultyBroadcast'.
+--
+-- The duplicate has to be ignored rather than counted twice, and the
+-- neighbouring proposals refused without recording a snapshot in flight. A
+-- receiver that recorded one would then refuse the real leader's request at
+-- that number as one it had already seen, and the head would stop confirming.
+--
+-- What this pins and what it does not, both measured rather than assumed.
+-- Dropping the check on a proposal's number in 'requireReqSn' fails here.
+-- Dropping the check on who leads that number does not, because every party
+-- then takes the injected proposal, they all agree on it, and the head keeps
+-- confirming with the real leader's proposal refused instead. That check
+-- decides who sets a snapshot's content, which no property about the head
+-- staying alive can see.
+headSurvivesFaultyParty :: DL WorldState ()
+headSurvivesFaultyParty = do
+  (headId, fuel) <- openHeadWithFaultyParty AddsMessages 3
+  let ((partyA, fuelA), (_, fuelB), (_, fuelC)) = threeParties fuel
+  -- Rounds of ordinary traffic between the settlements. Nothing is injected
+  -- except during a round, and the faulty party only proposes for the rounds
+  -- it leads, which with three parties is every third. A handful of
+  -- settlements on their own leave it leading once or twice, so most of what
+  -- it can send is never sent. These carry the head far enough for each
+  -- injection to go out several times, against a different state each time:
+  -- with a deposit in flight, with one settled, with a decommit in flight and
+  -- with the head quiet.
+  --
+  -- Worth the extra second it costs. Dropping the check on a proposal's
+  -- number in 'requireReqSn' is caught here and is not caught without these,
+  -- since without them the injected proposals for the numbers either side of
+  -- a round never meet a party far enough along to act on them.
+  someTraffic
+  a <- action $ Model.SubmitDeposit headId fuelA
+  someTraffic
+  action_ $ Model.ObserveCommitFinalized a
+  someTraffic
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized b
+  someTraffic
+  -- Whatever the head holds by now, rather than the fuel deposited earlier:
+  -- the traffic above has moved that on, and a decommit of something the head
+  -- no longer holds is refused before it is ever proposed.
+  whatTheHeadHolds >>= \case
+    Nothing -> pure ()
+    Just held -> do
+      dA <- action $ Model.SubmitDecommit partyA held
+      someTraffic
+      action_ $ Model.ObserveDecommitFinalized dA
+  someTraffic
+  c <- action $ Model.SubmitDeposit headId fuelC
+  action_ $ Model.ObserveCommitFinalized c
+  someTraffic
+  headStillSettles
+
+-- | A few snapshot rounds of ordinary layer-two traffic, to carry a scripted
+-- scenario past the handful of rounds its settlements alone would produce.
+someTraffic :: DL WorldState ()
+someTraffic = replicateM_ 3 $ do
+  st <- getModelStateDL
+  case st of
+    WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}}
+      | not (null confirmedUTxO) -> do
+          (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+          tx <- action $ Model.NewTx party payment
+          eventually (ObserveConfirmedTx tx)
+    _ -> pure ()
+
+-- | Something the head confirmed it holds, as a payment sending it back to
+-- whoever holds it, which is the shape a decommit takes.
+whatTheHeadHolds :: DL WorldState (Maybe Payment)
+whatTheHeadHolds =
+  getModelStateDL <&> \case
+    WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO = (ck, value) : _}}} ->
+      Just Payment{from = ck, to = ck, value}
+    _ -> Nothing
 
 -- | Scenario 4: an increment and then a decrement settle in consecutive
 -- versions; a fork erases both. The decrement can only re-land after the
@@ -499,6 +618,7 @@ closedHeadWithManyOutputs n = do
       , contestationPeriod = UnsafeContestationPeriod 10
       , additionalUTxO = utxo
       , concurrentSettlements = False
+      , faultyParty = Nothing
       }
   headId <- action $ Init alice
   action_ $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -622,6 +742,14 @@ propStressModelBalances =
       mapSize (const 100) $
         forAllDL concurrentWalk checkModelBalances
 
+-- | The walk behind the plain @check model@ property, which settles each
+-- deposit and decommit before the next action.
+defaultWalk :: DL WorldState ()
+defaultWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genSeedWith False) (const True) (const [])
+  action_ seed
+  anyActions_
+
 -- | A random walk with 'concurrentSettlements': deposits and decommits may
 -- overlap each other, L2 traffic and forks of every 'RequeueMode'.
 concurrentWalk :: DL WorldState ()
@@ -629,6 +757,169 @@ concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
   action_ seed
   anyActions_
+
+-- | 'concurrentWalk' with one party misbehaving on the network, see
+-- 'Hydra.Model.MockChain.faultyBroadcast'. The interleavings the walk produces
+-- are what decides when its duplicates and out-of-turn requests land, and so
+-- which guard has to refuse them.
+faultyWalk :: DL WorldState ()
+faultyWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True AddsMessages) (const True) (const [])
+  action_ seed
+  anyActions_
+
+-- | 'concurrentWalk' with one party proposing something other than what an
+-- honest leader would, in place of the honest proposal, see
+-- 'Hydra.Model.MockChain.replacingBroadcast'. The head may stop, so this walk
+-- is only ever run under 'checkSnapshotsAreSound'.
+soundnessWalk :: DL WorldState ()
+soundnessWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True ReplacesMessages) (const True) (const [])
+  action_ seed
+  anyActions_
+
+-- | Whatever an honest leader would have proposed, the faulty party proposes
+-- something else, see 'deviateFrom'.
+--
+-- 'checkSnapshotsAreSound' only means anything while this holds. A deviation
+-- which quietly came out equal to its input would leave that walk running an
+-- honest party under a name which says otherwise, and passing for it.
+propReplacingDeviates :: Property
+propReplacingDeviates =
+  conjoin
+    [ counterexample ("Proposal:     " <> show honest) $
+      counterexample ("Sent instead: " <> show (deviateFrom honest)) $
+        deviateFrom honest QC.=/= honest
+    | honest <- proposals
+    ]
+ where
+  -- Every shape a proposal comes in, all of them rather than a sample: which
+  -- deviation runs is decided by the number, and what it has to work with by
+  -- the rest, so the combinations are what matter and there are few enough to
+  -- take the lot. Ten numbers reach each of the five deviations twice.
+  --
+  -- A proposal carrying nothing is the case that used to slip through, and a
+  -- proposal already claiming the deposit a deviation would otherwise swap in
+  -- is the other. No honest leader sends that second one, since nothing on
+  -- chain answers to that id, but a deviation which quietly does nothing for
+  -- some input is not one worth having.
+  proposals =
+    [ ReqSn{snapshotVersion, snapshotNumber, transactionIds, decommitTx, depositTxId}
+    | snapshotVersion <- [0 .. 2]
+    , snapshotNumber <- [0 .. 9]
+    , transactionIds <- [[], [IsTx.txId aValidTx]]
+    , decommitTx <- [Nothing, Just aValidTx]
+    , depositTxId <- [Nothing, Just (IsTx.txId aValidTx), Just bogusDepositId]
+    ]
+
+  aValidTx :: Tx
+  aValidTx = generateWith arbitrary 42
+
+-- | Every snapshot the parties confirmed has to account for the value the head
+-- moved, whether or not the run reached the end of its actions.
+--
+-- This is the one property here that tolerates a head which stops. A party
+-- that withholds or corrupts a signing message stops the round it is in, and a
+-- round cannot be abandoned and reissued, so that stall is permanent and is
+-- the protocol working as written rather than a bug. A run against such a
+-- party therefore has nothing to say about liveness, and the verdict of the
+-- actions themselves is dropped. What it does have to say is whether the
+-- parties, before they stopped, ever confirmed a snapshot that does not add
+-- up, and that is judged here.
+checkSnapshotsAreSound :: Actions WorldState -> Property
+checkSnapshotsAreSound actions =
+  property $ runRunMonadIOSimGen $ do
+    runThem <- monadic' (void $ runActions actions)
+    pure $ do
+      outcome <- try @_ @SomeException runThem
+      Nodes{nodes} <- get
+      confirmed <- forM (Map.toList nodes) $ \(party, node) ->
+        (party,) . mapMaybe confirmationOf <$> lift (serverOutputs node)
+      let judged = map (uncurry partyConfirmedSoundSnapshots) confirmed
+          counted = map (length . snd) confirmed
+      pure $
+        -- Not thresholds to meet, just a record of how often each happened
+        -- when this went in, so a run which stops doing either is visible
+        -- rather than silently passing. The deviations themselves are pinned
+        -- by 'propReplacingDeviates', which does not depend on how the walk
+        -- happens to fall.
+        QC.cover 2 (isLeft outcome) "the run was stopped by the faulty party (12% then)" $
+          QC.cover 5 (foldr max 0 counted > (3 :: Int)) "more than three snapshots confirmed (22% then)" $
+            conjoin judged
+ where
+  confirmationOf :: ServerOutput Tx -> Maybe (Snapshot Tx)
+  confirmationOf = \case
+    SnapshotConfirmed{snapshot} -> Just snapshot
+    _ -> Nothing
+
+-- | Check one party's confirmed snapshots against each other, see
+-- 'checkSnapshotsAreSound'.
+partyConfirmedSoundSnapshots :: Party -> [Snapshot Tx] -> Property
+partyConfirmedSoundSnapshots party confirmed =
+  counterexample ("Party " <> show party <> " confirmed " <> show (length confirmed) <> " snapshot(s)") $
+    conjoin (zipWith step confirmed (drop 1 confirmed))
+ where
+  -- A node restarted mid-run starts a fresh output history, so two neighbours
+  -- here are not always two neighbours in the protocol. Only consecutive
+  -- numbers say anything, the rest are skipped.
+  step :: Snapshot Tx -> Snapshot Tx -> Property
+  step earlier later
+    | numberAfter /= numberBefore + 1 = property True
+    | versionAfter == versionBefore =
+        accountsFor "no settlement landed" (accountedValue earlier)
+    | versionAfter == versionBefore + 1 =
+        case (utxoToCommit earlier, utxoToDecommit earlier) of
+          (Just committed, Nothing) ->
+            accountsFor "an increment landed" (accountedValue earlier <> UTxO.totalValue committed)
+          (Nothing, Just decommitted) ->
+            accountsFor "a decrement landed" (accountedValue earlier <> negateValue (UTxO.totalValue decommitted))
+          _ ->
+            failing "a settlement landed for an action the snapshot preceding it did not carry"
+    | otherwise = failing "the version moved by more than one settlement"
+   where
+    Snapshot{number = numberBefore, version = versionBefore} = earlier
+    Snapshot{number = numberAfter, version = versionAfter} = later
+
+    accountsFor what expected =
+      counterexample ("Between them: " <> what) $
+        counterexample (describePair earlier later) $
+          accountedValue later === expected
+
+    failing why = counterexample (describePair earlier later) $ counterexample why False
+
+  describePair :: Snapshot Tx -> Snapshot Tx -> String
+  describePair earlier later =
+    "Snapshot "
+      <> show (number earlier)
+      <> " at version "
+      <> show (version earlier)
+      <> " accounting for "
+      <> toString (renderValue (accountedValue earlier))
+      <> ", carrying commit "
+      <> show (UTxO.totalValue <$> utxoToCommit earlier)
+      <> " and decommit "
+      <> show (UTxO.totalValue <$> utxoToDecommit earlier)
+      <> "\nSnapshot "
+      <> show (number later)
+      <> " at version "
+      <> show (version later)
+      <> " accounting for "
+      <> toString (renderValue (accountedValue later))
+
+-- | The value a snapshot accounts for: what the head holds under it, plus what
+-- it has agreed to let go of and not yet seen leave.
+--
+-- What it has agreed to take in is deliberately not counted. A deposit sits in
+-- its own output until the increment lands, so it is not the head's to account
+-- for yet, and a claim on one can expire and be taken back by whoever made it,
+-- which counting it would report as value gone missing. Nothing is lost by
+-- leaving it out: the amount an increment brings in is still checked, on the
+-- version bump which absorbs it. A decommit cannot be taken back the same way,
+-- since a proposal dropping one is refused, so counting that is safe and
+-- necessary, otherwise declaring a decommit would look like value vanishing.
+accountedValue :: Snapshot Tx -> Value
+accountedValue Snapshot{utxo, utxoToDecommit} =
+  UTxO.totalValue utxo <> foldMap UTxO.totalValue utxoToDecommit
 
 checkModelBalances :: Actions WorldState -> Property
 checkModelBalances actions =
@@ -790,6 +1081,110 @@ propDoesNotGenerate0AdaUTxO (Actions actions) =
 
   contains0Ada :: (a, Value) -> Bool
   contains0Ada = (== lovelaceToValue 0) . snd
+
+-- | Print what each random walk actually generates, and fail if the mix has
+-- gone degenerate.
+--
+-- What a walk exercises is decided by its generator and the preconditions
+-- together, and neither is readable from the other. A walk which quietly
+-- stopped producing deposits, or spent its whole length waiting, would keep
+-- passing and still look like the coverage its name claims. QuickCheck's own
+-- tables cannot be used for this: hspec keeps them to itself unless the
+-- property fails.
+--
+-- Only the actions are generated here, none are run, so this costs seconds
+-- rather than the minutes the walks themselves take.
+reportWalkActionMix :: Spec
+reportWalkActionMix =
+  it "generates a usable mix of actions in every random walk" $ do
+    measured <- traverse measure walks
+    putTextLn . toText $ intercalate "\n" (render <$> measured)
+    traverse_ requireEnoughOfEach measured
+ where
+  walks =
+    [ ("default walk", defaultWalk)
+    , ("concurrent walk", concurrentWalk)
+    , ("faulty-party walk", faultyWalk)
+    , ("replacing-party walk", soundnessWalk)
+    ]
+
+  -- Enough runs that a percentage means something, and not the same number
+  -- every time, so a mix which only holds up at one sample size does not go
+  -- unnoticed.
+  measure (walkName, walk) = do
+    runs <- QC.generate (QC.choose (300, 500))
+    ActionMix walkName runs <$> walkActionMix runs walk
+
+  -- Floors well under what was measured when this went in, so ordinary drift
+  -- stays quiet and a walk which stops doing one of these does not. The head
+  -- cannot be driven anywhere without all four. By what an action does rather
+  -- than what it is called, because a walk settling each deposit before the
+  -- next uses 'Model.Deposit' where a concurrent one uses 'Model.SubmitDeposit'.
+  requireEnoughOfEach ActionMix{walkName, generated} =
+    for_ needed $ \(what, belongs) -> do
+      let share = percentOf (length (filter belongs generated)) (length generated)
+      when (share < 1) $
+        expectationFailure (printf "%s is only %s of the %s" what (showPercent share) walkName)
+
+  needed :: [(String, String -> Bool)]
+  needed =
+    [ ("a deposit", (`elem` ["Deposit", "SubmitDeposit"]))
+    , ("a decommit", (`elem` ["Decommit", "SubmitDecommit"]))
+    , ("a transaction", (== "NewTx"))
+    , ("a divergent fork", (== "RollbackAndFork"))
+    ]
+
+  render ActionMix{walkName, runs, generated} =
+    intercalate "\n" $
+      printf "\n  %s, %d actions over %d runs:" walkName total runs
+        : [ printf "    %-7s %s" (showPercent (percentOf count total)) name
+          | (name, count) <- sortOn (Down . snd) (Map.toList (tally generated))
+          ]
+   where
+    total = length generated
+
+  tally :: Ord a => [a] -> Map a Int
+  tally xs = Map.fromListWith (+) [(x, 1) | x <- xs]
+
+  percentOf :: Int -> Int -> Double
+  percentOf n total = 100 * fromIntegral n / fromIntegral total
+
+  showPercent :: Double -> String
+  showPercent = printf "%.1f%%"
+
+-- | What one walk generated, see 'reportWalkActionMix'.
+data ActionMix = ActionMix
+  { walkName :: String
+  , runs :: Int
+  , generated :: [String]
+  -- ^ One entry per action generated, named after its constructor.
+  }
+
+-- | The names of the actions a walk generates, over the given number of runs.
+-- Nothing is executed, see 'reportWalkActionMix'.
+walkActionMix :: Int -> DL WorldState () -> IO [String]
+walkActionMix runs walk = do
+  collected <- newIORef []
+  result <-
+    QC.quickCheckWithResult QC.stdArgs{QC.maxSuccess = runs, QC.chatty = False} $
+      forAllDL walk $ \(Actions steps) ->
+        QC.ioProperty $ do
+          modifyIORef' collected (map nameOf steps <>)
+          pure True
+  -- The property above cannot fail, so anything other than success means the
+  -- walk would not produce actions at all, which every other test using it
+  -- would then fail on for reasons much harder to read than this.
+  unless (QC.isSuccess result) $
+    fail ("a walk generated no actions: " <> QC.output result)
+  readIORef collected
+ where
+  -- An action's constructor, taken off the front of its 'Show'. 'Action
+  -- WorldState' is a GADT, so there is no generic name to ask for, and a
+  -- case with an arm per constructor would be a second list to keep in step
+  -- with the first.
+  nameOf :: Step WorldState -> String
+  nameOf (_var := ActionWithPolarity a _) =
+    takeWhile (\c -> c /= ' ' && c /= '{') (show a)
 
 -- * Utilities
 

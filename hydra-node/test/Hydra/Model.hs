@@ -58,7 +58,7 @@ import Hydra.HeadLogic.State qualified as HeadLogic
 import Hydra.HeadLogic.StateEvent (StateEvent)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Model.MockChain (mockChainAndNetwork)
+import Hydra.Model.MockChain (FaultMode (..), mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.State (NodeState (..))
@@ -195,6 +195,8 @@ instance StateModel WorldState where
       , contestationPeriod :: ContestationPeriod
       , additionalUTxO :: UTxOType Payment
       , concurrentSettlements :: Bool
+      , faultyParty :: Maybe (Party, FaultMode)
+      -- \^ A party that misbehaves on the network, and how, see 'FaultMode'.
       } ->
       -- \^ Whether the random walk may have several deposits/decommits in
       -- flight at once ('SubmitDeposit' & co., forks in every 'RequeueMode')
@@ -302,14 +304,24 @@ instance StateModel WorldState where
     -- 'SubmitDeposit'. Observation is weighted higher so most pending
     -- settlements do get observed within a sequence. Without, every
     -- settlement completes before the next action.
+    --
+    -- Decommits are weighted above deposits, and their observation above
+    -- both. Only one decommit may be in flight ('DecommitAlreadyInFlight'),
+    -- so each has to be observed before the next can be asked for, and at
+    -- equal weights a run of average length fits barely one round trip. Any
+    -- deposit can be asked for at any time, so it needs no such help. See
+    -- 'Hydra.ModelSpec.reportWalkActionMix' for what this comes out as.
     settlementActions headIdVar confirmedUTxO
       | concurrentSettlements =
-          [(2, genSubmitDecommit) | length confirmedUTxO > 1]
-            <> [(3, genObserveDecommitFinalized) | not $ null pendingDecommits]
+          -- Offered only when the precondition can hold. Offering it while a
+          -- decommit is in flight spends the draw on an action that is then
+          -- discarded, which is where most of the shortfall used to go.
+          [(5, genSubmitDecommit) | length confirmedUTxO > 1, null pendingDecommits]
+            <> [(8, genObserveDecommitFinalized) | not $ null pendingDecommits]
             <> [(2, genSubmitDeposit headIdVar) | not $ null availableToDeposit]
             <> [(3, genObserveCommitFinalized) | not $ null pendingCommits]
       | otherwise =
-          [(2, genDecommit) | length confirmedUTxO > 1]
+          [(4, genDecommit) | length confirmedUTxO > 1]
             <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
     -- NOTE: Deposits all of one signer's available UTxO at once, see
@@ -457,7 +469,7 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableToDeposit, pendingCommits, pendingDecommits, settledCommits, settledDecommits} a result =
     case a of
-      Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements} ->
+      Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements, faultyParty = _} ->
         s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO, concurrentSettlements}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
@@ -658,6 +670,17 @@ restartNodeEnabled = True
 genSeed :: Gen (Action WorldState ())
 genSeed = genSeedWith False
 
+-- | 'genSeedWith' with one of the parties misbehaving on the network in the
+-- given way, see 'FaultMode'.
+genFaultySeed :: Bool -> FaultMode -> Gen (Action WorldState ())
+genFaultySeed concurrentSettlements mode = do
+  seed <- genSeedWith concurrentSettlements
+  case seed of
+    Seed{seedKeys} -> do
+      (hsk, _) <- elements seedKeys
+      pure seed{faultyParty = Just (deriveParty hsk, mode)}
+    _ -> pure seed
+
 genSeedWith :: Bool -> Gen (Action WorldState ())
 genSeedWith concurrentSettlements = do
   seedKeys <- resize maximumNumberOfParties partyKeys
@@ -668,7 +691,7 @@ genSeedWith concurrentSettlements = do
     sk <- snd <$> elements seedKeys
     value <- genAdaValue
     pure (sk, value)
-  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements}
+  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements, faultyParty = Nothing}
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
@@ -757,7 +780,7 @@ newtype RunState m = RunState {nodesState :: TVar m (Nodes m)}
 -- We could perhaps getaway with it and just have a type based on `IOSim` monad
 -- but this is cumbersome to write.
 newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadTime)
+  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadCatch, MonadTime)
 
 instance MonadTrans RunMonad where
   lift = RunMonad . lift
@@ -836,8 +859,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, contestationPeriod} ->
-        seedWorld seedKeys contestationPeriod
+      Seed{seedKeys, contestationPeriod, faultyParty} ->
+        seedWorld seedKeys contestationPeriod faultyParty
       Init party ->
         performInit party
       Deposit headIdVar utxo -> do
@@ -915,12 +938,13 @@ seedWorld ::
   ) =>
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   ContestationPeriod ->
+  Maybe (Party, FaultMode) ->
   RunMonad m ()
-seedWorld seedKeys seedCP = do
+seedWorld seedKeys seedCP faulty = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
-    lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys
+    lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys faulty
   pushThread tickThread
 
   perNode <- forM seedKeys $ \(hsk, _csk) -> do
