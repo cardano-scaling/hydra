@@ -489,18 +489,25 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
         -- A proposal one version behind us carries the confirmed snapshot's own
-        -- commit again ('waitOnSnapshotVersion'). We already saw its increment
-        -- land, so here the deposit is consumed and retained, while the parties
-        -- that have not seen the increment still hold it pending and sign a
-        -- snapshot carrying it. Sign the same bytes, taking the deposited
-        -- outputs from the confirmed snapshot. Only while the retained
-        -- settlement is landed: once a rollback erased the increment, the
-        -- deposit is settled by re-posting that snapshot and never by a new
-        -- claim (#2741), which the next guard refuses.
+        -- commit again ('waitOnSnapshotVersion'). We already saw its increment,
+        -- so here the deposit is consumed and retained, while the parties that
+        -- have not seen it still hold the deposit pending and sign a snapshot
+        -- carrying it. Sign the same bytes, taking the deposited outputs from
+        -- the confirmed snapshot.
+        --
+        -- This holds whether or not a rollback has since erased the increment.
+        -- Refusing then would reject the proposal an honest leader that is a
+        -- little behind makes, since it carries its own unsettled claim again
+        -- ('selectNextDeposit'). The refusal is terminal, so the leader would
+        -- never get our signature and, already collecting them, would never
+        -- propose that number again: the head would stop confirming, which is
+        -- what signing one version behind exists to prevent. Only a claim on
+        -- some other retained deposit is a second claim, and the next guard
+        -- refuses that.
         | sv == confVersion
         , confDepositTxId == Just depositTxId
         , Just deposited <- confUTxOToCommit
-        , confirmedSettlementLanded ->
+        , confirmedCommitSettled ->
             cont (activeUTxOAfterDecommit <> deposited, confUTxOToCommit)
       Just depositTxId
         -- The deposit is already claimed by a signed snapshot whose increment
@@ -647,13 +654,15 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     InitialSnapshot{} -> Nothing
     ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit}} -> utxoToDecommit
 
-  -- Whether the settlement of the confirmed snapshot's own commit or decommit
-  -- landed on the chain we follow: it is retained at its version and no
-  -- rollback marked it erased (see 'retainSettlement', 'markErased').
-  confirmedSettlementLanded =
+  -- Whether we observed the settlement of the confirmed snapshot's own commit,
+  -- which is what makes that commit ours to re-sign rather than a fresh claim.
+  -- The status does not matter: a rollback may have erased the settlement
+  -- since, and the ticks post it again ('repostErased'), so the commit is
+  -- still the one being settled.
+  confirmedCommitSettled =
     case Map.lookup confVersion settlements of
-      Just Settlement{status = Landed{}} -> True
-      _ -> False
+      Just Settlement{snapshot} -> (getSnapshot snapshot).depositTxId == confDepositTxId
+      Nothing -> False
 
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -2588,10 +2597,18 @@ repostInFlightSettlement OpenState{headSeed, headId, parameters, coordinatedHead
 -- landing again is refused by the chain, at no cost but a
 -- 'PostTxOnChainFailed'. The next erased one follows one block after the
 -- previous one landed. See #2741.
-repostErased :: IsTx tx => OpenState tx -> PendingDeposits tx -> Outcome tx
-repostErased OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
-  case nextErasedSettlement settlements of
-    Just Settlement{snapshot}
+--
+-- Nothing is posted while this node is catching up. Rolling forward through
+-- history brings a tick per block replayed, as fast as the node can process
+-- them, so posting here would submit the same transaction once per block the
+-- node is behind. Those submissions are built against a chain view that is
+-- behind as well, and the settlement may already have landed on the part of
+-- the chain the node has not reached yet. The first tick after the node is in
+-- sync posts it.
+repostErased :: IsTx tx => SyncedStatus -> OpenState tx -> PendingDeposits tx -> Outcome tx
+repostErased syncStatus OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
+  case (syncStatus, nextErasedSettlement settlements) of
+    (InSync, Just Settlement{snapshot})
       | canLand (getSnapshot snapshot) -> postSettlement headSeed headId parameters snapshot
     _ -> noop
  where
@@ -2747,7 +2764,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (eligibleDeposits openState pendingDeposits) openState
-      <> repostErased openState (depositsForHead openState.headId pendingDeposits)
+      <> repostErased syncStatus openState (depositsForHead openState.headId pendingDeposits)
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx env (depositsForHead headId pendingDeposits) openState newChainState newVersion depositTxId

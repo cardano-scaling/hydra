@@ -2216,6 +2216,28 @@ spec =
             OnChainEffect{postChainTx = IncrementTx{}} -> True
             _ -> False
 
+        it "posts nothing on the ticks of blocks it replays while catching up" $ do
+          -- Rolling forward through history brings a tick per block replayed,
+          -- as fast as the node can process them, so posting here would submit
+          -- the same increment once per block the node is behind. Those
+          -- submissions are built against a chain view that is behind too, and
+          -- the settlement may already have landed on the part of the chain
+          -- the node has not reached yet.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          let behind =
+                NodeCatchingUp
+                  { headState = headState s1
+                  , deposits = deposits s1
+                  , chainPointTime = s1.chainPointTime
+                  }
+          update soloAliceEnv ledger now behind (tickSlot 4 now) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+          -- The same state in sync posts it, so only the sync status differs.
+          update soloAliceEnv ledger now s1 (tickSlot 4 now) `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+
         it "does not re-post IncrementTx when the rollback does not reach the finalized increment" $ do
           -- Rolling back TO the increment's slot means the increment is still
           -- on chain; re-posting would only produce PostTxOnChainFailed noise.
@@ -3175,18 +3197,47 @@ spec =
           update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing Nothing)
             `shouldBe` Error (RequireFailed ReqSvBehindMustReCarry{requestedSv = 0, requestedDepositTxId = Nothing, requestedDecommitTxId = Nothing})
 
-        it "refuses a ReqSn one version behind whose increment a rollback erased" $ do
-          -- Same shape, but the rollback erased the increment. The deposit is
-          -- settled by posting the retained snapshot again, never by signing a
-          -- new one that claims it (#2741). The version check lets the proposal
-          -- through, so the deposit check must still refuse it.
+        it "signs a ReqSn one version behind whose increment a rollback erased" $ do
+          -- Same shape, but the rollback erased the increment. The leader is a
+          -- little behind, so it has seen neither, and carries its own
+          -- unsettled claim again ('selectNextDeposit'). Refusing that was a
+          -- deadlock: the refusal is terminal, so the leader never got this
+          -- party's signature and, already collecting them, never proposed
+          -- that number again. The erased increment is posted again by the
+          -- ticks and lands, and the deposit is claimed once either way.
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
           now' <- nowFromSlot s1.chainPointTime.currentSlot
-          case update soloAliceEnv ledger now' s1 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId')) of
-            Error (RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId = blocked}) -> blocked `shouldBe` depositTxId'
-            other -> expectationFailure $ "Expected ReqSnDepositBlockedByFinalizedCommit, got: " <> show other
+          let outcome = update soloAliceEnv ledger now' s1 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+          outcome `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} ->
+              version == 0 && utxoToCommit == Just depositedUTxO
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect (AckSn _ 2) -> True
+            _ -> False
+
+        it "rejects a ReqSn one version behind that swaps in a different deposit" $ do
+          -- Only the confirmed snapshot's own commit may be carried again. A
+          -- fork erased two increments here, so the first deposit is pending
+          -- again as well, but claiming it at this version would count it as
+          -- absorbed once the bump is applied although no increment claimed
+          -- it. Settling it means posting its own retained snapshot (#2741).
+          now <- getCurrentTime
+          s0 <- afterTwoCommitsFinalized now
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          Map.member depositTxId' s1.pendingDeposits `shouldBe` True
+          now' <- nowFromSlot s1.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s1 (receiveMessage $ ReqSn 1 3 [] Nothing (Just depositTxId'))
+            `shouldBe` Error
+              ( RequireFailed
+                  ReqSvBehindMustReCarry
+                    { requestedSv = 1
+                    , requestedDepositTxId = Just depositTxId'
+                    , requestedDecommitTxId = Nothing
+                    }
+              )
 
         it "rejects a ReqSn two versions behind as unsatisfiable" $ do
           -- The version only goes up, so a proposal two or more behind can

@@ -69,6 +69,15 @@ instance IsChainState tx => FromCBOR (TimedServerOutput tx) where
 data DecommitInvalidReason tx
   = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
   | DecommitAlreadyInFlight {otherDecommitTxId :: TxIdType tx}
+  | -- | Decoded, never emitted. A node used to hold a decommit back while it
+    -- had a deposit queued, and reject it with this once the request's ttl ran
+    -- out. It no longer does, since whether a deposit is queued depends on the
+    -- node's own tick and a broadcast must be decided the same way everywhere.
+    -- The constructor stays because 'DecommitInvalid' is persisted, and the
+    -- codec tags each constructor by name and fails on a name it does not
+    -- know: dropping it would stop a node with such an event in its log from
+    -- replaying, and so from starting.
+    DepositInFlight {depositTxId :: TxIdType tx, commitUTxO :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance (Eq (TxIdType tx), Eq (UTxOType tx)) => Eq (DecommitInvalidReason tx)

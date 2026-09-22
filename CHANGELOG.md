@@ -16,10 +16,10 @@ changes.
   * Deposits are tracked with their L1 lifecycle slots and that view is rewound
     on rollback. Every settled increment or decrement is retained until no
     rollback can reach it; erased ones are re-posted one at a time, in version
-    order, on each block until they land again, and a restarted node resumes
-    them. Before, only the last settlement was retained, its re-post was fired
-    once, one erased before its snapshot confirmed locally was never re-posted,
-    and its deposit could be lost.
+    order, on each block once the node is in sync, until they land again, and
+    a restarted node resumes them. Before, only the last settlement was
+    retained, its re-post was fired once, one erased before its snapshot
+    confirmed locally was never re-posted, and its deposit could be lost.
   * A deposit whose settled increment was erased can neither be recovered nor
     claimed again while the head is open; once the head is closed, recovering
     it plus a partial fanout is the escape hatch.
@@ -45,9 +45,11 @@ changes.
     `PartialFanoutState` gains `stepsLanded` and `everLanded`, `Environment`
     gains `rollbackHorizon`, `NodeState` serializes `deposits` with lifecycle
     slots in place of `pendingDeposits`, `GET /deposits` reflects rollbacks, and
-    `DepositInFlight` and `WaitOnUnresolvedCommit` are removed. Persisted state
-    from earlier versions still replays; settlements finalized before the
-    upgrade have no retained snapshot.
+    the `WaitOnUnresolvedCommit` wait reason is gone. The `DepositInFlight`
+    decommit-invalid reason is no longer emitted, but stays in the API and in
+    the codec, since it is part of a persisted event. Persisted state from
+    earlier versions still replays; settlements finalized before the upgrade
+    have no retained snapshot.
 
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
