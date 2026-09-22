@@ -111,17 +111,21 @@ rollbackDeposits slot nodeState =
 -- deposits are never pruned — an expired deposit stays recoverable
 -- indefinitely.
 pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
-pruneConsumedDeposits (ChainSlot slot) =
-  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> cutoff) consumedAt)
- where
-  cutoff =
-    case depositRetentionHorizon of
-      ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
+pruneConsumedDeposits slot =
+  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> retentionCutoff slot) consumedAt)
 
--- | How long consumed deposits are retained for rollbacks: sized to cover the
--- deepest rollback Cardano can produce (the security parameter k = 2160
--- blocks, roughly 12 hours at one block per 20 slots) with a three-fold
--- margin.
+-- | The slot before which no rollback can reach anymore, given the current
+-- slot: anything observed at or before it is settled for good, see
+-- 'depositRetentionHorizon'.
+retentionCutoff :: ChainSlot -> ChainSlot
+retentionCutoff (ChainSlot slot) =
+  case depositRetentionHorizon of
+    ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
+
+-- | How long consumed deposits and retained settlements are kept for
+-- rollbacks: sized to cover the deepest rollback Cardano can produce (the
+-- security parameter k = 2160 blocks, roughly 12 hours at one block per 20
+-- slots) with a three-fold margin.
 depositRetentionHorizon :: ChainSlot
 depositRetentionHorizon = ChainSlot 129600
 
