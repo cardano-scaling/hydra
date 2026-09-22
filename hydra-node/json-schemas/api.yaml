@@ -1871,20 +1871,6 @@ components:
                 otherDecommitTxId:
                   $ref: "api.yaml#/components/schemas/TxId"
 
-            - type: object
-              required:
-                - tag
-                - depositTxId
-                - commitUTxO
-              properties:
-                tag:
-                  type: string
-                  enum: ["DepositInFlight"]
-                depositTxId:
-                  $ref: "api.yaml#/components/schemas/TxId"
-                commitUTxO:
-                  $ref: "api.yaml#/components/schemas/UTxO"
-
     DecommitRequested:
       title: DecommitRequested
       description: |
@@ -3911,6 +3897,7 @@ components:
         - distributedOutputs
         - mode
         - stepsLanded
+        - everLanded
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3939,6 +3926,12 @@ components:
             rewinds the two sets above and the mode to the steps still on chain.
           items:
             $ref: "api.yaml#/components/schemas/FanoutStepLanded"
+        everLanded:
+          type: boolean
+          description: |
+            Whether a step of this fanout was ever observed on chain, on any
+            fork. Not reset when a rollback rewinds the progress to nothing
+            distributed.
 
     FanoutStepLanded:
       type: object
@@ -4001,6 +3994,7 @@ components:
         - decommitTx
         - version
         - settlements
+        - unretained
       properties:
         localUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
@@ -4039,6 +4033,18 @@ components:
             pattern: "^[0-9]+$"
           additionalProperties:
             $ref: "api.yaml#/components/schemas/Settlement"
+        unretained:
+          type: object
+          description: |
+            Version bumps observed on-chain (an increment or decrement
+            landing) whose snapshot this node has not confirmed yet, keyed
+            like settlements. Each holds the status the settlement gets once
+            the snapshot confirms, so a rollback in between is not lost.
+          propertyNames:
+            type: string
+            pattern: "^[0-9]+$"
+          additionalProperties:
+            $ref: "api.yaml#/components/schemas/SettlementStatus"
 
     Deposit:
       type: object

@@ -10,62 +10,44 @@ changes.
 
 ## UNRELEASED
 
-- Fixed three ways an open head stopped confirming snapshots, found by the
-  model's concurrent random walk once its deposits and decommits were allowed
-  to overlap:
-
-  - A `ReqSn` that reached a party after that party had already observed the
-    increment or decrement it was racing was parked on `WaitOnSnapshotVersion`
-    until its TTL dropped it, while the leader kept collecting `AckSn` for it:
-    the head deadlocked. Such a party now signs the proposal at the version it
-    was made at, exactly as the parties that have not seen the settlement yet
-    do, so the round confirms one version behind the chain, a state `Close`
-    already handles. Such a proposal must re-carry the commit or decommit
-    that settled; one dropping or replacing it is rejected with
-    `ReqSvBehindMustReCarry`. A proposal two or more versions behind, or below the
-    confirmed snapshot's version, is rejected with `ReqSvNumberInvalid`
-    instead of waiting forever.
-
-  - A `ReqDec` was held back, and after its TTL rejected with
-    `DepositInFlight`, whenever this node had a deposit queued. Whether a
-    deposit is queued depends on the node's own clock, so the same request
-    was refused by some parties and recorded by others, and the recorded
-    decommit was never proposed. The request is now recorded on every party;
-    the leader carries a pending commit first and the decommit in a later
-    round, and a decommit recorded while a commit was in flight is proposed
-    once the increment lands.
-
-  - After a rollback erased a finalized increment while the snapshot claiming
-    it was still being acknowledged, the leader could propose that deposit
-    again and every party, itself included, refused the proposal. The deposit
-    bound into the confirmed snapshot is never proposed as a new claim.
-
-- Fixed a deposit that activated while a snapshot was in flight never being
-  proposed for one: it was queued, the tick refused to act while anything was
-  queued, and on a head with no other traffic it expired. The queued deposit
-  is now proposed on the next tick, and the tick proposes no deposit at all
-  while the confirmed snapshot's own claim is still unsettled, since every
-  party refuses another claim until then.
-
-- Fixed a partial fanout never completing after a rollback erased one of its
-  landed steps. The fanout's progress had no notion of when a step landed, so
-  it could not be rewound: automatic mode re-posted the step after the erased
-  one, built against a datum the chain no longer had, and manual mode posted
-  nothing while waiting for the next selection. Each landed step is now
-  recorded with its slot and the mode it replaced, a rollback rewinds the
-  progress to the steps still on chain, and the erased step is posted again.
-  A fanout state persisted before this change decodes with no recorded steps
-  and behaves as before for them.
-
-- Fixed two ways the outputs of a deposit could be lost
-  ([#2741](https://github.com/cardano-scaling/hydra/issues/2741)): a deposit
-  this node had marked expired while its increment was still in flight was
-  dropped from the next snapshot, so its outputs counted as neither pending
-  nor applied; and a retained settlement could be overwritten by a later
-  snapshot at the same version, losing the mark that it had to be re-posted
-  after a rollback. The claim is now re-carried until it settles or the
-  deposit is recovered, and retention keeps the settlement that was actually
-  observed.
+- Fixed rollbacks and settlement races in an open head, found by the model's
+  random walks with overlapping deposits, decommits and divergent forks
+  ([#2741](https://github.com/cardano-scaling/hydra/issues/2741)):
+  * Deposits are tracked with their L1 lifecycle slots and that view is rewound
+    on rollback. Every settled increment or decrement is retained until no
+    rollback can reach it; erased ones are re-posted one at a time, in version
+    order, on each block until they land again, and a restarted node resumes
+    them. Before, only the last settlement was retained, its re-post was fired
+    once, one erased before its snapshot confirmed locally was never re-posted,
+    and its deposit could be lost.
+  * A deposit whose settled increment was erased can neither be recovered nor
+    claimed again while the head is open; once the head is closed, recovering
+    it plus a partial fanout is the escape hatch.
+  * A `ReqSn` one version behind ours is signed at that version when it
+    re-carries the settled commit or decommit, so a party that saw the
+    settlement land first no longer deadlocks the head. A proposal dropping or
+    replacing that action is rejected with `ReqSvBehindMustReCarry`, one
+    further behind with `ReqSvNumberInvalid`.
+  * A `ReqDec` is recorded on every party whether or not a deposit is queued
+    locally; the leader carries the commit first and the decommit once the
+    increment lands.
+  * A deposit that activated while a snapshot was in flight is proposed by the
+    next tick; a claim that expired locally is re-carried until it settles or
+    the deposit is recovered; the deposit of the snapshot being confirmed is
+    never proposed as a new claim; nothing else is proposed while the confirmed
+    claim is unsettled, and a recovered claim frees the version for a fresh one.
+  * A partial fanout rewinds its progress when a fork erases landed steps and
+    re-posts the erased step; the driver keeps its role when that re-post races
+    the re-included original.
+  * The retention horizon is the network's stability window (3k/f slots from
+    its genesis parameters, 36 hours on mainnet) instead of a constant.
+  * API: `CoordinatedHeadState` gains `settlements` and `unretained`,
+    `PartialFanoutState` gains `stepsLanded` and `everLanded`, `Environment`
+    gains `rollbackHorizon`, `NodeState` serializes `deposits` with lifecycle
+    slots in place of `pendingDeposits`, `GET /deposits` reflects rollbacks, and
+    `DepositInFlight` and `WaitOnUnresolvedCommit` are removed. Persisted state
+    from earlier versions still replays; settlements finalized before the
+    upgrade have no retained snapshot.
 
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
@@ -288,39 +270,6 @@ changes.
   requests referencing already recovered deposits. Found by the extended model
   tests, which now generate random deposits, decommits and divergent-fork
   rollbacks under transaction load.
-
-- Fixed deposits not being re-posted when a chain rollback erases an increment
-  that was already finalized (`CommitFinalized`), which previously lost the
-  deposit and could strand its funds
-  [#2741](https://github.com/cardano-scaling/hydra/issues/2741). The node now
-  tracks each deposit with its L1 lifecycle slots and rewinds that view on
-  rollback, retains every signed snapshot that authorized a settled increment
-  or decrement until no rollback can reach it anymore, and re-posts the erased
-  settling transactions one at a time in version order when a rollback erases
-  them. A deposit whose finalized increment was rolled back can neither be
-  recovered nor proposed for a new snapshot — re-posting the increment is the
-  only way it settles.
-  * Persisted state (`hydra.db`) from earlier versions still replays: the CBOR
-    codecs keep decoders for the `NodeState` and `CoordinatedHeadState` layouts
-    written before the new fields existed. Increments or decrements finalized
-    before the upgrade have no retained snapshot, so rollback re-posting is
-    unavailable for them, as it was before the upgrade.
-  * On the API, `NodeState` now serializes deposits with their lifecycle
-    slots (a `deposits` field replaces `pendingDeposits`) and
-    `CoordinatedHeadState` gains `settlements`, the retained snapshots keyed
-    by the version they were based on.
-  * Consumed deposits and retained settlements are dropped once no rollback
-    can reach them anymore. That horizon is now the stability window of the
-    network the node runs on (3k/f slots, from its genesis parameters, 36
-    hours on mainnet) instead of a constant sized for mainnet; `Environment`
-    (as sent in `Greetings`) gains `rollbackHorizon`.
-  * `GET /deposits` now reflects rollbacks: it is served from the node state
-    (which rewinds its deposit view on rollback) instead of a projection that
-    only tracked deposit lifecycle events.
-  * Once the head is closed, recovering such a deposit is allowed again: the
-    retained snapshot can no longer settle it into the (closed) head, so
-    recover plus a partial fanout excluding the deposited outputs is the
-    escape hatch.
 
 - Fixed the internal wallet setting a script integrity hash on transactions
   that execute no scripts: reference inputs carrying Plutus scripts had their

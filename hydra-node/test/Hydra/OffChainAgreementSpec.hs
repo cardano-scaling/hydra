@@ -13,12 +13,14 @@
 --     to the real @isLeader@ in 'Hydra.OffChainLeaderSpec'), so the composed decision is fully Agda-derived.
 --
 --   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
---     ('DecommitRecorded'). A PENDING deposit makes the node WAIT ('WaitOnUnresolvedCommit') at
---     ttl > 0, and so does an in-flight decommit ('WaitOnNotApplicableDecommitTx' with
---     'DecommitAlreadyInFlight'); both are non-accept. The commit axis is the reference's
---     'HsPendingCommit', not a Bool, so this test cannot decide which commits count: an expired or
---     already-recovered deposit is a state the node reaches (it clears @currentDepositTxId@ on
---     neither) and the reference is what says those do not block.
+--     ('DecommitRecorded'). A decommit already in flight makes the node WAIT
+--     ('WaitOnNotApplicableDecommitTx' with 'DecommitAlreadyInFlight'), which is non-accept. A
+--     pending deposit no longer holds the node back, since the commit-before-decommit order is
+--     enforced where the snapshot is proposed. The reference still models that hold, so that one
+--     point of the commit axis is masked until the reference follows. The commit axis is the
+--     reference's 'HsPendingCommit', not a Bool, so this test cannot decide which commits count:
+--     an expired or already recovered deposit is a state the node reaches, since it clears
+--     @currentDepositTxId@ on neither, and the reference is what says those do not block.
 --
 --   * @reqSnNotBothRef@ / @reqSnDecommitOutputsRef@ / @reqSnDepositSettledRef@ vs
 --     @onOpenNetworkReqSn@'s incremental-action guards: a request carrying both a deposit and a
@@ -107,7 +109,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Node.Fixture (testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
-import Test.QuickCheck (choose, conjoin, counterexample, elements, forAll, sublistOf, (===))
+import Test.QuickCheck (choose, conjoin, counterexample, elements, forAll, sublistOf, (===), (==>))
 
 threeParties :: [Party]
 threeParties = [alice, bob, carol]
@@ -155,6 +157,7 @@ reqSnState vHat sHat =
       , decommitTx = Nothing
       , version = fromInteger vHat
       , settlements = mempty
+      , unretained = mempty
       }
 
 -- Run the REAL handler on a (v, s) request from the given sender.
@@ -207,6 +210,7 @@ reqDecState commit decommitInFlight =
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
       , settlements = mempty
+      , unretained = mempty
       }
   registry = case commit of
     NoCommitP -> mempty
@@ -294,6 +298,7 @@ settleState =
       , decommitTx = Nothing
       , version = 0
       , settlements = mempty
+      , unretained = mempty
       }
   -- testSnapshot with the pending commit of deposit 7 bound in; spelled out because a record
   -- update on the shared-field Snapshot type is ambiguous under DuplicateRecordFields.
@@ -402,6 +407,7 @@ ackState collected =
       , decommitTx = Nothing
       , version = 0
       , settlements = mempty
+      , unretained = mempty
       }
 
 -- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.
@@ -483,25 +489,28 @@ spec = parallel $ do
       reqSnOutcome 0 0 0 1 bob `shouldBe` Error (RequireFailed $ ReqSnNotLeader 1 bob)
     it "a version AHEAD of ours WAITS (WaitOnSnapshotVersion), which is non-accept" $
       reqSnOutcome 0 0 1 1 alice `assertWait` WaitOnSnapshotVersion 1
-    -- The node signs a proposal ONE version behind its own when it is based on
+    -- The node signs a proposal one version behind its own when it is based on
     -- the confirmed snapshot (see 'waitOnSnapshotVersion' in HeadLogic), and
-    -- rejects anything further behind as unsatisfiable. 'signEligibleRef' has
-    -- no input for the confirmed snapshot's version, so it still rejects the
-    -- one-behind case: on this fixture the point
-    -- (v = 0, v̂ = 1, ŝ = 0) disagrees. Pending until the reference gains that
-    -- input and is re-extracted (hydra-agda). The behaviour is pinned in
-    -- HeadLogicSpec ("signs a ReqSn one version behind ...", "rejects a ReqSn
-    -- two versions behind ...", "still waits on a ReqSn ahead of its version").
+    -- rejects anything further behind, which can never be signed.
+    -- 'signEligibleRef' has no input for the confirmed snapshot's version, so
+    -- it still rejects the one-behind case. On this fixture that is the point
+    -- (v = 0, v̂ = 1, ŝ = 0), where the confirmed snapshot is the initial one at
+    -- version 0. That point is masked below until the reference gains the input
+    -- and is extracted again (hydra-agda), and the rest of the grid stays live.
+    -- The behaviour is pinned in HeadLogicSpec ("signs a ReqSn one version
+    -- behind ...", "rejects a ReqSn two versions behind ...", "still waits on a
+    -- ReqSn ahead of its version").
     it "anchor: one version behind, based on the confirmed snapshot, is signed" $
       reqSnAccepts (reqSnOutcome 1 0 0 1 alice) `shouldBe` True
-    xprop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
+    prop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender), except one version behind" $
       forAll (choose (0, 1)) $ \vHat ->
         forAll (choose (0, 2)) $ \v ->
           forAll (choose (0, 2)) $ \sHat ->
             forAll (choose (0, 4)) $ \s ->
               forAll (elements (zip [0 ..] threeParties)) $ \(i, sender) ->
-                signEligibleRef v vHat s sHat (leaderRef 2 s i)
-                  === reqSnAccepts (reqSnOutcome vHat sHat v s sender)
+                not (v + 1 == vHat && sHat == 0) ==>
+                  signEligibleRef v vHat s sHat (leaderRef 2 s i)
+                    === reqSnAccepts (reqSnOutcome vHat sHat v s sender)
 
   describe "reqDec eligibility: extracted reqDecEligibleRef vs the real onOpenNetworkReqDec" $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
@@ -532,15 +541,16 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    -- Pending on 'CommitPendingP' for the reason given above; the other three
-    -- commit states still agree (see the anchors).
-    xprop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- 'CommitPendingP' is masked for the reason given above, and the test
+    -- right after the first one anchors it. The other three commit states are
+    -- checked against the reference on both decommit axes.
+    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?), except a pending commit" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $
             reqDecEligibleRef commit decommitInFlight
               === reqDecAccepts (reqDecOutcome commit decommitInFlight)
-          | commit <- [NoCommitP, CommitPendingP, CommitExpiredP, CommitGoneP]
+          | commit <- [NoCommitP, CommitExpiredP, CommitGoneP]
           ]
 
   describe "reqSn incremental-action guards: extracted reqSn*Ref vs the real onOpenNetworkReqSn" $ do
