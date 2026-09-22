@@ -3,51 +3,31 @@
         {
             "state": {
                 "chainPointTime": {
-                    "currentChainTime": "1864-05-08T05:12:30.010271550781Z",
+                    "currentChainTime": "1864-05-09T05:45:41.359769084192Z",
                     "currentSlot": 1,
-                    "drift": -1
+                    "drift": 1
                 },
-                "deposits": {
-                    "0101000101000000010001010100010001000100010000010100000100000001": {
-                        "consumedAt": 0,
-                        "deposit": {
-                            "created": "1864-05-08T20:59:56.885979420505Z",
-                            "deadline": "1864-05-10T15:47:15.354813701931Z",
-                            "deposited": {
-                                "0100010001000101000100010001000100000101000101000000000000000001#41": {
-                                    "address": "addr_test1zpanj46qpu6ksew7d5l80gurcj5up5lnvv4v90n4er35ttu5dk44dgg2razts7c5chdfkr59ezvaz9gmwgupjhedf4zsmusrds",
-                                    "datum": null,
-                                    "datumhash": "0f38cbe8beae193e679c8f6ebbc01ff250d656772f4122bd607da51e1a6d4f06",
-                                    "inlineDatum": null,
-                                    "inlineDatumRaw": null,
-                                    "referenceScript": null,
-                                    "value": {
-                                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                            "e1600c": 1
-                                        },
-                                        "lovelace": 1280070
-                                    }
-                                }
-                            },
-                            "headId": "00000000010001000000010101010101",
-                            "status": "Expired"
-                        },
-                        "recordedAt": 1
-                    }
-                },
+                "deposits": {},
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": null,
+                            "recordedAt": {
+                                "blockHash": "0101000000000100010001010100010001000100010000000101000101010101",
+                                "slot": 1,
+                                "tag": "ChainPoint"
+                            },
                             "spendableUTxO": {
-                                "0100010001010000000100010001010100010100010100010000000000010100#89": {
-                                    "address": "addr_test1ypqq2h5q34srpd0jkh6ch3803x0pfdpr3jegdt3wp4x46admgdup6ks2864mwe2kgm6m8pr6grgvxeq4yuex4w50fj4saglvwr",
+                                "0000010000000100000001000101010100000000000100000001000100010000#84": {
+                                    "address": "addr_test1vzv9fpcrlu7lwdvasg556ptet6cwukecnzthktj8w0x5gwcej6x4r",
                                     "datum": null,
-                                    "datumhash": null,
+                                    "datumhash": "26ec576bda1fd2d7352fd66f6c920b54d08966afe8e7ae590779ae75eb5cd0a3",
                                     "inlineDatum": null,
                                     "inlineDatumRaw": null,
                                     "referenceScript": null,
                                     "value": {
+                                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
+                                            "27d2583639": 1
+                                        },
                                         "lovelace": 45000000000000000
                                     }
                                 }
@@ -56,10 +36,10 @@
                     },
                     "tag": "Idle"
                 },
-                "tag": "NodeCatchingUp"
+                "tag": "NodeInSync"
             },
             "tag": "Checkpoint"
         }
     ],
-    "seed": 1087792977
+    "seed": 782220257
 }

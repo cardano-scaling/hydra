@@ -41,7 +41,7 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   RequeueMode (..),
   SimulatedChainNetwork (..),
@@ -1148,28 +1148,12 @@ performSubmitDecommit party tx = do
         SnapshotConfirmed{snapshot} ->
           (sortTxOuts . UTxO.txOutputs <$> Snapshot.utxoToDecommit snapshot) == Just (sortTxOuts (UTxO.txOutputs decommitted))
         _ -> False
-      -- A decommit requested while a deposit is unsettled is parked by the
-      -- node; if the deposit does not settle within the request's TTL the
-      -- node rejects it. A client then simply asks again once the deposit is
-      -- through, which is what this does.
-      rejectedForPendingDeposit = \case
-        DecommitInvalid{decommitTx, decommitInvalidReason = DepositInFlight{}} ->
-          getTxId (getTxBody decommitTx) == decommitTxId
-        _ -> False
-      submit :: Int -> RunMonad m ()
-      submit attempt
-        | attempt > maxAttempts =
-            failure $ "SubmitDecommit " <> show decommitTxId <> " rejected " <> show maxAttempts <> " times for a deposit in flight"
-        | otherwise = do
-            party `sendsInput` Input.Decommit realTx
-            lift . waitUntilHistory ("snapshot with decommit " <> show decommitTxId <> " confirmed (attempt " <> show attempt <> ")") (elems nodes) $ \outs ->
-              any approved outs || length (filter rejectedForPendingDeposit outs) >= attempt
-            outs <- lift $ serverOutputs thisNode
-            unless (any approved outs) $ submit (attempt + 1)
-  submit 1
+  -- A decommit requested while a deposit is unsettled is recorded on every
+  -- node and proposed once the commit landed, so one request is enough.
+  party `sendsInput` Input.Decommit realTx
+  lift . waitUntilHistory ("snapshot with decommit " <> show decommitTxId <> " confirmed") (elems nodes) $ \outs ->
+    any approved outs
   pure decommitted
- where
-  maxAttempts = 5 :: Int
 
 -- | Wait until every node has reported the decrement distributing the given
 -- decommitted UTxO for the n-th time.
