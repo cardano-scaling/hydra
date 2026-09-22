@@ -10,6 +10,7 @@ import Hydra.Prelude
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (LedgerEra, SystemStart (..))
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
@@ -41,6 +42,12 @@ defaultGlobals =
   unsafeBoundRational r =
     fromMaybe (error $ "Could not convert from Rational: " <> show r) $ Ledger.boundRational r
 
+-- | The rollback horizon test environments run with. This is Cardano
+-- mainnet's stability window, 3k/f slots with k = 2160 and f = 0.05, so 36
+-- hours.
+testRollbackHorizon :: ChainSlot
+testRollbackHorizon = ChainSlot 129600
+
 -- | An environment fixture for testing.
 testEnvironment :: Environment
 testEnvironment =
@@ -52,6 +59,7 @@ testEnvironment =
     , depositPeriod = defaultDepositPeriod
     , depositActivation = defaultDepositActivation
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
+    , rollbackHorizon = testRollbackHorizon
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
     }

@@ -40,7 +40,7 @@ import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash)
 import Hydra.Tx.Crypto (Signature, sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
-import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment, testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, cperiod, dperiod, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
@@ -119,7 +119,7 @@ benchCell n m = do
           -- NodeState forces the strict-field cascade like state hydration
           -- does. Compare against full-update to isolate the aggregate share.
           bench "update-and-aggregate" $
-            whnf (aggregateState st . update testEnvironment ledger now st) reqSn
+            whnf (aggregateState testRollbackHorizon st . update testEnvironment ledger now st) reqSn
         , bench "ledger-apply-only" $ whnf (applyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit

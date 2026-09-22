@@ -16,6 +16,7 @@ module HydraVis.History (
   buildHistory,
   loadEventsAfter,
   extendHistory,
+  viewerRollbackHorizon,
 ) where
 
 import Hydra.Prelude
@@ -29,7 +30,7 @@ import Database.SQLite.Simple qualified as SQL
 import Database.SQLite.Simple.FromField (FromField (..), ResultError (..), returnError)
 import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Node.State (NodeState)
@@ -99,6 +100,14 @@ instance FromField EventBlob where
     SQLText t -> Ok (EventBlob (TE.encodeUtf8 t))
     _ -> returnError ConversionFailed f "expected event_data to be BLOB or TEXT"
 
+-- | The rollback horizon the viewer replays with. A node derives it from the
+-- genesis of the network it runs on (see
+-- 'Hydra.Node.Environment.rollbackHorizon'); the viewer follows no network, so
+-- it uses Cardano mainnet's stability window. It only decides when consumed
+-- deposits and retained settlements are pruned from the replayed state.
+viewerRollbackHorizon :: ChainSlot
+viewerRollbackHorizon = ChainSlot 129600
+
 -- | Fold a list of 'StateEvent's through 'aggregateNodeState' to build the
 -- per-step history. Pure, exposed for testing.
 buildHistory ::
@@ -109,7 +118,7 @@ buildHistory ::
   [HistoryStep tx]
 buildHistory initial events =
   let step :: NodeState tx -> StateEvent tx -> NodeState tx
-      step s e = aggregateNodeState s (stateChanged e)
+      step s e = aggregateNodeState viewerRollbackHorizon s (stateChanged e)
       states = drop 1 $ scanl' step initial events
    in zipWith HistoryStep events states
 

@@ -238,7 +238,7 @@ instance FromCBOR SettlementStatus where
 -- One entry is retained per increment or decrement that settles, and entries
 -- are dropped once no rollback can reach them anymore, so the map holds as
 -- many snapshots as the head settles within the retention horizon (see
--- 'Hydra.Node.State.depositRetentionHorizon'). Each entry keeps a whole
+-- 'Hydra.Node.Environment.rollbackHorizon'). Each entry keeps a whole
 -- snapshot UTxO, so a head settling frequently pays for that in memory and in
 -- every persisted checkpoint; slimming the retained payload is left to a
 -- follow-up.

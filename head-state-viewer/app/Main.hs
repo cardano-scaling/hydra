@@ -25,7 +25,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (initNodeState)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
-import HydraVis.History (loadEventsAfter, loadHistoryFor)
+import HydraVis.History (loadEventsAfter, loadHistoryFor, viewerRollbackHorizon)
 import HydraVis.Multi (PartySpec (..), mkMultiModel)
 import HydraVis.Sample (sampleEnvironment, sampleLedger, sampleOnInitTx, sampleTick)
 import HydraVis.SampleDb (writeSampleDb)
@@ -215,6 +215,7 @@ main = do
               , depositPeriod = DepositPeriod 20
               , depositActivation = DepositPeriod 20
               , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
+              , rollbackHorizon = viewerRollbackHorizon
               , participants = deriveOnChainId <$> [alice, bob, carol]
               , configuredPeers = ""
               }

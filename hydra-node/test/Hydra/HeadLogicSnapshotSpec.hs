@@ -22,6 +22,7 @@ import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
+import Test.Hydra.Node.Fixture (testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -51,6 +52,7 @@ spec = do
                 , depositPeriod = defaultDepositPeriod
                 , depositActivation = defaultDepositActivation
                 , unsyncedPeriod = defaultUnsyncedPeriod
+                , rollbackHorizon = testRollbackHorizon
                 , participants = deriveOnChainId <$> threeParties
                 , configuredPeers = ""
                 }
@@ -223,6 +225,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             , depositPeriod = defaultDepositPeriod
             , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , rollbackHorizon = testRollbackHorizon
             , participants = [deriveOnChainId party]
             , configuredPeers = ""
             }

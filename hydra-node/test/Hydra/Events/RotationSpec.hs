@@ -19,7 +19,7 @@ import Hydra.Node.State (NodeState (..), initNodeState, pendingDeposits)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Ledger.Simple (utxoRef)
-import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
+import Test.Hydra.Node.Fixture (testEnvironment, testHeadId, testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (cperiod)
 import Test.QuickCheck (Positive (..), choose, sized)
 import Test.QuickCheck.Instances.Natural ()
@@ -303,4 +303,4 @@ trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
 trivialCheckpoint = sum
 
 mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
-mkAggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
+mkAggregator s StateEvent{stateChanged} = aggregateNodeState testRollbackHorizon s stateChanged

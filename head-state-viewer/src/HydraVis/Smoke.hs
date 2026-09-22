@@ -13,6 +13,7 @@ import Hydra.HeadLogic.Outcome (Outcome)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.Environment (Environment (party))
 import Hydra.Node.State (NodeState)
+import HydraVis.History (viewerRollbackHorizon)
 import HydraVis.Sample (
   sampleEnvironment,
   sampleInitialState,
@@ -37,7 +38,7 @@ go n nodeState (i : rest) = do
   let now = sampleStepTime n
       outcome :: Outcome SimpleTx
       outcome = update sampleEnvironment sampleLedger now nodeState i
-      nodeState' = aggregateState nodeState outcome
+      nodeState' = aggregateState viewerRollbackHorizon nodeState outcome
   putTextLn $ "=== step " <> show n <> " ==="
   putTextLn "input:"
   printJson i
