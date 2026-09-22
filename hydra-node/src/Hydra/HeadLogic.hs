@@ -313,6 +313,50 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
 -- the pending transaction set gets pruned to only contain still applicable
 -- transactions.
 --
+-- == Refusing has to be unanimous
+--
+-- A snapshot round cannot be abandoned. The leader does not propose the same
+-- number again while it is collecting signatures
+-- ('maybeRequestSnapshotAfterVersionBump'), and a party that already echoed
+-- the request refuses a second one at that number ('requireReqSn'). So if one
+-- party refuses a request the others sign, the leader never reaches n-of-n and
+-- the head stops confirming snapshots for good.
+--
+-- The invariant that keeps that from happening: __every 'Error' this handler
+-- returns must be a function of the request and of state every party agrees
+-- on__. A refusal decided on state only this node has is a stuck head whenever
+-- the parties disagree, which they routinely do, since each one processes a
+-- broadcast at its own moment relative to what it has seen on chain.
+--
+-- Three bugs of exactly that shape were fixed by making the refusal go away
+-- rather than by narrowing it: a request one version behind ours is signed
+-- instead of parked ('waitOnSnapshotVersion'); a deposit queued locally no
+-- longer holds a 'ReqDec' back ('onOpenNetworkReqDec'); and the confirmed
+-- snapshot's own claim is accepted whatever this node makes of the deposit's
+-- status or of the settlement's ('waitForDeposit').
+--
+-- Where a disagreement is transient, because it is one node's chain follower
+-- lagging, the answer is 'wait' rather than 'Error': the request is retried
+-- while its ttl lasts and the node catches up in between. That is what
+-- 'WaitOnDepositObserved', 'WaitOnDepositActivation' and 'WaitOnSnapshotVersion'
+-- do, and 'ReqSnCommitNotSettled' too, for a claim this node has not yet seen
+-- recovered.
+--
+-- Two refusals are still decided on state a party may not share, and are known
+-- exceptions rather than settled design:
+--
+--   * 'ReqSvNumberInvalid' for a request two or more versions behind. Signing
+--     one version behind is what 'CloseUsed' supports; further behind there is
+--     no redeemer for it. A party whose chain follower ran ahead of the
+--     leader's by two settlements refuses what a party level with the leader
+--     signs.
+--
+--   * 'RequestedDepositExpired'. Each node derives the status from its own
+--     tick, so a deposit crossing its deadline between two parties handling
+--     one request splits them. Dropping the refusal is not obviously right
+--     either: a claim that can never settle on chain would then be confirmed
+--     and carried forever.
+--
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
   IsTx tx =>
@@ -486,6 +530,25 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   waitForDeposit activeUTxOAfterDecommit cont =
     case mDepositTxId of
+      -- A request at the confirmed snapshot's own version that carries no
+      -- deposit, while that snapshot's commit has not settled, drops the
+      -- claim. The deposited outputs then count as neither applied nor
+      -- pending, and if the increment still lands they sit in the head output
+      -- and in no accumulator. An honest leader carries the claim again
+      -- ('selectNextDeposit'), so refuse a request that does not.
+      --
+      -- Unless the deposit is gone, recovered on L1, where dropping the claim
+      -- is the right thing. That is a chain observation the leader may have
+      -- made before us, so wait for our own follower rather than refuse what
+      -- the others sign; see the note on unanimous refusals above.
+      Nothing
+        | sv == confVersion
+        , isJust confUTxOToCommit
+        , Just claimed <- confDepositTxId
+        , Map.member claimed pendingDeposits ->
+            if ttl > 0
+              then wait WaitOnUnsettledCommit{depositTxId = claimed}
+              else Error $ RequireFailed ReqSnCommitNotSettled
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
         -- A proposal one version behind us carries the confirmed snapshot's own
@@ -546,19 +609,41 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
+            --
+            -- Only while the claimed deposit is still tracked: once it was
+            -- recovered on L1 the claim is dropped (see 'stillClaimable') and
+            -- the leader may propose a fresh one. That recover is a chain
+            -- observation, so a leader can have seen it while we have not, and
+            -- refusing outright would be a refusal the other parties do not
+            -- make. Wait instead while the ttl lasts: a retry after our own
+            -- chain follower catches up takes the arm below. See the note on
+            -- unanimous refusals above.
             | sv == confVersion
             , isJust confUTxOToCommit
-            , -- Only while the claimed deposit is still tracked: once it was
-              -- recovered on L1 the claim is dropped (see 'stillClaimable') and
-              -- the leader may propose a fresh one.
-              maybe False (`Map.member` pendingDeposits) confDepositTxId ->
-                Error $ RequireFailed ReqSnCommitNotSettled
+            , maybe False (`Map.member` pendingDeposits) confDepositTxId ->
+                if ttl > 0
+                  then wait WaitOnUnsettledCommit{depositTxId}
+                  else Error $ RequireFailed ReqSnCommitNotSettled
             | otherwise -> do
                 let activeUTxOAfterCommit = activeUTxOAfterDecommit <> deposited
                 cont (activeUTxOAfterCommit, Just deposited)
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
+      -- A request at the confirmed snapshot's own version that carries no
+      -- decommit, while that snapshot's decommit has not settled, drops it.
+      -- The outputs left that snapshot's 'utxo' when it was signed, and
+      -- nothing would put them back, so they end up in neither accumulator of
+      -- the next one; if the decrement never lands they stay in the head
+      -- output with nothing to distribute them at fanout. An honest leader
+      -- carries the decommit again while 'decommitTx' is set
+      -- ('selectNextIncrementalAction'). The mirror of the commit case in
+      -- 'waitForDeposit', and decided only on the confirmed snapshot, which
+      -- every party agrees on, so this refuses outright.
+      Nothing
+        | sv == confVersion
+        , isJust confUTxOToDecommit ->
+            Error $ RequireFailed ReqSnDecommitNotSettled
       Nothing -> cont (confirmedUTxO, Nothing)
       -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
       --

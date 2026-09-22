@@ -31,6 +31,19 @@ changes.
   * A `ReqDec` is recorded on every party whether or not a deposit is queued
     locally; the leader carries the commit first and the decommit once the
     increment lands.
+  * A snapshot round cannot be abandoned, so a party that refuses a request
+    the others sign stops the head confirming for good. Every refusal has to
+    be decided on state all parties share. Where the disagreement is one
+    node's chain follower lagging, the request now waits and is retried
+    instead: a request claiming a deposit while this node still holds the
+    confirmed snapshot's own claim, which the leader may already have seen
+    recovered, waits rather than refusing.
+  * A request that drops the confirmed snapshot's unsettled commit or
+    decommit is refused. It used to be signed by everyone, and the outputs
+    then counted in neither accumulator of the snapshot that followed, so if
+    the increment or decrement still landed they sat in the head output with
+    nothing to distribute them at fanout. An honest leader always carries the
+    action again, so only a faulty one is affected.
   * A deposit that activated while a snapshot was in flight is proposed by the
     next tick; a claim that expired locally is re-carried until it settles or
     the deposit is recovered; the deposit of the snapshot being confirmed is
