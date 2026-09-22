@@ -198,6 +198,28 @@ spec =
           NetworkEffect AckSn{} -> True
           _ -> False
 
+      it "still confirms a snapshot after a party offered a signature for another one" $ do
+        -- Why this matters. A signature offered a round early is held until
+        -- that round opens, which is what lets a party running slightly ahead
+        -- be heard at all. If it is then filed without anyone checking it was
+        -- made for this round, it takes that party's place, the party's real
+        -- signature is turned away as already given, the signatures cannot be
+        -- combined, and the round dies. No round is ever asked for twice, so
+        -- the head would be stopped for good by one early message.
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            snapshot1 = testSnapshot 1 0 [] mempty
+            misplaced = receiveMessageFrom carol $ AckSn (sign carolSk (testSnapshot 2 0 [] mempty)) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+        confirmed <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
+          step reqSn
+          step misplaced
+          step (ackFrom carolSk carol)
+          step (ackFrom aliceSk alice)
+          step (ackFrom bobSk bob)
+          getState
+        getConfirmedSnapshot confirmed `shouldBe` Just snapshot1
+
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
@@ -1238,6 +1260,50 @@ spec =
               chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
             _ -> fail "expected Open state"
 
+        it "a settled increment leaves the confirmed snapshot a version behind the head" $ do
+          -- Reproduces the state GHSA-7593-94v9-fq29 describes. A peer can
+          -- collect everyone else's signature, complete the multisignature
+          -- with its own key, post the increment itself and never send its
+          -- AckSn. Honest nodes then see the chain move to the next version
+          -- while the snapshot which authorised it stays unconfirmed for
+          -- them, and the observation carries neither that snapshot's number
+          -- nor the signatures the redeemer proved, so there is nothing to
+          -- adopt.
+          --
+          -- This test states what the node does today, not what it should do.
+          -- Change it when the observation starts carrying the redeemer's
+          -- signatures and the node adopts the snapshot they prove.
+          let localUTxO = utxoRefs [1]
+              confirmed = testSnapshot 0 3 [] localUTxO
+              inFlight = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
+              depositTxId = 42
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = confirmed, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot inFlight mempty
+                    , currentDepositTxId = Just depositTxId
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+              s1 = aggregateState Fixture.testRollbackHorizon s0 (update aliceEnv ledger now s0 incrementObservation)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              -- The chain moved on, our confirmed snapshot did not.
+              chs.version `shouldBe` 4
+              (getSnapshot chs.confirmedSnapshot).number `shouldBe` 0
+              (getSnapshot chs.confirmedSnapshot).version `shouldBe` 3
+            _ -> fail "expected Open state"
+          -- And nothing moves it on by itself: the round in flight is never
+          -- abandoned, so every later request waits behind it for good.
+          now' <- nowFromSlot s1.chainPointTime.currentSlot
+          update aliceEnv ledger now' s1 (receiveMessageFrom bob $ ReqSn 4 2 [] Nothing Nothing)
+            `shouldSatisfy` \case
+              Wait{} -> True
+              _ -> False
+
         it "CommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
           let localUTxO = utxoRefs [1]
               snapshot1 = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
@@ -1355,7 +1421,13 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
-      it "rejects last AckSn if one signature was from a different snapshot" $ do
+      -- The three ways a signature can fail to be this party's signature over
+      -- this round's snapshot. All three are turned away as the message
+      -- arrives, before the signature is put in that party's place, so the
+      -- party is named and its real signature can still be counted. Refusing
+      -- them only when the signatures are combined at the end would cost the
+      -- whole round, and by then nothing says whose was wrong.
+      it "refuses an AckSn signed over a different snapshot" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
@@ -1371,11 +1443,9 @@ spec =
 
         now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
         update bobEnv ledger now waitingForLastAck (invalidAckFrom bobSk bob)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
-      it "rejects last AckSn if one signature was from a different key" $ do
+      it "refuses an AckSn signed with a key that is not the sender's" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
@@ -1389,11 +1459,9 @@ spec =
 
         now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
         update bobEnv ledger now waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
-      it "rejects last AckSn if one signature was from a completely different message" $ do
+      it "refuses an AckSn signed over something that is not a snapshot" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
@@ -1403,18 +1471,15 @@ spec =
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
                 AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
-        waitingForLastAck <-
+        collecting <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
-            step (invalidAckFrom bobSk bob)
             getState
 
-        now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
-        update bobEnv ledger now waitingForLastAck (ackFrom aliceSk alice)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+        now <- nowFromSlot collecting.chainPointTime.currentSlot
+        update bobEnv ledger now collecting (invalidAckFrom bobSk bob)
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn :: Input tx

@@ -71,6 +71,14 @@ data RequirementFailure tx
     ReqSnDecommitNoOutputs {decommitTxId :: TxIdType tx}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
+  | -- | The signature offered is not this party's signature over the snapshot
+    -- it is offered for. A signature for the round after ours is held until
+    -- that round opens, so that a party slightly ahead is still heard; this
+    -- is what stops one held for a round it was never made for from taking
+    -- that party's place in the signatures. Without it the party's real
+    -- signature is refused as already given, the signatures never combine,
+    -- and since no round is asked for twice the head stops for good.
+    AckSnSignatureInvalid {requestedSn :: SnapshotNumber, receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | NoMatchingDeposit
