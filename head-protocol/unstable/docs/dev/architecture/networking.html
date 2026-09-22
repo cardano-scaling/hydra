@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.4f4fe4d8.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.bd7da13e.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -51,6 +51,23 @@
 <li><a href="/head-protocol/unstable/haddocks/hydra-node/Hydra-Network-Etcd.html" target="_blank" rel="noopener noreferrer"><code>Etcd</code></a> component that re-uses <a href="https://etcd.io/" target="_blank" rel="noopener noreferrer">etcd</a> to implement a reliable <code>broadcast</code> primitive</li>
 </ul>
 <p>See <a href="/head-protocol/unstable/adr/32">ADR 32</a> for a rationale of this approach.</p>
+<p>Note that <code>broadcast</code> is not called from the <code>hydra-node</code>&#x27;s input-processing
+loop directly. That loop processes chain observations and client commands one
+at a time, so anything it waits on stops it doing either; and <code>broadcast</code> does
+wait, because the <code>Etcd</code> component queues messages it cannot yet commit and
+that queue is bounded. Outbound messages are therefore handed to an ordered
+queue drained by a thread of its own, which is the only caller of <code>broadcast</code>.</p>
+<p>The consequence is that a node whose messages cannot get out keeps observing
+the chain and keeps accepting the commands that close and contest a head. What
+it stops doing is accepting <em>new</em> ones: while the hand-off is making no
+progress, <code>NewTx</code> and <code>Decommit</code> are refused with
+<code>RejectedInputBecauseBroadcastStalled</code>, since they are the client inputs that
+grow the backlog fastest. The protocol&#x27;s own messages cannot pile up, because
+a broadcast is delivered to ourselves as well, so with the network down our
+own acknowledgement never comes back and the snapshot round cannot advance.
+The condition is reported as <code>NetworkBroadcastStalled</code>
+and <code>NetworkBroadcastResumed</code>, and reflected in <code>Greetings</code> for clients that
+connect while it is under way.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="previous-network-stack">Previous network stack<a href="#previous-network-stack" class="hash-link" aria-label="Direct link to Previous network stack" title="Direct link to Previous network stack">​</a></h3>
 <p>In the past we had a &quot;hand-rolled&quot; network stack to implement reliable broadcast in a fully connected network topology.</p>
 <ul>

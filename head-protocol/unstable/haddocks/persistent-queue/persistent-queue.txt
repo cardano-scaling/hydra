@@ -39,7 +39,7 @@ PersistentQueueDeleteFailed :: Natural -> Text -> PersistentQueueLog
 [$sel:reason:PersistentQueueLoadFailed] :: PersistentQueueLog -> Text
 
 -- | Create a new persistent queue at file path and given capacity.
-newPersistentQueue :: (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) => Tracer IO PersistentQueueLog -> FilePath -> Natural -> m (PersistentQueue m a)
+newPersistentQueue :: (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m) => Tracer IO PersistentQueueLog -> FilePath -> Natural -> m (PersistentQueue m a)
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO PersistentQueueLog -> PersistentQueue m a -> a -> m ()

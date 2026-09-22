@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.4f4fe4d8.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.bd7da13e.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -67,6 +67,25 @@ here: <a href="/head-protocol/unstable/docs/configuration#auto-compaction-of-net
 <li><code>persistence/state*</code></li>
 </ul>
 <p>Note that, as with any adjustments of this kind, it is good practice to make a backup first!</p>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="pending-outbound-messages">Pending outbound messages<a href="#pending-outbound-messages" class="hash-link" aria-label="Direct link to Pending outbound messages" title="Direct link to Pending outbound messages">​</a></h4>
+<p><code>&lt;persistence-dir&gt;/pending-broadcast/</code> holds messages this node has broadcast
+that the cluster has not accepted yet. It fills while the node cannot reach a
+majority of the <code>etcd</code> cluster, and drains once it can.</p>
+<p>Do not delete it as part of a routine upgrade cleanup. Unlike
+<code>persistence/state*</code>, deleting it discards messages the other participants
+never saw, which breaks the reliable-broadcast guarantee the off-chain
+protocol relies on and can leave the head unable to make progress. The
+recovery for a growing <code>pending-broadcast/</code> is to restore quorum by bringing
+peers back, not to remove files.</p>
+<p>The metrics to watch are <code>hydra_head_pending_broadcasts</code>,
+<code>hydra_head_broadcast_no_progress_seconds</code> and <code>hydra_head_broadcast_stalled</code>
+on the node&#x27;s <code>--monitoring-port</code>; see
+<a href="../benchmarks/metrics#diagnosing-a-stalled-broadcast">runtime metrics</a>.</p>
+<p>While the queue is not draining, the node reports <code>NetworkBroadcastStalled</code>
+(and later <code>NetworkBroadcastResumed</code>) to its clients, and refuses new <code>NewTx</code>
+and <code>Decommit</code> submissions with <code>RejectedInputBecauseBroadcastStalled</code>
+(HTTP 503) to keep the backlog from growing. Closing, contesting and fanning
+out the head are never refused.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="training-wheels">Training wheels<a href="#training-wheels" class="hash-link" aria-label="Direct link to Training wheels" title="Direct link to Training wheels">​</a></h3>
 <p>The following restrictions apply when <strong>depositing</strong> funds into a Hydra head (via <code>POST /commit</code>):</p>
 <ul>

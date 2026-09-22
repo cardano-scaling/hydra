@@ -1787,6 +1787,25 @@ Network :: (msg -> m ()) -> Network m msg
 -- | Send a <tt>msg</tt> to the whole configured hydra network including
 --   ourselves.
 [$sel:broadcast:Network] :: Network m msg -> msg -> m ()
+
+-- | Why the node's outbound broadcast hand-off is reporting itself
+--   stalled.
+--   
+--   The two conditions are not interchangeable, and conflating them
+--   misreports a healthy network: <a>NoProgress</a> means nothing is
+--   getting through at all, while <a>BacklogFull</a> also fires on a
+--   producer simply outrunning a consumer that is draining fine. Anything
+--   telling a client or an operator about a stall should say which one it
+--   saw rather than blaming reachability.
+data StallReason
+
+-- | Nothing has completed for longer than the allowed period, so the
+--   network cannot currently be reached.
+NoProgress :: StallReason
+
+-- | The hand-off is holding its maximum, which a fast client can cause
+--   against a network that is keeping up.
+BacklogFull :: StallReason
 data Host
 Host :: Text -> PortNumber -> Host
 [$sel:hostname:Host] :: Host -> Text
@@ -1843,6 +1862,19 @@ VersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> Connectivity
 ClusterIDMismatch :: Text -> Connectivity
 [$sel:clusterPeers:PeerConnected] :: Connectivity -> Text
 
+-- | Outbound messages have backed up and are not being handed to the
+--   cluster. They go out once they can, but are held in memory until then,
+--   so stopping the node while stalled discards whatever it had not handed
+--   over (traced as <a>DiscardedBroadcasts</a>). See <a>StallReason</a>
+--   for which of the two conditions this is: they are not the same, and
+--   only one of them means the network is unreachable.
+BroadcastStalled :: Natural -> StallReason -> Connectivity
+[$sel:pendingBroadcasts:PeerConnected] :: Connectivity -> Natural
+[$sel:stallReason:PeerConnected] :: Connectivity -> StallReason
+
+-- | The outbound queue started draining again.
+BroadcastResumed :: Connectivity
+
 -- | Configuration for a <tt>Node</tt> network layer.
 data NetworkConfiguration
 NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
@@ -1893,6 +1925,11 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.Host
 instance GHC.Classes.Eq Hydra.Network.Host
 instance GHC.Generics.Generic Hydra.Network.Host
 instance GHC.Classes.Ord Hydra.Network.Host
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.StallReason
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.StallReason
+instance GHC.Show.Show Hydra.Network.StallReason
+instance GHC.Classes.Eq Hydra.Network.StallReason
+instance GHC.Generics.Generic Hydra.Network.StallReason
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.ProtocolVersion
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.ProtocolVersion
 instance GHC.Classes.Ord Hydra.Network.ProtocolVersion
@@ -1910,6 +1947,8 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.Connectivity
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.Connectivity
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.ProtocolVersion
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.ProtocolVersion
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.StallReason
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.StallReason
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.Host
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.Host
 instance GHC.Show.Show Hydra.Network.Host
@@ -2647,6 +2686,85 @@ instance GHC.Show.Show Hydra.Node.Network.NetworkLog
 instance GHC.Classes.Eq Hydra.Node.Network.NetworkLog
 
 
+-- | An ordered hand-off for effects that must not block the thread
+--   producing them.
+module Hydra.Node.Outbox
+
+-- | Bounds beyond which an <a>Outbox</a> reports itself stalled.
+data StallBounds
+StallBounds :: DiffTime -> Natural -> StallBounds
+
+-- | How long the outbox may fail to complete anything while it holds work.
+[$sel:noProgressFor:StallBounds] :: StallBounds -> DiffTime
+
+-- | How much work it may hold, whatever the elapsed time. Catches a stall
+--   sooner than <a>$sel:noProgressFor:StallBounds</a> would when the
+--   producer is fast, so whoever gates on this can cut the flow off
+--   earlier. Note it does not itself bound the queue:
+--   <a>$sel:submit:Outbox</a> never blocks, so only the producer can stop.
+--   
+--   This limb also fires on a producer simply outrunning a consumer that
+--   is keeping up, so a caller reporting it must describe the backlog
+--   rather than blame the consumer for being unreachable.
+[$sel:maxPending:StallBounds] :: StallBounds -> Natural
+
+-- | A single-consumer hand-off for actions that must not block the thread
+--   submitting them.
+--   
+--   The hydra node processes all its inputs on one thread and used to run
+--   every effect inline on it, so an effect that blocked stopped it
+--   dequeuing anything at all - including the chain observation and the
+--   client command it needs to close and contest a head. See
+--   GHSA-3mmr-q43p-g6p2 and <a>withNetworkOutbox</a>.
+--   
+--   <a>$sel:submit:Outbox</a> therefore only appends;
+--   <a>$sel:runOutbox:Outbox</a> is the one thing that performs the
+--   actions, in submission order.
+data Outbox m
+Outbox :: (m () -> m ()) -> m (Maybe (StallReason, Natural)) -> STM m Natural -> m (Natural, DiffTime) -> m () -> m () -> StallBounds -> Outbox m
+
+-- | Append an action. Never blocks.
+[$sel:submit:Outbox] :: Outbox m -> m () -> m ()
+
+-- | The cause, and the amount of queued work, once it exceeds the
+--   <a>StallBounds</a>.
+--   
+--   Progress-based first, on purpose: depth alone is a normal condition
+--   for a consumer that batches or rate-limits, and "non-empty for a
+--   while" would misfire on a busy producer whose queue simply never
+--   happens to be observed empty. What actually means "this is not getting
+--   through" is that nothing has completed - reported as <a>NoProgress</a>
+--   even when the backlog also happens to be at
+--   <a>$sel:maxPending:StallBounds</a>.
+[$sel:outboxStalled:Outbox] :: Outbox m -> m (Maybe (StallReason, Natural))
+
+-- | Submitted but not yet completed, including any action in flight.
+[$sel:pendingActions:Outbox] :: Outbox m -> STM m Natural
+
+-- | The same count, plus how long since the outbox last completed anything
+--   - zero while it holds nothing. Where <a>$sel:outboxStalled:Outbox</a>
+--   answers "should we cut the flow off", this is for reporting: it is the
+--   pair an operator needs to tell a backlog that is draining from one
+--   that is not, and to see which of the two <a>StallBounds</a> limbs is
+--   being approached.
+[$sel:outboxBacklog:Outbox] :: Outbox m -> m (Natural, DiffTime)
+
+-- | Perform submitted actions forever, in submission order. Must run
+--   concurrently with the producer, or nothing is ever performed.
+[$sel:runOutbox:Outbox] :: Outbox m -> m ()
+
+-- | Perform everything queued right now and return. For producers driven
+--   step by step instead of alongside <a>$sel:runOutbox:Outbox</a>. Must
+--   not run concurrently with it: two consumers would interleave the
+--   actions.
+[$sel:drainOutbox:Outbox] :: Outbox m -> m ()
+
+-- | What this outbox was created with, so a watcher can pick a polling
+--   interval that matches.
+[$sel:stallBounds:Outbox] :: Outbox m -> StallBounds
+newOutbox :: (MonadLabelledSTM m, MonadMonotonicTime m) => StallBounds -> String -> m (Outbox m)
+
+
 -- | Structured errors related to configuration mismatch.
 --   
 --   When we start a <a>Node</a> we need to do sanity checks between what's
@@ -2945,6 +3063,23 @@ NetworkDisconnected :: ServerOutput tx
 NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> ServerOutput tx
 [$sel:ourVersion:NetworkConnected] :: ServerOutput tx -> ProtocolVersion
 [$sel:theirVersion:NetworkConnected] :: ServerOutput tx -> Maybe ProtocolVersion
+
+-- | The node's outbound messages have been queued and undeliverable for a
+--   while: it cannot hand them to the hydra network. They go out once it
+--   can, but are held in memory until then, so stopping the node while
+--   stalled discards whatever it had not handed over. <tt>NewTx</tt> and
+--   <tt>Decommit</tt> are refused with
+--   <a>RejectedInputBecauseBroadcastStalled</a> meanwhile. Closing,
+--   contesting and fanning out are unaffected <i>by this condition</i> -
+--   they go to layer one, so they still depend on the chain backend.
+--   <a>ClientMessage</a> says which of the two conditions this is: only
+--   <tt>NoProgress</tt> means the network is unreachable.
+NetworkBroadcastStalled :: Natural -> StallReason -> ServerOutput tx
+[$sel:pendingBroadcasts:NetworkConnected] :: ServerOutput tx -> Natural
+[$sel:stallReason:NetworkConnected] :: ServerOutput tx -> StallReason
+
+-- | The node's outbound queue started draining again.
+NetworkBroadcastResumed :: ServerOutput tx
 NetworkClusterIDMismatch :: Text -> Text -> ServerOutput tx
 [$sel:clusterPeers:NetworkConnected] :: ServerOutput tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: ServerOutput tx -> Text
@@ -3090,6 +3225,21 @@ PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 RejectedInputBecauseUnsynced :: ClientInput tx -> NominalDiffTime -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:drift:CommandFailed] :: ClientMessage tx -> NominalDiffTime
+
+-- | A <tt>NewTx</tt> or <tt>Decommit</tt> was refused because the node's
+--   outbound broadcast queue has been backed up for a while: the message
+--   it would produce cannot be handed to the network. Chain and protocol
+--   processing are unaffected, and <tt>Close</tt>, <tt>Contest</tt> and
+--   <tt>Fanout</tt> always work. Retry once the network recovers.
+--   
+--   <a>ClientMessage</a> tells apart the two causes <a>ClientMessage</a>
+--   alone cannot: <tt>NoProgress</tt> means the network really is
+--   unreachable, while <tt>BacklogFull</tt> can mean a healthy network
+--   simply being outrun by a fast client.
+RejectedInputBecauseBroadcastStalled :: ClientInput tx -> Natural -> StallReason -> ClientMessage tx
+[$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
+[$sel:pendingBroadcasts:CommandFailed] :: ClientMessage tx -> Natural
+[$sel:stallReason:CommandFailed] :: ClientMessage tx -> StallReason
 SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
@@ -3111,8 +3261,18 @@ TimedServerOutput :: Natural -> UTCTime -> ServerOutput tx -> TimedServerOutput 
 
 -- | L2 Hydra network status information.
 data NetworkInfo
-NetworkInfo :: Bool -> Map Host Bool -> NetworkInfo
+NetworkInfo :: Bool -> Maybe StallReason -> Map Host Bool -> NetworkInfo
 [$sel:networkConnected:NetworkInfo] :: NetworkInfo -> Bool
+
+-- | Why the node's outbound messages are currently backing up, if they
+--   are, see <a>NetworkBroadcastStalled</a>. <a>Nothing</a> means they are
+--   flowing. Note that only <tt>NoProgress</tt> means the network cannot
+--   be reached; <tt>BacklogFull</tt> can be a client outrunning a network
+--   that is keeping up, so this is deliberately not a bare "unreachable"
+--   flag. Carried here as well as in that output because <a>Greetings</a>
+--   is what a client gets on connecting, and past outputs are only
+--   replayed on request.
+[$sel:broadcastStall:NetworkInfo] :: NetworkInfo -> Maybe StallReason
 [$sel:peersInfo:NetworkInfo] :: NetworkInfo -> Map Host Bool
 
 -- | A friendly welcome message which tells a client something about the
@@ -3380,6 +3540,10 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
+NetworkBroadcastStalled :: Natural -> StallReason -> StateChanged tx
+[$sel:pendingBroadcasts:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:stallReason:NetworkConnected] :: StateChanged tx -> StallReason
+NetworkBroadcastResumed :: StateChanged tx
 HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3691,6 +3855,12 @@ OperationTimedOut :: Text -> Text -> OperationTimedOut
 [$sel:timeoutMessage:OperationTimedOut] :: OperationTimedOut -> Text
 operationTimedOut :: Text -> ApiTransactionTimeout -> OperationTimedOut
 
+-- | How a stalled outbound queue is described to an HTTP client,
+--   distinguishing <a>NoProgress</a> (the network really is unreachable)
+--   from <a>BacklogFull</a> (a healthy network being outrun by a fast
+--   producer).
+describeStallReason :: StallReason -> Text
+
 -- | Which encoding the client wants for the response, negotiated via the
 --   <tt>Accept</tt> header. Anything but <tt>application/cbor</tt>
 --   (including no header) yields JSON.
@@ -3720,7 +3890,7 @@ handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO (
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx :: forall tx. (FromJSON tx, FromCBOR tx) => Chain tx IO -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
-handleDecommit :: forall tx. (FromJSON tx, FromCBOR tx) => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
+handleDecommit :: forall tx. IsTx tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
@@ -4847,6 +5017,10 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
+NetworkBroadcastStalled :: Natural -> StallReason -> StateChanged tx
+[$sel:pendingBroadcasts:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:stallReason:NetworkConnected] :: StateChanged tx -> StallReason
+NetworkBroadcastResumed :: StateChanged tx
 HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -5793,7 +5967,7 @@ WsCodec :: (TimedServerOutput tx -> IO ()) -> (ClientMessage tx -> IO ()) -> (Gr
 --   type: some JSON clients (e.g. the TUI) send binary frames containing
 --   JSON.
 mkWsCodec :: forall tx. IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
-wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
+wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> IO (Maybe StallReason) -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
 
 -- | The query parameters of a websocket connection request path.
 --   
@@ -5833,7 +6007,7 @@ APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTr
 --   <a>APIServerConfig</a> are still used for logging and for the
 --   <a>RunServerException</a> context.
 [$sel:listenSocket:APIServerConfig] :: APIServerConfig -> Maybe Socket
-withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
+withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> IO (Maybe StallReason) -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
 --   as context.
@@ -5894,7 +6068,7 @@ checkHeadState :: MonadThrow m => Tracer m (HydraNodeLog tx) -> Environment -> H
 --   yet connected (see <a>connect</a>). This is commonly created by the
 --   <a>hydrate</a> smart constructor.
 data DraftHydraNode tx m
-DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> ChainStateHistory tx -> DraftHydraNode tx m
+DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Outbox m -> ChainStateHistory tx -> DraftHydraNode tx m
 [$sel:tracer:DraftHydraNode] :: DraftHydraNode tx m -> Tracer m (HydraNodeLog tx)
 [$sel:env:DraftHydraNode] :: DraftHydraNode tx m -> Environment
 [$sel:ledger:DraftHydraNode] :: DraftHydraNode tx m -> Ledger tx
@@ -5902,6 +6076,11 @@ DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> Node
 [$sel:inputQueue:DraftHydraNode] :: DraftHydraNode tx m -> InputQueue m (Input tx)
 [$sel:eventSource:DraftHydraNode] :: DraftHydraNode tx m -> EventSource (StateEvent tx) m
 [$sel:eventSinks:DraftHydraNode] :: DraftHydraNode tx m -> [EventSink (StateEvent tx) m]
+
+-- | Hand-off for <a>NetworkEffect</a>s, see <a>Outbox</a>. Created here
+--   rather than in <a>connect</a> so that the API server, which starts
+--   first, can report the live broadcast status in its <a>Greetings</a>.
+[$sel:networkOutbox:DraftHydraNode] :: DraftHydraNode tx m -> Outbox m
 [$sel:chainStateHistory:DraftHydraNode] :: DraftHydraNode tx m -> ChainStateHistory tx
 
 -- | Hydrate a <a>DraftHydraNode</a> by loading events from source,
@@ -5921,7 +6100,7 @@ connect :: Monad m => Chain tx m -> Network m (Message tx) -> Server tx m -> Dra
 
 -- | Fully connected hydra node with everything wired in.
 data HydraNode tx m
-HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Chain tx m -> Network m (Message tx) -> Server tx m -> HydraNode tx m
+HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Chain tx m -> Network m (Message tx) -> Server tx m -> Outbox m -> HydraNode tx m
 [$sel:tracer:HydraNode] :: HydraNode tx m -> Tracer m (HydraNodeLog tx)
 [$sel:env:HydraNode] :: HydraNode tx m -> Environment
 [$sel:ledger:HydraNode] :: HydraNode tx m -> Ledger tx
@@ -5932,8 +6111,89 @@ HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeState
 [$sel:oc:HydraNode] :: HydraNode tx m -> Chain tx m
 [$sel:hn:HydraNode] :: HydraNode tx m -> Network m (Message tx)
 [$sel:server:HydraNode] :: HydraNode tx m -> Server tx m
-runHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
+
+-- | Hand-off for <a>NetworkEffect</a>s, see <a>Outbox</a>.
+[$sel:networkOutbox:HydraNode] :: HydraNode tx m -> Outbox m
+
+-- | Run the network hand-off and its stall monitor concurrently with the
+--   given action, stopping when any of them does. An effect throwing
+--   therefore still takes the node down, as it did when effects ran on the
+--   main loop.
+--   
+--   NOTE: it takes it down asynchronously, though, where running inline
+--   threw synchronously from between two effects. The main loop is now
+--   cancelled wherever it happens to be, which can be
+--   mid-<a>processStateChanges</a>. That is the same class of interruption
+--   the surrounding <tt>withChain</tt>/<tt>withNetwork</tt> brackets could
+--   already deliver, but this is a new source of it.
+withNetworkOutbox :: (MonadAsync m, MonadDelay m) => HydraNode tx m -> m () -> m ()
+
+-- | Report the network hand-off stalling and recovering as
+--   <tt>Connectivity</tt> events, which reach the event log and from there
+--   clients already listening. A client connecting mid-stall is told
+--   instead by <a>NetworkInfo</a>, which reads the outbox live rather than
+--   replaying these - past outputs are only replayed on request, and a
+--   replayed stall may long since have ended.
+--   
+--   These reports travel as network inputs, so while the node is catching
+--   up <tt>updateCatchingUpHead</tt> parks them and a stalled/resumed pair
+--   only reaches clients once it is in sync, by which time the stall it
+--   describes may be over. <tt>NetworkInfo</tt> is unaffected, being read
+--   live.
+--   
+--   Only a status seen on two consecutive polls is reported, so clients
+--   are not flooded (as with the sync status, see #2749). Without that, a
+--   network completing something every so often but less often than the
+--   stall period flaps between the two reports forever: with completions
+--   15s apart and a 10s poll, the observed gaps cycle 9s, 4s, 14s, giving
+--   a report every ~30s indefinitely.
+monitorBroadcast :: (MonadDelay m, MonadSTM m) => HydraNode tx m -> m ()
+
+-- | When the node starts refusing the client transactions that grow the
+--   outbound backlog, and when it reports the backlog to clients. Ten
+--   seconds of no progress is comfortably above the etcd broadcast loop's
+--   one second retry and far below any contestation period; the cap on
+--   queued messages is the memory backstop.
+--   
+--   Deliberately not operator-configurable: the useful range is narrow,
+--   nothing observable would tell an operator which value to pick, and the
+--   natural guess for "off" (zero) is the most aggressive setting rather
+--   than the least.
+--   
+--   NOTE: this measures the hand-off, and the shipped
+--   <a>$sel:broadcast:Network</a> completes as soon as the message is in
+--   the network component's own 100-slot pending-broadcast queue. So
+--   during an outage the first ~100 messages still complete promptly and
+--   nothing is reported; the stall only becomes visible once both queues
+--   are saturated, which also puts the real in-flight bound around
+--   <a>$sel:maxPending:StallBounds</a> plus that queue rather than at
+--   <a>$sel:maxPending:StallBounds</a>.
+broadcastStallBounds :: StallBounds
+runHydraNode :: (MonadCatch m, MonadAsync m, MonadDelay m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
 stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => UTCTime -> HydraNode tx m -> m ()
+
+-- | Client inputs that turn into a broadcast directly, and so are the ones
+--   worth refusing: the protocol's own messages cannot pile up while the
+--   network is down, because <a>$sel:broadcast:Network</a> is
+--   self-delivering, so our own <a>AckSn</a> never comes back, the
+--   confirmed snapshot number freezes and <tt>snapshotInFlight</tt> caps
+--   both <a>ReqSn</a> and <a>AckSn</a> at one apiece.
+--   
+--   NOTE: that cap is not airtight, and this is not a complete bound.
+--   <tt>onOpenChainTick</tt> emits a <a>ReqSn</a> on a chain tick with no
+--   network input at all, and <a>SideLoadSnapshot</a> - which broadcasts
+--   nothing itself, so is not listed here - clears exactly the state that
+--   cap reads. A client looping <a>SideLoadSnapshot</a> can therefore draw
+--   one further <a>ReqSn</a> per tick. Left ungated on purpose:
+--   side-loading is the documented recovery for a <a>ReqSn</a> or
+--   <a>AckSn</a> lost from the hand-off, so refusing it while stalled
+--   would block the way out. The leak is one small message per chain tick.
+growsBroadcastBacklog :: ClientInput tx -> Bool
+
+-- | Whether <a>growsBroadcastBacklog</a> inputs would reach the code that
+--   broadcasts, rather than being answered by the sync or head-state
+--   checks.
+inOpenHeadAndSynced :: NodeState tx -> Bool
 
 -- | The maximum number of times to re-enqueue a network messages upon
 --   <a>Wait</a>. outcome.
@@ -5992,6 +6252,20 @@ LoadedChainState :: ChainPointType tx -> HydraNodeLog tx
 ReplayingState :: HydraNodeLog tx
 Misconfiguration :: [ParamMismatch] -> HydraNodeLog tx
 [$sel:misconfigurationErrors:BeginInput] :: HydraNodeLog tx -> [ParamMismatch]
+
+-- | Outbound messages accepted from the head logic but never handed to the
+--   network, dropped because the node is stopping.
+DiscardedBroadcasts :: Natural -> HydraNodeLog tx
+[$sel:discarded:BeginInput] :: HydraNodeLog tx -> Natural
+
+-- | How much the outbound hand-off is holding, and for how long it has
+--   completed nothing. Emitted by <a>monitorBroadcast</a> only while there
+--   is a backlog, plus once when one clears, so a node whose network is
+--   fine says nothing. Drives the broadcast metrics; see
+--   <a>Monitoring</a>.
+BroadcastBacklog :: Natural -> DiffTime -> HydraNodeLog tx
+[$sel:pendingBroadcasts:BeginInput] :: HydraNodeLog tx -> Natural
+[$sel:noProgressSeconds:BeginInput] :: HydraNodeLog tx -> DiffTime
 instance GHC.Generics.Generic (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Node.HydraNodeLog tx)

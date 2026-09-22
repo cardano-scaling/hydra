@@ -86,6 +86,7 @@ instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.See
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.FanoutMode Hydra.Cardano.Api.Tx)
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.NodeState Hydra.Cardano.Api.Tx)
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.SyncedStatus
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.StallReason
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.DepositStatus
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.Deposit Hydra.Cardano.Api.Tx)
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.Connectivity
@@ -477,13 +478,16 @@ module Hydra.PartySpec
 spec :: Spec
 
 
--- | Tests of the <tt>PersistentQueue</tt>.
+-- | Tests of the <a>PersistentQueue</a>.
 module Hydra.PersistentQueueSpec
 spec :: Spec
 isDeleteFailed :: PersistentQueueLog -> Bool
 isLoadFailed :: PersistentQueueLog -> Bool
 shouldNotBlock :: HasCallStack => IO a -> IO a
 shouldNotBlock_ :: HasCallStack => IO a -> IO ()
+
+-- | Pop everything currently queued, in order.
+drainPersistentQueue :: Tracer IO PersistentQueueLog -> PersistentQueue IO a -> IO [a]
 
 module Hydra.UtilsSpec
 spec :: Spec
@@ -561,6 +565,19 @@ txOutNoThunks :: TxOut CtxUTxO -> IO (Maybe ThunkInfo)
 scriptLanguageNoThunks :: ScriptLanguage lang -> IO (Maybe ThunkInfo)
 scriptNoThunks :: Script lang -> IO (Maybe ThunkInfo)
 
+
+-- | Tests of the effect hand-off in front of the network.
+--   
+--   Run under io-sim so the time-based assertions are exact rather than
+--   racing a wall clock.
+module Hydra.Node.OutboxSpec
+bounds :: StallBounds
+spec :: Spec
+
+-- | Run an outbox whose single submitted action never completes, which is
+--   what a network that cannot deliver looks like from here.
+withStuckOutbox :: (MonadAsync m, MonadLabelledSTM m, MonadMonotonicTime m) => StallBounds -> (Outbox m -> m a) -> m a
+
 module Hydra.Node.InputQueueSpec
 spec :: Spec
 newtype DummyInput
@@ -584,6 +601,9 @@ spec :: Spec
 --   with EADDRINUSE, which <a>withEtcdNetwork</a> turns straight into a
 --   failure.
 etcdSpec :: Spec
+
+-- | The broadcast loop reporting that it could not commit a put.
+isBroadcastFailed :: EtcdLog -> Bool
 lo :: IsString s => s
 
 -- | Run a TCP proxy in front of an etcd client port that reproduces
@@ -922,6 +942,24 @@ testHydraNode :: (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m, M
 --   tests longer.
 testTTL :: TTL
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
+
+-- | Record every <a>$sel:postTx:Chain</a> call, in the shape of
+--   <a>recordNetwork</a>. <a>mockChain</a> discards them, so tests
+--   asserting on <tt>OnChainEffect</tt>s have nothing to look at
+--   otherwise.
+recordChain :: HydraNode tx IO -> IO (HydraNode tx IO, IO [PostChainTx tx])
+
+-- | Drive the node like <tt>runHydraNode</tt> does, but on a background
+--   thread and using the node's own notion of chain time the way
+--   <a>runToCompletion</a> does. Nodes built here start at
+--   <a>initialChainTime</a>, so driving them with the wall clock would
+--   leave them permanently out of sync.
+withRunningHydraNode :: IsChainState tx => HydraNode tx IO -> IO a -> IO a
+
+-- | Wait for a recorder (see <a>messageRecorder</a>) to hold a matching
+--   item, failing with everything recorded so far so a wedged node names
+--   the effect it never produced instead of just timing out.
+awaitRecorded :: (HasCallStack, Show a) => IO [a] -> (a -> Bool) -> IO a
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 messageRecorder :: IO (msg -> IO (), IO [msg])
 throwExceptionOnPostTx :: IsChainState tx => PostTxError tx -> HydraNode tx IO -> IO (HydraNode tx IO)
@@ -1041,6 +1079,10 @@ withTestAPIServer :: Socket -> PortNumber -> Party -> EventSource (StateEvent Si
 --   port is refused: handing both servers one socket would let them both
 --   succeed.
 withTestAPIServerBindingPort :: PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
+
+-- | Like <a>withTestAPIServer</a>, but with the live broadcast status the
+--   server greets clients with under the test's control.
+withTestAPIServerStalledWhen :: Socket -> IO (Maybe StallReason) -> PortNumber -> Party -> EventSource (StateEvent SimpleTx) IO -> Tracer IO APIServerLog -> ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) -> IO ()
 
 -- | Like <a>withTestAPIServer</a>, but with an explicit callback invoked
 --   for every <a>ClientInput</a> received by the server.
