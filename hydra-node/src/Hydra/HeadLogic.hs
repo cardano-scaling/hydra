@@ -104,6 +104,7 @@ import Hydra.Tx.Crypto (
   Verified (..),
   aggregateInOrder,
   sign,
+  verify,
   verifyMultiSignature,
   verifyMultiSignatureBytes,
  )
@@ -799,29 +800,30 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     waitOnSeenSnapshot $ \snapshot sigs snapshotBytes -> do
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        -- Spec: ̂Σ[j] ← σⱼ
-        (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-          ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
-            -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
-            let multisig = aggregateInOrder sigs' parties
-            -- Spec: η ← combine(𝑈ˆ)
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
-            requireVerifiedMultisignature multisig snapshotBytes $
-              do
-                -- NOTE: Fix all the spec comments once specification is in place
-                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
-                --       ̅S.σ ← ̃σ
-                newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
-                -- Spec: if 𝑈𝛼 ≠ ⊥
-                --         postTx (increment, v̂, ŝ, η)
-                & maybePostIncrementTx snapshot multisig
-                -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η)
-                & maybePostDecrementTx snapshot multisig
-                -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
-                & maybeRequestNextSnapshot snapshot
+        requireSignatureForThisSnapshot snapshot $ do
+          -- Spec: ̂Σ[j] ← σⱼ
+          (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
+            --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+            ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
+              -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
+              let multisig = aggregateInOrder sigs' parties
+              -- Spec: η ← combine(𝑈ˆ)
+              --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
+              requireVerifiedMultisignature multisig snapshotBytes $
+                do
+                  -- NOTE: Fix all the spec comments once specification is in place
+                  -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
+                  --       ̅S.σ ← ̃σ
+                  newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
+                  -- Spec: if 𝑈𝛼 ≠ ⊥
+                  --         postTx (increment, v̂, ŝ, η)
+                  & maybePostIncrementTx snapshot multisig
+                  -- Spec: if txω ≠ ⊥
+                  --         postTx (decrement, v̂, ŝ, η)
+                  & maybePostDecrementTx snapshot multisig
+                  -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
+                  -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
+                  & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -845,6 +847,21 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     if not (Map.member otherParty sigs)
       then continue
       else Error $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
+
+  -- A signature is only this party's contribution to this round if it was made
+  -- over this round's snapshot. Checking that here rather than only checking
+  -- the combination at the end is what keeps a signature made for another
+  -- round out of this party's place, see 'AckSnSignatureInvalid'.
+  --
+  -- It costs one verification per acknowledgement. The combination at the end
+  -- is a verification per party already, since it is a list of signatures
+  -- rather than a single aggregate, so this at most doubles the signing work
+  -- of a round and bounds it by the number of parties. It also names the party
+  -- at fault, which the combination cannot once the signatures are mixed.
+  requireSignatureForThisSnapshot snapshot continue =
+    if verify (vkey otherParty) snapshotSignature snapshot
+      then continue
+      else Error $ RequireFailed $ AckSnSignatureInvalid{requestedSn = sn, receivedSignature = otherParty}
 
   ifAllMembersHaveSigned snapshot sigs cont =
     let sigs' = Map.insert otherParty snapshotSignature sigs
