@@ -23,58 +23,18 @@
 
   "RequiresNetworkMagic": "RequiresNoMagic",
 
-  "minSeverity": "Info",
-  "defaultBackends": ["KatipBK"],
-  "defaultScribes": [[ "StdoutSK", "stdout" ]],
-  "setupBackends": ["KatipBK"],
-  "setupScribes": [
-    {
-      "scFormat": "ScJson",
-      "scKind": "StdoutSK",
-      "scName": "stdout",
-      "scRotation": null
-    }
-  ],
-
-  "TurnOnLogMetrics": true,
-  "TurnOnLogging": true,
-
-  "TracingVerbosity": "NormalVerbosity",
-  "TraceBlockFetchClient": false,
-  "TraceBlockFetchDecisions": false,
-  "TraceBlockFetchProtocol": false,
-  "TraceBlockFetchProtocolSerialised": false,
-  "TraceBlockFetchServer": false,
-  "TraceChainDb": true,
-  "TraceChainSyncBlockServer": false,
-  "TraceChainSyncClient": false,
-  "TraceChainSyncHeaderServer": false,
-  "TraceChainSyncProtocol": false,
-  "TraceDNSResolver": false,
-  "TraceDNSSubscription": false,
-  "TraceErrorPolicy": false,
-  "TraceForge": true,
-  "TraceHandshake": false,
-  "TraceIpSubscription": false,
-  "TraceLocalChainSyncProtocol": true,
-  "TraceLocalErrorPolicy": false,
-  "TraceLocalHandshake": false,
-  "TraceLocalTxSubmissionProtocol": true,
-  "TraceLocalTxSubmissionServer": true,
-  "TraceMempool": true,
-  "TraceMux": false,
-  "TraceOptions": {},
-  "TraceTxInbound": false,
-  "TraceTxOutbound": false,
-  "TraceTxSubmissionProtocol": false,
-
-  "options": {
-    "mapBackends": {
-      "cardano.node.metrics": [ "EKGViewBK" ],
-      "cardano.node.resources": [ "EKGViewBK" ]
-    },
-    "mapSubtrace": {
-      "cardano.node.metrics": { "subtrace": "Neutral" }
+  "TraceOptionForwarder": {
+    "connQueueSize": 64,
+    "disconnQueueSize": 128,
+    "maxReconnectDelay": 30
+  },
+  "TraceOptionMetricsPrefix": "cardano.node.metrics.",
+  "TraceOptionResourceFrequency": 1000,
+  "TraceOptions": {
+    "": {
+      "backends": ["Stdout HumanFormatColoured"],
+      "detail": "DNormal",
+      "severity": "Info"
     }
   },
 

@@ -2,6 +2,7 @@ module Main where
 
 import Hydra.Prelude
 
+import HydraNode (scaleWaitTime)
 import Test.BlockfrostChainSpec qualified
 import Test.CardanoClientSpec qualified
 import Test.CardanoNodeSpec qualified
@@ -15,7 +16,7 @@ import Test.Hydra.Cluster.MithrilSpec qualified
 import Test.Hydra.Cluster.UtilSpec qualified
 import Test.Hydra.TastyMain (hydraTestTree, runHydraTests, testSpec)
 import Test.OfflineChainSpec qualified
-import Test.Tasty (localOption)
+import Test.Tasty (Timeout, localOption, mkTimeout)
 import Test.Tasty.Runners (NumThreads (..))
 
 -- Most tests in this suite each spawn a cardano-node devnet plus 3-6
@@ -50,4 +51,20 @@ main = do
       , testSpec "Hydra.Cluster.Util" Test.Hydra.Cluster.UtilSpec.spec
       , testSpec "OfflineChain" Test.OfflineChainSpec.spec
       ]
-  runHydraTests "hydra-cluster" (localOption (NumThreads 1) tree)
+  -- hydraTestTree's own default per-test timeout is a fixed 900s, sized
+  -- against the direct/local backend's failAfter budgets. It doesn't know
+  -- about scaleWaitTime's 3x Blockfrost multiplier (and HYDRA_TEST_WAIT_MULTIPLIER
+  -- on top of that), so a Blockfrost test chaining several scaled waits can
+  -- need more than 900s to reach its own budgeted conclusion, and gets cut
+  -- off early by the fixed backstop instead. Scale the backstop by the same
+  -- factor so it stays a backstop against actual hangs, not against a slow
+  -- but otherwise healthy backend. A concrete Timeout set here wins over
+  -- hydraTestTree's default (see its NoTimeout -> ... case).
+  backstop <- scaledBackstopTimeout
+  runHydraTests "hydra-cluster" (localOption (NumThreads 1) (localOption backstop tree))
+
+-- | The 900s default backstop timeout, scaled like 'scaleWaitTime'.
+scaledBackstopTimeout :: IO Timeout
+scaledBackstopTimeout = do
+  scaled <- scaleWaitTime 900
+  pure . mkTimeout . round $ scaled * 1_000_000
