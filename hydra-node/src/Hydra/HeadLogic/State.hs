@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
@@ -9,6 +10,7 @@ import Hydra.Prelude
 import Cardano.Binary (Decoder)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
@@ -23,6 +25,7 @@ import Hydra.Tx.Snapshot (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  getSnapshot,
  )
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -155,10 +158,9 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
-  , finalizedCommit :: Maybe (FinalizedSnapshot tx)
-  -- ^ The last snapshot whose increment settled on chain, see 'FinalizedSnapshot'.
-  , finalizedDecommit :: Maybe (FinalizedSnapshot tx)
-  -- ^ The last snapshot whose decrement settled on chain, see 'FinalizedSnapshot'.
+  , settlements :: !(Settlements tx)
+  -- ^ Snapshots whose increment or decrement settled on chain and may still be
+  -- erased by a rollback, see 'Settlements'.
   }
   deriving stock (Generic)
 
@@ -167,22 +169,20 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
--- | Tag of the current on-disk\/wire layout, which carries 'finalizedCommit'
--- and 'finalizedDecommit'. The fields are a bare concatenation with no length
--- prefix, so a layout change is only decodable when the tag distinguishes it:
--- 'coordinatedHeadStateCBORTagV1' names the layout written before those fields
--- existed and is still accepted, letting a node replay an event log from an
--- earlier version.
+-- | Tag of the current on-disk\/wire layout, which carries 'settlements'. The
+-- fields are a bare concatenation with no length prefix, so a layout change is
+-- only decodable when the tag distinguishes it: 'coordinatedHeadStateCBORTagV1'
+-- names the layout written before that field existed and is still accepted,
+-- letting a node replay an event log from an earlier version.
 coordinatedHeadStateCBORTag :: Text
 coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
 
--- | Tag of the layout without 'finalizedCommit'\/'finalizedDecommit'. Decoded,
--- never written.
+-- | Tag of the layout without 'settlements'. Decoded, never written.
 coordinatedHeadStateCBORTagV1 :: Text
 coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
 
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit} =
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements} =
     toCBOR coordinatedHeadStateCBORTag
       <> toCBOR localUTxO
       <> toCBOR localTxs
@@ -192,8 +192,7 @@ instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
       <> toCBOR currentDepositTxId
       <> toCBOR decommitTx
       <> toCBOR version
-      <> toCBOR finalizedCommit
-      <> toCBOR finalizedDecommit
+      <> toCBOR settlements
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
   fromCBOR =
@@ -204,7 +203,7 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
    where
     decode :: Bool -> Decoder s (CoordinatedHeadState tx)
-    decode hasFinalized = do
+    decode hasSettlements = do
       localUTxO <- fromCBOR
       localTxs <- fromCBOR
       allTxs <- fromCBOR
@@ -213,12 +212,138 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
       currentDepositTxId <- fromCBOR
       decommitTx <- fromCBOR
       version <- fromCBOR
-      -- A state from before these fields existed retains no finalized
-      -- commit/decommit: rollback re-posting is unavailable for increments and
-      -- decrements finalized before the upgrade, like it was at the time.
-      finalizedCommit <- if hasFinalized then fromCBOR else pure Nothing
-      finalizedDecommit <- if hasFinalized then fromCBOR else pure Nothing
-      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit}
+      -- A state from before this field existed retains no settlements:
+      -- rollback re-posting is unavailable for increments and decrements
+      -- finalized before the upgrade, like it was at the time.
+      settlements <- if hasSettlements then fromCBOR else pure mempty
+      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements}
+
+-- *** Settlements
+
+-- | Whether a retained settlement is on the chain the node currently follows.
+-- Marked at rollback time, see 'ChainRolledBack'.
+data SettlementStatus
+  = Landed {observedAtSlot :: ChainSlot}
+  | Erased
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR SettlementStatus where
+  toCBOR = genericToCBOR
+
+instance FromCBOR SettlementStatus where
+  fromCBOR = genericFromCBOR
+
+-- | Retained settlements, keyed by the snapshot version they were based on.
+-- The settlement with key @v@ bumped the on-chain version to @v + 1@, so keys
+-- are consecutive and key order is the order the settlements must land in.
+--
+-- One entry is retained per increment or decrement that settles, and entries
+-- are dropped once no rollback can reach them anymore, so the map holds as
+-- many snapshots as the head settles within the retention horizon (see
+-- 'Hydra.Node.State.depositRetentionHorizon'). Each entry keeps a whole
+-- snapshot UTxO, so a head settling frequently pays for that in memory and in
+-- every persisted checkpoint; slimming the retained payload is left to a
+-- follow-up.
+data Settlements tx = Settlements
+  { settlementEntries :: Map.Map SnapshotVersion (Settlement tx)
+  , settlementDepositCounts :: Map.Map (TxIdType tx) Int
+  , settlementDeposits :: Set (TxIdType tx)
+  }
+
+deriving stock instance IsTx tx => Eq (Settlements tx)
+deriving stock instance IsTx tx => Show (Settlements tx)
+
+-- Only the authoritative entries are persisted. Derived deposit caches are
+-- rebuilt on decode, preserving the map's JSON and CBOR layouts.
+instance IsTx tx => ToJSON (Settlements tx) where
+  toJSON = toJSON . settlementEntries
+  toEncoding = toEncoding . settlementEntries
+
+instance IsTx tx => FromJSON (Settlements tx) where
+  parseJSON value = settlementsFromMap <$> parseJSON value
+
+instance IsTx tx => ToCBOR (Settlements tx) where
+  toCBOR = toCBOR . settlementEntries
+
+instance IsTx tx => FromCBOR (Settlements tx) where
+  fromCBOR = settlementsFromMap <$> fromCBOR
+
+instance IsTx tx => Semigroup (Settlements tx) where
+  a <> b = settlementsFromMap (Map.union a.settlementEntries b.settlementEntries)
+
+instance IsTx tx => Monoid (Settlements tx) where
+  mempty = Settlements mempty mempty mempty
+
+-- | Build the derived caches from the authoritative settlement map.
+settlementsFromMap :: IsTx tx => Map.Map SnapshotVersion (Settlement tx) -> Settlements tx
+settlementsFromMap entries =
+  Settlements entries counts (Map.keysSet counts)
+ where
+  counts = Map.fromListWith (+) [(deposit, 1) | entry <- Map.elems entries, deposit <- maybeToList (settlementDeposit entry)]
+
+settlementDeposit :: IsTx tx => Settlement tx -> Maybe (TxIdType tx)
+settlementDeposit Settlement{snapshot} = (getSnapshot snapshot).depositTxId
+
+-- | Retain a version only once, preserving the original snapshot and status.
+insertSettlement :: IsTx tx => SnapshotVersion -> Settlement tx -> Settlements tx -> Settlements tx
+insertSettlement version entry settlements@Settlements{settlementEntries, settlementDepositCounts, settlementDeposits}
+  | Map.member version settlementEntries = settlements
+  | otherwise =
+      settlements
+        { settlementEntries = Map.insert version entry settlementEntries
+        , settlementDepositCounts = maybe settlementDepositCounts (\claimedId -> Map.insertWith (+) claimedId 1 settlementDepositCounts) deposit
+        , settlementDeposits = maybe settlementDeposits (`Set.insert` settlementDeposits) deposit
+        }
+ where
+  deposit = settlementDeposit entry
+
+-- | Change an observation without changing the retained deposit claims.
+adjustSettlementStatus :: SnapshotVersion -> SettlementStatus -> Settlements tx -> Settlements tx
+adjustSettlementStatus version status settlements@Settlements{settlementEntries} =
+  settlements{settlementEntries = Map.adjust (\entry -> entry{status}) version settlementEntries}
+
+mapSettlementStatuses :: (SettlementStatus -> SettlementStatus) -> Settlements tx -> Settlements tx
+mapSettlementStatuses f settlements@Settlements{settlementEntries} =
+  settlements{settlementEntries = Map.map (\entry -> entry{status = f entry.status}) settlementEntries}
+
+-- | Remove entries and release a deposit only when its last claim is removed.
+filterSettlements :: forall tx. IsTx tx => (SettlementStatus -> Bool) -> Settlements tx -> Settlements tx
+filterSettlements keep settlements@Settlements{settlementEntries} =
+  foldl' removeClaim settlements{settlementEntries = retained} removed
+ where
+  (retained, removed) = Map.partition (keep . (.status)) settlementEntries
+  removeClaim :: Settlements tx -> Settlement tx -> Settlements tx
+  removeClaim current entry = case settlementDeposit entry of
+    Nothing -> current
+    Just deposit ->
+      let counts = Map.update (\n -> if n > 1 then Just (n - 1) else Nothing) deposit current.settlementDepositCounts
+       in current
+            { settlementDepositCounts = counts
+            , settlementDeposits = if Map.member deposit counts then current.settlementDeposits else Set.delete deposit current.settlementDeposits
+            }
+
+-- | A signed snapshot whose increment or decrement settled on chain, kept so
+-- it can be re-posted if a rollback erases that settlement. The snapshot's
+-- 'confirmed' txs are blanked on retention: they are not signed and no tx
+-- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
+-- it on decode.
+data Settlement tx = Settlement
+  { snapshot :: ConfirmedSnapshot tx
+  , status :: SettlementStatus
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (Settlement tx)
+deriving stock instance IsTx tx => Show (Settlement tx)
+deriving anyclass instance IsTx tx => ToJSON (Settlement tx)
+deriving anyclass instance IsTx tx => FromJSON (Settlement tx)
+
+instance IsTx tx => ToCBOR (Settlement tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (Settlement tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -459,6 +584,31 @@ instance IsTx tx => FromCBOR (FanoutMode tx) where
 -- | A closed head whose UTxO is being distributed across multiple fanout
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
 -- that used to live in 'ClosedState'.
+-- | A partial fanout step observed on the chain this node follows: what it
+-- distributed, the slot it landed at, and the 'FanoutMode' it replaced. Kept
+-- so that a rollback can rewind the fanout's progress to the steps still on
+-- chain ('Hydra.HeadLogic.rewindFanoutProgress'): the erased steps' outputs go
+-- back into the head, and the driver's mode goes back to what it was before
+-- them. An erased selection is then this node's to distribute again, while an
+-- observer whose step was erased keeps waiting as before.
+data FanoutStepLanded tx = FanoutStepLanded
+  { landedAt :: ChainSlot
+  , stepOutputs :: UTxOType tx
+  , modeBefore :: FanoutMode tx
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FanoutStepLanded tx)
+deriving stock instance IsTx tx => Show (FanoutStepLanded tx)
+deriving anyclass instance IsTx tx => ToJSON (FanoutStepLanded tx)
+deriving anyclass instance IsTx tx => FromJSON (FanoutStepLanded tx)
+
+instance IsTx tx => ToCBOR (FanoutStepLanded tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FanoutStepLanded tx) where
+  fromCBOR = genericFromCBOR
+
 data PartialFanoutState tx = PartialFanoutState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
@@ -474,6 +624,9 @@ data PartialFanoutState tx = PartialFanoutState
   --   'HeadFannedOut' once the head is finalized.
   , mode :: FanoutMode tx
   -- ^ Drives the chunk source for the next step (see 'FanoutMode').
+  , stepsLanded :: [FanoutStepLanded tx]
+  -- ^ The steps observed so far, oldest first: the chain-derived record the
+  --   two sets above and 'mode' are rewound from on a rollback.
   }
   deriving stock (Generic)
 
@@ -482,33 +635,52 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFano
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
 
+-- | CBOR tag of the current 'PartialFanoutState' layout.
+partialFanoutStateCBORTag :: Text
+partialFanoutStateCBORTag = "PartialFanoutState2"
+
+-- | CBOR tag of the layout written before 'stepsLanded' existed: the
+-- constructor-name tag 'genericToCBOR' wrote, followed by the other fields in
+-- declaration order.
+partialFanoutStateCBORTagV1 :: Text
+partialFanoutStateCBORTagV1 = "PartialFanoutState"
+
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR = genericToCBOR
+  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded} =
+    toCBOR partialFanoutStateCBORTag
+      <> toCBOR parameters
+      <> toCBOR confirmedSnapshot
+      <> toCBOR contestationDeadline
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+      <> toCBOR version
+      <> toCBOR remainingOutputs
+      <> toCBOR distributedOutputs
+      <> toCBOR mode
+      <> toCBOR stepsLanded
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR = genericFromCBOR
-
--- | A snapshot whose settlement transaction (the increment of its commit, or
--- the decrement of its decommit) was observed on chain, retained when the
--- settlement is applied ('CommitFinalized'\/'DecommitFinalized') so it can be
--- re-posted if a rollback later erases it. The signed snapshot must be kept
--- here because 'confirmedSnapshot' may advance past it, and only this snapshot
--- can settle its commit\/decommit on-chain. Kept until overwritten by the next
--- settlement of the same kind; 'observedAtSlot' makes stale entries inert
--- (re-post only when a rollback reaches strictly before it).
-data FinalizedSnapshot tx = FinalizedSnapshot
-  { snapshot :: ConfirmedSnapshot tx
-  , observedAtSlot :: ChainSlot
-  }
-  deriving stock (Generic)
-
-deriving stock instance IsTx tx => Eq (FinalizedSnapshot tx)
-deriving stock instance IsTx tx => Show (FinalizedSnapshot tx)
-deriving anyclass instance IsTx tx => ToJSON (FinalizedSnapshot tx)
-deriving anyclass instance IsTx tx => FromJSON (FinalizedSnapshot tx)
-
-instance IsTx tx => ToCBOR (FinalizedSnapshot tx) where
-  toCBOR = genericToCBOR
-
-instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == partialFanoutStateCBORTag -> decode True
+        | tag == partialFanoutStateCBORTagV1 -> decode False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded PartialFanoutState"
+   where
+    decode :: Bool -> Decoder s (PartialFanoutState tx)
+    decode hasSteps = do
+      parameters <- fromCBOR
+      confirmedSnapshot <- fromCBOR
+      contestationDeadline <- fromCBOR
+      chainState <- fromCBOR
+      headId <- fromCBOR
+      headSeed <- fromCBOR
+      version <- fromCBOR
+      remainingOutputs <- fromCBOR
+      distributedOutputs <- fromCBOR
+      mode <- fromCBOR
+      -- A state written before steps were tracked cannot rewind them on a
+      -- rollback, exactly as before the upgrade; steps landing from now on can.
+      stepsLanded <- if hasSteps then fromCBOR else pure []
+      pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded}

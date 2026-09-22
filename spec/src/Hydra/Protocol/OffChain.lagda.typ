@@ -507,6 +507,11 @@ leader and there are already transactions to snapshot in $hatmT$, a
 corresponding $hpRS$ is distributed. \
 \
 
+The implementation caches the deposit IDs claimed by retained settlements to
+exclude them from new snapshot proposals and recovery. This cache equals the
+set derived from all retained snapshots, including erased settlements, and is
+rebuilt on decode. It is implementation bookkeeping outside `LocalState`.
+
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
 its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
@@ -574,6 +579,8 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- honest party signed it). The figure's operational `require msVfy(…, msComb Σ̂)` over the COMBINED
   -- multisignature is the implementation of that n-of-n condition (via ms-unforgeability); it is
   -- formalised precisely at the §7 `confirm` step (`AggVerified`/`msVfy`), so it is not duplicated here.
+  -- The implementation caches retained deposit claims outside LocalState; this does not change
+  -- which snapshots can confirm or release claims when a settlement is erased.
   ackSn-confirm : ∀ {st s σ snap}
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂

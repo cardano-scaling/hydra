@@ -1049,18 +1049,28 @@ performSubmitDeposit headId utxoToDeposit = do
       _ -> False
     pure txid
 
--- | Wait until every node has confirmed a snapshot claiming the given deposit
--- ('CommitApproved'): the increment is now in flight.
+-- | Wait until a node has confirmed a snapshot claiming the given deposit
+-- ('CommitApproved'): its increment can now be in flight. Other nodes may
+-- adopt the snapshot from the increment before receiving every AckSn; those
+-- nodes report CommitFinalized without ever reporting CommitApproved.
 performObserveCommitApproved ::
   (MonadThrow m, MonadTimer m, MonadDelay m) =>
   UTxOType Payment ->
   RunMonad m ()
 performObserveCommitApproved deposited = do
   nodes <- gets nodes
-  let expected = sortTxOuts (UTxO.txOutputs (toRealUTxO deposited))
-  lift . waitForOutputs "commit approved" 1 (elems nodes) $ \case
+  lift $
+    timeout observationTimeout (waitForApproval (elems nodes)) >>= \case
+      Just () -> pure ()
+      Nothing -> failure "no node reported commit approved before the observation timeout"
+ where
+  expected = sortTxOuts (UTxO.txOutputs (toRealUTxO deposited))
+  matches = \case
     CommitApproved{utxoToCommit} -> sortTxOuts (UTxO.txOutputs utxoToCommit) == expected
     _ -> False
+  waitForApproval clients = do
+    approved <- or <$> traverse (fmap (any matches) . serverOutputs) clients
+    unless approved $ threadDelay 1 >> waitForApproval clients
 
 -- | Wait until every node has reported the increment claiming the given
 -- deposit for the n-th time. A wedged settlement surfaces here as a timeout.
@@ -1472,6 +1482,13 @@ performRestartNode st party = do
       lift $ cancel oldThread
       let otherParties = filter (/= party) allParties
       (testClient, newThread) <- startNode tr mockChain seedCP eventStore hsk otherParties
+      -- The node picks up the network messages it had not consumed before the
+      -- crash (see 'connectNode'). They are queued for processing and count as
+      -- delivered from then on, like a persisted etcd revision. Let it process
+      -- them before the next action: crashing again in the same instant would
+      -- lose them for good, and a party that loses an AckSn can never confirm
+      -- that snapshot.
+      lift $ threadDelay 1
       modify $ \n ->
         n
           { nodes = Map.insert party testClient (nodes n)

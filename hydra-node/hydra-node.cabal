@@ -393,6 +393,7 @@ test-suite tests
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
     Hydra.HeadLogic.OutcomeSpec
+    Hydra.HeadLogic.StateSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec

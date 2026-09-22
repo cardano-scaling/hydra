@@ -92,8 +92,7 @@ benchCell n m = do
                         , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
-                        , finalizedCommit = Nothing
-                        , finalizedDecommit = Nothing
+                        , settlements = mempty
                         }
                   , chainState = initialChainState
                   , headId = testHeadId
