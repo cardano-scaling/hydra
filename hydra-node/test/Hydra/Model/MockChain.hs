@@ -63,6 +63,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   OpenState (..),
+  isLeader,
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
@@ -71,11 +72,11 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
-import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
+import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party), mkHeadParameters)
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Tx (txId)
+import Hydra.Tx (TxIdType, txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.Deposit (observeDepositTx)
@@ -83,7 +84,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), SnapshotNumber)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
 import Test.Hydra.Ledger (collectTransactions)
@@ -108,8 +109,11 @@ mockChainAndNetwork ::
   ) =>
   Tracer m CardanoChainLog ->
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
+  -- | The party that misbehaves on the network, if any, and how, see
+  -- 'faultyBroadcast' and 'replacingBroadcast'.
+  Maybe (Party, FaultMode) ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys = do
+mockChainAndNetwork tr seedKeys faulty = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -226,7 +230,13 @@ mockChainAndNetwork tr seedKeys = do
             getTimeHandle
             seedInput
             localChainState
-    node <- connect mockChain (createMockNetwork draftNode networkHistory nodes) mockServer draftNode
+    ackedVar <- newLabelledTVarIO "mock-network-faulty-acked" 0
+    let honestNetwork = createMockNetwork draftNode networkHistory nodes
+        network = case faulty of
+          Just (p, AddsMessages) | p == ownParty -> faultyBroadcast ackedVar draftNode honestNetwork
+          Just (p, ReplacesMessages) | p == ownParty -> replacingBroadcast honestNetwork
+          _ -> honestNetwork
+    node <- connect mockChain network mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     -- Advance this party's consumer offset as a message reaches the node, so a
     -- later reconnect resumes from exactly here (see the network-log replay).
@@ -625,6 +635,210 @@ createMockNetwork draftNode networkHistory nodes =
         writeTQueue mailbox (now, sender, msg)
 
   DraftHydraNode{env = Environment{party = sender}} = draftNode
+
+-- | How the faulty party misbehaves on the network.
+data FaultMode
+  = -- | Send mutated messages alongside the honest one, never in its place, so
+    -- the head is still expected to keep confirming snapshots. See
+    -- 'faultyBroadcast'.
+    AddsMessages
+  | -- | Send a deviating proposal in place of the honest one, so the head may
+    -- stop and only soundness can be asserted of it. See 'replacingBroadcast'.
+    ReplacesMessages
+  deriving stock (Eq, Show)
+
+-- | Wrap one party's outgoing traffic with the misbehaviour a faulty party can
+-- get away with.
+--
+-- It stays honest in the role where a fault wedges the head by design. A leader
+-- that proposes nothing, or proposes something nobody signs, kills that round
+-- whatever the others do, and under n-of-n so does a party that simply
+-- withholds its signature. Neither is something the head is meant to survive,
+-- so neither belongs in a liveness test. What is left is noise it is meant to
+-- survive, and this sends it:
+--
+--   * each 'AckSn' twice, which the second time has to be ignored rather than
+--     counted again;
+--
+--   * an out-of-turn 'ReqSn' alongside each 'AckSn', for the next number when
+--     this party does not lead it. Every receiver has to refuse it without
+--     recording a snapshot in flight. Recording one would make the real
+--     leader's request at that number look already seen, and the head would
+--     stop confirming.
+--
+-- Only messages of the signing role, not 'ReqTx' or 'ReqDec'. Re-sending those
+-- is a client submitting the same thing twice rather than network noise, and
+-- the node answers a second copy of an applied transaction with 'TxInvalid',
+-- which is its own question and not this one.
+faultyBroadcast ::
+  MonadSTM m =>
+  -- | The highest snapshot number this party has acknowledged, so a request
+  -- for the next one can be sent between rounds rather than during one.
+  TVar m SnapshotNumber ->
+  DraftHydraNode Tx m ->
+  Network m (Message Tx) ->
+  Network m (Message Tx)
+faultyBroadcast ackedVar draftNode Network{broadcast} =
+  Network{broadcast = misbehave}
+ where
+  misbehave msg = do
+    -- The honest message always goes out, and first. Sending a mutated one in
+    -- its place stops the head, and measurably so: replacing a single
+    -- acknowledgement with one for the next number leaves the scenario below
+    -- stuck on its first commit, with no party ever reaching it, and the head
+    -- never recovers even though the party behaves for every other number.
+    -- That is the protocol working as specified rather than a bug. Every party
+    -- has to sign, so one that withholds a signature stops the round, and a
+    -- round cannot be abandoned and reissued, so the stall is permanent.
+    --
+    -- So a replacement cannot be judged by a property which says the head
+    -- keeps going. It needs one that still holds while the head is stuck,
+    -- and 'Hydra.ModelSpec.checkSnapshotsAreSound' is that: the value each
+    -- confirmed snapshot accounts for has to match what the head moved, which
+    -- says nothing about the head getting anywhere and everything about
+    -- whether what it agreed was right. A stalled run is judged on the
+    -- snapshots it confirmed before stalling. That is what 'ReplacesMessages'
+    -- and 'replacingBroadcast' are for, and this function is the other half:
+    -- the noise the head is meant to shrug off.
+    broadcast msg
+    case msg of
+      AckSn{signed, snapshotNumber} -> do
+        broadcast msg
+        -- An acknowledgement for the round just finished. A neighbour rather
+        -- than a number far away, which the first check on the number turns
+        -- away before any of the rest is reached, so nothing after it is
+        -- tested.
+        --
+        -- Not one for the round not yet started. That stops the head, so it
+        -- is not noise and does not belong in a test which says the head
+        -- keeps going. 'onOpenNetworkAckSn' accepts a number one past the
+        -- round in hand, parks it, and replays it into the next round, where
+        -- it takes the sender's place in the signatures while carrying a
+        -- signature over the snapshot before. The sender's real
+        -- acknowledgement is then turned away as already signed, the
+        -- collected signatures cannot combine, and the round never confirms.
+        -- Nothing checks a signature against the snapshot it is being
+        -- recorded for until every party has signed, and by then there is no
+        -- telling which one is wrong. A party can already stop the head by
+        -- saying nothing at all, so this hands it no power it lacked, but one
+        -- early message stops the head for good.
+        broadcast AckSn{signed, snapshotNumber = oneBefore snapshotNumber}
+        atomically $ modifyTVar ackedVar (max snapshotNumber)
+      ReqTx{} -> do
+        -- Between rounds, when the last one this party acknowledged has
+        -- confirmed and the next has not been requested, ask for the next
+        -- number ourselves. Sent alongside an acknowledgement it would only
+        -- ever meet the round still collecting signatures; here the number is
+        -- the one every party is waiting for, and only the check on who leads
+        -- it stands in the way. The version is unknown here, so the request
+        -- goes out at each of the first few.
+        --
+        -- Note what this cannot show. Removing that check does not stop the
+        -- head: every party receives this request, so they all take it, agree
+        -- on an empty snapshot, and refuse the real leader's request for that
+        -- number together. The head keeps confirming and the transactions the
+        -- leader wanted land in a later snapshot. The check decides who sets a
+        -- snapshot's content, not whether the head survives, so a liveness
+        -- property cannot pin it.
+        acked <- readTVarIO ackedVar
+        let next = acked + 1
+        unless (isLeader parameters ownParty next) $
+          forM_ [0 .. 3] $ \v ->
+            broadcast ReqSn{snapshotVersion = v, snapshotNumber = next, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+      ReqSn{snapshotVersion, snapshotNumber, transactionIds} -> do
+        -- Three more proposals around this one: one claiming a deposit that
+        -- does not exist, one naming a transaction nobody has seen, and one a
+        -- version ahead. All for the numbers either side of the round in
+        -- hand, which is where a receiver has to think about them. A number
+        -- far away is refused on the number alone and says nothing about the
+        -- deposit, the transaction or the version it carried.
+        --
+        -- This party leads the round it is proposing, so with more than one
+        -- party it leads neither neighbour, and every receiver has the check
+        -- on who leads a number to fall back on. That is what keeps these
+        -- from competing with the honest proposal they go out beside.
+        broadcast ReqSn{snapshotVersion, snapshotNumber = snapshotNumber + 1, transactionIds = [], decommitTx = Nothing, depositTxId = Just bogusDepositId}
+        broadcast ReqSn{snapshotVersion, snapshotNumber = oneBefore snapshotNumber, transactionIds = bogusDepositId : transactionIds, decommitTx = Nothing, depositTxId = Nothing}
+        broadcast ReqSn{snapshotVersion = snapshotVersion + 1, snapshotNumber = snapshotNumber + 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+      _ -> pure ()
+
+  parameters = mkHeadParameters env
+
+  DraftHydraNode{env} = draftNode
+
+  Environment{party = ownParty} = env
+
+-- | Wrap one party's outgoing traffic so that, when it leads a snapshot, it
+-- proposes something other than what an honest leader would, and the honest
+-- proposal is not sent at all.
+--
+-- Only the proposal is replaced. Replacing an acknowledgement withholds a
+-- signature, which stops the head under n-of-n whatever the others do, so it
+-- says nothing about them. A proposal is the interesting case: the receivers
+-- decide what to do with it, and either answer is a result. If they refuse it
+-- the round dies and the run simply ends early. If they take it, every
+-- snapshot they went on to confirm is there to be judged, which is what
+-- 'Hydra.ModelSpec.checkSnapshotsAreSound' does.
+--
+-- Which deviation goes out is chosen by the number being proposed, so a run
+-- probes whichever one falls on the round this party happens to lead.
+replacingBroadcast ::
+  Network m (Message Tx) ->
+  Network m (Message Tx)
+replacingBroadcast Network{broadcast} =
+  Network{broadcast = broadcast . deviateFrom}
+
+-- | The proposal the faulty party sends in place of the one it was handed, see
+-- 'replacingBroadcast'. Anything which is not a proposal goes out untouched.
+--
+-- Each of these changes the proposal whatever it was carrying, which is the
+-- point: a deviation that only bites when the round happens to carry a deposit
+-- sends the honest message untouched the rest of the time, and the party is
+-- then not faulty at all while the property watching it still passes. So each
+-- one goes both ways. Where an honest leader claims a deposit this drops the
+-- claim, and where it claims none this invents one. 'Hydra.ModelSpec.propReplacingDeviates'
+-- holds it to that over proposals carrying every combination.
+deviateFrom :: Message Tx -> Message Tx
+deviateFrom = \case
+  proposal@ReqSn{snapshotVersion, snapshotNumber, transactionIds, decommitTx, depositTxId} ->
+    case snapshotNumber `mod` 5 of
+      -- The deposit claim, the other way about: dropped where there is one,
+      -- so an increment lands against a snapshot which does not account for
+      -- it, and invented where there is none.
+      0 -> proposal{depositTxId = toggle bogusDepositId depositTxId}
+      -- The same for a decommit on its way out.
+      1 -> proposal{decommitTx = toggle bogusDecommitTx decommitTx}
+      -- A deposit nobody has, in place of the one claimed. Where that already
+      -- is the claim there is nothing to swap it for, so it drops it instead.
+      2
+        | depositTxId == Just bogusDepositId -> proposal{depositTxId = Nothing}
+        | otherwise -> proposal{depositTxId = Just bogusDepositId}
+      -- The version a settlement would leave behind, before one has landed.
+      3 -> proposal{snapshotVersion = snapshotVersion + 1}
+      -- The transactions the round was called for, dropped; or one nobody has
+      -- seen, where it was called for none.
+      _ -> proposal{transactionIds = [bogusDepositId | null transactionIds]}
+  msg -> msg
+ where
+  -- Absent becomes present and present becomes absent, so either way the
+  -- field changes.
+  toggle :: a -> Maybe a -> Maybe a
+  toggle x = maybe (Just x) (const Nothing)
+
+-- | The number before this one, which for the first round is itself. Snapshot
+-- numbers count from zero over 'Natural', where subtracting past it throws.
+oneBefore :: SnapshotNumber -> SnapshotNumber
+oneBefore n = if n == 0 then n else n - 1
+
+-- | A transaction id of nothing at all: no deposit and no transaction carries
+-- it, so a proposal naming it can never be satisfied. See 'deviateFrom'.
+bogusDepositId :: TxIdType Tx
+bogusDepositId = case genTxIn `generateWith` 11 of TxIn tid _ -> tid
+
+-- | A decommit for a proposal carrying none. Nothing in the head can be spent
+-- by it, so no party can apply it. See 'deviateFrom'.
+bogusDecommitTx :: Tx
+bogusDecommitTx = arbitrary `generateWith` 13
 
 -- | Upper bound of the random delivery delay per network message and node,
 -- see 'createMockNetwork'. One block time: enough for messages to routinely
