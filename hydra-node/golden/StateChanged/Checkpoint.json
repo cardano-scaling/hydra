@@ -3,49 +3,45 @@
         {
             "state": {
                 "chainPointTime": {
-                    "currentChainTime": "1864-05-09T23:51:39.827436730818Z",
+                    "currentChainTime": "1864-05-08T05:12:30.010271550781Z",
                     "currentSlot": 1,
-                    "drift": 0
+                    "drift": -1
                 },
                 "deposits": {
-                    "0001000001000101000001000100010000000100010100010101010001010100": {
-                        "consumedAt": null,
+                    "0101000101000000010001010100010001000100010000010100000100000001": {
+                        "consumedAt": 0,
                         "deposit": {
-                            "created": "1864-05-08T15:52:44.028103565957Z",
-                            "deadline": "1864-05-08T01:43:51.527699854163Z",
+                            "created": "1864-05-08T20:59:56.885979420505Z",
+                            "deadline": "1864-05-10T15:47:15.354813701931Z",
                             "deposited": {
-                                "0001000000010000010101010100000100000100010000010100010001000000#71": {
-                                    "address": "addr_test1wpsky2nys9z9sjztdfsua62g5wfqtzx9vdeqesn540ln5mssuvr3z",
+                                "0100010001000101000100010001000100000101000101000000000000000001#41": {
+                                    "address": "addr_test1zpanj46qpu6ksew7d5l80gurcj5up5lnvv4v90n4er35ttu5dk44dgg2razts7c5chdfkr59ezvaz9gmwgupjhedf4zsmusrds",
                                     "datum": null,
-                                    "datumhash": null,
+                                    "datumhash": "0f38cbe8beae193e679c8f6ebbc01ff250d656772f4122bd607da51e1a6d4f06",
                                     "inlineDatum": null,
                                     "inlineDatumRaw": null,
                                     "referenceScript": null,
                                     "value": {
-                                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                            "2711852d63e2bcc0a9cabcb445c333c41b091b4c0bb096e6afb5fe728924e89b": 1
+                                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                            "e1600c": 1
                                         },
-                                        "lovelace": 1142150
+                                        "lovelace": 1280070
                                     }
                                 }
                             },
-                            "headId": "00000001010000010001010000000000",
-                            "status": "Inactive"
+                            "headId": "00000000010001000000010101010101",
+                            "status": "Expired"
                         },
-                        "recordedAt": 0
+                        "recordedAt": 1
                     }
                 },
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": {
-                                "blockHash": "0100000101000001000000010100000000010100000100010000010100000100",
-                                "slot": 1,
-                                "tag": "ChainPoint"
-                            },
+                            "recordedAt": null,
                             "spendableUTxO": {
-                                "0001010000000101000000000001000100010100010101000001000100010000#90": {
-                                    "address": "addr_test1zqxwnczqf3w5qya5g2dsfwq8k9yl9sucaly6pajwl6g7mhwgc259kv3zusgwucsxhapa7g8wh42ndvzas5jwv2qql4ss68vpt5",
+                                "0100010001010000000100010001010100010100010100010000000000010100#89": {
+                                    "address": "addr_test1ypqq2h5q34srpd0jkh6ch3803x0pfdpr3jegdt3wp4x46admgdup6ks2864mwe2kgm6m8pr6grgvxeq4yuex4w50fj4saglvwr",
                                     "datum": null,
                                     "datumhash": null,
                                     "inlineDatum": null,
@@ -56,120 +52,14 @@
                                     }
                                 }
                             }
-                        },
-                        "confirmedSnapshot": {
-                            "signatures": {
-                                "multiSignature": [
-                                    "7128567dc97863effce355697c12fe59f0dabd08130445a912f2faacf6c911b1f1f2454063a6fae2ae5c484ce46745a3c5e4701d946cf2741af8416972c42e01"
-                                ]
-                            },
-                            "snapshot": {
-                                "accumulator": "642f0babdce3d8376cbf11add69e981396fea93941bbd6346728a76d5d4084da",
-                                "appliedAccumulator": "eb5de09dc36ce5022eb49b70b26d85f618d8b278e42cc92e52dff0ba8652e50b",
-                                "confirmed": [],
-                                "depositTxId": "0100000100000100010100000100010000000101000000010001000101010101",
-                                "headId": "01000001000000010101000000000100",
-                                "number": 1,
-                                "utxo": {
-                                    "0001000100000001010001000001000001000000000001000000000001010001#30": {
-                                        "address": "addr_test1wzrgcjh4t2n6mjvzqz2xcfgdamnljtpshdxsagewxvphaygjfvm7v",
-                                        "datum": null,
-                                        "datumhash": null,
-                                        "inlineDatum": null,
-                                        "inlineDatumRaw": null,
-                                        "referenceScript": null,
-                                        "value": {
-                                            "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
-                                                "36": 919153340436084604
-                                            },
-                                            "lovelace": 45000000000000000
-                                        }
-                                    }
-                                },
-                                "utxoToCommit": {
-                                    "0000000000010000000100000001010100000001000000010101000101010101#53": {
-                                        "address": "addr_test1zz0064hm3r6j07flsumh6n25x806fy7vjlrsdrlwfazutq2fejjkmw6ph288gulzfnz9v08ye52wp5alk0jyujp52m6qu5rqrz",
-                                        "datum": null,
-                                        "inlineDatum": {
-                                            "constructor": 3,
-                                            "fields": []
-                                        },
-                                        "inlineDatumRaw": "d87c80",
-                                        "inlineDatumhash": "67d8ed01e13f33438ea9059ac9be2e159f943cffe054283485e0300271e3e9f9",
-                                        "referenceScript": null,
-                                        "value": {
-                                            "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                                                "b1519879758573f75976f6": 5850697393905224794
-                                            },
-                                            "lovelace": 1249900
-                                        }
-                                    }
-                                },
-                                "utxoToDecommit": {
-                                    "0101010100010001010101000101000000010001000100010101010100010100#95": {
-                                        "address": "addr_test1wqd5vyejcc5dv8r6gqvc5t8td5j6ghw96qc99x9msr8un8swfr9x8",
-                                        "datum": null,
-                                        "datumhash": null,
-                                        "inlineDatum": null,
-                                        "inlineDatumRaw": null,
-                                        "referenceScript": null,
-                                        "value": {
-                                            "lovelace": 45000000000000000
-                                        }
-                                    }
-                                },
-                                "version": 0
-                            },
-                            "tag": "ConfirmedSnapshot"
-                        },
-                        "contestationDeadline": "1864-05-08T09:04:05.240461435168Z",
-                        "distributedOutputs": {
-                            "0000000001010000000100000000010000000100000100000101000001000000#91": {
-                                "address": "addr_test1qz62vt57hcc9lesm5vxx76xg3k9ys6d5zgc7m7jmpgs3dry9zm7aasxs5x5je6jth7mlecextwrp26760m3hkh8kymxqxf73xj",
-                                "datum": null,
-                                "datumhash": null,
-                                "inlineDatum": null,
-                                "inlineDatumRaw": null,
-                                "referenceScript": null,
-                                "value": {
-                                    "lovelace": 45000000000000000
-                                }
-                            }
-                        },
-                        "headId": "00000001010001010000000101000000",
-                        "headSeed": "01010000010000000001000001010001",
-                        "mode": {
-                            "tag": "AutoDrain"
-                        },
-                        "parameters": {
-                            "contestationPeriod": 19513,
-                            "depositPeriod": 7587,
-                            "parties": []
-                        },
-                        "remainingOutputs": {
-                            "0000000000010001010101000000010000000101000101000000000001010100#38": {
-                                "address": "addr_test1zpv50r2gfa3l2y3tw8j0tjx6umykreyvgxd4lz86efh4h8autemq2hcht6nenfyfrr3z2573gmc2r2pw3fyjjeweel0sdlvnmc",
-                                "datum": null,
-                                "datumhash": null,
-                                "inlineDatum": null,
-                                "inlineDatumRaw": null,
-                                "referenceScript": null,
-                                "value": {
-                                    "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                        "38": 3627942311052758967
-                                    },
-                                    "lovelace": 1159390
-                                }
-                            }
-                        },
-                        "version": 0
+                        }
                     },
-                    "tag": "FanoutProgress"
+                    "tag": "Idle"
                 },
                 "tag": "NodeCatchingUp"
             },
             "tag": "Checkpoint"
         }
     ],
-    "seed": 577600703
+    "seed": 1087792977
 }

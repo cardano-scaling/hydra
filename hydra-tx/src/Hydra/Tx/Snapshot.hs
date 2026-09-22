@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
+import Data.Aeson (FromJSONKey, ToJSONKey, Value (String), object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
@@ -40,7 +40,7 @@ fromChainSnapshotNumber =
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, Real, Num, Enum, Integral)
+  deriving newtype (Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, Real, Num, Enum, Integral)
 
 instance ToCBOR SnapshotVersion where
   toCBOR = genericToCBOR
