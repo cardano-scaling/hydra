@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "pendingBroadcasts": 0,
+            "stallReason": "NoProgress",
+            "tag": "NetworkBroadcastStalled"
+        }
+    ],
+    "seed": 388924565
+}

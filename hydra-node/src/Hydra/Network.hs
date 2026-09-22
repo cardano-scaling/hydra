@@ -190,6 +190,15 @@ data Connectivity
   | ClusterIDMismatch
       { clusterPeers :: Text
       }
+  | -- | Outbound messages have backed up and are not being handed to the
+    -- cluster. They go out once they can, but are held in memory until then,
+    -- so stopping the node while stalled discards whatever it had not handed
+    -- over (traced as 'Hydra.Node.DiscardedBroadcasts'). See 'StallReason'
+    -- for which of the two conditions this is: they are not the same, and
+    -- only one of them means the network is unreachable.
+    BroadcastStalled {pendingBroadcasts :: Natural, stallReason :: StallReason}
+  | -- | The outbound queue started draining again.
+    BroadcastResumed
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -197,6 +206,29 @@ instance ToCBOR Connectivity where
   toCBOR = genericToCBOR
 
 instance FromCBOR Connectivity where
+  fromCBOR = genericFromCBOR
+
+-- | Why the node's outbound broadcast hand-off is reporting itself stalled.
+--
+-- The two conditions are not interchangeable, and conflating them misreports
+-- a healthy network: 'NoProgress' means nothing is getting through at all,
+-- while 'BacklogFull' also fires on a producer simply outrunning a consumer
+-- that is draining fine. Anything telling a client or an operator about a
+-- stall should say which one it saw rather than blaming reachability.
+data StallReason
+  = -- | Nothing has completed for longer than the allowed period, so the
+    -- network cannot currently be reached.
+    NoProgress
+  | -- | The hand-off is holding its maximum, which a fast client can cause
+    -- against a network that is keeping up.
+    BacklogFull
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR StallReason where
+  toCBOR = genericToCBOR
+
+instance FromCBOR StallReason where
   fromCBOR = genericFromCBOR
 
 newtype ProtocolVersion = ProtocolVersion Natural

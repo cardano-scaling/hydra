@@ -2606,6 +2606,10 @@ onConnectionEvent misconfiguredPeers = \case
     newState PeerConnected{peer}
   Network.PeerDisconnected{peer} ->
     newState PeerDisconnected{peer}
+  Network.BroadcastStalled{pendingBroadcasts, stallReason} ->
+    newState NetworkBroadcastStalled{pendingBroadcasts, stallReason}
+  Network.BroadcastResumed ->
+    newState NetworkBroadcastResumed
 
 handleClientInput ::
   IsChainState tx =>
@@ -2821,6 +2825,8 @@ eventHeadId = \case
   PeerDisconnected{} -> Nothing
   NetworkVersionMismatch{} -> Nothing
   NetworkClusterIDMismatch{} -> Nothing
+  NetworkBroadcastStalled{} -> Nothing
+  NetworkBroadcastResumed -> Nothing
   Checkpoint{} -> Nothing
   NodeUnsynced{} -> Nothing
   NodeSynced{} -> Nothing
@@ -2839,6 +2845,8 @@ applyEvent st = \case
   NetworkDisconnected -> st
   NetworkVersionMismatch{} -> st
   NetworkClusterIDMismatch{} -> st
+  NetworkBroadcastStalled{} -> st
+  NetworkBroadcastResumed -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
   HeadOpened{headSeed, headId, parameters, chainState} ->
@@ -3242,6 +3250,8 @@ aggregateChainStateHistory history = \case
   NetworkDisconnected -> history
   NetworkVersionMismatch{} -> history
   NetworkClusterIDMismatch{} -> history
+  NetworkBroadcastStalled{} -> history
+  NetworkBroadcastResumed -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
   HeadOpened{chainState} -> pushNewState chainState history

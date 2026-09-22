@@ -25,6 +25,7 @@ import Hydra.API.ServerOutput (
 import Hydra.Cardano.Api hiding (Active, txId)
 import Hydra.Chain (PostTxError (..), failureReason, reason, redeemerPtr)
 import Hydra.Chain.Direct.State ()
+import Hydra.Network (StallReason (..))
 import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 import Hydra.Tx (HeadId, Snapshot (..), SnapshotNumber, txId)
@@ -113,6 +114,20 @@ renderServerOutput time output raw = case output of
       , fld "Misconfigured peers" misconfiguredPeers
       ]
       raw
+  NetworkBroadcastStalled{pendingBroadcasts, stallReason} ->
+    mk
+      Error
+      time
+      ( case stallReason of
+          NoProgress -> "Outbound message queue is not draining"
+          BacklogFull -> "Outbound message queue is backed up faster than it can send"
+      )
+      [ fld "Pending broadcasts" (show pendingBroadcasts)
+      , "Messages are queued in memory and go out once it drains, but stopping the node now discards them. New transactions are refused meanwhile."
+      ]
+      raw
+  NetworkBroadcastResumed ->
+    mk Success time "Outbound message queue is draining again" ["Queued messages are being sent."] raw
   PeerConnected{peer} ->
     mk Info time ("Peer connected: " <> show peer) [fld "Peer" (show peer)] raw
   PeerDisconnected{peer} ->
@@ -373,6 +388,20 @@ renderClientMessage now msg raw = case msg of
             "Not enough Fuel. Please provide more to the internal wallet and try again."
           _ -> "On-chain transaction failed"
      in mk Error now summary (renderPostTxError postTxError) raw
+  RejectedInputBecauseBroadcastStalled{clientInput, pendingBroadcasts, stallReason} ->
+    mk
+      Error
+      now
+      ( "Command rejected: outbound message queue "
+          <> case stallReason of
+            NoProgress -> "is not draining"
+            BacklogFull -> "is backed up faster than it can send"
+      )
+      [ fld "Command" (show clientInput)
+      , fld "Pending broadcasts" (show pendingBroadcasts)
+      , "Retry once the queue is draining again."
+      ]
+      raw
   RejectedInputBecauseUnsynced{clientInput, drift} ->
     mk
       Error

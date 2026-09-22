@@ -31,6 +31,7 @@ import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (withMonitoring)
 import Hydra.Node (
+  DraftHydraNode (networkOutbox),
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
@@ -43,6 +44,7 @@ import Hydra.Node (
  )
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
+import Hydra.Node.Outbox (Outbox (outboxStalled))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -110,7 +112,8 @@ run opts = do
             traceWith tracer' ChainBackendStarted
             -- API
             let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout, listenSocket = Nothing}
-            withAPIServer apiServerConfig opts env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+            let broadcastStall = fmap fst <$> outboxStalled (networkOutbox wetHydraNode)
+            withAPIServer apiServerConfig opts env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter broadcastStall (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
               -- Network
               let networkConfiguration =
                     NetworkConfiguration

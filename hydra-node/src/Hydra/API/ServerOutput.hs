@@ -21,7 +21,7 @@ import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), HeadState, OpenState (..), PartialFanoutState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Network (Host, ProtocolVersion, StallReason)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState, SyncedStatus)
 import Hydra.Prelude hiding (seq)
@@ -97,6 +97,17 @@ data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: NominalDiffTime}
+  | -- | A 'NewTx' or 'Decommit' was refused because the node's outbound
+    -- broadcast queue has been backed up for a while: the message it would
+    -- produce cannot be handed to the network. Chain and protocol processing
+    -- are unaffected, and 'Close', 'Contest' and 'Fanout' always work. Retry
+    -- once the network recovers.
+    --
+    -- 'stallReason' tells apart the two causes 'pendingBroadcasts' alone
+    -- cannot: 'NoProgress' means the network really is unreachable, while
+    -- 'BacklogFull' can mean a healthy network simply being outrun by a fast
+    -- client.
+    RejectedInputBecauseBroadcastStalled {clientInput :: ClientInput tx, pendingBroadcasts :: Natural, stallReason :: StallReason}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   deriving stock (Eq, Show, Generic)
 
@@ -127,6 +138,7 @@ decodeClientMessageBody = \case
   "CommandFailed" -> CommandFailed <$> fromCBOR <*> fromCBOR
   "PostTxOnChainFailed" -> PostTxOnChainFailed <$> fromCBOR <*> fromCBOR
   "RejectedInputBecauseUnsynced" -> RejectedInputBecauseUnsynced <$> fromCBOR <*> fromCBOR
+  "RejectedInputBecauseBroadcastStalled" -> RejectedInputBecauseBroadcastStalled <$> fromCBOR <*> fromCBOR <*> fromCBOR
   "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
   tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
@@ -282,6 +294,19 @@ data ServerOutput tx
       { ourVersion :: ProtocolVersion
       , theirVersion :: Maybe ProtocolVersion
       }
+  | -- | The node's outbound messages have been queued and undeliverable for
+    -- a while: it cannot hand them to the hydra network. They go out once it
+    -- can, but are held in memory until then, so stopping the node while
+    -- stalled discards whatever it had not handed over. 'NewTx' and
+    -- 'Decommit' are refused with
+    -- 'RejectedInputBecauseBroadcastStalled' meanwhile. Closing, contesting
+    -- and fanning out are unaffected /by this condition/ - they go to layer
+    -- one, so they still depend on the chain backend.
+    -- 'stallReason' says which of the two conditions this is: only
+    -- 'NoProgress' means the network is unreachable.
+    NetworkBroadcastStalled {pendingBroadcasts :: Natural, stallReason :: StallReason}
+  | -- | The node's outbound queue started draining again.
+    NetworkBroadcastResumed
   | NetworkClusterIDMismatch
       { clusterPeers :: Text
       , misconfiguredPeers :: Text
@@ -433,6 +458,8 @@ prepareServerOutput config response =
     NetworkDisconnected -> encodedResponse
     NetworkVersionMismatch{} -> encodedResponse
     NetworkClusterIDMismatch{} -> encodedResponse
+    NetworkBroadcastStalled{} -> encodedResponse
+    NetworkBroadcastResumed -> encodedResponse
     PeerConnected{} -> encodedResponse
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
@@ -540,6 +567,14 @@ data CommitInfo
 -- | L2 Hydra network status information.
 data NetworkInfo = NetworkInfo
   { networkConnected :: Bool
+  , broadcastStall :: Maybe StallReason
+  -- ^ Why the node's outbound messages are currently backing up, if they
+  -- are, see 'NetworkBroadcastStalled'. 'Nothing' means they are flowing.
+  -- Note that only 'NoProgress' means the network cannot be reached;
+  -- 'BacklogFull' can be a client outrunning a network that is keeping up,
+  -- so this is deliberately not a bare "unreachable" flag. Carried here as
+  -- well as in that output because 'Greetings' is what a client gets on
+  -- connecting, and past outputs are only replayed on request.
   , peersInfo :: Map Host Bool
   }
   deriving stock (Eq, Show, Generic)

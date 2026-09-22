@@ -10,7 +10,9 @@ import Cardano.Binary (serialize')
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
+  check,
   modifyTVar',
+  newTVarIO,
   readTBQueue,
   readTQueue,
   readTVarIO,
@@ -323,6 +325,26 @@ etcdSpec =
                 -- Alice should see her own message eventually (when part of majority again)
                 waitNext `shouldReturn` 123
 
+    it "cannot commit a broadcast while the cluster has no quorum" $ \tracer -> do
+      -- The dependency assumption GHSA-3mmr-q43p-g6p2 rests on: a member of a
+      -- two-member cluster that is alone cannot commit a linearizable put, so
+      -- 'broadcastMessages' retries forever (the errors are transient, see
+      -- 'isTransientGrpcError') and nothing ever leaves the pending queue.
+      --
+      -- Asserted on the drain loop's own failure rather than on 'broadcast'
+      -- blocking: that would also be true of an etcd merely slow to start, and
+      -- it would silently depend on the queue's capacity.
+      withTempDir "test-etcd" $ \tmp -> do
+        failAfter 60 $ do
+          PeerConfig2{aliceConfig} <- setup2Peers tmp
+          traces <- newTVarIO []
+          let recorded = tracer <> traceInTVar traces "NetworkSpec"
+          withEtcdNetwork @Int recorded v1 aliceConfig noopCallback $ \n1 -> do
+            broadcast n1 123
+            atomically $ do
+              entries <- readTVar traces
+              check $ any (isBroadcastFailed . message) entries
+
     it "handles broadcast to majority" $ \tracer -> do
       withTempDir "test-etcd" $ \tmp -> do
         failAfter 60 $ do
@@ -568,6 +590,12 @@ etcdSpec =
               raceLabelled_
                 ("bob-sees", bobSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
                 ("alice-sees", aliceSees $ \case ClusterIDMismatch{} -> Just (); _ -> Nothing)
+
+-- | The broadcast loop reporting that it could not commit a put.
+isBroadcastFailed :: EtcdLog -> Bool
+isBroadcastFailed = \case
+  BroadcastFailed{} -> True
+  _ -> False
 
 lo :: IsString s => s
 lo = "127.0.0.1"

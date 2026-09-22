@@ -5,9 +5,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
-import Control.Concurrent.PersistentQueue (PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, writePersistentQueue)
+import Control.Concurrent.PersistentQueue (PersistentQueue, PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, tryPeekPersistentQueue, writePersistentQueue)
 import Control.Monad.Class.MonadAsync (concurrently, wait, withAsync)
-import Control.Tracer.JSON (Envelope (message), nullTracer, traceInTVar)
+import Control.Tracer.JSON (Envelope (message), Tracer, nullTracer, traceInTVar)
 import System.Directory (createDirectory, listDirectory, removeFile)
 import System.FilePath ((</>))
 import Test.QuickCheck (counterexample, generate, ioProperty)
@@ -104,7 +104,7 @@ spec = do
       -- The consumer keeps making progress
       peekPersistentQueue q `shouldReturn` 2
 
-  it "traces PersistentQueueLoadFailed on corrupt items and starts empty" $ do
+  it "traces PersistentQueueLoadFailed on a corrupt item and stays functional" $ do
     withTempDir "persistent-queue" $ \dir -> do
       writeFileBS (dir </> "1") "not-valid-cbor"
       traces <- newTVarIO []
@@ -112,9 +112,59 @@ spec = do
       q <- newPersistentQueue @_ @Int tracer dir 10
       entries <- readTVarIO traces
       (message <$> entries) `shouldSatisfy` any isLoadFailed
-      -- The queue starts empty but stays functional
       writePersistentQueue tracer q 42
       peekPersistentQueue q `shouldReturn` 42
+
+  it "skips only the corrupt item on load and keeps the rest" $ do
+    -- The whole load used to 'fail' on the first undecodable item, and that
+    -- failure was swallowed by a 'try @IOException', so one torn file after a
+    -- crash dropped every pending message with only a trace.
+    withTempDir "persistent-queue" $ \dir -> do
+      q <- newPersistentQueue nullTracer dir 10
+      forM_ [1 .. 5 :: Int] $ writePersistentQueue nullTracer q
+      writeFileBS (dir </> "3") "not-valid-cbor"
+
+      traces <- newTVarIO []
+      let tracer = traceInTVar traces "PersistentQueueSpec"
+      reloaded <- newPersistentQueue @_ @Int tracer dir 10
+      entries <- readTVarIO traces
+      (message <$> entries) `shouldSatisfy` any isLoadFailed
+      drainPersistentQueue tracer reloaded `shouldReturn` [1, 2, 4, 5]
+
+  it "does not reuse indices of still pending items after a corrupt load" $ do
+    -- The same failure path reset the next index to 1, so subsequent writes
+    -- overwrote files 1, 2, 3... that were still pending.
+    withTempDir "persistent-queue" $ \dir -> do
+      q <- newPersistentQueue nullTracer dir 10
+      forM_ [1 .. 5 :: Int] $ writePersistentQueue nullTracer q
+      writeFileBS (dir </> "3") "not-valid-cbor"
+
+      reloaded <- newPersistentQueue @_ @Int nullTracer dir 10
+      writePersistentQueue nullTracer reloaded 6
+      drainPersistentQueue nullTracer reloaded `shouldReturn` [1, 2, 4, 5, 6]
+
+  it "does not let a later quarantine overwrite an earlier one" $ do
+    -- 'quarantine' renames onto '<idx>.undecodable' unconditionally, and
+    -- '.undecodable' names do not parse as indices, so once no live item
+    -- remains 'nextIx' used to fall back to 1 - reissuing the very index a
+    -- prior restart had already quarantined. A second torn file at that
+    -- index then clobbered the first one's forensic copy on the next load.
+    withTempDir "persistent-queue" $ \dir -> do
+      writeFileBS (dir </> "1") "not-valid-cbor-A"
+      _ <- newPersistentQueue @_ @Int nullTracer dir 10
+      listDirectory dir `shouldReturn` ["1.undecodable"]
+
+      reloaded <- newPersistentQueue @_ @Int nullTracer dir 10
+      writePersistentQueue nullTracer reloaded (42 :: Int)
+      [newFile] <- filter (/= "1.undecodable") <$> listDirectory dir
+      newFile `shouldNotBe` "1"
+
+      -- Corrupt the newly-written item too, so it is quarantined next reload.
+      removeFile (dir </> newFile)
+      writeFileBS (dir </> newFile) "not-valid-cbor-B"
+      _ <- newPersistentQueue @_ @Int nullTracer dir 10
+
+      readFileBS (dir </> "1.undecodable") `shouldReturn` "not-valid-cbor-A"
 
   it "peekBatch returns the FIFO prefix and popBatch removes exactly it" $ do
     withTempDir "persistent-queue" $ \dir -> do
@@ -209,3 +259,12 @@ shouldNotBlock action = do
 
 shouldNotBlock_ :: HasCallStack => IO a -> IO ()
 shouldNotBlock_ = shouldNotBlock . void
+
+-- | Pop everything currently queued, in order.
+drainPersistentQueue :: Tracer IO PersistentQueueLog -> PersistentQueue IO a -> IO [a]
+drainPersistentQueue tracer q =
+  tryPeekPersistentQueue q >>= \case
+    Nothing -> pure []
+    Just item -> do
+      popBatchPersistentQueue tracer q [(item, "")]
+      (item :) <$> drainPersistentQueue tracer q

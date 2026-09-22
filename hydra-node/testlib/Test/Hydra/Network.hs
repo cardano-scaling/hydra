@@ -41,5 +41,9 @@ instance Arbitrary Host where
 instance Arbitrary Connectivity where
   arbitrary = genericArbitrary
 
+instance Arbitrary StallReason where
+  shrink = genericShrink
+  arbitrary = genericArbitrary
+
 instance Arbitrary ProtocolVersion where
   arbitrary = genericArbitrary

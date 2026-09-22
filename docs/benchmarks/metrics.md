@@ -121,6 +121,34 @@ metrics above, these are live counters suitable for production dashboards.
 | `hydra_head_peers_connected` | gauge | number of currently connected peers |
 | `hydra_chain_drift_seconds` | gauge | how far behind the chain the node is, updated on each observed block |
 | `hydra_chain_last_block_timestamp_seconds` | gauge | wall-clock time the node last observed a block; alert on `time() - hydra_chain_last_block_timestamp_seconds` to catch a stalled backend, which freezes the drift gauge rather than growing it |
+| `hydra_head_broadcast_stalled` | gauge | 1 while the node cannot hand its outbound messages to the hydra network, 0 otherwise; the same condition clients are told about via `NetworkBroadcastStalled` |
+| `hydra_head_pending_broadcasts` | gauge | outbound messages accepted from the head logic but not yet handed to the network |
+| `hydra_head_broadcast_no_progress_seconds` | gauge | how long the outbound hand-off has completed nothing, 0 while it holds nothing |
+| `hydra_head_inputs_refused_broadcast_stalled` | counter | `NewTx` and `Decommit` submissions refused because the hand-off was stalled |
+
+### Diagnosing a stalled broadcast
+
+The last four series are the ones to look at when clients are being refused
+with `RejectedInputBecauseBroadcastStalled` (HTTP 503), or when
+`<persistence-dir>/pending-broadcast/` is growing. The node cannot deliver
+off-chain messages while it is short of an `etcd` quorum, and refuses the
+client inputs that would grow the backlog rather than let it grow without
+bound; closing, contesting and fanning out are never refused.
+
+`hydra_head_broadcast_stalled` is what to alert on. The other three say how
+bad it is and whether it is moving:
+
+- `pending_broadcasts` flat and `no_progress_seconds` climbing means nothing
+  is getting out at all, so look for peers whose `etcd` member is down
+  (`hydra_head_peers_connected` should agree).
+- `pending_broadcasts` climbing while `no_progress_seconds` stays small means
+  the network is delivering but more slowly than this node is producing.
+- `no_progress_seconds` peaking a little under ten seconds without ever
+  tripping the stall is the healthy-but-slow case, and the signal to watch if
+  refusals start appearing.
+
+The two gauges are sampled roughly every ten seconds, and only while there is
+a backlog, so a burst shorter than that may not appear.
 
 When the node runs with `+RTS -T`, the endpoint additionally serves GHC RTS
 work counters, refreshed at scrape time (absent otherwise, so the output is

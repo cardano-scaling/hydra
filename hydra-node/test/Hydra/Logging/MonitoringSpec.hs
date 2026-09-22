@@ -7,12 +7,14 @@ import Data.Text qualified as Text
 
 import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
 import GHC.Stats (getRTSStatsEnabled)
-import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
+import Hydra.API.ClientInput (ClientInput (NewTx))
+import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
+import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging.Messages (HydraLog (Node))
 import Hydra.Logging.Monitoring
-import Hydra.Network (Host (Host))
+import Hydra.Network (Host (Host), StallReason (..))
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (..))
 
@@ -60,6 +62,51 @@ spec = do
         rtsEnabled <- getRTSStatsEnabled
         filter (`elem` scraped) rtsMetrics
           `shouldBe` (if rtsEnabled then rtsMetrics else [])
+
+  it "reports a stalled broadcast, its backlog and what it refused" $ do
+    -- The metrics an operator diagnosing GHSA-3mmr-q43p-g6p2 reads: whether
+    -- the hand-off is stalled, how much it holds and for how long, and how
+    -- many client inputs that cost.
+    failAfter 3 $ do
+      [p] <- randomUnusedTCPPorts 1
+      withMonitoring (Just $ fromIntegral p) nullTracer $ \tracer -> do
+        let scrape =
+              Text.lines . decodeUtf8 . responseBody
+                <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
+
+        traceWith tracer (Node $ BroadcastBacklog 7 4)
+        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastStalled 7 NoProgress] mempty))
+        traceWith tracer . Node . LogicOutcome alice $
+          Continue mempty [ClientEffect (RejectedInputBecauseBroadcastStalled (NewTx (aValidTx 42)) 7 NoProgress)]
+
+        stalledMetrics <- scrape
+        stalledMetrics `shouldContain` ["hydra_head_broadcast_stalled  1.0"]
+        stalledMetrics `shouldContain` ["hydra_head_pending_broadcasts  7.0"]
+        stalledMetrics `shouldContain` ["hydra_head_broadcast_no_progress_seconds  4.0"]
+        stalledMetrics `shouldContain` ["hydra_head_inputs_refused_broadcast_stalled  1"]
+        -- Which of the two conditions it is, so an operator can tell an
+        -- unreachable network from one merely being outrun (review: vrom911).
+        stalledMetrics `shouldContain` ["hydra_head_broadcast_stalled_no_progress  1.0"]
+        stalledMetrics `shouldContain` ["hydra_head_broadcast_stalled_backlog_full  0.0"]
+
+        -- The other cause must move the other gauge, and only that one.
+        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastStalled 1000 BacklogFull] mempty))
+        backlogMetrics <- scrape
+        backlogMetrics `shouldContain` ["hydra_head_broadcast_stalled  1.0"]
+        backlogMetrics `shouldContain` ["hydra_head_broadcast_stalled_no_progress  0.0"]
+        backlogMetrics `shouldContain` ["hydra_head_broadcast_stalled_backlog_full  1.0"]
+
+        -- Draining again must take them all back down, or a cleared stall
+        -- looks like a current one forever.
+        traceWith tracer (Node $ BroadcastBacklog 0 0)
+        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastResumed] mempty))
+
+        resumedMetrics <- scrape
+        resumedMetrics `shouldContain` ["hydra_head_broadcast_stalled  0.0"]
+        resumedMetrics `shouldContain` ["hydra_head_broadcast_stalled_no_progress  0.0"]
+        resumedMetrics `shouldContain` ["hydra_head_broadcast_stalled_backlog_full  0.0"]
+        resumedMetrics `shouldContain` ["hydra_head_pending_broadcasts  0.0"]
+        resumedMetrics `shouldContain` ["hydra_head_broadcast_no_progress_seconds  0.0"]
 
   it "provides prometheus metrics from traces" $ do
     failAfter 3 $ do

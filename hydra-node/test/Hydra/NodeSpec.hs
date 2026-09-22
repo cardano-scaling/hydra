@@ -7,8 +7,9 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO, writeTVar)
-import Control.Tracer.JSON (Tracer, showLogsOnFailure, traceInTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, newEmptyTMVarIO, newTVarIO, putTMVar, readTMVar, readTVarIO, writeTVar)
+import Control.Concurrent.PersistentQueue (newPersistentQueue, writePersistentQueue)
+import Control.Tracer.JSON (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
 import Control.Tracer.JSON qualified as Logging
 import Data.EventSource (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Data.EventSource.Rotation (EventStore (..), LogId)
@@ -16,8 +17,9 @@ import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
+import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
@@ -30,13 +32,16 @@ import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
   NodeStateHandler (..),
+  broadcastStallBounds,
   checkHeadState,
   connect,
   hydrate,
   stepHydraNode,
+  withNetworkOutbox,
  )
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
+import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
@@ -45,6 +50,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
@@ -387,6 +393,167 @@ spec = parallel $ do
                               }
                            ]
 
+    it "keeps processing chain and client inputs while broadcast blocks" $
+      -- Regression test for GHSA-3mmr-q43p-g6p2. 'processEffects' calls
+      -- 'broadcast' inline on the single input-processing thread, and the
+      -- shipped 'broadcast' is 'writePersistentQueue' over the 100-slot
+      -- 'pending-broadcast' queue, which blocks once full. That queue is only
+      -- drained by 'broadcastMessages', which retries forever while our etcd
+      -- member has no quorum. So the 101st outbound message wedged the whole
+      -- node: no chain observation, no client Close, no contest.
+      failAfter 60 $
+        showLogsOnFailure "NodeSpec" $ \tracer ->
+          withTempDir "hydra-node-pending-broadcast" $ \tmp -> do
+            -- Confirm snapshot 1 first: 'onOpenChainCloseTx' only contests a
+            -- close whose snapshot number is below our confirmed one.
+            let sn1 = testSnapshot 1 0 [] (utxoRefs [])
+                setupInputs =
+                  inputsToOpenHead
+                    <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, decommitTx = Nothing, depositTxId = Nothing}
+                       , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
+                       , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
+                       , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
+                       ]
+            (setupNode, getPostedTxs) <-
+              testHydraNode tracer bobSk [alice, carol] cperiod setupInputs
+                >>= recordChain
+            runToCompletion setupNode
+
+            -- From here 'broadcast' is the shipped one, over a queue nobody
+            -- drains: a node whose etcd member has lost quorum.
+            queue <- newPersistentQueue nullTracer (tmp </> "pending-broadcast") 100
+            let node = setupNode{hn = Network{broadcast = writePersistentQueue nullTracer queue}}
+                InputQueue{enqueue} = inputQueue node
+                feed = do
+                  -- One 'ReqTx' broadcast per 'NewTx', so this overruns the
+                  -- 100 slots.
+                  forM_ [1 .. 150] $ \i -> enqueue $ ClientInput NewTx{transaction = aValidTx i}
+                  -- NOTE: 'Close' is only handled in an open head while the
+                  -- observation moves us to closed, so it has to go first.
+                  enqueue $ ClientInput Close
+                  enqueue . observationInput $
+                    OnCloseTx
+                      { headId = testHeadId
+                      , snapshotNumber = 0
+                      , contestationDeadline = addUTCTime 3600 initialChainTime
+                      }
+
+            -- NOTE: the input queue is bounded at 100 and 'enqueue' blocks
+            -- when full, so the test thread must not feed the inputs itself.
+            withRunningHydraNode node $
+              withAsyncLabelled ("feed-inputs", feed) $ \_ -> do
+                void . awaitRecorded getPostedTxs $ \case
+                  CloseTx{} -> True
+                  _ -> False
+                void . awaitRecorded getPostedTxs $ \case
+                  ContestTx{} -> True
+                  _ -> False
+
+    it "processes client inputs after a restart with a full pending-broadcast queue" $
+      -- Second half of GHSA-3mmr-q43p-g6p2: 'newPersistentQueue' sizes the
+      -- queue 'max (length paths) capacity' and reloads every persisted item,
+      -- so a node that wedged with a full 'pending-broadcast' directory comes
+      -- back with no free slot at all. It then takes a single outbound
+      -- message, not 101, to wedge it again.
+      failAfter 60 $
+        showLogsOnFailure "NodeSpec" $ \tracer ->
+          withTempDir "hydra-node-pending-broadcast" $ \tmp -> do
+            let dir = tmp </> "pending-broadcast"
+            seed <- newPersistentQueue nullTracer dir 100
+            forM_ [1 .. 100] $ \i ->
+              writePersistentQueue nullTracer seed (ReqTx{transaction = aValidTx i} :: Message SimpleTx)
+            queue <- newPersistentQueue nullTracer dir 100
+
+            (setupNode, getPostedTxs) <-
+              testHydraNode tracer aliceSk [bob, carol] cperiod inputsToOpenHead
+                >>= recordChain
+            runToCompletion setupNode
+
+            let node = setupNode{hn = Network{broadcast = writePersistentQueue nullTracer queue}}
+            -- The 'NewTx' is load-bearing: 'Close' emits no 'NetworkEffect'
+            -- of its own, so without it the node never touches the queue.
+            void $
+              primeWith
+                [ ClientInput NewTx{transaction = aValidTx 1}
+                , ClientInput Close
+                ]
+                node
+            withRunningHydraNode node $
+              void . awaitRecorded getPostedTxs $ \case
+                CloseTx{} -> True
+                _ -> False
+
+    it "refuses NewTx but still closes while the broadcast is stalled" $
+      -- The bound on the fix above: with 'broadcast' unable to complete, the
+      -- hand-off would otherwise grow for as long as clients keep submitting.
+      -- Only 'NewTx' and 'Decommit' are refused; 'Close' must still work.
+      failAfter 60 $
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          (setupNode, getPostedTxs) <-
+            testHydraNode tracer aliceSk [bob, carol] cperiod inputsToOpenHead
+              >>= recordChain
+          runToCompletion setupNode
+
+          blocked <- newEmptyTMVarIO
+          -- Trip the gate on the queued count rather than on elapsed time, so
+          -- the test does not hinge on how long two clock reads are apart.
+          stalling <- newOutbox broadcastStallBounds{maxPending = 1} "stalling-network-outbox"
+          (setupNode', getServerOutputs) <- recordServerOutputs setupNode
+          let node =
+                setupNode'
+                  { hn = Network{broadcast = \_ -> atomically (readTMVar blocked)}
+                  , networkOutbox = stalling
+                  }
+          void $
+            primeWith
+              [ ClientInput NewTx{transaction = aValidTx 1} -- gets through, then blocks
+              , ClientInput NewTx{transaction = aValidTx 2} -- refused
+              , ClientInput Close
+              ]
+              node
+          withRunningHydraNode node $ do
+            void . awaitRecorded getPostedTxs $ \case
+              CloseTx{} -> True
+              _ -> False
+            outputs <- getServerOutputs
+            outputs
+              `shouldSatisfy` any
+                ( \case
+                    Right RejectedInputBecauseBroadcastStalled{} -> True
+                    _ -> False
+                )
+
+    it "reports a stalled broadcast to clients, and its recovery" $
+      -- The refusal is a message, so it only reaches clients connected when
+      -- an input is refused. The condition is therefore also reported on its
+      -- own, and again once it clears. A client connecting mid-stall learns
+      -- of it from 'Greetings' instead (see 'Hydra.API.ServerSpec'), since
+      -- even these outputs are only replayed on request.
+      failAfter 60 $
+        showLogsOnFailure "NodeSpec" $ \tracer -> do
+          setupNode <- testHydraNode tracer aliceSk [bob, carol] cperiod inputsToOpenHead
+          runToCompletion setupNode
+
+          blocked <- newEmptyTMVarIO
+          -- A short stall period, so the monitor reports within the test
+          -- rather than after 'broadcastStallBounds'.
+          stalling <- newOutbox broadcastStallBounds{noProgressFor = 0.1} "stalling-network-outbox"
+          (node', getServerOutputs) <- recordServerOutputs setupNode
+          let node =
+                node'
+                  { hn = Network{broadcast = \_ -> atomically (readTMVar blocked)}
+                  , networkOutbox = stalling
+                  }
+          void $ primeWith [ClientInput NewTx{transaction = aValidTx 1}] node
+          withRunningHydraNode node $ do
+            void . awaitRecorded getServerOutputs $ \case
+              Left ServerOutput.NetworkBroadcastStalled{} -> True
+              _ -> False
+            atomically $ putTMVar blocked ()
+            void . awaitRecorded getServerOutputs $ \case
+              Left ServerOutput.NetworkBroadcastResumed -> True
+              _ -> False
+
   describe "checkHeadState" $ do
     let defaultEnv =
           Environment
@@ -570,7 +737,12 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}, nodeStateHandle
     unlessM isEmpty $ do
       knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
       let nextChainTime = addUTCTime 1 knownChainTime
-      stepHydraNode nextChainTime node >> go
+      stepHydraNode nextChainTime node
+      -- Network effects are handed off to the node's outbox, which only runs
+      -- under 'withNetworkOutbox'. Drive it here so tests stepping the node
+      -- by hand stay synchronous and their assertions deterministic.
+      drainOutbox (networkOutbox node)
+      go
 
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
@@ -618,6 +790,46 @@ recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
   pure (node{hn = Network{broadcast = record}}, query)
+
+-- | Record every 'postTx' call, in the shape of 'recordNetwork'. 'mockChain'
+-- discards them, so tests asserting on 'OnChainEffect's have nothing to look
+-- at otherwise.
+recordChain :: HydraNode tx IO -> IO (HydraNode tx IO, IO [PostChainTx tx])
+recordChain node = do
+  (record, query) <- messageRecorder
+  pure (node{oc = mockChain{postTx = record}}, query)
+
+-- | Drive the node like 'runHydraNode' does, but on a background thread and
+-- using the node's own notion of chain time the way 'runToCompletion' does.
+-- Nodes built here start at 'initialChainTime', so driving them with the wall
+-- clock would leave them permanently out of sync.
+withRunningHydraNode :: IsChainState tx => HydraNode tx IO -> IO a -> IO a
+withRunningHydraNode node action =
+  raceLabelled ("run-hydra-node", withNetworkOutbox node (forever step)) ("test-body", action)
+    >>= either (const (failure "hydra node loop exited")) pure
+ where
+  HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} = node
+
+  step = do
+    knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
+    stepHydraNode (addUTCTime 1 knownChainTime) node
+
+-- | Wait for a recorder (see 'messageRecorder') to hold a matching item,
+-- failing with everything recorded so far so a wedged node names the effect it
+-- never produced instead of just timing out.
+awaitRecorded :: (HasCallStack, Show a) => IO [a] -> (a -> Bool) -> IO a
+awaitRecorded query p =
+  timeout 10 go >>= \case
+    Just a -> pure a
+    Nothing -> do
+      seen <- query
+      failure $ "awaitRecorded: no match, recorded: " <> show seen
+ where
+  go =
+    query >>= \items ->
+      case filter p items of
+        (a : _) -> pure a
+        [] -> threadDelay 0.05 >> go
 
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 recordServerOutputs node = do

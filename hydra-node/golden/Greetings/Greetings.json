@@ -2,30 +2,51 @@
     "samples": [
         {
             "chainSyncedStatus": "CatchingUp",
-            "currentSlot": 1,
+            "currentSlot": 0,
             "env": {
-                "configuredPeers": "",
-                "contestationPeriod": 43200,
-                "depositActivation": 40480,
-                "depositPeriod": 47894,
-                "otherParties": [],
+                "configuredPeers": "`",
+                "contestationPeriod": 31536000,
+                "depositActivation": 82132,
+                "depositPeriod": 21417,
+                "otherParties": [
+                    {
+                        "vkey": "5b0ef0ccc525e582073ccc20bbd4ed6101671d16e656c7d09f1058175b982162"
+                    }
+                ],
                 "participants": [],
                 "party": {
-                    "vkey": "79e89a0e5d9cbaee447d0e60ad6e35adf2cffef1f54a12a5746e371cfd9965c6"
+                    "vkey": "c11f839ba911755a091a2a21c4673e495c8f2a15f758992a1b0b669ad2c8e95f"
                 },
-                "unsyncedPeriod": 4950
+                "unsyncedPeriod": 53001
             },
-            "headStatus": "FanningOut",
-            "hydraNodeVersion": "⢊",
+            "headStatus": "Idle",
+            "hydraHeadId": "01000100000101000001000100010001",
+            "hydraNodeVersion": "B",
             "me": {
-                "vkey": "d2c26418b2c549087472c67be0154aa83e32d9b92f08c19738263584b7d8582c"
+                "vkey": "8ed8390d27ebe6a639003401a84b67e4b7c91e2c46a7ca7bfa1893a294b2da66"
             },
             "networkInfo": {
+                "broadcastStall": "NoProgress",
                 "networkConnected": true,
-                "peersInfo": {}
+                "peersInfo": {
+                    "0.0.0.1:1": false
+                }
+            },
+            "snapshotUtxo": {
+                "0101010000000001000101000100000001010001010100010100010000010000#65": {
+                    "address": "addr_test1qpn28xj80clz6mvu0wgx59nj6e83fu7472chgekc78xu9y92afphpm2srgjfwxgtnwd6k5ttjmccfnx3lkzrmgdevrhs6n3jc7",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 969750
+                    }
+                }
             },
             "tag": "Greetings"
         }
     ],
-    "seed": 1589386439
+    "seed": -156448022
 }

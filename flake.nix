@@ -23,7 +23,18 @@
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     rust-accumulator.url = "github:cardano-scaling/rust-accumulator";
-    nix-fast-build.url = "github:Mic92/nix-fast-build";
+    # Pinned to a tag rather than tracking the default branch, and sharing our
+    # nixpkgs. 2.0.x is the first release whose build subprocess gets a stream
+    # limit large enough not to crash nix-fast-build on a long build log line,
+    # which otherwise leaves its exit code reporting success after failures.
+    # Left to its own nixpkgs it wraps a nix (via nix-eval-jobs) newer than the
+    # local nix daemon, which then warns about the missing
+    # 'realisation-with-path-not-hash' feature on every build; following ours
+    # keeps them compatible.
+    nix-fast-build = {
+      url = "github:Mic92/nix-fast-build/2.0.2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     pumba.url = "github:noonio/pumba/noon/add-flake";
   };
 

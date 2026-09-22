@@ -48,6 +48,7 @@ import Hydra.Node (
   HydraNode (..),
   HydraNodeLog (..),
   NodeStateHandler (..),
+  broadcastStallBounds,
   connect,
   createNodeStateHandler,
   defaultTxTTL,
@@ -58,6 +59,7 @@ import Hydra.Node (
  )
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
+import Hydra.Node.Outbox (newOutbox)
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
@@ -1681,6 +1683,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
   let lastEventId = getEventId <$> viaNonEmpty last events
   nodeStateHandler <- createNodeStateHandler lastEventId nodeState
   inputQueue <- createInputQueue
+  networkOutbox <- newOutbox broadcastStallBounds "network-outbox"
   node <-
     connectNode
       chain
@@ -1692,6 +1695,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
         , inputQueue
         , eventSource
         , eventSinks = [apiSink, eventSink]
+        , networkOutbox
         , chainStateHistory
         }
   pure $

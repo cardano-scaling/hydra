@@ -47,6 +47,30 @@ Now, because of etcd, it is important to only delete the `hydra-node` specific f
 
 Note that, as with any adjustments of this kind, it is good practice to make a backup first!
 
+#### Pending outbound messages
+
+`<persistence-dir>/pending-broadcast/` holds messages this node has broadcast
+that the cluster has not accepted yet. It fills while the node cannot reach a
+majority of the `etcd` cluster, and drains once it can.
+
+Do not delete it as part of a routine upgrade cleanup. Unlike
+`persistence/state*`, deleting it discards messages the other participants
+never saw, which breaks the reliable-broadcast guarantee the off-chain
+protocol relies on and can leave the head unable to make progress. The
+recovery for a growing `pending-broadcast/` is to restore quorum by bringing
+peers back, not to remove files.
+
+The metrics to watch are `hydra_head_pending_broadcasts`,
+`hydra_head_broadcast_no_progress_seconds` and `hydra_head_broadcast_stalled`
+on the node's `--monitoring-port`; see
+<a href="../benchmarks/metrics#diagnosing-a-stalled-broadcast">runtime metrics</a>.
+
+While the queue is not draining, the node reports `NetworkBroadcastStalled`
+(and later `NetworkBroadcastResumed`) to its clients, and refuses new `NewTx`
+and `Decommit` submissions with `RejectedInputBecauseBroadcastStalled`
+(HTTP 503) to keep the backlog from growing. Closing, contesting and fanning
+out the head are never refused.
+
 ### Training wheels
 
 The following restrictions apply when **depositing** funds into a Hydra head (via `POST /commit`):

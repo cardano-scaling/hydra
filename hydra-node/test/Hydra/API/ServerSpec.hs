@@ -10,10 +10,12 @@ import Conduit (yieldMany)
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
+  newTVarIO,
   readTQueue,
   readTVarIO,
   tryReadTQueue,
   writeTQueue,
+  writeTVar,
  )
 import Control.Lens ((^?))
 import Control.Tracer.JSON (Tracer, showLogsOnFailure)
@@ -45,7 +47,7 @@ import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inIdleState, inOpenState, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Network (Host (..), PortNumber)
+import Hydra.Network (Host (..), PortNumber, StallReason (..))
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Options (defaultRunOptions)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -102,6 +104,34 @@ spec =
                   guard $ matchGreetings v
                   v ^? key "hydraNodeVersion"
                 version `shouldBe` toJSON (showVersion NetworkVersions.hydraNodeVersion)
+
+    it "greets a client that connects during a broadcast stall" $ do
+      -- Whether the node can currently get its messages out is live state, not
+      -- history: past outputs are only replayed on request ("history=yes"), so
+      -- 'Greetings' is where a freshly connected client has to learn it. Read
+      -- live rather than projected precisely so it cannot report a stall that
+      -- ended before the node restarted.
+      failAfter 20 $
+        showLogsOnFailure "ServerSpec" $ \tracer ->
+          withFreeServerSocket $ \sock port -> do
+            stalled <- newTVarIO Nothing
+            withTestAPIServerStalledWhen sock (readTVarIO stalled) port alice (mockSource []) tracer $ \_ -> do
+              let greetedWith expected =
+                    withClient port "/" $ \conn -> do
+                      greeted <- waitMatch 5 conn $ \v -> do
+                        guard $ matchGreetings v
+                        v ^? key "networkInfo" . key "broadcastStall"
+                      greeted `shouldBe` toJSON expected
+              greetedWith (Nothing @StallReason)
+              -- Which condition it is reaches the client too, not just that
+              -- there is one: only 'NoProgress' means unreachable.
+              atomically $ writeTVar stalled (Just NoProgress)
+              greetedWith (Just NoProgress)
+              atomically $ writeTVar stalled (Just BacklogFull)
+              greetedWith (Just BacklogFull)
+              -- ... and does not latch once it recovers.
+              atomically $ writeTVar stalled Nothing
+              greetedWith (Nothing @StallReason)
 
     it "sends server outputs to all connected clients" $ do
       queue <- newLabelledTQueueIO "queue"
@@ -563,7 +593,7 @@ spec =
                     , listenSocket = Just sock
                     }
                 initialChainState = 0
-            withAPIServer @SimpleTx config defaultRunOptions testEnvironment alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config defaultRunOptions testEnvironment alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter (pure Nothing) noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -733,6 +763,8 @@ surfacedOutputs =
   , ("NetworkDisconnected", Just "NetworkDisconnected")
   , ("NetworkVersionMismatch", Just "NetworkVersionMismatch")
   , ("NetworkClusterIDMismatch", Just "NetworkClusterIDMismatch")
+  , ("NetworkBroadcastStalled", Just "NetworkBroadcastStalled")
+  , ("NetworkBroadcastResumed", Just "NetworkBroadcastResumed")
   , ("PeerConnected", Just "PeerConnected")
   , ("PeerDisconnected", Just "PeerDisconnected")
   , ("TransactionReceived", Nothing)
@@ -792,8 +824,8 @@ peerA = Host "10.0.0.1" 5001
 peerB = Host "10.0.0.2" 5002
 
 connected, disconnected, connectedTo :: NetworkInfo
-connected = NetworkInfo{networkConnected = True, peersInfo = mempty}
-disconnected = NetworkInfo{networkConnected = False, peersInfo = mempty}
+connected = NetworkInfo{networkConnected = True, broadcastStall = Nothing, peersInfo = mempty}
+disconnected = NetworkInfo{networkConnected = False, broadcastStall = Nothing, peersInfo = mempty}
 connectedTo = connected{peersInfo = Map.fromList [(peerA, True)]}
 
 sendsAnErrorWhenInputCannotBeDecoded :: Socket -> PortNumber -> Expectation
@@ -925,6 +957,22 @@ withTestAPIServerBindingPort ::
 withTestAPIServerBindingPort port actor eventSource tracer =
   withTestAPIServerWithCallback Nothing port actor eventSource tracer noop
 
+-- | Like 'withTestAPIServer', but with the live broadcast status the server
+-- greets clients with under the test's control.
+withTestAPIServerStalledWhen ::
+  Socket ->
+  IO (Maybe StallReason) ->
+  PortNumber ->
+  Party ->
+  EventSource (StateEvent SimpleTx) IO ->
+  Tracer IO APIServerLog ->
+  ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
+  IO ()
+withTestAPIServerStalledWhen sock queryBroadcastStall port actor eventSource tracer =
+  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter queryBroadcastStall noop
+ where
+  config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000, listenSocket = Just sock}
+
 -- | Like 'withTestAPIServer', but with an explicit callback invoked for every
 -- 'ClientInput' received by the server.
 withTestAPIServerWithCallback ::
@@ -963,7 +1011,7 @@ withTestAPIServer' ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer' listenSocket port actor eventSource outputFilter tracer =
-  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams outputFilter
+  withAPIServer @SimpleTx config defaultRunOptions testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams outputFilter (pure Nothing)
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000, listenSocket}
 

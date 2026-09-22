@@ -96,6 +96,7 @@ library
     Hydra.Node.Environment
     Hydra.Node.InputQueue
     Hydra.Node.Network
+    Hydra.Node.Outbox
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
     Hydra.Node.State
@@ -409,6 +410,7 @@ test-suite tests
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
+    Hydra.Node.OutboxSpec
     Hydra.Node.RunSpec
     Hydra.Node.UtilSpec
     Hydra.NodeSpec

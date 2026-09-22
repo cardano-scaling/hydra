@@ -82,12 +82,15 @@ channels:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/RejectedInputBecauseUnsynced"
+          - $ref: "api.yaml#/components/messages/RejectedInputBecauseBroadcastStalled"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshotRejected"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkConnected"
           - $ref: "api.yaml#/components/messages/NetworkDisconnected"
+          - $ref: "api.yaml#/components/messages/NetworkBroadcastStalled"
+          - $ref: "api.yaml#/components/messages/NetworkBroadcastResumed"
           - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
           - $ref: "api.yaml#/components/messages/NetworkClusterIDMismatch"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
@@ -475,7 +478,8 @@ channels:
                 type: string
         - name: SubmitTxRejected
           summary: 503 Bad Request
-          description: Transaction was rejected due to node out of sync.
+          description: |
+            Transaction was rejected without being processed: either the node is out of sync with the chain, or it cannot currently hand its outbound messages to the network. The reason says which.
           payload:
             type: object
             additionalProperties: false
@@ -609,6 +613,20 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/NetworkDisconnected"
 
+    NetworkBroadcastStalled:
+      title: NetworkBroadcastStalled
+      description: |
+        The node's outbound messages have backed up and are not being handed to the L2 Hydra network. See stallReason for which of the two conditions this is: only NoProgress means the network cannot be reached, while BacklogFull can also mean a client outrunning a network that is keeping up. Messages go out once the queue drains, but are held in memory until then, so stopping the node while stalled discards whatever it had not handed over. NewTx and Decommit are refused with RejectedInputBecauseBroadcastStalled meanwhile; closing, contesting and fanning out are unaffected by this condition, though they still depend on the chain backend.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkBroadcastStalled"
+
+    NetworkBroadcastResumed:
+      title: NetworkBroadcastResumed
+      description: |
+        The node's outbound queue started draining again.
+      payload:
+        $ref: "api.yaml#/components/schemas/NetworkBroadcastResumed"
+
     PeerConnected:
       title: PeerConnected
       description: |
@@ -732,6 +750,13 @@ components:
         Emitted by the server when a well-formed client input was not processable because the node-state is catching up with the chain-state.
       payload:
         $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
+
+    RejectedInputBecauseBroadcastStalled:
+      title: RejectedInputBecauseBroadcastStalled
+      description: |
+        Emitted by the server when a NewTx or Decommit was refused because the node's outbound broadcast queue has been backed up for a while and the resulting message cannot be handed to the network. Chain and protocol processing are unaffected, and Close, Contest and Fanout keep working. Retry once the network recovers.
+      payload:
+        $ref: "api.yaml#/components/schemas/RejectedInputBecauseBroadcastStalled"
 
     SideLoadSnapshotRejected:
       title: SideLoadSnapshotRejected
@@ -918,6 +943,8 @@ components:
       oneOf:
         - $ref: "api.yaml#/components/schemas/NetworkConnected"
         - $ref: "api.yaml#/components/schemas/NetworkDisconnected"
+        - $ref: "api.yaml#/components/schemas/NetworkBroadcastStalled"
+        - $ref: "api.yaml#/components/schemas/NetworkBroadcastResumed"
         - $ref: "api.yaml#/components/schemas/NetworkVersionMismatch"
         - $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
@@ -953,6 +980,7 @@ components:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
+        - $ref: "api.yaml#/components/schemas/RejectedInputBecauseBroadcastStalled"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
 
     Greetings:
@@ -1136,6 +1164,45 @@ components:
         tag:
           type: string
           enum: ["NetworkDisconnected"]
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkBroadcastStalled:
+      type: object
+      required:
+        - tag
+        - pendingBroadcasts
+        - stallReason
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkBroadcastStalled"]
+        pendingBroadcasts:
+          type: integer
+          minimum: 0
+          description: |
+            Number of messages waiting to be handed to the network.
+        stallReason:
+          $ref: "api.yaml#/components/schemas/StallReason"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    NetworkBroadcastResumed:
+      type: object
+      required:
+        - tag
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["NetworkBroadcastResumed"]
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1517,6 +1584,39 @@ components:
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
+
+    RejectedInputBecauseBroadcastStalled:
+      type: object
+      required:
+      - tag
+      - clientInput
+      - pendingBroadcasts
+      - stallReason
+      properties:
+        tag:
+          type: string
+          enum: ["RejectedInputBecauseBroadcastStalled"]
+        clientInput:
+          description: |
+            In practice only NewTx and Decommit are refused this way, as they are the client inputs that turn directly into an outbound message.
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/SafeClose/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        pendingBroadcasts:
+          type: integer
+          minimum: 0
+          description: |
+            Number of messages waiting to be handed to the network.
+        stallReason:
+          $ref: "api.yaml#/components/schemas/StallReason"
 
     SideLoadSnapshotRejected:
       type: object
@@ -3431,11 +3531,18 @@ components:
         L2 Hydra network status information.
       required:
       - networkConnected
+      - broadcastStall
       - peersInfo
       additionalProperties: false
       properties:
         networkConnected:
           type: boolean
+        broadcastStall:
+          description: |
+            Why the node's outbound messages are currently backing up, or null when they are flowing. Only NoProgress means the network cannot be reached; BacklogFull can be a client outrunning a network that is keeping up. While non-null, NewTx and Decommit submissions are refused; closing, contesting and fanning out are unaffected.
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/StallReason"
         peersInfo:
           type: object
           description: Mapping from peer Host to connection status.
@@ -3444,6 +3551,14 @@ components:
           example:
             "127.0.0.1:5000": true
             "peer.local:5001": false
+
+    StallReason:
+      description: |
+        Why the node's outbound broadcast queue is reporting itself stalled. NoProgress means the network cannot currently be reached at all; BacklogFull can also happen on a healthy network that a client is simply outrunning.
+      type: string
+      enum:
+        - NoProgress
+        - BacklogFull
 
     SyncedStatus:
       description: |

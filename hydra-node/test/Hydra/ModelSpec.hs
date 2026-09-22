@@ -115,7 +115,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxShrinks, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -547,10 +547,26 @@ propHydraModel actions =
 
 -- XXX: This is very similar to propHydraModel, where the assertion is
 -- basically a post condition!?
+--
+-- NOTE: this runs under io-sim, so a wedged head is caught by the simulated
+-- deadlines inside the actions ('waitUntilMatch'), not by the wall clock here.
+-- 'within' is only a backstop against a simulation that burns real CPU without
+-- advancing virtual time, so it is deliberately far above the cost of the
+-- heaviest generated case: measured at ~10s for size 100 on an 8-core box, so
+-- a 30s budget failed on nothing worse than ordinary CPU contention (a full
+-- `just test` run, or anything else busy on the machine).
+--
+-- That misfire is expensive out of proportion to itself: a timeout failure
+-- shrinks, every shrink candidate overruns the same budget, and QuickCheck
+-- prints nothing until shrinking ends - so a spurious failure presents as a
+-- test frozen at a percentage for hours. Hence the shrink cap as well: a
+-- genuine assertion failure converges well inside it, while a pathological
+-- one still reports in bounded time.
 propCheckModelBalances :: Property
 propCheckModelBalances =
-  within 30000000 $
-    forAllShrink arbitrary shrink checkModelBalances
+  within 120000000 $
+    withMaxShrinks 25 $
+      forAllShrink arbitrary shrink checkModelBalances
 
 -- | Same balance consistency assertion as 'propCheckModelBalances', but over
 -- longer random action sequences: heavier L2 traffic with deposits, decommits,

@@ -28,6 +28,7 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.Ledger (ValidationError (..))
+import Hydra.Network (StallReason (..))
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
@@ -279,6 +280,14 @@ operationTimedOut tag apiTransactionTimeout =
     { tag
     , timeoutMessage = "Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds"
     }
+
+-- | How a stalled outbound queue is described to an HTTP client, distinguishing
+-- 'NoProgress' (the network really is unreachable) from 'BacklogFull' (a
+-- healthy network being outrun by a fast producer).
+describeStallReason :: StallReason -> Text
+describeStallReason = \case
+  NoProgress -> "is not draining"
+  BacklogFull -> "is backed up faster than it can send"
 
 -- | Which encoding the client wants for the response, negotiated via the
 -- @Accept@ header. Anything but @application/cbor@ (including no header)
@@ -552,7 +561,7 @@ handleSubmitUserTx directChain reqEnc respEnc body = do
 
 handleDecommit ::
   forall tx.
-  (FromJSON tx, FromCBOR tx) =>
+  IsTx tx =>
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -578,6 +587,13 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel reqEnc respE
                 pure $ respondApi respEnc status400 ("Decommit failed" :: Text)
               Right (RejectedInputBecauseUnsynced{clientInput = Decommit{}, drift}) ->
                 pure $ respondApi respEnc status503 ("Decommit failed because because node is out of sync with chain, drift: " <> show drift :: Text)
+              -- NOTE: guarded on the transaction, as in 'handleSubmitL2Tx' and
+              -- unlike its neighbours above: this channel is shared by every
+              -- client and a stall is not monotone, so another client's
+              -- refusal must not answer this request.
+              Right (RejectedInputBecauseBroadcastStalled{clientInput = Decommit{decommitTx = refused}, pendingBroadcasts, stallReason})
+                | txId refused == txId decommitTx ->
+                    pure $ respondApi respEnc status503 ("Decommit failed because the node's outbound message queue " <> describeStallReason stallReason <> ", " <> show pendingBroadcasts <> " messages pending" :: Text)
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -682,6 +698,12 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc res
       case event of
         Right (RejectedInputBecauseUnsynced{clientInput = NewTx{}, drift}) -> do
           pure $ SubmitTxRejectedResponse $ "Node is out of sync with chain, drift: " <> show drift
+        -- NOTE: guarded on the transaction, unlike its neighbours above: the
+        -- channel is shared by every client, a stall is not monotone, and so
+        -- another client's refusal must not answer this request.
+        Right (RejectedInputBecauseBroadcastStalled{clientInput = NewTx{transaction}, pendingBroadcasts, stallReason})
+          | txId transaction == txid -> do
+              pure $ SubmitTxRejectedResponse $ "Node's outbound message queue " <> describeStallReason stallReason <> ", " <> show pendingBroadcasts <> " messages pending"
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}
             | transactionId == txid ->

@@ -2765,6 +2765,8 @@ spec =
                           PeerDisconnected{} -> True
                           NetworkVersionMismatch{} -> True
                           NetworkClusterIDMismatch{} -> True
+                          NetworkBroadcastStalled{} -> True
+                          NetworkBroadcastResumed -> True
                           NetworkConnected{} -> True
                           NetworkDisconnected{} -> True
                           _ -> False

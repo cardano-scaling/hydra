@@ -50,6 +50,25 @@ The current implementation of the [network stack](pathname:///haddocks/hydra-nod
 
 See [ADR 32](/adr/32) for a rationale of this approach.
 
+Note that `broadcast` is not called from the `hydra-node`'s input-processing
+loop directly. That loop processes chain observations and client commands one
+at a time, so anything it waits on stops it doing either; and `broadcast` does
+wait, because the `Etcd` component queues messages it cannot yet commit and
+that queue is bounded. Outbound messages are therefore handed to an ordered
+queue drained by a thread of its own, which is the only caller of `broadcast`.
+
+The consequence is that a node whose messages cannot get out keeps observing
+the chain and keeps accepting the commands that close and contest a head. What
+it stops doing is accepting *new* ones: while the hand-off is making no
+progress, `NewTx` and `Decommit` are refused with
+`RejectedInputBecauseBroadcastStalled`, since they are the client inputs that
+grow the backlog fastest. The protocol's own messages cannot pile up, because
+a broadcast is delivered to ourselves as well, so with the network down our
+own acknowledgement never comes back and the snapshot round cannot advance.
+The condition is reported as `NetworkBroadcastStalled`
+and `NetworkBroadcastResumed`, and reflected in `Greetings` for clients that
+connect while it is under way.
+
 ### Previous network stack
 
 In the past we had a "hand-rolled" network stack to implement reliable broadcast in a fully connected network topology. 

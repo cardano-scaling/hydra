@@ -24,7 +24,7 @@ import Hydra.API.ServerOutput (
   Greetings (..),
   HeadStatus (..),
   InvalidInput (..),
-  NetworkInfo,
+  NetworkInfo (..),
   ServerOutputConfig (..),
   TimedServerOutput (..),
   WithAddressedTx (..),
@@ -45,6 +45,7 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State qualified as HeadState
+import Hydra.Network (StallReason)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
@@ -140,11 +141,15 @@ wsApp ::
   Projection STM.STM (StateChanged tx) (NodeState tx) ->
   -- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.
   Projection STM.STM (StateChanged tx) NetworkInfo ->
+  -- | Why the node's outbound messages are backing up, if they are. Read
+  -- live rather than projected from the event log: it is the state of this
+  -- run, and replaying a past stall would report one that has since ended.
+  IO (Maybe StallReason) ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroadcastStall responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let queryParams = queryParamsOf . requestPath $ pendingRequest pending
   con <- acceptRequest pending
@@ -170,7 +175,9 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   forwardGreetingOnly codec config = do
     nodeState <- atomically getLatestNodeState
     let headState = nodeState.headState
-    networkInfo <- atomically getLatestNetworkInfo
+    projected <- atomically getLatestNetworkInfo
+    broadcastStall <- queryBroadcastStall
+    let networkInfo = projected{broadcastStall}
     let greetings =
           Greetings
             { me = party

@@ -13,7 +13,7 @@ import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChai
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Network (Host, ProtocolVersion, StallReason)
 import Hydra.Network.Message (Message)
 import Hydra.Node.State (Deposit, NodeState)
 import Hydra.Tx (
@@ -63,6 +63,8 @@ data StateChanged tx
       { clusterPeers :: Text
       , misconfiguredPeers :: Text
       }
+  | NetworkBroadcastStalled {pendingBroadcasts :: Natural, stallReason :: StallReason}
+  | NetworkBroadcastResumed
   | HeadOpened
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx

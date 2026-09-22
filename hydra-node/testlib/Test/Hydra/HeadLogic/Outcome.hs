@@ -62,6 +62,8 @@ genStateChanged env =
     , PeerDisconnected <$> arbitrary
     , NetworkVersionMismatch <$> arbitrary <*> arbitrary
     , NetworkClusterIDMismatch <$> arbitrary <*> arbitrary
+    , NetworkBroadcastStalled <$> arbitrary <*> arbitrary
+    , pure NetworkBroadcastResumed
     , HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary

@@ -38,6 +38,7 @@ test PKG="all" PATTERN="":
   #!/usr/bin/env bash
   set -euo pipefail
   mkdir -p test-reports
+  rm -f test-reports/*.xml test-reports/*.html
   args=(
     --keep-going
     "--test-options=--html=$(pwd)/test-reports/{suite}.html --xml=$(pwd)/test-reports/{suite}.xml"
@@ -63,6 +64,7 @@ test-index:
   set -euo pipefail
   cd test-reports
   shopt -s nullglob
+  failed=0
   xmls=(*.xml)
   if [ ${#xmls[@]} -eq 0 ]; then
     echo "no test-reports/*.xml found — run 'just test' first" >&2
@@ -90,13 +92,16 @@ test-index:
       errs=$(printf %s  "$attrs" | grep -oE 'errors="[0-9]+"'   | head -1 | grep -oE '[0-9]+' || echo "0")
       mtime=$(date -r "$xml" '+%Y-%m-%d %H:%M:%S')
       cls="ok"
-      if [ "${fails:-0}" != "0" ] || [ "${errs:-0}" != "0" ]; then cls="fail"; fi
+      if [ "${fails:-0}" != "0" ] || [ "${errs:-0}" != "0" ]; then cls="fail"; failed=1; fi
       if [ -f "$html" ]; then link="<a href=\"$html\">$suite</a>"; else link="$suite"; fi
       echo "<tr class=\"$cls\"><td>$link</td><td class=\"num\">$tests</td><td class=\"num\">$fails</td><td class=\"num\">$errs</td><td>$mtime</td></tr>"
     done
     echo '</tbody></table>'
   } > index.html
   echo "wrote test-reports/index.html (${#xmls[@]} suites)"
+  # 'cabal test --keep-going' exits 0 even when a suite fails, so this is what
+  # makes 'just test' fail.
+  [ "$failed" -eq 0 ] || { echo "failing suites, see test-reports/index.html" >&2; exit 1; }
 
 # run one package's nix test suite N times, stopping at the first failure.
 # PATTERN is a raw tasty --pattern.

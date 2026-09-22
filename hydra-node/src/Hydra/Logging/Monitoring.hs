@@ -23,12 +23,13 @@ import Control.Tracer (Tracer (Tracer))
 import Data.Map.Strict as Map
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GHC.Stats (RTSStats (..), getRTSStats, getRTSStatsEnabled)
+import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
-import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
+import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
 import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (PortNumber)
+import Hydra.Network (PortNumber, StallReason (..))
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Tx (IsTx (TxIdType), Snapshot (..), SnapshotNumber, txId)
@@ -61,6 +62,12 @@ data Metrics = Metrics
   , peersConnected :: Gauge
   , chainDriftSeconds :: Gauge
   , chainLastBlockTimestampSeconds :: Gauge
+  , broadcastStalled :: Gauge
+  , broadcastStalledNoProgress :: Gauge
+  , broadcastStalledBacklogFull :: Gauge
+  , pendingBroadcasts :: Gauge
+  , broadcastNoProgressSeconds :: Gauge
+  , inputsRefusedBroadcastStalled :: Counter
   }
 
 -- | Wraps a monadic action using a `Tracer` and capture metrics based on traces.
@@ -133,6 +140,20 @@ registerMetrics registry = liftIO $ do
   peersConnected <- gaugeMetric "hydra_head_peers_connected"
   chainDriftSeconds <- gaugeMetric "hydra_chain_drift_seconds"
   chainLastBlockTimestampSeconds <- gaugeMetric "hydra_chain_last_block_timestamp_seconds"
+  -- Diagnosing a node whose outbound messages are backing up
+  -- (GHSA-3mmr-q43p-g6p2): 'broadcastStalled' is the condition clients are
+  -- told about and the one to alert on; the two beside it split it by cause,
+  -- because only 'NoProgress' means the network cannot be reached, while
+  -- 'BacklogFull' also fires on a client outrunning a network that is keeping
+  -- up. The numbers below let an operator see a backlog building before it
+  -- trips, and tell a slow network from a dead one.
+  -- 'inputsRefusedBroadcastStalled' is the client-visible cost.
+  broadcastStalled <- gaugeMetric "hydra_head_broadcast_stalled"
+  broadcastStalledNoProgress <- gaugeMetric "hydra_head_broadcast_stalled_no_progress"
+  broadcastStalledBacklogFull <- gaugeMetric "hydra_head_broadcast_stalled_backlog_full"
+  pendingBroadcasts <- gaugeMetric "hydra_head_pending_broadcasts"
+  broadcastNoProgressSeconds <- gaugeMetric "hydra_head_broadcast_no_progress_seconds"
+  inputsRefusedBroadcastStalled <- counter "hydra_head_inputs_refused_broadcast_stalled"
   pure Metrics{..}
  where
   counter name = registerCounter (Name name) mempty registry
@@ -157,11 +178,34 @@ monitor transactionsMap snapshotsMap Metrics{..} = \case
     -- transactions after some timeout expires
     atomically $ modifyTVar' transactionsMap (Map.insert (txId tx) t)
     tick headRequestedTx
-  (Node LogicOutcome{outcome = Continue{stateChanges}}) -> do
+  (Node BroadcastBacklog{pendingBroadcasts = pending, noProgressSeconds}) -> do
+    gaugeN pendingBroadcasts (fromIntegral pending)
+    gaugeN broadcastNoProgressSeconds (realToFrac noProgressSeconds)
+  (Node LogicOutcome{outcome = Continue{stateChanges, effects}}) -> do
+    forM_ effects $ \case
+      ClientEffect RejectedInputBecauseBroadcastStalled{} ->
+        tick inputsRefusedBroadcastStalled
+      _ -> pure ()
     forM_ stateChanges $ \case
       PeerConnected{} -> gauge Gauge.inc peersConnected
       PeerDisconnected{} -> gauge Gauge.dec peersConnected
       NetworkDisconnected{} -> gaugeN peersConnected 0
+      -- Set from the state changes rather than from the poll above, so the
+      -- gauges say exactly what clients were told - including which of the
+      -- two conditions it was.
+      NetworkBroadcastStalled{stallReason} -> do
+        gaugeN broadcastStalled 1
+        case stallReason of
+          NoProgress -> do
+            gaugeN broadcastStalledNoProgress 1
+            gaugeN broadcastStalledBacklogFull 0
+          BacklogFull -> do
+            gaugeN broadcastStalledNoProgress 0
+            gaugeN broadcastStalledBacklogFull 1
+      NetworkBroadcastResumed -> do
+        gaugeN broadcastStalled 0
+        gaugeN broadcastStalledNoProgress 0
+        gaugeN broadcastStalledBacklogFull 0
       -- On every observed tick, report how far behind the chain we are and when
       -- we last heard from the backend. The latter is a wall-clock timestamp, so
       -- monitoring can alert on `time() - hydra_chain_last_block_timestamp_seconds`

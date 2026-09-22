@@ -50,6 +50,7 @@ import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, 
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Network (StallReason (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -949,6 +950,25 @@ apiServerSpec = do
           )
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 503
+      prop "returns 503 on RejectedInputBecauseBroadcastStalled" $ do
+        responseChannel <- newTChanIO
+        let clientFailed = RejectedInputBecauseBroadcastStalled{clientInput = NewTx testTx, pendingBroadcasts = 42, stallReason = NoProgress}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 503
 
     describe "POST /decommit" $ do
       it "returns 202 on timeout" $ do
@@ -1029,6 +1049,27 @@ apiServerSpec = do
         responseChannel <- newTChanIO
         let tx = SimpleTx 1 mempty mempty
         let clientFailed = RejectedInputBecauseUnsynced{clientInput = Decommit tx, drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 503
+
+      it "returns 503 on RejectedInputBecauseBroadcastStalled" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        let clientFailed = RejectedInputBecauseBroadcastStalled{clientInput = Decommit tx, pendingBroadcasts = 42, stallReason = BacklogFull}
         withApplication
           ( httpApp @SimpleTx
               nullTracer

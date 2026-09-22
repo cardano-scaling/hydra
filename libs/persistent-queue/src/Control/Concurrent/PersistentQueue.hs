@@ -45,12 +45,12 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Tracer (Tracer, traceWith)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
-import Data.List (sort)
+import Data.List (isSuffixOf, sort)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Numeric.Natural (Natural)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, listDirectory, removeFile, renameFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import Text.Read (readMaybe)
@@ -79,38 +79,62 @@ writeFileBS path = liftIO . BS.writeFile path
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
-  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) =>
+  (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m) =>
   Tracer IO PersistentQueueLog ->
   FilePath ->
   Natural ->
   m (PersistentQueue m a)
 newPersistentQueue tracer path capacity = do
-  paths <- liftIO $ do
+  (paths, quarantinedIxs) <- liftIO $ do
     createDirectoryIfMissing True path
-    sort . mapMaybe readMaybe <$> listDirectory path
+    entries <- listDirectory path
+    pure (sort $ mapMaybe readMaybe entries, mapMaybe quarantinedIndex entries)
   queue <- newLabelledTBQueueIO "persistent-queue" $ max (fromIntegral $ length paths) capacity
-  highestId <-
-    try (loadExisting queue paths) >>= \case
-      Left (e :: IOException) -> do
-        liftIO $ do
-          traceWith tracer PersistentQueueLoadFailed{reason = Text.pack (show e)}
-          createDirectoryIfMissing True path
-        pure 0
-      Right highest -> pure highest
-  nextIx <- newLabelledTVarIO "persistent-next-ix" $ highestId + 1
+  -- Load item by item: a single unreadable or torn file (nothing fsyncs these,
+  -- so a crash can leave one) must cost only that item, not the whole pending
+  -- queue.
+  forM_ paths $ \(idx :: Natural) ->
+    try (readFileBS (path </> show idx)) >>= \case
+      -- Reading can fail for reasons that are none of the item's fault and may
+      -- not recur, so leave the file be: this run does not deliver it, a later
+      -- one may. Two consequences worth knowing: an item recovered on a later
+      -- start goes out after messages enqueued after it, so FIFO holds within
+      -- a run rather than across restarts; and one that never becomes readable
+      -- stays in the directory, as do quarantined items.
+      Left (e :: IOException) -> trace idx (show e)
+      Right bs -> case decodeFull' bs of
+        -- Set aside rather than deleted: undecodable is indistinguishable from
+        -- "the encoding changed under us", so an upgrade must not be able to
+        -- discard the pending queue. The suffix takes it out of the active
+        -- set, since the listing above only accepts names that read as an
+        -- index.
+        Left err -> trace idx (show err) >> quarantine idx
+        Right item -> atomically $ writeTBQueue queue (idx, item, bs)
+  -- Derived from what is on disk, not from what loaded: reusing an index
+  -- would overwrite a file that is still pending. Quarantined indices count
+  -- too, even though they are no longer live: 'quarantine' renames onto
+  -- '<idx>.undecodable' unconditionally, so reissuing an already-quarantined
+  -- index would let a later torn file silently clobber an earlier one's
+  -- forensic copy.
+  nextIx <- newLabelledTVarIO "persistent-next-ix" $ maximum (0 : paths <> quarantinedIxs) + 1
   pure PersistentQueue{queue, nextIx, directory = path}
  where
-  loadExisting queue = \case
-    [] -> pure 0
-    idxs -> do
-      forM_ idxs $ \(idx :: Natural) -> do
-        bs <- readFileBS (path </> show idx)
-        case decodeFull' bs of
-          Left err ->
-            fail $ "Failed to decode item: " <> show err
-          Right item ->
-            atomically $ writeTBQueue queue (idx, item, bs)
-      pure $ last idxs
+  trace idx reason =
+    liftIO . traceWith tracer $
+      PersistentQueueLoadFailed{reason = Text.pack ("item " <> show idx <> ": " <> reason)}
+
+  quarantinedIndex :: FilePath -> Maybe Natural
+  quarantinedIndex name
+    | suffix `isSuffixOf` name = readMaybe (take (length name - length suffix) name)
+    | otherwise = Nothing
+   where
+    suffix = ".undecodable"
+
+  quarantine idx =
+    liftIO $
+      renameFile (path </> show idx) (path </> show idx <> ".undecodable")
+        `catch` \(e :: IOException) ->
+          traceWith tracer PersistentQueueLoadFailed{reason = Text.pack ("could not set aside item " <> show idx <> ": " <> show e)}
 
 -- | Write a value to the queue, blocking if the queue is full.
 writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO PersistentQueueLog -> PersistentQueue m a -> a -> m ()

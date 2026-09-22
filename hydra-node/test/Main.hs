@@ -39,6 +39,7 @@ import Hydra.Network.AuthenticateSpec qualified
 import Hydra.NetworkSpec qualified
 import Hydra.NetworkVersionsSpec qualified
 import Hydra.Node.InputQueueSpec qualified
+import Hydra.Node.OutboxSpec qualified
 import Hydra.Node.RunSpec qualified
 import Hydra.Node.UtilSpec qualified
 import Hydra.NodeSpec qualified
@@ -106,6 +107,7 @@ main =
         <$> testSpecs Hydra.NetworkSpec.etcdSpec
     , testSpec "NetworkVersions" Hydra.NetworkVersionsSpec.spec
     , testSpec "Node.InputQueue" Hydra.Node.InputQueueSpec.spec
+    , testSpec "Node.Outbox" Hydra.Node.OutboxSpec.spec
     , testSpec "Node.Run" Hydra.Node.RunSpec.spec
     , testSpec "Node.Util" Hydra.Node.UtilSpec.spec
     , testSpec "Node" Hydra.NodeSpec.spec

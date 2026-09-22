@@ -44,7 +44,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Network (IP, PortNumber)
+import Hydra.Network (IP, PortNumber, StallReason)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState, pendingDeposits)
@@ -104,10 +104,13 @@ withAPIServer ::
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
+  -- | Why the node's outbound messages are backing up, if they are, see
+  -- 'Hydra.API.ServerOutput.NetworkInfo'.
+  IO (Maybe StallReason) ->
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config runOptions env party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
+withAPIServer config runOptions env party eventSource tracer initialChainState chain pparams serverOutputFilter broadcastStall callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -117,7 +120,11 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
-    networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
+    networkInfoP <-
+      mkProjection
+        "networkInfoP"
+        NetworkInfo{networkConnected = False, broadcastStall = Nothing, peersInfo = mempty}
+        projectNetworkInfo
     -- Track seen snapshots across the event stream history so that SnapshotConfirmed
     -- events (which may omit the snapshot) can be reconstructed for clients.
     let historyTimedOutputs =
@@ -152,7 +159,7 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer chain historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
+              (wsApp env party tracer chain historyTimedOutputs callback nodeStateP networkInfoP broadcastStall responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   (renderConfig runOptions)
@@ -290,6 +297,8 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.NetworkDisconnected -> Just NetworkDisconnected
     StateChanged.NetworkVersionMismatch{..} -> Just NetworkVersionMismatch{..}
     StateChanged.NetworkClusterIDMismatch{..} -> Just NetworkClusterIDMismatch{..}
+    StateChanged.NetworkBroadcastStalled{..} -> Just NetworkBroadcastStalled{..}
+    StateChanged.NetworkBroadcastResumed -> Just NetworkBroadcastResumed
     StateChanged.PeerConnected{..} -> Just PeerConnected{..}
     StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
     StateChanged.TransactionReceived{} -> Nothing

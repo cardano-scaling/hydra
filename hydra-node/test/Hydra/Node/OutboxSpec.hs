@@ -1,0 +1,131 @@
+-- | Tests of the effect hand-off in front of the network.
+--
+-- Run under io-sim so the time-based assertions are exact rather than racing a
+-- wall clock.
+module Hydra.Node.OutboxSpec where
+
+import Hydra.Prelude
+import Test.Hydra.Prelude
+
+import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, takeTMVar)
+import Hydra.Network (StallReason (..))
+import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
+import Test.Util (shouldRunInSim)
+
+bounds :: StallBounds
+bounds = StallBounds{noProgressFor = 10, maxPending = 100}
+
+spec :: Spec
+spec = do
+  it "never blocks the producer, whatever the bounds and with no consumer" $ do
+    -- The whole point: this is called from the node's only input-processing
+    -- thread, so it may not wait on anything.
+    submitted <- shouldRunInSim $ do
+      Outbox{submit} <- newOutbox bounds{maxPending = 3} "outbox-spec"
+      forM_ [1 .. 500 :: Int] $ \_ -> submit (pure ())
+      pure (500 :: Int)
+    submitted `shouldBe` 500
+
+  it "performs everything submitted, once each, in submission order" $ do
+    performed <- shouldRunInSim $ do
+      done <- newTVarIO []
+      Outbox{submit, drainOutbox} <- newOutbox bounds "outbox-spec"
+      forM_ [1 .. 10 :: Int] $ \i -> submit (atomically $ modifyTVar' done (<> [i]))
+      drainOutbox
+      readTVarIO done
+    performed `shouldBe` [1 .. 10 :: Int]
+
+  it "reports no stall while nothing is pending" $ do
+    stalled <- shouldRunInSim $ do
+      Outbox{outboxStalled} <- newOutbox bounds "outbox-spec"
+      threadDelay 60
+      outboxStalled
+    stalled `shouldBe` Nothing
+
+  it "reports a stall once nothing has completed for the stall period" $ do
+    (early, late) <- shouldRunInSim $
+      withStuckOutbox bounds $ \Outbox{outboxStalled} -> do
+        threadDelay 5
+        early <- outboxStalled
+        threadDelay 10
+        late <- outboxStalled
+        pure (early, late)
+    early `shouldBe` Nothing
+    late `shouldBe` Just (NoProgress, 1)
+
+  it "does not report a stall on the first submission after a long idle period" $ do
+    -- Regression test: measuring "how long has the queue been non-empty"
+    -- rather than "how long since it last made progress" reports a stall the
+    -- moment an idle node submits anything.
+    stalled <- shouldRunInSim $ do
+      Outbox{submit, outboxStalled, runOutbox} <- newOutbox bounds "outbox-spec"
+      withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+        threadDelay 60
+        blocked <- newLabelledEmptyTMVarIO "outbox-spec-blocked"
+        submit (atomically $ takeTMVar blocked)
+        outboxStalled
+    stalled `shouldBe` Nothing
+
+  it "does not report a stall while the consumer keeps up" $ do
+    stalled <- shouldRunInSim $ do
+      Outbox{submit, outboxStalled, runOutbox} <- newOutbox bounds "outbox-spec"
+      withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+        forM_ [1 .. 5 :: Int] $ \_ -> do
+          submit (pure ())
+          threadDelay 8
+        outboxStalled
+    stalled `shouldBe` Nothing
+
+  it "reports a stall even while the producer keeps submitting" $ do
+    -- Regression test: resetting the progress clock on every submission rather
+    -- than only on submission into an empty queue would let a busy producer
+    -- mask a consumer that is not moving at all.
+    stalled <- shouldRunInSim $
+      withStuckOutbox bounds $ \Outbox{submit, outboxStalled} -> do
+        forM_ [1 .. 5 :: Int] $ \_ -> do
+          submit (pure ())
+          threadDelay 4
+        outboxStalled
+    stalled `shouldBe` Just (NoProgress, 6)
+
+  it "reports a stall at maxPending, before the stall period has elapsed" $ do
+    (atLimit, belowLimit) <- shouldRunInSim $ do
+      Outbox{submit, outboxStalled} <- newOutbox bounds{maxPending = 3} "outbox-spec"
+      forM_ [1 .. 2 :: Int] $ \_ -> submit (pure ())
+      belowLimit <- outboxStalled
+      submit (pure ())
+      atLimit <- outboxStalled
+      pure (atLimit, belowLimit)
+    -- The bound is inclusive, and nothing has been given time to stall.
+    belowLimit `shouldBe` Nothing
+    atLimit `shouldBe` Just (BacklogFull, 3)
+
+  it "tells a full backlog apart from no progress" $ do
+    -- The two 'StallBounds' limbs are different conditions (see
+    -- 'StallReason'): a fast burst that fills 'maxPending' immediately is not
+    -- the same as a consumer that has stopped moving entirely.
+    (backlogFull, noProgress) <- shouldRunInSim $ do
+      full <- do
+        Outbox{submit, outboxStalled} <- newOutbox bounds{maxPending = 3} "outbox-spec-full"
+        forM_ [1 .. 3 :: Int] $ \_ -> submit (pure ())
+        outboxStalled
+      stuck <- withStuckOutbox bounds $ \Outbox{outboxStalled} -> do
+        threadDelay 11
+        outboxStalled
+      pure (full, stuck)
+    backlogFull `shouldBe` Just (BacklogFull, 3)
+    noProgress `shouldBe` Just (NoProgress, 1)
+
+-- | Run an outbox whose single submitted action never completes, which is what
+-- a network that cannot deliver looks like from here.
+withStuckOutbox ::
+  (MonadAsync m, MonadLabelledSTM m, MonadMonotonicTime m) =>
+  StallBounds ->
+  (Outbox m -> m a) ->
+  m a
+withStuckOutbox stallBounds action = do
+  outbox@Outbox{submit, runOutbox} <- newOutbox stallBounds "outbox-spec"
+  withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+    blocked <- newLabelledEmptyTMVarIO "outbox-spec-blocked"
+    submit (atomically $ takeTMVar blocked)
+    action outbox

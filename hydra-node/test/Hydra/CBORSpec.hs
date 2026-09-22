@@ -62,7 +62,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleChainState, SimpleTx)
-import Hydra.Network (Connectivity, Host, NodeId, ProtocolVersion, WhichEtcd)
+import Hydra.Network (Connectivity, Host, NodeId, ProtocolVersion, StallReason, WhichEtcd)
 import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
@@ -114,6 +114,7 @@ instance ToADTArbitrary (SeenSnapshot Tx)
 instance ToADTArbitrary (FanoutMode Tx)
 instance ToADTArbitrary (NodeState Tx)
 instance ToADTArbitrary SyncedStatus
+instance ToADTArbitrary StallReason
 instance ToADTArbitrary DepositStatus
 instance ToADTArbitrary (Deposit Tx)
 instance ToADTArbitrary Connectivity
@@ -346,6 +347,7 @@ spec = parallel $ do
     goldenCBOR "FanoutMode Tx" "golden/FanoutMode.cbor" (genGoldenSamples @(FanoutMode Tx))
     goldenCBOR "NodeState Tx" "golden/NodeState.cbor" (genGoldenSamples @(NodeState Tx))
     goldenCBOR "SyncedStatus" "golden/SyncedStatus.cbor" (genGoldenSamples @SyncedStatus)
+    goldenCBOR "StallReason" "golden/StallReason.cbor" (genGoldenSamples @StallReason)
     goldenCBOR "DepositStatus" "golden/DepositStatus.cbor" (genGoldenSamples @DepositStatus)
     goldenCBOR "Deposit Tx" "golden/Deposit.cbor" (genGoldenSamples @(Deposit Tx))
     goldenCBOR "Connectivity" "golden/Connectivity.cbor" (genGoldenSamples @Connectivity)
