@@ -43,7 +43,7 @@ import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -54,7 +54,7 @@ import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
-import Test.Hydra.Node.Fixture (testEnvironment)
+import Test.Hydra.Node.Fixture (testEnvironment, testRollbackHorizon)
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -76,12 +76,12 @@ spec :: Spec
 spec = parallel $ do
   describe "deposit lifecycle tracking" $ do
     let s0 = initNodeState 0 :: NodeState SimpleTx
-        record slot i = recordDeposit (ChainSlot slot) i (testDeposit i)
+        record slot i = recordDeposit testRollbackHorizon (ChainSlot slot) i (testDeposit i)
 
     it "a consumed deposit is no longer pending" $ do
       let s1 = record 1 1 s0
       pendingDeposits s1 `shouldBe` Map.singleton 1 (testDeposit 1)
-      pendingDeposits (consumeDeposit (ChainSlot 2) 1 s1) `shouldBe` mempty
+      pendingDeposits (consumeDeposit testRollbackHorizon (ChainSlot 2) 1 s1) `shouldBe` mempty
 
     it "rollbackDeposits drops deposits recorded after the rolled back slot" $ do
       let s1 = record 5 1 s0
@@ -91,30 +91,30 @@ spec = parallel $ do
       pendingDeposits (rollbackDeposits (ChainSlot 5) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
 
     it "rollbackDeposits resurfaces deposits consumed after the rolled back slot" $ do
-      let s1 = consumeDeposit (ChainSlot 10) 1 (record 1 1 s0)
+      let s1 = consumeDeposit testRollbackHorizon (ChainSlot 10) 1 (record 1 1 s0)
       pendingDeposits (rollbackDeposits (ChainSlot 9) s1) `shouldBe` Map.singleton 1 (testDeposit 1)
       -- A consumption AT the rolled back slot is still on chain.
       pendingDeposits (rollbackDeposits (ChainSlot 10) s1) `shouldBe` mempty
 
-    -- Consumed deposits beyond 'depositRetentionHorizon' can never be
+    -- Consumed deposits older than the rollback horizon can never be
     -- resurfaced by a rollback (no real chain rolls back that deep), so they
     -- are pruned to bound the persisted state; unconsumed deposits stay
     -- recoverable indefinitely.
     it "prunes consumed deposits beyond the retention horizon, keeping unconsumed ones" $ do
-      let ChainSlot horizon = depositRetentionHorizon
+      let ChainSlot horizon = testRollbackHorizon
           s1 =
             record (horizon + 100) 3
-              . consumeDeposit (ChainSlot 2) 1
+              . consumeDeposit testRollbackHorizon (ChainSlot 2) 1
               . record 1 2
               . record 1 1
               $ s0
       Map.keys (deposits s1) `shouldBe` [2, 3]
 
     it "a rollback deeper than the horizon cannot resurface a pruned deposit" $ do
-      let ChainSlot horizon = depositRetentionHorizon
+      let ChainSlot horizon = testRollbackHorizon
           s1 =
             record (horizon + 100) 2
-              . consumeDeposit (ChainSlot 3) 1
+              . consumeDeposit testRollbackHorizon (ChainSlot 3) 1
               . record 1 1
               $ s0
       -- Deposit 1's consumption is beyond the horizon by the time deposit 2 is
@@ -564,6 +564,7 @@ spec = parallel $ do
             , depositPeriod = defaultDepositPeriod
             , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , rollbackHorizon = testRollbackHorizon
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
@@ -771,6 +772,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , depositPeriod = defaultDepositPeriod
       , depositActivation = defaultDepositActivation
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
+      , rollbackHorizon = testRollbackHorizon
       , participants
       , configuredPeers = ""
       }

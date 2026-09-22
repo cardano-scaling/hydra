@@ -2,51 +2,39 @@
     "samples": [
         {
             "chainSyncedStatus": "CatchingUp",
-            "currentSlot": 0,
+            "currentSlot": 1,
             "env": {
-                "configuredPeers": "`",
-                "contestationPeriod": 31536000,
-                "depositActivation": 82132,
-                "depositPeriod": 21417,
+                "configuredPeers": "",
+                "contestationPeriod": 45714,
+                "depositActivation": 63635,
+                "depositPeriod": 76222,
                 "otherParties": [
                     {
-                        "vkey": "5b0ef0ccc525e582073ccc20bbd4ed6101671d16e656c7d09f1058175b982162"
+                        "vkey": "8419ef7c2aaf82afc6e62267ce9320eaf12b7b1eba6b68752c3b36c408e419c3"
                     }
                 ],
                 "participants": [],
                 "party": {
-                    "vkey": "c11f839ba911755a091a2a21c4673e495c8f2a15f758992a1b0b669ad2c8e95f"
+                    "vkey": "5dc9a30b9b4402cddd186d8ac2239c27ead44b2b6c49929604d6252ebed05760"
                 },
-                "unsyncedPeriod": 53001
+                "rollbackHorizon": 0,
+                "unsyncedPeriod": 55413
             },
-            "headStatus": "Idle",
-            "hydraHeadId": "01000100000101000001000100010001",
-            "hydraNodeVersion": "B",
+            "headStatus": "FanoutPossible",
+            "hydraHeadId": "01000000000100000000010001000100",
+            "hydraNodeVersion": "\u000f",
             "me": {
-                "vkey": "8ed8390d27ebe6a639003401a84b67e4b7c91e2c46a7ca7bfa1893a294b2da66"
+                "vkey": "c9cdb497e8c7365aed301cba697113e78411408fb53ab2fc5d22ac39d3918e8b"
             },
             "networkInfo": {
-                "broadcastStall": "NoProgress",
-                "networkConnected": true,
+                "broadcastStall": null,
+                "networkConnected": false,
                 "peersInfo": {
-                    "0.0.0.1:1": false
-                }
-            },
-            "snapshotUtxo": {
-                "0101010000000001000101000100000001010001010100010100010000010000#65": {
-                    "address": "addr_test1qpn28xj80clz6mvu0wgx59nj6e83fu7472chgekc78xu9y92afphpm2srgjfwxgtnwd6k5ttjmccfnx3lkzrmgdevrhs6n3jc7",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "lovelace": 969750
-                    }
+                    "0.0.0.0:0": false
                 }
             },
             "tag": "Greetings"
         }
     ],
-    "seed": -156448022
+    "seed": -504691915
 }

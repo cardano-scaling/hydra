@@ -20,7 +20,9 @@ changes.
     the head deadlocked. Such a party now signs the proposal at the version it
     was made at, exactly as the parties that have not seen the settlement yet
     do, so the round confirms one version behind the chain, a state `Close`
-    already handles. A proposal two or more versions behind, or below the
+    already handles. Such a proposal must re-carry the commit or decommit
+    that settled; one dropping or replacing it is rejected with
+    `ReqSvBehindMustReCarry`. A proposal two or more versions behind, or below the
     confirmed snapshot's version, is rejected with `ReqSvNumberInvalid`
     instead of waiting forever.
 
@@ -41,7 +43,9 @@ changes.
 - Fixed a deposit that activated while a snapshot was in flight never being
   proposed for one: it was queued, the tick refused to act while anything was
   queued, and on a head with no other traffic it expired. The queued deposit
-  is now proposed on the next tick.
+  is now proposed on the next tick, and the tick proposes no deposit at all
+  while the confirmed snapshot's own claim is still unsettled, since every
+  party refuses another claim until then.
 
 - Fixed a partial fanout never completing after a rollback erased one of its
   landed steps. The fanout's progress had no notion of when a step landed, so
@@ -305,6 +309,11 @@ changes.
     slots (a `deposits` field replaces `pendingDeposits`) and
     `CoordinatedHeadState` gains `settlements`, the retained snapshots keyed
     by the version they were based on.
+  * Consumed deposits and retained settlements are dropped once no rollback
+    can reach them anymore. That horizon is now the stability window of the
+    network the node runs on (3k/f slots, from its genesis parameters, 36
+    hours on mainnet) instead of a constant sized for mainnet; `Environment`
+    (as sent in `Greetings`) gains `rollbackHorizon`.
   * `GET /deposits` now reflects rollbacks: it is served from the node state
     (which rewinds its deposit view on rollback) instead of a projection that
     only tracked deposit lifecycle events.

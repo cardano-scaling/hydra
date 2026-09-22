@@ -384,9 +384,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
                       let nextSnapshot =
                             Snapshot
                               { headId
-                              , -- The version proposed, not the local one: in a
-                                -- straddle they differ by one, and the signed
-                                -- bytes must equal those of the parties that
+                              , -- The version proposed, not the local one: for a
+                                -- proposal one version behind they differ, and the
+                                -- signed bytes must equal those of the parties that
                                 -- have not seen the bump ('waitOnSnapshotVersion').
                                 version = sv
                               , number = sn
@@ -435,32 +435,48 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     | otherwise =
         wait $ WaitOnSnapshotNumber seenSn
 
-  -- Spec: wait v = v̂, refined into three cases, since the local version only
-  -- ever goes up:
+  -- Spec: wait v = v̂. Our version only ever goes up, so there are four cases:
   --
-  --   * @sv == version@: the common case.
+  --   * @sv == version@: the normal case.
   --
-  --   * @sv + 1 == version && sv == confVersion@: a straddle. The leader
-  --     proposed at the version this node has since moved past, and the
-  --     proposal is based on our confirmed snapshot. Parties that have not
-  --     seen the bump yet sign it at @sv@, so this node does too (see the
-  --     @version = sv@ and 'confirmedUTxO' bindings): every AckSn is then
-  --     over the same bytes, and the round confirms one version behind the
-  --     chain, a state 'CloseUsed' already supports. Waiting instead could
-  --     never resolve, and the leader does not propose again while it is
-  --     collecting AckSns, so the head would stop confirming snapshots.
+  --   * @sv + 1 == version && sv == confVersion@: the proposal is one version
+  --     behind us and based on our confirmed snapshot. The leader made it
+  --     before it saw the settlement land, and the parties that have not seen
+  --     it land either sign it at @sv@. We do the same (see @version = sv@ and
+  --     'confirmedUTxO'), so everyone signs the same bytes, and the round
+  --     confirms one version behind the chain, which 'CloseUsed' handles.
+  --     Waiting would never end, since the leader does not propose again while
+  --     it collects signatures. We only sign if the proposal carries the action
+  --     that settled, see 'reCarriesSettledAction'.
   --
-  --   * @sv > version@: our chain handler has not processed the bump the
-  --     leader already saw; a retry resolves it, so this must stay a Wait.
+  --   * @sv > version@: the leader saw a settlement land that our chain handler
+  --     has not processed yet. A retry fixes this, so we wait.
   --
-  --   * Anything else, two or more behind or below the confirmed snapshot's
-  --     own version, can never be signed. A Wait would only burn the queue's
-  --     retries and then be dropped in silence.
+  --   * Anything else can never be signed: two or more versions behind, or
+  --     below the confirmed snapshot's version. Waiting would only use up the
+  --     retries and then drop the message in silence, so we fail right away.
   waitOnSnapshotVersion continue
     | sv == version = continue
-    | sv + 1 == version, sv == confVersion = continue
+    | sv + 1 == version
+    , sv == confVersion =
+        if reCarriesSettledAction
+          then continue
+          else Error $ RequireFailed ReqSvBehindMustReCarry{requestedSv = sv, requestedDepositTxId = mDepositTxId, requestedDecommitTxId = txId <$> mDecommitTx}
     | sv > version = wait $ WaitOnSnapshotVersion sv
     | otherwise = Error $ RequireFailed ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+
+  -- A proposal one version behind us must carry exactly what the confirmed
+  -- snapshot settled: the deposit it claims, or the decommit it pays out, and
+  -- nothing else. We saw that action land, while the parties that have not
+  -- seen it sign whatever the leader proposes. A proposal that drops the
+  -- action would confirm a snapshot without something the chain has already
+  -- applied, and no close redeemer can express that. A proposal that swaps in
+  -- a fresh deposit would make us count that deposit as absorbed once we apply
+  -- the bump, although no increment ever claimed it. An honest leader always
+  -- carries the action again ('selectNextIncrementalAction').
+  reCarriesSettledAction =
+    mDepositTxId == confDepositTxId
+      && (utxoFromTx <$> mDecommitTx) == confUTxOToDecommit
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
@@ -471,13 +487,13 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId
-        -- A straddling proposal re-carrying the confirmed snapshot's own commit,
-        -- whose increment this node already saw land ('waitOnSnapshotVersion').
-        -- The deposit is consumed and retained here, while the parties that
-        -- have not seen the increment still hold it pending and sign a
-        -- snapshot that carries it. Sign the same bytes, taking the deposited
+        -- A proposal one version behind us carries the confirmed snapshot's own
+        -- commit again ('waitOnSnapshotVersion'). We already saw its increment
+        -- land, so here the deposit is consumed and retained, while the parties
+        -- that have not seen the increment still hold it pending and sign a
+        -- snapshot carrying it. Sign the same bytes, taking the deposited
         -- outputs from the confirmed snapshot. Only while the retained
-        -- settlement is 'Landed': once a rollback erased the increment, the
+        -- settlement is landed: once a rollback erased the increment, the
         -- deposit is settled by re-posting that snapshot and never by a new
         -- claim (#2741), which the next guard refuses.
         | sv == confVersion
@@ -636,10 +652,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   seenSn = seenSnapshotNumber seenSnapshot
 
   -- The base UTxO of the requested snapshot. The confirmed snapshot's pending
-  -- commit is spendable exactly when its increment had landed as of the
-  -- version being signed, hence @sv@ and not the local version: in a straddle
-  -- the local version is one ahead, and keying on it would make this node's
-  -- base UTxO, and so its signed bytes, differ from everyone else's.
+  -- commit is spendable only if its increment had landed at the version being
+  -- signed. That is why this keys on @sv@ and not on our own version: for a
+  -- proposal one version behind us, using our version would give this node a
+  -- different base UTxO, and so different signed bytes, than everyone else.
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
     ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
@@ -1123,12 +1139,16 @@ onOpenChainTick env chainTime pendingDeposits st =
         -- REVIEW: this is not really a wait, but discard?
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
-          -- Nothing to request once the confirmed snapshot already claims this
-          -- deposit: it stays queued until its increment lands on chain, and
-          -- from then on it is settled by that increment, not by another
-          -- snapshot. Without this the tick would request one snapshot per
-          -- tick while the increment is in flight.
-          && Just depositTxId /= confirmedDepositTxId
+          -- Nothing to request while the confirmed snapshot's claim is still
+          -- unsettled. That deposit stays queued until its increment lands, and
+          -- from then on the increment settles it, not another snapshot, so
+          -- requesting it again would send one snapshot per tick. Every party
+          -- refuses any other deposit until then ('ReqSnCommitNotSettled'), and
+          -- the leader would sit in 'RequestedSnapshot' on its own rejected
+          -- echo. The claim may not even be the pick: 'withNextActive' skips
+          -- it once it is no longer active locally, while its increment can
+          -- still land.
+          && isNothing confirmedDepositTxId
           && not (snapshotInFlight seenSnapshot)
           && isLeader parameters party nextSn
           then
@@ -2436,9 +2456,15 @@ markErased rolledBackSlot = Map.map $ \case
 --
 -- Erased settlements are never dropped: they are due for re-posting, and the
 -- lowest one gates every later re-post ('nextErasedSettlement').
-pruneSettlements :: ChainSlot -> Settlements tx -> Settlements tx
-pruneSettlements slot = Map.filter $ \Settlement{status} -> case status of
-  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff slot
+pruneSettlements ::
+  -- | Rollback horizon
+  ChainSlot ->
+  -- | Current slot
+  ChainSlot ->
+  Settlements tx ->
+  Settlements tx
+pruneSettlements horizon slot = Map.filter $ \Settlement{status} -> case status of
+  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff horizon slot
   Erased -> True
 
 -- | Update the retained settlements of an open head; any other head state is
@@ -2898,8 +2924,14 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
 -- Events carrying a 'HeadId' that does not match the current state are silently
 -- ignored, preventing cross-head state contamination during event replay.
 -- Events without a 'HeadId' are always applied.
-aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
-aggregateNodeState nodeState sc =
+aggregateNodeState ::
+  IsChainState tx =>
+  -- | Rollback horizon of the network, see 'Hydra.Node.Environment.rollbackHorizon'
+  ChainSlot ->
+  NodeState tx ->
+  StateChanged tx ->
+  NodeState tx
+aggregateNodeState rollbackHorizon nodeState sc =
   case (headIdOf (headState nodeState), eventHeadId sc) of
     (Just sid, Just eid) | sid /= eid -> nodeState
     _ ->
@@ -2912,7 +2944,7 @@ aggregateNodeState nodeState sc =
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 }
             DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
-              recordDeposit (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
+              recordDeposit rollbackHorizon (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
                 nodeState{headState = st}
             DepositActivated{depositTxId, deposit} ->
               updateDeposit depositTxId deposit $
@@ -2923,7 +2955,7 @@ aggregateNodeState nodeState sc =
               updateDeposit depositTxId deposit $
                 nodeState{headState = st}
             DepositRecovered{chainState, depositTxId} ->
-              consumeDeposit (chainStateSlot chainState) depositTxId $
+              consumeDeposit rollbackHorizon (chainStateSlot chainState) depositTxId $
                 case st of
                   Open os@OpenState{coordinatedHeadState} ->
                     nodeState
@@ -2942,7 +2974,7 @@ aggregateNodeState nodeState sc =
                   _ ->
                     nodeState{headState = st}
             CommitFinalized{chainState, newVersion, depositTxId} ->
-              consumeDeposit (chainStateSlot chainState) depositTxId $ case st of
+              consumeDeposit rollbackHorizon (chainStateSlot chainState) depositTxId $ case st of
                 Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot}}
                   -- Re-observation: the increment re-landed after a rollback
                   -- (the local 'version' never rolls back, so a 'newVersion'
@@ -2999,7 +3031,7 @@ aggregateNodeState nodeState sc =
                   nodeState{headState = st}
             TickObserved{chainPoint, chainTime} ->
               -- Retained settlements no rollback can reach anymore are dropped.
-              nodeState{headState = onSettlements (pruneSettlements (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
+              nodeState{headState = onSettlements (pruneSettlements rollbackHorizon (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
             ChainRolledBack{chainState} ->
               -- Deposits are L1-derived: restore the view at the rolled-back
               -- slot. Deposits whose consuming tx (increment/recover) was
@@ -3479,11 +3511,13 @@ applyEvent st = \case
 
 aggregateState ::
   IsChainState tx =>
+  -- | Rollback horizon, see 'aggregateNodeState'
+  ChainSlot ->
   NodeState tx ->
   Outcome tx ->
   NodeState tx
-aggregateState s outcome =
-  foldl' aggregateNodeState s $ collectStateChanged outcome
+aggregateState rollbackHorizon s outcome =
+  foldl' (aggregateNodeState rollbackHorizon) s $ collectStateChanged outcome
  where
   collectStateChanged :: Outcome tx -> [StateChanged tx]
   collectStateChanged = \case
