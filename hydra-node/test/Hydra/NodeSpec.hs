@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Hydra.NodeSpec where
 
@@ -914,11 +915,5 @@ errorOnPostTx ::
 errorOnPostTx node =
   pure
     node
-      { oc =
-          Chain
-            { postTx = \_ -> error "unexpected assertion"
-            , draftDepositTx = \_ -> error "draftDepositTx not implemented"
-            , submitTx = \_ -> error "submitTx not implemented"
-            , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"
-            }
+      { oc = node.oc{postTx = \_ -> error "unexpected assertion"}
       }
