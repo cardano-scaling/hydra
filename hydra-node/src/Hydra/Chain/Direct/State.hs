@@ -29,6 +29,7 @@ import Hydra.Cardano.Api (
   TxIx (..),
   TxOut,
   UTxO,
+  Value,
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
   fromPlutusTxOutRef,
@@ -402,8 +403,6 @@ decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapsh
  where
   decommitValue = UTxO.totalValue $ fromMaybe mempty $ utxoToDecommit sn
 
-  isNegative = any ((< 0) . snd) . IsList.toList
-
   (sn, sigs) =
     case decrementingSnapshot of
       ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
@@ -707,14 +706,8 @@ partialFanoutFromPlan ::
   SlotNo ->
   Either PartialFanoutError Tx
 partialFanoutFromPlan ctx plan chunkSize deadlineSlotNo = do
-  let utxoToDistribute = UTxO.fromList (take chunkSize orderedRemaining)
+  let utxoToDistribute = UTxO.fromList (fannable (txOutValue (snd headUTxO)) chunkSize orderedRemaining)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
-  -- The continuing head output is the head output minus the distributed value;
-  -- building a transaction with a negative quantity in it would trip an
-  -- 'error' in cardano-ledger.
-  let balance = txOutValue (snd headUTxO) <> negateValue (UTxO.totalValue utxoToDistribute)
-  when (any ((< 0) . snd) (IsList.toList balance)) $
-    Left FanoutValueNegative
   let remainingAccumulator = Accumulator.removeOutputs @Tx fullAccumulator utxoToDistribute
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
@@ -791,6 +784,27 @@ utxoOfThisHead policy = UTxO.filter hasHeadToken
     case assetId of
       AdaAssetId -> False
       AssetId pid _ -> pid == policy && quantity == 1
+
+isNegative :: Value -> Bool
+isNegative = any ((< 0) . snd) . IsList.toList
+
+-- | Take up to @n@ outputs, in order, skipping any the head output cannot
+-- cover. A token minted on layer two was never credited to the head output,
+-- so subtracting it would leave the continuing output negative. Skipping it
+-- lets everything else still leave the head. Quantities are tracked as they
+-- are consumed, so this also catches an asset partly backed on layer one and
+-- partly minted on layer two.
+fannable :: Value -> Int -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
+fannable = go
+ where
+  go :: Value -> Int -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
+  go _ 0 _ = []
+  go _ _ [] = []
+  go avail k (o : os)
+    | isNegative remaining = go avail k os
+    | otherwise = o : go remaining (k - 1) os
+   where
+    remaining = avail <> negateValue (txOutValue (snd o))
 
 -- * Generators
 
