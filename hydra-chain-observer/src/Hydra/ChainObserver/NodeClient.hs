@@ -22,9 +22,10 @@ import Hydra.Tx.Observe (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
+  NotAnInitReason,
   PartialFanoutObservation (..),
   RecoverObservation (..),
-  observeHeadTx,
+  observeHeadTxWithReason,
  )
 
 type ObserverHandler m = [(Maybe Version, ChainObservation)] -> m ()
@@ -61,6 +62,10 @@ data ChainObserverLog
   | HeadContestTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   | RollForward {point :: ChainPoint, receivedTxIds :: [TxId]}
+  | -- | A transaction minted a head's tokens but carries a datum that cannot be
+    -- observed as an init. The head minting policy constrains none of the datum
+    -- fields involved.
+    HeadInitTxRejected {rejectedTxId :: TxId, notAnInitReason :: NotAnInitReason}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -115,30 +120,58 @@ outputAtScriptHash sh (TxOut addr _ _ _) =
     ShelleyAddressInEra (ShelleyAddress _ (Ledger.ScriptHashObj addrSH) _) -> sh == addrSH
     _ -> False
 
-observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
+-- | Observe a transaction, additionally reporting why one that minted a head's
+-- tokens could not be observed as an init (see 'isMalformedInit'). There is
+-- nothing to report to an explorer in that case, but it is worth logging.
+observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation, Maybe NotAnInitReason)
 observeTx networkId utxo tx =
   let utxo' = adjustUTxO tx utxo
-   in case observeHeadTx networkId utxo tx of
-        NoHeadTx -> (utxo, Nothing)
-        observation -> (utxo', pure observation)
+      (observation, mNotAnInitReason) = observeHeadTxWithReason networkId utxo tx
+   in case observation of
+        NoHeadTx -> (utxo, Nothing, mNotAnInitReason)
+        _ -> (utxo', Just observation, mNotAnInitReason)
 
 -- | Like observeTx, but pre-filters via detectVersion. When detectVersion
 -- returns Nothing, observeHeadTx is never called and the UTxO is unchanged.
 observeTxVersioned ::
-  [KnownVersion] -> NetworkId -> UTxO -> Tx -> (UTxO, Maybe (Version, HeadObservation))
+  [KnownVersion] ->
+  NetworkId ->
+  UTxO ->
+  Tx ->
+  (UTxO, Maybe (Version, HeadObservation), Maybe NotAnInitReason)
 observeTxVersioned knownVersions networkId utxo tx =
   case detectVersion knownVersions utxo tx of
-    Nothing -> (utxo, Nothing)
+    Nothing -> (utxo, Nothing, Nothing)
     Just kv ->
-      let (utxo', mObs) = observeTx networkId utxo tx
-       in (utxo', fmap (kvVersion kv,) mObs)
+      let (utxo', mObs, mNotAnInitReason) = observeTx networkId utxo tx
+       in (utxo', fmap (kvVersion kv,) mObs, mNotAnInitReason)
 
-observeAll :: [KnownVersion] -> NetworkId -> UTxO -> [Tx] -> (UTxO, [(Version, HeadObservation)])
+-- | What 'observeAll' saw in a sequence of transactions, in order.
+data BlockObservations = BlockObservations
+  { adjustedUTxO :: !UTxO
+  , observations :: ![(Version, HeadObservation)]
+  , rejectedInits :: ![(TxId, NotAnInitReason)]
+  -- ^ See 'observeTx'.
+  }
+
+observeAll :: [KnownVersion] -> NetworkId -> UTxO -> [Tx] -> BlockObservations
 observeAll knownVersions networkId utxo txs =
-  second reverse $ foldl' go (utxo, []) txs
+  let BlockObservations{adjustedUTxO, observations, rejectedInits} =
+        foldl' go (BlockObservations utxo [] []) txs
+   in BlockObservations
+        { adjustedUTxO
+        , observations = reverse observations
+        , rejectedInits = reverse rejectedInits
+        }
  where
-  go :: (UTxO, [(Version, HeadObservation)]) -> Tx -> (UTxO, [(Version, HeadObservation)])
-  go (utxo'', observations) tx =
-    case observeTxVersioned knownVersions networkId utxo'' tx of
-      (utxo', Nothing) -> (utxo', observations)
-      (utxo', Just obs) -> (utxo', obs : observations)
+  -- NOTE: The fields are strict because 'foldl'' only forces the accumulator
+  -- to WHNF. Lazy ones would leave a thunk per transaction of the block,
+  -- retaining its 'Tx' and the preceding UTxO snapshot.
+  go :: BlockObservations -> Tx -> BlockObservations
+  go BlockObservations{adjustedUTxO = utxo'', observations, rejectedInits} tx =
+    let (utxo', mObs, mNotAnInitReason) = observeTxVersioned knownVersions networkId utxo'' tx
+     in BlockObservations
+          { adjustedUTxO = utxo'
+          , observations = maybe observations (: observations) mObs
+          , rejectedInits = maybe rejectedInits (\reason -> (getTxId (getTxBody tx), reason) : rejectedInits) mNotAnInitReason
+          }

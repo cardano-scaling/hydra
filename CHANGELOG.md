@@ -10,6 +10,8 @@ changes.
 
 ## UNRELEASED
 
+- Tidy up the parsing of contestation period and deposit period.
+
 - Fixed a crash on observing a `Commit`/deposit datum whose embedded
   credential, `TxId` or datum hash was not the expected length.
 

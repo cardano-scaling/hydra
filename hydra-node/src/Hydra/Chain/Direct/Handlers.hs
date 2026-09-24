@@ -122,8 +122,9 @@ import Hydra.Tx.Observe (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
+  NotAnInitReason,
   PartialFanoutObservation (..),
-  observeHeadTx,
+  observeHeadTxWithReason,
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Tx.Snapshot (getSnapshot, snapshotUTxO)
@@ -544,10 +545,13 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
     timeHandle <- getTimeHandle $ fromMaybe 0 (chainPointToSlotNo point)
 
-    forM_ receivedTxs $
-      maybeObserveSomeTx timeHandle point >=> \case
-        Nothing -> pure ()
-        Just event -> callback event
+    forM_ receivedTxs $ \tx -> do
+      (mEvent, mNotAnInitReason) <- maybeObserveSomeTx timeHandle point tx
+      -- NOTE: Traced out here rather than in 'maybeObserveSomeTx', which runs in
+      -- an STM transaction.
+      forM_ mNotAnInitReason $ \reason ->
+        traceWith tracer ObservedMalformedInitTx{txId = getTxId (getTxBody tx), notAnInitReason = reason}
+      forM_ mEvent callback
 
     case chainPointToSlotNo point of
       Nothing -> pure ()
@@ -560,9 +564,9 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
 
   maybeObserveSomeTx timeHandle point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
-    let observation = observeHeadTx networkId spendableUTxO tx
+    let (observation, mNotAnInitReason) = observeHeadTxWithReason networkId spendableUTxO tx
     case convertObservation timeHandle observation of
-      Nothing -> pure Nothing
+      Nothing -> pure (Nothing, mNotAnInitReason)
       Just observedTx -> do
         let newChainState =
               ChainStateAt
@@ -570,7 +574,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
                 , recordedAt = Just point
                 }
         pushNew newChainState
-        pure $ Just Observation{observedTx, newChainState}
+        pure (Just Observation{observedTx, newChainState}, mNotAnInitReason)
 
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 convertObservation TimeHandle{slotToUTCTime} = \case
@@ -845,5 +849,9 @@ data CardanoChainLog
   | StartingChainDecision StartingDecision
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
   | PartialFanoutFailed {reason :: Text}
+  | -- | A transaction minted a head's tokens but carries a datum this node
+    -- cannot use, so it was not observed as an init. The head minting policy
+    -- constrains none of the datum fields involved.
+    ObservedMalformedInitTx {txId :: TxId, notAnInitReason :: NotAnInitReason}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)

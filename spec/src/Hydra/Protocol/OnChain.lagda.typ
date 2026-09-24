@@ -558,7 +558,37 @@ and the produced Open is initial ($v = 0$, $eta = accUTxO(emptyset)$). Token pla
 value is also modelled (the state token is present and the head output carries exactly the $nop + 1$
 head-policy tokens). What remains hand-reviewed: the datum bindings - $cid = hash(muHead(seed))$ is
 stated over the law-free `hash`, and the datum's seed-reference field $seed = seed'$ has no Agda
-counterpart (the `Open` datum carries no seed field).
+counterpart (the `Open` datum carries no seed field). So does the contestation period, for a
+different reason: `initValid` binds the produced datum's $Tcontest$ and discards it, so the model
+constrains its value not at all.
+
+#dparagraph[Representation of $Tcontest$ at init.] The model types the contestation period as a
+$tyNatural$ (@sec:setup), while the implementation's datum field is a signed number of
+milliseconds. Nothing on chain establishes the $tyNatural$: of the produced datum, `checkDatum`
+pins only the head id and the seed, and the party list is read for its length alone (which pins
+the token counts), so the ledger accepts an $mtxInit$ whose $Tcontest$ is zero or negative - a head
+this model does not describe. The gap is closed off chain instead, at the node's init observation,
+which declines any $Tcontest$ that is not a positive whole number of seconds. Rejecting rather than
+rounding is what makes that check sound: the observation is also what the members compare against
+their own configuration, and $Tcontest$ is written back into the closing datum, where
+`mustNotChangeParameters` (@sec:close-tx) demands it equal the opening datum's value - so a period
+that only survived the trip approximately would be joined and then be unclosable.
+
+Leaving $muHead$ alone is a choice rather than an oversight. An $mtxInit$'s parameters are already
+subject to the members' own agreement check, the third item of the list above, so one carrying
+parameters nobody agreed to is ignored by every honest node; and at $mtxInit$ the head holds no
+value but the initiator's own, since it opens with $eta = accUTxO(emptyset)$ and funds enter only
+later. A non-positive $Tcontest$ can therefore only strand the initiator's own output - indeed a
+negative one strands it for good, since `hasBoundedValidity` ($t_"hi" - t_"lo" <= Tcontest$,
+@sec:close-tx) is then unsatisfiable and the head can never be closed. $muHead$ is not made more
+expensive to restate a condition the members already enforce. Note, though, that the agreement
+check covers only the parties, the two periods and the participant set: `version` and the head's
+ADA overhead are unconstrained on chain AND unchecked at observation, while `mustNotChangeVersion`
+and `mustPreserveHeadAdaOverhead` enforce both by equality from `Open` onwards. An $mtxInit$ that
+misstates either is joined and then unclosable in the same way, which is a gap this section records
+rather than closes. The initial `accumulatorHash` is unconstrained too but carries no such
+consequence: no validator check reads it, as `mustBindAccumulatorCommitment` binds the produced
+datum to the redeemer's signed hash rather than to the opening datum's field.
 
 The conditions are conjoined in the `InitValid` bundle with its dispatching `initValid` predicate (typechecked, not rendered).
 

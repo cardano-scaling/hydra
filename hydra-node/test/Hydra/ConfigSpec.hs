@@ -23,6 +23,7 @@ import Hydra.Options (
   parseHydraCommandFromArgsWith,
   validateRunOptions,
  )
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hClose, hPutStr)
 import System.IO.Temp (withSystemTempFile)
@@ -270,6 +271,31 @@ spec = do
     it "fails with helpful error on unknown chain key" $ do
       withYaml "chain:\n  mode: cardano\n  unknown-key: foo\n" $ \path _dir -> do
         loadConfig path `shouldThrow` anyException
+
+    -- The node relying on its own period being positive is what lets it ignore
+    -- an Init carrying a non-positive one, instead of needing the minting policy
+    -- to rule that out. The command line always rejected these; a config file
+    -- used to accept `0`. Companion to GHSA-jx3f-q6r3-833f.
+    it "fails on a non-positive contestation period" $ do
+      forM_ ["0", "-1"] $ \value ->
+        withYaml ("chain:\n  mode: cardano\n  contestation-period: " <> value <> "\n") $ \path _dir ->
+          loadConfig path `shouldThrow` anyException
+
+    -- Zero is allowed for these, unlike the contestation period: it is what a
+    -- sub-second period truncates to. A negative one would invert the window.
+    it "fails on a negative deposit period or activation" $ do
+      forM_ ["deposit-period", "deposit-activation"] $ \key ->
+        withYaml ("chain:\n  mode: cardano\n  " <> key <> ": -1\n") $ \path _dir ->
+          loadConfig path `shouldThrow` anyException
+
+    it "fails on a sub-millisecond deposit period but not activation" $ do
+      withYaml "chain:\n  mode: cardano\n  deposit-period: 0.0005\n" $ \path _dir ->
+        loadConfig path `shouldThrow` anyException
+      withYaml "chain:\n  mode: cardano\n  deposit-activation: 0.0005\n" $ \path _dir -> do
+        opts <- loadConfig path
+        case chainConfig opts of
+          Cardano cfg -> cfg.depositActivation `shouldBe` DepositPeriod 0.0005
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "defaults to cardano chain config when chain section is absent" $ do
       withYaml "{}\n" $ \path dir -> do

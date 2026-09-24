@@ -42,6 +42,7 @@ import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadSeed)
 import Options.Applicative (
   Parser,
@@ -1012,7 +1013,7 @@ defaultDepositPeriod = DepositPeriod 3600
 depositPeriodParser :: Parser DepositPeriod
 depositPeriodParser =
   option
-    (DepositPeriod <$> auto)
+    (auto >>= DepositPeriod.fromNominalDiffTime)
     ( long "deposit-period"
         <> metavar "SECONDS"
         <> value defaultDepositPeriod
@@ -1030,7 +1031,7 @@ defaultDepositActivation = DepositPeriod 3600
 depositActivationParser :: Parser DepositPeriod
 depositActivationParser =
   option
-    (DepositPeriod <$> auto)
+    (auto >>= depositActivationFromNominalDiffTime)
     ( long "deposit-activation"
         <> metavar "SECONDS"
         <> value defaultDepositActivation
@@ -1041,6 +1042,14 @@ depositActivationParser =
           \incremented. Controls only the Inactive -> Active transition, \
           \independently of deposit-period."
     )
+
+-- | Unlike 'DepositPeriod.fromNominalDiffTime', any precision is accepted: the
+-- activation is only compared against the chain time and never recorded in a
+-- datum on its own, so only a negative one is rejected.
+depositActivationFromNominalDiffTime :: MonadFail m => NominalDiffTime -> m DepositPeriod
+depositActivationFromNominalDiffTime dt
+  | dt < 0 = fail $ "deposit-activation must be >= 0, but is " <> show dt
+  | otherwise = pure $ DepositPeriod dt
 
 unsyncedPeriodParser :: Parser UnsyncedPeriod
 unsyncedPeriodParser =

@@ -199,6 +199,19 @@ The trust base, in five families:
 
 Everything else is a definition or a machine-checked proof.
 
+#dparagraph[Representation gaps.] Distinct from the trust base above, and worth
+stating because it is easy to read past: the model types some datum fields more
+tightly than the implementation's on-chain encoding does, and the implementation
+establishes the difference off chain rather than in a validator. The contestation
+period at $mtxInit$ is the case to know about - the model has it as $tyNatural$,
+the datum carries a signed number of milliseconds, and $muHead$ checks neither
+its sign nor that it is a whole number of seconds. @sec:init-tx says why that
+check belongs with the head members rather than in the minting policy, and which
+further datum fields are left in the same position. The deposit period is a
+plainer omission: `HeadDatum` carries no such field (@sec:on-chain), so the
+deposit-period conjunct of `mustNotChangeParameters` has no model counterpart at
+all.
+
 #agda-appendix-mode.update(true)
 
 #context {

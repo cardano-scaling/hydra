@@ -170,7 +170,7 @@ observeContestTx utxo tx = do
     (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
-      let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
+      (onChainSnapshotNumber, contestationDeadline, contesters) <- decodeDatum newHeadDatum
       pure
         ContestObservation
           { headId
@@ -180,8 +180,12 @@ observeContestTx utxo tx = do
           }
     _ -> Nothing
  where
+  -- NOTE: The head validator constrains the produced datum of a contest, so a
+  -- different state here should be unreachable. Observation runs on
+  -- attacker-supplied transactions on the chain-sync thread, though, so this
+  -- declines to observe rather than throwing, like every sibling observer.
   decodeDatum headDatum =
     case fromScriptData headDatum of
       Just (Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, contesters}) ->
-        (snapshotNumber, contestationDeadline, contesters)
-      _ -> error "wrong state in output datum"
+        Just (snapshotNumber, contestationDeadline, contesters)
+      _ -> Nothing

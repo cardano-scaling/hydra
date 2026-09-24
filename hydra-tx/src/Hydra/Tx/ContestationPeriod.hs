@@ -3,7 +3,6 @@ module Hydra.Tx.ContestationPeriod where
 import Hydra.Prelude hiding (Show, show)
 
 import Data.Fixed (Pico)
-import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Text.Show (Show (..))
@@ -11,6 +10,11 @@ import Text.Show (Show (..))
 -- | A positive, non-zero number of seconds. Use 'fromInteger' on positive
 -- literals, 'fromEnum' via [1..] syntax or 'fromNominalDiffTime' to create
 -- values of unknown sign.
+-- NOTE: 'FromJSON' is deliberately newtype-derived and therefore total: it also
+-- decodes the persisted event log, where a value an older node legitimately
+-- wrote has to stay decodable or the node could never start again. A configured
+-- period is validated at the configuration boundary instead, see
+-- 'Hydra.Config.parseCardanoChainConfig'.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving stock (Eq, Ord, Generic)
   deriving newtype (Real, Integral, ToJSON, FromJSON)
@@ -64,10 +68,27 @@ toChain (UnsafeContestationPeriod s) =
     . fromIntegral
     $ s * 1000
 
--- | Convert an on-chain contestation period to its off-chain representation.
--- NOTE: Does truncate to whole seconds.
-fromChain :: OnChain.ContestationPeriod -> ContestationPeriod
-fromChain cp =
-  UnsafeContestationPeriod
-    . truncate
-    $ toInteger (OnChain.milliseconds cp) % 1000
+-- | Convert an on-chain contestation period to its off-chain representation,
+-- accepting exactly the values 'toChain' can produce: a positive whole number of
+-- seconds.
+--
+-- The on-chain representation is a signed number of milliseconds and nothing
+-- constrains it, so an observed datum can carry a value this type cannot hold.
+-- Rejecting rather than rounding matters beyond the obvious underflow: the node
+-- decides whether to join a head by comparing this value against its own
+-- configuration, and then writes 'toChain' of it back into the closing datum,
+-- which the head validator requires to equal what the opening datum held. A
+-- period that only survives the trip approximately would pass the comparison and
+-- then fail that equality forever, leaving a head that can never be closed.
+fromChain :: OnChain.ContestationPeriod -> Either Text ContestationPeriod
+fromChain cp
+  | subSecond == 0 && seconds > 0 = Right . UnsafeContestationPeriod $ fromInteger seconds
+  | otherwise =
+      Left $
+        "contestation period is not a positive whole number of seconds: "
+          <> toText (show milliseconds)
+          <> "ms"
+ where
+  milliseconds = toInteger (OnChain.milliseconds cp)
+
+  (seconds, subSecond) = milliseconds `divMod` 1000

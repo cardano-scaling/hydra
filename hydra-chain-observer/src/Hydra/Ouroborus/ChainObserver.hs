@@ -29,6 +29,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.CardanoClient (queryTip)
 import Hydra.ChainObserver.NodeClient (
+  BlockObservations (..),
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
@@ -142,15 +143,17 @@ chainSyncClient tracer knownVersions networkId prefix observerHandler =
               receivedTxIds = getTxId . getTxBody <$> txs
               (BlockInMode _ (Block bh@(BlockHeader _ _ blockNo) _)) = blockInMode
               point = getChainPoint bh
-              (utxo', observations) = observeAll knownVersions networkId utxo txs
+              BlockObservations{adjustedUTxO, observations, rejectedInits} = observeAll knownVersions networkId utxo txs
           traceWith tracer RollForward{point, receivedTxIds}
           mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
+          forM_ rejectedInits $ \(rejectedTxId, notAnInitReason) ->
+            traceWith tracer HeadInitTxRejected{rejectedTxId, notAnInitReason}
           let observationsAt = [(Just v, ChainObservation point blockNo obs) | (v, obs) <- observations]
           observerHandler $
             if null observationsAt
               then [(Nothing, ChainObservation point blockNo NoHeadTx)]
               else observationsAt
-          pure $ clientStIdle utxo'
+          pure $ clientStIdle adjustedUTxO
       , recvMsgRollBackward = \point _tip -> ChainSyncClient $ do
           traceWith tracer Rollback{point}
           pure $ clientStIdle utxo

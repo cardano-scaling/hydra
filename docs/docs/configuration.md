@@ -191,6 +191,14 @@ Being a protocol parameter, all participants in a head must configure the same `
 
 :::
 
+:::important Positive periods
+
+A non-positive contestation period is rejected when the `hydra-node` starts, whether it comes from `--contestation-period` or from a configuration file. Note that `--contestation-period` rounds a fractional value up to the next whole second (`60.5s` becomes `61s`), while a configuration file accepts whole seconds only, so prefer whole seconds everywhere, since all participants must end up with the same value.
+
+On-chain the field is unconstrained: the head minting policy checks neither its sign nor its precision, so an `Init` transaction can carry a zero, negative or fractional contestation period. A `hydra-node` and a `hydra-chain-observer` ignore any `Init` whose contestation period is not a positive whole number of seconds. Rejecting rather than rounding is deliberate: a rounded value would match a participant's configuration, so the head would be joined, and could then never be closed, because the closing transaction writes the rounded value back and the head validator requires it to equal what the opening datum held. The deposit period below is treated the same way, except that zero is allowed for it.
+
+:::
+
 The default contestation period is **12 hours (43200 seconds)**, aligned with Cardano's **safe zone** (~12 hours, derived from `3 * k / f`). This ensures that L1 transactions have enough time to settle and participants can reliably dispute when needed. On testnets, you can use shorter periods (e.g., `--contestation-period 600s`) to speed up testing.
 
 :::danger Mainnet safety
@@ -284,6 +292,8 @@ hydra-node --deposit-period 7200s
 Anyone can submit a deposit transaction that targets a given head. Each deposit has a **deposit deadline**, after which a deposit can be recovered. All participants need to agree before a deposit can be incremented into the head state and deposited funds are made available on the L2.
 
 For a deposit to be considered by the `hydra-node` the deadline must be further out than `now + DP`.
+
+`--deposit-period` must be a non-negative whole number of milliseconds, the precision the on-chain datum records. `--deposit-activation` must be non-negative, at any precision. `0s` is allowed for both, meaning no margin and immediate activation respectively. A negative duration is rejected at startup, as is a negative deposit period observed in a head's datum.
 
 ### Deposit activation
 

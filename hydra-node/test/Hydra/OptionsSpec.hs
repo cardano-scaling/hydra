@@ -42,6 +42,7 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
+import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Options ()
 import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
@@ -261,8 +262,9 @@ spec = parallel $
       ["--deposit-period", "0s"] `shouldParse` defaultWithDepositPeriod 0
       ["--deposit-period", "00s"] `shouldParse` defaultWithDepositPeriod 0
       ["--deposit-period", "1s"] `shouldParse` defaultWithDepositPeriod 1
-      ["--deposit-period", "-1s"] `shouldParse` defaultWithDepositPeriod (-1)
+      shouldNotParse ["--deposit-period", "-1s"]
       ["--deposit-period", "300s"] `shouldParse` defaultWithDepositPeriod 300
+      shouldNotParse ["--deposit-period", "0.0005s"]
 
     it "parses --deposit-activation option as a number of seconds" $ do
       let defaultWithDepositActivation depositActivation =
@@ -276,8 +278,10 @@ spec = parallel $
       ["--deposit-activation", "0s"] `shouldParse` defaultWithDepositActivation 0
       ["--deposit-activation", "00s"] `shouldParse` defaultWithDepositActivation 0
       ["--deposit-activation", "1s"] `shouldParse` defaultWithDepositActivation 1
-      ["--deposit-activation", "-1s"] `shouldParse` defaultWithDepositActivation (-1)
+      shouldNotParse ["--deposit-activation", "-1s"]
       ["--deposit-activation", "300s"] `shouldParse` defaultWithDepositActivation 300
+      -- NOTE: Unlike --deposit-period, this never reaches a datum by itself.
+      ["--deposit-activation", "0.0005s"] `shouldParse` defaultWithDepositActivation (DepositPeriod 0.0005)
 
     it "parses --api-transaction-timeout option as a number of seconds" $ do
       let defaultWithApiTransactionTimeout apiTransactionTimeout =

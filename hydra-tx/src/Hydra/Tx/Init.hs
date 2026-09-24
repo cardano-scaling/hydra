@@ -126,10 +126,29 @@ data NotAnInitReason
   = NoHeadOutput
   | NotAHeadDatum
   | InvalidPartyInDatum
+  | InvalidContestationPeriodInDatum Text
+  | InvalidDepositPeriodInDatum Text
   | NoSTFound
   | NotAHeadPolicy
   | NoTokensMinted
   deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON)
+
+-- | Whether the reason describes a transaction that really did mint this head's
+-- tokens but carries a datum the node cannot use, as opposed to a transaction
+-- that is simply not an init. Only the former is worth reporting: the latter
+-- fires for every unrelated transaction on the chain, and for every
+-- increment/decrement.
+isMalformedInit :: NotAnInitReason -> Bool
+isMalformedInit = \case
+  InvalidPartyInDatum -> True
+  InvalidContestationPeriodInDatum{} -> True
+  InvalidDepositPeriodInDatum{} -> True
+  NoHeadOutput -> False
+  NotAHeadDatum -> False
+  NoSTFound -> False
+  NotAHeadPolicy -> False
+  NoTokensMinted -> False
 
 -- | Identify a init tx by checking the output value for holding tokens that are
 -- valid head tokens (checked by seed + policy).
@@ -141,11 +160,11 @@ observeInitTx tx = do
     findFirst matchHeadOutput (txOuts' tx) ?> NoHeadOutput
 
   -- check that we have a proper head
-  (pid, contestationPeriod, depositPeriod, onChainParties, seedTxIn) <- case headState of
+  (pid, onChainContestationPeriod, onChainDepositPeriod, onChainParties, seedTxIn) <- case headState of
     Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod, depositPeriod} -> do
       pid <- fromPlutusCurrencySymbol headId ?> NotAHeadPolicy
       seedTxIn <- fromPlutusTxOutRef headSeed ?> NotAHeadDatum
-      pure (pid, ContestationPeriod.fromChain contestationPeriod, DepositPeriod.fromChain depositPeriod, parties, seedTxIn)
+      pure (pid, contestationPeriod, depositPeriod, parties, seedTxIn)
     _ -> Left NotAHeadDatum
 
   -- Check minted value to distinguish from increment/decrement
@@ -162,9 +181,18 @@ observeInitTx tx = do
   unless (pid == HeadTokens.headPolicyId seedTxIn) $
     Left NotAHeadPolicy
 
+  -- NOTE: From here on the transaction really did mint this head's tokens, so a
+  -- failure means a malformed init rather than "not an init" (cf.
+  -- 'isMalformedInit'). The minting policy constrains none of these datum
+  -- fields, in particular neither period is checked for sign on-chain.
   parties <-
-    maybe (Left InvalidPartyInDatum) Right $
-      traverse partyFromChain onChainParties
+    traverse partyFromChain onChainParties ?> InvalidPartyInDatum
+
+  contestationPeriod <-
+    first InvalidContestationPeriodInDatum $ ContestationPeriod.fromChain onChainContestationPeriod
+
+  depositPeriod <-
+    first InvalidDepositPeriodInDatum $ DepositPeriod.fromChain onChainDepositPeriod
 
   pure $
     InitObservation

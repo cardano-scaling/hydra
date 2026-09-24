@@ -17,3 +17,4 @@
     hydra-tui have no flake check, so use `just test hydra-cluster` /
     `just test hydra-tui` for those.
 - Make sure any documentation is also updated; you can look in `docs/` to find it
+- When you make a change to the HeadLogic, or other sensitive areas, please make sure the spec and the Agda are also updated.

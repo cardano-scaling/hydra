@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (utxoFromTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
-import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
+import Hydra.ChainObserver.NodeClient (BlockObservations (..), ChainObservation, observeAll, observeTx)
 import Hydra.ChainObserver.VersionRegistry (loadKnownVersions)
 import Hydra.Tx.Observe (HeadObservation (..))
 import Test.Aeson.GenericSpecs (
@@ -44,11 +44,13 @@ spec =
     prop "Updates UTxO state given transaction part of Head lifecycle" $
       forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, tx, _transition) ->
         let utxo = getKnownUTxO st <> additionalUTxO
-         in fst (observeTx testNetworkId utxo tx) =/= utxo
+            (utxo', _, _) = observeTx testNetworkId utxo tx
+         in utxo' =/= utxo
 
     prop "Does not updates UTxO state given transactions outside of Head lifecycle" $
       forAll genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-        fst (observeAll loadKnownVersions testNetworkId utxo txs) === utxo
+        let BlockObservations{adjustedUTxO} = observeAll loadKnownVersions testNetworkId utxo txs
+         in adjustedUTxO === utxo
 
 -- | For every head-lifecycle state, 'observeTx' observes the matching transition.
 prop_allValidTransitionsObserved :: Property
@@ -58,7 +60,8 @@ prop_allValidTransitionsObserved =
       genericCoverTable [transition] $
         counterexample (show transition) $
           let utxo = getKnownUTxO st <> utxoFromTx tx <> additionalUTxO
-           in case snd $ observeTx testNetworkId utxo tx of
+              (_, mObservation, _) = observeTx testNetworkId utxo tx
+           in case mObservation of
                 Just (Init{}) -> transition === Transition.Init
                 Just (Deposit{}) -> transition === Transition.Deposit
                 Just (Recover{}) -> transition === Transition.Recover

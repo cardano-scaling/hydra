@@ -57,13 +57,17 @@ import Hydra.Chain.Direct.State (
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Data.ContestationPeriod qualified as OnChainContestationPeriod
+import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
 import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Observe (
   CloseObservation (..),
   ContestObservation (..),
@@ -80,6 +84,7 @@ import Hydra.Tx.Observe (
   observePartialFanoutTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..))
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -121,12 +126,16 @@ import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
   modifyInlineDatum,
+  replaceContestationPeriod,
   replaceHeadId,
+  replaceOnChainDepositPeriod,
   replacePolicyIdWith,
  )
 import Test.Hydra.Tx.Utils (splitUTxO)
 import Test.QuickCheck (
   Discard (..),
+  NonPositive (..),
+  Positive (..),
   Property,
   Testable (property),
   checkCoverage,
@@ -205,7 +214,8 @@ spec = parallel $ do
                 & counterexample "Should not observe mutated transaction"
             ]
             & counterexample cex
-            & label (show expected)
+            -- NOTE: Only the constructor, as some reasons carry a message.
+            & label (takeWhile (/= ' ') $ show expected)
 
   describe "deposit" $ do
     propBelowSizeLimit maxTxSize forAllDeposit
@@ -455,8 +465,43 @@ spec = parallel $ do
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
-  genChangeMintingPolicy
+  oneof
+    [ genChangeMintingPolicy
+    , genNonPositiveContestationPeriod
+    , genNegativeDepositPeriod
+    ]
  where
+  -- The head minting policy pins only the datum's headId and seed, so a
+  -- non-positive period in the initial datum keeps the transaction valid
+  -- on-chain while being a head no sanely configured node would join. It used to
+  -- take the node and the chain observer down with an uncaught 'Natural'
+  -- underflow instead. GHSA-jx3f-q6r3-833f.
+  genNonPositiveContestationPeriod = do
+    milliseconds <- DiffMilliSeconds . getNonPositive <$> arbitrary
+    let onChainPeriod = OnChainContestationPeriod.UnsafeContestationPeriod milliseconds
+    pure
+      ( changeHeadDatum $ replaceContestationPeriod onChainPeriod
+      , "non-positive contestation period in datum: " <> show milliseconds
+      , either InvalidContestationPeriodInDatum (error "expected fromChain to reject") $
+          ContestationPeriod.fromChain onChainPeriod
+      )
+
+  -- NOTE: Negative, not merely non-positive: a zero deposit period is a valid
+  -- configuration (it is what a sub-second one truncates to), so only an
+  -- inverted window is rejected.
+  genNegativeDepositPeriod = do
+    milliseconds <- DiffMilliSeconds . negate . getPositive <$> arbitrary
+    let onChainPeriod = OnChainDepositPeriod.UnsafeDepositPeriod milliseconds
+    pure
+      ( changeHeadDatum $ replaceOnChainDepositPeriod onChainPeriod
+      , "negative deposit period in datum: " <> show milliseconds
+      , either InvalidDepositPeriodInDatum (error "expected fromChain to reject") $
+          DepositPeriod.fromChain onChainPeriod
+      )
+
+  changeHeadDatum replaceIn =
+    ChangeOutput 0 $ modifyInlineDatum replaceIn (Prelude.head $ txOuts' tx)
+
   genChangeMintingPolicy =
     pure
       ( Changes $

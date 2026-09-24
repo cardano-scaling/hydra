@@ -193,6 +193,7 @@ test-suite tests
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.PartialFanout
     Hydra.Tx.Contract.Recover
+    Hydra.Tx.DepositPeriodSpec
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.HeadValidatorAgreementSpec
     Hydra.Tx.IsTxSpec

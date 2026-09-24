@@ -145,6 +145,7 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod
+import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
 import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
@@ -740,10 +741,24 @@ replaceContestationDeadline newContestationDeadline = \case
     Head.FanoutProgress Head.FanoutProgressDatum{contestationDeadline = newContestationDeadline, ..}
   otherState -> otherState
 
+-- | Replace the contestation period of a head datum. Takes the on-chain
+-- representation, which is a signed number of milliseconds, so a value the
+-- off-chain type cannot hold can be expressed - as an adversarial datum can,
+-- since the head minting policy does not constrain this field.
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
 replaceContestationPeriod newContestationPeriod = \case
+  Head.Open Head.OpenDatum{..} ->
+    Head.Open Head.OpenDatum{contestationPeriod = newContestationPeriod, ..}
   Head.Closed Head.ClosedDatum{..} ->
     Head.Closed Head.ClosedDatum{contestationPeriod = newContestationPeriod, ..}
+  otherState -> otherState
+
+-- | Like 'replaceDepositPeriod', but taking the on-chain representation so a
+-- non-positive value can be expressed.
+replaceOnChainDepositPeriod :: OnChainDepositPeriod.DepositPeriod -> Head.State -> Head.State
+replaceOnChainDepositPeriod dp = \case
+  Head.Open Head.OpenDatum{..} -> Head.Open Head.OpenDatum{depositPeriod = dp, ..}
+  Head.Closed Head.ClosedDatum{..} -> Head.Closed Head.ClosedDatum{depositPeriod = dp, ..}
   otherState -> otherState
 
 replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G1_Element -> Head.State -> Head.State

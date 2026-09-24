@@ -75,7 +75,11 @@ import Hydra.Options (
   defaultDepositActivation,
   defaultDepositPeriod,
   defaultRunOptions,
+  depositActivationFromNominalDiffTime,
  )
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadSeed)
 import System.FilePath (isRelative, takeDirectory, (</>))
 import Test.QuickCheck (Positive (..))
@@ -270,9 +274,15 @@ parseCardanoChainConfig peerCardanoVKs o = do
   let cardanoVerificationKeys = peerCardanoVKs <> chainVKs
   mStartChainFrom <- o .:? "start-chain-from" :: Parser (Maybe Text)
   startChainFrom <- mapM parseChainPointText mStartChainFrom
-  contestationPeriod <- o .:? "contestation-period" .!= defaultContestationPeriod
-  depositPeriod <- o .:? "deposit-period" .!= defaultDepositPeriod
-  depositActivation <- o .:? "deposit-activation" .!= defaultDepositActivation
+  -- NOTE: The periods are validated here rather than in their 'FromJSON'
+  -- instances, which have to stay total because they also decode the persisted
+  -- event log. The command-line parsers apply the same rules.
+  contestationPeriod <-
+    requirePositiveContestationPeriod =<< o .:? "contestation-period" .!= defaultContestationPeriod
+  depositPeriod <-
+    requireConfiguredDepositPeriod =<< o .:? "deposit-period" .!= defaultDepositPeriod
+  depositActivation <-
+    requireNonNegativeDepositActivation =<< o .:? "deposit-activation" .!= defaultDepositActivation
   mUnsyncedPeriod <- o .:? "unsynced-period" :: Parser (Maybe UnsyncedPeriod)
   let unsyncedPeriod = fromMaybe (defaultUnsyncedPeriodFor contestationPeriod) mUnsyncedPeriod
   chainBackendOptions <-
@@ -289,6 +299,29 @@ parseCardanoChainConfig peerCardanoVKs o = do
       , unsyncedPeriod
       , chainBackendOptions
       }
+
+-- | A configured contestation period has to be positive. A node relies on its
+-- own being so in order to ignore a head initialized with a non-positive one
+-- rather than trying to join it.
+requirePositiveContestationPeriod :: ContestationPeriod -> Parser ContestationPeriod
+requirePositiveContestationPeriod cp
+  | toInteger cp > 0 = pure cp
+  | otherwise = fail $ "contestation-period must be > 0, but is " <> show cp
+
+-- | A configured deposit period may be zero, which is also what a sub-second one
+-- truncates to, but it has to be one the on-chain datum can record exactly.
+requireConfiguredDepositPeriod :: DepositPeriod -> Parser DepositPeriod
+requireConfiguredDepositPeriod dp =
+  case DepositPeriod.fromNominalDiffTime seconds of
+    Just validated -> pure validated
+    Nothing ->
+      fail $ "deposit-period must be a non-negative whole number of milliseconds, but is " <> show seconds
+ where
+  seconds = DepositPeriod.toNominalDiffTime dp
+
+requireNonNegativeDepositActivation :: DepositPeriod -> Parser DepositPeriod
+requireNonNegativeDepositActivation =
+  depositActivationFromNominalDiffTime . DepositPeriod.toNominalDiffTime
 
 parseHydraScripts :: Object -> Parser [TxId]
 parseHydraScripts o = do

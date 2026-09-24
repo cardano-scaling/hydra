@@ -4330,9 +4330,11 @@ components:
           description: Contestation period in seconds.
         deposit-period:
           type: number
-          description: Deposit period in seconds (fractional).
+          minimum: 0
+          description: Deposit period in seconds, to millisecond precision.
         deposit-activation:
           type: number
+          minimum: 0
           description: Time in seconds (fractional) a deposit must wait before it becomes active.
         unsynced-period:
           type: number

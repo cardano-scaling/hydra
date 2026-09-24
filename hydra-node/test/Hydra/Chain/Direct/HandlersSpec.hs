@@ -6,6 +6,7 @@ import Hydra.Prelude hiding (label)
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
+import Control.Tracer.JSON (Envelope (message), traceInTVar)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
@@ -23,6 +24,8 @@ import Hydra.Cardano.Api (
   fromCtxUTxOTxOut,
   fromLedgerTx,
   getChainPoint,
+  getTxBody,
+  getTxId,
   lovelaceToValue,
   modifyTxOutValue,
   negateValue,
@@ -44,6 +47,7 @@ import Data.Map.Strict qualified as Map
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostTxError (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
+  CardanoChainLog (..),
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
@@ -71,12 +75,13 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..), coverFee_)
+import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), mkHeadId, mkSimpleBlueprintTx)
 import Hydra.Tx.Accumulator (deployedFanoutBatchSize)
 import Hydra.Tx.Deposit (depositTx, observeDepositTx)
-import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
+import Hydra.Tx.Observe (InitObservation (..), NotAnInitReason (..), observeInitTx)
 import System.IO.Error (ioeGetErrorString, userError)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
@@ -99,6 +104,7 @@ import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (defaultPParams)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize)
+import Test.Hydra.Tx.Mutation (Mutation (ChangeOutput), applyMutation, modifyInlineDatum, replaceContestationPeriod)
 import Test.QuickCheck (
   NonNegative (..),
   Positive (..),
@@ -290,6 +296,41 @@ spec = do
               ctx
               localChainState
       run $ onRollForward handler header txs
+
+    prop "traces an init minting head tokens but carrying an invalid period" . monadicIO $ do
+      ctx <- pickBlind (genHydraContext maximumNumberOfParties)
+      cctx <- pickBlind $ pickChainContext ctx
+      seedInput <- pickBlind arbitrary
+      let initTx = initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+          negativePeriod = OnChain.UnsafeContestationPeriod (-1000)
+      headOut <- run . maybe (failure "init tx has no outputs") pure $ txOuts' initTx !!? 0
+      let (tx, _) =
+            applyMutation
+              (ChangeOutput 0 $ modifyInlineDatum (replaceContestationPeriod negativePeriod) headOut)
+              (initTx, mempty)
+      TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      timeHandle <- pickBlind arbitrary
+
+      traces <- run $ newTVarIO []
+      localChainState <- run $ newLocalChainState (initHistory initialChainState)
+      let callback = \case
+            Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
+            _ -> pure ()
+          handler =
+            chainSyncHandler
+              (traceInTVar traces "HandlersSpec")
+              callback
+              (const $ pure timeHandle)
+              cctx
+              localChainState
+      run $ onRollForward handler header txs
+
+      entries <- run $ readTVarIO traces
+      let malformed = [(txId, notAnInitReason) | ObservedMalformedInitTx{txId, notAnInitReason} <- message <$> entries]
+      pure $
+        malformed
+          === [ (getTxId (getTxBody tx), InvalidContestationPeriodInDatum "contestation period is not a positive whole number of seconds: -1000ms")
+              ]
 
     prop "rollbacks state onRollBackward" . monadicIO $ do
       (chainContext, chainStateAt, blocks) <- pickBlind genSequenceOfObservableBlocks

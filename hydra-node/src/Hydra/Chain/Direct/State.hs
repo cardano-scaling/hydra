@@ -353,11 +353,16 @@ decodeOpenDatum headOut =
     Just (Head.Open Head.OpenDatum{headSeed, parties = onChainParties, contestationPeriod, depositPeriod}) -> do
       parties <- traverse partyFromChain onChainParties ?> CannotDecodeHeadDatumInIncrement
       seedTxIn <- fromPlutusTxOutRef headSeed ?> CannotDecodeHeadDatumInIncrement
+      -- NOTE: The minting policy does not constrain either period, so both
+      -- conversions can reject. A head this node joined always has positive
+      -- ones, as 'observeInitTx' would not have observed it otherwise.
+      cp <- first (const CannotDecodeHeadDatumInIncrement) $ ContestationPeriod.fromChain contestationPeriod
+      dp <- first (const CannotDecodeHeadDatumInIncrement) $ DepositPeriod.fromChain depositPeriod
       pure
         ( txInToHeadSeed seedTxIn
         , HeadParameters
-            { contestationPeriod = ContestationPeriod.fromChain contestationPeriod
-            , depositPeriod = DepositPeriod.fromChain depositPeriod
+            { contestationPeriod = cp
+            , depositPeriod = dp
             , parties
             }
         )

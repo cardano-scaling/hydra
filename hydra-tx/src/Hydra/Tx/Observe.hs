@@ -29,7 +29,7 @@ import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Fanout (FanoutObservation (..), PartialFanoutObservation (..), observeFanoutTx, observeFinalPartialFanoutTx, observePartialFanoutTx)
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
-import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
+import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), isMalformedInit, observeInitTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 
 -- * Observe Hydra Head transactions
@@ -82,16 +82,32 @@ instance FromJSON HeadObservation where
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
-observeHeadTx networkId utxo tx =
+observeHeadTx networkId utxo =
+  fst . observeHeadTxWithReason networkId utxo
+
+-- | Like 'observeHeadTx', but also reports why a transaction that really did
+-- mint a head's tokens was rejected as an init (see 'isMalformedInit'). There is
+-- nothing to act on in that case - hence the 'HeadObservation' is unaffected -
+-- but it is worth logging, as the minting policy constrains none of the datum
+-- fields involved.
+observeHeadTxWithReason :: NetworkId -> UTxO -> Tx -> (HeadObservation, Maybe NotAnInitReason)
+observeHeadTxWithReason networkId utxo tx
+  -- NOTE: Never make an observation on invalid transactions.
+  | not txIsValid = (NoHeadTx, Nothing)
+  | otherwise =
+      case observeInitTx tx of
+        Right observation -> (Init observation, Nothing)
+        Left reason ->
+          ( fromMaybe NoHeadTx observeAnythingElse
+          , if isMalformedInit reason then Just reason else Nothing
+          )
+ where
   -- XXX: This is throwing away valuable information! We should be collecting
   -- all "not an XX" reasons here in case we fall through and want that
   -- diagnostic information in the call site of this function. Collecting errors
   -- could be done with 'validation' or a similar package.
-  fromMaybe NoHeadTx $ do
-    -- NOTE: Never make an observation on invalid transactions.
-    guard txIsValid
-    either (const Nothing) (Just . Init) (observeInitTx tx)
-      <|> Deposit <$> observeDepositTx networkId tx
+  observeAnythingElse =
+    Deposit <$> observeDepositTx networkId tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
@@ -100,5 +116,5 @@ observeHeadTx networkId utxo tx =
       <|> PartialFanout <$> observePartialFanoutTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
       <|> FinalPartialFanout <$> observeFinalPartialFanoutTx utxo tx
- where
+
   txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True

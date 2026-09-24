@@ -27,6 +27,7 @@ import Hydra.Cardano.Api.Prelude (
 import Hydra.Chain.Blockfrost (toTx)
 import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), isRetryable, runBlockfrostM)
 import Hydra.ChainObserver.NodeClient (
+  BlockObservations (..),
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
@@ -153,8 +154,10 @@ rollForward tracer prj knownVersions networkId observerHandler blockConfirmation
   traceWith tracer RollForward{point, receivedTxIds}
 
   -- Collect head observations
-  let (adjustedUTxO, observations) = observeAll knownVersions networkId utxo receivedTxs
+  let BlockObservations{adjustedUTxO, observations, rejectedInits} = observeAll knownVersions networkId utxo receivedTxs
   mapM_ (traceWith tracer) $ mapMaybe (logObservation . snd) observations
+  forM_ rejectedInits $ \(rejectedTxId, notAnInitReason) ->
+    traceWith tracer HeadInitTxRejected{rejectedTxId, notAnInitReason}
 
   blockNo <- maybe (throwIO $ MissingBlockNo _blockHash) (pure . fromInteger) _blockHeight
   let observationsAt = [(Just v, ChainObservation point blockNo obs) | (v, obs) <- observations]

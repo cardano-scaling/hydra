@@ -19,7 +19,6 @@ import Hydra.Tx (
   partyToChain,
  )
 import Hydra.Tx.Close (PointInTime)
-import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
@@ -55,7 +54,7 @@ healthySplitUTxOToDecommit :: UTxO
 healthyCloseLowerBoundSlot :: SlotNo
 healthyCloseUpperBoundPointInTime :: PointInTime
 (healthyCloseLowerBoundSlot, healthyCloseUpperBoundPointInTime) =
-  genValidityBoundsFromContestationPeriod (fromChain healthyContestationPeriod) `generateWith` healthySeed
+  genValidityBoundsFromContestationPeriod (fromInteger healthyContestationPeriodSeconds) `generateWith` healthySeed
 
 healthyOpenHeadTxIn :: TxIn
 healthyOpenHeadTxIn = generateWith arbitrary healthySeed
