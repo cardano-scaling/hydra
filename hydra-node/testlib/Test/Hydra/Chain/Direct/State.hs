@@ -855,13 +855,14 @@ observeClose ::
 observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
-  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline} = observation
+  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline, signatures} = observation
   guard (headId == closeObservationHeadId)
   let event =
         OnCloseTx
           { headId = closeObservationHeadId
           , snapshotNumber
           , contestationDeadline
+          , signatures
           }
   let st' =
         ClosedState

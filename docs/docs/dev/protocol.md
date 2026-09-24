@@ -190,3 +190,7 @@ sequenceDiagram
 ```
 
 As with increments, the decrement redeemer carries the settled snapshot's multisignature, and a node still collecting `AckSn` for that snapshot adopts it as confirmed upon observing the decrement.
+
+## Closing with a snapshot still collecting signatures
+
+Close and contest redeemers carry the multisignature of the snapshot they use too. A node still collecting `AckSn` for the snapshot a head gets closed or contested with verifies that multisignature over the snapshot it signed itself and adopts it as confirmed. The closed head then commits to a snapshot the node knows, so it can fan out the head rather than depending on the peer that completed the multisignature. The node keeps the snapshot it was collecting signatures for while the head is closed, for a contest that arrives later.

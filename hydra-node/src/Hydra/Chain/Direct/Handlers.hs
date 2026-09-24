@@ -583,10 +583,10 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}
   Decrement DecrementObservation{headId, newVersion, distributedUTxO, snapshotNumber, signatures} ->
     pure OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}
-  Close CloseObservation{headId, snapshotNumber, contestationDeadline} ->
-    pure OnCloseTx{headId, snapshotNumber, contestationDeadline}
-  Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
-    pure OnContestTx{contestationDeadline, headId, snapshotNumber}
+  Close CloseObservation{headId, snapshotNumber, contestationDeadline, signatures} ->
+    pure OnCloseTx{headId, snapshotNumber, contestationDeadline, signatures}
+  Contest ContestObservation{contestationDeadline, headId, snapshotNumber, signatures} ->
+    pure OnContestTx{contestationDeadline, headId, snapshotNumber, signatures}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
   FinalPartialFanout FanoutObservation{headId, fanoutUTxO} ->

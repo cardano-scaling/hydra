@@ -57,7 +57,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -246,6 +246,30 @@ spec = parallel $ do
                 <> toCBOR decommitTx
                 <> toCBOR version
       decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
+
+  -- 'ClosedState' gained 'unconfirmedSnapshot' between two released layouts,
+  -- same situation as 'Snapshot' above. The legacy layout is the one the
+  -- generic encoding wrote: the constructor name followed by the fields.
+  describe "ClosedState layouts" $ do
+    let closedState = generateWith (resize 3 arbitrary) 42 :: ClosedState Tx
+        ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version} = closedState
+
+    it "writes the current layout under a tag of its own" $
+      serialize' closedState `shouldSatisfy` BS.isPrefixOf (serialize' closedStateCBORTag)
+
+    it "decodes the layout written before unconfirmedSnapshot existed" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR closedStateCBORTagV1
+                <> toCBOR parameters
+                <> toCBOR confirmedSnapshot
+                <> toCBOR contestationDeadline
+                <> toCBOR readyToFanoutSent
+                <> toCBOR chainState
+                <> toCBOR headId
+                <> toCBOR headSeed
+                <> toCBOR version
+      decodeFull' legacy `shouldBe` Right closedState{unconfirmedSnapshot = Nothing}
 
   -- 'NodeState' gained deposit lifecycle tracking between two released
   -- layouts, same situation as 'Snapshot' above. The legacy layout carries a

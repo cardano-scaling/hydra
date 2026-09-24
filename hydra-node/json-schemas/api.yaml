@@ -3891,6 +3891,7 @@ components:
         - headId
         - headSeed
         - version
+        - unconfirmedSnapshot
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3908,6 +3909,13 @@ components:
           $ref: "api.yaml#/components/schemas/HeadSeed"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        unconfirmedSnapshot:
+          description: |
+            The snapshot this node signed but had not seen confirmed when the
+            head closed. A contest carrying its full multisignature confirms it.
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/Snapshot"
 
     PartialFanoutState:
       type: object

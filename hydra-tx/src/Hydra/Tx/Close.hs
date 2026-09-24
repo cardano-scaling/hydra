@@ -32,7 +32,7 @@ import Hydra.Tx (
   pendingActionApplied,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature, fromPlutusSignatures, toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -177,6 +177,8 @@ data CloseObservation = CloseObservation
   { headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contestationDeadline :: UTCTime
+  , signatures :: MultiSignature (Snapshot Tx)
+  -- ^ Multisignature of the closing snapshot, empty for the initial snapshot.
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -196,7 +198,7 @@ observeCloseTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open Head.OpenDatum{}, Head.Close{}) -> do
+    (Head.Open Head.OpenDatum{}, Head.Close closeRedeemer) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
@@ -208,5 +210,18 @@ observeCloseTx utxo tx = do
           { headId
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime closeContestationDeadline
+          , signatures = closeSignatures closeRedeemer
           }
     _ -> Nothing
+ where
+  -- NOTE: A decode failure must not drop the observation; empty signatures
+  -- never verify, so HeadLogic just skips adoption.
+  closeSignatures :: Head.CloseRedeemer -> MultiSignature (Snapshot Tx)
+  closeSignatures = \case
+    Head.CloseInitial -> mempty
+    Head.CloseAny{signature} -> decodeSignatures signature
+    Head.CloseUnused{signature} -> decodeSignatures signature
+    Head.CloseUsed{signature} -> decodeSignatures signature
+
+  decodeSignatures :: [Head.Signature] -> MultiSignature (Snapshot Tx)
+  decodeSignatures = fromMaybe mempty . fromPlutusSignatures

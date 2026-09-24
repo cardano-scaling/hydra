@@ -64,7 +64,7 @@ import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
 import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, getSnapshot, hasPendingAction, txInToHeadSeed)
+import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, confirmedSignatures, getSnapshot, hasPendingAction, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
@@ -79,6 +79,7 @@ import Hydra.Tx.Observe (
   IncrementObservation (..),
   NotAnInitReason (..),
   PartialFanoutObservation (..),
+  observeCloseTx,
   observeDecrementTx,
   observeFanoutTx,
   observeHeadTx,
@@ -309,6 +310,12 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllClose
     propIsValid forAllClose
     prop "refuses a snapshot too old for the open head" prop_refusesStaleSnapshotInClose
+    prop "observes the multisignature of the closing snapshot" $
+      forAllBlind (genCloseTx maximumNumberOfParties) $ \(ctx, _, utxo', tx, snapshot) ->
+        let utxo = utxo' <> getKnownUTxO ctx
+         in case observeCloseTx utxo tx of
+              Just CloseObservation{signatures} -> signatures === confirmedSignatures snapshot
+              Nothing -> False & counterexample ("observeCloseTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "contest" $ do
     propBelowSizeLimit maxTxSize forAllContest
@@ -462,6 +469,7 @@ spec = parallel $ do
                           , headId = stClosed.headId
                           , headSeed = txInToHeadSeed stClosed.seedTxIn
                           , version = 0
+                          , unconfirmedSnapshot = Nothing
                           }
                       outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
                       expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups

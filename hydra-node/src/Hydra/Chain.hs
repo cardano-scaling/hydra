@@ -168,11 +168,13 @@ data OnChainTx tx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnContestTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
   | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: UTxOType tx}

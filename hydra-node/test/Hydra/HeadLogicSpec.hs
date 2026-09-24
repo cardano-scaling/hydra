@@ -2622,7 +2622,7 @@ spec =
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 4 OnCloseTx{headId = testHeadId, snapshotNumber = 1, contestationDeadline = addUTCTime 60 now}
+            step $ observeTxAtSlot 4 OnCloseTx{headId = testHeadId, snapshotNumber = 1, contestationDeadline = addUTCTime 60 now, signatures = mempty}
             getState
           -- The deposit resurfaced and the head is now closed
           Map.member depositTxId' s1.pendingDeposits `shouldBe` True
@@ -2712,6 +2712,7 @@ spec =
                   { headId = testHeadId
                   , snapshotNumber
                   , contestationDeadline
+                  , signatures = mempty
                   }
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
@@ -2744,7 +2745,7 @@ spec =
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters $ headState s0)
         runHeadLogic bobEnv ledger s0 $ do
-          o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
+          o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
           lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
           s1 <- getState
           lift $
@@ -2760,8 +2761,89 @@ spec =
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters (headState s0))
         now <- nowFromSlot s0.chainPointTime.currentSlot
-        update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline)
+        update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline mempty)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
+
+      describe "Close or contest with a withheld AckSn" $ do
+        -- Carol completes the multisignature of snapshot 1 but never delivers
+        -- her AckSn, so bob still collects signatures for it.
+        let snapshot0 = testSnapshot 0 0 [] (utxoRefs [1]) :: Snapshot SimpleTx
+            snapshot1 = testSnapshot 1 0 [] (utxoRefs [2]) :: Snapshot SimpleTx
+            confirmed0 = ConfirmedSnapshot{snapshot = snapshot0, signatures = Crypto.aggregate []}
+            partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+            fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+            otherSnapshot = testSnapshot 1 0 [] (utxoRefs [7]) :: Snapshot SimpleTx
+            -- Complete, but over a different snapshot.
+            bogusSigs =
+              Crypto.aggregateInOrder
+                (Map.fromList [(alice, sign aliceSk otherSnapshot), (bob, sign bobSk otherSnapshot), (carol, sign carolSk otherSnapshot)])
+                threeParties
+            s0 =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { localUTxO = utxoRefs [2]
+                  , confirmedSnapshot = confirmed0
+                  , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                  }
+            deadline = arbitrary `generateWith` 42
+            isContestTx :: Effect SimpleTx -> Bool
+            isContestTx = \case
+              OnChainEffect{postChainTx = ContestTx{}} -> True
+              _ -> False
+            closedState :: MonadFail m => NodeState SimpleTx -> m (ClosedState SimpleTx)
+            closedState = \case
+              NodeInSync{headState = Closed cst} -> pure cst
+              _ -> fail "expected Closed state"
+
+        it "adopts the in-flight snapshot when a close carries its full multisignature" $
+          runHeadLogic bobEnv ledger s0 $ do
+            o1 <- step $ observeTx (OnCloseTx testHeadId 1 deadline fullSigs)
+            lift $ o1 `hasNoEffectSatisfying` isContestTx
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              unconfirmedSnapshot `shouldBe` Nothing
+            -- The closed head commits to snapshot 1, which bob can now fan out.
+            o2 <- step $ ClientInput Fanout
+            lift $
+              o2 `hasEffectSatisfying` \case
+                OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == utxoRefs [2]
+                _ -> False
+
+        it "keeps the in-flight snapshot for a later contest when a close's multisignature does not verify" $
+          runHeadLogic bobEnv ledger s0 $ do
+            _ <- step $ observeTx (OnCloseTx testHeadId 1 deadline bogusSigs)
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` confirmed0
+              unconfirmedSnapshot `shouldBe` Just snapshot1
+
+        it "adopts the in-flight snapshot when a contest carries its full multisignature" $
+          runHeadLogic bobEnv ledger s0 $ do
+            -- Carol closes with the snapshot bob confirmed, then contests with
+            -- the one she withheld her AckSn for.
+            o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
+            lift $ o1 `hasNoEffectSatisfying` isContestTx
+            o2 <- step $ observeTx (OnContestTx testHeadId 1 deadline fullSigs)
+            lift $ o2 `hasNoEffectSatisfying` isContestTx
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              unconfirmedSnapshot `shouldBe` Nothing
+            o3 <- step $ ClientInput Fanout
+            lift $
+              o3 `hasEffectSatisfying` \case
+                OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == utxoRefs [2]
+                _ -> False
+
+        it "keeps the confirmed snapshot when a contest's multisignature does not verify" $
+          runHeadLogic bobEnv ledger s0 $ do
+            _ <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
+            _ <- step $ observeTx (OnContestTx testHeadId 1 deadline bogusSigs)
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` confirmed0
+              unconfirmedSnapshot `shouldBe` Just snapshot1
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
@@ -2923,14 +3005,14 @@ spec =
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline, signatures = mempty}
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline, signatures = mempty}
             st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st contestOtherHead
@@ -4492,6 +4574,7 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
+        , unconfirmedSnapshot = Nothing
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties

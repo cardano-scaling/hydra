@@ -1,12 +1,22 @@
 {
     "samples": [
         {
-            "contestationDeadline": "1864-05-10T15:54:11.743918769287Z",
-            "contesters": [],
-            "headId": "00010100000001010100000100000100",
-            "snapshotNumber": 1,
+            "contestationDeadline": "1864-05-09T05:41:50.137477243257Z",
+            "contesters": [
+                {
+                    "keyHash": "",
+                    "tag": "PubKeyHash"
+                }
+            ],
+            "headId": "00000001000000010001000000000001",
+            "signatures": {
+                "multiSignature": [
+                    "6be3461898efa44faf89a3b4ecf5ad4ef9744207a6d938c750e7019456d42e458d7a42f6dc914e697e593d591e720f7afb105b7e0f9231ebdc05f32654c9c00a"
+                ]
+            },
+            "snapshotNumber": 0,
             "tag": "Contest"
         }
     ],
-    "seed": -871640901
+    "seed": 1203214361
 }

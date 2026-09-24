@@ -13,7 +13,7 @@ import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature (..), fromPlutusSignatures, toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, accumulatorInHead, commitOutputsHash, decommitOutputsHash, fromChainSnapshotNumber, pendingActionApplied)
@@ -138,6 +138,8 @@ data ContestObservation = ContestObservation
   , snapshotNumber :: SnapshotNumber
   , contestationDeadline :: UTCTime
   , contesters :: [Plutus.PubKeyHash]
+  , signatures :: MultiSignature (Snapshot Tx)
+  -- ^ Multisignature of the contesting snapshot.
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -157,7 +159,7 @@ observeContestTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
+    (Head.Closed Head.ClosedDatum{}, Head.Contest contestRedeemer) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       (onChainSnapshotNumber, contestationDeadline, contesters) <- decodeDatum newHeadDatum
@@ -167,9 +169,20 @@ observeContestTx utxo tx = do
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime contestationDeadline
           , contesters
+          , signatures = contestSignatures contestRedeemer
           }
     _ -> Nothing
  where
+  -- NOTE: A decode failure must not drop the observation; empty signatures
+  -- never verify, so HeadLogic just skips adoption.
+  contestSignatures :: Head.ContestRedeemer -> MultiSignature (Snapshot Tx)
+  contestSignatures = \case
+    Head.ContestUnused{signature} -> decodeSignatures signature
+    Head.ContestUsed{signature} -> decodeSignatures signature
+
+  decodeSignatures :: [Head.Signature] -> MultiSignature (Snapshot Tx)
+  decodeSignatures = fromMaybe mempty . fromPlutusSignatures
+
   -- NOTE: The head validator constrains the produced datum of a contest, so a
   -- different state here should be unreachable. Observation runs on
   -- attacker-supplied transactions on the chain-sync thread, though, so this

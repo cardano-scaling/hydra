@@ -657,8 +657,8 @@ spec = parallel $ do
                   -- Bob closes with the initial snapshot, pretending snapshot 1
                   -- was never confirmed.
                   let deadline = arbitrary `generateWith` 42
-                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntilMatch [n1, n2] $ \case
                     HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
                     _ -> Nothing
@@ -1143,8 +1143,8 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
@@ -1154,6 +1154,52 @@ spec = parallel $ do
               waitUntilMatch [n1, n2] $ \case
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
+
+    describe "with a peer withholding its AckSn" $ do
+      it "fans out a head closed with the snapshot only the peer confirmed" $
+        shouldRunInSim $
+          withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead2 n1 n2
+                send n1 (NewTx (aValidTx 42))
+                -- Only Bob sees snapshot 1 confirmed; Alice lacks his AckSn.
+                waitUntilMatch [n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                  _ -> Nothing
+                send n2 Close
+                waitUntilMatch [n1, n2] $ \case
+                  HeadIsClosed{snapshotNumber} -> guard (snapshotNumber == 1)
+                  _ -> Nothing
+                waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                -- Alice adopted snapshot 1 from the close and fans out with it.
+                send n1 Fanout
+                waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [42]}
+
+      it "fans out a head contested with the snapshot only the peer confirmed" $
+        shouldRunInSim $
+          withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead2 n1 n2
+                send n1 (NewTx (aValidTx 42))
+                waitUntilMatch [n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                  _ -> Nothing
+                -- A close with the initial snapshot, which Alice has no newer
+                -- confirmed snapshot to contest. The deadline must lie ahead,
+                -- so the head is not ready to fan out before the contest.
+                deadline <- addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
+                injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                -- Bob contests with snapshot 1, and Alice adopts it from the
+                -- contest.
+                waitUntilMatch [n1, n2] $ \case
+                  HeadIsContested{snapshotNumber} -> guard (snapshotNumber == 1)
+                  _ -> Nothing
+                waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                send n1 Fanout
+                waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [42]}
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -1667,12 +1713,14 @@ toOnChainTx now = \case
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot closingSnapshot)
       , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
+      , signatures = confirmedSignatures closingSnapshot
       }
   ContestTx{headId, contestingSnapshot} ->
     OnContestTx
       { headId
       , snapshotNumber = number (getSnapshot contestingSnapshot)
       , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
+      , signatures = confirmedSignatures contestingSnapshot
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit}
