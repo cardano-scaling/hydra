@@ -620,6 +620,53 @@ spec = parallel $ do
                       guard (number == 2 && 42 `elem` (txId <$> confirmed))
                     _ -> Nothing
 
+        it "can close and fanout with a deposit snapshot adopted from the chain" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  depositHead chain [n1, n2] depositUTxO
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Alice closes with the adopted snapshot, so the deposit is
+                  -- not lost to the withheld AckSn.
+                  send n1 Close
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
+                    _ -> Nothing
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = depositUTxO}
+
+        it "contests a stale close with a deposit snapshot adopted from the chain" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  depositHead chain [n1, n2] depositUTxO
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Bob closes with the initial snapshot, pretending snapshot 1
+                  -- was never confirmed.
+                  let deadline = arbitrary `generateWith` 42
+                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
+                    _ -> Nothing
+                  -- Alice holds the adopted multisignature and contests with it.
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
+                    _ -> Nothing
+
         it "can process multiple commits" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -812,6 +859,32 @@ spec = parallel $ do
 
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
+
+        it "adopts a decommit snapshot settled on-chain even if a peer withholds its AckSn" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let decommitTx = aValidTx 42
+                  send n2 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                  -- Bob completes the multisignature locally and posts the
+                  -- decrement; Alice never receives his AckSn but adopts the
+                  -- snapshot from the multisignature carried on-chain.
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToDecommit}} ->
+                      guard (number == 1 && utxoToDecommit == Just (utxoRefs [42]))
+                    _ -> Nothing
+                  -- Alice is not stuck behind the in-flight snapshot and acks
+                  -- the next one, which only Bob can confirm.
+                  send n1 (NewTx (aValidTx 43))
+                  waitUntilMatch [n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                      guard (number == 2 && 43 `elem` (txId <$> confirmed))
+                    _ -> Nothing
 
         it "can only process one decommit at once" $
           shouldRunInSim $
