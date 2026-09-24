@@ -32,21 +32,16 @@ unsafePaymentKeyHashFromBytes bytes
   | otherwise =
       PaymentKeyHash $ Ledger.KeyHash $ unsafeHashFromBytes bytes
 
--- | Unsafe wrap some bytes as a 'Hash ScriptData', relying on the fact that
--- Plutus is using Blake2b_256 for hashing data (according to 'cardano-ledger').
+-- | Wrap some bytes as a 'Hash ScriptData', returning 'Nothing' if the bytes
+-- are not of the expected digest length. Relies on the fact that Plutus is
+-- using Blake2b_256 for hashing data (according to 'cardano-ledger').
 --
--- Pre-condition: the input bytestring MUST be of length 32.
-unsafeScriptDataHashFromBytes ::
-  HasCallStack =>
-  ByteString ->
-  Hash ScriptData
-unsafeScriptDataHashFromBytes bytes
-  | BS.length bytes /= 32 =
-      error $ "unsafeScriptDataHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
-  | otherwise =
-      ScriptDataHash
-        . unsafeMakeSafeHash
-        $ unsafeHashFromBytes bytes
+-- NOTE: The bytes reaching this are attacker-controlled on the chain
+-- observation path (a Plutus 'DatumHash' decoded out of an on-chain datum),
+-- so a wrong length is an expected failure mode, not a programming error.
+safeScriptDataHashFromBytes :: ByteString -> Maybe (Hash ScriptData)
+safeScriptDataHashFromBytes bytes =
+  ScriptDataHash . unsafeMakeSafeHash <$> safeHashFromBytes bytes
 
 unsafeBlockHeaderHashFromBytes ::
   HasCallStack =>

@@ -101,26 +101,36 @@ toLedgerAddr = \case
 -- | Convert a plutus 'Address' to an api 'AddressInEra'.
 -- NOTE: Requires the 'Network' discriminator (Testnet or Mainnet) because
 -- Plutus addresses are stripped off it.
-fromPlutusAddress :: IsShelleyBasedEra era => Ledger.Network -> Plutus.Address -> AddressInEra era
-fromPlutusAddress network plutusAddress =
-  fromLedgerAddr $
-    case (addressCredential, addressStakingCredential) of
-      (cred, Just (StakingHash stakeCred)) ->
-        Ledger.Addr network (unsafeCredential cred) . Ledger.StakeRefBase $ unsafeCredential stakeCred
-      (cred, Just (StakingPtr slot txix certix)) ->
-        Ledger.Addr network (unsafeCredential cred) . Ledger.StakeRefPtr $
-          Ledger.Ptr
-            (fromInteger slot)
-            (Ledger.TxIx $ fromInteger txix)
-            (Ledger.CertIx $ fromInteger certix)
-      (cred, Nothing) ->
-        Ledger.Addr network (unsafeCredential cred) Ledger.StakeRefNull
+-- NOTE: Returns 'Nothing' if either the payment or staking credential carries
+-- a hash of the wrong length (i.e. not exactly 28 bytes). This can happen
+-- with attacker-controlled Plutus data (e.g. an on-chain 'Commit' datum) that
+-- does not correspond to a genuine 'PubKeyHash'/'ScriptHash'.
+fromPlutusAddress :: IsShelleyBasedEra era => Ledger.Network -> Plutus.Address -> Maybe (AddressInEra era)
+fromPlutusAddress network plutusAddress = do
+  addr <- case (addressCredential, addressStakingCredential) of
+    (cred, Just (StakingHash stakeCred)) -> do
+      paymentCred <- safeCredential cred
+      stakingCred <- safeCredential stakeCred
+      pure $ Ledger.Addr network paymentCred (Ledger.StakeRefBase stakingCred)
+    (cred, Just (StakingPtr slot txix certix)) -> do
+      paymentCred <- safeCredential cred
+      pure $
+        Ledger.Addr network paymentCred $
+          Ledger.StakeRefPtr $
+            Ledger.Ptr
+              (fromInteger slot)
+              (Ledger.TxIx $ fromInteger txix)
+              (Ledger.CertIx $ fromInteger certix)
+    (cred, Nothing) -> do
+      paymentCred <- safeCredential cred
+      pure $ Ledger.Addr network paymentCred Ledger.StakeRefNull
+  pure $ fromLedgerAddr addr
  where
-  unsafeCredential :: Plutus.Credential -> Ledger.Credential keyRole
-  unsafeCredential = \case
+  safeCredential :: Plutus.Credential -> Maybe (Ledger.Credential keyRole)
+  safeCredential = \case
     PubKeyCredential (Plutus.PubKeyHash h) ->
-      Ledger.KeyHashObj . Ledger.KeyHash . unsafeHashFromBytes $ fromBuiltin h
+      Ledger.KeyHashObj . Ledger.KeyHash <$> safeHashFromBytes (fromBuiltin h)
     ScriptCredential (Plutus.ScriptHash h) ->
-      Ledger.ScriptHashObj . Ledger.ScriptHash . unsafeHashFromBytes $ fromBuiltin h
+      Ledger.ScriptHashObj . Ledger.ScriptHash <$> safeHashFromBytes (fromBuiltin h)
 
   Plutus.Address{addressCredential, addressStakingCredential} = plutusAddress

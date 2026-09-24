@@ -17,7 +17,7 @@ import Data.Aeson.Types (Parser)
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
-import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
+import Hydra.Cardano.Api.Hash (safeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
 import PlutusLedgerApi.V3 (OutputDatum (..), fromBuiltin)
@@ -203,18 +203,16 @@ fromPlutusTxOut ::
   Plutus.TxOut ->
   Maybe (TxOut CtxUTxO era)
 fromPlutusTxOut network out = do
+  addressInEra <- fromPlutusAddress network plutusAddress
   value <- shelleyBasedEraConstraints (shelleyBasedEra @era) (TxOutValueShelleyBased (shelleyBasedEra @era) . toLedgerValue (maryBasedEra @era) <$> fromPlutusValue plutusValue)
+  datum <- case plutusDatum of
+    NoOutputDatum -> pure TxOutDatumNone
+    OutputDatumHash (Plutus.DatumHash hashBytes) ->
+      TxOutDatumHash alonzoBasedEra <$> safeScriptDataHashFromBytes (fromBuiltin hashBytes)
+    OutputDatum (Plutus.Datum datumData) ->
+      pure . TxOutDatumInline babbageBasedEra $ toScriptData datumData
   pure $ TxOut addressInEra value datum ReferenceScriptNone
  where
-  addressInEra = fromPlutusAddress network plutusAddress
-
-  datum = case plutusDatum of
-    NoOutputDatum -> TxOutDatumNone
-    OutputDatumHash (Plutus.DatumHash hashBytes) ->
-      TxOutDatumHash alonzoBasedEra . unsafeScriptDataHashFromBytes $ fromBuiltin hashBytes
-    OutputDatum (Plutus.Datum datumData) ->
-      TxOutDatumInline babbageBasedEra $ toScriptData datumData
-
   Plutus.TxOut plutusAddress plutusValue plutusDatum _ = out
 
 -- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'

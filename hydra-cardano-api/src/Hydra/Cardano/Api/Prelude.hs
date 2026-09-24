@@ -15,6 +15,7 @@ module Hydra.Cardano.Api.Prelude (
   ByteString,
   Map,
   Set,
+  safeHashFromBytes,
   unsafeHashFromBytes,
 ) where
 
@@ -45,6 +46,20 @@ type LedgerEra = ShelleyLedgerEra Era
 ledgerEraVersion :: Ledger.Version
 ledgerEraVersion = Ledger.eraProtVerLow @LedgerEra
 
+-- | Interpret some raw 'ByteString' as a particular 'Hash', returning
+-- 'Nothing' if the byte string has a length different than the expected
+-- target digest length.
+--
+-- Prefer this over 'unsafeHashFromBytes' whenever the input bytes originate
+-- from an untrusted source (e.g. a Plutus 'PubKeyHash'/'ScriptHash'/'TxId'
+-- decoded out of an on-chain datum), where a wrong length is an expected
+-- failure mode, not a programming error.
+safeHashFromBytes ::
+  CC.HashAlgorithm hash =>
+  ByteString ->
+  Maybe (CC.Hash hash a)
+safeHashFromBytes = CC.hashFromBytes
+
 -- | Interpret some raw 'ByteString' as a particular 'Hash'.
 --
 -- NOTE: This throws if byte string has a length different that the expected
@@ -54,7 +69,7 @@ unsafeHashFromBytes ::
   ByteString ->
   CC.Hash hash a
 unsafeHashFromBytes bytes =
-  case CC.hashFromBytes bytes of
+  case safeHashFromBytes bytes of
     Nothing ->
       error $ "unsafeHashFromBytes: failed to convert hash: " <> show bytes
     Just h ->

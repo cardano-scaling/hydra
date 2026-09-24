@@ -352,8 +352,9 @@ decodeOpenDatum headOut =
   case fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headOut) of
     Just (Head.Open Head.OpenDatum{headSeed, parties = onChainParties, contestationPeriod, depositPeriod}) -> do
       parties <- traverse partyFromChain onChainParties ?> CannotDecodeHeadDatumInIncrement
+      seedTxIn <- fromPlutusTxOutRef headSeed ?> CannotDecodeHeadDatumInIncrement
       pure
-        ( txInToHeadSeed (fromPlutusTxOutRef headSeed)
+        ( txInToHeadSeed seedTxIn
         , HeadParameters
             { contestationPeriod = ContestationPeriod.fromChain contestationPeriod
             , depositPeriod = DepositPeriod.fromChain depositPeriod

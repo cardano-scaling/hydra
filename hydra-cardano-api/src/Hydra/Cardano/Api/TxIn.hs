@@ -44,12 +44,12 @@ fromLedgerTxIn = fromShelleyTxIn
 toLedgerTxIn :: TxIn -> Ledger.TxIn
 toLedgerTxIn = toShelleyTxIn
 
--- | Convert a plutus' 'TxOutRef' into a cardano-api 'TxIn'
-fromPlutusTxOutRef :: Plutus.TxOutRef -> TxIn
+-- | Convert a plutus' 'TxOutRef' into a cardano-api 'TxIn'.
+-- NOTE: Returns 'Nothing' if the 'TxId' hash is not the expected length.
+fromPlutusTxOutRef :: Plutus.TxOutRef -> Maybe TxIn
 fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
-  TxIn
-    (TxId $ unsafeHashFromBytes $ Plutus.fromBuiltin bytes)
-    (TxIx $ fromIntegral ix)
+  (TxIn . TxId <$> safeHashFromBytes (Plutus.fromBuiltin bytes))
+    <*> pure (TxIx $ fromIntegral ix)
 
 -- | Convert a cardano-api 'TxIn' into a plutus 'TxOutRef'.
 toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef

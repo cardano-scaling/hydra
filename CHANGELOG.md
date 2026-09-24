@@ -10,6 +10,9 @@ changes.
 
 ## UNRELEASED
 
+- Fixed a crash on observing a `Commit`/deposit datum whose embedded
+  credential, `TxId` or datum hash was not the expected length.
+
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
   When the deposited value did not cover the minimum ADA of the deposit output

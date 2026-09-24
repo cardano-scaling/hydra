@@ -171,6 +171,7 @@ test-suite tests
   other-modules:
     Hydra.Ledger.Cardano.EvaluateSpec
     Hydra.Tx.AccumulatorSpec
+    Hydra.Tx.CardanoApiHashLengthSpec
     Hydra.Tx.ContestationPeriodSpec
     Hydra.Tx.Contract.Close.CloseAny
     Hydra.Tx.Contract.Close.CloseCommitUnused

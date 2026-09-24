@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Hydra.Ledger.Cardano.EvaluateSpec qualified
 import Hydra.Tx.AccumulatorSpec qualified
+import Hydra.Tx.CardanoApiHashLengthSpec qualified
 import Hydra.Tx.ContestationPeriodSpec qualified
 import Hydra.Tx.Contract.ContractSpec qualified
 import Hydra.Tx.HeadIdSpec qualified
@@ -19,6 +20,7 @@ main =
   defaultMainHydra
     "hydra-tx"
     [ testSpec "Accumulator" Hydra.Tx.AccumulatorSpec.spec
+    , testSpec "CardanoApiHashLength" Hydra.Tx.CardanoApiHashLengthSpec.spec
     , testSpec "ContestationPeriod" Hydra.Tx.ContestationPeriodSpec.spec
     , testSpec "Contract" Hydra.Tx.Contract.ContractSpec.spec
     , testSpec "Evaluate" Hydra.Ledger.Cardano.EvaluateSpec.spec

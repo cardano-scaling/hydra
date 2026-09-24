@@ -54,4 +54,5 @@ deserializeCommit network Commit{input, preSerializedOutput} =
     Left{} -> Nothing
     Right dat -> do
       txOut <- fromPlutusTxOut network =<< fromData dat
-      pure (fromPlutusTxOutRef input, txOut)
+      txIn <- fromPlutusTxOutRef input
+      pure (txIn, txOut)

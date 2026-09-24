@@ -144,7 +144,8 @@ observeInitTx tx = do
   (pid, contestationPeriod, depositPeriod, onChainParties, seedTxIn) <- case headState of
     Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod, depositPeriod} -> do
       pid <- fromPlutusCurrencySymbol headId ?> NotAHeadPolicy
-      pure (pid, ContestationPeriod.fromChain contestationPeriod, DepositPeriod.fromChain depositPeriod, parties, fromPlutusTxOutRef headSeed)
+      seedTxIn <- fromPlutusTxOutRef headSeed ?> NotAHeadDatum
+      pure (pid, ContestationPeriod.fromChain contestationPeriod, DepositPeriod.fromChain depositPeriod, parties, seedTxIn)
     _ -> Left NotAHeadDatum
 
   -- Check minted value to distinguish from increment/decrement
