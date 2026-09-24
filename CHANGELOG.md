@@ -41,26 +41,8 @@ changes.
   where previously a partial `ToJSON` killed the writer thread and every
   subsequent trace blocked once the log queue filled.
 
-- **BREAKING** Fix GHSA-f825-9gwc-h5xq: a non-final partial fanout step could
-  distribute a snapshot member whose value had already left the head (a decommit
-  paid out by a decrement before close, or a deposit whose increment never
-  landed), paying it a second time out of the value backing everyone else's
-  outputs and leaving the remaining head value short or locked forever. The
-  closed head's accumulator commitment used to cover the whole snapshot set
-  including such pre-settled outputs, and the partial step only checked
-  membership. A snapshot now carries two signed accumulators, one for each of
-  the two sets the head can owe at close time (pending decommit still inside,
-  or pending commit absorbed), and `Close`/`Contest` must store the one matching
-  their redeemer kind, so the on-chain commitment describes exactly the outputs
-  still owed. The full and final fanout additionally require the membership
-  proof to be the empty-set commitment, i.e. no owed output may be left out
-  (`FanoutIncomplete` H72, `FinalPartialFanoutIncomplete` H73). This changes
-  the signed snapshot message, the close/contest/increment/decrement redeemers
-  and the head validator script hash; all parties of a head must upgrade
-  together and heads open on the previous scripts cannot be closed with the new
-  node. Snapshot JSON gains an informational `appliedAccumulator` hash; the
-  `FanoutTx` chain effect drops `utxoForProof` and `FinalPartialFanoutTx` drops
-  `presettledUTxO`.
+- **BREAKING** Fixed a bug related to partial fanout and decommits and a
+  potential stuck head.
 
 - A `PartialFanout` naming everything that is left now posts a full fanout, the
   way it already did from a freshly closed head, and the node drains the rest
@@ -72,74 +54,7 @@ changes.
   [#2855](https://github.com/cardano-scaling/hydra/issues/2855)
 
 - The node's input loop no longer broadcasts inline, so a stalled network can
-  no longer wedge the whole node. Previously `processEffects` called
-  `broadcast` on the single thread that also dequeues chain observations and
-  client commands, and the shipped etcd network's `broadcast` blocks once its
-  100-slot `pending-broadcast` queue is full - a queue that only drains while
-  the local etcd member can commit. A peer that merely stopped its etcd member
-  therefore removed quorum, let the victim's own client traffic fill that
-  queue, and left the victim unable to observe a close or post a contest, so
-  the peer could settle the head on an outdated snapshot uncontested. A
-  restart did not recover: the queue reloads full, so a single further message
-  wedged it again.
-  [GHSA-3mmr-q43p-g6p2](https://github.com/cardano-scaling/hydra/security/advisories/GHSA-3mmr-q43p-g6p2)
-  * `NetworkEffect`s now go to an ordered hand-off performed by its own
-    thread, so the input loop keeps processing whatever the network is doing.
-    Broadcast order is unchanged. `ClientEffect` and `OnChainEffect` still run
-    inline: the former writes to an unbounded channel and cannot block, and
-    the latter would gain nothing, since `Close` and `Contest` are
-    `OnChainEffect`s too and a stalled chain backend would delay them either
-    way.
-  * Because nothing blocks the loop any more, the outbound backlog needs its
-    own bound. A `NewTx` or `Decommit` is now refused with the new
-    `RejectedInputBecauseBroadcastStalled` message (HTTP 503 on
-    `POST /transaction` and `POST /decommit`) once the hand-off has made no
-    progress for ten seconds, or holds 1000 messages. Those two are what a
-    client can use to grow the backlog quickly; the protocol's own messages
-    cannot pile up, because a broadcast is delivered to ourselves too, so with
-    the network down our own acknowledgement never returns and the snapshot
-    round cannot advance. Every other input keeps being processed: all chain
-    observations, and `Close`, `Contest`, `Fanout`, `Recover` and
-    `SideLoadSnapshot`. `SideLoadSnapshot` is a deliberate exception to the
-    bound: it broadcasts nothing itself, but it does reset the snapshot state,
-    so a client looping it can draw one extra `ReqSn` per chain tick. It is
-    left ungated because it is the recovery path for a message lost from the
-    hand-off, and refusing it during a stall would block the way out.
-  * The same condition is reported as the new `NetworkBroadcastStalled` and
-    `NetworkBroadcastResumed` server outputs, replacing what used to be only a
-    `PersistentQueueFull` trace. These are notifications for clients already
-    listening; a client connecting mid-stall is told instead by
-    `Greetings.networkInfo`, which gains a `broadcastStalled` flag, since past
-    outputs are only replayed on request. That flag is read from the node
-    live rather than accumulated from the event log, so it reports where this
-    run stands rather than replaying a stall that has since ended.
-    **Breaking for CBOR API clients**: `NetworkInfo`'s fields are encoded
-    positionally, so the new flag changes its encoding and that of the
-    `Greetings` message embedding it. The JSON encoding is additive.
-    Note the shipped TUI does not yet surface the flag; it renders the two
-    outputs in its event feed but its network indicator ignores them.
-  * Four new Prometheus series make the condition diagnosable rather than
-    just reportable: `hydra_head_broadcast_stalled` (the alertable 0/1),
-    `hydra_head_pending_broadcasts` and
-    `hydra_head_broadcast_no_progress_seconds` (how big the backlog is and
-    whether it is moving at all, sampled while there is one), and
-    `hydra_head_inputs_refused_broadcast_stalled` (what it cost clients). See
-    [runtime metrics](https://hydra.family/head-protocol/benchmarks/metrics#diagnosing-a-stalled-broadcast).
-  * Note that outbound messages accepted but not yet handed to the network now
-    live in memory rather than on disk. Stopping the node always drops
-    whatever the drain thread has not picked up yet, which on a healthy node
-    is at most the handful the input loop is running ahead by; during a
-    network stall it is up to the refusal threshold's worth. Most of what
-    queues during a stall is client-originated `ReqTx`/`ReqDec`, which carry no
-    persisted state, so losing those leaves the node consistent and the client
-    simply retries. A queued `ReqSn` or `AckSn` is different: the node persists
-    that it requested or signed the snapshot before the message is sent, so
-    losing one leaves it believing it took part in a round it never announced,
-    and that round cannot complete without a side-loaded snapshot. The same
-    window exists without this change - between persisting the state change and
-    the queue writing its file - but it was microseconds wide, and is now as
-    wide as the stall. How many were dropped is traced as
-    `DiscardedBroadcasts` when the node stops.
+  no longer wedge the whole node.
 
 - Fixed two ways the network component's pending-broadcast queue lost messages
   on startup. `newPersistentQueue` decoded the persisted items in one go and
