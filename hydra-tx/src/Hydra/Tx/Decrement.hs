@@ -130,7 +130,9 @@ observeDecrementTx utxo tx = do
     (Head.Open{}, Head.Decrement Head.DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
-      signatures <- fromPlutusSignatures signature
+      -- NOTE: A decode failure must not drop the observation; empty
+      -- signatures never verify, so HeadLogic just skips adoption.
+      let signatures = fromMaybe mempty $ fromPlutusSignatures signature
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->
           pure
