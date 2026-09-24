@@ -97,30 +97,30 @@
 </span><span id="line-97"></span><span>
 </span><span id="line-98"></span><span class="annot"><span class="hs-comment">-- * ToADTArbitrary instances for per-constructor golden samples</span></span><span>
 </span><span id="line-99"></span><span>
-</span><span id="line-100"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679718741"><span id="local-6989586621679718748"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientMessage</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-101"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679718889"><span id="local-6989586621679718896"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-102"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679718947"><span id="local-6989586621679718954"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">InvalidInput</span></span></span></span><span>
-</span><span id="line-103"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719006"><span id="local-6989586621679719013"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadStatus</span></span></span></span><span>
-</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719082"><span id="local-6989586621679719089"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FanoutProgressMode</span></span></span></span><span>
-</span><span id="line-105"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719132"><span id="local-6989586621679719139"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkInfo</span></span></span></span><span>
-</span><span id="line-106"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719202"><span id="local-6989586621679719209"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">DecommitInvalidReason</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-107"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719283"><span id="local-6989586621679719290"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719345"><span id="local-6989586621679719352"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PostChainTx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719559"><span id="local-6989586621679719566"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">OnChainTx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-110"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719751"><span id="local-6989586621679719758"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PostTxError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720071"><span id="local-6989586621679720078"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ChainEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720179"><span id="local-6989586621679720186"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HeadState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720285"><span id="local-6989586621679720292"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SeenSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720385"><span id="local-6989586621679720392"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FanoutMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720447"><span id="local-6989586621679720454"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NodeState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-116"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720518"><span id="local-6989586621679720525"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SyncedStatus</span></span></span></span><span>
-</span><span id="line-117"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720568"><span id="local-6989586621679720575"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StallReason</span></span></span></span><span>
-</span><span id="line-118"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720618"><span id="local-6989586621679720625"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositStatus</span></span></span></span><span>
-</span><span id="line-119"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720676"><span id="local-6989586621679720683"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Deposit</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-120"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720745"><span id="local-6989586621679720752"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connectivity</span></span></span></span><span>
-</span><span id="line-121"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720881"><span id="local-6989586621679720888"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">WhichEtcd</span></span></span></span><span>
-</span><span id="line-122"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720931"><span id="local-6989586621679720938"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RequirementFailure</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-123"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721184"><span id="local-6989586621679721191"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SideLoadRequirementFailure</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719581"><span id="local-6989586621679719588"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientMessage</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-101"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719729"><span id="local-6989586621679719736"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TimedServerOutput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719787"><span id="local-6989586621679719794"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">InvalidInput</span></span></span></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719846"><span id="local-6989586621679719853"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadStatus</span></span></span></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719922"><span id="local-6989586621679719929"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FanoutProgressMode</span></span></span></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679719972"><span id="local-6989586621679719979"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkInfo</span></span></span></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720042"><span id="local-6989586621679720049"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">DecommitInvalidReason</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-107"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720123"><span id="local-6989586621679720130"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720185"><span id="local-6989586621679720192"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PostChainTx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720399"><span id="local-6989586621679720406"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">OnChainTx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-110"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720591"><span id="local-6989586621679720598"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PostTxError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679720911"><span id="local-6989586621679720918"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ChainEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721019"><span id="local-6989586621679721026"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HeadState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721125"><span id="local-6989586621679721132"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SeenSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721225"><span id="local-6989586621679721232"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FanoutMode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721287"><span id="local-6989586621679721294"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NodeState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-116"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721358"><span id="local-6989586621679721365"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SyncedStatus</span></span></span></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721408"><span id="local-6989586621679721415"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">StallReason</span></span></span></span><span>
+</span><span id="line-118"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721458"><span id="local-6989586621679721465"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositStatus</span></span></span></span><span>
+</span><span id="line-119"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721516"><span id="local-6989586621679721523"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Deposit</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-120"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721585"><span id="local-6989586621679721592"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Connectivity</span></span></span></span><span>
+</span><span id="line-121"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721721"><span id="local-6989586621679721728"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">WhichEtcd</span></span></span></span><span>
+</span><span id="line-122"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721771"><span id="local-6989586621679721778"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RequirementFailure</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-123"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679722024"><span id="local-6989586621679722031"><span class="annot"><span class="hs-identifier hs-type">ToADTArbitrary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SideLoadRequirementFailure</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span></span></span><span>
 </span><span id="line-124"></span><span>
 </span><span id="line-125"></span><span class="annot"><span class="hs-comment">-- * Test types for the generic codec</span></span><span>
 </span><span id="line-126"></span><span>
@@ -131,7 +131,7 @@
 </span><a href="Hydra.CBORSpec.html#%24sel%3AgenA%3AGenNullary"><span class="hs-identifier hs-var hs-var">genA</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier hs-type">Word64</span></a></span><span class="hs-special">,</span><span> </span><span id="%24sel%3AgenB%3AGenNullary"><span class="annot"><span class="annottext">GenericCBORSum -&gt; [Int]
 </span><a href="Hydra.CBORSpec.html#%24sel%3AgenB%3AGenNullary"><span class="hs-identifier hs-var hs-var">genB</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="%24sel%3AgenC%3AGenNullary"><span class="annot"><span class="annottext">GenericCBORSum -&gt; Maybe Text
 </span><a href="Hydra.CBORSpec.html#%24sel%3AgenC%3AGenNullary"><span class="hs-identifier hs-var hs-var">genC</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">}</span><span>
-</span><span id="line-131"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679721358"><span id="local-6989586621679721370"><span class="annot"><span class="annottext">GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
+</span><span id="line-131"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679722198"><span id="local-6989586621679722210"><span class="annot"><span class="annottext">GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
 (GenericCBORSum -&gt; GenericCBORSum -&gt; Bool)
 -&gt; (GenericCBORSum -&gt; GenericCBORSum -&gt; Bool) -&gt; Eq GenericCBORSum
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -139,7 +139,7 @@ $c== :: GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
 == :: GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
 $c/= :: GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
 /= :: GenericCBORSum -&gt; GenericCBORSum -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721374"><span id="local-6989586621679721389"><span id="local-6989586621679721392"><span class="annot"><span class="annottext">Int -&gt; GenericCBORSum -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722214"><span id="local-6989586621679722229"><span id="local-6989586621679722232"><span class="annot"><span class="annottext">Int -&gt; GenericCBORSum -&gt; ShowS
 [GenericCBORSum] -&gt; ShowS
 GenericCBORSum -&gt; [Char]
 (Int -&gt; GenericCBORSum -&gt; ShowS)
@@ -154,7 +154,7 @@ $cshow :: GenericCBORSum -&gt; [Char]
 show :: GenericCBORSum -&gt; [Char]
 $cshowList :: [GenericCBORSum] -&gt; ShowS
 showList :: [GenericCBORSum] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721396"><span id="local-6989586621679721398"><span class="annot"><span class="annottext">(forall x. GenericCBORSum -&gt; Rep GenericCBORSum x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722236"><span id="local-6989586621679722238"><span class="annot"><span class="annottext">(forall x. GenericCBORSum -&gt; Rep GenericCBORSum x)
 -&gt; (forall x. Rep GenericCBORSum x -&gt; GenericCBORSum)
 -&gt; Generic GenericCBORSum
 forall x. Rep GenericCBORSum x -&gt; GenericCBORSum
@@ -167,20 +167,20 @@ $cto :: forall x. Rep GenericCBORSum x -&gt; GenericCBORSum
 to :: forall x. Rep GenericCBORSum x -&gt; GenericCBORSum
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-132"></span><span>
-</span><span id="line-133"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721405"><span id="local-6989586621679721408"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORSum"><span class="hs-identifier hs-type">GenericCBORSum</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-134"></span><span>  </span><span id="local-6989586621679721443"><span class="annot"><span class="annottext">toCBOR :: GenericCBORSum -&gt; Encoding
-</span><a href="#local-6989586621679721443"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenericCBORSum -&gt; Encoding
+</span><span id="line-133"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679722245"><span id="local-6989586621679722248"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORSum"><span class="hs-identifier hs-type">GenericCBORSum</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>  </span><span id="local-6989586621679722283"><span class="annot"><span class="annottext">toCBOR :: GenericCBORSum -&gt; Encoding
+</span><a href="#local-6989586621679722283"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenericCBORSum -&gt; Encoding
 forall a. (Generic a, GToCBOR (Rep a)) =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">genericToCBOR</span></span><span>
 </span><span id="line-135"></span><span>
-</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721449"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORSum"><span class="hs-identifier hs-type">GenericCBORSum</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-137"></span><span>  </span><span id="local-6989586621679721495"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s GenericCBORSum
-</span><a href="#local-6989586621679721495"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Decoder s GenericCBORSum
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679722289"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORSum"><span class="hs-identifier hs-type">GenericCBORSum</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679722335"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s GenericCBORSum
+</span><a href="#local-6989586621679722335"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Decoder s GenericCBORSum
 forall a s. (Generic a, GFromCBOR (Rep a)) =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">genericFromCBOR</span></span><span>
 </span><span id="line-138"></span><span>
 </span><span id="line-139"></span><span class="hs-keyword">newtype</span><span> </span><span id="GenericCBORNewtype"><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-var">GenericCBORNewtype</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="GenericCBORNewtype"><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-var">GenericCBORNewtype</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
-</span><span id="line-140"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679721499"><span id="local-6989586621679721502"><span class="annot"><span class="annottext">GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
+</span><span id="line-140"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679722339"><span id="local-6989586621679722342"><span class="annot"><span class="annottext">GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
 (GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool)
 -&gt; (GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool)
 -&gt; Eq GenericCBORNewtype
@@ -189,7 +189,7 @@ $c== :: GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
 == :: GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
 $c/= :: GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
 /= :: GenericCBORNewtype -&gt; GenericCBORNewtype -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721505"><span id="local-6989586621679721509"><span id="local-6989586621679721512"><span class="annot"><span class="annottext">Int -&gt; GenericCBORNewtype -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722345"><span id="local-6989586621679722349"><span id="local-6989586621679722352"><span class="annot"><span class="annottext">Int -&gt; GenericCBORNewtype -&gt; ShowS
 [GenericCBORNewtype] -&gt; ShowS
 GenericCBORNewtype -&gt; [Char]
 (Int -&gt; GenericCBORNewtype -&gt; ShowS)
@@ -204,7 +204,7 @@ $cshow :: GenericCBORNewtype -&gt; [Char]
 show :: GenericCBORNewtype -&gt; [Char]
 $cshowList :: [GenericCBORNewtype] -&gt; ShowS
 showList :: [GenericCBORNewtype] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721515"><span id="local-6989586621679721517"><span class="annot"><span class="annottext">(forall x. GenericCBORNewtype -&gt; Rep GenericCBORNewtype x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722355"><span id="local-6989586621679722357"><span class="annot"><span class="annottext">(forall x. GenericCBORNewtype -&gt; Rep GenericCBORNewtype x)
 -&gt; (forall x. Rep GenericCBORNewtype x -&gt; GenericCBORNewtype)
 -&gt; Generic GenericCBORNewtype
 forall x. Rep GenericCBORNewtype x -&gt; GenericCBORNewtype
@@ -217,14 +217,14 @@ $cto :: forall x. Rep GenericCBORNewtype x -&gt; GenericCBORNewtype
 to :: forall x. Rep GenericCBORNewtype x -&gt; GenericCBORNewtype
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-141"></span><span>
-</span><span id="line-142"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721523"><span id="local-6989586621679721526"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-type">GenericCBORNewtype</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-143"></span><span>  </span><span id="local-6989586621679721535"><span class="annot"><span class="annottext">toCBOR :: GenericCBORNewtype -&gt; Encoding
+</span><span id="line-142"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679722363"><span id="local-6989586621679722366"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-type">GenericCBORNewtype</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-143"></span><span>  </span><span id="local-6989586621679722375"><span class="annot"><span class="annottext">toCBOR :: GenericCBORNewtype -&gt; Encoding
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenericCBORNewtype -&gt; Encoding
 forall a. (Generic a, GToCBOR (Rep a)) =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">genericToCBOR</span></span><span>
 </span><span id="line-144"></span><span>
-</span><span id="line-145"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679721540"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-type">GenericCBORNewtype</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-146"></span><span>  </span><span id="local-6989586621679721550"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s GenericCBORNewtype
+</span><span id="line-145"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679722380"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.CBORSpec.html#GenericCBORNewtype"><span class="hs-identifier hs-type">GenericCBORNewtype</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>  </span><span id="local-6989586621679722390"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s GenericCBORNewtype
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Decoder s GenericCBORNewtype
 forall a s. (Generic a, GFromCBOR (Rep a)) =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">genericFromCBOR</span></span><span>
@@ -467,16 +467,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Bogus&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-181"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679721556"><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679721556"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DecoderError -&gt; [Char]
+</span><span id="line-181"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679722396"><span class="annot"><span class="annottext">DecoderError
+</span><a href="#local-6989586621679722396"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DecoderError -&gt; [Char]
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679721556"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; Expectation
+</span><a href="#local-6989586621679722396"><span class="hs-identifier hs-var">err</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;is not a proper CBOR-encoded GenericCBORSum&quot;</span></span><span>
-</span><span id="line-182"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679721559"><span class="annot"><span class="annottext">GenericCBORSum
-</span><a href="#local-6989586621679721559"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; [Char] -&gt; Expectation
+</span><span id="line-182"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679722399"><span class="annot"><span class="annottext">GenericCBORSum
+</span><a href="#local-6989586621679722399"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; [Char] -&gt; Expectation
 [Char] -&gt; Expectation
 </span><span class="hs-identifier hs-var">expectationFailure</span></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Expectation) -&gt; [Char] -&gt; Expectation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -486,7 +486,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">GenericCBORSum -&gt; [Char]
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">GenericCBORSum
-</span><a href="#local-6989586621679721559"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><a href="#local-6989586621679722399"><span class="hs-identifier hs-var">v</span></a></span><span>
 </span><span id="line-183"></span><span>
 </span><span id="line-184"></span><span>  </span><span class="annot"><span class="annottext">[Char] -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; [Char] -&gt; SpecWith a -&gt; SpecWith a
@@ -669,8 +669,8 @@ forall a. HasCallStack =&gt; [Char] -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-string">&quot;Snapshot layouts&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-208"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721571"><span class="annot"><span class="annottext">snapshot :: Snapshot Tx
-</span><a href="#local-6989586621679721571"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (Snapshot Tx) -&gt; Int -&gt; Snapshot Tx
+</span><span id="line-208"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722411"><span class="annot"><span class="annottext">snapshot :: Snapshot Tx
+</span><a href="#local-6989586621679722411"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (Snapshot Tx) -&gt; Int -&gt; Snapshot Tx
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Gen (Snapshot Tx) -&gt; Gen (Snapshot Tx)
 forall a. HasCallStack =&gt; Int -&gt; Gen a -&gt; Gen a
@@ -679,29 +679,29 @@ forall a. HasCallStack =&gt; Int -&gt; Gen a -&gt; Gen a
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
-</span><span id="line-209"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span id="local-6989586621679721575"><span class="annot"><span class="annottext">HeadId
+</span><span id="line-209"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span id="local-6989586621679722415"><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:Snapshot :: forall tx. Snapshot tx -&gt; HeadId
-</span><a href="#local-6989586621679721575"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721577"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679722415"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722417"><span class="annot"><span class="annottext">SnapshotVersion
 version :: SnapshotVersion
 $sel:version:Snapshot :: forall tx. Snapshot tx -&gt; SnapshotVersion
-</span><a href="#local-6989586621679721577"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721579"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621679722417"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722419"><span class="annot"><span class="annottext">SnapshotNumber
 number :: SnapshotNumber
 $sel:number:Snapshot :: forall tx. Snapshot tx -&gt; SnapshotNumber
-</span><a href="#local-6989586621679721579"><span class="hs-identifier hs-var hs-var">number</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721581"><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621679722419"><span class="hs-identifier hs-var hs-var">number</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722421"><span class="annot"><span class="annottext">[Tx]
 confirmed :: [Tx]
 $sel:confirmed:Snapshot :: forall tx. Snapshot tx -&gt; [tx]
-</span><a href="#local-6989586621679721581"><span class="hs-identifier hs-var hs-var">confirmed</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721583"><span class="annot"><span class="annottext">UTxOType Tx
+</span><a href="#local-6989586621679722421"><span class="hs-identifier hs-var hs-var">confirmed</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722423"><span class="annot"><span class="annottext">UTxOType Tx
 utxo :: UTxOType Tx
 $sel:utxo:Snapshot :: forall tx. Snapshot tx -&gt; UTxOType tx
-</span><a href="#local-6989586621679721583"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721585"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
+</span><a href="#local-6989586621679722423"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722425"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 utxoToCommit :: Maybe (UTxOType Tx)
 $sel:utxoToCommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
-</span><a href="#local-6989586621679721585"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721587"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
+</span><a href="#local-6989586621679722425"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722427"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 utxoToDecommit :: Maybe (UTxOType Tx)
 $sel:utxoToDecommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
-</span><a href="#local-6989586621679721587"><span class="hs-identifier hs-var hs-var">utxoToDecommit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679721571"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><a href="#local-6989586621679722427"><span class="hs-identifier hs-var hs-var">utxoToDecommit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679722411"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
 </span><span id="line-210"></span><span>
 </span><span id="line-211"></span><span>    </span><span class="annot"><span class="annottext">[Char] -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
@@ -715,7 +715,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-212"></span><span>      </span><span class="annot"><span class="annottext">Snapshot Tx -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679721571"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
+</span><a href="#local-6989586621679722411"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#isPrefixOf"><span class="hs-identifier hs-var">BS.isPrefixOf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
@@ -732,8 +732,8 @@ forall a.
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-215"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721608"><span class="annot"><span class="annottext">legacy :: ByteString
-</span><a href="#local-6989586621679721608"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-215"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722448"><span class="annot"><span class="annottext">legacy :: ByteString
+</span><a href="#local-6989586621679722448"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-216"></span><span>            </span><span class="annot"><span class="annottext">Encoding -&gt; ByteString
 </span><span class="hs-identifier hs-var">toStrictByteString</span></span><span> </span><span class="annot"><span class="annottext">(Encoding -&gt; ByteString) -&gt; Encoding -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -747,53 +747,53 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679721575"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621679722415"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-219"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679721577"><span class="hs-identifier hs-var">version</span></a></span><span>
+</span><a href="#local-6989586621679722417"><span class="hs-identifier hs-var">version</span></a></span><span>
 </span><span id="line-220"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621679721579"><span class="hs-identifier hs-var">number</span></a></span><span>
+</span><a href="#local-6989586621679722419"><span class="hs-identifier hs-var">number</span></a></span><span>
 </span><span id="line-221"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Tx] -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">[Tx]
-</span><a href="#local-6989586621679721581"><span class="hs-identifier hs-var">confirmed</span></a></span><span>
+</span><a href="#local-6989586621679722421"><span class="hs-identifier hs-var">confirmed</span></a></span><span>
 </span><span id="line-222"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679721583"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679722423"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-223"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
-</span><a href="#local-6989586621679721585"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span>
+</span><a href="#local-6989586621679722425"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span>
 </span><span id="line-224"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
-</span><a href="#local-6989586621679721587"><span class="hs-identifier hs-var">utxoToDecommit</span></a></span><span>
+</span><a href="#local-6989586621679722427"><span class="hs-identifier hs-var">utxoToDecommit</span></a></span><span>
 </span><span id="line-225"></span><span>      </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError (Snapshot Tx)
 forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
 </span><span class="hs-identifier hs-var">decodeFull'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721608"><span class="hs-identifier hs-var">legacy</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError (Snapshot Tx)
+</span><a href="#local-6989586621679722448"><span class="hs-identifier hs-var">legacy</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError (Snapshot Tx)
 -&gt; Either DecoderError (Snapshot Tx) -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx -&gt; Either DecoderError (Snapshot Tx)
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
-</span><a href="#local-6989586621679721571"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621679722411"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-226"></span><span>
 </span><span id="line-227"></span><span>  </span><span class="hs-comment">-- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'</span><span>
 </span><span id="line-228"></span><span>  </span><span class="hs-comment">-- between two released layouts, same situation as 'Snapshot' above.</span><span>
@@ -803,8 +803,8 @@ forall a. HasCallStack =&gt; [Char] -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-string">&quot;CoordinatedHeadState layouts&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-230"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721621"><span class="annot"><span class="annottext">chs :: CoordinatedHeadState Tx
-</span><a href="#local-6989586621679721621"><span class="hs-identifier hs-var hs-var">chs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (CoordinatedHeadState Tx) -&gt; Int -&gt; CoordinatedHeadState Tx
+</span><span id="line-230"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722461"><span class="annot"><span class="annottext">chs :: CoordinatedHeadState Tx
+</span><a href="#local-6989586621679722461"><span class="hs-identifier hs-var hs-var">chs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (CoordinatedHeadState Tx) -&gt; Int -&gt; CoordinatedHeadState Tx
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 -&gt; Gen (CoordinatedHeadState Tx) -&gt; Gen (CoordinatedHeadState Tx)
@@ -814,32 +814,32 @@ forall a. HasCallStack =&gt; Int -&gt; Gen a -&gt; Gen a
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
-</span><span id="line-231"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span class="hs-special">{</span><span id="local-6989586621679721623"><span class="annot"><span class="annottext">UTxOType Tx
+</span><span id="line-231"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">CoordinatedHeadState</span></span><span class="hs-special">{</span><span id="local-6989586621679722463"><span class="annot"><span class="annottext">UTxOType Tx
 localUTxO :: UTxOType Tx
 $sel:localUTxO:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; UTxOType tx
-</span><a href="#local-6989586621679721623"><span class="hs-identifier hs-var hs-var">localUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721625"><span class="annot"><span class="annottext">Seq Tx
+</span><a href="#local-6989586621679722463"><span class="hs-identifier hs-var hs-var">localUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722465"><span class="annot"><span class="annottext">Seq Tx
 localTxs :: Seq Tx
 $sel:localTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Seq tx
-</span><a href="#local-6989586621679721625"><span class="hs-identifier hs-var hs-var">localTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721627"><span class="annot"><span class="annottext">Map (TxIdType Tx) Tx
+</span><a href="#local-6989586621679722465"><span class="hs-identifier hs-var hs-var">localTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722467"><span class="annot"><span class="annottext">Map (TxIdType Tx) Tx
 allTxs :: Map (TxIdType Tx) Tx
 $sel:allTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Map (TxIdType tx) tx
-</span><a href="#local-6989586621679721627"><span class="hs-identifier hs-var hs-var">allTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721629"><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
+</span><a href="#local-6989586621679722467"><span class="hs-identifier hs-var hs-var">allTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722469"><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
 confirmedSnapshot :: ConfirmedSnapshot Tx
 $sel:confirmedSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; ConfirmedSnapshot tx
-</span><a href="#local-6989586621679721629"><span class="hs-identifier hs-var hs-var">confirmedSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721631"><span class="annot"><span class="annottext">SeenSnapshot Tx
+</span><a href="#local-6989586621679722469"><span class="hs-identifier hs-var hs-var">confirmedSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722471"><span class="annot"><span class="annottext">SeenSnapshot Tx
 seenSnapshot :: SeenSnapshot Tx
 $sel:seenSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SeenSnapshot tx
-</span><a href="#local-6989586621679721631"><span class="hs-identifier hs-var hs-var">seenSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721633"><span class="annot"><span class="annottext">Maybe (TxIdType Tx)
+</span><a href="#local-6989586621679722471"><span class="hs-identifier hs-var hs-var">seenSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722473"><span class="annot"><span class="annottext">Maybe (TxIdType Tx)
 currentDepositTxId :: Maybe (TxIdType Tx)
 $sel:currentDepositTxId:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (TxIdType tx)
-</span><a href="#local-6989586621679721633"><span class="hs-identifier hs-var hs-var">currentDepositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721635"><span class="annot"><span class="annottext">Maybe Tx
+</span><a href="#local-6989586621679722473"><span class="hs-identifier hs-var hs-var">currentDepositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722475"><span class="annot"><span class="annottext">Maybe Tx
 decommitTx :: Maybe Tx
 $sel:decommitTx:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe tx
-</span><a href="#local-6989586621679721635"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679721637"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679722475"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679722477"><span class="annot"><span class="annottext">SnapshotVersion
 version :: SnapshotVersion
 $sel:version:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SnapshotVersion
-</span><a href="#local-6989586621679721637"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx
-</span><a href="#local-6989586621679721621"><span class="hs-identifier hs-var">chs</span></a></span><span>
+</span><a href="#local-6989586621679722477"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx
+</span><a href="#local-6989586621679722461"><span class="hs-identifier hs-var">chs</span></a></span><span>
 </span><span id="line-232"></span><span>
 </span><span id="line-233"></span><span>    </span><span class="annot"><span class="annottext">[Char] -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
@@ -853,7 +853,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-234"></span><span>      </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx
-</span><a href="#local-6989586621679721621"><span class="hs-identifier hs-var">chs</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
+</span><a href="#local-6989586621679722461"><span class="hs-identifier hs-var">chs</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#isPrefixOf"><span class="hs-identifier hs-var">BS.isPrefixOf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
@@ -870,8 +870,8 @@ forall a.
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-237"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721663"><span class="annot"><span class="annottext">legacy :: ByteString
-</span><a href="#local-6989586621679721663"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-237"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722503"><span class="annot"><span class="annottext">legacy :: ByteString
+</span><a href="#local-6989586621679722503"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-238"></span><span>            </span><span class="annot"><span class="annottext">Encoding -&gt; ByteString
 </span><span class="hs-identifier hs-var">toStrictByteString</span></span><span> </span><span class="annot"><span class="annottext">(Encoding -&gt; ByteString) -&gt; Encoding -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -885,60 +885,60 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679721623"><span class="hs-identifier hs-var">localUTxO</span></a></span><span>
+</span><a href="#local-6989586621679722463"><span class="hs-identifier hs-var">localUTxO</span></a></span><span>
 </span><span id="line-241"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Seq Tx -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Seq Tx
-</span><a href="#local-6989586621679721625"><span class="hs-identifier hs-var">localTxs</span></a></span><span>
+</span><a href="#local-6989586621679722465"><span class="hs-identifier hs-var">localTxs</span></a></span><span>
 </span><span id="line-242"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxId Tx -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Map TxId Tx
-</span><a href="#local-6989586621679721627"><span class="hs-identifier hs-var">allTxs</span></a></span><span>
+</span><a href="#local-6989586621679722467"><span class="hs-identifier hs-var">allTxs</span></a></span><span>
 </span><span id="line-243"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
-</span><a href="#local-6989586621679721629"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
+</span><a href="#local-6989586621679722469"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
 </span><span id="line-244"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SeenSnapshot Tx -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SeenSnapshot Tx
-</span><a href="#local-6989586621679721631"><span class="hs-identifier hs-var">seenSnapshot</span></a></span><span>
+</span><a href="#local-6989586621679722471"><span class="hs-identifier hs-var">seenSnapshot</span></a></span><span>
 </span><span id="line-245"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe TxId -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Maybe TxId
-</span><a href="#local-6989586621679721633"><span class="hs-identifier hs-var">currentDepositTxId</span></a></span><span>
+</span><a href="#local-6989586621679722473"><span class="hs-identifier hs-var">currentDepositTxId</span></a></span><span>
 </span><span id="line-246"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Tx -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Maybe Tx
-</span><a href="#local-6989586621679721635"><span class="hs-identifier hs-var">decommitTx</span></a></span><span>
+</span><a href="#local-6989586621679722475"><span class="hs-identifier hs-var">decommitTx</span></a></span><span>
 </span><span id="line-247"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621679721637"><span class="hs-identifier hs-var">version</span></a></span><span>
+</span><a href="#local-6989586621679722477"><span class="hs-identifier hs-var">version</span></a></span><span>
 </span><span id="line-248"></span><span>      </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError (CoordinatedHeadState Tx)
 forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
 </span><span class="hs-identifier hs-var">decodeFull'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721663"><span class="hs-identifier hs-var">legacy</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError (CoordinatedHeadState Tx)
+</span><a href="#local-6989586621679722503"><span class="hs-identifier hs-var">legacy</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError (CoordinatedHeadState Tx)
 -&gt; Either DecoderError (CoordinatedHeadState Tx) -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx
 -&gt; Either DecoderError (CoordinatedHeadState Tx)
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState Tx
-</span><a href="#local-6989586621679721621"><span class="hs-identifier hs-var">chs</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">finalizedCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">finalizedDecommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621679722461"><span class="hs-identifier hs-var">chs</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">finalizedCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">finalizedDecommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-249"></span><span>
 </span><span id="line-250"></span><span>  </span><span class="hs-comment">-- 'NodeState' gained deposit lifecycle tracking between two released</span><span>
 </span><span id="line-251"></span><span>  </span><span class="hs-comment">-- layouts, same situation as 'Snapshot' above. The legacy layout carries a</span><span>
@@ -950,8 +950,8 @@ forall a. HasCallStack =&gt; [Char] -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-string">&quot;NodeState layouts&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-255"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721678"><span class="annot"><span class="annottext">nodeState :: NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (NodeState Tx) -&gt; Int -&gt; NodeState Tx
+</span><span id="line-255"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722518"><span class="annot"><span class="annottext">nodeState :: NodeState Tx
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen (NodeState Tx) -&gt; Int -&gt; NodeState Tx
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Gen (NodeState Tx) -&gt; Gen (NodeState Tx)
 forall a. HasCallStack =&gt; Int -&gt; Gen a -&gt; Gen a
@@ -973,23 +973,23 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-258"></span><span>      </span><span class="annot"><span class="annottext">NodeState Tx -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString -&gt; Bool) -&gt; Expectation
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; Expectation
-</span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679721679"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721679"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679722519"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679722519"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-259"></span><span>        </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#isPrefixOf"><span class="hs-identifier hs-var">BS.isPrefixOf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-identifier hs-var">nodeInSyncCBORTag</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721679"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679722519"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-260"></span><span>          </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%7C%7C"><span class="hs-operator hs-var">||</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#isPrefixOf"><span class="hs-identifier hs-var">BS.isPrefixOf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-identifier hs-var">nodeCatchingUpCBORTag</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721679"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679722519"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-261"></span><span>
 </span><span id="line-262"></span><span>    </span><span class="annot"><span class="annottext">[Char] -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
@@ -1000,8 +1000,8 @@ forall a.
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-263"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679721693"><span class="annot"><span class="annottext">legacy :: ByteString
-</span><a href="#local-6989586621679721693"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-263"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679722533"><span class="annot"><span class="annottext">legacy :: ByteString
+</span><a href="#local-6989586621679722533"><span class="hs-identifier hs-var hs-var">legacy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-264"></span><span>            </span><span class="annot"><span class="annottext">Encoding -&gt; ByteString
 </span><span class="hs-identifier hs-var">toStrictByteString</span></span><span> </span><span class="annot"><span class="annottext">(Encoding -&gt; ByteString) -&gt; Encoding -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -1017,7 +1017,7 @@ forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState Tx -&gt; HeadState Tx
 forall tx. NodeState tx -&gt; HeadState tx
 </span><span class="hs-identifier hs-var">headState</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-267"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxId (Deposit Tx) -&gt; Encoding
@@ -1025,7 +1025,7 @@ forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState Tx -&gt; PendingDeposits Tx
 forall tx. NodeState tx -&gt; PendingDeposits tx
 </span><span class="hs-identifier hs-var">pendingDeposits</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-268"></span><span>                </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointTime -&gt; Encoding
@@ -1033,11 +1033,11 @@ forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState Tx -&gt; ChainPointTime
 forall tx. NodeState tx -&gt; ChainPointTime
 </span><span class="hs-identifier hs-var">chainPointTime</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-269"></span><span>      </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError (NodeState Tx)
 forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
 </span><span class="hs-identifier hs-var">decodeFull'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679721693"><span class="hs-identifier hs-var">legacy</span></a></span><span>
+</span><a href="#local-6989586621679722533"><span class="hs-identifier hs-var">legacy</span></a></span><span>
 </span><span id="line-270"></span><span>        </span><span class="annot"><span class="annottext">Either DecoderError (NodeState Tx)
 -&gt; Either DecoderError (NodeState Tx) -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
@@ -1049,19 +1049,19 @@ forall a b. b -&gt; Either a b
 </span><span class="hs-identifier hs-var">headState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState Tx -&gt; HeadState Tx
 forall tx. NodeState tx -&gt; HeadState tx
 </span><span class="hs-identifier hs-var">headState</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span>
 </span><span id="line-273"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:deposits:NodeInSync :: TrackedDeposits Tx
 </span><span class="hs-identifier hs-var">deposits</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PendingDeposits Tx -&gt; TrackedDeposits Tx
 forall tx. PendingDeposits tx -&gt; TrackedDeposits tx
 </span><span class="hs-identifier hs-var">trackedFromPending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState Tx -&gt; PendingDeposits Tx
 forall tx. NodeState tx -&gt; PendingDeposits tx
 </span><span class="hs-identifier hs-var">pendingDeposits</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-274"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainPointTime:NodeInSync :: ChainPointTime
 </span><span class="hs-identifier hs-var">chainPointTime</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState Tx -&gt; ChainPointTime
 forall tx. NodeState tx -&gt; ChainPointTime
 </span><span class="hs-identifier hs-var">chainPointTime</span></span><span> </span><span class="annot"><span class="annottext">NodeState Tx
-</span><a href="#local-6989586621679721678"><span class="hs-identifier hs-var">nodeState</span></a></span><span>
+</span><a href="#local-6989586621679722518"><span class="hs-identifier hs-var">nodeState</span></a></span><span>
 </span><span id="line-275"></span><span>            </span><span class="hs-special">}</span><span>
 </span><span id="line-276"></span><span>
 </span><span id="line-277"></span><span>  </span><span class="annot"><span class="annottext">[Char] -&gt; Spec -&gt; Spec
@@ -1917,8 +1917,8 @@ forall a.
 </span><span id="line-390"></span><span class="annot"><a href="Hydra.CBORSpec.html#genGoldenNetworkIds"><span class="hs-identifier hs-type">genGoldenNetworkIds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span class="hs-special">]</span><span>
 </span><span id="line-391"></span><span id="genGoldenNetworkIds"><span class="annot"><span class="annottext">genGoldenNetworkIds :: Gen [NetworkId]
 </span><a href="Hydra.CBORSpec.html#genGoldenNetworkIds"><span class="hs-identifier hs-var hs-var">genGoldenNetworkIds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-392"></span><span>  </span><span id="local-6989586621679721701"><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679721701"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen NetworkMagic
+</span><span id="line-392"></span><span>  </span><span id="local-6989586621679722541"><span class="annot"><span class="annottext">NetworkMagic
+</span><a href="#local-6989586621679722541"><span class="hs-identifier hs-var">magic</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen NetworkMagic
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-393"></span><span>  </span><span class="annot"><span class="annottext">[NetworkId] -&gt; Gen [NetworkId]
@@ -1927,14 +1927,14 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Hydra.Cardano.Api.Mainnet</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkMagic -&gt; NetworkId
 </span><span class="hs-identifier hs-var">Testnet</span></span><span> </span><span class="annot"><span class="annottext">NetworkMagic
-</span><a href="#local-6989586621679721701"><span class="hs-identifier hs-var">magic</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679722541"><span class="hs-identifier hs-var">magic</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-394"></span><span>
 </span><span id="line-395"></span><span class="annot"><span class="hs-comment">-- | One sample per 'ChainPoint' constructor.</span></span><span>
 </span><span id="line-396"></span><span class="annot"><a href="Hydra.CBORSpec.html#genGoldenChainPoints"><span class="hs-identifier hs-type">genGoldenChainPoints</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">ChainPoint</span></span><span class="hs-special">]</span><span>
 </span><span id="line-397"></span><span id="genGoldenChainPoints"><span class="annot"><span class="annottext">genGoldenChainPoints :: Gen [ChainPoint]
 </span><a href="Hydra.CBORSpec.html#genGoldenChainPoints"><span class="hs-identifier hs-var hs-var">genGoldenChainPoints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-398"></span><span>  </span><span id="local-6989586621679721705"><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621679721705"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen ChainPoint
+</span><span id="line-398"></span><span>  </span><span id="local-6989586621679722545"><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621679722545"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen ChainPoint
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen ChainPoint -&gt; (ChainPoint -&gt; Bool) -&gt; Gen ChainPoint
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
@@ -1947,7 +1947,7 @@ forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ChainPoint
 </span><span class="hs-identifier hs-var">ChainPointAtGenesis</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621679721705"><span class="hs-identifier hs-var">point</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679722545"><span class="hs-identifier hs-var">point</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-400"></span><span>
 </span><span id="line-401"></span><span class="hs-comment">-- | One 'StateEvent' per 'StateChanged' constructor, in declaration order:</span><span>
 </span><span id="line-402"></span><span class="hs-comment">-- 'ToADTArbitrary' enumerates the constructors generically, so coverage of</span><span>
@@ -1957,10 +1957,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-406"></span><span class="annot"><a href="Hydra.CBORSpec.html#genGoldenStateEvents"><span class="hs-identifier hs-type">genGoldenStateEvents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">]</span><span>
 </span><span id="line-407"></span><span id="genGoldenStateEvents"><span class="annot"><span class="annottext">genGoldenStateEvents :: Gen [StateEvent Tx]
 </span><a href="Hydra.CBORSpec.html#genGoldenStateEvents"><span class="hs-identifier hs-var hs-var">genGoldenStateEvents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-408"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ADTArbitrary</span></span><span class="hs-special">{</span><span id="local-6989586621679721710"><span class="annot"><span class="annottext">[ConstructorArbitraryPair (StateChanged Tx)]
+</span><span id="line-408"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ADTArbitrary</span></span><span class="hs-special">{</span><span id="local-6989586621679722550"><span class="annot"><span class="annottext">[ConstructorArbitraryPair (StateChanged Tx)]
 adtCAPs :: [ConstructorArbitraryPair (StateChanged Tx)]
 adtCAPs :: forall a. ADTArbitrary a -&gt; [ConstructorArbitraryPair a]
-</span><a href="#local-6989586621679721710"><span class="hs-identifier hs-var hs-var">adtCAPs</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679722550"><span class="hs-identifier hs-var hs-var">adtCAPs</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int
 -&gt; Gen (ADTArbitrary (StateChanged Tx))
 -&gt; Gen (ADTArbitrary (StateChanged Tx))
 forall a. HasCallStack =&gt; Int -&gt; Gen a -&gt; Gen a
@@ -1988,23 +1988,23 @@ t a -&gt; (a -&gt; m b) -&gt; m (t b)
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[ConstructorArbitraryPair (StateChanged Tx)]
-</span><a href="#local-6989586621679721710"><span class="hs-identifier hs-var">adtCAPs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((EventId, ConstructorArbitraryPair (StateChanged Tx))
+</span><a href="#local-6989586621679722550"><span class="hs-identifier hs-var">adtCAPs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((EventId, ConstructorArbitraryPair (StateChanged Tx))
   -&gt; Gen (StateEvent Tx))
  -&gt; Gen [StateEvent Tx])
 -&gt; ((EventId, ConstructorArbitraryPair (StateChanged Tx))
     -&gt; Gen (StateEvent Tx))
 -&gt; Gen [StateEvent Tx]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679721713"><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679721713"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConstructorArbitraryPair</span></span><span class="hs-special">{</span><span id="local-6989586621679721715"><span class="annot"><span class="annottext">StateChanged Tx
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679722553"><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621679722553"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConstructorArbitraryPair</span></span><span class="hs-special">{</span><span id="local-6989586621679722555"><span class="annot"><span class="annottext">StateChanged Tx
 capArbitrary :: StateChanged Tx
 capArbitrary :: forall a. ConstructorArbitraryPair a -&gt; a
-</span><a href="#local-6989586621679721715"><span class="hs-identifier hs-var hs-var">capArbitrary</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679722555"><span class="hs-identifier hs-var hs-var">capArbitrary</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-410"></span><span>    </span><span class="annot"><span class="annottext">EventId -&gt; StateChanged Tx -&gt; UTCTime -&gt; StateEvent Tx
 forall tx. EventId -&gt; StateChanged tx -&gt; UTCTime -&gt; StateEvent tx
 </span><span class="hs-identifier hs-var">StateEvent</span></span><span> </span><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679721713"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged Tx
-</span><a href="#local-6989586621679721715"><span class="hs-identifier hs-var">capArbitrary</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; StateEvent Tx) -&gt; Gen UTCTime -&gt; Gen (StateEvent Tx)
+</span><a href="#local-6989586621679722553"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged Tx
+</span><a href="#local-6989586621679722555"><span class="hs-identifier hs-var">capArbitrary</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; StateEvent Tx) -&gt; Gen UTCTime -&gt; Gen (StateEvent Tx)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen UTCTime
 forall a. Arbitrary a =&gt; Gen a

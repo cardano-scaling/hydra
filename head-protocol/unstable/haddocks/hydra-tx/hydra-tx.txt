@@ -136,7 +136,12 @@ module Hydra.Tx.ContestationPeriod
 
 -- | A positive, non-zero number of seconds. Use <a>fromInteger</a> on
 --   positive literals, <a>fromEnum</a> via [1..] syntax or
---   <a>fromNominalDiffTime</a> to create values of unknown sign.
+--   <a>fromNominalDiffTime</a> to create values of unknown sign. NOTE:
+--   <a>FromJSON</a> is deliberately newtype-derived and therefore total:
+--   it also decodes the persisted event log, where a value an older node
+--   legitimately wrote has to stay decodable or the node could never start
+--   again. A configured period is validated at the configuration boundary
+--   instead, see <a>parseCardanoChainConfig</a>.
 newtype ContestationPeriod
 UnsafeContestationPeriod :: Natural -> ContestationPeriod
 
@@ -151,8 +156,20 @@ toNominalDiffTime :: ContestationPeriod -> NominalDiffTime
 toChain :: ContestationPeriod -> ContestationPeriod
 
 -- | Convert an on-chain contestation period to its off-chain
---   representation. NOTE: Does truncate to whole seconds.
-fromChain :: ContestationPeriod -> ContestationPeriod
+--   representation, accepting exactly the values <a>toChain</a> can
+--   produce: a positive whole number of seconds.
+--   
+--   The on-chain representation is a signed number of milliseconds and
+--   nothing constrains it, so an observed datum can carry a value this
+--   type cannot hold. Rejecting rather than rounding matters beyond the
+--   obvious underflow: the node decides whether to join a head by
+--   comparing this value against its own configuration, and then writes
+--   <a>toChain</a> of it back into the closing datum, which the head
+--   validator requires to equal what the opening datum held. A period that
+--   only survives the trip approximately would pass the comparison and
+--   then fail that equality forever, leaving a head that can never be
+--   closed.
+fromChain :: ContestationPeriod -> Either Text ContestationPeriod
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Real.Integral Hydra.Tx.ContestationPeriod.ContestationPeriod
@@ -346,18 +363,41 @@ instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes a => Data.String.IsString
 
 module Hydra.Tx.DepositPeriod
 
--- | A positive duration used as the deposit validity window. Nodes within
---   the same Head must configure identical values.
+-- | A non-negative duration used as the deposit validity window. Nodes
+--   within the same Head must configure identical values. Use
+--   <a>fromNominalDiffTime</a> to create values of unknown sign.
+--   
+--   NOTE: Zero is allowed, unlike <a>ContestationPeriod</a>: it means "no
+--   margin", degenerate but workable, and it is what a sub-second period
+--   truncates to. Sub-millisecond precision is not, see
+--   <a>fromNominalDiffTime</a>. NOTE: <a>FromJSON</a> is deliberately
+--   newtype-derived and therefore total, for the same reason as
+--   <a>ContestationPeriod</a>: it also decodes the persisted event log. A
+--   configured period is validated at the configuration boundary instead,
+--   see <a>parseCardanoChainConfig</a>.
 newtype DepositPeriod
 DepositPeriod :: NominalDiffTime -> DepositPeriod
 [$sel:toNominalDiffTime:DepositPeriod] :: DepositPeriod -> NominalDiffTime
+
+-- | Create a <a>DepositPeriod</a> from a <a>NominalDiffTime</a>, accepting
+--   exactly the durations that survive the on-chain encoding: a
+--   non-negative whole number of milliseconds.
+--   
+--   A negative duration would invert the deposit window. A finer-grained
+--   one would be written to the datum as a different period than the one
+--   configured, and the initiator would then not recognise its own head,
+--   consuming the seed and stranding the head output with no way to abort.
+fromNominalDiffTime :: MonadFail m => NominalDiffTime -> m DepositPeriod
 
 -- | Convert an off-chain deposit period to its on-chain representation.
 toChain :: DepositPeriod -> DepositPeriod
 
 -- | Convert an on-chain deposit period to its off-chain representation.
+--   The on-chain representation is a signed number of milliseconds with no
+--   sign constraint, so an observed datum can carry a negative value,
+--   which would invert the deposit window; such a period is rejected.
 --   NOTE: Truncates to whole milliseconds.
-fromChain :: DepositPeriod -> DepositPeriod
+fromChain :: DepositPeriod -> Either Text DepositPeriod
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.DepositPeriod.DepositPeriod
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.DepositPeriod.DepositPeriod
 instance GHC.Real.Real Hydra.Tx.DepositPeriod.DepositPeriod
@@ -1118,9 +1158,18 @@ data NotAnInitReason
 NoHeadOutput :: NotAnInitReason
 NotAHeadDatum :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
+InvalidContestationPeriodInDatum :: Text -> NotAnInitReason
+InvalidDepositPeriodInDatum :: Text -> NotAnInitReason
 NoSTFound :: NotAnInitReason
 NotAHeadPolicy :: NotAnInitReason
 NoTokensMinted :: NotAnInitReason
+
+-- | Whether the reason describes a transaction that really did mint this
+--   head's tokens but carries a datum the node cannot use, as opposed to a
+--   transaction that is simply not an init. Only the former is worth
+--   reporting: the latter fires for every unrelated transaction on the
+--   chain, and for every increment/decrement.
+isMalformedInit :: NotAnInitReason -> Bool
 
 -- | Identify a init tx by checking the output value for holding tokens
 --   that are valid head tokens (checked by seed + policy).
@@ -1130,6 +1179,7 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Init.InitObservation
 instance GHC.Generics.Generic Hydra.Tx.Init.InitObservation
 instance GHC.Classes.Eq Hydra.Tx.Init.InitObservation
 instance GHC.Show.Show Hydra.Tx.Init.InitObservation
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Init.NotAnInitReason
 instance GHC.Generics.Generic Hydra.Tx.Init.NotAnInitReason
 instance GHC.Classes.Eq Hydra.Tx.Init.NotAnInitReason
 instance GHC.Show.Show Hydra.Tx.Init.NotAnInitReason
@@ -1342,6 +1392,14 @@ FinalPartialFanout :: FanoutObservation -> HeadObservation
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
 
+-- | Like <a>observeHeadTx</a>, but also reports why a transaction that
+--   really did mint a head's tokens was rejected as an init (see
+--   <a>isMalformedInit</a>). There is nothing to act on in that case -
+--   hence the <a>HeadObservation</a> is unaffected - but it is worth
+--   logging, as the minting policy constrains none of the datum fields
+--   involved.
+observeHeadTxWithReason :: NetworkId -> UTxO -> Tx -> (HeadObservation, Maybe NotAnInitReason)
+
 -- | Data which can be observed from an <a>initTx</a>.
 data InitObservation
 InitObservation :: HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> InitObservation
@@ -1353,9 +1411,18 @@ data NotAnInitReason
 NoHeadOutput :: NotAnInitReason
 NotAHeadDatum :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
+InvalidContestationPeriodInDatum :: Text -> NotAnInitReason
+InvalidDepositPeriodInDatum :: Text -> NotAnInitReason
 NoSTFound :: NotAnInitReason
 NotAHeadPolicy :: NotAnInitReason
 NoTokensMinted :: NotAnInitReason
+
+-- | Whether the reason describes a transaction that really did mint this
+--   head's tokens but carries a datum the node cannot use, as opposed to a
+--   transaction that is simply not an init. Only the former is worth
+--   reporting: the latter fires for every unrelated transaction on the
+--   chain, and for every increment/decrement.
+isMalformedInit :: NotAnInitReason -> Bool
 
 -- | Identify a init tx by checking the output value for holding tokens
 --   that are valid head tokens (checked by seed + policy).

@@ -113,21 +113,21 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-46"></span><span>      </span><span id="local-6989586621679485344"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679485344"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey) -&gt; IO (VerificationKey PaymentKey)
+</span><span id="line-46"></span><span>      </span><span id="local-6989586621679486103"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679486103"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey) -&gt; IO (VerificationKey PaymentKey)
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey)
 </span><span class="hs-identifier hs-var">genVerificationKey</span></span><span>
-</span><span id="line-47"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679485345"><span class="annot"><span class="annottext">expected :: AddressInEra Era
-</span><a href="#local-6989586621679485345"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra Era
+</span><span id="line-47"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679486104"><span class="annot"><span class="annottext">expected :: AddressInEra Era
+</span><a href="#local-6989586621679486104"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra Era
 forall era.
 IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">testNetworkId</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679485344"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span>
-</span><span id="line-48"></span><span>          </span><span id="local-6989586621679485346"><span class="annot"><span class="annottext">plutusAddress :: Address
-</span><a href="#local-6989586621679485346"><span class="hs-identifier hs-var hs-var">plutusAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Credential -&gt; Maybe StakingCredential -&gt; Address
+</span><a href="#local-6989586621679486103"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span>
+</span><span id="line-48"></span><span>          </span><span id="local-6989586621679486105"><span class="annot"><span class="annottext">plutusAddress :: Address
+</span><a href="#local-6989586621679486105"><span class="hs-identifier hs-var hs-var">plutusAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Credential -&gt; Maybe StakingCredential -&gt; Address
 </span><span class="hs-identifier hs-var">Plutus.Address</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PubKeyHash -&gt; Credential
 </span><span class="hs-identifier hs-var">Plutus.PubKeyCredential</span></span><span> </span><span class="annot"><span class="annottext">(PubKeyHash -&gt; Credential) -&gt; PubKeyHash -&gt; Credential
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -137,7 +137,7 @@ forall keyrole.
 Key keyrole =&gt;
 VerificationKey keyrole -&gt; Hash keyrole
 </span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679485344"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
+</span><a href="#local-6989586621679486103"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-49"></span><span>      </span><span class="annot"><span class="annottext">forall era.
@@ -146,12 +146,12 @@ Network -&gt; Address -&gt; Maybe (AddressInEra era)
 </span><span class="hs-identifier hs-var">fromPlutusAddress</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; Network
 </span><span class="hs-identifier hs-var">toShelleyNetwork</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">testNetworkId</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Address
-</span><a href="#local-6989586621679485346"><span class="hs-identifier hs-var">plutusAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (AddressInEra Era) -&gt; Maybe (AddressInEra Era) -&gt; Expectation
+</span><a href="#local-6989586621679486105"><span class="hs-identifier hs-var">plutusAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (AddressInEra Era) -&gt; Maybe (AddressInEra Era) -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra Era -&gt; Maybe (AddressInEra Era)
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra Era
-</span><a href="#local-6989586621679485345"><span class="hs-identifier hs-var">expected</span></a></span><span>
+</span><a href="#local-6989586621679486104"><span class="hs-identifier hs-var">expected</span></a></span><span>
 </span><span id="line-50"></span><span>
 </span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
 forall a.
@@ -280,12 +280,12 @@ forall a. Maybe a -&gt; Bool
 </span><span id="line-72"></span><span class="annot"><span class="hs-comment">-- | An address whose payment credential hash is @n@ bytes (28 is well-formed).</span></span><span>
 </span><span id="line-73"></span><span class="annot"><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithPaymentHashOfLength"><span class="hs-identifier hs-type">addressWithPaymentHashOfLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Address</span></span><span>
 </span><span id="line-74"></span><span id="addressWithPaymentHashOfLength"><span class="annot"><span class="annottext">addressWithPaymentHashOfLength :: Int -&gt; Address
-</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithPaymentHashOfLength"><span class="hs-identifier hs-var hs-var">addressWithPaymentHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679485355"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485355"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithPaymentHashOfLength"><span class="hs-identifier hs-var hs-var">addressWithPaymentHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679486114"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679486114"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-75"></span><span>  </span><span class="annot"><span class="annottext">Credential -&gt; Maybe StakingCredential -&gt; Address
 </span><span class="hs-identifier hs-var">Plutus.Address</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Credential
 </span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#pubKeyCredentialOfLength"><span class="hs-identifier hs-var">pubKeyCredentialOfLength</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485355"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
+</span><a href="#local-6989586621679486114"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe StakingCredential
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-76"></span><span>
@@ -293,8 +293,8 @@ forall a. Maybe a
 </span><span id="line-78"></span><span class="hs-comment">-- hash of @n@ bytes (28 is well-formed).</span><span>
 </span><span id="line-79"></span><span class="annot"><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithStakingHashOfLength"><span class="hs-identifier hs-type">addressWithStakingHashOfLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Address</span></span><span>
 </span><span id="line-80"></span><span id="addressWithStakingHashOfLength"><span class="annot"><span class="annottext">addressWithStakingHashOfLength :: Int -&gt; Address
-</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithStakingHashOfLength"><span class="hs-identifier hs-var hs-var">addressWithStakingHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679485357"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485357"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#addressWithStakingHashOfLength"><span class="hs-identifier hs-var hs-var">addressWithStakingHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679486116"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679486116"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-81"></span><span>  </span><span class="annot"><span class="annottext">Credential -&gt; Maybe StakingCredential -&gt; Address
 </span><span class="hs-identifier hs-var">Plutus.Address</span></span><span>
 </span><span id="line-82"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Credential
@@ -313,12 +313,12 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Credential
 </span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#pubKeyCredentialOfLength"><span class="hs-identifier hs-var">pubKeyCredentialOfLength</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485357"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679486116"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-84"></span><span>
 </span><span id="line-85"></span><span class="annot"><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#pubKeyCredentialOfLength"><span class="hs-identifier hs-type">pubKeyCredentialOfLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Credential</span></span><span>
 </span><span id="line-86"></span><span id="pubKeyCredentialOfLength"><span class="annot"><span class="annottext">pubKeyCredentialOfLength :: Int -&gt; Credential
-</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#pubKeyCredentialOfLength"><span class="hs-identifier hs-var hs-var">pubKeyCredentialOfLength</span></a></span></span><span> </span><span id="local-6989586621679485360"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485360"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#pubKeyCredentialOfLength"><span class="hs-identifier hs-var hs-var">pubKeyCredentialOfLength</span></a></span></span><span> </span><span id="local-6989586621679486119"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679486119"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-87"></span><span>  </span><span class="annot"><span class="annottext">PubKeyHash -&gt; Credential
 </span><span class="hs-identifier hs-var">Plutus.PubKeyCredential</span></span><span> </span><span class="annot"><span class="annottext">(PubKeyHash -&gt; Credential)
 -&gt; (ByteString -&gt; PubKeyHash) -&gt; ByteString -&gt; Credential
@@ -334,7 +334,7 @@ forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; ByteString
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#replicate"><span class="hs-identifier hs-var">BS.replicate</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485360"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679486119"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-88"></span><span>
 </span><span id="line-89"></span><span class="annot"><span class="hs-comment">-- | A 'ScriptCredential' hash of 40 bytes instead of the required 28.</span></span><span>
@@ -352,8 +352,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-95"></span><span>
 </span><span id="line-96"></span><span class="annot"><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#scriptCredentialAddressOfLength"><span class="hs-identifier hs-type">scriptCredentialAddressOfLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Address</span></span><span>
 </span><span id="line-97"></span><span id="scriptCredentialAddressOfLength"><span class="annot"><span class="annottext">scriptCredentialAddressOfLength :: Int -&gt; Address
-</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#scriptCredentialAddressOfLength"><span class="hs-identifier hs-var hs-var">scriptCredentialAddressOfLength</span></a></span></span><span> </span><span id="local-6989586621679485365"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485365"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#scriptCredentialAddressOfLength"><span class="hs-identifier hs-var hs-var">scriptCredentialAddressOfLength</span></a></span></span><span> </span><span id="local-6989586621679486124"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679486124"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-98"></span><span>  </span><span class="annot"><span class="annottext">Credential -&gt; Maybe StakingCredential -&gt; Address
 </span><span class="hs-identifier hs-var">Plutus.Address</span></span><span>
 </span><span id="line-99"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptHash -&gt; Credential
@@ -371,7 +371,7 @@ forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; ByteString
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#replicate"><span class="hs-identifier hs-var">BS.replicate</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485365"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679486124"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
 </span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">Maybe StakingCredential
 forall a. Maybe a
@@ -401,8 +401,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-108"></span><span class="hs-comment">-- (32 is well-formed), isolating the datum hash as the only thing under test.</span><span>
 </span><span id="line-109"></span><span class="annot"><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#txOutWithDatumHashOfLength"><span class="hs-identifier hs-type">txOutWithDatumHashOfLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TxOut</span></span><span>
 </span><span id="line-110"></span><span id="txOutWithDatumHashOfLength"><span class="annot"><span class="annottext">txOutWithDatumHashOfLength :: Int -&gt; TxOut
-</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#txOutWithDatumHashOfLength"><span class="hs-identifier hs-var hs-var">txOutWithDatumHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679485370"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485370"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CardanoApiHashLengthSpec.html#txOutWithDatumHashOfLength"><span class="hs-identifier hs-var hs-var">txOutWithDatumHashOfLength</span></a></span></span><span> </span><span id="local-6989586621679486129"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679486129"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">Address -&gt; Value -&gt; OutputDatum -&gt; Maybe ScriptHash -&gt; TxOut
 </span><span class="hs-identifier hs-var">Plutus.TxOut</span></span><span>
 </span><span id="line-112"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Address
@@ -428,7 +428,7 @@ forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; ByteString
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#replicate"><span class="hs-identifier hs-var">BS.replicate</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679485370"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><a href="#local-6989586621679486129"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
 </span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">Maybe ScriptHash
 forall a. Maybe a

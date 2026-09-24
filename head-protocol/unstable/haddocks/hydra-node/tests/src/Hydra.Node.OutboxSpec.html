@@ -34,17 +34,17 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-21"></span><span>    </span><span class="hs-comment">-- The whole point: this is called from the node's only input-processing</span><span>
 </span><span id="line-22"></span><span>    </span><span class="hs-comment">-- thread, so it may not wait on anything.</span><span>
-</span><span id="line-23"></span><span>    </span><span id="local-6989586621679739941"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679739941"><span class="hs-identifier hs-var">submitted</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s Int) -&gt; IO Int
+</span><span id="line-23"></span><span>    </span><span id="local-6989586621679741052"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679741052"><span class="hs-identifier hs-var">submitted</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s Int) -&gt; IO Int
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s Int) -&gt; IO Int)
 -&gt; (forall s. IOSim s Int) -&gt; IO Int
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-24"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679739959"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-24"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741070"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 submit :: IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
-</span><a href="#local-6989586621679739959"><span class="hs-identifier hs-var hs-var">submit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
+</span><a href="#local-6989586621679741070"><span class="hs-identifier hs-var hs-var">submit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
 forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
@@ -62,7 +62,7 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679739959"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741070"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
@@ -72,7 +72,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">500</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679739941"><span class="hs-identifier hs-var">submitted</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
+</span><a href="#local-6989586621679741052"><span class="hs-identifier hs-var">submitted</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">500</span></span><span>
@@ -86,25 +86,25 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-30"></span><span>    </span><span id="local-6989586621679739963"><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621679739963"><span class="hs-identifier hs-var">performed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Int]) -&gt; IO [Int]
+</span><span id="line-30"></span><span>    </span><span id="local-6989586621679741074"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679741074"><span class="hs-identifier hs-var">performed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Int]) -&gt; IO [Int]
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Int]) -&gt; IO [Int])
 -&gt; (forall s. IOSim s [Int]) -&gt; IO [Int]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-31"></span><span>      </span><span id="local-6989586621679739983"><span class="annot"><span class="annottext">TVar s [Int]
-</span><a href="#local-6989586621679739983"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; IOSim s (TVar (IOSim s) [Int])
+</span><span id="line-31"></span><span>      </span><span id="local-6989586621679741094"><span class="annot"><span class="annottext">TVar s [Int]
+</span><a href="#local-6989586621679741094"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; IOSim s (TVar (IOSim s) [Int])
 forall a. a -&gt; IOSim s (TVar (IOSim s) a)
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-32"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679739984"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741095"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679739985"><span class="annot"><span class="annottext">IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741096"><span class="annot"><span class="annottext">IOSim s ()
 drainOutbox :: IOSim s ()
 $sel:drainOutbox:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m ()
-</span><a href="#local-6989586621679739985"><span class="hs-identifier hs-var hs-var">drainOutbox</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
+</span><a href="#local-6989586621679741096"><span class="hs-identifier hs-var hs-var">drainOutbox</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
 forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
@@ -120,9 +120,9 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><span class="hs-number">10</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IOSim s ()) -&gt; IOSim s ())
 -&gt; (Int -&gt; IOSim s ()) -&gt; IOSim s ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679739987"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679739987"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679739984"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM (IOSim s) () -&gt; IOSim s ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679741098"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679741098"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><a href="#local-6989586621679741095"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM (IOSim s) () -&gt; IOSim s ()
 forall a. HasCallStack =&gt; STM (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
@@ -136,20 +136,20 @@ MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Int]
 TVar s [Int]
-</span><a href="#local-6989586621679739983"><span class="hs-identifier hs-var">done</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; [Int]
+</span><a href="#local-6989586621679741094"><span class="hs-identifier hs-var">done</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; [Int]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679739987"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741098"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-34"></span><span>      </span><span class="annot"><span class="annottext">IOSim s ()
-</span><a href="#local-6989586621679739985"><span class="hs-identifier hs-var">drainOutbox</span></a></span><span>
+</span><a href="#local-6989586621679741096"><span class="hs-identifier hs-var">drainOutbox</span></a></span><span>
 </span><span id="line-35"></span><span>      </span><span class="annot"><span class="annottext">TVar (IOSim s) [Int] -&gt; IOSim s [Int]
 forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Int]
 TVar s [Int]
-</span><a href="#local-6989586621679739983"><span class="hs-identifier hs-var">done</span></a></span><span>
+</span><a href="#local-6989586621679741094"><span class="hs-identifier hs-var">done</span></a></span><span>
 </span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621679739963"><span class="hs-identifier hs-var">performed</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; IO ()
+</span><a href="#local-6989586621679741074"><span class="hs-identifier hs-var">performed</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int
@@ -164,8 +164,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-39"></span><span>    </span><span id="local-6989586621679739989"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679739989"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
+</span><span id="line-39"></span><span>    </span><span id="local-6989586621679741100"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741100"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural))
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s (Maybe (StallReason, Natural)))
@@ -174,10 +174,10 @@ forall a. (forall s. IOSim s a) -&gt; IO a
 -&gt; IO (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-40"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679739997"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span id="line-40"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741108"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679739997"><span class="hs-identifier hs-var hs-var">outboxStalled</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
+</span><a href="#local-6989586621679741108"><span class="hs-identifier hs-var hs-var">outboxStalled</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
 forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
@@ -189,9 +189,9 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">60</span></span><span>
 </span><span id="line-42"></span><span>      </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679739997"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><a href="#local-6989586621679741108"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679739989"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741100"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
@@ -207,9 +207,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-46"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679740000"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740000"><span class="hs-identifier hs-var">early</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740001"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740001"><span class="hs-identifier hs-var">late</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
+</span><span id="line-46"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679741111"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741111"><span class="hs-identifier hs-var">early</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741112"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741112"><span class="hs-identifier hs-var">late</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
  IOSim
    s (Maybe (StallReason, Natural), Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
@@ -245,7 +245,7 @@ StallBounds -&gt; (Outbox m -&gt; m a) -&gt; m a
 -&gt; IOSim
      s (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740016"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741127"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 </span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -253,33 +253,33 @@ outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">5</span></span><span>
-</span><span id="line-49"></span><span>        </span><span id="local-6989586621679740017"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740017"><span class="hs-identifier hs-var">early</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740016"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><span id="line-49"></span><span>        </span><span id="local-6989586621679741128"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741128"><span class="hs-identifier hs-var">early</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="#local-6989586621679741127"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-50"></span><span>        </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">10</span></span><span>
-</span><span id="line-51"></span><span>        </span><span id="local-6989586621679740018"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740018"><span class="hs-identifier hs-var">late</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740016"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><span id="line-51"></span><span>        </span><span id="local-6989586621679741129"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741129"><span class="hs-identifier hs-var">late</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="#local-6989586621679741127"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-52"></span><span>        </span><span class="annot"><span class="annottext">(Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 -&gt; IOSim
      s (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740017"><span class="hs-identifier hs-var">early</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740018"><span class="hs-identifier hs-var">late</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741128"><span class="hs-identifier hs-var">early</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741129"><span class="hs-identifier hs-var">late</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740000"><span class="hs-identifier hs-var">early</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741111"><span class="hs-identifier hs-var">early</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740001"><span class="hs-identifier hs-var">late</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741112"><span class="hs-identifier hs-var">late</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
@@ -300,8 +300,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-57"></span><span>    </span><span class="hs-comment">-- Regression test: measuring &quot;how long has the queue been non-empty&quot;</span><span>
 </span><span id="line-58"></span><span>    </span><span class="hs-comment">-- rather than &quot;how long since it last made progress&quot; reports a stall the</span><span>
 </span><span id="line-59"></span><span>    </span><span class="hs-comment">-- moment an idle node submits anything.</span><span>
-</span><span id="line-60"></span><span>    </span><span id="local-6989586621679740020"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740020"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
+</span><span id="line-60"></span><span>    </span><span id="local-6989586621679741131"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741131"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural))
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s (Maybe (StallReason, Natural)))
@@ -310,16 +310,16 @@ forall a. (forall s. IOSim s a) -&gt; IO a
 -&gt; IO (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-61"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740035"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-61"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741146"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740036"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741147"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
-</span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740037"><span class="annot"><span class="annottext">IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741148"><span class="annot"><span class="annottext">IOSim s ()
 runOutbox :: IOSim s ()
 $sel:runOutbox:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m ()
-</span><a href="#local-6989586621679740037"><span class="hs-identifier hs-var hs-var">runOutbox</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
+</span><a href="#local-6989586621679741148"><span class="hs-identifier hs-var hs-var">runOutbox</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
 forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
@@ -334,7 +334,7 @@ MonadAsync m =&gt;
 (String, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec-run&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">IOSim s ()
-</span><a href="#local-6989586621679740037"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
+</span><a href="#local-6989586621679741148"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
  -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; (Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; IOSim s (Maybe (StallReason, Natural))
@@ -345,15 +345,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">60</span></span><span>
-</span><span id="line-64"></span><span>        </span><span id="local-6989586621679740040"><span class="annot"><span class="annottext">TMVarDefault (IOSim s) ()
-</span><a href="#local-6989586621679740040"><span class="hs-identifier hs-var">blocked</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IOSim s (TMVar (IOSim s) ())
+</span><span id="line-64"></span><span>        </span><span id="local-6989586621679741151"><span class="annot"><span class="annottext">TMVarDefault (IOSim s) ()
+</span><a href="#local-6989586621679741151"><span class="hs-identifier hs-var">blocked</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IOSim s (TMVar (IOSim s) ())
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TMVar m a)
 </span><span class="hs-identifier hs-var">newLabelledEmptyTMVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec-blocked&quot;</span></span><span>
 </span><span id="line-65"></span><span>        </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740035"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM (IOSim s) () -&gt; IOSim s ()
+</span><a href="#local-6989586621679741146"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM (IOSim s) () -&gt; IOSim s ()
 forall a. HasCallStack =&gt; STM (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
@@ -365,11 +365,11 @@ forall a. TMVar (IOSim s) a -&gt; STM (IOSim s) a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">takeTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar (IOSim s) ()
 TMVarDefault (IOSim s) ()
-</span><a href="#local-6989586621679740040"><span class="hs-identifier hs-var">blocked</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741151"><span class="hs-identifier hs-var">blocked</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-66"></span><span>        </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740036"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><a href="#local-6989586621679741147"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740020"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741131"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
@@ -385,8 +385,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-70"></span><span>    </span><span id="local-6989586621679740042"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740042"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
+</span><span id="line-70"></span><span>    </span><span id="local-6989586621679741153"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741153"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural))
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s (Maybe (StallReason, Natural)))
@@ -395,13 +395,13 @@ forall a. (forall s. IOSim s a) -&gt; IO a
 -&gt; IO (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-71"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740056"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-71"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741167"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740057"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741168"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
-</span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740058"><span class="annot"><span class="annottext">IOSim s ()
+</span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741169"><span class="annot"><span class="annottext">IOSim s ()
 $sel:runOutbox:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m ()
 runOutbox :: IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">runOutbox</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
@@ -419,7 +419,7 @@ MonadAsync m =&gt;
 (String, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec-run&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">IOSim s ()
-</span><a href="#local-6989586621679740058"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
+</span><a href="#local-6989586621679741169"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
  -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; (Async (IOSim s) () -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; IOSim s (Maybe (StallReason, Natural))
@@ -438,7 +438,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-74"></span><span>          </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740056"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741167"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
@@ -447,9 +447,9 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">8</span></span><span>
 </span><span id="line-76"></span><span>        </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740057"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><a href="#local-6989586621679741168"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740042"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741153"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
@@ -468,8 +468,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-80"></span><span>    </span><span class="hs-comment">-- Regression test: resetting the progress clock on every submission rather</span><span>
 </span><span id="line-81"></span><span>    </span><span class="hs-comment">-- than only on submission into an empty queue would let a busy producer</span><span>
 </span><span id="line-82"></span><span>    </span><span class="hs-comment">-- mask a consumer that is not moving at all.</span><span>
-</span><span id="line-83"></span><span>    </span><span id="local-6989586621679740059"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740059"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621679741170"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741170"><span class="hs-identifier hs-var">stalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s (Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural))
 forall a. (forall s. IOSim s a) -&gt; IO a
 </span><a href="Test.Util.html#shouldRunInSim"><span class="hs-identifier hs-var">shouldRunInSim</span></a></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s (Maybe (StallReason, Natural)))
@@ -490,10 +490,10 @@ StallBounds -&gt; (Outbox m -&gt; m a) -&gt; m a
 -&gt; (Outbox (IOSim s) -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; IOSim s (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740072"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741183"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740073"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741184"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 </span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -509,7 +509,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-86"></span><span>          </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740072"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741183"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
@@ -518,9 +518,9 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">4</span></span><span>
 </span><span id="line-88"></span><span>        </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740073"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><a href="#local-6989586621679741184"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740059"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741170"><span class="hs-identifier hs-var">stalled</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
@@ -538,9 +538,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-92"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679740074"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740074"><span class="hs-identifier hs-var">atLimit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740075"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740075"><span class="hs-identifier hs-var">belowLimit</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
+</span><span id="line-92"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679741185"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741185"><span class="hs-identifier hs-var">atLimit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741186"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741186"><span class="hs-identifier hs-var">belowLimit</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
  IOSim
    s (Maybe (StallReason, Natural), Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
@@ -555,10 +555,10 @@ forall a. (forall s. IOSim s a) -&gt; IO a
 -&gt; IO (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-93"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740091"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-93"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741202"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740092"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741203"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 </span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
@@ -579,39 +579,39 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740091"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741202"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-95"></span><span>      </span><span id="local-6989586621679740093"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740093"><span class="hs-identifier hs-var">belowLimit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740092"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><span id="line-95"></span><span>      </span><span id="local-6989586621679741204"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741204"><span class="hs-identifier hs-var">belowLimit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="#local-6989586621679741203"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-96"></span><span>      </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740091"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741202"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-97"></span><span>      </span><span id="local-6989586621679740094"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740094"><span class="hs-identifier hs-var">atLimit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740092"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><span id="line-97"></span><span>      </span><span id="local-6989586621679741205"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741205"><span class="hs-identifier hs-var">atLimit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="#local-6989586621679741203"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-98"></span><span>      </span><span class="annot"><span class="annottext">(Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 -&gt; IOSim
      s (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740094"><span class="hs-identifier hs-var">atLimit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740093"><span class="hs-identifier hs-var">belowLimit</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741205"><span class="hs-identifier hs-var">atLimit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741204"><span class="hs-identifier hs-var">belowLimit</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-99"></span><span>    </span><span class="hs-comment">-- The bound is inclusive, and nothing has been given time to stall.</span><span>
 </span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740075"><span class="hs-identifier hs-var">belowLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741186"><span class="hs-identifier hs-var">belowLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740074"><span class="hs-identifier hs-var">atLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741185"><span class="hs-identifier hs-var">atLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
@@ -632,9 +632,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-104"></span><span>    </span><span class="hs-comment">-- The two 'StallBounds' limbs are different conditions (see</span><span>
 </span><span id="line-105"></span><span>    </span><span class="hs-comment">-- 'StallReason'): a fast burst that fills 'maxPending' immediately is not</span><span>
 </span><span id="line-106"></span><span>    </span><span class="hs-comment">-- the same as a consumer that has stopped moving entirely.</span><span>
-</span><span id="line-107"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679740096"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740096"><span class="hs-identifier hs-var">backlogFull</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740097"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740097"><span class="hs-identifier hs-var">noProgress</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
+</span><span id="line-107"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679741207"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741207"><span class="hs-identifier hs-var">backlogFull</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741208"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741208"><span class="hs-identifier hs-var">noProgress</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(forall s.
  IOSim
    s (Maybe (StallReason, Natural), Maybe (StallReason, Natural)))
 -&gt; IO (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
@@ -649,12 +649,12 @@ forall a. (forall s. IOSim s a) -&gt; IO a
 -&gt; IO (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-108"></span><span>      </span><span id="local-6989586621679740117"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740117"><span class="hs-identifier hs-var">full</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-109"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740118"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
+</span><span id="line-108"></span><span>      </span><span id="local-6989586621679741228"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741228"><span class="hs-identifier hs-var">full</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741229"><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: IOSim s () -&gt; IOSim s ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740119"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741230"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 </span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; IOSim s (Outbox (IOSim s))
@@ -675,14 +675,14 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOSim s () -&gt; IOSim s ()
-</span><a href="#local-6989586621679740118"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
+</span><a href="#local-6989586621679741229"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IOSim s ()
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-111"></span><span>        </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740119"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
-</span><span id="line-112"></span><span>      </span><span id="local-6989586621679740120"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740120"><span class="hs-identifier hs-var">stuck</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds
+</span><a href="#local-6989586621679741230"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><span id="line-112"></span><span>      </span><span id="local-6989586621679741231"><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741231"><span class="hs-identifier hs-var">stuck</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds
 -&gt; (Outbox (IOSim s) -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; IOSim s (Maybe (StallReason, Natural))
 forall (m :: * -&gt; *) a.
@@ -694,7 +694,7 @@ StallBounds -&gt; (Outbox m -&gt; m a) -&gt; m a
 -&gt; (Outbox (IOSim s) -&gt; IOSim s (Maybe (StallReason, Natural)))
 -&gt; IOSim s (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740121"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741232"><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
 $sel:outboxStalled:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
 outboxStalled :: IOSim s (Maybe (StallReason, Natural))
 </span><span class="hs-identifier hs-var hs-var">outboxStalled</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -703,17 +703,17 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">11</span></span><span>
 </span><span id="line-114"></span><span>        </span><span class="annot"><span class="annottext">IOSim s (Maybe (StallReason, Natural))
-</span><a href="#local-6989586621679740121"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
+</span><a href="#local-6989586621679741232"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span>
 </span><span id="line-115"></span><span>      </span><span class="annot"><span class="annottext">(Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 -&gt; IOSim
      s (Maybe (StallReason, Natural), Maybe (StallReason, Natural))
 forall a. a -&gt; IOSim s a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740117"><span class="hs-identifier hs-var">full</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740120"><span class="hs-identifier hs-var">stuck</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741228"><span class="hs-identifier hs-var">full</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741231"><span class="hs-identifier hs-var">stuck</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740096"><span class="hs-identifier hs-var">backlogFull</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741207"><span class="hs-identifier hs-var">backlogFull</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
@@ -722,7 +722,7 @@ forall a. a -&gt; Maybe a
 </span><span class="hs-identifier hs-var">BacklogFull</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">3</span></span><span class="hs-special">)</span><span>
 </span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
-</span><a href="#local-6989586621679740097"><span class="hs-identifier hs-var">noProgress</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679741208"><span class="hs-identifier hs-var">noProgress</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; Maybe (StallReason, Natural) -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
@@ -733,22 +733,22 @@ forall a. a -&gt; Maybe a
 </span><span id="line-118"></span><span>
 </span><span id="line-119"></span><span class="hs-comment">-- | Run an outbox whose single submitted action never completes, which is what</span><span>
 </span><span id="line-120"></span><span class="hs-comment">-- a network that cannot deliver looks like from here.</span><span>
-</span><span id="line-121"></span><span id="local-6989586621679739750"><span id="local-6989586621679739751"><span class="annot"><a href="Hydra.Node.OutboxSpec.html#withStuckOutbox"><span class="hs-identifier hs-type">withStuckOutbox</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-122"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadMonotonicTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-121"></span><span id="local-6989586621679740861"><span id="local-6989586621679740862"><span class="annot"><a href="Hydra.Node.OutboxSpec.html#withStuckOutbox"><span class="hs-identifier hs-type">withStuckOutbox</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadMonotonicTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-123"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">StallBounds</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-124"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span> </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679739751"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-125"></span><span>  </span><span class="annot"><a href="#local-6989586621679739750"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679739751"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span> </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679740862"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><a href="#local-6989586621679740861"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679740862"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
 </span><span id="line-126"></span><span id="withStuckOutbox"><span class="annot"><span class="annottext">withStuckOutbox :: forall (m :: * -&gt; *) a.
 (MonadAsync m, MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; (Outbox m -&gt; m a) -&gt; m a
-</span><a href="Hydra.Node.OutboxSpec.html#withStuckOutbox"><span class="hs-identifier hs-var hs-var">withStuckOutbox</span></a></span></span><span> </span><span id="local-6989586621679740140"><span class="annot"><span class="annottext">StallBounds
-</span><a href="#local-6989586621679740140"><span class="hs-identifier hs-var">stallBounds</span></a></span></span><span> </span><span id="local-6989586621679740141"><span class="annot"><span class="annottext">Outbox m -&gt; m a
-</span><a href="#local-6989586621679740141"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-127"></span><span>  </span><span id="local-6989586621679740142"><span class="annot"><span class="annottext">outbox :: Outbox m
-</span><a href="#local-6989586621679740142"><span class="hs-identifier hs-var">outbox</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679740143"><span class="annot"><span class="annottext">m () -&gt; m ()
+</span><a href="Hydra.Node.OutboxSpec.html#withStuckOutbox"><span class="hs-identifier hs-var hs-var">withStuckOutbox</span></a></span></span><span> </span><span id="local-6989586621679741251"><span class="annot"><span class="annottext">StallBounds
+</span><a href="#local-6989586621679741251"><span class="hs-identifier hs-var">stallBounds</span></a></span></span><span> </span><span id="local-6989586621679741252"><span class="annot"><span class="annottext">Outbox m -&gt; m a
+</span><a href="#local-6989586621679741252"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-127"></span><span>  </span><span id="local-6989586621679741253"><span class="annot"><span class="annottext">outbox :: Outbox m
+</span><a href="#local-6989586621679741253"><span class="hs-identifier hs-var">outbox</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Outbox</span></span><span class="hs-special">{</span><span id="local-6989586621679741254"><span class="annot"><span class="annottext">m () -&gt; m ()
 $sel:submit:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
 submit :: m () -&gt; m ()
-</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679740144"><span class="annot"><span class="annottext">m ()
+</span><span class="hs-identifier hs-var hs-var">submit</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679741255"><span class="annot"><span class="annottext">m ()
 $sel:runOutbox:Outbox :: forall (m :: * -&gt; *). Outbox m -&gt; m ()
 runOutbox :: m ()
 </span><span class="hs-identifier hs-var hs-var">runOutbox</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StallBounds -&gt; String -&gt; m (Outbox m)
@@ -756,7 +756,7 @@ forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
 </span><span class="hs-identifier hs-var">newOutbox</span></span><span> </span><span class="annot"><span class="annottext">StallBounds
-</span><a href="#local-6989586621679740140"><span class="hs-identifier hs-var">stallBounds</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679741251"><span class="hs-identifier hs-var">stallBounds</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec&quot;</span></span><span>
 </span><span id="line-128"></span><span>  </span><span class="annot"><span class="annottext">(String, m ()) -&gt; (Async m () -&gt; m a) -&gt; m a
 forall (m :: * -&gt; *) a b.
@@ -764,19 +764,19 @@ MonadAsync m =&gt;
 (String, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec-run&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679740144"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async m () -&gt; m a) -&gt; m a) -&gt; (Async m () -&gt; m a) -&gt; m a
+</span><a href="#local-6989586621679741255"><span class="hs-identifier hs-var">runOutbox</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async m () -&gt; m a) -&gt; m a) -&gt; (Async m () -&gt; m a) -&gt; m a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Async m ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-129"></span><span>    </span><span id="local-6989586621679740145"><span class="annot"><span class="annottext">TMVar m ()
-</span><a href="#local-6989586621679740145"><span class="hs-identifier hs-var">blocked</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TMVar m ())
+</span><span id="line-129"></span><span>    </span><span id="local-6989586621679741256"><span class="annot"><span class="annottext">TMVar m ()
+</span><a href="#local-6989586621679741256"><span class="hs-identifier hs-var">blocked</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TMVar m ())
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TMVar m a)
 </span><span class="hs-identifier hs-var">newLabelledEmptyTMVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;outbox-spec-blocked&quot;</span></span><span>
 </span><span id="line-130"></span><span>    </span><span class="annot"><span class="annottext">m () -&gt; m ()
-</span><a href="#local-6989586621679740143"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+</span><a href="#local-6989586621679741254"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
@@ -787,8 +787,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. TMVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">takeTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar m ()
-</span><a href="#local-6989586621679740145"><span class="hs-identifier hs-var">blocked</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679741256"><span class="hs-identifier hs-var">blocked</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-131"></span><span>    </span><span class="annot"><span class="annottext">Outbox m -&gt; m a
-</span><a href="#local-6989586621679740141"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Outbox m
-</span><a href="#local-6989586621679740142"><span class="hs-identifier hs-var">outbox</span></a></span><span>
+</span><a href="#local-6989586621679741252"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Outbox m
+</span><a href="#local-6989586621679741253"><span class="hs-identifier hs-var">outbox</span></a></span><span>
 </span><span id="line-132"></span></pre></body></html>

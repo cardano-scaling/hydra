@@ -1,0 +1,282 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.DepositPeriodSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Ratio.html"><span class="hs-identifier">Data.Ratio</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%25"><span class="hs-operator">(%)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier">fromJust</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">txOuts'</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Data.DepositPeriod</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">OnChain</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.Init.html"><span class="hs-identifier">Hydra.Tx.Contract.Init</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier">healthyInitTx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.DepositPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">DepositPeriod</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromChain</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromNominalDiffTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toChain</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Init</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NotAnInitReason</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">observeInitTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V1.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">DiffMilliSeconds</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Spec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">describe</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">it</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">shouldBe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">prop</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Mutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Mutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChangeOutput</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">applyMutation</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">modifyInlineDatum</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">replaceOnChainDepositPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Positive</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getPositive</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(===)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances.Time</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="annot"><a href="Hydra.Tx.DepositPeriodSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-22"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-comment">-- NOTE: Zero is deliberately accepted throughout, unlike</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-comment">-- 'Hydra.Tx.ContestationPeriod': it is what a sub-second period truncates to</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-comment">-- (see 'Hydra.Cluster.Util.truncatedDepositPeriod'). Only a negative period is</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-comment">-- rejected, as it would invert the deposit window.</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fromNominalDiffTime&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;works for a zero diff time&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-29"></span><span>      </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe DepositPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m DepositPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Maybe DepositPeriod -&gt; Maybe DepositPeriod -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod -&gt; Maybe DepositPeriod
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
+</span><span class="hs-identifier hs-var">DepositPeriod</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fails for negative diff times&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive NominalDiffTime -&gt; Bool) -&gt; Spec)
+-&gt; (Positive NominalDiffTime -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">Maybe DepositPeriod -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isNothing"><span class="hs-identifier hs-var">isNothing</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe DepositPeriod -&gt; Bool)
+-&gt; (Positive NominalDiffTime -&gt; Maybe DepositPeriod)
+-&gt; Positive NominalDiffTime
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe DepositPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m DepositPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; Maybe DepositPeriod)
+-&gt; (Positive NominalDiffTime -&gt; NominalDiffTime)
+-&gt; Positive NominalDiffTime
+-&gt; Maybe DepositPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#negate"><span class="hs-identifier hs-var">negate</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; NominalDiffTime)
+-&gt; (Positive NominalDiffTime -&gt; NominalDiffTime)
+-&gt; Positive NominalDiffTime
+-&gt; NominalDiffTime
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive NominalDiffTime -&gt; NominalDiffTime
+forall a. Positive a -&gt; a
+</span><span class="hs-identifier hs-var">getPositive</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-comment">-- 'toChain' records whole milliseconds, so a finer value would reach the</span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-comment">-- datum as a different period and the initiator would not recognise its own</span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-comment">-- head. Companion to the same rule on 'Hydra.Tx.ContestationPeriod'.</span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fails for sub-millisecond diff times&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-38"></span><span>      </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe DepositPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m DepositPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">0.0005</span></span><span> </span><span class="annot"><span class="annottext">Maybe DepositPeriod -&gt; Maybe DepositPeriod -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe DepositPeriod
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive Integer -&gt; Property) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;works for whole milliseconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive Integer -&gt; Property) -&gt; Spec)
+-&gt; (Positive Integer -&gt; Property) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621679500056"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679500056"><span class="hs-identifier hs-var">ms</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-41"></span><span>      </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Maybe DepositPeriod
+forall (m :: * -&gt; *).
+MonadFail m =&gt;
+NominalDiffTime -&gt; m DepositPeriod
+</span><span class="hs-identifier hs-var">fromNominalDiffTime</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Rational -&gt; NominalDiffTime
+forall a. Fractional a =&gt; Rational -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromRational"><span class="hs-identifier hs-var">fromRational</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679500056"><span class="hs-identifier hs-var">ms</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Rational
+forall a. Integral a =&gt; a -&gt; a -&gt; Ratio a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%25"><span class="hs-operator hs-var">%</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1000</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>        </span><span class="annot"><span class="annottext">Maybe DepositPeriod -&gt; Maybe DepositPeriod -&gt; Property
+forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
+</span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod -&gt; Maybe DepositPeriod
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
+</span><span class="hs-identifier hs-var">DepositPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Rational -&gt; NominalDiffTime
+forall a. Fractional a =&gt; Rational -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromRational"><span class="hs-identifier hs-var">fromRational</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679500056"><span class="hs-identifier hs-var">ms</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Rational
+forall a. Integral a =&gt; a -&gt; a -&gt; Ratio a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%25"><span class="hs-operator hs-var">%</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1000</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-comment">-- Unlike 'Hydra.Tx.ContestationPeriod', this one wraps a signed</span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-comment">-- 'NominalDiffTime', so a negative on-chain value cannot underflow. It is</span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-comment">-- rejected all the same: the head minting policy does not constrain the field,</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-comment">-- and an inverted deposit window is not one any node agreed to. Companion to</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-comment">-- GHSA-jx3f-q6r3-833f.</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;fromChain&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (DepositPeriod -&gt; Property) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;roundtrips toChain&quot;</span></span><span> </span><span class="annot"><span class="annottext">((DepositPeriod -&gt; Property) -&gt; Spec)
+-&gt; (DepositPeriod -&gt; Property) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679500057"><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="#local-6989586621679500057"><span class="hs-identifier hs-var">dp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-51"></span><span>      </span><span class="annot"><span class="annottext">DepositPeriod -&gt; Either Text DepositPeriod
+</span><span class="hs-identifier hs-var">fromChain</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositPeriod -&gt; DepositPeriod
+</span><span class="hs-identifier hs-var">toChain</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="#local-6989586621679500057"><span class="hs-identifier hs-var">dp</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either Text DepositPeriod -&gt; Either Text DepositPeriod -&gt; Property
+forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
+</span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">DepositPeriod -&gt; Either Text DepositPeriod
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="#local-6989586621679500057"><span class="hs-identifier hs-var">dp</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; (Positive Integer -&gt; Bool) -&gt; Spec
+forall prop.
+(HasCallStack, Testable prop) =&gt;
+String -&gt; prop -&gt; Spec
+</span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rejects negative on-chain values&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Positive Integer -&gt; Bool) -&gt; Spec)
+-&gt; (Positive Integer -&gt; Bool) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621679500058"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679500058"><span class="hs-identifier hs-var">ms</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-54"></span><span>      </span><span class="annot"><span class="annottext">Either Text DepositPeriod -&gt; Bool
+forall a b. Either a b -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isLeft"><span class="hs-identifier hs-var">isLeft</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositPeriod -&gt; Either Text DepositPeriod
+</span><span class="hs-identifier hs-var">fromChain</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; DepositPeriod
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#onChainMilliseconds"><span class="hs-identifier hs-var">onChainMilliseconds</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#negate"><span class="hs-identifier hs-var">negate</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679500058"><span class="hs-identifier hs-var">ms</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;observeInitTx&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;rejects an Init tx whose OpenDatum carries a negative deposit period&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecM (Arg Expectation) ())
+-&gt; Expectation -&gt; SpecM (Arg Expectation) ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-58"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679500061"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679500061"><span class="hs-identifier hs-var">mutatedTx</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#negativeDepositPeriodInitTx"><span class="hs-identifier hs-var">negativeDepositPeriodInitTx</span></a></span><span>
+</span><span id="line-59"></span><span>      </span><span class="annot"><span class="annottext">Tx -&gt; Either NotAnInitReason InitObservation
+</span><span class="hs-identifier hs-var">observeInitTx</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679500061"><span class="hs-identifier hs-var">mutatedTx</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="annot"><span class="annottext">Either NotAnInitReason InitObservation
+-&gt; Either NotAnInitReason InitObservation -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">NotAnInitReason -&gt; Either NotAnInitReason InitObservation
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; NotAnInitReason
+</span><span class="hs-identifier hs-var">InvalidDepositPeriodInDatum</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;deposit period is negative: -1000ms&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Hydra.Tx.DepositPeriodSpec.html#onChainMilliseconds"><span class="hs-identifier hs-type">onChainMilliseconds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.DepositPeriod</span></span><span>
+</span><span id="line-63"></span><span id="onChainMilliseconds"><span class="annot"><span class="annottext">onChainMilliseconds :: Integer -&gt; DepositPeriod
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#onChainMilliseconds"><span class="hs-identifier hs-var hs-var">onChainMilliseconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DiffMilliSeconds -&gt; DepositPeriod
+</span><span class="hs-identifier hs-var">OnChain.UnsafeDepositPeriod</span></span><span> </span><span class="annot"><span class="annottext">(DiffMilliSeconds -&gt; DepositPeriod)
+-&gt; (Integer -&gt; DiffMilliSeconds) -&gt; Integer -&gt; DepositPeriod
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; DiffMilliSeconds
+</span><span class="hs-identifier hs-var">DiffMilliSeconds</span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><a href="Hydra.Tx.DepositPeriodSpec.html#negativeDepositPeriodInitTx"><span class="hs-identifier hs-type">negativeDepositPeriodInitTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span id="negativeDepositPeriodInitTx"><span class="annot"><span class="annottext">negativeDepositPeriodInitTx :: (Tx, UTxO)
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#negativeDepositPeriodInitTx"><span class="hs-identifier hs-var hs-var">negativeDepositPeriodInitTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">Mutation -&gt; (Tx, UTxO) -&gt; (Tx, UTxO)
+</span><span class="hs-identifier hs-var">applyMutation</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx -&gt; Mutation
+</span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679500066"><span class="hs-identifier hs-var">mutatedHeadTxOut</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier hs-var">healthyInitTx</span></a></span><span>
+</span><span id="line-68"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679500067"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679500067"><span class="hs-identifier hs-var">healthyTx</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier hs-var">healthyInitTx</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679500066"><span class="annot"><span class="annottext">mutatedHeadTxOut :: TxOut CtxTx
+</span><a href="#local-6989586621679500066"><span class="hs-identifier hs-var hs-var">mutatedHeadTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+forall a.
+(FromScriptData a, ToScriptData a) =&gt;
+(a -&gt; a) -&gt; TxOut CtxTx -&gt; TxOut CtxTx
+</span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositPeriod -&gt; State -&gt; State
+</span><span class="hs-identifier hs-var">replaceOnChainDepositPeriod</span></span><span> </span><span class="annot"><span class="annottext">(DepositPeriod -&gt; State -&gt; State)
+-&gt; DepositPeriod -&gt; State -&gt; State
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; DepositPeriod
+</span><a href="Hydra.Tx.DepositPeriodSpec.html#onChainMilliseconds"><span class="hs-identifier hs-var">onChainMilliseconds</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-</span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">1000</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx
+</span><a href="#local-6989586621679500074"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679500074"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx
+</span><a href="#local-6989586621679500074"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
+forall a. HasCallStack =&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier hs-var">fromJust</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (TxOut CtxTx) -&gt; TxOut CtxTx)
+-&gt; Maybe (TxOut CtxTx) -&gt; TxOut CtxTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx]
+forall era. Tx era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679500067"><span class="hs-identifier hs-var">healthyTx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx] -&gt; Int -&gt; Maybe (TxOut CtxTx)
+forall a. [a] -&gt; Int -&gt; Maybe a
+</span><span class="hs-operator hs-var">!!?</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-75"></span></pre></body></html>

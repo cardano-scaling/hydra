@@ -5436,6 +5436,13 @@ BlockfrostTransientError :: Text -> Int -> CardanoChainLog
 [$sel:retryDelay:ToPost] :: CardanoChainLog -> Int
 PartialFanoutFailed :: Text -> CardanoChainLog
 [$sel:reason:ToPost] :: CardanoChainLog -> Text
+
+-- | A transaction minted a head's tokens but carries a datum this node
+--   cannot use, so it was not observed as an init. The head minting policy
+--   constrains none of the datum fields involved.
+ObservedMalformedInitTx :: TxId -> NotAnInitReason -> CardanoChainLog
+[$sel:txId:ToPost] :: CardanoChainLog -> TxId
+[$sel:notAnInitReason:ToPost] :: CardanoChainLog -> NotAnInitReason
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException
@@ -5571,6 +5578,11 @@ defaultDepositActivation :: DepositPeriod
 -- | Default options as they should also be provided by
 --   <a>runOptionsParser</a>.
 defaultRunOptions :: RunOptions
+
+-- | Unlike <a>fromNominalDiffTime</a>, any precision is accepted: the
+--   activation is only compared against the chain time and never recorded
+--   in a datum on its own, so only a negative one is rejected.
+depositActivationFromNominalDiffTime :: MonadFail m => NominalDiffTime -> m DepositPeriod
 
 -- | Validate cmd line arguments for hydra-node and check if they make
 --   sense before actually running the node. Rules we apply: - Check if

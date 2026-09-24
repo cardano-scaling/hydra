@@ -56,9 +56,6 @@ wrongLengthTxOutRef :: TxOutRef
 --   isolating the datum hash as the only thing under test.
 txOutWithDatumHashOfLength :: Int -> TxOut
 
-module Hydra.Tx.ContestationPeriodSpec
-spec :: Spec
-
 module Hydra.Tx.Contract.Close.Healthy
 healthySeed :: Int
 healthyUTxO :: UTxO
@@ -1340,6 +1337,11 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.Init.ObserveInitMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Init.ObserveInitMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Init.ObserveInitMutation
 
+module Hydra.Tx.ContestationPeriodSpec
+spec :: Spec
+onChainMilliseconds :: Integer -> ContestationPeriod
+negativeContestationPeriodInitTx :: (Tx, UTxO)
+
 module Hydra.Tx.Contract.PartialFanout
 scriptRegistry :: ScriptRegistry
 
@@ -1563,6 +1565,11 @@ prop_consistentOnAndOffChainHashOfTxOuts :: Property
 prop_consistentHashPreSerializedCommits :: Property
 prop_hashingCaresAboutOrderingOfTxOuts :: Property
 prop_verifySnapshotSignatures :: Property
+
+module Hydra.Tx.DepositPeriodSpec
+spec :: Spec
+onChainMilliseconds :: Integer -> DepositPeriod
+negativeDepositPeriodInitTx :: (Tx, UTxO)
 
 module Hydra.Tx.HeadIdSpec
 spec :: Spec
