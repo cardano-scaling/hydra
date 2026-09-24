@@ -347,3 +347,9 @@ confirmedSignatures :: ConfirmedSnapshot tx -> MultiSignature (Snapshot tx)
 confirmedSignatures = \case
   InitialSnapshot{} -> mempty
   ConfirmedSnapshot{signatures} -> signatures
+
+-- | Whether the snapshot carries a commit or decommit that settles on-chain
+-- with an increment or decrement, bumping the head version.
+hasPendingAction :: Snapshot tx -> Bool
+hasPendingAction Snapshot{utxoToCommit, utxoToDecommit} =
+  isJust utxoToCommit || isJust utxoToDecommit

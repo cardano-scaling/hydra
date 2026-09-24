@@ -40,6 +40,7 @@ import Hydra.Chain.Direct.Handlers (incrementTxBalancingMargin, rejectOversizedD
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
+  CloseTxError (..),
   ClosedState (..),
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
@@ -47,6 +48,7 @@ import Hydra.Chain.Direct.State (
   OpenState (..),
   PartialFanoutError (..),
   RecoverTxError (..),
+  close,
   finalPartialFanout,
   getKnownUTxO,
   increment,
@@ -62,7 +64,7 @@ import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
 import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Tx (ConfirmedSnapshot (..), txInToHeadSeed)
+import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, getSnapshot, hasPendingAction, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
@@ -114,6 +116,7 @@ import Test.Hydra.Chain.Direct.State (
   genPartialFanoutTx,
   genPartialFanoutTxWithComplexUTxO,
   genRecoverTx,
+  genStOpen,
   maxGenParties,
   partialFanout,
   pickChainContext,
@@ -123,7 +126,7 @@ import Test.Hydra.Chain.Direct.State (
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
 import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, propTransactionEvaluates)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, genValidityBoundsFromContestationPeriod, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -145,6 +148,8 @@ import Test.QuickCheck (
   classify,
   conjoin,
   counterexample,
+  cover,
+  elements,
   forAll,
   forAllBlind,
   forAllShow,
@@ -303,6 +308,7 @@ spec = parallel $ do
   describe "close" $ do
     propBelowSizeLimit maxTxSize forAllClose
     propIsValid forAllClose
+    prop "refuses a snapshot too old for the open head" prop_refusesStaleSnapshotInClose
 
   describe "contest" $ do
     propBelowSizeLimit maxTxSize forAllContest
@@ -834,6 +840,59 @@ forAllDecrement' action = do
   forAllShrink (genDecrementTx maximumNumberOfParties) shrink $ \(ctx, distributed, st, utxo', tx) ->
     let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
      in action distributed utxo tx
+
+-- | A close is only built for a snapshot at the open version, or one version
+-- behind when that snapshot's own increment or decrement moved the head on.
+-- Anything else is either rejected by the head validator (e.g. the initial
+-- snapshot once the head moved past version 0) or would close with an
+-- accumulator that does not match the head value, so it could never be fanned
+-- out.
+prop_refusesStaleSnapshotInClose :: Property
+prop_refusesStaleSnapshotInClose =
+  checkCoverage $
+    forAllBlind (genHydraContext maxGenParties) $ \ctx ->
+      forAllBlind (genStOpen ctx) $ \(u0, stOpen@OpenState{headId}) ->
+        forAll (elements [0 .. 3]) $ \openVersion ->
+          forAll (elements [0 .. openVersion]) $ \snapshotVersion ->
+            forAll (oneof [pure Nothing, Just <$> genUTxOAdaOnlyOfSize 1]) $ \toCommit ->
+              forAllBlind (genSnapshot ctx headId snapshotVersion u0 toCommit) $ \confirmed ->
+                forAllBlind (genCloseArgs ctx) $ \(cctx, startSlot, pointInTime) ->
+                  let snapshot = getSnapshot confirmed
+                      closable =
+                        snapshot.version == openVersion
+                          || (snapshot.version + 1 == openVersion && hasPendingAction snapshot)
+                      result = close cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) openVersion confirmed startSlot pointInTime
+                   in ( case result of
+                          Right _ -> property closable & counterexample "built a close for a stale snapshot"
+                          Left StaleSnapshotInClose{} -> property (not closable) & counterexample "refused a closable snapshot"
+                          Left err -> property False & counterexample ("unexpected error: " <> show err)
+                      )
+                        & counterexample ("snapshot version: " <> show snapshot.version <> ", open version: " <> show openVersion)
+                        & cover 20 closable "closable"
+                        & cover 20 (not closable) "refused"
+                        & cover 5 (not closable && isInitialSnapshot confirmed) "refused initial snapshot"
+                        & cover 5 (not closable && snapshot.version + 1 == openVersion) "refused action-less snapshot one version behind"
+ where
+  isInitialSnapshot :: ConfirmedSnapshot Tx -> Bool
+  isInitialSnapshot = \case
+    InitialSnapshot{} -> True
+    ConfirmedSnapshot{} -> False
+
+  genSnapshot :: HydraContext -> HeadId -> SnapshotVersion -> UTxO -> Maybe UTxO -> Gen (ConfirmedSnapshot Tx)
+  genSnapshot ctx headId snapshotVersion u0 toCommit = do
+    depositTxId <- if isJust toCommit then Just <$> arbitrary else pure Nothing
+    let confirmed = genConfirmedSnapshot headId snapshotVersion 1 u0 toCommit depositTxId Nothing (ctxHydraSigningKeys ctx)
+    -- The initial snapshot covers the 'CloseInitial' case once the head moved
+    -- past version 0.
+    if snapshotVersion == 0
+      then oneof [pure InitialSnapshot{headId}, confirmed]
+      else confirmed
+
+  genCloseArgs :: HydraContext -> Gen (ChainContext, SlotNo, (SlotNo, UTCTime))
+  genCloseArgs ctx = do
+    cctx <- pickChainContext ctx
+    (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod (ctxContestationPeriod ctx)
+    pure (cctx, startSlot, pointInTime)
 
 forAllClose ::
   Testable property =>

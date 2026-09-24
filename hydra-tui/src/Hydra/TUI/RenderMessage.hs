@@ -505,7 +505,7 @@ renderPostTxError = \case
   FailedToConstructRecoverTx{failureReason} -> failedToConstruct "recover" (Just failureReason)
   FailedToConstructIncrementTx{failureReason} -> failedToConstruct "increment" (Just failureReason)
   FailedToConstructDecrementTx{failureReason} -> failedToConstruct "decrement" (Just failureReason)
-  FailedToConstructCloseTx -> failedToConstruct "close" Nothing
+  FailedToConstructCloseTx{failureReason} -> failedToConstruct "close" (Just failureReason)
   FailedToConstructContestTx -> failedToConstruct "contest" Nothing
   FailedToConstructFanoutTx -> failedToConstruct "fanout" Nothing
   err ->

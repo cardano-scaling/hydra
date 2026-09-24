@@ -627,7 +627,7 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
-        Left _ -> throwIO (FailedToConstructCloseTx @Tx)
+        Left err -> throwIO (FailedToConstructCloseTx{failureReason = show err} :: PostTxError Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime

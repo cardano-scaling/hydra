@@ -26,6 +26,7 @@ import Hydra.Tx (
   decommitOutputsHash,
   fromChainSnapshotNumber,
   getSnapshot,
+  hasPendingAction,
   headIdToCurrencySymbol,
   headReference,
   pendingActionApplied,
@@ -47,6 +48,21 @@ data OpenThreadOutput = OpenThreadOutput
   , openParties :: [OnChain.Party]
   }
   deriving stock (Eq, Show, Generic)
+
+-- | Whether a head at the given open version can be closed with the snapshot,
+-- such that the closed head can later be fanned out.
+--
+-- The head validator only accepts a snapshot signed at the open version
+-- ('Head.CloseInitial', 'Head.CloseAny', 'Head.CloseUnused') or one before
+-- ('Head.CloseUsed'). The latter stores the snapshot's applied accumulator,
+-- which only matches the head value if the version bump was this snapshot's
+-- own increment or decrement. For a snapshot without a pending action the
+-- version moved on through a later snapshot's settlement, and the closed head
+-- could never be fanned out.
+isClosableAt :: SnapshotVersion -> Snapshot tx -> Bool
+isClosableAt openVersion snapshot@Snapshot{version} =
+  version == openVersion
+    || (version + 1 == openVersion && hasPendingAction snapshot)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.

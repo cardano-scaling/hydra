@@ -3020,15 +3020,19 @@ components:
               $ref: "api.yaml#/components/schemas/HeadId"
         - title: FailedToConstructCloseTx
           description: |
-            Raised if the user fails to submit a close tx.
+            Raised if the node cannot construct a close tx, for example
+            because the confirmed snapshot is too old for the open head.
           type: object
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructCloseTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructContestTx
           description: |
             Raised if the user fails to submit a contest tx.

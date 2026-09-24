@@ -218,7 +218,7 @@ data PostTxError tx
     InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}
-  | FailedToConstructCloseTx
+  | FailedToConstructCloseTx {failureReason :: Text}
   | FailedToConstructContestTx
   | FailedToConstructDepositTx {failureReason :: Text}
   | FailedToConstructRecoverTx {failureReason :: Text}
