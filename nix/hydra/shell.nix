@@ -174,6 +174,27 @@
         "run-tmux"
         { libraries = with pkgs.python3Packages; [ libtmux pyyaml ]; }
         (builtins.readFile "${self}/demo/run-tmux.py");
+
+      run-delegated-demo = pkgs.writers.writePython3Bin
+        "run-delegated-demo"
+        { libraries = with pkgs.python3Packages; [ libtmux pyyaml ]; }
+        (builtins.readFile "${self}/delegated-demo/run-tmux.py");
+
+      # Shell for the "operators as mediators" demo. Unlike demoShell it also
+      # brings websocat/jq/curl, which the bash/websocat actor drivers need.
+      delegatedDemoShell = pkgs.mkShell {
+        name = "hydra-delegated-demo-shell";
+        buildInputs = [
+          self'.packages.hydra-node
+          run-delegated-demo
+          pkgs.cardano-node
+          pkgs.cardano-cli
+          pkgs.websocat
+          pkgs.jq
+          pkgs.curl
+          pkgs.gawk
+        ];
+      };
     in
     {
       devShells = {
@@ -181,6 +202,7 @@
         cabalOnly = cabalShell;
         exes = exeShell;
         demo = demoShell;
+        delegated-demo = delegatedDemoShell;
         headStateUI = headStateUIShell;
       };
     };
