@@ -25,7 +25,8 @@ status() {
   echo "head balance: $(ada "$(head_balance "$PORT" "$NAME" 2>/dev/null || echo 0)")"
   echo "address: $(addr_of "$NAME" 2>/dev/null)"
   echo "--------------------------------------------------------------"
-  echo " [i] init head     [c] commit funds into head"
+  echo " [i] init head     [c] commit funds into head (via mediator)"
+  [ "$NAME" = elsa ] && echo " [d] deposit on L1 directly (client-side, no operator)"
   echo " [s] send ada to $OTHER    [w] withdraw all to L1"
   echo " [l] refresh       [q] quit"
 }
@@ -36,6 +37,10 @@ while true; do
   case "$choice" in
     i) init_head "$PORT" ;;
     c) commit "$PORT" "$NAME" ;;
+    d)
+      if [ "$NAME" = elsa ]; then "$HERE/elsa-deposit.sh" "$PORT"
+      else echo "client-side deposit is only wired up for elsa"; fi
+      ;;
     s)
       amount="$rest"
       [ -z "$amount" ] && read -rp "lovelace to send to $OTHER: " amount

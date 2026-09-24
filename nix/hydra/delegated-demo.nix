@@ -25,6 +25,7 @@
         pkgs.gnused
         pkgs.gawk
         self'.packages.hydra-node
+        pkgs.nodejs
       ];
 
       # A mediator hydra-node, wired with flat flags (matching run-tmux.py).

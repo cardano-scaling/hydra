@@ -193,6 +193,7 @@
           pkgs.jq
           pkgs.curl
           pkgs.gawk
+          pkgs.nodejs
         ];
       };
     in

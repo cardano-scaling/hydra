@@ -26,6 +26,16 @@ assert_eq() { # label actual expected
   fi
 }
 
+assert_approx() { # label actual expected tolerance
+  local diff=$(( $2 - $3 )); diff=${diff#-}
+  if [ "$diff" -le "$4" ]; then
+    echo "  ok: $1 = $(ada "$2") (~ $(ada "$3"))"
+  else
+    echo "  FAIL: $1 = $(ada "$2"), expected ~ $(ada "$3")" >&2
+    exit 1
+  fi
+}
+
 echo "== opening the head via mediator alice (:$ANNA_PORT) =="
 init_head "$ANNA_PORT"
 
@@ -35,8 +45,8 @@ ELSA_L1_START=$(l1_balance elsa)
 
 echo "== anna commits into the head via mediator alice =="
 commit "$ANNA_PORT" anna
-echo "== elsa commits into the head via mediator bob =="
-commit "$ELSA_PORT" elsa
+echo "== elsa deposits into the head client-side (no operator, direct to L1) =="
+"$HERE/elsa-deposit.sh" "$ELSA_PORT"
 
 # Read what each actually committed (their largest L1 UTxO).
 ANNA_COMMIT=$(head_balance "$ANNA_PORT" anna)
@@ -55,10 +65,11 @@ withdraw "$ELSA_PORT" elsa
 
 echo "== asserting elsa's L1 balance grew by the withdrawn amount =="
 # elsa moved ELSA_COMMIT into the head, then pulled ELSA_COMMIT + XFER back out,
-# so her L1 balance nets up by exactly XFER (anna's payment).
+# so her L1 balance nets up by XFER (anna's payment) less the L1 fee she paid for
+# her own deposit (the operator no longer covers it). Allow 1 ada of tolerance.
 ELSA_L1_END=$(l1_balance elsa)
 echo "  elsa L1: $(ada "$ELSA_L1_START") -> $(ada "$ELSA_L1_END")"
-assert_eq "elsa L1 balance" "$ELSA_L1_END" "$((ELSA_L1_START + XFER))"
+assert_approx "elsa L1 balance" "$ELSA_L1_END" "$((ELSA_L1_START + XFER))" 1000000
 
 echo
 echo "SUCCESS: elsa received $(ada "$XFER") from anna over the head and settled it on L1."
