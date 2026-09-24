@@ -171,8 +171,6 @@ spec = do
   -- still close and fan out its whole confirmed UTxO. Only the keys are
   -- random, so a handful of runs each is enough.
   context "settlements under divergent forks" $ do
-    prop "two finalized decrements are both erased by a fork" $
-      propScripted twoFinalizedDecrementsErased
     prop "a fork erases the deposit transaction and its increment" $
       propScripted depositAndIncrementErasedThenRelanded
     prop "a second fork erases the re-posted increment" $
@@ -225,6 +223,8 @@ spec = do
       xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
     xprop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
+    xprop "two finalized decrements are both erased by a fork" $
+      propScripted twoFinalizedDecrementsErased
     xprop "a finalized increment is erased while the next increment is in flight" $
       propScripted finalizedIncrementErasedWithNextInFlight
     xprop "a finalized increment and decrement are both erased by a fork" $
