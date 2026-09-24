@@ -2114,7 +2114,7 @@ spec =
                     }
                 step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
                 step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
-                step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+                step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
                 getState
 
             decommitTx' = aValidTx 3
@@ -2136,7 +2136,7 @@ spec =
                 step . receiveMessage $ ReqDec{transaction = decommitTx'}
                 step . receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
                 step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
-                step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
+                step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3, snapshotNumber = 1, signatures = mempty}
                 getState
 
             rollbackTo :: ChainSlot -> UTCTime -> Input SimpleTx
@@ -2215,7 +2215,7 @@ spec =
           s0 <- afterCommitFinalized now
           (s1, reqTxOutcome) <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             s <- getState
             outcome <- step . receiveMessage $ ReqTx (aValidTx 5)
             pure (s, outcome)
@@ -2244,7 +2244,7 @@ spec =
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step . receiveMessage $ ReqTx spendTx
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           case headState s1 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} ->
@@ -2265,7 +2265,7 @@ spec =
             step . receiveMessage $ AckSn (sign aliceSk postIncrementSnapshot) 2
             step (rollbackTo 2 now)
             -- The re-posted increment lands again, at a later slot
-            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           -- A rollback erasing the re-landed increment (slot 5) while keeping
           -- the original observation slot (3) must still re-post
@@ -2466,12 +2466,12 @@ spec =
           let spendTx = SimpleTx 5 depositedUTxO (utxoRef 5)
           (s1, reobserved) <- runHeadLogic soloAliceEnv ledger s0 $ do
             -- A decrement (posted by another party) finalizes on top: version 2.
-            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
             -- The deposited outputs are spent on L2 in the meantime.
             step . receiveMessage $ ReqTx spendTx
             -- Rollback erases both settlements; the increment re-lands first.
             step (rollbackTo 2 now)
-            outcome <- step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            outcome <- step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             s <- getState
             pure (s, outcome)
           case headState s1 of
@@ -2500,7 +2500,7 @@ spec =
                 }
             step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
             -- Increment observed before the local AckSn confirms the snapshot
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
             getState
           let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
@@ -2516,7 +2516,7 @@ spec =
             step . receiveMessage $ ReqDec{transaction = decommitTx'}
             step . receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
             -- Decrement observed before the local AckSn confirms the snapshot
-            step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
+            step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3, snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
             getState
           let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
@@ -2543,7 +2543,7 @@ spec =
             step . receiveMessage $ ReqDec{transaction = decommitTx2}
             step . receiveMessage $ ReqSn 1 2 [] (Just decommitTx2) Nothing
             -- Decrement 2 observed before its snapshot confirms locally
-            step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7}
+            step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7, snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot2) 2
             getState
           -- A rollback erasing only decrement 2 must re-post it from snapshot
@@ -2673,7 +2673,7 @@ spec =
           -- On-chain version is back to 1, matching local 'version', so a close
           -- now carries a consistent 'openVersion = 1'.
           s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           update soloAliceEnv ledger now s2 (ClientInput Close)
             `hasEffectSatisfying` \case
