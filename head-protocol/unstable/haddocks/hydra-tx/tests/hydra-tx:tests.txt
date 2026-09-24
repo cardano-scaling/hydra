@@ -22,6 +22,40 @@ goldenElements :: Int -> [ByteString]
 utxoScalars :: UTxO -> [Integer]
 toInt :: ByteString -> Integer
 
+module Hydra.Tx.CardanoApiHashLengthSpec
+
+-- | Regression tests for GHSA-cgpq-8874-8pq8: a wrong-length credential,
+--   TxId or datum hash (attacker-controlled via an on-chain
+--   <tt>Commit</tt> datum) crashed these conversions with an uncaught
+--   <a>error</a> instead of failing gracefully, taking down chain
+--   observation. Plutus hashes are bare <tt>BuiltinByteString</tt>s with
+--   no type-level length guarantee, so every one of them has to be
+--   validated at this boundary.
+spec :: Spec
+
+-- | An address whose payment credential hash is <tt>n</tt> bytes (28 is
+--   well-formed).
+addressWithPaymentHashOfLength :: Int -> Address
+
+-- | An address with a well-formed payment credential and a staking
+--   credential hash of <tt>n</tt> bytes (28 is well-formed).
+addressWithStakingHashOfLength :: Int -> Address
+pubKeyCredentialOfLength :: Int -> Credential
+
+-- | A <tt>ScriptCredential</tt> hash of 40 bytes instead of the required
+--   28.
+wrongLengthScriptCredentialAddress :: Address
+validScriptCredentialAddress :: Address
+scriptCredentialAddressOfLength :: Int -> Address
+
+-- | A <tt>TxId</tt> hash of 10 bytes instead of the required 32.
+wrongLengthTxOutRef :: TxOutRef
+
+-- | A <tt>TxOut</tt> that is well-formed apart from an
+--   <tt>OutputDatumHash</tt> of <tt>n</tt> bytes (32 is well-formed),
+--   isolating the datum hash as the only thing under test.
+txOutWithDatumHashOfLength :: Int -> TxOut
+
 module Hydra.Tx.ContestationPeriodSpec
 spec :: Spec
 

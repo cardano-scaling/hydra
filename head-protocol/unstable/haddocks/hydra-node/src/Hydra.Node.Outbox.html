@@ -41,12 +41,12 @@
 </span><span id="line-39"></span><span class="hs-comment">--</span><span>
 </span><span id="line-40"></span><span class="hs-comment">-- 'submit' therefore only appends; 'runOutbox' is the one thing that performs</span><span>
 </span><span id="line-41"></span><span class="hs-comment">-- the actions, in submission order.</span><span>
-</span><span id="line-42"></span><span class="hs-keyword">data</span><span> </span><span id="Outbox"><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-var">Outbox</span></a></span></span><span> </span><span id="local-6989586621679820249"><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Outbox"><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-var">Outbox</span></a></span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">data</span><span> </span><span id="Outbox"><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-var">Outbox</span></a></span></span><span> </span><span id="local-6989586621679820254"><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Outbox"><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-var">Outbox</span></a></span></span><span>
 </span><span id="line-43"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="submit"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; m () -&gt; m ()
-</span><a href="Hydra.Node.Outbox.html#submit"><span class="hs-identifier hs-var hs-var">submit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.Outbox.html#submit"><span class="hs-identifier hs-var hs-var">submit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-44"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Append an action. Never blocks.</span></span><span>
 </span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AoutboxStalled%3AOutbox"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; m (Maybe (StallReason, Natural))
-</span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxStalled%3AOutbox"><span class="hs-identifier hs-var hs-var">outboxStalled</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#StallReason"><span class="hs-identifier hs-type">StallReason</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxStalled%3AOutbox"><span class="hs-identifier hs-var hs-var">outboxStalled</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#StallReason"><span class="hs-identifier hs-type">StallReason</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-46"></span><span>  </span><span class="hs-comment">-- ^ The cause, and the amount of queued work, once it exceeds the</span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-comment">-- 'StallBounds'.</span><span>
 </span><span id="line-48"></span><span>  </span><span class="hs-comment">--</span><span>
@@ -57,21 +57,21 @@
 </span><span id="line-53"></span><span>  </span><span class="hs-comment">-- that nothing has completed - reported as 'NoProgress' even when the</span><span>
 </span><span id="line-54"></span><span>  </span><span class="hs-comment">-- backlog also happens to be at 'maxPending'.</span><span>
 </span><span id="line-55"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApendingActions%3AOutbox"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; STM m Natural
-</span><a href="Hydra.Node.Outbox.html#%24sel%3ApendingActions%3AOutbox"><span class="hs-identifier hs-var hs-var">pendingActions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
+</span><a href="Hydra.Node.Outbox.html#%24sel%3ApendingActions%3AOutbox"><span class="hs-identifier hs-var hs-var">pendingActions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
 </span><span id="line-56"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Submitted but not yet completed, including any action in flight.</span></span><span>
 </span><span id="line-57"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AoutboxBacklog%3AOutbox"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; m (Natural, DiffTime)
-</span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxBacklog%3AOutbox"><span class="hs-identifier hs-var hs-var">outboxBacklog</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxBacklog%3AOutbox"><span class="hs-identifier hs-var hs-var">outboxBacklog</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.DiffTime.html#DiffTime"><span class="hs-identifier hs-type">DiffTime</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-58"></span><span>  </span><span class="hs-comment">-- ^ The same count, plus how long since the outbox last completed</span><span>
 </span><span id="line-59"></span><span>  </span><span class="hs-comment">-- anything - zero while it holds nothing. Where 'outboxStalled' answers</span><span>
 </span><span id="line-60"></span><span>  </span><span class="hs-comment">-- &quot;should we cut the flow off&quot;, this is for reporting: it is the pair an</span><span>
 </span><span id="line-61"></span><span>  </span><span class="hs-comment">-- operator needs to tell a backlog that is draining from one that is not,</span><span>
 </span><span id="line-62"></span><span>  </span><span class="hs-comment">-- and to see which of the two 'StallBounds' limbs is being approached.</span><span>
 </span><span id="line-63"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="runOutbox"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; m ()
-</span><a href="Hydra.Node.Outbox.html#runOutbox"><span class="hs-identifier hs-var hs-var">runOutbox</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.Outbox.html#runOutbox"><span class="hs-identifier hs-var hs-var">runOutbox</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-64"></span><span>  </span><span class="hs-comment">-- ^ Perform submitted actions forever, in submission order. Must run</span><span>
 </span><span id="line-65"></span><span>  </span><span class="hs-comment">-- concurrently with the producer, or nothing is ever performed.</span><span>
 </span><span id="line-66"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdrainOutbox%3AOutbox"><span class="annot"><span class="annottext">forall (m :: * -&gt; *). Outbox m -&gt; m ()
-</span><a href="Hydra.Node.Outbox.html#%24sel%3AdrainOutbox%3AOutbox"><span class="hs-identifier hs-var hs-var">drainOutbox</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820249"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Node.Outbox.html#%24sel%3AdrainOutbox%3AOutbox"><span class="hs-identifier hs-var hs-var">drainOutbox</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679820254"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-67"></span><span>  </span><span class="hs-comment">-- ^ Perform everything queued right now and return. For producers driven</span><span>
 </span><span id="line-68"></span><span>  </span><span class="hs-comment">-- step by step instead of alongside 'runOutbox'. Must not run concurrently</span><span>
 </span><span id="line-69"></span><span>  </span><span class="hs-comment">-- with it: two consumers would interleave the actions.</span><span>
@@ -81,39 +81,39 @@
 </span><span id="line-72"></span><span>  </span><span class="hs-comment">-- interval that matches.</span><span>
 </span><span id="line-73"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-74"></span><span>
-</span><span id="line-75"></span><span id="local-6989586621679820260"><span class="annot"><a href="Hydra.Node.Outbox.html#newOutbox"><span class="hs-identifier hs-type">newOutbox</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679820260"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadMonotonicTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679820260"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.Outbox.html#StallBounds"><span class="hs-identifier hs-type">StallBounds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679820260"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-type">Outbox</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679820260"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-75"></span><span id="local-6989586621679820265"><span class="annot"><a href="Hydra.Node.Outbox.html#newOutbox"><span class="hs-identifier hs-type">newOutbox</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679820265"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadMonotonicTime</span></span><span> </span><span class="annot"><a href="#local-6989586621679820265"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.Outbox.html#StallBounds"><span class="hs-identifier hs-type">StallBounds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679820265"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-type">Outbox</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679820265"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-76"></span><span id="newOutbox"><span class="annot"><span class="annottext">newOutbox :: forall (m :: * -&gt; *).
 (MonadLabelledSTM m, MonadMonotonicTime m) =&gt;
 StallBounds -&gt; String -&gt; m (Outbox m)
-</span><a href="Hydra.Node.Outbox.html#newOutbox"><span class="hs-identifier hs-var hs-var">newOutbox</span></a></span></span><span> </span><span id="local-6989586621679820429"><span class="annot"><span class="annottext">bounds :: StallBounds
-</span><a href="#local-6989586621679820429"><span class="hs-identifier hs-var">bounds</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Node.Outbox.html#StallBounds"><span class="hs-identifier hs-type">StallBounds</span></a></span><span class="hs-special">{</span><span id="local-6989586621679820430"><span class="annot"><span class="annottext">DiffTime
+</span><a href="Hydra.Node.Outbox.html#newOutbox"><span class="hs-identifier hs-var hs-var">newOutbox</span></a></span></span><span> </span><span id="local-6989586621679820434"><span class="annot"><span class="annottext">bounds :: StallBounds
+</span><a href="#local-6989586621679820434"><span class="hs-identifier hs-var">bounds</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Node.Outbox.html#StallBounds"><span class="hs-identifier hs-type">StallBounds</span></a></span><span class="hs-special">{</span><span id="local-6989586621679820435"><span class="annot"><span class="annottext">DiffTime
 $sel:noProgressFor:StallBounds :: StallBounds -&gt; DiffTime
 noProgressFor :: DiffTime
-</span><a href="Hydra.Node.Outbox.html#%24sel%3AnoProgressFor%3AStallBounds"><span class="hs-identifier hs-var hs-var">noProgressFor</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679820431"><span class="annot"><span class="annottext">Natural
+</span><a href="Hydra.Node.Outbox.html#%24sel%3AnoProgressFor%3AStallBounds"><span class="hs-identifier hs-var hs-var">noProgressFor</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679820436"><span class="annot"><span class="annottext">Natural
 $sel:maxPending:StallBounds :: StallBounds -&gt; Natural
 maxPending :: Natural
-</span><a href="Hydra.Node.Outbox.html#%24sel%3AmaxPending%3AStallBounds"><span class="hs-identifier hs-var hs-var">maxPending</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679820432"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679820432"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Node.Outbox.html#%24sel%3AmaxPending%3AStallBounds"><span class="hs-identifier hs-var hs-var">maxPending</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679820437"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-77"></span><span>  </span><span class="hs-comment">-- Monotonic, not wall clock: an NTP step of more than 'noProgressFor' would</span><span>
 </span><span id="line-78"></span><span>  </span><span class="hs-comment">-- otherwise fake a stall on a healthy node, or mask a real one.</span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621679820433"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820433"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679820438"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820438"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
 forall (m :: * -&gt; *). MonadMonotonicTime m =&gt; m Time
 </span><span class="hs-identifier hs-var">getMonotonicTime</span></span><span>
-</span><span id="line-80"></span><span>  </span><span id="local-6989586621679820435"><span class="annot"><span class="annottext">TQueue m (m ())
-</span><a href="#local-6989586621679820435"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TQueue m (m ()))
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621679820440"><span class="annot"><span class="annottext">TQueue m (m ())
+</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">queue</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; m (TQueue m (m ()))
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TQueue m a)
 </span><span class="hs-identifier hs-var">newLabelledTQueueIO</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679820432"><span class="hs-identifier hs-var">name</span></a></span><span>
-</span><span id="line-81"></span><span>  </span><span id="local-6989586621679820437"><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Natural -&gt; m (TVar m Natural)
+</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679820442"><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Natural -&gt; m (TVar m Natural)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679820432"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;-pending&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Natural
@@ -122,29 +122,29 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span id="line-83"></span><span>  </span><span class="hs-comment">-- action completed, or the queue was empty and we started waiting. Both</span><span>
 </span><span id="line-84"></span><span>  </span><span class="hs-comment">-- reset the clock, so neither an idle producer nor a busy one that keeps up</span><span>
 </span><span id="line-85"></span><span>  </span><span class="hs-comment">-- is ever reported as stalled.</span><span>
-</span><span id="line-86"></span><span>  </span><span id="local-6989586621679820439"><span class="annot"><span class="annottext">TVar m Time
-</span><a href="#local-6989586621679820439"><span class="hs-identifier hs-var">progressAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Time -&gt; m (TVar m Time)
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679820444"><span class="annot"><span class="annottext">TVar m Time
+</span><a href="#local-6989586621679820444"><span class="hs-identifier hs-var">progressAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Time -&gt; m (TVar m Time)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679820432"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;-progress-at&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820433"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><a href="#local-6989586621679820438"><span class="hs-identifier hs-var">now</span></a></span><span>
 </span><span id="line-87"></span><span>  </span><span class="hs-keyword">let</span><span>
 </span><span id="line-88"></span><span>    </span><span class="hs-comment">-- NOTE: the count drops, and the clock resets, only once the action has</span><span>
 </span><span id="line-89"></span><span>    </span><span class="hs-comment">-- completed. An action stuck inside the effect itself therefore still</span><span>
 </span><span id="line-90"></span><span>    </span><span class="hs-comment">-- counts as pending and holds the clock, which is what makes a stall</span><span>
 </span><span id="line-91"></span><span>    </span><span class="hs-comment">-- visible.</span><span>
-</span><span id="line-92"></span><span>    </span><span id="local-6989586621679820440"><span class="annot"><span class="annottext">perform :: m () -&gt; m ()
-</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var hs-var">perform</span></a></span></span><span> </span><span id="local-6989586621679820441"><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820441"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-92"></span><span>    </span><span id="local-6989586621679820445"><span class="annot"><span class="annottext">perform :: m () -&gt; m ()
+</span><a href="#local-6989586621679820445"><span class="hs-identifier hs-var hs-var">perform</span></a></span></span><span> </span><span id="local-6989586621679820446"><span class="annot"><span class="annottext">m ()
+</span><a href="#local-6989586621679820446"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-93"></span><span>      </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820441"><span class="hs-identifier hs-var">action</span></a></span><span>
-</span><span id="line-94"></span><span>      </span><span id="local-6989586621679820442"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">completedAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
+</span><a href="#local-6989586621679820446"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-94"></span><span>      </span><span id="local-6989586621679820447"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820447"><span class="hs-identifier hs-var">completedAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
 forall (m :: * -&gt; *). MonadMonotonicTime m =&gt; m Time
 </span><span class="hs-identifier hs-var">getMonotonicTime</span></span><span>
 </span><span id="line-95"></span><span>      </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
@@ -161,25 +161,25 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural
 forall a. Enum a =&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#pred"><span class="hs-identifier hs-var">pred</span></a></span><span>
 </span><span id="line-97"></span><span>        </span><span class="annot"><span class="annottext">TVar m Time -&gt; Time -&gt; STM m ()
 forall a. TVar m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Time
-</span><a href="#local-6989586621679820439"><span class="hs-identifier hs-var">progressAt</span></a></span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">completedAt</span></a></span><span>
+</span><a href="#local-6989586621679820444"><span class="hs-identifier hs-var">progressAt</span></a></span><span> </span><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820447"><span class="hs-identifier hs-var">completedAt</span></a></span><span>
 </span><span id="line-98"></span><span>  </span><span class="annot"><span class="annottext">Outbox m -&gt; m (Outbox m)
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
 </span><span id="line-99"></span><span>    </span><span class="annot"><a href="Hydra.Node.Outbox.html#Outbox"><span class="hs-identifier hs-type">Outbox</span></a></span><span>
 </span><span id="line-100"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">submit :: m () -&gt; m ()
-</span><a href="Hydra.Node.Outbox.html#submit"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679820445"><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820445"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-101"></span><span>          </span><span id="local-6989586621679820446"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820446"><span class="hs-identifier hs-var">submittedAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
+</span><a href="Hydra.Node.Outbox.html#submit"><span class="hs-identifier hs-var">submit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679820450"><span class="annot"><span class="annottext">m ()
+</span><a href="#local-6989586621679820450"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-101"></span><span>          </span><span id="local-6989586621679820451"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820451"><span class="hs-identifier hs-var">submittedAt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
 forall (m :: * -&gt; *). MonadMonotonicTime m =&gt; m Time
 </span><span class="hs-identifier hs-var">getMonotonicTime</span></span><span>
 </span><span id="line-102"></span><span>          </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
@@ -190,19 +190,19 @@ STM m a -&gt; m a
 </span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; m ()) -&gt; STM m () -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-103"></span><span>            </span><span id="local-6989586621679820447"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820447"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
+</span><span id="line-103"></span><span>            </span><span id="local-6989586621679820452"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679820452"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span>
 </span><span id="line-104"></span><span>            </span><span class="hs-comment">-- NOTE: the clock is read before this transaction, so a</span><span>
 </span><span id="line-105"></span><span>            </span><span class="hs-comment">-- completion committing in between would otherwise be rolled back</span><span>
 </span><span id="line-106"></span><span>            </span><span class="hs-comment">-- to an older timestamp and fake a stall. Only ever move forward.</span><span>
 </span><span id="line-107"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; STM m () -&gt; STM m ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820447"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679820452"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(STM m () -&gt; STM m ()) -&gt; STM m () -&gt; STM m ()
@@ -213,16 +213,16 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Time
-</span><a href="#local-6989586621679820439"><span class="hs-identifier hs-var">progressAt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; Time
+</span><a href="#local-6989586621679820444"><span class="hs-identifier hs-var">progressAt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; Time
 forall a. Ord a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#max"><span class="hs-identifier hs-var">max</span></a></span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820446"><span class="hs-identifier hs-var">submittedAt</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679820451"><span class="hs-identifier hs-var">submittedAt</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-108"></span><span>            </span><span class="annot"><span class="annottext">TVar m Natural -&gt; Natural -&gt; STM m ()
 forall a. TVar m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820447"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679820452"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -230,14 +230,14 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 forall a. TQueue m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (m ())
-</span><a href="#local-6989586621679820435"><span class="hs-identifier hs-var">queue</span></a></span><span> </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820445"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">queue</span></a></span><span> </span><span class="annot"><span class="annottext">m ()
+</span><a href="#local-6989586621679820450"><span class="hs-identifier hs-var">action</span></a></span><span>
 </span><span id="line-110"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:outboxStalled:Outbox :: m (Maybe (StallReason, Natural))
 </span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxStalled%3AOutbox"><span class="hs-identifier hs-var">outboxStalled</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-111"></span><span>          </span><span class="hs-comment">-- NOTE: our own clock, deliberately. Callers may be working off</span><span>
 </span><span id="line-112"></span><span>          </span><span class="hs-comment">-- another notion of time, such as chain time.</span><span>
-</span><span id="line-113"></span><span>          </span><span id="local-6989586621679820452"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820452"><span class="hs-identifier hs-var">asOf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
+</span><span id="line-113"></span><span>          </span><span id="local-6989586621679820457"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820457"><span class="hs-identifier hs-var">asOf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
 forall (m :: * -&gt; *). MonadMonotonicTime m =&gt; m Time
 </span><span class="hs-identifier hs-var">getMonotonicTime</span></span><span>
 </span><span id="line-114"></span><span>          </span><span class="annot"><span class="annottext">STM m (Maybe (StallReason, Natural))
@@ -252,18 +252,18 @@ STM m a -&gt; m a
 -&gt; m (Maybe (StallReason, Natural))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-115"></span><span>            </span><span id="local-6989586621679820453"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820453"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
+</span><span id="line-115"></span><span>            </span><span id="local-6989586621679820458"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span>
-</span><span id="line-116"></span><span>            </span><span id="local-6989586621679820454"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820454"><span class="hs-identifier hs-var">since</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Time -&gt; STM m Time
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><span id="line-116"></span><span>            </span><span id="local-6989586621679820459"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820459"><span class="hs-identifier hs-var">since</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Time -&gt; STM m Time
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Time
-</span><a href="#local-6989586621679820439"><span class="hs-identifier hs-var">progressAt</span></a></span><span>
+</span><a href="#local-6989586621679820444"><span class="hs-identifier hs-var">progressAt</span></a></span><span>
 </span><span id="line-117"></span><span>            </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 -&gt; STM m (Maybe (StallReason, Natural))
 forall a. a -&gt; STM m a
@@ -276,40 +276,40 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-118"></span><span>              </span><span class="hs-keyword">if</span><span>
 </span><span id="line-119"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820453"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-120"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820452"><span class="hs-identifier hs-var">asOf</span></a></span><span> </span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; DiffTime
+</span><a href="#local-6989586621679820457"><span class="hs-identifier hs-var">asOf</span></a></span><span> </span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; DiffTime
 </span><span class="hs-operator hs-var">`diffTime`</span></span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820454"><span class="hs-identifier hs-var">since</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; DiffTime -&gt; Bool
+</span><a href="#local-6989586621679820459"><span class="hs-identifier hs-var">since</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; DiffTime -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime
-</span><a href="#local-6989586621679820430"><span class="hs-identifier hs-var">noProgressFor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679820435"><span class="hs-identifier hs-var">noProgressFor</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StallReason
 </span><a href="Hydra.Network.html#NoProgress"><span class="hs-identifier hs-var">NoProgress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820453"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-121"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820453"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820431"><span class="hs-identifier hs-var">maxPending</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
+</span><a href="#local-6989586621679820436"><span class="hs-identifier hs-var">maxPending</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(StallReason, Natural) -&gt; Maybe (StallReason, Natural)
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StallReason
 </span><a href="Hydra.Network.html#BacklogFull"><span class="hs-identifier hs-var">BacklogFull</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820453"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-122"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (StallReason, Natural)
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-123"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:outboxBacklog:Outbox :: m (Natural, DiffTime)
 </span><a href="Hydra.Node.Outbox.html#%24sel%3AoutboxBacklog%3AOutbox"><span class="hs-identifier hs-var">outboxBacklog</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-124"></span><span>          </span><span id="local-6989586621679820458"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">asOf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
+</span><span id="line-124"></span><span>          </span><span id="local-6989586621679820463"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820463"><span class="hs-identifier hs-var">asOf</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m Time
 forall (m :: * -&gt; *). MonadMonotonicTime m =&gt; m Time
 </span><span class="hs-identifier hs-var">getMonotonicTime</span></span><span>
 </span><span id="line-125"></span><span>          </span><span class="annot"><span class="annottext">STM m (Natural, DiffTime) -&gt; m (Natural, DiffTime)
@@ -321,37 +321,37 @@ STM m a -&gt; m a
 -&gt; STM m (Natural, DiffTime) -&gt; m (Natural, DiffTime)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-126"></span><span>            </span><span id="local-6989586621679820459"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820459"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
+</span><span id="line-126"></span><span>            </span><span id="local-6989586621679820464"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679820464"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span>
-</span><span id="line-127"></span><span>            </span><span id="local-6989586621679820460"><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820460"><span class="hs-identifier hs-var">since</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Time -&gt; STM m Time
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><span id="line-127"></span><span>            </span><span id="local-6989586621679820465"><span class="annot"><span class="annottext">Time
+</span><a href="#local-6989586621679820465"><span class="hs-identifier hs-var">since</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Time -&gt; STM m Time
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Time
-</span><a href="#local-6989586621679820439"><span class="hs-identifier hs-var">progressAt</span></a></span><span>
+</span><a href="#local-6989586621679820444"><span class="hs-identifier hs-var">progressAt</span></a></span><span>
 </span><span id="line-128"></span><span>            </span><span class="annot"><span class="annottext">(Natural, DiffTime) -&gt; STM m (Natural, DiffTime)
 forall a. a -&gt; STM m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820459"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621679820459"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679820464"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679820464"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820458"><span class="hs-identifier hs-var">asOf</span></a></span><span> </span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; DiffTime
+</span><a href="#local-6989586621679820463"><span class="hs-identifier hs-var">asOf</span></a></span><span> </span><span class="annot"><span class="annottext">Time -&gt; Time -&gt; DiffTime
 </span><span class="hs-operator hs-var">`diffTime`</span></span><span> </span><span class="annot"><span class="annottext">Time
-</span><a href="#local-6989586621679820460"><span class="hs-identifier hs-var">since</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679820465"><span class="hs-identifier hs-var">since</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-129"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:pendingActions:Outbox :: STM m Natural
 </span><a href="Hydra.Node.Outbox.html#%24sel%3ApendingActions%3AOutbox"><span class="hs-identifier hs-var">pendingActions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; STM m Natural
 forall a. TVar m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621679820437"><span class="hs-identifier hs-var">count</span></a></span><span>
+</span><a href="#local-6989586621679820442"><span class="hs-identifier hs-var">count</span></a></span><span>
 </span><span id="line-130"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">runOutbox :: m ()
 </span><a href="Hydra.Node.Outbox.html#runOutbox"><span class="hs-identifier hs-var">runOutbox</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m ()
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
@@ -366,15 +366,15 @@ STM m a -&gt; m a
 forall a. TQueue m a -&gt; STM m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">readTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (m ())
-</span><a href="#local-6989586621679820435"><span class="hs-identifier hs-var">queue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (m ()) -&gt; (m () -&gt; m ()) -&gt; m ()
+</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">queue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (m ()) -&gt; (m () -&gt; m ()) -&gt; m ()
 forall a b. m a -&gt; (a -&gt; m b) -&gt; m b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m ()
-</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">perform</span></a></span><span>
+</span><a href="#local-6989586621679820445"><span class="hs-identifier hs-var">perform</span></a></span><span>
 </span><span id="line-131"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:drainOutbox:Outbox :: m ()
 </span><a href="Hydra.Node.Outbox.html#%24sel%3AdrainOutbox%3AOutbox"><span class="hs-identifier hs-var">drainOutbox</span></a></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-132"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679820462"><span class="annot"><span class="annottext">go :: m ()
-</span><a href="#local-6989586621679820462"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-132"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679820467"><span class="annot"><span class="annottext">go :: m ()
+</span><a href="#local-6989586621679820467"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-133"></span><span>                </span><span class="annot"><span class="annottext">STM m (Maybe (m ())) -&gt; m (Maybe (m ()))
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -384,7 +384,7 @@ STM m a -&gt; m a
 forall a. TQueue m a -&gt; STM m (Maybe a)
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TQueue m a -&gt; STM m (Maybe a)
 </span><span class="hs-identifier hs-var">tryReadTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m (m ())
-</span><a href="#local-6989586621679820435"><span class="hs-identifier hs-var">queue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (Maybe (m ())) -&gt; (Maybe (m ()) -&gt; m ()) -&gt; m ()
+</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">queue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (Maybe (m ())) -&gt; (Maybe (m ()) -&gt; m ()) -&gt; m ()
 forall a b. m a -&gt; (a -&gt; m b) -&gt; m b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
@@ -393,18 +393,18 @@ forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-135"></span><span>                  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679820463"><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820463"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m ()
-</span><a href="#local-6989586621679820440"><span class="hs-identifier hs-var">perform</span></a></span><span> </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820463"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+</span><span id="line-135"></span><span>                  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679820468"><span class="annot"><span class="annottext">m ()
+</span><a href="#local-6989586621679820468"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m ()
+</span><a href="#local-6989586621679820445"><span class="hs-identifier hs-var">perform</span></a></span><span> </span><span class="annot"><span class="annottext">m ()
+</span><a href="#local-6989586621679820468"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
 forall a b. m a -&gt; m b -&gt; m b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820462"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><a href="#local-6989586621679820467"><span class="hs-identifier hs-var">go</span></a></span><span>
 </span><span id="line-136"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">m ()
-</span><a href="#local-6989586621679820462"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><a href="#local-6989586621679820467"><span class="hs-identifier hs-var">go</span></a></span><span>
 </span><span id="line-137"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:stallBounds:Outbox :: StallBounds
 </span><a href="Hydra.Node.Outbox.html#%24sel%3AstallBounds%3AOutbox"><span class="hs-identifier hs-var">stallBounds</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StallBounds
-</span><a href="#local-6989586621679820429"><span class="hs-identifier hs-var">bounds</span></a></span><span>
+</span><a href="#local-6989586621679820434"><span class="hs-identifier hs-var">bounds</span></a></span><span>
 </span><span id="line-138"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-139"></span></pre></body></html>
