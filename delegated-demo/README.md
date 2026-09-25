@@ -25,7 +25,7 @@ seed time (`devnet/credentials/{anna,elsa}.{sk,vk}`), funded from the faucet.
 
 ## Running it
 
-Interactive, in tmux (recommended):
+Interactive, in tmux (recommended; the `delegated-demo` shell provides `tmux`):
 
 ```shell
 nix develop .#delegated-demo

@@ -181,7 +181,8 @@
         (builtins.readFile "${self}/delegated-demo/run-tmux.py");
 
       # Shell for the "operators as mediators" demo. Unlike demoShell it also
-      # brings websocat/jq/curl, which the bash/websocat actor drivers need.
+      # brings websocat/jq/curl, which the bash/websocat actor drivers need, and
+      # tmux for run-delegated-demo.
       delegatedDemoShell = pkgs.mkShell {
         name = "hydra-delegated-demo-shell";
         buildInputs = [
@@ -194,6 +195,7 @@
           pkgs.curl
           pkgs.gawk
           pkgs.nodejs
+          pkgs.tmux
         ];
       };
     in

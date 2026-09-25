@@ -52,9 +52,9 @@ send_client_input() {
 }
 
 # Start listening for a server output <tag> on <port>, run the triggering action,
-# then block until the tag is observed (or <timeout> seconds elapse). The matched
-# event is printed on success. Listener is started before the action so no event
-# is missed.
+# then block until the tag is observed (or <timeout> seconds elapse). <tag> may be
+# an alternation such as "A|B". The matched event is printed on success. Listener
+# is started before the action so no event is missed.
 run_and_wait() { # port tag timeout action...
   local port="$1" tag="$2" timeout="$3"; shift 3
   local log; log=$(mktemp)
@@ -66,7 +66,7 @@ run_and_wait() { # port tag timeout action...
   "$@"
   # Match on whole lines only, so a partially-written trailing line never causes
   # a real event to be missed (each server output is one compact JSON line).
-  local pat="\"tag\": ?\"$tag\""
+  local pat="\"tag\": ?\"($tag)\""
   local waited=0
   while ! grep -Eq "$pat" "$log" 2>/dev/null; do
     sleep 1; waited=$((waited+1))
@@ -84,7 +84,7 @@ run_and_wait() { # port tag timeout action...
 init_head() { # port
   if head_is_open "$1"; then echo "head already open" >&2; return 0; fi
   echo "requesting Init via mediator on :$1 ..." >&2
-  run_and_wait "$1" HeadIsOpen 120 send_client_input "$1" '{"tag":"Init"}' >/dev/null
+  run_and_wait "$1" HeadIsOpen 120 send_client_input "$1" '{"tag":"Init"}' >/dev/null || return 1
   echo "head open" >&2
 }
 
@@ -105,7 +105,7 @@ commit() { # port name
   ccli_ conway transaction sign --tx-file "$DEVNET_DIR/$name-deposit.json" \
     --signing-key-file "$CREDS/$name.sk" --out-file "$DEVNET_DIR/$name-deposit-signed.json"
   run_and_wait "$port" CommitFinalized 240 \
-    ccli conway transaction submit --tx-file "$DEVNET_DIR/$name-deposit-signed.json" >/dev/null
+    ccli conway transaction submit --tx-file "$DEVNET_DIR/$name-deposit-signed.json" >/dev/null || return 1
   echo "$name commit finalized; funds now in the head" >&2
 }
 
@@ -130,7 +130,11 @@ send() { # port from to lovelace
   ccli_ conway transaction sign --tx-body-file "$DEVNET_DIR/$from-l2.json" \
     --signing-key-file "$CREDS/$from.sk" --out-file "$DEVNET_DIR/$from-l2-signed.json"
   local msg; msg=$(jq -c '{tag: "NewTx", transaction: .}' "$DEVNET_DIR/$from-l2-signed.json")
-  run_and_wait "$port" SnapshotConfirmed 60 send_client_input "$port" "$msg" >/dev/null
+  local out; out=$(run_and_wait "$port" "SnapshotConfirmed|TxInvalid" 60 send_client_input "$port" "$msg") || return 1
+  if jq -e '.tag == "TxInvalid"' <<<"$out" >/dev/null; then
+    echo "$from -> $to rejected on L2: $(jq -r '.validationError.reason' <<<"$out")" >&2
+    return 1
+  fi
   echo "$from -> $to confirmed on L2" >&2
 }
 
@@ -153,6 +157,6 @@ withdraw() { # port name
   ccli_ conway transaction sign --tx-file "$DEVNET_DIR/$name-decommit.json" \
     --signing-key-file "$CREDS/$name.sk" --out-file "$DEVNET_DIR/$name-decommit-signed.json"
   run_and_wait "$port" DecommitFinalized 120 \
-    curl -s -X POST "127.0.0.1:$port/decommit" --data @"$DEVNET_DIR/$name-decommit-signed.json" >/dev/null
+    curl -s -X POST "127.0.0.1:$port/decommit" --data @"$DEVNET_DIR/$name-decommit-signed.json" >/dev/null || return 1
   echo "$name decommit finalized; funds back on L1" >&2
 }
