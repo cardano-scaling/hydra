@@ -8,16 +8,6 @@ the funds inside the head. Two people who are not part of the network, **Anna** 
 This is the counterpart to the sibling [`demo`](../demo), where the operators
 commit their own funds.
 
-## Why this works
-
-Since [ADR-033](../docs/adr/2026-03-10_033-directly-open-head.md) Hydra has no
-initial-commit phase. `Init` opens the head with an empty UTxO set, and every
-commit is a deposit signed by whoever owns the committed UTxO. The mediator node
-only drafts and balances the deposit transaction; it never holds the owner's key.
-So committing funds "for people who do not belong to the network" is the native
-commit path. The only novelty here is that the operators commit nothing: fund
-ownership is decoupled from node operation.
-
 ## Topology
 
 | role   | who         | API port | node-to-node | owns funds? |
