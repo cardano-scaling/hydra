@@ -1794,17 +1794,18 @@ Network :: (msg -> m ()) -> Network m msg
 --   The two conditions are not interchangeable, and conflating them
 --   misreports a healthy network: <a>NoProgress</a> means nothing is
 --   getting through at all, while <a>BacklogFull</a> also fires on a
---   producer simply outrunning a consumer that is draining fine. Anything
---   telling a client or an operator about a stall should say which one it
---   saw rather than blaming reachability.
+--   producer outrunning a consumer that is still delivering, just not fast
+--   enough. Anything telling a client or an operator about a stall should
+--   say which one it saw rather than blaming reachability.
 data StallReason
 
 -- | Nothing has completed for longer than the allowed period, so the
 --   network cannot currently be reached.
 NoProgress :: StallReason
 
--- | The hand-off is holding its maximum, which a fast client can cause
---   against a network that is keeping up.
+-- | The hand-off holds more than it would drain within the allowed period
+--   at its recent rate, or its maximum. A fast client can cause this
+--   against a network that is still delivering.
 BacklogFull :: StallReason
 data Host
 Host :: Text -> PortNumber -> Host
@@ -2695,17 +2696,19 @@ data StallBounds
 StallBounds :: DiffTime -> Natural -> StallBounds
 
 -- | How long the outbox may fail to complete anything while it holds work.
+--   Also bounds how long the backlog may take to drain at the rate the
+--   consumer has recently been completing work, which catches a consumer
+--   that is moving but too slowly for what it holds, sooner than waiting
+--   for it to stop outright.
 [$sel:noProgressFor:StallBounds] :: StallBounds -> DiffTime
 
--- | How much work it may hold, whatever the elapsed time. Catches a stall
---   sooner than <a>$sel:noProgressFor:StallBounds</a> would when the
---   producer is fast, so whoever gates on this can cut the flow off
---   earlier. Note it does not itself bound the queue:
+-- | How much work it may hold, whatever the rate it drains at: the memory
+--   backstop. Note it does not itself bound the queue:
 --   <a>$sel:submit:Outbox</a> never blocks, so only the producer can stop.
 --   
---   This limb also fires on a producer simply outrunning a consumer that
---   is keeping up, so a caller reporting it must describe the backlog
---   rather than blame the consumer for being unreachable.
+--   Both backlog limbs also fire on a producer outrunning a consumer that
+--   is still delivering, so a caller reporting them must describe the
+--   backlog rather than blame the consumer for being unreachable.
 [$sel:maxPending:StallBounds] :: StallBounds -> Natural
 
 -- | A single-consumer hand-off for actions that must not block the thread
@@ -2736,6 +2739,12 @@ Outbox :: (m () -> m ()) -> m (Maybe (StallReason, Natural)) -> STM m Natural ->
 --   through" is that nothing has completed - reported as <a>NoProgress</a>
 --   even when the backlog also happens to be at
 --   <a>$sel:maxPending:StallBounds</a>.
+--   
+--   The backlog itself is judged by how long it would take to drain at the
+--   recent completion rate, so a burst that a fast consumer clears within
+--   <a>$sel:noProgressFor:StallBounds</a> is not a stall however deep it
+--   gets, short of <a>$sel:maxPending:StallBounds</a>. Both are reported
+--   as <a>BacklogFull</a>.
 [$sel:outboxStalled:Outbox] :: Outbox m -> m (Maybe (StallReason, Natural))
 
 -- | Submitted but not yet completed, including any action in flight.
@@ -2763,6 +2772,12 @@ Outbox :: (m () -> m ()) -> m (Maybe (StallReason, Natural)) -> STM m Natural ->
 --   interval that matches.
 [$sel:stallBounds:Outbox] :: Outbox m -> StallBounds
 newOutbox :: (MonadLabelledSTM m, MonadMonotonicTime m) => StallBounds -> String -> m (Outbox m)
+
+-- | How much busy time the service time estimate averages over. Long
+--   enough that a pause of a few hundred milliseconds barely moves it,
+--   short against any <a>$sel:noProgressFor:StallBounds</a> worth
+--   configuring.
+serviceWindow :: DiffTime
 
 
 -- | Structured errors related to configuration mismatch.
@@ -6163,9 +6178,12 @@ monitorBroadcast :: (MonadDelay m, MonadSTM m) => HydraNode tx m -> m ()
 
 -- | When the node starts refusing the client transactions that grow the
 --   outbound backlog, and when it reports the backlog to clients. Ten
---   seconds of no progress is comfortably above the etcd broadcast loop's
---   one second retry and far below any contestation period; the cap on
---   queued messages is the memory backstop.
+--   seconds of no progress, or of backlog at the recent drain rate, is
+--   comfortably above the etcd broadcast loop's one second retry and far
+--   below any contestation period. The cap on queued messages is the
+--   memory backstop: each holds at most a maximum size transaction, so
+--   ~160MB at the cap, and it sits well above the bursts a client can fire
+--   at a node whose network is keeping up.
 --   
 --   Deliberately not operator-configurable: the useful range is narrow,
 --   nothing observable would tell an operator which value to pick, and the

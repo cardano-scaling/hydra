@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.57957518.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.3f0df1f7.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.cb17f0bd.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d46b2007.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -60,7 +60,8 @@ queue drained by a thread of its own, which is the only caller of <code>broadcas
 <p>The consequence is that a node whose messages cannot get out keeps observing
 the chain and keeps accepting the commands that close and contest a head. What
 it stops doing is accepting <em>new</em> ones: while the hand-off is making no
-progress, <code>NewTx</code> and <code>Decommit</code> are refused with
+progress, or holds more than it would drain within the same period at its
+recent rate, <code>NewTx</code> and <code>Decommit</code> are refused with
 <code>RejectedInputBecauseBroadcastStalled</code>, since they are the client inputs that
 grow the backlog fastest. The protocol&#x27;s own messages cannot pile up, because
 a broadcast is delivered to ourselves as well, so with the network down our
