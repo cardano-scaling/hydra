@@ -15,6 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
  )
+import Control.Exception (ErrorCall (..))
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Control.Tracer.JSON (Tracer, traceWith)
 import Data.EventSource (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
@@ -27,7 +28,7 @@ import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (
   getCardanoPaymentVerificationKey,
  )
-import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError (..), initHistory)
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic (
   Effect (..),
@@ -641,8 +642,20 @@ processEffects node tracer inputId effects = do
       -- chain state than the input was decided on.
       OnChainEffect{postChainTx} ->
         postTx postChainTx
-          `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
+          `catch` ( \(postTxError :: PostTxError tx) ->
+                      enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
+                  )
+          -- Assertions in the transaction construction code (calls to 'error',
+          -- e.g. from the underlying ledger libraries) must not bring down the
+          -- node; report them like any other failure to post the transaction.
+          `catch` ( \(ErrorCallWithLocation reason location) ->
+                      enqueue . ChainInput $
+                        PostTxError
+                          { postChainTx
+                          , postTxError = UnexpectedPostTxError{failureReason = toText $ reason <> "\n" <> location}
+                          , failingTx = Nothing
+                          }
+                  )
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode

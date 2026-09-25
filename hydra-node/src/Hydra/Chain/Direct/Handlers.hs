@@ -792,10 +792,12 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
    where
     searchRange = min maxChunkSize Accumulator.deployedFanoutBatchSize
 
-    tryChunk plan n = buildTx plan n >>= \tx -> bool Nothing (Just tx) <$> fits tx
-
-  buildTx plan n =
-    orThrow $ partialFanoutFromPlan ctx plan n deadlineSlot
+    -- A chunk the head output cannot cover is a miss, not a failure: a
+    -- smaller one may still fit. Throwing here abandons the whole search and
+    -- distributes nothing, see issue #2334.
+    tryChunk plan n = do
+      tx <- orThrow $ partialFanoutFromPlan ctx plan n deadlineSlot
+      bool Nothing (Just tx) <$> fits tx
 
   orThrow :: Either PartialFanoutError a -> m a
   orThrow = either handleErr pure

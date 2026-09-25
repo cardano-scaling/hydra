@@ -1,8 +1,10 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Hydra.NodeSpec where
 
 import Data.Secret (Secret)
+import Data.Text qualified as Text
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
@@ -356,6 +358,25 @@ spec = parallel $ do
               _ -> False
 
         any isPostTxOnChainFailed outputs `shouldBe` True
+
+    it "notifies client when postTx hits an unexpected assertion" $
+      showLogsOnFailure "NodeSpec" $ \tracer -> do
+        let inputs :: [Input SimpleTx] = [ClientInput Init]
+        (node, getServerOutputs) <-
+          testHydraNode tracer aliceSk [bob, carol] cperiod inputs
+            >>= errorOnPostTx
+            >>= recordServerOutputs
+
+        runToCompletion node
+
+        outputs <- getServerOutputs
+        let isUnexpectedPostTxError :: Either (ServerOutput SimpleTx) (ClientMessage SimpleTx) -> Bool
+            isUnexpectedPostTxError = \case
+              Right PostTxOnChainFailed{postTxError = UnexpectedPostTxError{failureReason}} ->
+                "unexpected assertion" `Text.isInfixOf` failureReason
+              _ -> False
+
+        any isUnexpectedPostTxError outputs `shouldBe` True
 
     it "signs snapshot even if it has seen conflicting transactions" $
       failAfter 10 $
@@ -885,3 +906,14 @@ testDeposit i =
     , deadline = initialChainTime
     , status = Active
     }
+
+-- | Modify a 'HydraNode' to trip an assertion (a call to 'error') on any
+-- 'postTx', like the underlying ledger libraries do on illegal values.
+errorOnPostTx ::
+  HydraNode tx IO ->
+  IO (HydraNode tx IO)
+errorOnPostTx node =
+  pure
+    node
+      { oc = node.oc{postTx = \_ -> error "unexpected assertion"}
+      }
