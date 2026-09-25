@@ -60,7 +60,8 @@ queue drained by a thread of its own, which is the only caller of `broadcast`.
 The consequence is that a node whose messages cannot get out keeps observing
 the chain and keeps accepting the commands that close and contest a head. What
 it stops doing is accepting *new* ones: while the hand-off is making no
-progress, `NewTx` and `Decommit` are refused with
+progress, or holds more than it would drain within the same period at its
+recent rate, `NewTx` and `Decommit` are refused with
 `RejectedInputBecauseBroadcastStalled`, since they are the client inputs that
 grow the backlog fastest. The protocol's own messages cannot pile up, because
 a broadcast is delivered to ourselves as well, so with the network down our

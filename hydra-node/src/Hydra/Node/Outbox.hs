@@ -17,15 +17,18 @@ import Hydra.Network (StallReason (..))
 data StallBounds = StallBounds
   { noProgressFor :: DiffTime
   -- ^ How long the outbox may fail to complete anything while it holds work.
+  -- Also bounds how long the backlog may take to drain at the rate the
+  -- consumer has recently been completing work, which catches a consumer
+  -- that is moving but too slowly for what it holds, sooner than waiting for
+  -- it to stop outright.
   , maxPending :: Natural
-  -- ^ How much work it may hold, whatever the elapsed time. Catches a stall
-  -- sooner than 'noProgressFor' would when the producer is fast, so whoever
-  -- gates on this can cut the flow off earlier. Note it does not itself bound
-  -- the queue: 'submit' never blocks, so only the producer can stop.
+  -- ^ How much work it may hold, whatever the rate it drains at: the memory
+  -- backstop. Note it does not itself bound the queue: 'submit' never blocks,
+  -- so only the producer can stop.
   --
-  -- This limb also fires on a producer simply outrunning a consumer that is
-  -- keeping up, so a caller reporting it must describe the backlog rather
-  -- than blame the consumer for being unreachable.
+  -- Both backlog limbs also fire on a producer outrunning a consumer that is
+  -- still delivering, so a caller reporting them must describe the backlog
+  -- rather than blame the consumer for being unreachable.
   }
 
 -- | A single-consumer hand-off for actions that must not block the thread
@@ -52,6 +55,11 @@ data Outbox m = Outbox
   -- observed empty. What actually means "this is not getting through" is
   -- that nothing has completed - reported as 'NoProgress' even when the
   -- backlog also happens to be at 'maxPending'.
+  --
+  -- The backlog itself is judged by how long it would take to drain at the
+  -- recent completion rate, so a burst that a fast consumer clears within
+  -- 'noProgressFor' is not a stall however deep it gets, short of
+  -- 'maxPending'. Both are reported as 'BacklogFull'.
   , pendingActions :: STM m Natural
   -- ^ Submitted but not yet completed, including any action in flight.
   , outboxBacklog :: m (Natural, DiffTime)
@@ -84,6 +92,18 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
   -- reset the clock, so neither an idle producer nor a busy one that keeps up
   -- is ever reported as stalled.
   progressAt <- newLabelledTVarIO (name <> "-progress-at") now
+  -- Busy time and completions of the last full 'serviceWindow', and of the
+  -- one in progress, from which 'outboxStalled' takes the mean time to
+  -- complete one action. Each sample runs from 'progressAt', so it is the gap
+  -- between consecutive completions while busy, and submission to completion
+  -- otherwise; idle time is never counted. A mean over a window rather than a
+  -- moving average, so one slow completion among many fast ones moves it only
+  -- by its share of the window: with a deep backlog, a moving average turns a
+  -- single pause into a refusal. The window in progress counts too, so a
+  -- pause long enough to fill a window alone is diluted by the completions
+  -- right after it rather than standing for a whole window.
+  lastWindow <- newLabelledTVarIO (name <> "-last-window") (0, 0 :: Natural)
+  window <- newLabelledTVarIO (name <> "-window") (0, 0 :: Natural)
   let
     -- NOTE: the count drops, and the clock resets, only once the action has
     -- completed. An action stuck inside the effect itself therefore still
@@ -94,6 +114,11 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
       completedAt <- getMonotonicTime
       atomically $ do
         modifyTVar' count pred
+        sample <- diffTime completedAt <$> readTVar progressAt
+        (busy, completed) <- bimap (+ sample) (+ 1) <$> readTVar window
+        if busy >= serviceWindow
+          then writeTVar lastWindow (busy, completed) >> writeTVar window (0, 0)
+          else writeTVar window (busy, completed)
         writeTVar progressAt completedAt
   pure
     Outbox
@@ -114,11 +139,19 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
           atomically $ do
             n <- readTVar count
             since <- readTVar progressAt
+            (lastBusy, lastCompleted) <- readTVar lastWindow
+            (busy, completed) <- readTVar window
+            -- Zero until a full window has elapsed, so the first few
+            -- completions after startup cannot trip it on their own.
+            let perAction
+                  | lastCompleted == 0 = 0
+                  | otherwise = (lastBusy + busy) / fromIntegral (lastCompleted + completed)
             pure $
               if
                 | n == 0 -> Nothing
                 | asOf `diffTime` since > noProgressFor -> Just (NoProgress, n)
                 | n >= maxPending -> Just (BacklogFull, n)
+                | fromIntegral n * perAction > noProgressFor -> Just (BacklogFull, n)
                 | otherwise -> Nothing
       , outboxBacklog = do
           asOf <- getMonotonicTime
@@ -136,3 +169,9 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
            in go
       , stallBounds = bounds
       }
+
+-- | How much busy time the service time estimate averages over. Long enough
+-- that a pause of a few hundred milliseconds barely moves it, short against
+-- any 'noProgressFor' worth configuring.
+serviceWindow :: DiffTime
+serviceWindow = 1

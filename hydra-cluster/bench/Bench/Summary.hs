@@ -38,6 +38,9 @@ data Summary = Summary
   , totalTxs :: Int
   , numberOfTxs :: Int
   , numberOfInvalidTxs :: Int
+  , numberOfRefusals :: Int
+  -- ^ Submissions the node refused with 'RejectedInputBecauseBroadcastStalled';
+  -- each is resubmitted, so one transaction can account for several.
   , averageConfirmationTime :: NominalDiffTime
   , summaryTitle :: Text
   , summaryDescription :: Text
@@ -85,6 +88,7 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , totalTxs = length $ foldMap (\ClientDataset{txSequence} -> txSequence) clientDatasets
     , numberOfTxs = 0
     , numberOfInvalidTxs = 0
+    , numberOfRefusals = 0
     , averageConfirmationTime = 0
     , summaryTitle = maybe "Failed scenario" (<> " (failed)") title
     , summaryDescription =
@@ -157,7 +161,7 @@ rtsAggregates Summary{nodeRtsStats, numberOfTxs, numberOfSnapshots} = do
     )
 
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats) =
+textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, numberOfInvalidTxs, numberOfRefusals, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -191,6 +195,7 @@ textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quan
           )
           (rtsAggregates summary)
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
+        ++ ["Refused submissions: " <> show numberOfRefusals]
         ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
         ++ incrementalLines "Incremental commit" incrementalCommitTimes
         ++ incrementalLines "Incremental decommit" incrementalDecommitTimes
@@ -239,7 +244,7 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome, loadMode}, systemStats)
+formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, validationP50Ms, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfRefusals, numberOfFanoutOutputs, endToEndTps, sustainedTps, drainSeconds, avgTxsPerSnapshot, peakNodeRssMb, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes, runOutcome, loadMode}, systemStats)
   | numberOfTxs == 0 =
       -- Failed cell: no confirmations, so all the latency / TPS rows would be
       -- zeros or empty quantiles. Render a short failure block instead of the
@@ -296,6 +301,8 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
           )
           (rtsAggregates summary)
         ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
+           ]
+        ++ [ "| _Refused submissions_ | " <> show numberOfRefusals <> " |"
            ]
         ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
            ]

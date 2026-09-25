@@ -65,6 +65,7 @@ METRICS = [
     ("Max live MB (max node)", "Max live MB (max node)", -1, 1.0, False, "pct"),
     ("Peak node RSS (MB)", "Peak node RSS (MB)", -1, 1.0, False, "pct"),
     ("Number of Invalid txs", "Invalid txs", -1, 1.0, False, "count"),
+    ("Refused submissions", "Refused submissions", -1, 1.0, False, "count"),
     ("Incremental commit avg (ms)", "Incremental commit avg (s)", -1, MS_TO_S, False, "pct"),
     ("Incremental decommit avg (ms)", "Incremental decommit avg (s)", -1, MS_TO_S, False, "pct"),
 ]
@@ -172,6 +173,7 @@ def summary_to_record(s):
     if s.get("peakNodeRssMb") is not None:
         metrics["Peak node RSS (MB)"] = s["peakNodeRssMb"]
     metrics["Number of Invalid txs"] = float(s.get("numberOfInvalidTxs") or 0)
+    metrics["Refused submissions"] = float(s.get("numberOfRefusals") or 0)
     metrics.update(rts_metrics(s.get("nodeRtsStats") or [], n_txs, n_snapshots))
     for field, key in [
         ("incrementalCommitTimes", "Incremental commit avg (ms)"),

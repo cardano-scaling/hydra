@@ -389,9 +389,12 @@ monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{enqueu
 
 -- | When the node starts refusing the client transactions that grow the
 -- outbound backlog, and when it reports the backlog to clients. Ten seconds
--- of no progress is comfortably above the etcd broadcast loop's one second
--- retry and far below any contestation period; the cap on queued messages is
--- the memory backstop.
+-- of no progress, or of backlog at the recent drain rate, is comfortably
+-- above the etcd broadcast loop's one second retry and far below any
+-- contestation period. The cap on queued messages is the memory backstop:
+-- each holds at most a maximum size transaction, so ~160MB at the cap, and it
+-- sits well above the bursts a client can fire at a node whose network is
+-- keeping up.
 --
 -- Deliberately not operator-configurable: the useful range is narrow, nothing
 -- observable would tell an operator which value to pick, and the natural
@@ -404,7 +407,7 @@ monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{enqueu
 -- once both queues are saturated, which also puts the real in-flight bound
 -- around 'maxPending' plus that queue rather than at 'maxPending'.
 broadcastStallBounds :: StallBounds
-broadcastStallBounds = StallBounds{noProgressFor = 10, maxPending = 1000}
+broadcastStallBounds = StallBounds{noProgressFor = 10, maxPending = 10000}
 
 runHydraNode ::
   ( MonadCatch m

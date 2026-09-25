@@ -13,8 +13,10 @@ import Control.Concurrent.Class.MonadSTM (
   check,
   lengthTBQueue,
   modifyTVar,
+  readTQueue,
   tryReadTBQueue,
   writeTBQueue,
+  writeTQueue,
  )
 import Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import Control.Exception (SomeAsyncException)
@@ -360,6 +362,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       validationTimes = map (\(_, v, _) -> v) res
       numberOfTxs = length confTimes
       numberOfInvalidTxs = length $ Map.filter (isJust . invalidAt) processedTransactions
+      numberOfRefusals = sum $ refusals <$> Map.elems processedTransactions
       -- 0/0 is NaN, which serializes as garbage; report 0 when nothing confirmed.
       averageConfirmationTime = if numberOfTxs == 0 then 0 else sum confTimes / fromIntegral numberOfTxs
       quantiles = makeQuantiles confTimes
@@ -386,6 +389,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , summaryTitle
       , summaryDescription
       , numberOfInvalidTxs
+      , numberOfRefusals
       , numberOfFanoutOutputs
       , endToEndTps
       , runWallClockSeconds
@@ -497,6 +501,8 @@ data Event = Event
   , validAt :: Maybe UTCTime
   , invalidAt :: Maybe UTCTime
   , confirmedAt :: Maybe UTCTime
+  , refusals :: Int
+  -- ^ Times the node answered 'RejectedInputBecauseBroadcastStalled'.
   }
   deriving stock (Generic, Eq, Show)
 
@@ -558,7 +564,7 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
       ("submit-txs", submitTxs waitForTxValidEnabled client registry submissionQ)
       ( "confirm-txs"
       , concurrentlyLabelled_
-          ("wait-for-all-confirmations", waitForAllConfirmations client registry (Set.fromList $ map txId txSequence))
+          ("wait-for-all-confirmations", waitForAllConfirmations client registry txSequence)
           ("progress-report", progressReport (hydraNodeId client) clientId numberOfTxs submissionQ)
       )
       `catch` \(HUnitFailure sourceLocation reason) ->
@@ -729,12 +735,32 @@ newTx registry client tx = do
           , validAt = Nothing
           , invalidAt = Nothing
           , confirmedAt = Nothing
+          , refusals = 0
           }
-  send client $ input "NewTx" ["transaction" .= toJSON tx]
+  sendNewTx client tx
+
+sendNewTx :: HydraClient -> Tx -> IO ()
+sendNewTx client tx = send client $ input "NewTx" ["transaction" .= toJSON tx]
+
+-- | How many times a transaction may be refused before the bench stops
+-- resubmitting it.
+maxRefusals :: Int
+maxRefusals = 10
+
+-- | How long to wait before resubmitting after the given number of refusals.
+-- Starts short, as a refusal is often a brief backlog, and doubles so a
+-- stalled node is not flooded.
+--
+-- NOTE: this does not save transactions spending the refused one's outputs.
+-- Those are submitted already, and the node gives up on them long before the
+-- resubmitted one gets through the backlog, so they end up invalid.
+refusalBackoff :: Int -> NominalDiffTime
+refusalBackoff n = min 1 (0.02 * 2 ^ max 0 (n - 1))
 
 data WaitResult
   = TxInvalid {transactionId :: TxId, reason :: Text}
   | TxValid {transactionId :: TxId}
+  | TxRefused {transactionId :: TxId}
   | SnapshotConfirmed {txIds :: [Value], number :: Scientific}
 
 data Registry tx = Registry
@@ -770,41 +796,76 @@ submitTxs waitForTxValidEnabled client registry@Registry{processedTxs} submissio
   waitTxIsConfirmed txid =
     atomically $ do
       event <- Map.lookup txid <$> readTVar processedTxs
-      check (isJust $ confirmedAt =<< event)
+      check $ case event of
+        Just Event{confirmedAt, refusals} -> isJust confirmedAt || refusals >= maxRefusals
+        Nothing -> False
 
+-- | Wait until every transaction is confirmed, invalid or refused
+-- 'maxRefusals' times, resubmitting refused ones after 'refusalBackoff'.
 waitForAllConfirmations ::
   HydraClient ->
   Registry Tx ->
-  Set TxId ->
+  [Tx] ->
   IO ()
-waitForAllConfirmations n1 Registry{processedTxs, observedSnapshots} allIds = do
-  go allIds
+waitForAllConfirmations n1 Registry{processedTxs, observedSnapshots} txs = do
+  resubmissions <- newLabelledTQueueIO "refused-resubmissions"
+  withAsyncLabelled ("resubmit-refused", resubmitRefused resubmissions) $ \_ ->
+    go resubmissions (Map.keysSet txsById)
  where
-  go remainingIds
+  txsById = Map.fromList [(txId tx, tx) | tx <- txs]
+
+  -- Due times are taken on refusal, so resubmissions go out in the order
+  -- they were refused, which keeps a refused transaction ahead of those
+  -- spending its outputs.
+  resubmitRefused resubmissions = forever $ do
+    (dueAt, tx) <- atomically $ readTQueue resubmissions
+    now <- getCurrentTime
+    threadDelay . realToFrac $ max 0 (dueAt `diffUTCTime` now)
+    sendNewTx n1 tx
+
+  go resubmissions remainingIds
     | Set.null remainingIds = do
         putStrLn "All transactions confirmed. Sweet!"
     | otherwise = do
         waitForSnapshotConfirmation >>= \case
           TxValid{transactionId} -> do
             validTx processedTxs transactionId
-            go remainingIds
+            go resubmissions remainingIds
           TxInvalid{transactionId} -> do
             invalidTx processedTxs transactionId
-            go $ Set.delete transactionId remainingIds
+            go resubmissions $ Set.delete transactionId remainingIds
+          TxRefused{transactionId} -> do
+            refusals <- refuseTx processedTxs transactionId
+            case Map.lookup transactionId txsById of
+              Just tx | refusals < maxRefusals -> do
+                dueAt <- addUTCTime (refusalBackoff refusals) <$> getCurrentTime
+                atomically $ writeTQueue resubmissions (dueAt, tx)
+                go resubmissions remainingIds
+              _ -> go resubmissions $ Set.delete transactionId remainingIds
           SnapshotConfirmed{txIds, number} -> do
             now <- getCurrentTime
             atomically $
               modifyTVar observedSnapshots $
                 Map.insertWith (\_new old -> old) number (now, length txIds)
             confirmedIds <- mapM (confirmTx processedTxs) txIds
-            go $ remainingIds \\ Set.fromList confirmedIds
+            go resubmissions $ remainingIds \\ Set.fromList confirmedIds
 
   -- 60s (was 20s) so the pumba network-loss benchmark
   -- ('.github/workflows/network-test.yaml', up to 90% packet loss) has
   -- enough headroom for snapshot confirmation under repeated gRPC
   -- retries. Tighten only after re-running that workflow.
   waitForSnapshotConfirmation = waitMatch 60 n1 $ \v ->
-    maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
+    maybeTxValid v <|> maybeTxInvalid v <|> maybeTxRefused v <|> maybeSnapshotConfirmed v
+
+  -- Only our own: clients sharing a node connection see each other's.
+  maybeTxRefused :: Value -> Maybe WaitResult
+  maybeTxRefused v = do
+    guard (v ^? key "tag" == Just "RejectedInputBecauseBroadcastStalled")
+    clientInput <- v ^? key "clientInput"
+    guard (clientInput ^? key "tag" == Just "NewTx")
+    txid <- clientInput ^? key "transaction" . key "txId" >>= parseMaybe parseJSON
+    guard (Map.member txid txsById)
+    pure $ TxRefused txid
 
   maybeTxValid :: Value -> Maybe WaitResult
   maybeTxValid v = do
@@ -838,6 +899,17 @@ waitForAllConfirmations n1 Registry{processedTxs, observedSnapshots} allIds = do
         { txIds = snapshot ^.. key "confirmed" . values . key "txId"
         , number
         }
+
+-- | Record a refusal and return how many the transaction has had.
+refuseTx ::
+  TVar IO (Map.Map TxId Event) ->
+  TxId ->
+  IO Int
+refuseTx registry txid =
+  atomically $ do
+    modifyTVar registry $
+      Map.adjust (\e@Event{refusals} -> e{refusals = refusals + 1}) txid
+    maybe 0 refusals . Map.lookup txid <$> readTVar registry
 
 confirmTx ::
   TVar IO (Map.Map TxId Event) ->

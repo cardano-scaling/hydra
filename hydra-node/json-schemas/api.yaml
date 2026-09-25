@@ -3554,7 +3554,7 @@ components:
 
     StallReason:
       description: |
-        Why the node's outbound broadcast queue is reporting itself stalled. NoProgress means the network cannot currently be reached at all; BacklogFull can also happen on a healthy network that a client is simply outrunning.
+        Why the node's outbound broadcast queue is reporting itself stalled. NoProgress means nothing has been handed to the network for 10 seconds, so it cannot currently be reached at all. BacklogFull means the queue would take longer than 10 seconds to drain at the rate it has recently been draining, or holds 10000 messages; this can also happen on a healthy network that a client is outrunning.
       type: string
       enum:
         - NoProgress
