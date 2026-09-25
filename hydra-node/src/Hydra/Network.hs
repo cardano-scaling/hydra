@@ -212,15 +212,17 @@ instance FromCBOR Connectivity where
 --
 -- The two conditions are not interchangeable, and conflating them misreports
 -- a healthy network: 'NoProgress' means nothing is getting through at all,
--- while 'BacklogFull' also fires on a producer simply outrunning a consumer
--- that is draining fine. Anything telling a client or an operator about a
--- stall should say which one it saw rather than blaming reachability.
+-- while 'BacklogFull' also fires on a producer outrunning a consumer that is
+-- still delivering, just not fast enough. Anything telling a client or an
+-- operator about a stall should say which one it saw rather than blaming
+-- reachability.
 data StallReason
   = -- | Nothing has completed for longer than the allowed period, so the
     -- network cannot currently be reached.
     NoProgress
-  | -- | The hand-off is holding its maximum, which a fast client can cause
-    -- against a network that is keeping up.
+  | -- | The hand-off holds more than it would drain within the allowed period
+    -- at its recent rate, or its maximum. A fast client can cause this
+    -- against a network that is still delivering.
     BacklogFull
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)

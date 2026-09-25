@@ -57,6 +57,7 @@ PR-versus-master comparison table is produced by `scripts/bench-e2e-diff.py`.
 | Avg txs per snapshot | Mean snapshot batch size | `numberOfTxs / numberOfSnapshots` |
 | Peak node RSS (MB) | Highest hydra-node memory during the run | peak `VmHWM` across this scenario's hydra-node processes, Linux only (`readPeakNodeRssMb`) |
 | Number of Invalid txs | Transactions the node rejected as invalid | count of transactions that reached an `invalidAt` (`numberOfInvalidTxs`) |
+| Refused submissions | `NewTx` submissions the node refused because its outbound broadcast queue was stalled | count of `RejectedInputBecauseBroadcastStalled` for the scenario's transactions; each refused transaction is resubmitted with backoff, up to 10 times, so one transaction can count several times (`numberOfRefusals`) |
 | Fanout outputs | UTxO entries fanned out when the head closed | member count of the final `finalizedUTxO`; reported as 0 if fanout did not finalize within the time budget (`numberOfFanoutOutputs`) |
 | Incremental commit / decommit: count, avg (ms), max (ms) | On-chain incremental (de)commit finalisation latency | per event, `finalisedAt - startedAt`; the run's count, mean, and maximum |
 | Alloc MB per confirmed tx / per snapshot | GHC heap allocation summed over nodes, per unit of work | delta of `hydra_rts_allocated_bytes` across the tx-processing window (`rtsAggregates`); only when nodes run with `+RTS -T` |
@@ -146,6 +147,10 @@ bad it is and whether it is moving:
 - `no_progress_seconds` peaking a little under ten seconds without ever
   tripping the stall is the healthy-but-slow case, and the signal to watch if
   refusals start appearing.
+
+A deep backlog is not by itself a stall: the node refuses inputs for a backlog
+(`BacklogFull`) only once it would take more than ten seconds to drain at the
+rate it has recently been draining, or once it reaches 10000 messages.
 
 The two gauges are sampled roughly every ten seconds, and only while there is
 a backlog, so a burst shorter than that may not appear.

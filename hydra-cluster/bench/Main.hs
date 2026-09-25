@@ -148,7 +148,7 @@ main = do
     -- clobber or hide sibling results.
     let summaries =
           flip map results $ \case
-            Left (_, _, summary, exc) -> (summary{runOutcome = Just (failureLabel exc)}, [])
+            Left (_, _, summary, exc) -> (summary{runOutcome = Just (failureLabel exc <> refusalNote summary)}, [])
             Right s -> s
     writeBenchmarkReport outputDirectory summaries
     let failures = lefts results
@@ -187,6 +187,13 @@ data BenchmarkFailed
   = TestFailed HUnitFailure
   | InvalidTransactions Int
   | NotEnoughTransactions Int Int
+
+-- | Names refusals in the Outcome row, where they are the likely cause of
+-- missing or invalid transactions.
+refusalNote :: Summary -> Text
+refusalNote Summary{numberOfRefusals}
+  | numberOfRefusals > 0 = " (" <> show numberOfRefusals <> " refused submissions)"
+  | otherwise = ""
 
 -- | One-line reason for the report's Outcome row; details go to stdout via
 -- 'benchmarkFailedWith'.
