@@ -189,3 +189,63 @@ The large datasets are not committed (multi-MB); regenerate with:
 bench-e2e datasets --number-of-txs 3000 --cluster-size 3        # 3-nodes-9k
 bench-e2e datasets --utxo-size 'Plateau 1000' --number-of-txs 3000 --cluster-size 1
 ```
+
+## Sweep above 1000 and the promotion to 4000 (2026-09-04, issue #2455)
+
+Same machine as above, master at the 2.4.1 release. Method: one cabal-built
+hydra-node with a local (not merged) patch reading the cap from an
+environment variable, so every sweep point runs the identical binary; the
+bench inherits the environment into spawned nodes. Datasets regenerated with
+fixed seeds via `bench-e2e generate` (see commands below); every run's
+max-snapshot size equals the cap, confirming the override binds. Two
+interleaved reps per cell, spread ~5%, all runs clean with zero invalid txs.
+
+3-nodes-24k (3 x 8000 constant self-transfers, backlog ~24k; "eff. tx/s" is
+dataset size over backlog drain time):
+
+| cap | drain s | eff. tx/s | conf p50 s | peak RSS MB | rounds |
+| --- | --- | --- | --- | --- | --- |
+| 1000 | 37.04 | 648 | 29.1 | 550 | 26 |
+| 2000 | 20.81 | 1153 | 17.2 | 508 | 14 |
+| 3000 | 16.29 | 1473 | 14.2 | 476 | 10 |
+| 4000 | 13.50 | 1778 | 12.3 | 477 | 8 |
+| 6000 | 11.15 | 2152 | 11.1 | 420 | 7 |
+| 8000 | 10.36 | 2317 | 10.5 | 424 | 5 |
+
+3-nodes-9k (fine steps): drain 6.56 / 6.03 / 5.63 / 5.17 / 4.82 / 4.49 /
+4.45 s at caps 1000 / 1200 / 1400 / 1600 / 2000 / 2400 / 3000; RSS falls
+293 -> 255 MB. 1kutxo-9k (Plateau 1000, 9000 txs, backlog tops ~3600):
+drain 12.61 / 8.66 / 7.49 s at caps 1000 / 2000 / 4000.
+
+Findings:
+
+- The per-round fixed cost scales with the backlog (pruneTransactions and
+  the localUTxO refold walk all pending txs): ~0.38 s/round at a 9k backlog,
+  ~1.27 s/round at 24k. Small caps therefore degrade as overload deepens
+  (cap=1000 drains 1372 tx/s at 9k backlog but 648 tx/s at 24k), and larger
+  caps help most exactly there.
+- Peak RSS decreases monotonically with the cap in every dataset.
+- The cap only binds when the backlog exceeds it, so larger values cost
+  nothing under light load; measured round wall time barely grows (1kutxo:
+  ~1.1 s/round at cap 1000 vs ~1.0 s at 4000).
+- No cliff up to 8000: a single ~272KB ReqSn exceeds the 256KB broadcast
+  batch budget and goes as a batch of one, delivered fine. The hard ceiling
+  is etcd's default 1.5MiB request limit (~40k tx ids); an over-limit ReqSn
+  would retry forever and wedge the head, so generous margin is a safety
+  property.
+
+Promotion: 4000 (2.7x saturation throughput and 2.4x lower conf p50 vs
+1000, roughly 10x under the etcd limit with headroom for a decommit tx).
+Gains taper beyond it (+21% to 6000, +8% to 8000) while worst-case round
+size keeps growing. Caveats: minimal self-transfer txs, open-loop
+burst-drain regime, loopback etcd. The backlog-scaled per-round cost itself
+is an algorithmic follow-up, not a cap-tuning one.
+
+Regenerate the sweep datasets with:
+
+```sh
+bench-e2e generate --utxo-size Constant --number-of-txs 8000 --cluster-size 3 \
+  --seed 2456 --title 3-nodes-24k --out dataset-3nodes-24k.json
+bench-e2e generate --utxo-size 'Plateau 1000' --number-of-txs 9000 --cluster-size 1 \
+  --seed 2456 --title 1kutxo-9k --out dataset-1kutxo-9k.json
+```
