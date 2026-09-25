@@ -62,3 +62,4 @@ __pycache__/
 # Agda interface files and the rendered PDF from spec/build.sh
 spec/_build/
 .claude/
+delegated-demo/js/node_modules/

@@ -10,6 +10,8 @@ changes.
 
 ## UNRELEASED
 
+- Added a demo of a "delegated head" setup, see the README in ./delegated-demo for more information.
+
 - Tidy up the parsing of contestation period and deposit period.
 
 - Fixed a crash on observing a `Commit`/deposit datum whose embedded

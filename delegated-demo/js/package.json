@@ -1,0 +1,10 @@
+{
+  "name": "elsa-deposit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-side Hydra deposit builder for the delegated-demo (Elsa)",
+  "dependencies": {
+    "@harmoniclabs/cbor": "^1.5.0"
+  }
+}
