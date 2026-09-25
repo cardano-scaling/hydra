@@ -136,6 +136,31 @@ spec = do
         outboxStalled
     stalled `shouldBe` Nothing
 
+  it "weighs a very long pause as no more than a window" $ do
+    -- Regression test: counted in full, a minute-long pause stood for 0.2s
+    -- per action after 300 fast completions, so 700 pending read as 140s.
+    stalled <- shouldRunInSim $ do
+      Outbox{submit, outboxStalled, runOutbox} <- newOutbox bounds{maxPending = 2000} "outbox-spec"
+      withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+        forM_ [1 .. 1001 :: Int] $ \i -> submit (threadDelay $ if i == 1 then 60 else 0.001)
+        threadDelay 60.3005
+        outboxStalled
+    stalled `shouldBe` Nothing
+
+  it "does not carry a slow period over an idle period" $ do
+    -- Regression test: windows only rolled over on busy time, so the rate of
+    -- a slow period survived the outbox emptying, and an hour later a burst
+    -- of 11 read as 11s of backlog.
+    stalled <- shouldRunInSim $ do
+      Outbox{submit, outboxStalled, runOutbox} <- newOutbox bounds "outbox-spec"
+      withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+        forM_ [1 .. 3 :: Int] $ \_ -> submit (threadDelay 2)
+        threadDelay 3600
+        blocked <- newLabelledEmptyTMVarIO "outbox-spec-blocked"
+        forM_ [1 .. 11 :: Int] $ \_ -> submit (atomically $ takeTMVar blocked)
+        outboxStalled
+    stalled `shouldBe` Nothing
+
   it "reports a backlog that would take longer than the stall period to drain" $ do
     stalled <- shouldRunInSim $ do
       Outbox{submit, outboxStalled, runOutbox} <- newOutbox bounds "outbox-spec"

@@ -99,9 +99,15 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
   -- otherwise; idle time is never counted. A mean over a window rather than a
   -- moving average, so one slow completion among many fast ones moves it only
   -- by its share of the window: with a deep backlog, a moving average turns a
-  -- single pause into a refusal. The window in progress counts too, so a
-  -- pause long enough to fill a window alone is diluted by the completions
-  -- right after it rather than standing for a whole window.
+  -- single pause into a refusal. The window in progress counts too, so the
+  -- completions right after a slow one dilute it straight away.
+  --
+  -- A sample counts for at most 'serviceWindow', so one long pause, which is
+  -- 'NoProgress' territory anyway, weighs no more than a window of its own.
+  -- Both windows are cleared whenever the outbox empties: windows only roll
+  -- over on busy time, so a backlog that drains quickly after a pause would
+  -- otherwise leave that pause standing through any idle period and trip the
+  -- next small burst.
   lastWindow <- newLabelledTVarIO (name <> "-last-window") (0, 0 :: Natural)
   window <- newLabelledTVarIO (name <> "-window") (0, 0 :: Natural)
   let
@@ -114,11 +120,13 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
       completedAt <- getMonotonicTime
       atomically $ do
         modifyTVar' count pred
-        sample <- diffTime completedAt <$> readTVar progressAt
+        idle <- (== 0) <$> readTVar count
+        sample <- min serviceWindow . diffTime completedAt <$> readTVar progressAt
         (busy, completed) <- bimap (+ sample) (+ 1) <$> readTVar window
-        if busy >= serviceWindow
-          then writeTVar lastWindow (busy, completed) >> writeTVar window (0, 0)
-          else writeTVar window (busy, completed)
+        if
+          | idle -> writeTVar lastWindow (0, 0) >> writeTVar window (0, 0)
+          | busy >= serviceWindow -> writeTVar lastWindow (busy, completed) >> writeTVar window (0, 0)
+          | otherwise -> writeTVar window (busy, completed)
         writeTVar progressAt completedAt
   pure
     Outbox
