@@ -47,18 +47,14 @@ changes.
   where previously a partial `ToJSON` killed the writer thread and every
   subsequent trace blocked once the log queue filled.
 
-- Fix GHSA-7593-94v9-fq29: a head participant could freeze the head for
-  everyone else by completing a snapshot's multisignature locally and never
-  broadcasting its own `AckSn`. It then posted the increment or decrement
-  itself, and honest nodes observed the transaction, bumped their version, but
-  kept waiting for the missing `AckSn`: no further snapshot could be requested,
-  the stale confirmed snapshot could not be side-loaded past, and in the very
-  first snapshot's case the honest `Close` was one the validator rejects. The
-  node now reads the settled snapshot number and multisignature from the
-  observed increment/decrement redeemer and, if they match the snapshot it is
-  still collecting acks for and verify, adopts that snapshot as confirmed.
-  `OnIncrementTx` and `OnDecrementTx` chain events carry two new fields,
-  `snapshotNumber` and `signatures`.
+- The node now adopts the snapshot an observed increment, decrement, close or
+  contest was posted with. The `OnIncrementTx` and `OnDecrementTx` chain events
+  carry two new fields, `snapshotNumber` and `signatures`, and `OnCloseTx` and
+  `OnContestTx` carry `signatures`.
+
+- `Close` is refused when the confirmed snapshot can no longer close the head
+  such that it could be fanned out. `FailedToConstructCloseTx` carries a new
+  `failureReason` field saying why.
 
 - **BREAKING** Fixed a bug related to partial fanout and decommits and a
   potential stuck head.

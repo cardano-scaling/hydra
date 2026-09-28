@@ -13,7 +13,7 @@ import Hydra.Plutus.Extras (posixToUTCTime)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Crypto (MultiSignature (..), fromPlutusSignatures, toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature (..), observedSignatures, toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, accumulatorInHead, commitOutputsHash, decommitOutputsHash, fromChainSnapshotNumber, pendingActionApplied)
@@ -173,15 +173,10 @@ observeContestTx utxo tx = do
           }
     _ -> Nothing
  where
-  -- NOTE: A decode failure must not drop the observation; empty signatures
-  -- never verify, so HeadLogic just skips adoption.
   contestSignatures :: Head.ContestRedeemer -> MultiSignature (Snapshot Tx)
   contestSignatures = \case
-    Head.ContestUnused{signature} -> decodeSignatures signature
-    Head.ContestUsed{signature} -> decodeSignatures signature
-
-  decodeSignatures :: [Head.Signature] -> MultiSignature (Snapshot Tx)
-  decodeSignatures = fromMaybe mempty . fromPlutusSignatures
+    Head.ContestUnused{signature} -> observedSignatures signature
+    Head.ContestUsed{signature} -> observedSignatures signature
 
   -- NOTE: The head validator constrains the produced datum of a contest, so a
   -- different state here should be unreachable. Observation runs on

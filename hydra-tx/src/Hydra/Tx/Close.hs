@@ -32,7 +32,7 @@ import Hydra.Tx (
   pendingActionApplied,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (MultiSignature, fromPlutusSignatures, toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature, observedSignatures, toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -214,14 +214,9 @@ observeCloseTx utxo tx = do
           }
     _ -> Nothing
  where
-  -- NOTE: A decode failure must not drop the observation; empty signatures
-  -- never verify, so HeadLogic just skips adoption.
   closeSignatures :: Head.CloseRedeemer -> MultiSignature (Snapshot Tx)
   closeSignatures = \case
     Head.CloseInitial -> mempty
-    Head.CloseAny{signature} -> decodeSignatures signature
-    Head.CloseUnused{signature} -> decodeSignatures signature
-    Head.CloseUsed{signature} -> decodeSignatures signature
-
-  decodeSignatures :: [Head.Signature] -> MultiSignature (Snapshot Tx)
-  decodeSignatures = fromMaybe mempty . fromPlutusSignatures
+    Head.CloseAny{signature} -> observedSignatures signature
+    Head.CloseUnused{signature} -> observedSignatures signature
+    Head.CloseUsed{signature} -> observedSignatures signature

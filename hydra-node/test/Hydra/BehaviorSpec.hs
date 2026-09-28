@@ -644,28 +644,43 @@ spec = parallel $ do
 
         it "contests a stale close with a deposit snapshot adopted from the chain" $
           shouldRunInSim $
-            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+            -- Bob acks snapshot 1 like an honest party and withholds from
+            -- snapshot 2 on.
+            withSimulatedChainAndNetworkWithholdingAckSnFrom bob 2 $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
+                  -- Snapshot 1 confirms for both, with nothing pending.
+                  send n1 (NewTx (aValidTx 42))
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                    _ -> Nothing
+                  -- Snapshot 2 carries the deposit. Only Bob confirms it and
+                  -- posts the increment; Alice adopts it from the observation.
                   let depositUTxO = utxoRefs [11]
                   depositHead chain [n1, n2] depositUTxO
                   waitUntilMatch [n1] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
-                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                      guard (number == 2 && utxoToCommit == Just depositUTxO)
                     _ -> Nothing
-                  -- Bob closes with the initial snapshot, pretending snapshot 1
-                  -- was never confirmed.
-                  let deadline = arbitrary `generateWith` 42
-                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
-                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  -- Bob closes with snapshot 1, signed at version 0, against
+                  -- the head at version 1: a 'CloseUsed' the validator accepts
+                  -- but the head could not be fanned out from. His node
+                  -- refuses to build such a close, so it is injected as
+                  -- observed.
+                  deadline <- addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
+                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 1 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 1 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
                   waitUntilMatch [n1, n2] $ \case
-                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
                     _ -> Nothing
                   -- Alice holds the adopted multisignature and contests with it.
                   waitUntilMatch [n1, n2] $ \case
-                    HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
+                    HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 2
                     _ -> Nothing
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [11, 42]}
 
         it "can process multiple commits" $
           shouldRunInSim $ do
@@ -1487,8 +1502,20 @@ withSimulatedChainAndNetworkWithholdingAckSn ::
   (SimulatedChainNetwork SimpleTx m -> m a) ->
   m a
 withSimulatedChainAndNetworkWithholdingAckSn dishonest =
+  withSimulatedChainAndNetworkWithholdingAckSnFrom dishonest 1
+
+-- | Like 'withSimulatedChainAndNetworkWithholdingAckSn', but the dishonest
+-- party acks like everyone else up to the given snapshot number and withholds
+-- from that snapshot on.
+withSimulatedChainAndNetworkWithholdingAckSnFrom ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  Party ->
+  SnapshotNumber ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndNetworkWithholdingAckSnFrom dishonest fromSnapshot =
   bracket
-    (simulatedChainAndNetworkUsing (createNetworkWithholdingAckSn dishonest) 0 SimpleChainState{slot = ChainSlot 0})
+    (simulatedChainAndNetworkUsing (createNetworkWithholdingAckSn dishonest fromSnapshot) 0 SimpleChainState{slot = ChainSlot 0})
     (cancel . tickThread)
 
 -- | Simulated chain and network where the network and/or chain observations
@@ -1642,17 +1669,20 @@ handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 createNetworkWithholdingAckSn ::
   MonadAsync m =>
   Party ->
+  -- | First snapshot number the dishonest party withholds its 'AckSn' for.
+  SnapshotNumber ->
   DraftHydraNode tx m ->
   TVar m [HydraNode tx m] ->
   Network m (Message tx)
-createNetworkWithholdingAckSn dishonest node nodes =
+createNetworkWithholdingAckSn dishonest fromSnapshot node nodes =
   Network{broadcast}
  where
   broadcast msg = do
     allNodes <- readTVarIO nodes
     forM_ allNodes $ \HydraNode{inputQueue, env = Environment{party = receiver}} ->
       case msg of
-        AckSn{} | sender == dishonest && receiver /= dishonest -> pure ()
+        AckSn{snapshotNumber}
+          | sender == dishonest && receiver /= dishonest && snapshotNumber >= fromSnapshot -> pure ()
         _ -> enqueue inputQueue $ mkNetworkInput sender msg
 
   DraftHydraNode{env = Environment{party = sender}} = node
