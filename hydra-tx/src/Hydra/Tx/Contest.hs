@@ -15,9 +15,8 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, commitOutputsHash, fromChainSnapshotNumber)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, accumulatorInHead, commitOutputsHash, decommitOutputsHash, fromChainSnapshotNumber, pendingActionApplied)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -69,7 +68,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, accumulator, appliedAccumulator, utxoToDecommit} = snapshot
+  Snapshot{number, accumulator, appliedAccumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -92,21 +91,12 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   appliedAccHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
 
-  decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+  decommitHash = toBuiltin $ decommitOutputsHash snapshot
 
   commitHash = toBuiltin $ commitOutputsHash snapshot
 
-  -- Whether the snapshot's pending increment/decrement has already been applied
-  -- on chain; selects the redeemer kind and, with it, which of the two signed
-  -- accumulators the closed datum commits to (see 'Hydra.Tx.Close.closeTx').
-  pendingActionApplied = version /= openVersion
-
-  accumulatorInHead
-    | pendingActionApplied = appliedAccumulator
-    | otherwise = accumulator
-
   contestRedeemer
-    | pendingActionApplied =
+    | pendingActionApplied openVersion snapshot =
         Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
     | otherwise =
         Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
@@ -137,7 +127,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion
-          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulatorInHead
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment (accumulatorInHead openVersion snapshot)
           , headAdaOverhead = closedHeadAdaOverhead
           }
 

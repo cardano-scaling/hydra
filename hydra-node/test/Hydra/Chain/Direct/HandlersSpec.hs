@@ -524,17 +524,17 @@ spec = do
         assert $ result == (sizeOk && evalOk)
 
   describe "findLargestFitting" $ do
-    it "returns Left () when upper bound is 0" $ do
+    it "returns Nothing when upper bound is 0" $ do
       result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 0
-      result `shouldBe` Left ()
+      result `shouldBe` Nothing
 
-    it "returns Left () when tryTx never fits" $ do
+    it "returns Nothing when tryTx never fits" $ do
       result <- findLargestFitting (const $ pure Nothing :: Int -> IO (Maybe Int)) 10
-      result `shouldBe` Left ()
+      result `shouldBe` Nothing
 
-    it "returns Right upper bound when tryTx always fits" $ do
+    it "returns the upper bound when tryTx always fits" $ do
       result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 10
-      result `shouldBe` Right 10
+      result `shouldBe` Just 10
 
     prop "returns the largest n where tryTx fits" $
       \(Positive maxChunk) (NonNegative threshold) ->
@@ -543,7 +543,7 @@ spec = do
          in monadicIO $ do
               monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
               result <- run $ findLargestFitting (\n -> pure $ if n <= k then Just n else Nothing) maxChunk
-              let expected = if k == 0 then Left () else Right k
+              let expected = if k == 0 then Nothing else Just k
               monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
               assert $ result == expected
 

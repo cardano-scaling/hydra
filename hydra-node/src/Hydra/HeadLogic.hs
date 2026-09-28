@@ -533,16 +533,11 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
       Right u -> cont u
 
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
-  requireValidAccumulatorSize accumulator continue
-    | Accumulator.accumulatorSize accumulator > Accumulator.maxAccumulatorSize =
-        Error $
-          RequireFailed $
-            ReqSnUTxOSetTooLarge
-              { utxoCount = Accumulator.accumulatorSize accumulator
-              , maxAllowed = Accumulator.maxAccumulatorSize
-              }
-    | otherwise =
-        continue
+  requireValidAccumulatorSize accumulator continue =
+    case Accumulator.checkAccumulatorSize accumulator of
+      Left Accumulator.AccumulatorTooLarge{utxoCount, maxAllowed} ->
+        Error $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
+      Right () -> continue
 
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
   -- after each previous successful tx. The post-snapshot UTxO is not returned:
@@ -1051,15 +1046,8 @@ onOpenChainTick env chainTime pendingDeposits st =
           else
             noop
  where
-  -- Pending active deposits are selected in arrival order (FIFO).
-  withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
-  withNextActive deposits cont = do
-    -- NOTE: Do not consider empty deposits.
-    let p :: (x, Deposit tx) -> Bool
-        p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    case filter p (Map.toList deposits) of
-      [] -> noop
-      xs -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
+  withNextActive :: forall tx. IsTx tx => PendingDeposits tx -> (TxIdType tx -> Outcome tx) -> Outcome tx
+  withNextActive deposits cont = maybe noop cont (nextActiveDepositId deposits)
 
   nextSn = confirmedSn + 1
 
@@ -2105,8 +2093,7 @@ setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Ma
 setExistingDeposit pendingDeposits = fmap fst . existingDeposit pendingDeposits
 
 -- | Find the oldest non-empty active deposit, if any. Deposits are selected
--- in FIFO order by their 'created' timestamp. This mirrors the selection
--- logic in 'withNextActive' used by 'onOpenChainTick'.
+-- in FIFO order by their 'created' timestamp.
 nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
 nextActiveDepositId deposits =
   case filter (\(_, Deposit{deposited, status}) -> deposited /= mempty && status == Active) (Map.toList deposits) of
@@ -2301,7 +2288,7 @@ update env ledger now nodeState ev
   -- cannot go through 'sideLoadFailed': that emits a 'SideLoadSnapshotRejected'
   -- client message, which echoes the input.
   | ClientInput clientInput <- ev
-  , Left (utxoCount, maxAllowed) <- validateClientInput clientInput =
+  , Left Accumulator.AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
       Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
   | otherwise =
       case nodeState of
@@ -2708,16 +2695,13 @@ aggregateNodeState nodeState sc =
             CommitFinalized{chainState, newVersion, depositTxId} ->
               consumeDeposit (chainStateSlot chainState) depositTxId $ case st of
                 Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot}}
-                  -- Re-observation: the increment re-landed after a rollback
-                  -- (the local 'version' never rolls back, so a 'newVersion'
-                  -- not ahead of it means this finalization was applied
-                  -- before). Only convergence bookkeeping: in particular
-                  -- 'localUTxO' must not absorb the deposit again (its outputs
-                  -- may have been spent on L2 in the meantime and the union
-                  -- would resurrect them) and an unrelated deposit already
-                  -- parked in 'currentDepositTxId' for the next snapshot must
-                  -- be left alone. See #2741.
-                  | newVersion <= chs.version ->
+                  -- Only convergence bookkeeping: in particular 'localUTxO'
+                  -- must not absorb the deposit again (its outputs may have
+                  -- been spent on L2 in the meantime and the union would
+                  -- resurrect them) and an unrelated deposit already parked in
+                  -- 'currentDepositTxId' for the next snapshot must be left
+                  -- alone. See #2741.
+                  | isReobservation newVersion chs ->
                       nodeState
                         { headState =
                             Open
@@ -2743,14 +2727,7 @@ aggregateNodeState nodeState sc =
                                         -- depositTxId, but we should not verify this here.
                                         currentDepositTxId = Nothing
                                       , localUTxO = localUTxO <> maybe mempty (.deposited) (Map.lookup depositTxId nodeState.pendingDeposits)
-                                      , -- If a snapshot is already in SeenSnapshot, all parties
-                                        -- have processed the ReqSn and sent AckSns — preserve it
-                                        -- so that snapshot can still complete and chain the next
-                                        -- one with the bumped version. Only reset when nothing
-                                        -- is in-flight.
-                                        seenSnapshot = case seenSnapshot of
-                                          SeenSnapshot{} -> seenSnapshot
-                                          _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
+                                      , seenSnapshot = seenSnapshotAfterVersionBump confirmedSnapshot seenSnapshot
                                       , finalizedCommit = retainFinalizedCommit (chainStateSlot chainState) depositTxId confirmedSnapshot chs.finalizedCommit
                                       }
                                 }
@@ -2779,6 +2756,19 @@ aggregateNodeState nodeState sc =
               nodeState{headState = st}
 
 -- * HeadState aggregate helpers
+
+-- | Whether a finalized increment or decrement at 'newVersion' was applied
+-- before and re-landed after a rollback. The local version never rolls back.
+isReobservation :: SnapshotVersion -> CoordinatedHeadState tx -> Bool
+isReobservation newVersion CoordinatedHeadState{version} = newVersion <= version
+
+-- | The 'SeenSnapshot' after a version bump. A snapshot already in flight is
+-- kept: every party has processed its 'ReqSn', so it can still complete and
+-- chain the next one with the bumped version.
+seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
+seenSnapshotAfterVersionBump confirmedSnapshot = \case
+  seen@SeenSnapshot{} -> seen
+  _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
 
 -- | The spendable UTxO of a snapshot, given the head's current 'SnapshotVersion'.
 -- A pending commit only becomes spendable once its increment has landed on
@@ -3072,12 +3062,9 @@ applyEvent st = \case
   DecommitFinalized{chainState, newVersion} ->
     case st of
       Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}}
-        -- Re-observation: the decrement re-landed after a rollback (the local
-        -- 'version' never rolls back, so a 'newVersion' not ahead of it means
-        -- this finalization was applied before). Only convergence bookkeeping:
-        -- in particular an unrelated newer decommit may already be in flight
-        -- and must be left alone. See #2741.
-        | newVersion <= chs.version ->
+        -- Only convergence bookkeeping: in particular an unrelated newer
+        -- decommit may already be in flight and must be left alone. See #2741.
+        | isReobservation newVersion chs ->
             Open
               os
                 { chainState
@@ -3092,14 +3079,7 @@ applyEvent st = \case
                     chs
                       { decommitTx = Nothing
                       , version = newVersion
-                      , -- If a snapshot is already in SeenSnapshot, all parties
-                        -- have processed the ReqSn and sent AckSns — preserve it
-                        -- so that snapshot can still complete and chain the next
-                        -- one with the bumped version. Only reset when nothing
-                        -- is in-flight.
-                        seenSnapshot = case seenSnapshot of
-                          SeenSnapshot{} -> seenSnapshot
-                          _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
+                      , seenSnapshot = seenSnapshotAfterVersionBump confirmedSnapshot seenSnapshot
                       , -- Retain the signed decrementing snapshot: if a rollback
                         -- erases the just observed decrement, 'confirmedSnapshot'
                         -- may have advanced past it and this is the only snapshot

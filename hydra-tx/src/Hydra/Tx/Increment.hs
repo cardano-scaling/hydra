@@ -19,10 +19,9 @@ import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, decommitOutputsHash, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -66,7 +65,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
           , appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
-          , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+          , decommitOutputsHash = toBuiltin $ decommitOutputsHash snapshot
           }
 
   HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
@@ -116,7 +115,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxoToCommit, utxoToDecommit, version, number, accumulator, appliedAccumulator} = snapshot
+  Snapshot{utxoToCommit, version, number, accumulator, appliedAccumulator} = snapshot
 
 -- * Observation
 

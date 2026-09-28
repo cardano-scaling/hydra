@@ -61,12 +61,7 @@ instance IsTx tx => FromCBOR (ClientInput tx) where
 -- This must not force the accumulators, so it goes through
 -- 'Accumulator.checkAccumulatorSize' (an element-map fold) and never 'toJSON'
 -- or 'Accumulator.getAccumulatorHash'.
---
--- Reports the offending size and the maximum rather than a
--- 'Hydra.HeadLogic.Error.SideLoadRequirementFailure': that type transitively
--- depends on this module ('Input' carries a 'ClientInput'), so the callers
--- build 'SideLoadUTxOSetTooLarge' from these two numbers instead.
-validateClientInput :: IsTx tx => ClientInput tx -> Either (Int, Int) (ClientInput tx)
+validateClientInput :: IsTx tx => ClientInput tx -> Either Accumulator.AccumulatorTooLarge (ClientInput tx)
 validateClientInput = \case
   input@SideLoadSnapshot{snapshot} ->
     let Snapshot{accumulator, appliedAccumulator} = getSnapshot snapshot

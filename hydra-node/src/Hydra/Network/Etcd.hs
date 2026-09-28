@@ -40,7 +40,7 @@ module Hydra.Network.Etcd where
 
 import Hydra.Prelude
 
-import Cardano.Binary (decodeFull', serialize')
+import Cardano.Binary (DecoderError, decodeFull', serialize')
 import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Codec.CBOR.Encoding qualified as CBOR
 import Codec.CBOR.Write qualified as CBOR
@@ -208,19 +208,17 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                   onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers}
                 _ -> traceWith tracer $ EtcdLog{etcd = v}
           loop
-     in -- When etcd's stderr pipe closes (because the etcd subprocess exited),
-        -- 'BS.hGetLine' raises 'hGetLine: end of file'. We don't want that
-        -- naked IOException racing the descriptive "Sub-process etcd exited
-        -- with: ExitFailure N" from 'etcd-waitExitCode' below — on slower
-        -- machines the EOF often wins, and the IOException then gets caught
-        -- by 'withAPIServer's IOException handler and re-thrown as
-        -- 'RunServerException', stripping every mention of etcd from the
-        -- final error. Block on EOF instead so 'etcd-waitExitCode' is always
-        -- the one that fires.
-        loop `catch` \e ->
-          if isEOFError e
-            then forever (threadDelay 60)
-            else throwIO e
+     in blockOnEOF loop
+
+  -- Block rather than raise when etcd's stderr closes, so the descriptive exit
+  -- from 'etcd-waitExitCode' always wins. The naked EOF would otherwise surface
+  -- as a 'RunServerException' with no mention of etcd.
+  blockOnEOF :: IO a -> IO a
+  blockOnEOF io =
+    io `catch` \e ->
+      if isEOFError e
+        then forever (threadDelay 60)
+        else throwIO e
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
@@ -401,21 +399,6 @@ broadcastMessages ::
   PersistentQueue IO msg ->
   IO ()
 broadcastMessages tracer config ourHost queue = do
-  -- Seed 'lastModRev' from etcd. With this in place the in-memory value
-  -- always matches the server's view of our key when the loop starts:
-  --
-  --   * fresh process + fresh etcd → key absent → @lastModRev = 0@;
-  --     'putMessage' compares against 0 (which etcd treats as "key does
-  --     not exist") and the success branch creates the key.
-  --   * fresh process + persisted etcd (e.g. Carol restart) → key
-  --     present with some non-zero @mod_revision@ → @lastModRev@ starts
-  --     at that revision; 'putMessage' compares against it and the
-  --     success branch advances.
-  --
-  -- The init query removes the ambiguity that the older code had on
-  -- @lastModRev == 0 + compare-fail@: with seeding, any compare-fail is
-  -- unambiguously this peer's own deadline-exceeded retry, so the
-  -- failure branch just adopts the new baseline and pops.
   initialModRev <- retryInitQuery
   lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
   inFlightVar <- newLabelledTVarIO "etcd-broadcast-in-flight" Nothing
@@ -468,9 +451,10 @@ broadcastMessages tracer config ourHost queue = do
       retryInitQuery
 
 -- | Query etcd for the current 'mod_revision' of this peer's broadcast key.
--- Returns 0 if the key does not yet exist. Used by 'broadcastMessages' to
--- seed its in-memory baseline so subsequent @compare mod_revision@ checks
--- match etcd's reality from the very first 'putMessage'.
+-- Returns 0 if the key does not yet exist, which etcd's compare also treats as
+-- absent. Used by 'broadcastMessages' to seed its in-memory baseline, so that
+-- from the very first 'putMessage' a failed compare can only mean an earlier
+-- attempt of ours committed.
 queryInitialModRev ::
   Tracer IO EtcdLog ->
   NetworkConfiguration ->
@@ -591,6 +575,14 @@ batchValue encodedItems =
       <> foldMap CBOR.encodePreEncoded encodedItems
       <> CBOR.encodeBreak
 
+-- | Decode a value assembled by 'batchValue'. Watch catch-up can replay values
+-- written before batching, which hold a single message.
+decodeBatchValue :: forall msg. FromCBOR msg => ByteString -> Either DecoderError [msg]
+decodeBatchValue value =
+  case decodeFull' @[msg] value of
+    Right msgs -> Right msgs
+    Left err -> either (const $ Left err) (Right . pure) (decodeFull' @msg value)
+
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
   forall msg.
@@ -645,22 +637,16 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
 
   process event = do
     let value = event ^. #kv . #value
-    -- Broadcast values carry a batch of messages per revision (see
-    -- 'batchValue'). Watch catch-up can still replay single-message values
-    -- written before an upgrade, so fall back to decoding one message.
-    case decodeFull' @[msg] value of
+    case decodeBatchValue value of
       Right msgs -> forM_ msgs deliver
       Left err ->
-        case decodeFull' value of
-          Right msg -> deliver msg
-          Left _ ->
-            traceWith
-              tracer
-              FailedToDecodeValue
-                { key = decodeUtf8 $ event ^. #kv . #key
-                , value = encodeBase16 value
-                , reason = show err
-                }
+        traceWith
+          tracer
+          FailedToDecodeValue
+            { key = decodeUtf8 $ event ^. #kv . #key
+            , value = encodeBase16 value
+            , reason = show err
+            }
 
 -- | The persisted watch revision could not be read.
 --

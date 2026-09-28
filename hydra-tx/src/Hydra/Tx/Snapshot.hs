@@ -134,21 +134,18 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- the same and accept this snapshot's signatures. See the matching computation in
 -- 'Hydra.Contract.Head.checkIncrement'.
 instance IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, appliedAccumulator, utxoToDecommit} =
+  getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, appliedAccumulator} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
         <> serialise (toData $ toBuiltin accumulatorBytes)
         <> serialise (toData $ toBuiltin appliedAccumulatorBytes)
-        <> serialise (toData $ toBuiltin decommitOutputsHash)
+        <> serialise (toData $ toBuiltin (decommitOutputsHash snapshot))
         <> serialise (toData $ toBuiltin (commitOutputsHash snapshot))
    where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
     appliedAccumulatorBytes = Accumulator.getAccumulatorHash appliedAccumulator
-    -- Matches on-chain 'Hydra.Contract.Util.hashTxOuts' over the same outputs in
-    -- the same (TxIn-sorted) order; empty-list hash when there is nothing pending.
-    decommitOutputsHash = hashUTxO @tx (fromMaybe mempty utxoToDecommit)
 
 -- | Digest of a snapshot's pending commit (Uα) as bound into its signature: the
 -- ordered commit outputs together with the id of the deposit transaction they
@@ -167,6 +164,25 @@ commitOutputsHash Snapshot{utxoToCommit, depositTxId} =
   fromBuiltin . sha2_256 . toBuiltin $
     hashUTxO @tx (fromMaybe mempty utxoToCommit)
       <> foldMap (txIdBytes @tx) depositTxId
+
+-- | Digest of a snapshot's pending decommit (Uω) as bound into its signature.
+-- Matches on-chain 'Hydra.Contract.Util.hashTxOuts' over the same outputs in
+-- the same (TxIn-sorted) order; empty-list hash when there is nothing pending.
+decommitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+decommitOutputsHash Snapshot{utxoToDecommit} =
+  hashUTxO @tx (fromMaybe mempty utxoToDecommit)
+
+-- | Whether the snapshot's pending increment or decrement has happened on chain,
+-- given the version the head is at. This decides which of the two signed
+-- accumulators a closed head commits to, see 'Hydra.Contract.Head.checkClose'.
+pendingActionApplied :: SnapshotVersion -> Snapshot tx -> Bool
+pendingActionApplied headVersion Snapshot{version} = version /= headVersion
+
+-- | The signed accumulator committing to what the head holds at the given version.
+accumulatorInHead :: SnapshotVersion -> Snapshot tx -> Accumulator.HydraAccumulator
+accumulatorInHead headVersion snapshot@Snapshot{accumulator, appliedAccumulator}
+  | pendingActionApplied headVersion snapshot = appliedAccumulator
+  | otherwise = accumulator
 
 instance IsTx tx => ToJSON (Snapshot tx) where
   toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, appliedAccumulator, depositTxId} =

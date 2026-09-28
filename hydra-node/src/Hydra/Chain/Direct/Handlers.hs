@@ -657,23 +657,22 @@ canBeVerifiedOnChain numOutputs =
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
 -- 'tryTx' returns 'Just'. Assumes the predicate is monotone: if size @n@ fits,
 -- all sizes @< n@ also fit. Uses upper-mid so the search terminates correctly
--- when @hi = lo + 1@. Returns 'Left ()' if no size fits. 'tryTx' may throw to
--- abort the search early.
+-- when @hi = lo + 1@. 'tryTx' may throw to abort the search early.
 findLargestFitting ::
   Monad m =>
   -- | Construct and check a transaction; Just tx = fits, Nothing = doesn't fit; may throw on structural failure
   (Int -> m (Maybe tx)) ->
   -- | Upper bound of chunk sizes to search (inclusive)
   Int ->
-  m (Either () tx)
-findLargestFitting tryTx = go (Left ()) 1
+  m (Maybe tx)
+findLargestFitting tryTx = go Nothing 1
  where
   go best lo hi
     | lo > hi = pure best
     | otherwise = do
         let mid = (lo + hi + 1) `div` 2 -- ceiling division: biases toward hi so we test the larger candidate first
         tryTx mid >>= \case
-          Just tx -> go (Right tx) (mid + 1) hi
+          Just tx -> go (Just tx) (mid + 1) hi
           Nothing -> go best lo (mid - 1)
 
 -- | Check whether a transaction fits within protocol size and script execution
@@ -745,17 +744,15 @@ findFittingFanoutTx ::
   SlotNo ->
   m Tx
 findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn source fullUTxO deadlineSlot =
-  findBest >>= either (const $ throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
+  findBest >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
   (ePreferred, proofUTxO, maxChunkSize) = case source of
     RemainingUTxO preferred -> (preferred, fullUTxO, UTxO.size fullUTxO - 1)
     SelectedUTxO{utxoForProof} -> (Nothing, utxoForProof, UTxO.size fullUTxO)
 
-  -- Try the preferred tx (full fanout or final partial fanout) first; only
-  -- fall back to the binary search if it doesn't fit.
   findBest = maybe findFallback tryPreferred ePreferred
    where
-    tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
+    tryPreferred tx = fits tx >>= bool findFallback (pure (Just tx))
 
   -- Reading the head output and verifying its accumulator does not depend on the
   -- chunk size, so it happens once here rather than per candidate. There is
@@ -767,7 +764,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
   -- this restores the revert on the 'FanoutTx' path and, on the
   -- 'FinalPartialFanoutTx' path, only the client error.
   findFallback
-    | searchRange < 1 = pure (Left ())
+    | searchRange < 1 = pure Nothing
     | otherwise = do
         plan <- orThrow $ preparePartialFanout spendableUTxO seedTxIn proofUTxO fullUTxO
         findLargestFitting (tryChunk plan) searchRange

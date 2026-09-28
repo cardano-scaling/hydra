@@ -8,6 +8,7 @@ module Hydra.Tx.Accumulator (
   computeG1CommitmentBytes,
   accumulatorSize,
   maxAccumulatorSize,
+  AccumulatorTooLarge (..),
   checkAccumulatorSize,
   deployedFanoutBatchSize,
   build,
@@ -254,8 +255,11 @@ accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
 maxAccumulatorSize :: Int
 maxAccumulatorSize = KZG.maxAccumulatorSize
 
--- | Check an accumulator against the capacity of the embedded G1 CRS, yielding
--- its size and the maximum when it does not fit.
+-- | An accumulator over more elements than the embedded G1 CRS can commit to.
+data AccumulatorTooLarge = AccumulatorTooLarge {utxoCount :: Int, maxAllowed :: Int}
+  deriving stock (Eq, Show)
+
+-- | Check an accumulator against the capacity of the embedded G1 CRS.
 --
 -- SECURITY: 'computeG1CommitmentBytes' enforces this limit with 'error', and it
 -- is reached through the lazy commitment thunk of 'HydraAccumulator' -- i.e.
@@ -267,9 +271,9 @@ maxAccumulatorSize = KZG.maxAccumulatorSize
 -- element map and never touches the cached commitment or hash. See
 -- 'Hydra.API.ClientInput.validateClientInput' (the client API boundary) and
 -- 'Hydra.HeadLogic' (the protocol-logic backstop).
-checkAccumulatorSize :: HydraAccumulator -> Either (Int, Int) ()
+checkAccumulatorSize :: HydraAccumulator -> Either AccumulatorTooLarge ()
 checkAccumulatorSize acc
-  | n > maxAccumulatorSize = Left (n, maxAccumulatorSize)
+  | n > maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = maxAccumulatorSize}
   | otherwise = Right ()
  where
   n = accumulatorSize acc
