@@ -580,10 +580,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
-    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
-      if version > snapshotVersion
-        then utxo <> fromMaybe mempty utxoToCommit
-        else utxo
+    ConfirmedSnapshot{snapshot} -> settledUTxO version snapshot
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version, finalizedCommit} = coordinatedHeadState
 
@@ -2783,6 +2780,14 @@ aggregateNodeState nodeState sc =
 
 -- * HeadState aggregate helpers
 
+-- | The spendable UTxO of a snapshot, given the head's current 'SnapshotVersion'.
+-- A pending commit only becomes spendable once its increment has landed on
+-- chain, which bumps the version past the snapshot's.
+settledUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> UTxOType tx
+settledUTxO headVersion Snapshot{utxo, utxoToCommit, version}
+  | headVersion > version = utxo <> fromMaybe mempty utxoToCommit
+  | otherwise = utxo
+
 -- | Extract the 'HeadId' from a 'StateChanged' event, if the event carries one.
 -- Events that do not carry a 'HeadId' always pass through 'aggregateNodeState' unchanged.
 eventHeadId :: StateChanged tx -> Maybe HeadId
@@ -2934,20 +2939,7 @@ applyEvent st = \case
                     -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
                     -- is guaranteed to apply), making 'applyTxTo' safe to use
                     -- without ledger validation.
-                    --
-                    -- A pending commit ('utxoToCommit') is only spendable once its
-                    -- on-chain increment has landed (chain 'version' ahead of the
-                    -- snapshot's). Before then it must NOT be part of the spendable
-                    -- localUTxO, otherwise the same deposit UTxO could be spent once
-                    -- per snapshot round (it is re-injected here) and inflate the L2
-                    -- balance. Mirrors 'confirmedUTxO'; the deposit enters localUTxO
-                    -- at 'CommitFinalized'.
-                    localUTxO =
-                      let activeUTxO =
-                            if version > snapshot.version
-                              then snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
-                              else snapshot.utxo
-                       in foldl' (flip applyTxTo) activeUTxO newLocalTxs
+                    localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
                   , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }
@@ -3026,17 +3018,9 @@ applyEvent st = \case
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
                       }
-                  ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
+                  ConfirmedSnapshot{snapshot} ->
                     coordinatedHeadState
-                      { -- NOTE: Include utxoToCommit in localUTxO when the corresponding
-                        -- increment has been finalized on-chain (i.e. the chain-observed
-                        -- version has advanced past the snapshot's version). Without this,
-                        -- a side-loaded deposit snapshot would leave the head unable to
-                        -- spend the deposited UTxO.
-                        localUTxO =
-                          if currentVersion > snapshotVersion
-                            then utxo <> fromMaybe mempty utxoToCommit
-                            else utxo
+                      { localUTxO = settledUTxO currentVersion snapshot
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
