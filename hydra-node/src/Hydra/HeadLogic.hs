@@ -94,6 +94,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
   Signature,
@@ -535,7 +536,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
   requireValidAccumulatorSize accumulator continue =
     case Accumulator.checkAccumulatorSize accumulator of
-      Left Accumulator.AccumulatorTooLarge{utxoCount, maxAllowed} ->
+      Left AccumulatorTooLarge{utxoCount, maxAllowed} ->
         Error $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
       Right () -> continue
 
@@ -2288,7 +2289,7 @@ update env ledger now nodeState ev
   -- cannot go through 'sideLoadFailed': that emits a 'SideLoadSnapshotRejected'
   -- client message, which echoes the input.
   | ClientInput clientInput <- ev
-  , Left Accumulator.AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
+  , Left AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
       Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
   | otherwise =
       case nodeState of

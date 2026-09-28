@@ -50,7 +50,7 @@ import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
-import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Network.HTTP.Types.URI (Query, parseQuery)
 import Network.WebSockets (
   Connection,
@@ -119,8 +119,8 @@ mkWsCodec config con =
   decodeValidInput encoding bytes =
     decodeWire encoding bytes >>= first tooLarge . validateClientInput
    where
-    tooLarge :: Accumulator.AccumulatorTooLarge -> String
-    tooLarge Accumulator.AccumulatorTooLarge{utxoCount, maxAllowed} =
+    tooLarge :: AccumulatorTooLarge -> String
+    tooLarge AccumulatorTooLarge{utxoCount, maxAllowed} =
       show (SideLoadUTxOSetTooLarge{utxoCount, maxAllowed} :: SideLoadRequirementFailure tx)
 
   sendPlainJson :: ToJSON a => a -> IO ()

@@ -3,6 +3,7 @@ module Hydra.API.ClientInput where
 import Hydra.Prelude
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), Snapshot (..), TxIdType, getSnapshot)
+import Hydra.Tx.Accumulator (AccumulatorTooLarge)
 import Hydra.Tx.Accumulator qualified as Accumulator
 
 data ClientInput tx
@@ -61,7 +62,7 @@ instance IsTx tx => FromCBOR (ClientInput tx) where
 -- This must not force the accumulators, so it goes through
 -- 'Accumulator.checkAccumulatorSize' (an element-map fold) and never 'toJSON'
 -- or 'Accumulator.getAccumulatorHash'.
-validateClientInput :: IsTx tx => ClientInput tx -> Either Accumulator.AccumulatorTooLarge (ClientInput tx)
+validateClientInput :: IsTx tx => ClientInput tx -> Either AccumulatorTooLarge (ClientInput tx)
 validateClientInput = \case
   input@SideLoadSnapshot{snapshot} ->
     let Snapshot{accumulator, appliedAccumulator} = getSnapshot snapshot
