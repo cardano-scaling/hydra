@@ -244,6 +244,7 @@ propFanoutLimit limit =
     signingKeys <- forAllQ $ withGenQ (vectorOf limit (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
     let aliceCardanoSks = fromMaybe (error "propFanoutLimit: limit must be > 0") (nonEmpty signingKeys)
     let utxo = fmap (,lovelaceToValue 1_000_000) signingKeys
+    networkLatencySeed <- forAllNonVariableQ $ withGenQ arbitrary (const True) (const [])
     void $
       action $
         Seed
@@ -251,6 +252,7 @@ propFanoutLimit limit =
           , contestationPeriod = UnsafeContestationPeriod 10
           , additionalUTxO = utxo
           , concurrentSettlements = False
+          , networkLatencySeed
           }
     headId <- action $ Init alice
     void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -279,6 +281,7 @@ propScripted d = withMaxSuccess 5 $ noShrinking $ forAllDL d propHydraModel
 openHeadWithDepositFuel :: Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
 openHeadWithDepositFuel n = do
   seedKeys <- forAllNonVariableQ $ withGenQ (genPartyKeysExactly n) (const True) (const [])
+  networkLatencySeed <- forAllNonVariableQ $ withGenQ arbitrary (const True) (const [])
   let fuel = [(deriveParty hk, [(ck, lovelaceToValue 10_000_000)]) | (hk, ck) <- seedKeys]
   action_ $
     Seed
@@ -286,6 +289,7 @@ openHeadWithDepositFuel n = do
       , contestationPeriod = UnsafeContestationPeriod 10
       , additionalUTxO = concatMap snd fuel
       , concurrentSettlements = True
+      , networkLatencySeed
       }
   leader <- case fuel of
     (party, _) : _ -> pure party
@@ -453,12 +457,14 @@ closedHeadWithManyOutputs n = do
     k : _ -> pure k
     [] -> error "closedHeadWithManyOutputs: n must be > 0"
   let utxo = (,lovelaceToValue 1_000_000) <$> ownerKeys
+  networkLatencySeed <- forAllNonVariableQ $ withGenQ arbitrary (const True) (const [])
   action_ $
     Seed
       { seedKeys = [(aliceSk, aliceCardanoSk)]
       , contestationPeriod = UnsafeContestationPeriod 10
       , additionalUTxO = utxo
       , concurrentSettlements = False
+      , networkLatencySeed
       }
   headId <- action $ Init alice
   action_ $ Deposit{headIdVar = headId, utxoToDeposit = utxo}

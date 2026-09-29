@@ -108,12 +108,14 @@ mockChainAndNetwork ::
   ) =>
   Tracer m CardanoChainLog ->
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
+  -- | Seed of the per-message network latency, see 'connectNode'.
+  Word64 ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys = do
+mockChainAndNetwork tr seedKeys networkLatencySeed = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
-  latencySeed <- newLabelledTVarIO "mock-network-latency-seed" (42 :: Word64)
+  latencySeed <- newLabelledTVarIO "mock-network-latency-seed" networkLatencySeed
   -- Persisted, totally-ordered network log plus a per-party consumer offset,
   -- mirroring the production etcd network: a node reconnecting after a restart
   -- resumes from its last consumed offset (messages sent while down, or
