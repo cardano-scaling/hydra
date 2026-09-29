@@ -253,7 +253,7 @@ computePartialFanOutNominalCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
+    findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
@@ -294,7 +294,7 @@ computePartialFanOutMixedCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-    either (const Nothing) Just <$> findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
+    findLargestFitting (pure . tryChunk) (min (totalUTxO - 1) deployedFanoutBatchSize)
 
 -- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
 -- with mixed UTxOs. This is the terminal step that burns all head tokens and

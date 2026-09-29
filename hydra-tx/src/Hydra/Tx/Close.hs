@@ -21,15 +21,17 @@ import Hydra.Tx (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  accumulatorInHead,
   commitOutputsHash,
+  decommitOutputsHash,
   fromChainSnapshotNumber,
   getSnapshot,
   headIdToCurrencySymbol,
   headReference,
+  pendingActionApplied,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -102,10 +104,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       ConfirmedSnapshot{signatures} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
             appliedAccHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
-            decommitHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
+            decommitHash = toBuiltin $ decommitOutputsHash snapshot
             commitHash = toBuiltin $ commitOutputsHash snapshot
             sig = toPlutusSignatures signatures
-         in if pendingActionApplied
+         in if pendingActionApplied openVersion snapshot
               then
                 Head.CloseUsed{signature = sig, accumulatorHash = accHash, appliedAccumulatorHash = appliedAccHash, decommitOutputsHash = decommitHash, commitOutputsHash = commitHash}
               else case incrementalAction of
@@ -117,24 +119,13 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, appliedAccumulator, version} = getSnapshot confirmedSnapshot
-
-  -- Whether the snapshot's pending L1 tx (increment or decrement) has happened.
-  -- This decides both what the head holds and which of the two signed
-  -- accumulators the closed datum must commit to (the validator enforces the
-  -- latter by redeemer kind, see 'Hydra.Contract.Head.checkClose').
-  pendingActionApplied = version /= openVersion
+  snapshot@Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, appliedAccumulator} = getSnapshot confirmedSnapshot
 
   -- What the head holds at close time: a pending decommit is inside until its
   -- decrement happened, a pending commit only once its increment happened.
   utxoInHead
-    | pendingActionApplied = utxo <> fold utxoToCommit
+    | pendingActionApplied openVersion snapshot = utxo <> fold utxoToCommit
     | otherwise = utxo <> fold utxoToDecommit
-
-  -- The accumulator committing to exactly 'utxoInHead'.
-  accumulatorInHead
-    | pendingActionApplied = appliedAccumulator
-    | otherwise = accumulator
 
   -- Lovelace in the head UTxO not attributable to any L2 UTxO value (the
   -- min-UTxO overhead). Computed once at Close and propagated unchanged through
@@ -157,7 +148,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
-          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulatorInHead
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment (accumulatorInHead openVersion snapshot)
           , headAdaOverhead
           }
 

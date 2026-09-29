@@ -246,9 +246,7 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
     retryOnBlockfrostError tracer blockfrostRetryPolicy $ \_ -> do
       Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <- getGenesis
       let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
-      -- Start from the latest point and fall back to older ones (best effort)
-      -- If none of them can be resolved, we fall back to the tip of the chain.
-      blockHash <- resolvePrefixPoints (toList prefix)
+      blockHash <- firstResolvablePointOrTip (toList prefix)
       stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
       pure (blockTime, stateTVar)
 
@@ -287,14 +285,14 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
       threadDelay (realToFrac blockTime')
     pollForNewBlocks blockTime' stateTVar
 
-  resolvePrefixPoints :: [ChainPoint] -> m Blockfrost.BlockHash
-  resolvePrefixPoints = \case
+  firstResolvablePointOrTip :: [ChainPoint] -> m Blockfrost.BlockHash
+  firstResolvablePointOrTip = \case
     [] -> resolveTip
     cp : cps -> do
       res <- try (resolveChainPoint cp)
       case res of
         Right bh -> pure bh
-        Left (_ :: SomeException) -> resolvePrefixPoints cps
+        Left (_ :: SomeException) -> firstResolvablePointOrTip cps
 
   resolveTip :: m Blockfrost.BlockHash
   resolveTip = do
