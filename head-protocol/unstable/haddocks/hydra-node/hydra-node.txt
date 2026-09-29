@@ -63,13 +63,7 @@ SideLoadSnapshot :: ConfirmedSnapshot tx -> ClientInput tx
 --   This must not force the accumulators, so it goes through
 --   <a>checkAccumulatorSize</a> (an element-map fold) and never
 --   <a>toJSON</a> or <a>getAccumulatorHash</a>.
---   
---   Reports the offending size and the maximum rather than a
---   <a>SideLoadRequirementFailure</a>: that type transitively depends on
---   this module (<tt>Input</tt> carries a <a>ClientInput</a>), so the
---   callers build <tt>SideLoadUTxOSetTooLarge</tt> from these two numbers
---   instead.
-validateClientInput :: IsTx tx => ClientInput tx -> Either (Int, Int) (ClientInput tx)
+validateClientInput :: IsTx tx => ClientInput tx -> Either AccumulatorTooLarge (ClientInput tx)
 instance GHC.Generics.Generic (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.API.ClientInput.ClientInput tx)
@@ -2397,10 +2391,11 @@ checkVersion :: Tracer IO EtcdLog -> Connection -> ProtocolVersion -> NetworkCal
 broadcastMessages :: Tracer IO EtcdLog -> NetworkConfiguration -> Host -> PersistentQueue IO msg -> IO ()
 
 -- | Query etcd for the current <tt>mod_revision</tt> of this peer's
---   broadcast key. Returns 0 if the key does not yet exist. Used by
---   <a>broadcastMessages</a> to seed its in-memory baseline so subsequent
---   <tt>compare mod_revision</tt> checks match etcd's reality from the
---   very first <a>putMessage</a>.
+--   broadcast key. Returns 0 if the key does not yet exist, which etcd's
+--   compare also treats as absent. Used by <a>broadcastMessages</a> to
+--   seed its in-memory baseline, so that from the very first
+--   <a>putMessage</a> a failed compare can only mean an earlier attempt of
+--   ours committed.
 queryInitialModRev :: Tracer IO EtcdLog -> NetworkConfiguration -> Host -> IO Int64
 
 -- | Broadcast a message to the etcd cluster.
@@ -2442,6 +2437,10 @@ putMessage :: Tracer IO EtcdLog -> Connection -> Host -> TVar IO Int64 -> ByteSt
 --   indefinite-length list format as cardano-binary's list instances, so
 --   the value decodes as <tt>[msg]</tt> on the receiving side.
 batchValue :: [ByteString] -> ByteString
+
+-- | Decode a value assembled by <a>batchValue</a>. Watch catch-up can
+--   replay values written before batching, which hold a single message.
+decodeBatchValue :: forall msg. FromCBOR msg => ByteString -> Either DecoderError [msg]
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages :: forall msg. FromCBOR msg => Tracer IO EtcdLog -> Connection -> FilePath -> NetworkCallback msg IO -> IO ()
@@ -4117,6 +4116,12 @@ onOpenNetworkReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx 
 --   head) nor recovered (that would corrupt the L2 ledger). See #2741.
 finalizedDepositTxId :: IsTx tx => Maybe (FinalizedSnapshot tx) -> Maybe (TxIdType tx)
 
+-- | The spendable UTxO of a snapshot, given the head's current
+--   <a>SnapshotVersion</a>. A pending commit only becomes spendable once
+--   its increment has landed on chain, which bumps the version past the
+--   snapshot's.
+settledUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> UTxOType tx
+
 -- | Process a snapshot acknowledgement (<a>AckSn</a>) from a party.
 --   
 --   We do require that the is from the last seen or next expected
@@ -4209,6 +4214,10 @@ onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcom
 --   This is primarily used to track deposits and either drop them or
 --   request snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
+
+-- | Find the oldest non-empty active deposit, if any. Deposits are
+--   selected in FIFO order by their <a>StateChanged</a> timestamp.
+nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
 
 -- | If this node is the snapshot leader and there are pending local
 --   transactions, request the next snapshot with the bumped version after
@@ -4551,12 +4560,6 @@ repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
 --   <a>NodeUnsynced</a> event when this is the case.
 handleOutOfSync :: IsChainState tx => Environment -> UTCTime -> ChainPointType tx -> UTCTime -> SyncedStatus -> Outcome tx
 
--- | Find the oldest non-empty active deposit, if any. Deposits are
---   selected in FIFO order by their <a>StateChanged</a> timestamp. This
---   mirrors the selection logic in <tt>withNextActive</tt> used by
---   <a>onOpenChainTick</a>.
-nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
-
 -- | Select the deposit to include in the next snapshot.
 --   
 --   Prefers a deposit already tracked in
@@ -4626,6 +4629,16 @@ headIdOf :: HeadState tx -> Maybe HeadId
 --   pass through <a>aggregateNodeState</a> unchanged.
 eventHeadId :: StateChanged tx -> Maybe HeadId
 applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
+
+-- | Whether a finalized increment or decrement at <a>StateChanged</a> was
+--   applied before and re-landed after a rollback. The local version never
+--   rolls back.
+isReobservation :: SnapshotVersion -> CoordinatedHeadState tx -> Bool
+
+-- | The <a>SeenSnapshot</a> after a version bump. A snapshot already in
+--   flight is kept: every party has processed its <a>ReqSn</a>, so it can
+--   still complete and chain the next one with the bumped version.
+seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
@@ -5389,9 +5402,8 @@ canBeVerifiedOnChain :: Int -> Bool
 --   which <tt>tryTx</tt> returns <a>Just</a>. Assumes the predicate is
 --   monotone: if size <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit.
 --   Uses upper-mid so the search terminates correctly when <tt>hi = lo +
---   1</tt>. Returns 'Left ()' if no size fits. <tt>tryTx</tt> may throw to
---   abort the search early.
-findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Either () tx)
+--   1</tt>. <tt>tryTx</tt> may throw to abort the search early.
+findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Maybe tx)
 
 -- | Check whether a transaction fits within protocol size and script
 --   execution limits. Size check is cheap so it short-circuits before the
@@ -5399,6 +5411,21 @@ findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Either () tx
 --   protocol parameter conversion errors) are traced via the provided
 --   tracer; transient misses (size exceeded, budget overrun) are silent.
 fitsTx :: Monad m => Tracer m CardanoChainLog -> (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> UTxO -> Tx -> m Bool
+
+-- | Where the chunks searched by <a>findFittingFanoutTx</a> are drawn
+--   from.
+data FanoutChunkSource
+
+-- | The head's whole remaining UTxO. Only the preferred transaction, if
+--   any, may distribute all of it; a partial fanout must leave an output
+--   behind (<tt>mustNotBeLastBatch</tt>).
+RemainingUTxO :: Maybe Tx -> FanoutChunkSource
+
+-- | A strict subset of the remaining UTxO, so a chunk may cover all of it;
+--   <a>nextFanoutStep</a> keeps it strict. <a>FanoutChunkSource</a> is the
+--   set the on-chain datum commits to.
+SelectedUTxO :: UTxO -> FanoutChunkSource
+[$sel:utxoForProof:RemainingUTxO] :: FanoutChunkSource -> UTxO
 
 -- | Try the preferred transaction first; if it doesn't fit within the
 --   script execution budget or exceeds the maximum transaction size, fall
@@ -5413,7 +5440,7 @@ fitsTx :: Monad m => Tracer m CardanoChainLog -> (Tx -> m Bool) -> (Tx -> UTxO -
 --   (structural mismatch that will not resolve on retry). * No chunk fits
 --   within budget → <a>FailedToConstructPartialFanoutTx</a> (budget
 --   exhaustion; also not a race condition).
-findFittingFanoutTx :: forall m. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Maybe Tx -> UTxO -> UTxO -> Int -> SlotNo -> m Tx
+findFittingFanoutTx :: forall m. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> FanoutChunkSource -> UTxO -> SlotNo -> m Tx
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a
 --   block. NOTE: This is highly depending on the network. If the security

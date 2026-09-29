@@ -583,8 +583,14 @@ accumulatorSize :: HydraAccumulator -> Int
 --   for convenience.
 maxAccumulatorSize :: Int
 
--- | Check an accumulator against the capacity of the embedded G1 CRS,
---   yielding its size and the maximum when it does not fit.
+-- | An accumulator over more elements than the embedded G1 CRS can commit
+--   to.
+data AccumulatorTooLarge
+AccumulatorTooLarge :: Int -> Int -> AccumulatorTooLarge
+[$sel:utxoCount:AccumulatorTooLarge] :: AccumulatorTooLarge -> Int
+[$sel:maxAllowed:AccumulatorTooLarge] :: AccumulatorTooLarge -> Int
+
+-- | Check an accumulator against the capacity of the embedded G1 CRS.
 --   
 --   SECURITY: <a>computeG1CommitmentBytes</a> enforces this limit with
 --   <a>error</a>, and it is reached through the lazy commitment thunk of
@@ -598,7 +604,7 @@ maxAccumulatorSize :: Int
 --   touches the cached commitment or hash. See <a>validateClientInput</a>
 --   (the client API boundary) and <a>HeadLogic</a> (the protocol-logic
 --   backstop).
-checkAccumulatorSize :: HydraAccumulator -> Either (Int, Int) ()
+checkAccumulatorSize :: HydraAccumulator -> Either AccumulatorTooLarge ()
 
 -- | Largest subset a single fanout transaction can distribute, re-exported
 --   from <tt>KZGTrustedSetup</tt> for convenience.
@@ -750,6 +756,8 @@ createMembershipProof :: [Element] -> HydraAccumulator -> [Point1] -> Either Tex
 --   P_S(τ)·G2).
 createMembershipProofFromUTxO :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator -> [Point1] -> Either Text ByteString
 createCRSG2Datum :: Int -> TxOutDatum ctx
+instance GHC.Show.Show Hydra.Tx.Accumulator.AccumulatorTooLarge
+instance GHC.Classes.Eq Hydra.Tx.Accumulator.AccumulatorTooLarge
 instance GHC.Show.Show Hydra.Tx.Accumulator.HydraAccumulator
 instance GHC.Classes.Eq Hydra.Tx.Accumulator.HydraAccumulator
 
@@ -947,6 +955,21 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 --   transactions cannot recompute it (they spend no deposit) and carry it
 --   in their redeemer instead, where it only feeds signature verification.
 commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+
+-- | Digest of a snapshot's pending decommit (Uω) as bound into its
+--   signature. Matches on-chain <a>hashTxOuts</a> over the same outputs in
+--   the same (TxIn-sorted) order; empty-list hash when there is nothing
+--   pending.
+decommitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
+
+-- | Whether the snapshot's pending increment or decrement has happened on
+--   chain, given the version the head is at. This decides which of the two
+--   signed accumulators a closed head commits to, see <a>checkClose</a>.
+pendingActionApplied :: SnapshotVersion -> Snapshot tx -> Bool
+
+-- | The signed accumulator committing to what the head holds at the given
+--   version.
+accumulatorInHead :: SnapshotVersion -> Snapshot tx -> HydraAccumulator
 
 -- | Tag of the current on-disk/wire layout, which carries
 --   <a>$sel:depositTxId:Snapshot</a>.
