@@ -506,7 +506,7 @@ renderPostTxError = \case
   FailedToConstructIncrementTx{failureReason} -> failedToConstruct "increment" (Just failureReason)
   FailedToConstructDecrementTx{failureReason} -> failedToConstruct "decrement" (Just failureReason)
   FailedToConstructCloseTx{failureReason} -> failedToConstruct "close" (Just failureReason)
-  FailedToConstructContestTx -> failedToConstruct "contest" Nothing
+  FailedToConstructContestTx{failureReason} -> failedToConstruct "contest" (Just failureReason)
   FailedToConstructFanoutTx -> failedToConstruct "fanout" Nothing
   err ->
     [ fld "On-chain error" (show err)

@@ -518,6 +518,11 @@ data ContestTxError
   | MissingHeadRedeemerInContest
   | WrongDatumInContest
   | FailedToConvertFromScriptDataInContest
+  | -- | The snapshot is too old for the head: like 'StaleSnapshotInClose', a
+    -- 'ContestUsed' with it would store an accumulator that does not match the
+    -- head value, so the head could never be fanned out. Not contesting leaves
+    -- the close, which may well be fanned out.
+    StaleSnapshotInContest {snapshotVersion :: SnapshotVersion, openVersion :: SnapshotVersion}
   deriving stock (Show)
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -545,8 +550,12 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- extractProgressDatum headUTxO
+  unless (isClosableAt openVersion sn) $
+    Left StaleSnapshotInContest{snapshotVersion = contestingVersion, openVersion}
   pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput
  where
+  Snapshot{version = contestingVersion} = sn
+
   extractProgressDatum headUTxO@(_, headOutput) = do
     headDatum <- txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInContest
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest

@@ -3035,15 +3035,19 @@ components:
               type: string
         - title: FailedToConstructContestTx
           description: |
-            Raised if the user fails to submit a contest tx.
+            Raised if the node cannot construct a contest tx, for example
+            because the confirmed snapshot is too old for the head.
           type: object
           additionalProperties: false
           required:
           - tag
+          - failureReason
           properties:
             tag:
               type: string
               enum: ["FailedToConstructContestTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructDepositTx
           description: |
             Raised if the user fails to draft a deposit tx.

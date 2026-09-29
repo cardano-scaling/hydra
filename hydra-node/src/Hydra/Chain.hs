@@ -221,7 +221,7 @@ data PostTxError tx
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}
   | FailedToConstructCloseTx {failureReason :: Text}
-  | FailedToConstructContestTx
+  | FailedToConstructContestTx {failureReason :: Text}
   | FailedToConstructDepositTx {failureReason :: Text}
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}

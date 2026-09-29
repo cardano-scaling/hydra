@@ -634,7 +634,7 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
-        Left _ -> throwIO (FailedToConstructContestTx @Tx)
+        Left err -> throwIO (FailedToConstructContestTx{failureReason = show err} :: PostTxError Tx)
         Right contestTx -> pure contestTx
     -- These are handled in mkChain.postTx before reaching this function.
     FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)

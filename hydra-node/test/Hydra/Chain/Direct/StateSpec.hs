@@ -42,6 +42,7 @@ import Hydra.Chain.Direct.State (
   ChainState (..),
   CloseTxError (..),
   ClosedState (..),
+  ContestTxError (..),
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
   IncrementTxError (..),
@@ -49,6 +50,7 @@ import Hydra.Chain.Direct.State (
   PartialFanoutError (..),
   RecoverTxError (..),
   close,
+  contest,
   finalPartialFanout,
   getKnownUTxO,
   increment,
@@ -66,6 +68,7 @@ import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, confirmedSignatures, getSnapshot, hasPendingAction, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Close (isClosableAt)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -119,15 +122,17 @@ import Test.Hydra.Chain.Direct.State (
   genRecoverTx,
   genStOpen,
   maxGenParties,
+  observeClose,
   partialFanout,
   pickChainContext,
+  unsafeClose,
   unsafeIncrement,
   unsafePartialFanout,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
 import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, genValidityBoundsFromContestationPeriod, propTransactionEvaluates)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, genValidityBoundsFromContestationPeriod, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -320,6 +325,7 @@ spec = parallel $ do
   describe "contest" $ do
     propBelowSizeLimit maxTxSize forAllContest
     propIsValid forAllContest
+    prop "refuses a snapshot too old for the head" prop_refusesStaleSnapshotInContest
 
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
@@ -901,6 +907,50 @@ prop_refusesStaleSnapshotInClose =
     cctx <- pickChainContext ctx
     (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod (ctxContestationPeriod ctx)
     pure (cctx, startSlot, pointInTime)
+
+-- | The counterpart of 'prop_refusesStaleSnapshotInClose': a head closed at
+-- some version is only contested with a snapshot the head could be fanned out
+-- from, by the same rule the close applies.
+prop_refusesStaleSnapshotInContest :: Property
+prop_refusesStaleSnapshotInContest =
+  checkCoverage $
+    forAllBlind (genHydraContext maxGenParties) $ \ctx ->
+      forAllBlind (genStOpen ctx) $ \(u0, stOpen@OpenState{headId}) ->
+        forAll (elements [0 .. 3]) $ \openVersion ->
+          forAll (elements [0 .. openVersion]) $ \snapshotVersion ->
+            forAll (oneof [pure Nothing, Just <$> genUTxOAdaOnlyOfSize 1]) $ \toCommit ->
+              forAllBlind (genContestSnapshot ctx headId snapshotVersion u0 toCommit) $ \contesting ->
+                forAllBlind (genClosedAt ctx stOpen u0 openVersion) $ \(cctx, stClosed) ->
+                  forAllBlind (genPointInTimeBefore stClosed.contestationDeadline) $ \pointInTime ->
+                    let snapshot = getSnapshot contesting
+                        closable = isClosableAt openVersion snapshot
+                        result = contest cctx (getKnownUTxO stClosed) headId (ctxContestationPeriod ctx) openVersion contesting pointInTime
+                     in ( case result of
+                            Right _ -> property closable & counterexample "built a contest for a stale snapshot"
+                            Left StaleSnapshotInContest{} -> property (not closable) & counterexample "refused a contestable snapshot"
+                            Left err -> property False & counterexample ("unexpected error: " <> show err)
+                        )
+                          & counterexample ("snapshot version: " <> show snapshot.version <> ", open version: " <> show openVersion)
+                          & cover 20 closable "contestable"
+                          & cover 20 (not closable) "refused"
+                          & cover 5 (not closable && snapshot.version + 1 == openVersion) "refused action-less snapshot one version behind"
+ where
+  genContestSnapshot :: HydraContext -> HeadId -> SnapshotVersion -> UTxO -> Maybe UTxO -> Gen (ConfirmedSnapshot Tx)
+  genContestSnapshot ctx headId snapshotVersion u0 toCommit = do
+    depositTxId <- if isJust toCommit then Just <$> arbitrary else pure Nothing
+    genConfirmedSnapshot headId snapshotVersion 2 u0 toCommit depositTxId Nothing (ctxHydraSigningKeys ctx)
+
+  -- Close the open head at the given version with a snapshot signed at that
+  -- very version, which the close accepts whatever else is pending.
+  genClosedAt :: HydraContext -> OpenState -> UTxO -> SnapshotVersion -> Gen (ChainContext, ClosedState)
+  genClosedAt ctx stOpen@OpenState{headId} u0 openVersion = do
+    cctx <- pickChainContext ctx
+    (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod (ctxContestationPeriod ctx)
+    closing <- genConfirmedSnapshot headId openVersion 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
+    let txClose = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) openVersion closing startSlot pointInTime
+    case observeClose stOpen txClose of
+      Just (_, stClosed) -> pure (cctx, stClosed)
+      Nothing -> error "genClosedAt: could not observe own close"
 
 forAllClose ::
   Testable property =>
