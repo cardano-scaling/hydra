@@ -3196,6 +3196,37 @@ spec =
           Closed{} -> pure ()
           other -> failure $ "Expected Closed after revert, got: " <> show other
 
+      it "reverts to Closed when the initiating partial fanout tx hits an assertion before anything landed" $ do
+        -- An assertion while building the step is a terminal failure of the
+        -- step this node drives. Nothing landed, so the chain is still Closed
+        -- and the head reverts like on any other terminal failure.
+        let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
+            selection = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            snap = testSnapshot 1 0 [] fullUTxO
+            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let initiated = update bobEnv ledger now st (ClientInput (PartialFanout selection))
+            st1 = aggregateState st initiated
+        postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf initiated] of
+          tx : _ -> pure tx
+          [] -> failure "Expected a posted partial fanout tx from the initiating PartialFanout"
+        let failed =
+              update bobEnv ledger now st1 . ChainInput $
+                PostTxError
+                  { postChainTx = postedTx
+                  , postTxError = UnexpectedPostTxError{failureReason = "boom"}
+                  , failingTx = Nothing
+                  }
+        failed `hasStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        failed `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
+          _ -> False
+        case headState (aggregateState st1 failed) of
+          Closed{} -> pure ()
+          other -> failure $ "Expected Closed after revert, got: " <> show other
+
       it "does NOT revert when a superseded fanout tx fails after the node moved on" $ do
         -- A selection covering the whole remainder before anything landed turns
         -- into a full fanout and leaves the earlier chunk behind, possibly still
