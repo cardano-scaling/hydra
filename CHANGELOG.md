@@ -10,6 +10,10 @@ changes.
 
 ## UNRELEASED
 
+- Fixed a crafted increment transaction being observed as a recover, which left
+  honest nodes with a stale head version and unable to close or contest. Recover
+  observation now requires the `Recover` redeemer and no head input.
+
 - Added a demo of a "delegated head" setup, see the README in ./delegated-demo for more information.
 
 - Tidy up the parsing of contestation period and deposit period.
