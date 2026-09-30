@@ -6,6 +6,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
@@ -57,6 +58,13 @@ observeRecoverTx ::
   Maybe RecoverObservation
 observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
+  -- A recover never spends a head output; refuse to observe one if it does.
+  guard $ isNothing $ findTxOutByScript inputUTxO Head.validatorScript
+  (depositIn, _) <- findTxOutByScript inputUTxO depositValidatorScript
+  -- Only the Recover redeemer identifies a recover; Claim belongs to increment.
+  findRedeemerSpending tx depositIn >>= \case
+    Deposit.Recover{} -> pure ()
+    Deposit.Claim -> Nothing
   (TxIn depositTxId _, depositOut) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOut
   (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
