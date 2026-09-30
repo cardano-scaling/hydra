@@ -60,12 +60,11 @@ observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   -- A recover never spends a head output; refuse to observe one if it does.
   guard $ isNothing $ findTxOutByScript inputUTxO Head.validatorScript
-  (depositIn, _) <- findTxOutByScript inputUTxO depositValidatorScript
+  (depositIn@(TxIn depositTxId _), depositOut) <- findTxOutByScript inputUTxO depositValidatorScript
   -- Only the Recover redeemer identifies a recover; Claim belongs to increment.
   findRedeemerSpending tx depositIn >>= \case
     Deposit.Recover{} -> pure ()
     Deposit.Claim -> Nothing
-  (TxIn depositTxId _, depositOut) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOut
   (headCurrencySymbol, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
   deposits <- do

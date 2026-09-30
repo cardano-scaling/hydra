@@ -38,7 +38,6 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
   txOutValue,
   txOuts',
-  pattern TxOut,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
@@ -78,7 +77,6 @@ import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyIn
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Observe (HeadObservation (Increment), observeDepositTx, observeHeadTx, observeRecoverTx)
@@ -101,7 +99,6 @@ import Test.QuickCheck (
   property,
   resize,
   shuffle,
-  (.&&.),
   (=/=),
   (===),
   (==>),
@@ -170,18 +167,14 @@ spec = parallel $ do
       propTransactionEvaluates healthyIncrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyIncrementTx genIncrementMutation
-    it "increment not observed as recover tx" $
-      let (tx, utxo) = applyMutation (Changes $ AppendOutput . fromCtxUTxOTxOut <$> UTxO.txOutputs healthyDeposited) healthyIncrementTx
-          expectedObservation =
-            case observeHeadTx testNetworkId utxo tx of
-              Increment{} -> True
-              _ -> False
-       in ( property (isNothing $ observeRecoverTx testNetworkId utxo tx)
-              & counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx)
-          )
-            .&&. ( property expectedObservation
-                    & counterexample ("Expected observation: " <> show expectedObservation)
-                 )
+    it "is not observed as a recover when it also pays out the deposited outputs" $ do
+      let (tx, utxo) =
+            healthyIncrementTx
+              & applyMutation (Changes $ AppendOutput . fromCtxUTxOTxOut <$> UTxO.txOutputs healthyDeposited)
+      observeRecoverTx testNetworkId utxo tx `shouldBe` Nothing
+      case observeHeadTx testNetworkId utxo tx of
+        Increment{} -> pure ()
+        other -> expectationFailure $ "Expected Increment observation, got: " <> show other
 
   describe "Decrement" $ do
     prop "is healthy" $
@@ -210,16 +203,15 @@ spec = parallel $ do
       propTransactionEvaluates healthyRecoverTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyRecoverTx genRecoverMutation
-    it "recover with invalid redeemer not observed " $
-      let (depositIn, depositOut) =
-            fromJust $
-              find
-                (\(_, TxOut address _ _ _) -> address == Deposit.depositAddress testNetworkId)
-                (UTxO.toList (uncurry (flip resolveInputsUTxO) healthyRecoverTx))
-          (tx, utxo) =
-            healthyRecoverTx & applyMutation (ChangeInput depositIn depositOut (Just $ toScriptData Claim))
-       in property (isNothing $ observeRecoverTx testNetworkId utxo tx)
-            & counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx)
+    it "recover with invalid redeemer not observed" $ do
+      let (tx, utxo) = healthyRecoverTx
+      observeRecoverTx testNetworkId utxo tx `shouldSatisfy` isJust
+      case UTxO.toList (resolveInputsUTxO utxo tx) of
+        [(depositIn, depositOut)] -> do
+          let (tx', utxo') =
+                (tx, utxo) & applyMutation (ChangeInput depositIn depositOut (Just $ toScriptData Claim))
+          observeRecoverTx testNetworkId utxo' tx' `shouldBe` Nothing
+        inputs -> expectationFailure $ "Expected exactly one deposit input, got: " <> show inputs
 
   describe "CloseInitial" $ do
     prop "is healthy" $
