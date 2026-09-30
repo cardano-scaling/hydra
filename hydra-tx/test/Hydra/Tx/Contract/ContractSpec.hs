@@ -23,21 +23,26 @@ import Hydra.Cardano.Api (
   TxOutDatum,
   UTxO,
   filterValue,
+  fromCtxUTxOTxOut,
   minUTxOValue,
   mkTxOutDatumInline,
   modifyTxOutDatum,
   modifyTxOutValue,
+  resolveInputsUTxO,
   selectLovelace,
   serialiseToRawBytesHexText,
   toLedgerTxOut,
   toPlutusCurrencySymbol,
   toPlutusTxOut,
+  toScriptData,
   toShelleyNetwork,
   txOutValue,
   txOuts',
+  pattern TxOut,
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.HeadError (HeadError (PartialFanoutMembershipFailed))
@@ -68,14 +73,15 @@ import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
 import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
-import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
+import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyDeposited, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Observe (observeDepositTx)
+import Hydra.Tx.Observe (HeadObservation (Increment), observeDepositTx, observeHeadTx, observeRecoverTx)
 import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
@@ -84,7 +90,7 @@ import Test.Hydra.Tx.Gen (
   propTransactionEvaluates,
   shrinkUTxO,
  )
-import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation, propTransactionFailsPhase2)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, propMutation, propTransactionFailsPhase2)
 import Test.QuickCheck (
   Property,
   checkCoverage,
@@ -95,6 +101,7 @@ import Test.QuickCheck (
   property,
   resize,
   shuffle,
+  (.&&.),
   (=/=),
   (===),
   (==>),
@@ -163,6 +170,18 @@ spec = parallel $ do
       propTransactionEvaluates healthyIncrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyIncrementTx genIncrementMutation
+    it "increment not observed as recover tx" $
+      let (tx, utxo) = applyMutation (Changes $ AppendOutput . fromCtxUTxOTxOut <$> UTxO.txOutputs healthyDeposited) healthyIncrementTx
+          expectedObservation =
+            case observeHeadTx testNetworkId utxo tx of
+              Increment{} -> True
+              _ -> False
+       in ( property (isNothing $ observeRecoverTx testNetworkId utxo tx)
+              & counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx)
+          )
+            .&&. ( property expectedObservation
+                    & counterexample ("Expected observation: " <> show expectedObservation)
+                 )
 
   describe "Decrement" $ do
     prop "is healthy" $
@@ -191,6 +210,16 @@ spec = parallel $ do
       propTransactionEvaluates healthyRecoverTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyRecoverTx genRecoverMutation
+    it "recover with invalid redeemer not observed " $
+      let (depositIn, depositOut) =
+            fromJust $
+              find
+                (\(_, TxOut address _ _ _) -> address == Deposit.depositAddress testNetworkId)
+                (UTxO.toList (uncurry (flip resolveInputsUTxO) healthyRecoverTx))
+          (tx, utxo) =
+            healthyRecoverTx & applyMutation (ChangeInput depositIn depositOut (Just $ toScriptData Claim))
+       in property (isNothing $ observeRecoverTx testNetworkId utxo tx)
+            & counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo tx)
 
   describe "CloseInitial" $ do
     prop "is healthy" $
