@@ -59,6 +59,8 @@ observeRecoverTx ::
 observeRecoverTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   -- A recover never spends a head output; refuse to observe one if it does.
+  -- Without this, a close, contest or decrement that also recovers an expired
+  -- deposit is observed as a recover and the head transaction itself is missed.
   guard $ isNothing $ findTxOutByScript inputUTxO Head.validatorScript
   (depositIn@(TxIn depositTxId _), depositOut) <- findTxOutByScript inputUTxO depositValidatorScript
   -- Only the Recover redeemer identifies a recover; Claim belongs to increment.

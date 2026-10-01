@@ -41,7 +41,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.Deposit (DepositRedeemer (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.HeadError (HeadError (PartialFanoutMembershipFailed))
@@ -79,7 +79,7 @@ import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Observe (HeadObservation (Increment), observeDepositTx, observeHeadTx, observeRecoverTx)
+import Hydra.Tx.Observe qualified as Observation
 import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
@@ -171,9 +171,9 @@ spec = parallel $ do
       let (tx, utxo) =
             healthyIncrementTx
               & applyMutation (Changes $ AppendOutput . fromCtxUTxOTxOut <$> UTxO.txOutputs healthyDeposited)
-      observeRecoverTx testNetworkId utxo tx `shouldBe` Nothing
-      case observeHeadTx testNetworkId utxo tx of
-        Increment{} -> pure ()
+      Observation.observeRecoverTx testNetworkId utxo tx `shouldBe` Nothing
+      case Observation.observeHeadTx testNetworkId utxo tx of
+        Observation.Increment{} -> pure ()
         other -> expectationFailure $ "Expected Increment observation, got: " <> show other
 
   describe "Decrement" $ do
@@ -187,13 +187,13 @@ spec = parallel $ do
       forAll genHealthyDepositTx propTransactionEvaluates
     prop "healthy observed" $
       forAll genHealthyDepositTx $ \(tx, _) ->
-        isJust $ observeDepositTx testNetworkId tx
+        isJust $ Observation.observeDepositTx testNetworkId tx
     prop "mutated not observed" $
       forAll genHealthyDepositTx $ \(tx, utxo) ->
         forAll (genDepositMutation (tx, utxo)) $ \SomeMutation{label, mutation} -> do
           let (tx', utxo') = (tx, utxo) & applyMutation mutation
           counterexample ("Mutated transaction: " <> renderTxWithUTxO utxo' tx') $
-            property (isNothing $ observeDepositTx testNetworkId tx')
+            property (isNothing $ Observation.observeDepositTx testNetworkId tx')
               & counterexample "Mutated transaction still observed"
               & genericCoverTable [label]
               & checkCoverage
@@ -205,12 +205,42 @@ spec = parallel $ do
       propMutation healthyRecoverTx genRecoverMutation
     it "recover with invalid redeemer not observed" $ do
       let (tx, utxo) = healthyRecoverTx
-      observeRecoverTx testNetworkId utxo tx `shouldSatisfy` isJust
+      Observation.observeRecoverTx testNetworkId utxo tx `shouldSatisfy` isJust
       case UTxO.toList (resolveInputsUTxO utxo tx) of
         [(depositIn, depositOut)] -> do
           let (tx', utxo') =
                 (tx, utxo) & applyMutation (ChangeInput depositIn depositOut (Just $ toScriptData Claim))
-          observeRecoverTx testNetworkId utxo' tx' `shouldBe` Nothing
+          Observation.observeRecoverTx testNetworkId utxo' tx' `shouldBe` Nothing
+        inputs -> expectationFailure $ "Expected exactly one deposit input, got: " <> show inputs
+
+    -- Recover is tried before Decrement, Close and Contest in the observer
+    -- dispatch and the deposit validator's Recover branch does not care what
+    -- else the transaction spends. A head transaction that also recovers an
+    -- expired deposit must be observed as that head transaction, never as a
+    -- recover, or nodes miss it; for a close that means missing the
+    -- contestation window.
+    it "a close, contest or decrement that also recovers a deposit is not observed as a recover" $ do
+      let (recoverTx, depositUTxO) = healthyRecoverTx
+      case UTxO.toList depositUTxO of
+        [(depositIn, depositOut)] -> do
+          let alsoRecover =
+                Changes $
+                  AddInput depositIn depositOut (Just $ toScriptData $ Recover 1)
+                    : (AppendOutput <$> txOuts' recoverTx)
+              cases =
+                [ ("close", healthyCloseCurrentTx, \case Observation.Close{} -> True; _ -> False)
+                , ("contest", healthyContestTx, \case Observation.Contest{} -> True; _ -> False)
+                , ("decrement", healthyDecrementTx, \case Observation.Decrement{} -> True; _ -> False)
+                ]
+              failures = flip mapMaybe cases $ \(name, healthyTx, isExpected) ->
+                let (tx, utxo) = healthyTx & applyMutation alsoRecover
+                    observation = Observation.observeHeadTx testNetworkId utxo tx
+                 in case Observation.observeRecoverTx testNetworkId utxo tx of
+                      Just recovered -> Just $ name <> ": observed as a recover: " <> show recovered
+                      Nothing
+                        | isExpected observation -> Nothing
+                        | otherwise -> Just $ name <> ": expected a " <> name <> " observation, got: " <> show observation
+          unless (null failures) $ expectationFailure $ intercalate "\n" failures
         inputs -> expectationFailure $ "Expected exactly one deposit input, got: " <> show inputs
 
   describe "CloseInitial" $ do
