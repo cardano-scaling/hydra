@@ -94,6 +94,7 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
+import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
   Signature,
@@ -537,16 +538,11 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
       Right u -> cont u
 
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
-  requireValidAccumulatorSize accumulator continue
-    | Accumulator.accumulatorSize accumulator > Accumulator.maxAccumulatorSize =
-        Error $
-          RequireFailed $
-            ReqSnUTxOSetTooLarge
-              { utxoCount = Accumulator.accumulatorSize accumulator
-              , maxAllowed = Accumulator.maxAccumulatorSize
-              }
-    | otherwise =
-        continue
+  requireValidAccumulatorSize accumulator continue =
+    case Accumulator.checkAccumulatorSize accumulator of
+      Left AccumulatorTooLarge{utxoCount, maxAllowed} ->
+        Error $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
+      Right () -> continue
 
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
   -- after each previous successful tx. The post-snapshot UTxO is not returned:
@@ -584,10 +580,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st ttl otherParty sv s
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
-    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
-      if version > snapshotVersion
-        then utxo <> fromMaybe mempty utxoToCommit
-        else utxo
+    ConfirmedSnapshot{snapshot} -> settledUTxO version snapshot
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version, finalizedCommit} = coordinatedHeadState
 
@@ -1058,15 +1051,8 @@ onOpenChainTick env chainTime pendingDeposits st =
           else
             noop
  where
-  -- Pending active deposits are selected in arrival order (FIFO).
-  withNextActive :: forall tx. (Eq (UTxOType tx), Monoid (UTxOType tx)) => Map (TxIdType tx) (Deposit tx) -> (TxIdType tx -> Outcome tx) -> Outcome tx
-  withNextActive deposits cont = do
-    -- NOTE: Do not consider empty deposits.
-    let p :: (x, Deposit tx) -> Bool
-        p (_, Deposit{deposited, status}) = deposited /= mempty && status == Active
-    case filter p (Map.toList deposits) of
-      [] -> noop
-      xs -> cont (fst (minimumBy (comparing ((\Deposit{created} -> created) . snd)) xs))
+  withNextActive :: forall tx. IsTx tx => PendingDeposits tx -> (TxIdType tx -> Outcome tx) -> Outcome tx
+  withNextActive deposits cont = maybe noop cont (nextActiveDepositId deposits)
 
   nextSn = confirmedSn + 1
 
@@ -2112,8 +2098,7 @@ setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Ma
 setExistingDeposit pendingDeposits = fmap fst . existingDeposit pendingDeposits
 
 -- | Find the oldest non-empty active deposit, if any. Deposits are selected
--- in FIFO order by their 'created' timestamp. This mirrors the selection
--- logic in 'withNextActive' used by 'onOpenChainTick'.
+-- in FIFO order by their 'created' timestamp.
 nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
 nextActiveDepositId deposits =
   case filter (\(_, Deposit{deposited, status}) -> deposited /= mempty && status == Active) (Map.toList deposits) of
@@ -2308,7 +2293,7 @@ update env ledger now nodeState ev
   -- cannot go through 'sideLoadFailed': that emits a 'SideLoadSnapshotRejected'
   -- client message, which echoes the input.
   | ClientInput clientInput <- ev
-  , Left (utxoCount, maxAllowed) <- validateClientInput clientInput =
+  , Left AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
       Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
   | otherwise =
       case nodeState of
@@ -2715,16 +2700,13 @@ aggregateNodeState nodeState sc =
             CommitFinalized{chainState, newVersion, depositTxId} ->
               consumeDeposit (chainStateSlot chainState) depositTxId $ case st of
                 Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot}}
-                  -- Re-observation: the increment re-landed after a rollback
-                  -- (the local 'version' never rolls back, so a 'newVersion'
-                  -- not ahead of it means this finalization was applied
-                  -- before). Only convergence bookkeeping: in particular
-                  -- 'localUTxO' must not absorb the deposit again (its outputs
-                  -- may have been spent on L2 in the meantime and the union
-                  -- would resurrect them) and an unrelated deposit already
-                  -- parked in 'currentDepositTxId' for the next snapshot must
-                  -- be left alone. See #2741.
-                  | newVersion <= chs.version ->
+                  -- Only convergence bookkeeping: in particular 'localUTxO'
+                  -- must not absorb the deposit again (its outputs may have
+                  -- been spent on L2 in the meantime and the union would
+                  -- resurrect them) and an unrelated deposit already parked in
+                  -- 'currentDepositTxId' for the next snapshot must be left
+                  -- alone. See #2741.
+                  | isReobservation newVersion chs ->
                       nodeState
                         { headState =
                             Open
@@ -2750,14 +2732,7 @@ aggregateNodeState nodeState sc =
                                         -- depositTxId, but we should not verify this here.
                                         currentDepositTxId = Nothing
                                       , localUTxO = localUTxO <> maybe mempty (.deposited) (Map.lookup depositTxId nodeState.pendingDeposits)
-                                      , -- If a snapshot is already in SeenSnapshot, all parties
-                                        -- have processed the ReqSn and sent AckSns — preserve it
-                                        -- so that snapshot can still complete and chain the next
-                                        -- one with the bumped version. Only reset when nothing
-                                        -- is in-flight.
-                                        seenSnapshot = case seenSnapshot of
-                                          SeenSnapshot{} -> seenSnapshot
-                                          _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
+                                      , seenSnapshot = seenSnapshotAfterVersionBump confirmedSnapshot seenSnapshot
                                       , finalizedCommit = retainFinalizedCommit (chainStateSlot chainState) depositTxId confirmedSnapshot chs.finalizedCommit
                                       }
                                 }
@@ -2786,6 +2761,27 @@ aggregateNodeState nodeState sc =
               nodeState{headState = st}
 
 -- * HeadState aggregate helpers
+
+-- | Whether a finalized increment or decrement at 'newVersion' was applied
+-- before and re-landed after a rollback. The local version never rolls back.
+isReobservation :: SnapshotVersion -> CoordinatedHeadState tx -> Bool
+isReobservation newVersion CoordinatedHeadState{version} = newVersion <= version
+
+-- | The 'SeenSnapshot' after a version bump. A snapshot already in flight is
+-- kept: every party has processed its 'ReqSn', so it can still complete and
+-- chain the next one with the bumped version.
+seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
+seenSnapshotAfterVersionBump confirmedSnapshot = \case
+  seen@SeenSnapshot{} -> seen
+  _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
+
+-- | The spendable UTxO of a snapshot, given the head's current 'SnapshotVersion'.
+-- A pending commit only becomes spendable once its increment has landed on
+-- chain, which bumps the version past the snapshot's.
+settledUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> UTxOType tx
+settledUTxO headVersion Snapshot{utxo, utxoToCommit, version}
+  | headVersion > version = utxo <> fromMaybe mempty utxoToCommit
+  | otherwise = utxo
 
 -- | Extract the 'HeadId' from a 'StateChanged' event, if the event carries one.
 -- Events that do not carry a 'HeadId' always pass through 'aggregateNodeState' unchanged.
@@ -2938,20 +2934,7 @@ applyEvent st = \case
                     -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
                     -- is guaranteed to apply), making 'applyTxTo' safe to use
                     -- without ledger validation.
-                    --
-                    -- A pending commit ('utxoToCommit') is only spendable once its
-                    -- on-chain increment has landed (chain 'version' ahead of the
-                    -- snapshot's). Before then it must NOT be part of the spendable
-                    -- localUTxO, otherwise the same deposit UTxO could be spent once
-                    -- per snapshot round (it is re-injected here) and inflate the L2
-                    -- balance. Mirrors 'confirmedUTxO'; the deposit enters localUTxO
-                    -- at 'CommitFinalized'.
-                    localUTxO =
-                      let activeUTxO =
-                            if version > snapshot.version
-                              then snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
-                              else snapshot.utxo
-                       in foldl' (flip applyTxTo) activeUTxO newLocalTxs
+                    localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
                   , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }
@@ -3030,17 +3013,9 @@ applyEvent st = \case
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
                       }
-                  ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
+                  ConfirmedSnapshot{snapshot} ->
                     coordinatedHeadState
-                      { -- NOTE: Include utxoToCommit in localUTxO when the corresponding
-                        -- increment has been finalized on-chain (i.e. the chain-observed
-                        -- version has advanced past the snapshot's version). Without this,
-                        -- a side-loaded deposit snapshot would leave the head unable to
-                        -- spend the deposited UTxO.
-                        localUTxO =
-                          if currentVersion > snapshotVersion
-                            then utxo <> fromMaybe mempty utxoToCommit
-                            else utxo
+                      { localUTxO = settledUTxO currentVersion snapshot
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
@@ -3092,12 +3067,9 @@ applyEvent st = \case
   DecommitFinalized{chainState, newVersion} ->
     case st of
       Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}}
-        -- Re-observation: the decrement re-landed after a rollback (the local
-        -- 'version' never rolls back, so a 'newVersion' not ahead of it means
-        -- this finalization was applied before). Only convergence bookkeeping:
-        -- in particular an unrelated newer decommit may already be in flight
-        -- and must be left alone. See #2741.
-        | newVersion <= chs.version ->
+        -- Only convergence bookkeeping: in particular an unrelated newer
+        -- decommit may already be in flight and must be left alone. See #2741.
+        | isReobservation newVersion chs ->
             Open
               os
                 { chainState
@@ -3112,14 +3084,7 @@ applyEvent st = \case
                     chs
                       { decommitTx = Nothing
                       , version = newVersion
-                      , -- If a snapshot is already in SeenSnapshot, all parties
-                        -- have processed the ReqSn and sent AckSns — preserve it
-                        -- so that snapshot can still complete and chain the next
-                        -- one with the bumped version. Only reset when nothing
-                        -- is in-flight.
-                        seenSnapshot = case seenSnapshot of
-                          SeenSnapshot{} -> seenSnapshot
-                          _ -> LastSeenSnapshot{lastSeen = (getSnapshot confirmedSnapshot).number}
+                      , seenSnapshot = seenSnapshotAfterVersionBump confirmedSnapshot seenSnapshot
                       , -- Retain the signed decrementing snapshot: if a rollback
                         -- erases the just observed decrement, 'confirmedSnapshot'
                         -- may have advanced past it and this is the only snapshot

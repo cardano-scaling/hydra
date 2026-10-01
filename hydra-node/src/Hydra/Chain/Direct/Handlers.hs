@@ -232,10 +232,8 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               ctx
               spendableUTxO
               seedTxIn
-              preferred
+              (RemainingUTxO preferred)
               fullUTxO
-              fullUTxO
-              (UTxO.size fullUTxO - 1)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
@@ -250,38 +248,20 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
               ctx
               spendableUTxO
               seedTxIn
-              preferred
+              (RemainingUTxO preferred)
               utxoToDistribute
-              utxoToDistribute
-              (UTxO.size utxoToDistribute - 1)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           PartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            -- Non-final partial fanout: no preferred tx, always chunk from the
-            -- user-selected set. The whole selection may be distributed in one
-            -- tx (size, not size-1): the selection is a strict subset of the
-            -- head's remaining UTxO, so the unselected remainder stays in the
-            -- accumulator and 'mustNotBeLastBatch' is satisfied regardless of
-            -- chunk size.
-            --
-            -- 'Hydra.HeadLogic.nextFanoutStep' keeps it that way for every
-            -- producer of this transaction: a target covering the whole
-            -- remainder becomes a full fanout or the final step instead.
-            --
-            -- Nothing breaks if it ever stops holding: 'mustNotBeLastBatch'
-            -- rejects a chunk that would empty the head, so the search settles
-            -- for a smaller one and the head needs another transaction.
             findFittingFanoutTx
               tracer
               wallet
               ctx
               spendableUTxO
               seedTxIn
-              Nothing
-              utxoForProof
+              SelectedUTxO{utxoForProof}
               utxoToDistribute
-              (UTxO.size utxoToDistribute)
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           InitTx{participants, headParameters} -> do
@@ -677,23 +657,22 @@ canBeVerifiedOnChain numOutputs =
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
 -- 'tryTx' returns 'Just'. Assumes the predicate is monotone: if size @n@ fits,
 -- all sizes @< n@ also fit. Uses upper-mid so the search terminates correctly
--- when @hi = lo + 1@. Returns 'Left ()' if no size fits. 'tryTx' may throw to
--- abort the search early.
+-- when @hi = lo + 1@. 'tryTx' may throw to abort the search early.
 findLargestFitting ::
   Monad m =>
   -- | Construct and check a transaction; Just tx = fits, Nothing = doesn't fit; may throw on structural failure
   (Int -> m (Maybe tx)) ->
   -- | Upper bound of chunk sizes to search (inclusive)
   Int ->
-  m (Either () tx)
-findLargestFitting tryTx = go (Left ()) 1
+  m (Maybe tx)
+findLargestFitting tryTx = go Nothing 1
  where
   go best lo hi
     | lo > hi = pure best
     | otherwise = do
         let mid = (lo + hi + 1) `div` 2 -- ceiling division: biases toward hi so we test the larger candidate first
         tryTx mid >>= \case
-          Just tx -> go (Right tx) (mid + 1) hi
+          Just tx -> go (Just tx) (mid + 1) hi
           Nothing -> go best lo (mid - 1)
 
 -- | Check whether a transaction fits within protocol size and script execution
@@ -724,6 +703,17 @@ fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
                 else False <$ traceWith tracer PartialFanoutFailed{reason = renderEvaluationReport failures}
     else pure False
 
+-- | Where the chunks searched by 'findFittingFanoutTx' are drawn from.
+data FanoutChunkSource
+  = -- | The head's whole remaining UTxO. Only the preferred transaction, if any,
+    -- may distribute all of it; a partial fanout must leave an output behind
+    -- ('mustNotBeLastBatch').
+    RemainingUTxO (Maybe Tx)
+  | -- | A strict subset of the remaining UTxO, so a chunk may cover all of it;
+    -- 'Hydra.HeadLogic.nextFanoutStep' keeps it strict. 'utxoForProof' is the
+    -- set the on-chain datum commits to.
+    SelectedUTxO {utxoForProof :: UTxO}
+
 -- | Try the preferred transaction first; if it doesn't fit within the script
 -- execution budget or exceeds the maximum transaction size, fall back to a
 -- binary search over partial fanout chunk sizes. Returns the largest chunk that
@@ -747,33 +737,22 @@ findFittingFanoutTx ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); 'Nothing' skips straight to the fallback loop
-  Maybe Tx ->
-  -- | UTxO for the accumulator check in the partial-fanout fallback (matches the on-chain datum)
+  FanoutChunkSource ->
+  -- | UTxOs to distribute
   UTxO ->
-  -- | UTxOs to distribute in the partial-fanout fallback
-  UTxO ->
-  -- | Upper bound (inclusive) of chunk sizes to search in the fallback. For the
-  --   final/full fanout fallback this is @size - 1@ (the preferred tx handles
-  --   the full set; a partial fanout must leave at least one output). For an
-  --   explicit non-final partial fanout this is the full @size@: the selection
-  --   is a strict subset of the head's remaining UTxO, so even distributing all
-  --   of it leaves the unselected remainder in the accumulator and
-  --   'mustNotBeLastBatch' holds (see the caller for what keeps that true).
-  --   The search caps this at 'Accumulator.deployedFanoutBatchSize' regardless:
-  --   no larger subset can be verified, however cheap its transaction is.
-  Int ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred proofUTxO fullUTxO maxChunkSize deadlineSlot =
-  findBest >>= either (const $ throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
+findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn source fullUTxO deadlineSlot =
+  findBest >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
-  -- Try the preferred tx (full fanout or final partial fanout) first; only
-  -- fall back to the binary search if it doesn't fit.
+  (ePreferred, proofUTxO, maxChunkSize) = case source of
+    RemainingUTxO preferred -> (preferred, fullUTxO, UTxO.size fullUTxO - 1)
+    SelectedUTxO{utxoForProof} -> (Nothing, utxoForProof, UTxO.size fullUTxO)
+
   findBest = maybe findFallback tryPreferred ePreferred
    where
-    tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
+    tryPreferred tx = fits tx >>= bool findFallback (pure (Just tx))
 
   -- Reading the head output and verifying its accumulator does not depend on the
   -- chunk size, so it happens once here rather than per candidate. There is
@@ -785,7 +764,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
   -- this restores the revert on the 'FanoutTx' path and, on the
   -- 'FinalPartialFanoutTx' path, only the client error.
   findFallback
-    | searchRange < 1 = pure (Left ())
+    | searchRange < 1 = pure Nothing
     | otherwise = do
         plan <- orThrow $ preparePartialFanout spendableUTxO seedTxIn proofUTxO fullUTxO
         findLargestFitting (tryChunk plan) searchRange

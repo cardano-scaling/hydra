@@ -49,6 +49,7 @@ import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
+  FanoutChunkSource (..),
   GetTimeHandle,
   TimeConversionException (..),
   canBeVerifiedOnChain,
@@ -523,17 +524,17 @@ spec = do
         assert $ result == (sizeOk && evalOk)
 
   describe "findLargestFitting" $ do
-    it "returns Left () when upper bound is 0" $ do
+    it "returns Nothing when upper bound is 0" $ do
       result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 0
-      result `shouldBe` Left ()
+      result `shouldBe` Nothing
 
-    it "returns Left () when tryTx never fits" $ do
+    it "returns Nothing when tryTx never fits" $ do
       result <- findLargestFitting (const $ pure Nothing :: Int -> IO (Maybe Int)) 10
-      result `shouldBe` Left ()
+      result `shouldBe` Nothing
 
-    it "returns Right upper bound when tryTx always fits" $ do
+    it "returns the upper bound when tryTx always fits" $ do
       result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 10
-      result `shouldBe` Right 10
+      result `shouldBe` Just 10
 
     prop "returns the largest n where tryTx fits" $
       \(Positive maxChunk) (NonNegative threshold) ->
@@ -542,7 +543,7 @@ spec = do
          in monadicIO $ do
               monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
               result <- run $ findLargestFitting (\n -> pure $ if n <= k then Just n else Nothing) maxChunk
-              let expected = if k == 0 then Left () else Right k
+              let expected = if k == 0 then Nothing else Just k
               monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
               assert $ result == expected
 
@@ -590,7 +591,7 @@ spec = do
             -- datum → partialFanout returns Left StaleChainState → StalePartialFanoutTx
             mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 5
             run $
-              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
+              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn (RemainingUTxO Nothing) mismatchedUTxO deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx when no chunk size is in range" $
@@ -605,7 +606,7 @@ spec = do
             -- the head wedged in FanoutProgress.
             mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 1
             run $
-              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn Nothing mismatchedUTxO mismatchedUTxO (UTxO.size mismatchedUTxO - 1) deadlineSlot
+              findFittingFanoutTx nullTracer permissiveWallet cctx spendableUTxO seedTxIn (RemainingUTxO Nothing) mismatchedUTxO deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
@@ -615,7 +616,7 @@ spec = do
         -- Empty spendableUTxO → CannotFindHeadOutput on every chunk size, which is
         -- a structural error (not a race condition) → FailedToConstructPartialFanoutTx
         run $
-          findFittingFanoutTx nullTracer permissiveWallet ctx mempty seedTxIn Nothing fullUTxO fullUTxO (UTxO.size fullUTxO - 1) 1
+          findFittingFanoutTx nullTracer permissiveWallet ctx mempty seedTxIn (RemainingUTxO Nothing) fullUTxO 1
             `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
@@ -626,7 +627,7 @@ spec = do
             -- → findLargestFitting returns Nothing → FailedToConstructPartialFanoutTx
             let wallet = permissiveWallet{isTxWithinSizeLimits = \_ -> pure False}
             run $
-              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn Nothing u0 u0 (UTxO.size u0 - 1) deadlineSlot
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (RemainingUTxO Nothing) u0 deadlineSlot
                 `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
 
     prop "falls back to partial fanout when preferred tx doesn't fit" $
@@ -645,7 +646,7 @@ spec = do
                         pure (not first')
                     }
             -- Any exception thrown here will fail the test automatically.
-            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Just dummyTx) u0 u0 (UTxO.size u0 - 1) deadlineSlot
+            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (RemainingUTxO (Just dummyTx)) u0 deadlineSlot
             assert True
 
     -- These two run the real chunk search over large heads, so each case costs
@@ -876,10 +877,8 @@ searchForChunk (cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) = 
       cctx
       spendableUTxO
       seedTxIn
-      Nothing
+      SelectedUTxO{utxoForProof = u0}
       u0
-      u0
-      (UTxO.size u0)
       deadlineSlot
   (,tx) <$> readIORef counter
 

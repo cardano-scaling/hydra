@@ -33,6 +33,7 @@ import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
+import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
 import Network.HTTP.Types (ResponseHeaders, Status, hAccept, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, requestHeaders, responseLBS)
@@ -620,7 +621,7 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqE
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
     Right SideLoadSnapshotRequest{snapshot}
-      | Left (utxoCount, maxAllowed) <- validateClientInput (SideLoadSnapshot snapshot) ->
+      | Left AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput (SideLoadSnapshot snapshot) ->
           pure . respondApi respEnc status400 $
             (SideLoadUTxOSetTooLarge{utxoCount, maxAllowed} :: SideLoadRequirementFailure tx)
     Right SideLoadSnapshotRequest{snapshot} -> do
