@@ -150,6 +150,12 @@
           packages.hydra-node.enableProfiling = true;
           packages.hydra-node.ghcOptions = [ "-fprof-late" ];
         }
+        # The profiled binary is large enough that gold runs out of reach for
+        # its AArch64 branch stubs ("Stub is too far away"). Link with bfd,
+        # which handles long branches, on Linux only.
+        (pkgs.lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+          packages.hydra-node.ghcOptions = [ "-optl-fuse-ld=bfd" ];
+        })
       ];
 
     in
