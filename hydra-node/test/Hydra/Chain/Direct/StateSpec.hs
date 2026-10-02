@@ -78,6 +78,7 @@ import Hydra.Tx.Observe (
   NotAnInitReason (..),
   PartialFanoutObservation (..),
   observeDecrementTx,
+  observeFanoutTx,
   observeHeadTx,
   observeIncrementTx,
   observeInitTx,
@@ -105,6 +106,7 @@ import Test.Hydra.Chain.Direct.State (
   genDepositTx,
   genDepositTxWith,
   genFanoutTx,
+  genFanoutTxWith,
   genFinalPartialFanoutTx,
   genHydraContext,
   genIncrementTx,
@@ -309,6 +311,15 @@ spec = parallel $ do
   describe "fanout" $ do
     propBelowSizeLimit maxTxSize forAllFanout
     propIsValid forAllFanout
+    prop "observed fanout UTxO excludes the wallet change output" $
+      forAll (oneof [genFanoutTx maximumNumberOfParties, genFanoutTxWith (pure mempty) maximumNumberOfParties]) $ \(ctx, _, spendableUTxO, tx) ->
+        forAll (genTxOutAdaOnly $ ownVerificationKey ctx) $ \change ->
+          let utxo = spendableUTxO <> getKnownUTxO ctx
+              (balancedTx, _) = applyMutation (AppendOutput change) (tx, utxo)
+              observed = fanoutUTxO <$> observeFanoutTx utxo balancedTx
+              expected = UTxO.fromList . take (length $ txOuts' tx) . UTxO.toList $ utxoFromTx balancedTx
+           in observed === Just expected
+                & classify (null $ txOuts' tx) "empty head"
 
   describe "partialFanout" $ do
     propBelowSizeLimit maxTxSize forAllPartialFanout

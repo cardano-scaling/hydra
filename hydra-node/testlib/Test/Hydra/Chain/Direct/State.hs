@@ -434,9 +434,13 @@ genContestTx = do
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
 genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
-genFanoutTx numParties = do
+genFanoutTx = genFanoutTxWith genFanoutUTxO
+
+-- | Like 'genFanoutTx', but with the given generator for the in-head UTxO.
+genFanoutTxWith :: Gen UTxO -> Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
+genFanoutTxWith genHeadUTxO numParties = do
   ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{headId}) <- genStOpenWith genFanoutUTxO ctx
+  (u0, stOpen@OpenState{headId}) <- genStOpenWith genHeadUTxO ctx
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
   -- Only generate commit UTxO when version differs so the accumulator commitment
