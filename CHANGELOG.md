@@ -12,6 +12,10 @@ changes.
 
 - Added a demo of a "delegated head" setup, see the README in ./delegated-demo for more information.
 
+- `maxTxsPerSnapshot` raised from 1000 to 4000; gives about a ~2x TPS speedup.
+  More information in `hydra-cluster/bench/BASELINES.md`.
+  [#2455](https://github.com/cardano-scaling/hydra/issues/2455)
+
 - Tidy up the parsing of contestation period and deposit period.
 
 - Fixed a crash on observing a `Commit`/deposit datum whose embedded
