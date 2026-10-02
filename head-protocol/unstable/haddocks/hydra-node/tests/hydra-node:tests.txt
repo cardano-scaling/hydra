@@ -1438,7 +1438,7 @@ MockHydraNode :: HydraNode Tx m -> ChainSyncHandler m -> TQueue m (UTCTime, Part
 -- | Pending network deliveries to this node (with their arrival time), see
 --   <a>createMockNetwork</a>.
 [$sel:mailbox:MockHydraNode] :: MockHydraNode m -> TQueue m (UTCTime, Party, Message Tx)
-createMockChain :: (MonadTimer m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> ChainContext -> DepositPeriod -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
+createMockChain :: (MonadTimer m, MonadThrow (STM m), MonadCatch m) => Tracer m CardanoChainLog -> ChainContext -> DepositPeriod -> SubmitTx m -> m TimeHandle -> TxIn -> LocalChainState m Tx -> Chain Tx m
 
 -- | Drain the queue, preserving submission order (a mempool applies
 --   dependent transactions oldest first; reversing them would drop e.g. a

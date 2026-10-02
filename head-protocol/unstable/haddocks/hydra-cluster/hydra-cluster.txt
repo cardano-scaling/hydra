@@ -877,6 +877,19 @@ singlePartyUsesScriptOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOp
 --   languages.
 recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx TopTx txera -> Tx TopTx txera
 
+-- | Open a head, mint tokens on L2 using a dummy minting policy and
+--   observe what happens on fanout: the minted tokens exist on L2 but
+--   never entered the head output on L1, so no fanout transaction can
+--   distribute them and the head cannot be finalized (see
+--   <a>https://github.com/cardano-scaling/hydra/issues/2334)</a>. The node
+--   reports this as a <tt>PostTxOnChainFailed</tt> and keeps running.
+singlePartyMintsTokensOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Mint tokens on L1 using a dummy minting policy, deposit them into an
+--   open head and fan out. Tokens which entered the head output on L1 are
+--   distributed by the fanout transaction like any other value.
+singlePartyFansOutTokensMintedOnL1 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
 -- | Open a head and run a script using <tt>Rewarding</tt> script purpose
 --   and a zero lovelace withdrawal.
 singlePartyUsesWithdrawZeroTrick :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()

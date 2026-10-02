@@ -343,6 +343,12 @@ ContestationDeadlineOutsideTimeHorizon :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 InvalidTokenRequest :: [(PolicyId, PolicyAssets)] -> PostTxError tx
 
+-- | An unexpected assertion (a call to <a>error</a>, e.g. from the
+--   underlying ledger libraries) fired while constructing or posting a
+--   transaction. Reported instead of crashing the node.
+UnexpectedPostTxError :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
+
 -- | A non empty sequence of chain states that can be rolled back. This is
 --   expected to be constructed by using the smart constructor
 --   <a>initHistory</a>.
@@ -1073,6 +1079,15 @@ readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State
 --   commitments differ.
 buildAndVerifyAccumulator :: FanoutProgressDatum -> UTxO -> Either PartialFanoutError HydraAccumulator
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
+isNegative :: Value -> Bool
+
+-- | Take up to <tt>n</tt> outputs, in order, skipping any the head output
+--   cannot cover. A token minted on layer two was never credited to the
+--   head output, so subtracting it would leave the continuing output
+--   negative. Skipping it lets everything else still leave the head.
+--   Quantities are tracked as they are consumed, so this also catches an
+--   asset partly backed on layer one and partly minted on layer two.
+fannable :: Value -> Int -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
 
 -- | Define some <tt>global</tt> context from which generators can pick
 --   values for generation. This allows to write fairly independent
@@ -5312,7 +5327,7 @@ type GetTimeHandle m = m TimeHandle
 --   NOTE: Given the constraints on <tt>m</tt> this function should work
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
-mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
+mkChain :: (MonadSTM m, MonadThrow (STM m), MonadCatch m) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
 
 -- | Reject a drafted deposit the node would never observe on chain.
 --   
