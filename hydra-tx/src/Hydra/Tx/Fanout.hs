@@ -280,8 +280,9 @@ observeFanoutTx utxo tx = do
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{} -> do
-        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> txOuts' tx)
+      Head.Fanout{numberOfFanoutOutputs} -> do
+        let numDistributed = fromIntegral numberOfFanoutOutputs
+        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take numDistributed (txOuts' tx))
         pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing
 
