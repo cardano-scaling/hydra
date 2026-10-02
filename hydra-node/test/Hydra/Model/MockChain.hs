@@ -622,7 +622,7 @@ data MockHydraNode m = MockHydraNode
   }
 
 createMockChain ::
-  (MonadTimer m, MonadThrow (STM m)) =>
+  (MonadTimer m, MonadThrow (STM m), MonadCatch m) =>
   Tracer m CardanoChainLog ->
   ChainContext ->
   DepositPeriod ->

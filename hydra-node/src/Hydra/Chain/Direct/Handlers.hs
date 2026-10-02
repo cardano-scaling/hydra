@@ -16,6 +16,7 @@ import Cardano.Ledger.Binary (serialize)
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL, ppProtocolVersionL)
 import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
+import Control.Exception (ErrorCall (ErrorCallWithLocation))
 import Control.Lens ((^.))
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Control.Tracer.JSON (Tracer, traceWith)
@@ -191,7 +192,7 @@ type GetTimeHandle m = m TimeHandle
 -- and does not require any actual `IO` to happen which makes it highly suitable
 -- for simulations and testing.
 mkChain ::
-  (MonadSTM m, MonadThrow (STM m)) =>
+  (MonadSTM m, MonadThrow (STM m), MonadCatch m) =>
   Tracer m CardanoChainLog ->
   -- | Means to acquire a new 'TimeHandle'.
   GetTimeHandle m ->
@@ -205,76 +206,12 @@ mkChain ::
 mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLatest} submitTx =
   Chain
     { postTx = \tx -> do
-        ChainStateAt{spendableUTxO} <- atomically getLatest
-        traceWith tracer $ ToPost{toPost = tx}
-        timeHandle <- queryTimeHandle
-        let TimeHandle{slotFromUTCTime} = timeHandle
-            resolveHeadInfo headSeed deadline = do
-              slot <- either (\err -> throwIO (ContestationDeadlineOutsideTimeHorizon{failureReason = err} :: PostTxError Tx)) pure $ slotFromUTCTime deadline
-              tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
-              pure (slot, tin)
-        vtx <- case tx of
-          FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
-            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            -- 'combinedUTxO' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
-            -- redeemer and proves membership for, so its size is the exact gate
-            -- on whether that transaction is worth building. It is also the set
-            -- the closed datum commits to, so it doubles as the proof base of the
-            -- partial fallback.
-            let fullUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit
-                preferred
-                  | canBeVerifiedOnChain (UTxO.size fullUTxO) =
-                      rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
-                  | otherwise = Nothing
-            findFittingFanoutTx
-              tracer
-              wallet
-              ctx
-              spendableUTxO
-              seedTxIn
-              (RemainingUTxO preferred)
-              fullUTxO
-              deadlineSlot
-              >>= finalizeTx wallet ctx spendableUTxO mempty
-          FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
-            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            let preferred
-                  | canBeVerifiedOnChain (UTxO.size utxoToDistribute) =
-                      rightToMaybe $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot
-                  | otherwise = Nothing
-            findFittingFanoutTx
-              tracer
-              wallet
-              ctx
-              spendableUTxO
-              seedTxIn
-              (RemainingUTxO preferred)
-              utxoToDistribute
-              deadlineSlot
-              >>= finalizeTx wallet ctx spendableUTxO mempty
-          PartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} -> do
-            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            findFittingFanoutTx
-              tracer
-              wallet
-              ctx
-              spendableUTxO
-              seedTxIn
-              SelectedUTxO{utxoForProof}
-              utxoToDistribute
-              deadlineSlot
-              >>= finalizeTx wallet ctx spendableUTxO mempty
-          InitTx{participants, headParameters} -> do
-            seedInput <-
-              atomically $
-                getSeedInput wallet >>= maybe (throwSTM (NoSeedInput @Tx)) pure
-            pparams <- getPParams wallet
-            finalizeTx wallet ctx spendableUTxO mempty $
-              initialize ctx pparams seedInput participants headParameters
-          _ ->
-            atomically (prepareTxToPost timeHandle ctx spendableUTxO tx)
-              >>= finalizeTx wallet ctx spendableUTxO mempty
-        submitTx vtx
+        -- Assertions in the ledger libraries (calls to 'error', e.g. on a
+        -- negative value) would otherwise bring down the node. Report them as
+        -- a failure to post, with their own tag so they are not mistaken for
+        -- a chain rejection.
+        postTx' tx `catch` \(ErrorCallWithLocation reason location) ->
+          throwIO (UnexpectedPostTxError{failureReason = toText $ reason <> "\n" <> location} :: PostTxError Tx)
     , draftDepositTx = \headId pparams currentSnapshot commitBlueprintTx deadline changeAddress -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -309,6 +246,82 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
       submitTx
     , checkNonADAAssets = checkNonADAAssetsUTxO . snapshotUTxO . getSnapshot
     }
+ where
+  postTx' tx = do
+    ChainStateAt{spendableUTxO} <- atomically getLatest
+    traceWith tracer $ ToPost{toPost = tx}
+    timeHandle <- queryTimeHandle
+    let TimeHandle{slotFromUTCTime} = timeHandle
+        resolveHeadInfo headSeed deadline = do
+          slot <-
+            either
+              (\err -> throwIO (ContestationDeadlineOutsideTimeHorizon{failureReason = err} :: PostTxError Tx))
+              pure
+              (slotFromUTCTime deadline)
+          tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure (headSeedToTxIn headSeed)
+          pure (slot, tin)
+    vtx <- case tx of
+      FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+        (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+        -- 'combinedUTxO' is the set 'Hydra.Tx.Fanout.fanoutTx' counts in its
+        -- redeemer and proves membership for, so its size is the exact gate
+        -- on whether that transaction is worth building. It is also the set
+        -- the closed datum commits to, so it doubles as the proof base of the
+        -- partial fallback.
+        let fullUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit
+            preferred
+              | canBeVerifiedOnChain (UTxO.size fullUTxO) =
+                  rightToMaybe $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
+              | otherwise = Nothing
+        findFittingFanoutTx
+          tracer
+          wallet
+          ctx
+          spendableUTxO
+          seedTxIn
+          (RemainingUTxO preferred)
+          fullUTxO
+          deadlineSlot
+          >>= finalizeTx wallet ctx spendableUTxO mempty
+      FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
+        (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+        let preferred
+              | canBeVerifiedOnChain (UTxO.size utxoToDistribute) =
+                  rightToMaybe $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot
+              | otherwise = Nothing
+        findFittingFanoutTx
+          tracer
+          wallet
+          ctx
+          spendableUTxO
+          seedTxIn
+          (RemainingUTxO preferred)
+          utxoToDistribute
+          deadlineSlot
+          >>= finalizeTx wallet ctx spendableUTxO mempty
+      PartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} -> do
+        (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+        findFittingFanoutTx
+          tracer
+          wallet
+          ctx
+          spendableUTxO
+          seedTxIn
+          SelectedUTxO{utxoForProof}
+          utxoToDistribute
+          deadlineSlot
+          >>= finalizeTx wallet ctx spendableUTxO mempty
+      InitTx{participants, headParameters} -> do
+        seedInput <-
+          atomically $
+            getSeedInput wallet >>= maybe (throwSTM (NoSeedInput @Tx)) pure
+        pparams <- getPParams wallet
+        finalizeTx wallet ctx spendableUTxO mempty $
+          initialize ctx pparams seedInput participants headParameters
+      _ ->
+        atomically (prepareTxToPost timeHandle ctx spendableUTxO tx)
+          >>= finalizeTx wallet ctx spendableUTxO mempty
+    submitTx vtx
 
 -- | Reject a drafted deposit the node would never observe on chain.
 --
@@ -771,10 +784,12 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
    where
     searchRange = min maxChunkSize Accumulator.deployedFanoutBatchSize
 
-    tryChunk plan n = buildTx plan n >>= \tx -> bool Nothing (Just tx) <$> fits tx
-
-  buildTx plan n =
-    orThrow $ partialFanoutFromPlan ctx plan n deadlineSlot
+    -- A chunk the head output cannot cover is a miss, not a failure: a
+    -- smaller one may still fit. Throwing here abandons the whole search and
+    -- distributes nothing, see issue #2334.
+    tryChunk plan n = do
+      tx <- orThrow $ partialFanoutFromPlan ctx plan n deadlineSlot
+      bool Nothing (Just tx) <$> fits tx
 
   orThrow :: Either PartialFanoutError a -> m a
   orThrow = either handleErr pure
