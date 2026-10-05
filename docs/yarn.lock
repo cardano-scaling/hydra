@@ -2462,6 +2462,18 @@
   resolved "https://registry.yarnpkg.com/@polka/url/-/url-1.0.0-next.28.tgz#d45e01c4a56f143ee69c54dd6b12eade9e270a73"
   integrity sha512-8LduaNlMZGwdZ6qWrKlfa+2M4gahzFkprZiAt2TF8uS0qQgBizKXpXURqvTJ4WtmupWxaLqjRb2UCTe72mu+Aw==
 
+"@rive-app/canvas@2.44.0":
+  version "2.44.0"
+  resolved "https://registry.yarnpkg.com/@rive-app/canvas/-/canvas-2.44.0.tgz#50155e0591110c6a97bb7b9cff48a13640a43425"
+  integrity sha512-ak0GGwCbuWubi6rP9qB5YPy5CxYuTY3AiuTV4i1Vi7GXhuK2XB+M+4WJMuGcYGfGLzojaVMKaxtunD5OjjGzOQ==
+
+"@rive-app/react-canvas@^4.36.0":
+  version "4.36.0"
+  resolved "https://registry.yarnpkg.com/@rive-app/react-canvas/-/react-canvas-4.36.0.tgz#af154a4c69586af082ba31aad15eed199de8dfed"
+  integrity sha512-34YVFivIXqRyOVzCTiKrkFkpFeXUUske3Zt9M+QPX1sjqxtoOkzqIkCij37LNNxxZm6xxydedEvo0DAPPAt5Fw==
+  dependencies:
+    "@rive-app/canvas" "2.44.0"
+
 "@sideway/address@^4.1.5":
   version "4.1.5"
   resolved "https://registry.yarnpkg.com/@sideway/address/-/address-4.1.5.tgz#4bc149a0076623ced99ca8208ba780d65a99b9d5"

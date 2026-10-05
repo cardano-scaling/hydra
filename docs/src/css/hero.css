@@ -1,0 +1,15 @@
+.hero__heading {
+  font-family: "Lexend";
+  font-weight: 500;
+  font-size: 2.25rem; /* 36px */
+  line-height: 1.22;
+  letter-spacing: -2.5%;
+}
+
+@media (min-width: 1024px) {
+  .hero__heading {
+    font-size: 4rem; /* 64px */
+    line-height: 1.13;
+    letter-spacing: -3%;
+  }
+}

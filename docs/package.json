@@ -29,6 +29,7 @@
     "@docusaurus/preset-classic": "^3.6.3",
     "@docusaurus/theme-mermaid": "^3.6.3",
     "@mdx-js/react": "^3.1.0",
+    "@rive-app/react-canvas": "^4.36.0",
     "clsx": "^1.1.1",
     "framer-motion": "^11.3.19",
     "prism-react-renderer": "^1.2.1",
@@ -40,7 +41,11 @@
     "@asyncapi/specs": "4.2.1"
   },
   "browserslist": {
-    "production": [">0.5%", "not dead", "not op_mini all"],
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",

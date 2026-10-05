@@ -6,6 +6,7 @@
 
 @import "./navbar.css";
 @import "./footer.css";
+@import "./hero.css";
 @import "./why-hydra.css";
 
 @tailwind base;
@@ -169,6 +170,15 @@ h4 {
   }
 }
 
+.badge-title {
+  font-family: "DM Mono";
+  font-size: 0.75rem; /* 12px */
+  font-weight: 500;
+  line-height: 1.33;
+  letter-spacing: 8%;
+  text-transform: uppercase;
+}
+
 h5,
 h6 {
   font-family: "Inter";
@@ -265,6 +275,7 @@ html.plugin-pages {
 }
 
 .link-button {
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
   display: flex;
   padding: 16px 24px;
   justify-content: center;
@@ -293,9 +304,16 @@ html.plugin-pages {
   color: var(--pure-white);
 }
 
-.link.button-light {
+.link-button-light {
+  border-radius: 100px;
   background: var(--pure-white);
   color: var(--pure-black);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.link-button-light:hover {
+  background: var(--hydra-red);
+  color: var(--pure-white);
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
