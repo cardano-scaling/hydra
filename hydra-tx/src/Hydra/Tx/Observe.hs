@@ -108,8 +108,8 @@ observeHeadTxWithReason networkId utxo tx
   -- could be done with 'validation' or a similar package.
   observeAnythingElse =
     Deposit <$> observeDepositTx networkId tx
-      <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
+      <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
