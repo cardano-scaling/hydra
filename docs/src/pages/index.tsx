@@ -5,6 +5,7 @@ import { forLaptop } from "../../helpers/media-queries";
 import useMediaQuery from "../hooks/useMediaQuery";
 
 import { PageContext, PageType } from "../context/PageContext";
+import WhyHydraHead from "../components/homepage/WhyHydraHead";
 
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
@@ -13,6 +14,7 @@ export default function Home() {
       <div className="z-index:1000">
         <Layout>
           <Hero />
+          <WhyHydraHead />
         </Layout>
       </div>
     </PageContext.Provider>

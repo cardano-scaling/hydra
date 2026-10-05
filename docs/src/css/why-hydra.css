@@ -1,0 +1,237 @@
+.why-hydra {
+  background-color: var(--hydra-black);
+}
+
+.why-hydra__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.why-hydra__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 16px;
+}
+
+.why-hydra__intro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-height: 500px;
+  overflow: hidden;
+  padding: 32px 24px;
+  border-radius: 16px;
+  background-color: var(--hydra-surface);
+  color: var(--pure-white);
+  font-size: 18px;
+  line-height: 28px;
+  letter-spacing: -0.18px;
+}
+
+.why-hydra__intro p {
+  position: relative;
+  margin: 0;
+}
+
+/* Rings centred on the card's bottom edge, sitting behind the text */
+.why-hydra__radial {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 560px;
+  max-width: none;
+  height: 280px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.why-hydra__table-scroll {
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.why-hydra__table-box {
+  position: relative;
+  min-width: 976px;
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: var(--hydra-black);
+}
+
+/* Highlights the "Inside a Hydra Head" column */
+.why-hydra__table-highlight {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 394px;
+  background: radial-gradient(
+      361% 191% at 53% -66%,
+      rgba(215, 38, 61, 1) 0%,
+      rgba(200, 37, 110, 0.75) 25%,
+      rgba(185, 35, 158, 0.5) 50%,
+      rgba(169, 34, 207, 0.25) 75%,
+      rgba(154, 32, 255, 0) 100%
+    ),
+    var(--hydra-black);
+}
+
+.why-hydra__table {
+  position: relative;
+  display: table;
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.why-hydra__col-property {
+  width: 196px;
+}
+
+.why-hydra__col-head {
+  width: 364px;
+}
+
+.why-hydra__table tr,
+.why-hydra__table tr:nth-child(2n) {
+  border: 0;
+  background-color: transparent;
+}
+
+.why-hydra__table thead tr {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+.why-hydra__table th,
+.why-hydra__table td {
+  padding: 32px 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  background-color: transparent;
+  color: var(--pure-white);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.why-hydra__table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.why-hydra__table thead th {
+  padding-top: 24px;
+  padding-bottom: 24px;
+  font-family: "DM Mono";
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+}
+
+.why-hydra__table tr > :first-child {
+  padding-left: 32px;
+}
+
+.why-hydra__table tr > :last-child {
+  padding-right: 32px;
+}
+
+.why-hydra__table tr > :nth-child(2) {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (min-width: 768px) {
+  .why-hydra__inner {
+    gap: 56px;
+  }
+
+  .why-hydra__intro {
+    gap: 32px;
+    padding: 40px;
+    font-size: 20px;
+    line-height: 32px;
+    letter-spacing: -0.2px;
+  }
+
+  .why-hydra__col-property {
+    width: 204px;
+  }
+
+  .why-hydra__col-head {
+    width: 372px;
+  }
+
+  .why-hydra__table tr > :first-child {
+    padding-left: 40px;
+  }
+
+  .why-hydra__table tr > :last-child {
+    padding-right: 40px;
+  }
+}
+
+/* Paddings scale down from the designed values, which are reached at 1600px */
+@media (min-width: 1024px) {
+  .why-hydra__content {
+    flex-direction: row;
+    gap: 0;
+    background-color: var(--hydra-surface);
+  }
+
+  .why-hydra__intro {
+    flex: 0 0 max(340px, 35%);
+    padding: clamp(32px, 2.5vw, 40px);
+  }
+
+  .why-hydra__comparison {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: clamp(24px, 2vw, 32px);
+  }
+
+  .why-hydra__table-box {
+    min-width: 0;
+  }
+
+  .why-hydra__table th,
+  .why-hydra__table td {
+    padding-right: clamp(8px, 0.75vw, 12px);
+    padding-left: clamp(8px, 0.75vw, 12px);
+  }
+
+  .why-hydra__table tr > :first-child {
+    padding-left: clamp(24px, 2.5vw, 40px);
+  }
+
+  .why-hydra__table tr > :last-child {
+    padding-right: clamp(24px, 2.5vw, 40px);
+  }
+}
+
+/* Columns stay proportional until the table reaches its designed width */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  .why-hydra__col-property {
+    width: 25%;
+  }
+
+  .why-hydra__col-head {
+    width: 38%;
+  }
+
+  .why-hydra__table-highlight {
+    width: calc(38% + 22px);
+  }
+
+  /* Keeps the middle column clear of the highlight's 22px overlap */
+  .why-hydra__table tr > :nth-child(2) {
+    padding-right: calc(clamp(8px, 0.75vw, 12px) + 22px);
+  }
+}
