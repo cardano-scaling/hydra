@@ -248,22 +248,28 @@ OnRecoverTx :: HeadId -> TxIdType tx -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:recoveredTxId:OnInitTx] :: OnChainTx tx -> TxIdType tx
 [$sel:recoveredUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnIncrementTx :: HeadId -> SnapshotVersion -> TxIdType tx -> OnChainTx tx
+OnIncrementTx :: HeadId -> SnapshotVersion -> TxIdType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:newVersion:OnInitTx] :: OnChainTx tx -> SnapshotVersion
 [$sel:depositTxId:OnInitTx] :: OnChainTx tx -> TxIdType tx
-OnDecrementTx :: HeadId -> SnapshotVersion -> UTxOType tx -> OnChainTx tx
+[$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnDecrementTx :: HeadId -> SnapshotVersion -> UTxOType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:newVersion:OnInitTx] :: OnChainTx tx -> SnapshotVersion
 [$sel:distributedUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnCloseTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
+[$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnCloseTx :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
 [$sel:contestationDeadline:OnInitTx] :: OnChainTx tx -> UTCTime
-OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
 [$sel:contestationDeadline:OnInitTx] :: OnChainTx tx -> UTCTime
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
 OnFanoutTx :: HeadId -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:fanoutUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
@@ -323,8 +329,10 @@ InternalWalletError :: UTxOType tx -> Text -> tx -> PostTxError tx
 FailedToPostTx :: Text -> tx -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 [$sel:failingTx:NoSeedInput] :: PostTxError tx -> tx
-FailedToConstructCloseTx :: PostTxError tx
-FailedToConstructContestTx :: PostTxError tx
+FailedToConstructCloseTx :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
+FailedToConstructContestTx :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructDepositTx :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructRecoverTx :: Text -> PostTxError tx
@@ -969,6 +977,14 @@ InvalidHeadIdInClose :: HeadId -> CloseTxError
 [$sel:headId:InvalidHeadIdInClose] :: CloseTxError -> HeadId
 CannotFindHeadOutputToClose :: CloseTxError
 BothCommitAndDecommitInClose :: CloseTxError
+
+-- | The snapshot is too old for the open head: no close redeemer accepts
+--   it, or the one that does (<tt>CloseUsed</tt>) would store an
+--   accumulator that does not match the head value, so the head could
+--   never be fanned out.
+StaleSnapshotInClose :: SnapshotVersion -> SnapshotVersion -> CloseTxError
+[$sel:snapshotVersion:InvalidHeadIdInClose] :: CloseTxError -> SnapshotVersion
+[$sel:openVersion:InvalidHeadIdInClose] :: CloseTxError -> SnapshotVersion
 data RecoverTxError
 InvalidHeadIdInRecover :: HeadId -> RecoverTxError
 [$sel:headId:InvalidHeadIdInRecover] :: RecoverTxError -> HeadId
@@ -993,6 +1009,15 @@ MissingHeadDatumInContest :: ContestTxError
 MissingHeadRedeemerInContest :: ContestTxError
 WrongDatumInContest :: ContestTxError
 FailedToConvertFromScriptDataInContest :: ContestTxError
+
+-- | The snapshot is too old for the head: like
+--   <a>StaleSnapshotInClose</a>, a <tt>ContestUsed</tt> with it would
+--   store an accumulator that does not match the head value, so the head
+--   could never be fanned out. Not contesting leaves the close, which may
+--   well be fanned out.
+StaleSnapshotInContest :: SnapshotVersion -> SnapshotVersion -> ContestTxError
+[$sel:snapshotVersion:InvalidHeadIdInContest] :: ContestTxError -> SnapshotVersion
+[$sel:openVersion:InvalidHeadIdInContest] :: ContestTxError -> SnapshotVersion
 
 -- | Construct a contest transaction based on the <a>ClosedState</a> and a
 --   confirmed snapshot. The given <a>PointInTime</a> will be used as an
@@ -1390,7 +1415,7 @@ isCollectingAcks :: SeenSnapshot tx -> Bool
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Snapshot tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -1402,6 +1427,22 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | The snapshot this node signed but had not seen confirmed when the head
+--   closed. A close or contest carrying its full multisignature confirms
+--   it, see <a>onClosedChainContestTx</a>.
+[$sel:unconfirmedSnapshot:ClosedState] :: ClosedState tx -> Maybe (Snapshot tx)
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:unconfirmedSnapshot:ClosedState</a>. Like
+--   <a>coordinatedHeadStateCBORTag</a>, the fields are a bare
+--   concatenation, so <a>closedStateCBORTagV1</a> names the layout written
+--   before that field existed and is still accepted.
+closedStateCBORTag :: Text
+
+-- | Tag of the layout without <a>$sel:unconfirmedSnapshot:ClosedState</a>,
+--   as written by the generic encoding. Decoded, never written.
+closedStateCBORTagV1 :: Text
 
 -- | How the node decides which UTxOs to distribute in the next fanout step
 --   while the head is in <a>FanoutProgress</a>.
@@ -4067,6 +4108,18 @@ aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateCh
 aggregateState :: IsChainState tx => NodeState tx -> Outcome tx -> NodeState tx
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 
+-- | Observe a contest transaction. If the contested snapshot number is
+--   smaller than our last confirmed snapshot, we post a contest
+--   transaction.
+--   
+--   A peer that withheld its <a>AckSn</a> can close with an older snapshot
+--   and then contest with the one we are still collecting signatures for.
+--   The contest carries its full multisignature, so adopt it as confirmed,
+--   like <a>onOpenChainCloseTx</a> does for a close.
+--   
+--   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
+onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Outcome tx
+
 -- | Client request to init the head. This leads to an init transaction on
 --   chain, containing the head parameters.
 --   
@@ -4271,7 +4324,7 @@ maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> Sn
 --   ReqSn is broadcasted.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> Outcome tx
+onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 --   pending decommit tx, then we consider the decommit finalized, and
@@ -4281,7 +4334,7 @@ onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateTy
 --   ReqSn is broadcasted.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Outcome tx
+onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.
@@ -4341,8 +4394,13 @@ onOpenClientClose :: OpenState tx -> Outcome tx
 --   than our last confirmed, we post a contest transaction. Also, we do
 --   schedule a notification for clients to fanout at the deadline.
 --   
+--   A peer that withheld its <a>AckSn</a> can close with the snapshot we
+--   are still collecting signatures for. The close carries its full
+--   multisignature, so adopt it as confirmed; otherwise we could not fan
+--   out the closed head.
+--   
 --   <b>Transition</b>: <a>OpenState</a> → <a>ClosedState</a>
-onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | Client request to side load confirmed snapshot.
 --   
@@ -4359,13 +4417,6 @@ onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNu
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
-
--- | Observe a contest transaction. If the contested snapshot number is
---   smaller than our last confirmed snapshot, we post a contest
---   transaction.
---   
---   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to fanout the whole closed head automatically. Emits a
 --   <a>FanoutTx</a>; the chain layer either lands a single full fanout (→
@@ -4524,7 +4575,9 @@ closedToFanoutProgress :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> 
 --   transition (see <a>HeadFanoutReverted</a>).
 --   <a>$sel:readyToFanoutSent:ClosedState</a> is restored to <a>True</a>
 --   because a fanout is only reachable after the head was announced
---   <tt>ReadyToFanout</tt>.
+--   <tt>ReadyToFanout</tt>. The contestation period is over by then, so no
+--   contest can confirm an <a>$sel:unconfirmedSnapshot:ClosedState</a>
+--   anymore.
 fanoutProgressToClosed :: PartialFanoutState tx -> ClosedState tx
 
 -- | The step this node is currently driving. <a>Nothing</a> while a manual
@@ -4912,7 +4965,7 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteStrin
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Snapshot tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -4924,6 +4977,11 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | The snapshot this node signed but had not seen confirmed when the head
+--   closed. A close or contest carrying its full multisignature confirms
+--   it, see <a>onClosedChainContestTx</a>.
+[$sel:unconfirmedSnapshot:ClosedState] :: ClosedState tx -> Maybe (Snapshot tx)
 
 -- | How the node decides which UTxOs to distribute in the next fanout step
 --   while the head is in <a>FanoutProgress</a>.

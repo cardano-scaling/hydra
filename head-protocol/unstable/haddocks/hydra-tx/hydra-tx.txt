@@ -270,6 +270,21 @@ pattern HydraVerificationKey :: () => VerKeyDSIGN Ed25519DSIGN -> VerificationKe
 --   <a>withSecret</a> at the call site, so the noisy continuation pattern
 --   is hidden where it matters.
 sign :: SignableRepresentation a => Secret (SigningKey HydraKey) -> a -> Signature a
+
+-- | Decode the multisignature a head redeemer carries, for observing the
+--   transaction.
+--   
+--   The head validator checks these signatures against the snapshot the
+--   transaction was posted with, so on a transaction that landed on-chain
+--   they decode. Observation must not depend on that though: it runs on
+--   any transaction spending the head output, and dropping the observation
+--   over a malformed redeemer field would leave the node's chain state at
+--   the spent head output, unable to close, contest or track the head's
+--   version. A malformed entry therefore yields the empty multisignature.
+--   That never verifies against a snapshot, so <a>HeadLogic</a> observes
+--   the transaction as usual and only skips adopting the snapshot it
+--   settled.
+observedSignatures :: [Signature] -> MultiSignature a
 toPlutusSignatures :: MultiSignature a -> [Signature]
 
 -- | Create a new <a>SigningKey</a> from a <a>ByteString</a> seed, wrapped
@@ -304,6 +319,10 @@ verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -
 --   Use this when the same value would be verified multiple times (e.g.
 --   per-party in a round).
 verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Verified
+
+-- | Inverse of <a>toPlutusSignatures</a>. Fails if any signature bytes are
+--   malformed.
+fromPlutusSignatures :: [Signature] -> Maybe (MultiSignature a)
 getSignableRepresentation :: SignableRepresentation a => a -> ByteString
 instance GHC.Show.Show (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
 instance GHC.Classes.Eq (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
@@ -1006,6 +1025,13 @@ ConfirmedSnapshot :: Snapshot tx -> MultiSignature (Snapshot tx) -> ConfirmedSna
 --   the sumtype. So, we explicitly define a getter which will force us
 --   into thinking about changing the signature properly if this happens.
 getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
+
+-- | Signatures of a confirmed snapshot; the initial snapshot has none.
+confirmedSignatures :: ConfirmedSnapshot tx -> MultiSignature (Snapshot tx)
+
+-- | Whether the snapshot carries a commit or decommit that settles
+--   on-chain with an increment or decrement, bumping the head version.
+hasPendingAction :: Snapshot tx -> Bool
 instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotNumber
@@ -1213,11 +1239,13 @@ module Hydra.Tx.Increment
 --   <a>UTxO</a> locked at v_deposit and make it available on L2.
 incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> UTxO -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
 data IncrementObservation
-IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation
+IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> IncrementObservation
 [$sel:headId:IncrementObservation] :: IncrementObservation -> HeadId
 [$sel:newVersion:IncrementObservation] :: IncrementObservation -> SnapshotVersion
 [$sel:depositTxId:IncrementObservation] :: IncrementObservation -> TxId
 [$sel:deposited:IncrementObservation] :: IncrementObservation -> UTxO
+[$sel:snapshotNumber:IncrementObservation] :: IncrementObservation -> SnapshotNumber
+[$sel:signatures:IncrementObservation] :: IncrementObservation -> MultiSignature (Snapshot Tx)
 observeIncrementTx :: NetworkId -> UTxO -> Tx -> Maybe IncrementObservation
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Increment.IncrementObservation
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Increment.IncrementObservation
@@ -1321,10 +1349,12 @@ module Hydra.Tx.Decrement
 --   L1.
 decrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> Tx
 data DecrementObservation
-DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> DecrementObservation
+DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> DecrementObservation
 [$sel:headId:DecrementObservation] :: DecrementObservation -> HeadId
 [$sel:newVersion:DecrementObservation] :: DecrementObservation -> SnapshotVersion
 [$sel:distributedUTxO:DecrementObservation] :: DecrementObservation -> UTxO
+[$sel:snapshotNumber:DecrementObservation] :: DecrementObservation -> SnapshotNumber
+[$sel:signatures:DecrementObservation] :: DecrementObservation -> MultiSignature (Snapshot Tx)
 observeDecrementTx :: UTxO -> Tx -> Maybe DecrementObservation
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Decrement.DecrementObservation
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Decrement.DecrementObservation
@@ -1344,14 +1374,30 @@ OpenThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> DepositPeriod
 [$sel:openDepositPeriod:OpenThreadOutput] :: OpenThreadOutput -> DepositPeriod
 [$sel:openParties:OpenThreadOutput] :: OpenThreadOutput -> [Party]
 
+-- | Whether a head at the given open version can be closed with the
+--   snapshot, such that the closed head can later be fanned out.
+--   
+--   The head validator only accepts a snapshot signed at the open version
+--   (<a>CloseInitial</a>, <a>CloseAny</a>, <a>CloseUnused</a>) or one
+--   before (<a>CloseUsed</a>). The latter stores the snapshot's applied
+--   accumulator, which only matches the head value if the version bump was
+--   this snapshot's own increment or decrement. For a snapshot without a
+--   pending action the version moved on through a later snapshot's
+--   settlement, and the closed head could never be fanned out.
+isClosableAt :: SnapshotVersion -> Snapshot tx -> Bool
+
 -- | Create a transaction closing a head with either the initial snapshot
 --   or with a multi-signed confirmed snapshot.
 closeTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> SnapshotVersion -> ConfirmedSnapshot Tx -> SlotNo -> PointInTime -> OpenThreadOutput -> IncrementalAction -> Tx
 data CloseObservation
-CloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> CloseObservation
+CloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot Tx) -> CloseObservation
 [$sel:headId:CloseObservation] :: CloseObservation -> HeadId
 [$sel:snapshotNumber:CloseObservation] :: CloseObservation -> SnapshotNumber
 [$sel:contestationDeadline:CloseObservation] :: CloseObservation -> UTCTime
+
+-- | Multisignature of the closing snapshot, empty for the initial
+--   snapshot.
+[$sel:signatures:CloseObservation] :: CloseObservation -> MultiSignature (Snapshot Tx)
 
 -- | Identify a close tx by lookup up the input spending the Head output
 --   and decoding its redeemer.
@@ -1376,11 +1422,14 @@ ClosedThreadOutput :: (TxIn, TxOut CtxUTxO) -> [Party] -> POSIXTime -> [PubKeyHa
 [$sel:closedDepositPeriod:ClosedThreadOutput] :: ClosedThreadOutput -> DepositPeriod
 contestTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> ContestationPeriod -> SnapshotVersion -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> PointInTime -> ClosedThreadOutput -> Tx
 data ContestObservation
-ContestObservation :: HeadId -> SnapshotNumber -> UTCTime -> [PubKeyHash] -> ContestObservation
+ContestObservation :: HeadId -> SnapshotNumber -> UTCTime -> [PubKeyHash] -> MultiSignature (Snapshot Tx) -> ContestObservation
 [$sel:headId:ContestObservation] :: ContestObservation -> HeadId
 [$sel:snapshotNumber:ContestObservation] :: ContestObservation -> SnapshotNumber
 [$sel:contestationDeadline:ContestObservation] :: ContestObservation -> UTCTime
 [$sel:contesters:ContestObservation] :: ContestObservation -> [PubKeyHash]
+
+-- | Multisignature of the contesting snapshot.
+[$sel:signatures:ContestObservation] :: ContestObservation -> MultiSignature (Snapshot Tx)
 
 -- | Identify a contest tx by lookup up the input spending the Head output
 --   and decoding its redeemer.
@@ -1451,10 +1500,12 @@ isMalformedInit :: NotAnInitReason -> Bool
 --   that are valid head tokens (checked by seed + policy).
 observeInitTx :: Tx -> Either NotAnInitReason InitObservation
 data DecrementObservation
-DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> DecrementObservation
+DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> DecrementObservation
 [$sel:headId:DecrementObservation] :: DecrementObservation -> HeadId
 [$sel:newVersion:DecrementObservation] :: DecrementObservation -> SnapshotVersion
 [$sel:distributedUTxO:DecrementObservation] :: DecrementObservation -> UTxO
+[$sel:snapshotNumber:DecrementObservation] :: DecrementObservation -> SnapshotNumber
+[$sel:signatures:DecrementObservation] :: DecrementObservation -> MultiSignature (Snapshot Tx)
 observeDecrementTx :: UTxO -> Tx -> Maybe DecrementObservation
 data DepositObservation
 DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObservation
@@ -1473,11 +1524,13 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   value, - an upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
-IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation
+IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> IncrementObservation
 [$sel:headId:IncrementObservation] :: IncrementObservation -> HeadId
 [$sel:newVersion:IncrementObservation] :: IncrementObservation -> SnapshotVersion
 [$sel:depositTxId:IncrementObservation] :: IncrementObservation -> TxId
 [$sel:deposited:IncrementObservation] :: IncrementObservation -> UTxO
+[$sel:snapshotNumber:IncrementObservation] :: IncrementObservation -> SnapshotNumber
+[$sel:signatures:IncrementObservation] :: IncrementObservation -> MultiSignature (Snapshot Tx)
 observeIncrementTx :: NetworkId -> UTxO -> Tx -> Maybe IncrementObservation
 data RecoverObservation
 RecoverObservation :: HeadId -> TxId -> UTxO -> RecoverObservation
@@ -1486,20 +1539,27 @@ RecoverObservation :: HeadId -> TxId -> UTxO -> RecoverObservation
 [$sel:recoveredUTxO:RecoverObservation] :: RecoverObservation -> UTxO
 observeRecoverTx :: NetworkId -> UTxO -> Tx -> Maybe RecoverObservation
 data CloseObservation
-CloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> CloseObservation
+CloseObservation :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot Tx) -> CloseObservation
 [$sel:headId:CloseObservation] :: CloseObservation -> HeadId
 [$sel:snapshotNumber:CloseObservation] :: CloseObservation -> SnapshotNumber
 [$sel:contestationDeadline:CloseObservation] :: CloseObservation -> UTCTime
+
+-- | Multisignature of the closing snapshot, empty for the initial
+--   snapshot.
+[$sel:signatures:CloseObservation] :: CloseObservation -> MultiSignature (Snapshot Tx)
 
 -- | Identify a close tx by lookup up the input spending the Head output
 --   and decoding its redeemer.
 observeCloseTx :: UTxO -> Tx -> Maybe CloseObservation
 data ContestObservation
-ContestObservation :: HeadId -> SnapshotNumber -> UTCTime -> [PubKeyHash] -> ContestObservation
+ContestObservation :: HeadId -> SnapshotNumber -> UTCTime -> [PubKeyHash] -> MultiSignature (Snapshot Tx) -> ContestObservation
 [$sel:headId:ContestObservation] :: ContestObservation -> HeadId
 [$sel:snapshotNumber:ContestObservation] :: ContestObservation -> SnapshotNumber
 [$sel:contestationDeadline:ContestObservation] :: ContestObservation -> UTCTime
 [$sel:contesters:ContestObservation] :: ContestObservation -> [PubKeyHash]
+
+-- | Multisignature of the contesting snapshot.
+[$sel:signatures:ContestObservation] :: ContestObservation -> MultiSignature (Snapshot Tx)
 
 -- | Identify a contest tx by lookup up the input spending the Head output
 --   and decoding its redeemer.

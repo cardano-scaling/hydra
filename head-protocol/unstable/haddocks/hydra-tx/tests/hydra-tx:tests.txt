@@ -409,7 +409,15 @@ healthyCloseSnapshotVersion :: SnapshotVersion
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
 --   signed by the head members yet.
 healthyCloseInitialTx :: (Tx, UTxO)
+
+-- | What an honest node posts when it still holds the initial snapshot but
+--   the head already went through an increment (open version 1). The
+--   validator requires version 0 for <tt>CloseInitial</tt>, so this must
+--   be rejected.
+healthyCloseInitialAfterIncrementTx :: (Tx, UTxO)
+mkCloseInitialTx :: SnapshotVersion -> State -> (Tx, UTxO)
 healthyInitialOpenDatum :: State
+healthyIncrementedOpenDatum :: State
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Generate not acceptable, but interesting deadlines.

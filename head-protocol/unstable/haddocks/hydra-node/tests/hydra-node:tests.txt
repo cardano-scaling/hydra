@@ -1238,6 +1238,19 @@ forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllIncrement' :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllDecrement :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllDecrement' :: Testable property => (UTxO -> UTxO -> Tx -> property) -> Property
+
+-- | A close is only built for a snapshot at the open version, or one
+--   version behind when that snapshot's own increment or decrement moved
+--   the head on. Anything else is either rejected by the head validator
+--   (e.g. the initial snapshot once the head moved past version 0) or
+--   would close with an accumulator that does not match the head value, so
+--   it could never be fanned out.
+prop_refusesStaleSnapshotInClose :: Property
+
+-- | The counterpart of <a>prop_refusesStaleSnapshotInClose</a>: a head
+--   closed at some version is only contested with a snapshot the head
+--   could be fanned out from, by the same rule the close applies.
+prop_refusesStaleSnapshotInContest :: Property
 forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
@@ -1332,6 +1345,12 @@ dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 --   initial chain state to play back to our test nodes. NOTE: The
 --   simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => (SimulatedChainNetwork SimpleTx m -> m a) -> m a
+withSimulatedChainAndNetworkWithholdingAckSn :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => Party -> (SimulatedChainNetwork SimpleTx m -> m a) -> m a
+
+-- | Like <a>withSimulatedChainAndNetworkWithholdingAckSn</a>, but the
+--   dishonest party acks like everyone else up to the given snapshot
+--   number and withholds from that snapshot on.
+withSimulatedChainAndNetworkWithholdingAckSnFrom :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => Party -> SnapshotNumber -> (SimulatedChainNetwork SimpleTx m -> m a) -> m a
 
 -- | Simulated chain and network where the network and/or chain
 --   observations can be delivered with a configurable delay. Handy to
@@ -1345,6 +1364,12 @@ withSimulatedChainAndSlowNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, Mo
 --   where nodes observe the same on-chain event at different times.
 simulatedChainAndNetworkUsing :: forall m. (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => (DraftHydraNode SimpleTx m -> TVar m [HydraNode SimpleTx m] -> Network m (Message SimpleTx)) -> DiffTime -> ChainStateType SimpleTx -> m (SimulatedChainNetwork SimpleTx m)
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
+
+-- | A network where the given party never delivers its <a>AckSn</a> to
+--   peers. The party still receives its own AckSn, so it can complete the
+--   multisignature locally and post the increment/decrement, while the
+--   other nodes remain one signature short.
+createNetworkWithholdingAckSn :: MonadAsync m => Party -> SnapshotNumber -> DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 
 -- | Delivers messages asynchronously after a configurable delay. When the
 --   delay exceeds the chain's block time (20s), on-chain events arrive at
@@ -1404,7 +1429,7 @@ module Hydra.Model.MockChain
 --   <a>$sel:onRollForward:ChainSyncHandler</a> on every <tt>blockTime</tt>
 --   and performs <a>$sel:rollbackAndForward:SimulatedChainNetwork</a>
 --   every couple blocks.
-mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> m (SimulatedChainNetwork Tx m)
+mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> Word64 -> m (SimulatedChainNetwork Tx m)
 
 -- | A <a>TimeHandle</a> at the given slot, for a chain that starts at time
 --   0 and has the era horizon far in the future. This is used in our
@@ -1661,7 +1686,7 @@ sortTxOuts :: [TxOut ctx] -> [TxOut ctx]
 
 -- | Deposit period used by all nodes and the <a>performDeposit</a>.
 testDepositPeriod :: DepositPeriod
-seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> ContestationPeriod -> RunMonad m ()
+seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(Secret (SigningKey HydraKey), CardanoSigningKey)] -> ContestationPeriod -> Word64 -> RunMonad m ()
 
 -- | (Re-)create and start a single hydra node on the given event store,
 --   recovering its state from the store's events, and wait for it to be in
