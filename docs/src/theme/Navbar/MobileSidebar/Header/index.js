@@ -1,11 +1,11 @@
 import React from "react";
-import clsx from "clsx";
+import Link from "@docusaurus/Link";
 import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
 import { translate } from "@docusaurus/Translate";
 import NavbarColorModeToggle from "@theme/Navbar/ColorModeToggle";
-import IconClose from "@theme/Icon/Close";
-import NavbarLogo from "@theme/Navbar/Logo";
 import { useIsLandingPage } from "../../../../hooks/useIsLandingPage";
+import { HydraLogoWordmark } from "../../../../components/icons/HydraLogo";
+import { BurgerMenuClose } from "../../../../components/icons/BurgerMenu";
 function CloseButton() {
   const mobileSidebar = useNavbarMobileSidebar();
   return (
@@ -19,21 +19,24 @@ function CloseButton() {
       className="navbar-sidebar__close"
       onClick={() => mobileSidebar.toggle()}
     >
-      <IconClose color="var(--ifm-color-emphasis-600)" />
+      <BurgerMenuClose />
     </button>
   );
 }
 export default function NavbarMobileSidebarHeader() {
   const isLandingPage = useIsLandingPage();
+  const mobileSidebar = useNavbarMobileSidebar();
   return (
-    <div
-      className={clsx(
-        "navbar-sidebar__brand pageContainer tablet:pt-[36px] tablet:pb-[40px] shadow-none",
-        !isLandingPage && "tablet:px-[32px]"
-      )}
-    >
-      <NavbarLogo />
-      <NavbarColorModeToggle className="margin-right--md" />
+    <div className="navbar-sidebar__brand">
+      <Link
+        to="/"
+        className="navbar__brand"
+        aria-label="Hydra home"
+        onClick={() => mobileSidebar.toggle()}
+      >
+        <HydraLogoWordmark width={114} height={32} className="text-white" />
+      </Link>
+      {!isLandingPage && <NavbarColorModeToggle />}
       <CloseButton />
     </div>
   );

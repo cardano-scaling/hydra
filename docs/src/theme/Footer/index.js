@@ -5,7 +5,7 @@ import FooterLogo from "@theme/Footer/Logo";
 import FooterCopyright from "@theme/Footer/Copyright";
 import FooterLayout from "@theme/Footer/Layout";
 function Footer() {
-  const { footer } = useThemeConfig();
+  const { footer, footerDescription } = useThemeConfig();
   if (!footer) {
     return null;
   }
@@ -15,6 +15,7 @@ function Footer() {
       style={style}
       links={links && links.length > 0 && <FooterLinks links={links} />}
       logo={logo && <FooterLogo logo={logo} />}
+      description={footerDescription}
       copyright={copyright && <FooterCopyright copyright={copyright} />}
     />
   );

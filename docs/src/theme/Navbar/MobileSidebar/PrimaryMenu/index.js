@@ -1,55 +1,63 @@
 import React from "react";
+import Link from "@docusaurus/Link";
 import { useThemeConfig } from "@docusaurus/theme-common";
 import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
 import NavbarItem from "@theme/NavbarItem";
-import { GithubSmall } from "../../../../components/icons/Github";
-import Discord from "../../../../components/icons/Discord";
-import NavbarSearch from "@theme/Navbar/Search";
-import SearchBar from "@theme/SearchBar";
+import { useIsLandingPage } from "../../../../hooks/useIsLandingPage";
+import Code from "../../../../components/icons/Code";
+import { ExternalArrow, RightArrow } from "../../../../components/icons/Arrow";
 function useNavbarItems() {
-  // TODO temporary casting until ThemeConfig type is improved
-  return useThemeConfig().navbar.items;
+  const { navbar, homepageNavbarItems } = useThemeConfig();
+  const isLandingPage = useIsLandingPage();
+  return isLandingPage
+    ? homepageNavbarItems.filter((item) => item.position === "center")
+    : navbar.items.filter((item) => item.type !== "html");
 }
 // The primary menu displays the navbar items
 export default function NavbarMobilePrimaryMenu() {
   const mobileSidebar = useNavbarMobileSidebar();
-  // TODO how can the order be defined for mobile?
-  // Should we allow providing a different list of items?
+  const { mobileSidebarLinks } = useThemeConfig();
   const items = useNavbarItems();
-  const searchBarItem = items.find((item) => item.type === "search");
+  const closeSidebar = () => mobileSidebar.toggle();
   return (
-    <ul className="mobile-side-menu flex flex-col gap-2 px-0 pt-[50px] text-xl leading-[27px] tablet:px-[23px] tablet:pt-[10px]">
-      {items.map((item, i) => (
-        <NavbarItem
-          mobile
-          {...item}
-          onClick={() => mobileSidebar.toggle()}
-          key={i}
-        />
-      ))}
-      {!searchBarItem && (
-        <NavbarSearch className="inline-flex gap-3">
-          <SearchBar /> Search
-        </NavbarSearch>
-      )}
-      <a
-        href="https://github.com/cardano-scaling/hydra"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
-        aria-label="Github link"
-      >
-        <GithubSmall /> Github
-      </a>
-      <a
-        href="https://github.com/cardano-scaling/hydra"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hover:text-primary-light mx-3 py-1 inline-flex gap-3"
-        aria-label="Discord link"
-      >
-        <Discord className="mt-1" /> Discord
-      </a>
-    </ul>
+    <div className="mobile-side-menu">
+      <div className="mobile-side-menu__main">
+        <ul className="mobile-side-menu__items menu__list">
+          {items.map((item, i) => (
+            <NavbarItem mobile {...item} onClick={closeSidebar} key={i} />
+          ))}
+        </ul>
+        <div className="mobile-side-menu__buttons">
+          <Link
+            to="/docs/getting-started"
+            className="link-button"
+            onClick={closeSidebar}
+          >
+            Open your first head <RightArrow />
+          </Link>
+          <Link
+            to="/docs"
+            className="link-button link-button-transparent"
+            onClick={closeSidebar}
+          >
+            Read the Docs <Code />
+          </Link>
+        </div>
+      </div>
+      <ul className="mobile-side-menu__links clean-list">
+        {mobileSidebarLinks.map((item, i) => (
+          <li key={i}>
+            <Link
+              className="mobile-side-menu__link"
+              {...(item.href ? { href: item.href } : { to: item.to })}
+              onClick={closeSidebar}
+            >
+              {item.label}
+              <ExternalArrow width={12} height={12} aria-hidden="true" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

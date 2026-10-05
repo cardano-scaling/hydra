@@ -9,7 +9,7 @@ import { translate } from "@docusaurus/Translate";
 import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
 import styles from "./styles.module.css";
 
-import { useScroll, motion, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
 
 function NavbarBackdrop(props) {
@@ -22,12 +22,6 @@ function NavbarBackdrop(props) {
   );
 }
 export default function NavbarLayout({ children }) {
-  const { scrollY } = useScroll();
-  const y = useTransform(
-    scrollY,
-    [0, 70],
-    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 1)"]
-  );
   const isLandingPage = useIsLandingPage();
   const {
     navbar: { hideOnScroll },
@@ -38,7 +32,7 @@ export default function NavbarLayout({ children }) {
     <motion.header
       style={
         isLandingPage && {
-          backgroundColor: y,
+          backgroundColor: "var(--pure-black)",
         }
       }
       ref={navbarRef}
@@ -48,10 +42,10 @@ export default function NavbarLayout({ children }) {
         description: "The ARIA label for the main navigation",
       })}
       className={clsx(
-        "flex navbar tablet:py-[30px] !px-0 shadow-none z-50",
+        "flex navbar !px-0 shadow-none z-50",
         isLandingPage
-          ? "border-none pt-3"
-          : "border-b border-[var(--ifm-toc-border-color)] pt-3 pb-4 tablet:px-2",
+          ? "border-none py-4 h-[88px] tablet:py-[21px] tablet:h-[100px]"
+          : "border-b border-[var(--ifm-toc-border-color)] pt-3 pb-4 tablet:px-2 tablet:py-[30px]",
         "navbar--fixed-top",
         hideOnScroll && [
           // styles.navbarHideable,

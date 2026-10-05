@@ -21,28 +21,28 @@ const customFields = {
   docsearchApiKey: "09b2fc0200d06fb433a5f4ced7c9d427",
 };
 
-const contributingLinks = [
+const communityLinks = [
   {
-    label: "Coding standards",
-    to: "https://github.com/cardano-scaling/hydra/wiki/Coding-Standards",
+    label: "Github",
+    href: "https://github.com/cardano-scaling/hydra",
   },
   {
-    label: "Architecture Decision Records",
-    to: "/adr",
+    label: "Discord",
+    href: "https://discord.gg/Qq5vNTg9PT",
   },
   {
-    label: "Testing strategy",
-    to: "https://github.com/cardano-scaling/hydra/wiki/Testing-Strategy",
+    label: "Stack Exchange",
+    href: "https://cardano.stackexchange.com/questions/tagged/hydra",
+  },
+  {
+    label: "Monthly Reports",
+    href: "https://cardano-scaling.github.io/website/monthly",
+  },
+  {
+    label: "Protocol Specification",
+    to: "/docs/dev/specification",
   },
 ];
-
-// If it's not the unstable docs themselves, make sure there's a link in the
-// footer to the unstable docs.
-if (!isUnstable) {
-  contributingLinks.push({ label: "Unstable documentation", to: "https://hydra.family/head-protocol/unstable/docs" })
-}
-
-
 
 const editUrl = "https://github.com/cardano-scaling/hydra/tree/master/docs";
 
@@ -192,13 +192,45 @@ const config = {
       },
       announcementBar: isUnstable
         ? {
-          id: "unstable_docs_banner",
-          content: `This is the documentation for the unstable version of Hydra. For the latest stable version, see <a target="_blank" rel="noopener noreferrer" href="https://hydra.family/head-protocol/docs">here</a>.`,
-          isCloseable: false,
-        }
+            id: "unstable_docs_banner",
+            content: `This is the documentation for the unstable version of Hydra. For the latest stable version, see <a target="_blank" rel="noopener noreferrer" href="https://hydra.family/head-protocol/docs">here</a>.`,
+            isCloseable: false,
+          }
         : undefined,
+      homepageNavbarItems: [
+        {
+          type: "html",
+          position: "left",
+          value: `<span class="navbar-version">${VERSION}</span>`,
+        },
+        {
+          to: "/head-protocol/#why-hydra",
+          label: "Why Hydra",
+          position: "center",
+        },
+        {
+          to: "/head-protocol/#how-it-works",
+          label: "How it works",
+          position: "center",
+        },
+        {
+          to: "/head-protocol/#use-cases",
+          label: "Use cases",
+          position: "center",
+        },
+        {
+          to: "/head-protocol/#topologies",
+          label: "Topologies",
+          position: "center",
+        },
+        {
+          to: "/head-protocol/#developers",
+          label: "Developers",
+          position: "center",
+        },
+      ],
       navbar: {
-        title: "Hydra Head protocol",
+        title: "Hydra",
         logo: {
           alt: "Hydra Head logo",
           src: "img/hydra.png",
@@ -208,7 +240,7 @@ const config = {
         items: [
           {
             type: "html",
-            position: "right",
+            position: "left",
             value: `<span class="navbar-version">${VERSION}</span>`,
           },
           {
@@ -240,65 +272,24 @@ const config = {
       },
       footer: {
         style: "dark",
+        logo: {
+          alt: "Hydra",
+          src: "img/hydra-with-text.png",
+          width: 480,
+          height: 135,
+        },
         links: [
+          ...communityLinks,
           {
-            title: "Contributing",
-            items: contributingLinks
-          },
-          {
-            title: "Community",
-            items: [
-              {
-                label: "Discord",
-                href: "https://discord.gg/Qq5vNTg9PT",
-              },
-              {
-                label: "GitHub discussions",
-                href: "https://github.com/cardano-scaling/hydra/discussions",
-              },
-              {
-                label: "Stack Exchange",
-                href: "https://cardano.stackexchange.com/questions/tagged/hydra",
-              },
-            ],
-          },
-          {
-            title: "More",
-            items: [
-              {
-                label: "Haskell packages",
-                to: "/docs/dev/haskell-packages",
-              },
-              {
-                label: "Monthly reports",
-                to: "https://cardano-scaling.github.io/website/monthly",
-              },
-              {
-                label: "Logbook",
-                to: "https://github.com/cardano-scaling/hydra/wiki/Logbook",
-              },
-            ],
-          },
-          {
-            title: "Legal",
-            items: [
-              {
-                label: "Terms and conditions",
-                to: "https://static.iohk.io/terms/iog-terms-and-conditions.pdf",
-              },
-              {
-                label: "Privacy policy",
-                to: "https://static.iohk.io/terms/iog-privacy-policy.pdf",
-              },
-              {
-                label: "Contributors",
-                to: "https://github.com/cardano-scaling/hydra/graphs/contributors",
-              },
-            ],
+            label: "Docs",
+            to: "/docs",
           },
         ],
-        copyright: `© 2025`,
+        copyright: `© Input Output Group, ${new Date().getFullYear()}.`,
       },
+      footerDescription:
+        "Hydra is open source, stewarded by Input Output Group (IOG), and funded in part by the Cardano treasury.",
+      mobileSidebarLinks: communityLinks,
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
