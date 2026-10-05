@@ -441,8 +441,10 @@ genFanoutTxWith :: Gen UTxO -> Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genFanoutTxWith genHeadUTxO numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpenWith genHeadUTxO ctx
-  openVersion <- elements [0, 1]
   version <- elements [0, 1]
+  -- The head is either still at the snapshot's version or one ahead, after the
+  -- snapshot's own increment; 'close' refuses anything else.
+  openVersion <- elements [version, version + 1]
   -- Only generate commit UTxO when version differs so the accumulator commitment
   -- in the closed datum matches what fanoutTx builds.
   toCommit' <-
@@ -853,13 +855,14 @@ observeClose ::
 observeClose st tx = do
   let utxo = getKnownUTxO st
   observation <- observeCloseTx utxo tx
-  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline} = observation
+  let CloseObservation{headId = closeObservationHeadId, snapshotNumber, contestationDeadline, signatures} = observation
   guard (headId == closeObservationHeadId)
   let event =
         OnCloseTx
           { headId = closeObservationHeadId
           , snapshotNumber
           , contestationDeadline
+          , signatures
           }
   let st' =
         ClosedState

@@ -40,6 +40,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
+  healthySplitUTxOInHead,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Deposit (mkDepositOutput)
@@ -99,7 +100,16 @@ healthyCloseSnapshotVersion = 0
 --   with the initial UtxO, that is, no snapshot have been agreed upon and
 --   signed by the head members yet.
 healthyCloseInitialTx :: (Tx, UTxO)
-healthyCloseInitialTx =
+healthyCloseInitialTx = mkCloseInitialTx healthyCloseSnapshotVersion healthyInitialOpenDatum
+
+-- | What an honest node posts when it still holds the initial snapshot but the
+-- head already went through an increment (open version 1). The validator
+-- requires version 0 for 'CloseInitial', so this must be rejected.
+healthyCloseInitialAfterIncrementTx :: (Tx, UTxO)
+healthyCloseInitialAfterIncrementTx = mkCloseInitialTx 1 healthyIncrementedOpenDatum
+
+mkCloseInitialTx :: SnapshotVersion -> HeadState.State -> (Tx, UTxO)
+mkCloseInitialTx openVersion openDatum =
   (tx, lookupUTxO)
  where
   tx :: Tx
@@ -108,7 +118,7 @@ healthyCloseInitialTx =
       scriptRegistry
       somePartyCardanoVerificationKey
       headId
-      healthyCloseSnapshotVersion
+      openVersion
       closingSnapshot
       healthyCloseLowerBoundSlot
       healthyCloseUpperBoundPointInTime
@@ -120,7 +130,7 @@ healthyCloseInitialTx =
       setIncrementalActionMaybe (utxoToCommit $ getSnapshot closingSnapshot) (utxoToDecommit $ getSnapshot closingSnapshot)
 
   initialDatum :: TxOutDatum CtxUTxO
-  initialDatum = mkTxOutDatumInline healthyInitialOpenDatum
+  initialDatum = mkTxOutDatumInline openDatum
 
   lookupUTxO :: UTxO
   lookupUTxO =
@@ -154,6 +164,20 @@ healthyInitialOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
       , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx mempty
+      , headAdaOverhead = 0
+      }
+
+healthyIncrementedOpenDatum :: HeadState.State
+healthyIncrementedOpenDatum =
+  Head.Open
+    Head.OpenDatum
+      { parties = healthyOnChainParties
+      , contestationPeriod = healthyContestationPeriod
+      , depositPeriod = DP.toChain Fixture.dperiod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
+      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+      , version = 1
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx healthySplitUTxOInHead
       , headAdaOverhead = 0
       }
 

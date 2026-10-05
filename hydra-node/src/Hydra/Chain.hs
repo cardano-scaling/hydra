@@ -34,10 +34,12 @@ import Hydra.Tx (
   HeadParameters (..),
   HeadSeed,
   IsTx (..),
+  Snapshot,
   SnapshotNumber,
   SnapshotVersion,
   UTxOType,
  )
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
@@ -152,21 +154,27 @@ data OnChainTx tx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
+      , snapshotNumber :: SnapshotNumber
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnDecrementTx
       { headId :: HeadId
       , newVersion :: SnapshotVersion
       , distributedUTxO :: UTxOType tx
+      , snapshotNumber :: SnapshotNumber
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnCloseTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnContestTx
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
       , contestationDeadline :: UTCTime
+      , signatures :: MultiSignature (Snapshot tx)
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
   | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: UTxOType tx}
@@ -212,8 +220,8 @@ data PostTxError tx
     InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}
-  | FailedToConstructCloseTx
-  | FailedToConstructContestTx
+  | FailedToConstructCloseTx {failureReason :: Text}
+  | FailedToConstructContestTx {failureReason :: Text}
   | FailedToConstructDepositTx {failureReason :: Text}
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}

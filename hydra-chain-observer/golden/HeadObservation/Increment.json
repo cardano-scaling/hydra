@@ -1,86 +1,31 @@
 {
     "samples": [
         {
-            "depositTxId": "0001010000000101010101000100000101000001000001000000010000010100",
+            "depositTxId": "0000010000000000010100000101010000010001010001010001000000000100",
             "deposited": {
-                "0001010001010101010100010101010101000001010101000100000001010001#31": {
-                    "address": "addr_test1xrsjcmvlxcz4pggdn3sgegegjcv2t2quj4djn3nmvmm4j6aep6lw5uw7wm0l7wp2czhjf8rdctulhemg8zxa0tdr42jq63xtwa",
+                "0101010100010001000101010000010100010101000101000100010101010100#21": {
+                    "address": "addr_test1qp7vlhjt3avkkktvs2y237lfwc8vlwpx0fpfqtzv5c9lvkpng23wck3nnj8sd8sa3n6zag6w04s34tq2cf2tw87ekh7qysrukk",
                     "datum": null,
-                    "inlineDatum": {
-                        "constructor": 5,
-                        "fields": [
-                            {
-                                "constructor": 1,
-                                "fields": [
-                                    {
-                                        "map": []
-                                    },
-                                    {
-                                        "list": [
-                                            {
-                                                "bytes": "69"
-                                            },
-                                            {
-                                                "bytes": "2b484d03"
-                                            },
-                                            {
-                                                "bytes": "7b"
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "list": [
-                                            {
-                                                "int": 1
-                                            },
-                                            {
-                                                "int": -3
-                                            },
-                                            {
-                                                "int": -3
-                                            }
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "constructor": 2,
-                                "fields": [
-                                    {
-                                        "constructor": 1,
-                                        "fields": []
-                                    },
-                                    {
-                                        "int": -2
-                                    },
-                                    {
-                                        "constructor": 4,
-                                        "fields": [
-                                            {
-                                                "bytes": ""
-                                            },
-                                            {
-                                                "int": 4
-                                            },
-                                            {
-                                                "bytes": "24cb10"
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    "inlineDatumRaw": "d87e9fd87a9fa09f4169442b484d03417bff9f012222ffffd87b9fd87a8021d87d9f40044324cb10ffffff",
-                    "inlineDatumhash": "72b78de254e9678e26ea686bb3164c245592ed51c9d195003e724bc67298c32d",
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
                     "referenceScript": null,
                     "value": {
-                        "lovelace": 1193870
+                        "0c061aaaaea06c8e9718d9a18561bbd16b8b4f1f4518d403334a757b": {
+                            "df7b370761eebaa97ae6e7fc8b918727c4": 143772006027057736
+                        },
+                        "lovelace": 1228350
                     }
                 }
             },
-            "headId": "00000100000101010000000100010101",
-            "newVersion": 0,
+            "headId": "01000001010100010001000101000101",
+            "newVersion": 1,
+            "signatures": {
+                "multiSignature": [
+                    "94831486d325e509185c36bbb910692022a9d719b15ac956fd9d5d17bc6557731ede797774c5d8d81a8b634b6598a2fa2e7164f6d27859a4ae0354ac6a1d6a0f"
+                ]
+            },
+            "snapshotNumber": 0,
             "tag": "Increment"
         }
     ],

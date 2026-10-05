@@ -11,13 +11,13 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature (..), observedSignatures, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -109,6 +109,8 @@ data DecrementObservation = DecrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
   , distributedUTxO :: UTxO
+  , snapshotNumber :: SnapshotNumber
+  , signatures :: MultiSignature (Snapshot Tx)
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -125,7 +127,7 @@ observeDecrementTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
+    (Head.Open{}, Head.Decrement Head.DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs}) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
@@ -141,6 +143,8 @@ observeDecrementTx utxo tx = do
                           & drop 1 -- NOTE: Head output must be in first position
                           & take (fromIntegral numberOfDecommitOutputs)
                    in UTxO.fromList $ zip inputs outputs
+              , snapshotNumber = fromChainSnapshotNumber snapshotNumber
+              , signatures = observedSignatures signature
               }
         _ -> Nothing
     _ -> Nothing

@@ -496,8 +496,10 @@ data _⟶ˢ_ : System → System → Set where
   -- equality premises) and never touches `sigs`/`seen`/`U₀`. Hence it preserves every `Inv` component,
   -- so the §7 theorems hold in the presence of the deposit/decommit flow. The preservation premises are
   -- exactly what excludes the signing/confirming/head-open steps (`reqSn-sign` bumps ŝ, `ackSn-confirm`
-  -- sets S̄, `initialTx-obs` resets both); those are the dedicated `signHonest`/`confirm` steps / the
-  -- initial system, not lifted here.
+  -- and the adopting `increment-adopt`/`decrement-adopt` set S̄, `initialTx-obs` resets both); those
+  -- are the dedicated `signHonest`/`confirm` steps / the initial system, not lifted here. An adopting
+  -- observation is the plain observation lifted here followed by a `confirm` of the adopted snapshot,
+  -- whose aggregate verifies.
   offChain : ∀ {sys i st'}
     → (lookup (localOf sys) i) ⟶ᴴ st'
     → LocalState.confirmed  st' ≡ LocalState.confirmed  (lookup (localOf sys) i)

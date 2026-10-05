@@ -461,6 +461,7 @@ contestOutcome sBar sc =
         { headId = testHeadId
         , snapshotNumber = fromInteger sc
         , contestationDeadline = posixTime 1_000
+        , signatures = mempty
         }
 
 contestPosts :: Outcome SimpleTx -> Bool

@@ -35,7 +35,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod, defaultDepositPeriod)
-import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot, snapshotUTxO)
+import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), confirmedSignatures, getSnapshot, snapshotUTxO)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Utils (readJsonFileThrow)
 
@@ -108,6 +108,8 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                       { headId
                       , newVersion = version (getSnapshot incrementingSnapshot) + 1
                       , depositTxId
+                      , snapshotNumber = number (getSnapshot incrementingSnapshot)
+                      , signatures = confirmedSignatures incrementingSnapshot
                       }
                 }
           _ -> pure ()

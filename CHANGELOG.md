@@ -47,6 +47,15 @@ changes.
   where previously a partial `ToJSON` killed the writer thread and every
   subsequent trace blocked once the log queue filled.
 
+- The node now adopts the snapshot an observed increment, decrement, close or
+  contest was posted with. The `OnIncrementTx` and `OnDecrementTx` chain events
+  carry two new fields, `snapshotNumber` and `signatures`, and `OnCloseTx` and
+  `OnContestTx` carry `signatures`.
+
+- `Close` is refused when the confirmed snapshot can no longer close the head
+  such that it could be fanned out. `FailedToConstructCloseTx` carries a new
+  `failureReason` field saying why.
+
 - **BREAKING** Fixed a bug related to partial fanout and decommits and a
   potential stuck head.
 

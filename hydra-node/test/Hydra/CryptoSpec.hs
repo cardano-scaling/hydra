@@ -14,7 +14,9 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as Char8
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
+import Hydra.Cardano.Api (Tx)
 import Hydra.Tx.Party (Party (vkey), deriveParty)
+import Hydra.Tx.Snapshot (Snapshot)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
@@ -130,3 +132,5 @@ specMultiSignature =
                   & classify (null prefix) "empty"
                   & counterexample ("Verification keys (prefix): " <> show vks)
                   & counterexample ("Signature: " <> show sigs)
+    prop "roundtrip from/to plutus signatures" $ \(ms :: MultiSignature (Snapshot Tx)) -> do
+      fromPlutusSignatures (toPlutusSignatures ms) == Just ms

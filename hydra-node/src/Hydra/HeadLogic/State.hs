@@ -359,6 +359,10 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
+  , unconfirmedSnapshot :: Maybe (Snapshot tx)
+  -- ^ The snapshot this node signed but had not seen confirmed when the head
+  -- closed. A close or contest carrying its full multisignature confirms it,
+  -- see 'Hydra.HeadLogic.onClosedChainContestTx'.
   }
   deriving stock (Generic)
 
@@ -367,11 +371,53 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
+-- | Tag of the current on-disk\/wire layout, which carries
+-- 'unconfirmedSnapshot'. Like 'coordinatedHeadStateCBORTag', the fields are a
+-- bare concatenation, so 'closedStateCBORTagV1' names the layout written before
+-- that field existed and is still accepted.
+closedStateCBORTag :: Text
+closedStateCBORTag = "ClosedState2"
+
+-- | Tag of the layout without 'unconfirmedSnapshot', as written by the generic
+-- encoding. Decoded, never written.
+closedStateCBORTagV1 :: Text
+closedStateCBORTagV1 = "ClosedState"
+
 instance IsChainState tx => ToCBOR (ClosedState tx) where
-  toCBOR = genericToCBOR
+  toCBOR ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version, unconfirmedSnapshot} =
+    toCBOR closedStateCBORTag
+      <> toCBOR parameters
+      <> toCBOR confirmedSnapshot
+      <> toCBOR contestationDeadline
+      <> toCBOR readyToFanoutSent
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+      <> toCBOR version
+      <> toCBOR unconfirmedSnapshot
 
 instance IsChainState tx => FromCBOR (ClosedState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == closedStateCBORTag -> decode True
+        | tag == closedStateCBORTagV1 -> decode False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded ClosedState"
+   where
+    decode :: Bool -> Decoder s (ClosedState tx)
+    decode hasUnconfirmed = do
+      parameters <- fromCBOR
+      confirmedSnapshot <- fromCBOR
+      contestationDeadline <- fromCBOR
+      readyToFanoutSent <- fromCBOR
+      chainState <- fromCBOR
+      headId <- fromCBOR
+      headSeed <- fromCBOR
+      version <- fromCBOR
+      -- A state from before this field existed has no unconfirmed snapshot to
+      -- adopt, like it was at the time.
+      unconfirmedSnapshot <- if hasUnconfirmed then fromCBOR else pure Nothing
+      pure ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version, unconfirmedSnapshot}
 
 -- ** PartialFanout
 

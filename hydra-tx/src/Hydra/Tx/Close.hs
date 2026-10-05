@@ -26,12 +26,13 @@ import Hydra.Tx (
   decommitOutputsHash,
   fromChainSnapshotNumber,
   getSnapshot,
+  hasPendingAction,
   headIdToCurrencySymbol,
   headReference,
   pendingActionApplied,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (toPlutusSignatures)
+import Hydra.Tx.Crypto (MultiSignature, observedSignatures, toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -47,6 +48,21 @@ data OpenThreadOutput = OpenThreadOutput
   , openParties :: [OnChain.Party]
   }
   deriving stock (Eq, Show, Generic)
+
+-- | Whether a head at the given open version can be closed with the snapshot,
+-- such that the closed head can later be fanned out.
+--
+-- The head validator only accepts a snapshot signed at the open version
+-- ('Head.CloseInitial', 'Head.CloseAny', 'Head.CloseUnused') or one before
+-- ('Head.CloseUsed'). The latter stores the snapshot's applied accumulator,
+-- which only matches the head value if the version bump was this snapshot's
+-- own increment or decrement. For a snapshot without a pending action the
+-- version moved on through a later snapshot's settlement, and the closed head
+-- could never be fanned out.
+isClosableAt :: SnapshotVersion -> Snapshot tx -> Bool
+isClosableAt openVersion snapshot@Snapshot{version} =
+  version == openVersion
+    || (version + 1 == openVersion && hasPendingAction snapshot)
 
 -- | Create a transaction closing a head with either the initial snapshot or
 -- with a multi-signed confirmed snapshot.
@@ -161,6 +177,8 @@ data CloseObservation = CloseObservation
   { headId :: HeadId
   , snapshotNumber :: SnapshotNumber
   , contestationDeadline :: UTCTime
+  , signatures :: MultiSignature (Snapshot Tx)
+  -- ^ Multisignature of the closing snapshot, empty for the initial snapshot.
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -180,7 +198,7 @@ observeCloseTx utxo tx = do
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
-    (Head.Open Head.OpenDatum{}, Head.Close{}) -> do
+    (Head.Open Head.OpenDatum{}, Head.Close closeRedeemer) -> do
       (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       (closeContestationDeadline, onChainSnapshotNumber) <- case fromScriptData newHeadDatum of
@@ -192,5 +210,13 @@ observeCloseTx utxo tx = do
           { headId
           , snapshotNumber = fromChainSnapshotNumber onChainSnapshotNumber
           , contestationDeadline = posixToUTCTime closeContestationDeadline
+          , signatures = closeSignatures closeRedeemer
           }
     _ -> Nothing
+ where
+  closeSignatures :: Head.CloseRedeemer -> MultiSignature (Snapshot Tx)
+  closeSignatures = \case
+    Head.CloseInitial -> mempty
+    Head.CloseAny{signature} -> observedSignatures signature
+    Head.CloseUnused{signature} -> observedSignatures signature
+    Head.CloseUsed{signature} -> observedSignatures signature

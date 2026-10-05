@@ -54,6 +54,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defau
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Close (isClosableAt)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
@@ -287,7 +288,7 @@ spec =
           -- Once the increment is observed on-chain (CommitFinalized), the SAME tx
           -- becomes applicable.
           sIncremented <- runHeadLogic aliceEnv' ledger s $ do
-            step (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId})
+            step (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId, snapshotNumber = 1, signatures = mempty})
             getState
           now'' <- nowFromSlot sIncremented.chainPointTime.currentSlot
           update aliceEnv' ledger now'' sIncremented (receiveMessage $ ReqTx spendDeposit)
@@ -974,7 +975,7 @@ spec =
                     }
 
           -- 1. DecommitFinalized arrives, bumping version to 4
-          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
@@ -1039,7 +1040,7 @@ spec =
                     }
 
           -- DecommitFinalized arrives before AckSn messages
-          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
@@ -1102,7 +1103,7 @@ spec =
                     }
 
           -- DecommitFinalized arrives while collecting signatures
-          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update bobEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
@@ -1135,7 +1136,7 @@ spec =
                     , decommitTx = Just decommitTx
                     }
 
-          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let outcome = update aliceEnv ledger now s0 decrementObservation
 
@@ -1170,7 +1171,7 @@ spec =
                     , currentDepositTxId = Just depositTxId
                     }
 
-          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let outcome = update aliceEnv ledger now s0 incrementObservation
 
@@ -1184,6 +1185,310 @@ spec =
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
+            _ -> fail "expected Open state"
+
+        it "CommitFinalized adopts the in-flight snapshot when the increment carries its full multisignature" $ do
+          let localUTxO = utxoRefs [1]
+              depositTxId = 42
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToCommit = Just (utxoRefs [2])
+                  , depositTxId = Just depositTxId
+                  } ::
+                  Snapshot SimpleTx
+              -- Carol never delivers her AckSn.
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , currentDepositTxId = Just depositTxId
+                    }
+              increment =
+                observeTx $
+                  OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+            _ -> fail "expected Open state"
+
+        it "closes and contests with the snapshot adopted from an increment" $ do
+          let localUTxO = utxoRefs [1]
+              depositTxId = 42
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToCommit = Just (utxoRefs [2])
+                  , depositTxId = Just depositTxId
+                  } ::
+                  Snapshot SimpleTx
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+              adopted = ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , currentDepositTxId = Just depositTxId
+                    }
+              increment =
+                observeTx $
+                  OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          -- The close uses the adopted snapshot at the bumped version. Its
+          -- increment is what bumped the version, so it is a 'CloseUsed' the
+          -- head can be fanned out from.
+          update bobEnv ledger now s1 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion, closingSnapshot}} ->
+                openVersion == 4
+                  && closingSnapshot == adopted
+                  && isClosableAt openVersion (getSnapshot closingSnapshot)
+              _ -> False
+          -- A peer closing with the snapshot before the adopted one gets
+          -- contested with the adopted snapshot.
+          let staleClose = observeTx $ OnCloseTx{headId = testHeadId, snapshotNumber = 0, contestationDeadline = addUTCTime 60 now, signatures = mempty}
+          update bobEnv ledger now s1 staleClose
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = ContestTx{openVersion, contestingSnapshot}} ->
+                openVersion == 4 && contestingSnapshot == adopted
+              _ -> False
+
+        describe "CommitFinalized with an increment that does not match the in-flight snapshot"
+          $ forM_
+            [ ("snapshot number", \o -> (o :: OnChainTx SimpleTx){snapshotNumber = 2})
+            , ("version", \o -> (o :: OnChainTx SimpleTx){newVersion = 5})
+            , ("deposit", \o -> (o :: OnChainTx SimpleTx){depositTxId = 43})
+            ]
+          $ \(mismatch, tweak) ->
+            it ("keeps the in-flight snapshot when the " <> mismatch <> " does not match") $ do
+              let localUTxO = utxoRefs [1]
+                  depositTxId = 42
+                  snapshot1 =
+                    (testSnapshot 1 3 [] localUTxO)
+                      { utxoToCommit = Just (utxoRefs [2])
+                      , depositTxId = Just depositTxId
+                      } ::
+                      Snapshot SimpleTx
+                  partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+                  -- Complete and verifying, so only the tweaked field differs.
+                  fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+                  confirmedSn = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                  s0 =
+                    inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO
+                        , version = 3
+                        , confirmedSnapshot = confirmedSn
+                        , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                        , currentDepositTxId = Just depositTxId
+                        }
+                  increment =
+                    observeTx . tweak $
+                      OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
+              now <- nowFromSlot s0.chainPointTime.currentSlot
+              let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+              case s1 of
+                NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+                  chs.confirmedSnapshot `shouldBe` confirmedSn
+                  chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
+                _ -> fail "expected Open state"
+
+        it "CommitFinalized keeps the in-flight snapshot when the increment's multisignature does not verify" $ do
+          let localUTxO = utxoRefs [1]
+              depositTxId = 42
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToCommit = Just (utxoRefs [2])
+                  , depositTxId = Just depositTxId
+                  } ::
+                  Snapshot SimpleTx
+              otherSnapshot = testSnapshot 1 3 [] (utxoRefs [7])
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              -- Complete, but over a different snapshot.
+              bogusSigs =
+                Crypto.aggregateInOrder
+                  (Map.fromList [(alice, sign aliceSk otherSnapshot), (bob, sign bobSk otherSnapshot), (carol, sign carolSk otherSnapshot)])
+                  threeParties
+              confirmedSn = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , currentDepositTxId = Just depositTxId
+                    }
+              increment =
+                observeTx $
+                  OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = bogusSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.confirmedSnapshot `shouldBe` confirmedSn
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
+            _ -> fail "expected Open state"
+
+        it "DecommitFinalized adopts the in-flight snapshot when the decrement carries its full multisignature" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToDecommit = Just (utxoRef 99)
+                  } ::
+                  Snapshot SimpleTx
+              -- Carol never delivers her AckSn.
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , decommitTx = Just decommitTx
+                    }
+              decrement =
+                observeTx $
+                  OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.decommitTx `shouldBe` Nothing
+              chs.confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+            _ -> fail "expected Open state"
+
+        it "closes and contests with the snapshot adopted from a decrement" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToDecommit = Just (utxoRef 99)
+                  } ::
+                  Snapshot SimpleTx
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+              adopted = ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , decommitTx = Just decommitTx
+                    }
+              decrement =
+                observeTx $
+                  OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          update bobEnv ledger now s1 (ClientInput Close)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = CloseTx{openVersion, closingSnapshot}} ->
+                openVersion == 4
+                  && closingSnapshot == adopted
+                  && isClosableAt openVersion (getSnapshot closingSnapshot)
+              _ -> False
+          let staleClose = observeTx $ OnCloseTx{headId = testHeadId, snapshotNumber = 0, contestationDeadline = addUTCTime 60 now, signatures = mempty}
+          update bobEnv ledger now s1 staleClose
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = ContestTx{openVersion, contestingSnapshot}} ->
+                openVersion == 4 && contestingSnapshot == adopted
+              _ -> False
+
+        describe "DecommitFinalized with a decrement that does not match the in-flight snapshot"
+          $ forM_
+            [ ("snapshot number", \o -> (o :: OnChainTx SimpleTx){snapshotNumber = 2}, Just (utxoRef 99))
+            , ("version", \o -> (o :: OnChainTx SimpleTx){newVersion = 5}, Just (utxoRef 99))
+            , ("decommit", id, Nothing)
+            ]
+          $ \(mismatch, tweak, seenDecommit) ->
+            it ("keeps the in-flight snapshot when the " <> mismatch <> " does not match") $ do
+              let localUTxO = utxoRefs [1]
+                  decommitTx = SimpleTx 10 mempty (utxoRef 99)
+                  snapshot1 =
+                    (testSnapshot 1 3 [] localUTxO)
+                      { utxoToDecommit = seenDecommit
+                      } ::
+                      Snapshot SimpleTx
+                  partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+                  -- Complete and verifying, so only the tweaked field differs.
+                  fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+                  confirmedSn = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+                  s0 =
+                    inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO
+                        , version = 3
+                        , confirmedSnapshot = confirmedSn
+                        , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                        , decommitTx = Just decommitTx
+                        }
+                  decrement =
+                    observeTx . tweak $
+                      OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
+              now <- nowFromSlot s0.chainPointTime.currentSlot
+              let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+              case s1 of
+                NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+                  chs.confirmedSnapshot `shouldBe` confirmedSn
+                  chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
+                _ -> fail "expected Open state"
+
+        it "DecommitFinalized keeps the in-flight snapshot when the decrement's multisignature does not verify" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 =
+                (testSnapshot 1 3 [] localUTxO)
+                  { utxoToDecommit = Just (utxoRef 99)
+                  } ::
+                  Snapshot SimpleTx
+              otherSnapshot = testSnapshot 1 3 [] (utxoRefs [7])
+              partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+              -- Complete, but over a different snapshot.
+              bogusSigs =
+                Crypto.aggregateInOrder
+                  (Map.fromList [(alice, sign aliceSk otherSnapshot), (bob, sign bobSk otherSnapshot), (carol, sign carolSk otherSnapshot)])
+                  threeParties
+              confirmedSn = ConfirmedSnapshot{snapshot = testSnapshot 0 3 [] localUTxO, signatures = Crypto.aggregate []}
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                    , decommitTx = Just decommitTx
+                    }
+              decrement =
+                observeTx $
+                  OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = bogusSigs}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.confirmedSnapshot `shouldBe` confirmedSn
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 partialSigs
             _ -> fail "expected Open state"
 
         it "CommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
@@ -1206,7 +1511,7 @@ spec =
                     }
 
           -- CommitFinalized arrives before AckSn messages (race condition)
-          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let commitFinalizedOutcome = update aliceEnv ledger now s0 incrementObservation
           let s1 = aggregateState s0 commitFinalizedOutcome
@@ -1973,7 +2278,7 @@ spec =
                     }
                 step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
                 step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
-                step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+                step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
                 getState
 
             decommitTx' = aValidTx 3
@@ -1995,7 +2300,7 @@ spec =
                 step . receiveMessage $ ReqDec{transaction = decommitTx'}
                 step . receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
                 step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
-                step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
+                step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3, snapshotNumber = 1, signatures = mempty}
                 getState
 
             rollbackTo :: ChainSlot -> UTCTime -> Input SimpleTx
@@ -2074,7 +2379,7 @@ spec =
           s0 <- afterCommitFinalized now
           (s1, reqTxOutcome) <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             s <- getState
             outcome <- step . receiveMessage $ ReqTx (aValidTx 5)
             pure (s, outcome)
@@ -2103,7 +2408,7 @@ spec =
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step . receiveMessage $ ReqTx spendTx
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           case headState s1 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} ->
@@ -2124,7 +2429,7 @@ spec =
             step . receiveMessage $ AckSn (sign aliceSk postIncrementSnapshot) 2
             step (rollbackTo 2 now)
             -- The re-posted increment lands again, at a later slot
-            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           -- A rollback erasing the re-landed increment (slot 5) while keeping
           -- the original observation slot (3) must still re-post
@@ -2325,12 +2630,12 @@ spec =
           let spendTx = SimpleTx 5 depositedUTxO (utxoRef 5)
           (s1, reobserved) <- runHeadLogic soloAliceEnv ledger s0 $ do
             -- A decrement (posted by another party) finalizes on top: version 2.
-            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
             -- The deposited outputs are spent on L2 in the meantime.
             step . receiveMessage $ ReqTx spendTx
             -- Rollback erases both settlements; the increment re-lands first.
             step (rollbackTo 2 now)
-            outcome <- step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            outcome <- step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             s <- getState
             pure (s, outcome)
           case headState s1 of
@@ -2359,7 +2664,7 @@ spec =
                 }
             step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
             -- Increment observed before the local AckSn confirms the snapshot
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
             getState
           let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
@@ -2375,7 +2680,7 @@ spec =
             step . receiveMessage $ ReqDec{transaction = decommitTx'}
             step . receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
             -- Decrement observed before the local AckSn confirms the snapshot
-            step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3}
+            step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3, snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
             getState
           let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
@@ -2402,7 +2707,7 @@ spec =
             step . receiveMessage $ ReqDec{transaction = decommitTx2}
             step . receiveMessage $ ReqSn 1 2 [] (Just decommitTx2) Nothing
             -- Decrement 2 observed before its snapshot confirms locally
-            step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7}
+            step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7, snapshotNumber = 2, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot2) 2
             getState
           -- A rollback erasing only decrement 2 must re-post it from snapshot
@@ -2481,7 +2786,7 @@ spec =
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step $ observeTxAtSlot 4 OnCloseTx{headId = testHeadId, snapshotNumber = 1, contestationDeadline = addUTCTime 60 now}
+            step $ observeTxAtSlot 4 OnCloseTx{headId = testHeadId, snapshotNumber = 1, contestationDeadline = addUTCTime 60 now, signatures = mempty}
             getState
           -- The deposit resurfaced and the head is now closed
           Map.member depositTxId' s1.pendingDeposits `shouldBe` True
@@ -2532,7 +2837,7 @@ spec =
           -- On-chain version is back to 1, matching local 'version', so a close
           -- now carries a consistent 'openVersion = 1'.
           s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
-            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId'}
+            step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             getState
           update soloAliceEnv ledger now s2 (ClientInput Close)
             `hasEffectSatisfying` \case
@@ -2571,6 +2876,7 @@ spec =
                   { headId = testHeadId
                   , snapshotNumber
                   , contestationDeadline
+                  , signatures = mempty
                   }
         runHeadLogic bobEnv ledger s0 $ do
           outcome1 <- step observeCloseTx
@@ -2603,7 +2909,7 @@ spec =
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters $ headState s0)
         runHeadLogic bobEnv ledger s0 $ do
-          o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline)
+          o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
           lift $ o1 `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
           s1 <- getState
           lift $
@@ -2619,8 +2925,89 @@ spec =
             deadline = arbitrary `generateWith` 42
             params = fromMaybe (HeadParameters defaultContestationPeriod defaultDepositPeriod threeParties) (getHeadParameters (headState s0))
         now <- nowFromSlot s0.chainPointTime.currentSlot
-        update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline)
+        update bobEnv ledger now s0 (observeTx $ OnContestTx testHeadId 1 deadline mempty)
           `hasEffect` chainEffect (ContestTx testHeadId params snapshotVersion latestConfirmedSnapshot)
+
+      describe "Close or contest with a withheld AckSn" $ do
+        -- Carol completes the multisignature of snapshot 1 but never delivers
+        -- her AckSn, so bob still collects signatures for it.
+        let snapshot0 = testSnapshot 0 0 [] (utxoRefs [1]) :: Snapshot SimpleTx
+            snapshot1 = testSnapshot 1 0 [] (utxoRefs [2]) :: Snapshot SimpleTx
+            confirmed0 = ConfirmedSnapshot{snapshot = snapshot0, signatures = Crypto.aggregate []}
+            partialSigs = Map.fromList [(alice, sign aliceSk snapshot1), (bob, sign bobSk snapshot1)]
+            fullSigs = Crypto.aggregateInOrder (Map.insert carol (sign carolSk snapshot1) partialSigs) threeParties
+            otherSnapshot = testSnapshot 1 0 [] (utxoRefs [7]) :: Snapshot SimpleTx
+            -- Complete, but over a different snapshot.
+            bogusSigs =
+              Crypto.aggregateInOrder
+                (Map.fromList [(alice, sign aliceSk otherSnapshot), (bob, sign bobSk otherSnapshot), (carol, sign carolSk otherSnapshot)])
+                threeParties
+            s0 =
+              inOpenState' threeParties $
+                coordinatedHeadState
+                  { localUTxO = utxoRefs [2]
+                  , confirmedSnapshot = confirmed0
+                  , seenSnapshot = mkSeenSnapshot snapshot1 partialSigs
+                  }
+            deadline = arbitrary `generateWith` 42
+            isContestTx :: Effect SimpleTx -> Bool
+            isContestTx = \case
+              OnChainEffect{postChainTx = ContestTx{}} -> True
+              _ -> False
+            closedState :: MonadFail m => NodeState SimpleTx -> m (ClosedState SimpleTx)
+            closedState = \case
+              NodeInSync{headState = Closed cst} -> pure cst
+              _ -> fail "expected Closed state"
+
+        it "adopts the in-flight snapshot when a close carries its full multisignature" $
+          runHeadLogic bobEnv ledger s0 $ do
+            o1 <- step $ observeTx (OnCloseTx testHeadId 1 deadline fullSigs)
+            lift $ o1 `hasNoEffectSatisfying` isContestTx
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              unconfirmedSnapshot `shouldBe` Nothing
+            -- The closed head commits to snapshot 1, which bob can now fan out.
+            o2 <- step $ ClientInput Fanout
+            lift $
+              o2 `hasEffectSatisfying` \case
+                OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == utxoRefs [2]
+                _ -> False
+
+        it "keeps the in-flight snapshot for a later contest when a close's multisignature does not verify" $
+          runHeadLogic bobEnv ledger s0 $ do
+            _ <- step $ observeTx (OnCloseTx testHeadId 1 deadline bogusSigs)
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` confirmed0
+              unconfirmedSnapshot `shouldBe` Just snapshot1
+
+        it "adopts the in-flight snapshot when a contest carries its full multisignature" $
+          runHeadLogic bobEnv ledger s0 $ do
+            -- Carol closes with the snapshot bob confirmed, then contests with
+            -- the one she withheld her AckSn for.
+            o1 <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
+            lift $ o1 `hasNoEffectSatisfying` isContestTx
+            o2 <- step $ observeTx (OnContestTx testHeadId 1 deadline fullSigs)
+            lift $ o2 `hasNoEffectSatisfying` isContestTx
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` ConfirmedSnapshot{snapshot = snapshot1, signatures = fullSigs}
+              unconfirmedSnapshot `shouldBe` Nothing
+            o3 <- step $ ClientInput Fanout
+            lift $
+              o3 `hasEffectSatisfying` \case
+                OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == utxoRefs [2]
+                _ -> False
+
+        it "keeps the confirmed snapshot when a contest's multisignature does not verify" $
+          runHeadLogic bobEnv ledger s0 $ do
+            _ <- step $ observeTx (OnCloseTx testHeadId 0 deadline mempty)
+            _ <- step $ observeTx (OnContestTx testHeadId 1 deadline bogusSigs)
+            ClosedState{confirmedSnapshot, unconfirmedSnapshot} <- closedState =<< getState
+            lift $ do
+              confirmedSnapshot `shouldBe` confirmed0
+              unconfirmedSnapshot `shouldBe` Just snapshot1
 
       it "ignores unrelated initTx" prop_ignoresUnrelatedOnInitTx
 
@@ -2775,21 +3162,21 @@ spec =
                 _ -> False
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
-        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
+        let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st decrementOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores closeTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let closeOtherHead = observeTx $ OnCloseTx{headId = otherHeadId, snapshotNumber, contestationDeadline, signatures = mempty}
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st closeOtherHead
           `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores contestTx of another head" $ \otherHeadId snapshotNumber contestationDeadline -> do
-        let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline}
+        let contestOtherHead = observeTx $ OnContestTx{headId = otherHeadId, snapshotNumber, contestationDeadline, signatures = mempty}
             st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st contestOtherHead
@@ -4351,6 +4738,7 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
+        , unconfirmedSnapshot = Nothing
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties

@@ -436,6 +436,7 @@ spec = parallel $ do
                       { headId = testHeadId
                       , snapshotNumber = 0
                       , contestationDeadline = addUTCTime 3600 initialChainTime
+                      , signatures = mempty
                       }
 
             -- NOTE: the input queue is bounded at 100 and 'enqueue' blocks

@@ -60,6 +60,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedS
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> arbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (FanoutMode tx) where
   arbitrary = genericArbitrary
