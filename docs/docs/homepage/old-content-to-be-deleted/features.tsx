@@ -1,11 +1,11 @@
 import { translate } from "@docusaurus/Translate";
-import BasedOnThoroughResearch from "../../src/components/icons/BasedOnThoroughResearch";
-import CensorshipResistance from "../../src/components/icons/CensorshipResistance";
-import HighThroughput from "../../src/components/icons/HighThroughput";
-import IsomorphicStateChannels from "../../src/components/icons/IsomorphicStateChannels";
-import LowFees from "../../src/components/icons/LowFees";
+import BasedOnThoroughResearch from "../../../src/components/icons/BasedOnThoroughResearch";
+import CensorshipResistance from "../../../src/components/icons/CensorshipResistance";
+import HighThroughput from "../../../src/components/icons/HighThroughput";
+import IsomorphicStateChannels from "../../../src/components/icons/IsomorphicStateChannels";
+import LowFees from "../../../src/components/icons/LowFees";
 import React from "react";
-import LowLatency from "../../src/components/icons/LowLatency";
+import LowLatency from "../../../src/components/icons/LowLatency";
 
 export const FeatureList = [
   {

@@ -9,7 +9,7 @@ import { Pagination } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import "swiper/css";
-import { HowItWorksCarouselContent } from "../../../../docs/homepage/how-it-works-carousel";
+import { HowItWorksCarouselContent } from "../../../../docs/homepage/old-content-to-be-deleted/how-it-works-carousel";
 
 type Props = {
   idx: number;

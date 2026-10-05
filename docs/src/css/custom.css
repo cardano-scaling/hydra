@@ -165,21 +165,35 @@ html.plugin-pages {
 }
 
 .pageContainer {
-  max-width: 1280px;
+  max-width: 1600px;
   width: 100%;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 24px;
-  padding-right: 24px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 @media (min-width: 768px) {
   .pageContainer {
-    padding-left: 48px;
-    padding-right: 48px;
+    padding-left: 64px;
+    padding-right: 64px;
   }
 }
 
+.padding-section {
+  padding-top: 100px;
+  padding-bottom: 100px;
+}
+
+.padding-section-bottom-small {
+  padding-bottom: 40px !important;
+}
+
+.padding-section-top-small {
+  padding-top: 40px !important;
+}
+
+/* TODO: Clean up/remove these pre-launch */
 .component {
   padding-top: 72px;
   padding-bottom: 72px;

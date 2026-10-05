@@ -12,7 +12,7 @@ import Triangle from "../../icons/Triangle";
 import Dot from "../../icons/Dot";
 import useMediaQuery from "../../../hooks/useMediaQuery";
 import { forTablet } from "../../../../helpers/media-queries";
-import { HowItWorksCarouselContent } from "../../../../docs/homepage/how-it-works-carousel";
+import { HowItWorksCarouselContent } from "../../../../docs/homepage/old-content-to-be-deleted/how-it-works-carousel";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import "swiper/css";
@@ -101,7 +101,9 @@ const ResponsiveCarousel: FC = () => {
   return (
     <section className="bg-[#F4F5F5]">
       <div className="component relative pageContainer flex flex-col">
-        <h4 className="text-2xl text-primary font-medium pb-14">How it works</h4>
+        <h4 className="text-2xl text-primary font-medium pb-14">
+          How it works
+        </h4>
         <div className="flex self-center flex-col justify-center">
           <Swiper
             key={isTabletUp ? "tablet" : "mobile"}
