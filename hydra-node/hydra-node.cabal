@@ -74,9 +74,14 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Config
     Hydra.HeadLogic
+    Hydra.HeadLogic.Aggregate
+    Hydra.HeadLogic.Close
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Settlement
+    Hydra.HeadLogic.Snapshot
+    Hydra.HeadLogic.Snapshot.Request
     Hydra.HeadLogic.State
     Hydra.HeadLogic.StateEvent
     Hydra.Ledger
