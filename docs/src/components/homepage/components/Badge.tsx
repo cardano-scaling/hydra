@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Thunder from "../icons/Thunder";
+import Thunder from "../../icons/Thunder";
 
 type Props = {
   children?: ReactNode;

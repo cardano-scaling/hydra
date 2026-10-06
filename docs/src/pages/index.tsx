@@ -7,6 +7,7 @@ import useMediaQuery from "../hooks/useMediaQuery";
 import { PageContext, PageType } from "../context/PageContext";
 import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import ProtocolFeatures from "../components/homepage/ProtocolFeatures";
+import WhatIsHydra from "../components/homepage/WhatIsHydra";
 
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
@@ -16,6 +17,7 @@ export default function Home() {
         <Layout>
           <Hero />
           <WhyHydraHead />
+          <WhatIsHydra />
           <ProtocolFeatures />
         </Layout>
       </div>

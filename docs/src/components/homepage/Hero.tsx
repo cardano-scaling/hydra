@@ -1,8 +1,8 @@
 import { FC } from "react";
-import { Badge } from "./Badge";
+import { Badge } from "./components/Badge";
 import Code from "../icons/Code";
 import { RightArrow } from "../icons/Arrow";
-import { RiveWrapperContain } from "./RiveWrapper";
+import { RiveWrapperContain } from "./components/RiveWrapper";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import { HeroContent } from "../../../docs/homepage/hero";
 

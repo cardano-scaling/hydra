@@ -1,0 +1,150 @@
+.what-is-hydra {
+  background-color: var(--hydra-black);
+}
+
+.what-is-hydra__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 80px;
+}
+
+.what-is-hydra__card {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 40px 24px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: radial-gradient(
+      81% 83% at 50% 152%,
+      rgba(154, 32, 255, 1) 0%,
+      rgba(169, 34, 207, 0.75) 25%,
+      rgba(185, 35, 158, 0.5) 50%,
+      rgba(200, 37, 110, 0.25) 75%,
+      rgba(215, 38, 61, 0) 100%
+    ),
+    var(--hydra-black);
+}
+
+.what-is-hydra__steps {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transform: translateX(calc(var(--active-step) * -280px));
+  transition: transform 0.6s cubic-bezier(0.1, 0.25, 0.3, 1);
+}
+
+.what-is-hydra__step {
+  display: flex;
+  flex: 0 0 256px;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  opacity: 0.25;
+  transition: opacity 0.4s ease;
+}
+
+.what-is-hydra__step--active {
+  opacity: 1;
+}
+
+.what-is-hydra__step-title {
+  margin: 0;
+  color: var(--pure-white);
+  font-family: "Inter";
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 32px;
+  letter-spacing: -0.2px;
+}
+
+.what-is-hydra__step-description {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.what-is-hydra__graphic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  order: -1;
+}
+
+.what-is-hydra__graphic-title {
+  max-width: 488px;
+  margin: 0;
+  color: var(--pure-white);
+  font-family: "Lexend";
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 28px;
+  letter-spacing: -0.22px;
+  text-align: center;
+}
+
+.what-is-hydra__animation {
+  width: 100%;
+  aspect-ratio: 342 / 494;
+}
+
+.what-is-hydra__animation canvas {
+  mix-blend-mode: lighten;
+}
+
+@media (min-width: 768px) {
+  .what-is-hydra__inner {
+    gap: 56px;
+    padding-bottom: 100px;
+  }
+
+  .what-is-hydra__graphic-title {
+    font-size: 32px;
+    line-height: 40px;
+    letter-spacing: -0.48px;
+  }
+
+  .what-is-hydra__animation {
+    aspect-ratio: 1000 / 300;
+  }
+}
+
+@media (min-width: 1024px) {
+  .what-is-hydra__card {
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    padding: clamp(40px, 4.63vw, 80px);
+  }
+
+  .what-is-hydra__steps {
+    flex: 0 0 clamp(300px, 25.46vw, 440px);
+    flex-direction: column;
+    gap: 100px;
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    transform: none;
+  }
+
+  .what-is-hydra__step {
+    flex: 0 0 auto;
+    width: 256px;
+  }
+
+  .what-is-hydra__graphic {
+    flex: 1 1 auto;
+    min-width: 0;
+    order: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .what-is-hydra__steps,
+  .what-is-hydra__step {
+    transition: none;
+  }
+}

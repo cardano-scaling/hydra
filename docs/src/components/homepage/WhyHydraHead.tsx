@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import SectionHeading from "./SectionHeading";
+import SectionHeading from "./components/SectionHeading";
 import { WhyHydraHeadContent } from "../../../docs/homepage/why-hydra-head";
 
 const WhyHydraHead: FC = () => {

@@ -7,7 +7,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { RightArrow } from "../icons/Arrow";
-import SectionHeading from "./SectionHeading";
+import SectionHeading from "./components/SectionHeading";
 import { ProtocolFeaturesContent } from "../../../docs/homepage/protocol-features";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import useMediaQuery from "../../hooks/useMediaQuery";
