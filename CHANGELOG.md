@@ -10,6 +10,8 @@ changes.
 
 ## UNRELEASED
 
+- **BREAKING** Bump aiken version to 1.1.24 and aiken-stdlib to 4.0.0
+
 - Fixed a crafted increment transaction being observed as a recover, which left
   honest nodes with a stale head version and unable to close or contest. Recover
   observation now requires the `Recover` redeemer and no head input.

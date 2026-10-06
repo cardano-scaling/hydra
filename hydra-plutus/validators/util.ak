@@ -1,8 +1,8 @@
-use cardano/assets.{PolicyId, Value}
+use cardano/assets.{PolicyId, Assets}
 
 pub const hydra_head_v2: ByteArray = "HydraHeadV2"
 
-pub fn must_burn_st(head_id: PolicyId, mint: Value) -> Bool {
+pub fn must_burn_st(head_id: PolicyId, mint: Assets) -> Bool {
   let quantity =
     mint
       |> assets.quantity_of(head_id, hydra_head_v2)
