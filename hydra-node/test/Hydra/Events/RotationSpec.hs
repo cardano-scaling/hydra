@@ -71,7 +71,7 @@ spec = parallel $ do
             >>= runToCompletion
           now <- getCurrentTime
           let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
-          let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
+          let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline mempty
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith [closeInput]
@@ -106,7 +106,7 @@ spec = parallel $ do
         -- prepare inputs
         now <- getCurrentTime
         let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
-        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
+        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline mempty
         let inputs = inputsToOpenHead ++ [closeInput]
         failAfter 10 $ do
           eventStore <- createMockEventStore
@@ -135,7 +135,7 @@ spec = parallel $ do
         -- prepare inputs
         now <- getCurrentTime
         let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
-        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
+        let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline mempty
         let inputs = inputsToOpenHead ++ [closeInput]
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs

@@ -542,25 +542,57 @@ $hatmL$ is extended with the newly added UTxO while the pending increment
 state $U_(alpha)$ is cleared. Also the observed version $v$ is used for future
 snapshots by setting $hatv = v$. Note that the version of the open head state
 is incremented on each $mtxIncrement$ transaction as described in
-@sec:increment-tx
+@sec:increment-tx. \
+\
+#dparagraph[Adopting a settled snapshot.]#h(1em) The redeemer of an
+$mtxIncrement$ or $mtxDecrement$ transaction carries the number $s$ and the
+multi-signature $xi$ of the snapshot it settles. A party may see such a
+transaction while it is still collecting signatures for that very snapshot
+($s = hats = macron(mc(S)).s + 1$): another party can complete the
+multi-signature locally and post the transaction without ever sending its own
+$hpAS$. If $xi$ verifies under $hydraKeysAgg$ over the message of the seen
+snapshot, the party adopts the seen snapshot as confirmed with $xi$ as its
+certificate, exactly as if the last $hpAS$ had arrived (routine $sans("adopt")$
+in @fig:off-chain-prot). This check is against
+the party's own seen snapshot, so a transaction settling any other snapshot
+leaves $macron(mc(S))$ unchanged.
 
 Chain observations are transcribed likewise: `ChainEvent` enumerates the
 modelled chain observations and `_observes_↝_` gives one constructor per
 handler of the figure - the deposit lifecycle above, the version-bumping
-increment/decrement observations, and the head-opening `initialTx` of the
-Initializing-the-head paragraph.
+increment/decrement observations (plain, and adopting the settled snapshot),
+and the head-opening `initialTx` of the Initializing-the-head paragraph.
 
 ```
 -- Chain events a party observes: the deposit lifecycle (deposit/recover/tick), the version-bumping
 -- increment/decrement observations, and the head-opening initialTx. Close/contest/fanout
--- observations are not modelled (see the scope note above).
+-- observations are not modelled (see the scope note above). Increment and decrement carry the
+-- number s and the aggregate multisignature ξ of the snapshot they settle, from their redeemer.
 data ChainEvent : Set where
   depositTx : (txα : Data) (U : UTxO) (created deadline : ℕ) → ChainEvent  -- on (depositTx, …)
   recoverTx : (txα : Data)                                   → ChainEvent  -- on (recoverTx, txα)
   tick      : (t : ℕ)                                        → ChainEvent  -- on (tick, t)
-  incrementTx : (U : UTxO) (v : ℕ)                           → ChainEvent  -- on (incrementTx, U, v)
-  decrementTx : (U : UTxO) (v : ℕ)                           → ChainEvent  -- on (decrementTx, U, v)
+  incrementTx : (U : UTxO) (v s : ℕ) (ξ : AggSig)            → ChainEvent  -- on (incrementTx, U, v, s, ξ)
+  decrementTx : (U : UTxO) (v s : ℕ) (ξ : AggSig)            → ChainEvent  -- on (decrementTx, U, v, s, ξ)
   initialTx   :                                                ChainEvent  -- on (initialTx, …): head opens
+
+-- The message a snapshot's aggregate multisignature is verified against, cid‖v‖s‖η#‖η̂#‖δ#‖κ#: the
+-- same concatenation as §7's `msgOf`, needed here already for the adopting observations below.
+signedMessage : Snapshot → ℍ
+signedMessage snap =
+  Snapshot.cid snap ‖ Snapshot.version snap ‖ Snapshot.number snap ‖ Snapshot.etaHash snap
+    ‖ Snapshot.appliedEtaHash snap ‖ Snapshot.decHash snap ‖ Snapshot.comHash snap
+
+-- The seen snapshot is the one in flight (ŝ = S̄.s + 1), `snap` is it (its txs are T̂ and its number
+-- ŝ), the observed transaction settled exactly it (s = ŝ), and ξ verifies over it under the head's
+-- aggregate key. Then the transaction proves `snap` fully signed, whether or not every AckSn arrived.
+SettlesSeen : LocalState → ℕ → AggSig → Snapshot → Set
+SettlesSeen st s ξ snap =
+    (LocalState.seenNumber st ≡ suc (Snapshot.number (LocalState.confirmed st)))
+  × (s ≡ LocalState.seenNumber st)
+  × (Snapshot.number snap ≡ s)
+  × (Snapshot.txs snap ≡ LocalState.pending st)
+  × (msVfy (HeadParameters.aggregateKey (LocalState.params st)) (signedMessage snap) ξ ≡ true)
 
 -- Observing a chain event updates a party's deposit registry 𝒟 (and, for `tick`, every entry's
 -- status). `recover` removes a WITNESSED occurrence, so no decidable Data-equality is assumed.
@@ -593,15 +625,32 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
   -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7). The §6 figure, this
   -- model and the node agree: the seen snapshot is carried across the version bump (the node keeps an
   -- in-flight `SeenSnapshot`, a no-op on ŝ given the invariant ŝ ∈ {s̄, s̄+1}).
-  increment-obs : ∀ {st U v}
+  increment-obs : ∀ {st U v s ξ}
     → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- authorize-then-bump: v = S̄.v + 1 (the increment is signed at the confirmed snapshot's version); supports `VersionDiscipline`
-    → st observes (incrementTx U v)
+    → st observes (incrementTx U v s ξ)
         ↝ record st { seenVersion = v ; currentDepositTxId = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U }
 
-  decrement-obs : ∀ {st U v}
+  decrement-obs : ∀ {st U v s ξ}
     → v ≡ suc (Snapshot.version (LocalState.confirmed st))   -- as increment: v = S̄.v + 1 (authorize-then-bump)
-    → st observes (decrementTx U v)
+    → st observes (decrementTx U v s ξ)
         ↝ record st { seenVersion = v ; pendingDecrement = nothing }
+
+  -- The same observations settling the snapshot still in flight: besides the plain effect, the seen
+  -- snapshot becomes S̄ with the observed ξ, as if the last AckSn had arrived. The version is the one
+  -- after that snapshot's own settlement (v = snap.v + 1), which keeps `VersionDiscipline`. The §7
+  -- system lifts this as the plain observation plus a `confirm` of `snap` (its aggregate verifies).
+  increment-adopt : ∀ {st U v s ξ snap}
+    → v ≡ suc (Snapshot.version snap)
+    → SettlesSeen st s ξ snap
+    → st observes (incrementTx U v s ξ)
+        ↝ record st { seenVersion = v ; currentDepositTxId = nothing ; localLedger = LocalState.localLedger st ∪ᵘ U
+                    ; confirmed = snap }
+
+  decrement-adopt : ∀ {st U v s ξ snap}
+    → v ≡ suc (Snapshot.version snap)
+    → SettlesSeen st s ξ snap
+    → st observes (decrementTx U v s ξ)
+        ↝ record st { seenVersion = v ; pendingDecrement = nothing ; confirmed = snap }
 
   -- on (initialTx, …): the head opens with a genesis confirmed snapshot (number/version 0, no txs) and
   -- an empty local ledger (`L̂ ← ∅`); the §6 setup `require`s stay abstracted (genesis is given here,
@@ -673,6 +722,17 @@ $mtxContest$ transactions). If the last confirmed (off-chain) snapshot is newer
 than the observed (on-chain) snapshot number $s_(c)$, an updated accumulator
 commitment $eta'$ and certificate $xi$ are constructed and posted in a $mtxContest$ transaction (see
 @sec:contest-tx).
+
+Like increments and decrements, both transactions carry the multi-signature
+$xi$ of the snapshot they use, and a head can be closed or contested with the
+snapshot a party is still collecting signatures for. The party adopts it as
+confirmed under the same condition as for an increment ($s_c = hats = macron(mc(S)).s + 1$
+and $xi$ verifies over the seen snapshot's message), so that it can fan out the
+head. A party keeps its seen snapshot while the head is closed: a head closed
+with an older snapshot can still be contested with the seen one later. This
+adoption is not part of the handler relation `_observes_↝_` above, which does
+not model the closed head, but the adopted snapshot's aggregate verifies, so it
+is an instance of the `confirm` step of @sec:security.
 
 #dparagraph[$mono("fanoutTx")$.]#h(1em) Upon observing a $mtxFanout$
 transaction, all UTxOs are distributed and the head transitions to $stFinal$ state.
@@ -756,6 +816,8 @@ noBothInFlight-step (ostep (recover-del _))       inv = inv
 noBothInFlight-step (ostep tick-update)           inv = inv
 noBothInFlight-step (ostep (increment-obs _))      _  = inj₁ refl
 noBothInFlight-step (ostep (decrement-obs _))      _  = inj₂ refl
+noBothInFlight-step (ostep (increment-adopt _ _))  _  = inj₁ refl
+noBothInFlight-step (ostep (decrement-adopt _ _))  _  = inj₂ refl
 noBothInFlight-step (ostep (initialTx-obs _ _ _))  _  = inj₁ refl
 ```
 
@@ -778,7 +840,9 @@ version (it then posts the $hatv$ or $hatv - 1$ signature). Preservation rests
 on the on-chain authorize-then-bump rule, captured as the increment/decrement
 observations' premise that a version bump is signed at the confirmed snapshot's
 version (so $hatv$ never runs more than one version ahead), while `ackSn-confirm`
-re-establishes the discipline from its own version premise. This turns an
+re-establishes the discipline from its own version premise, and the adopting
+increment/decrement observations from theirs (the observed version is one above
+the adopted snapshot's). This turns an
 otherwise unchecked runtime assumption of the implementation into a theorem of
 the off-chain state machine.
 
@@ -804,6 +868,8 @@ versionDiscipline-step (ostep (recover-del _))         inv = inv
 versionDiscipline-step (ostep tick-update)             inv = inv
 versionDiscipline-step (ostep (increment-obs e))       _   = inj₂ e
 versionDiscipline-step (ostep (decrement-obs e))       _   = inj₂ e
+versionDiscipline-step (ostep (increment-adopt e _))   _   = inj₂ e
+versionDiscipline-step (ostep (decrement-adopt e _))   _   = inj₂ e
 versionDiscipline-step (ostep (initialTx-obs eq _ _))  _   = inj₁ (sym eq)
 ```
 
@@ -998,6 +1064,21 @@ preventing inconsistency between the on-chain and off-chain state.
                 ]
               ]
             ]
+
+            #proc([$sans("adopt")(s, xi)$ #text(size: 0.8em)[(called by the chain handlers)]])[
+              #kw("if") $s = hats = macron(mc(S)).s + 1$
+              #nst[
+                $eta' <- accUTxO(hatmU)$ \
+                $(eta')^(\#) <- hash(eta')$ \
+                $delta^(\#) <- hash(U_omega)$ \
+                $kappa^(\#) <- hash(hash(U_alpha) || tx_alpha)$ \
+                #kw("if") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi)$
+                #nst[
+                  $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
+                  $macron(mc(S)).sigma <- xi$
+                ]
+              ]
+            ]
           ],
           [
             #proc([#kw("on") $(hpAS, s, msSig_j)$ #kw("from") $party_j$])[
@@ -1045,7 +1126,8 @@ preventing inconsistency between the on-chain and off-chain state.
               $mc(D) <- mc(D) without (tx_alpha, dot.c)$
             ]
 
-            #proc([#kw("on") $(mtxDecrement, U, v)$ #kw("from") chain])[
+            #proc([#kw("on") $(mtxDecrement, U, v, s, xi)$ #kw("from") chain])[
+              $sans("adopt")(s, xi)$ \
               $hatv <- v$ \
               $tx_omega <- bot$ \
               #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
@@ -1054,7 +1136,8 @@ preventing inconsistency between the on-chain and off-chain state.
               ]
             ]
 
-            #proc([#kw("on") $(mtxIncrement, U, v)$ #kw("from") chain])[
+            #proc([#kw("on") $(mtxIncrement, U, v, s, xi)$ #kw("from") chain])[
+              $sans("adopt")(s, xi)$ \
               $hatv <- v$ \
               $tx_alpha <- bot$ \
               $hatmL <- hatmL union U$ \
@@ -1105,7 +1188,8 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
           ],
           [
-            #proc([#kw("on") $(gcChainClose, (eta')^(\#)) or (gcChainContest, s_c, (eta')^(\#))$ #kw("from") chain])[
+            #proc([#kw("on") $(gcChainClose, s_c, (eta')^(\#), xi) or (gcChainContest, s_c, (eta')^(\#), xi)$ #kw("from") chain])[
+              $sans("adopt")(s_c, xi)$ \
               #kw("if") $macron(mc(S)).s > s_c$
               #nst[
                 $(eta')^(\#) <- macron(mc(S)).(eta')^(\#)$ \

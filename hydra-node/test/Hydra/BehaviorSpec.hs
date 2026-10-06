@@ -72,7 +72,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import Hydra.Tx.Party (Party (..), deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, confirmedSignatures, getSnapshot)
 import Test.Hydra.Ledger (nextChainSlot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
 import Test.Hydra.Tx.Fixture (
@@ -592,6 +592,96 @@ spec = parallel $ do
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` member 11
 
+        it "adopts a deposit snapshot settled on-chain even if a peer withholds its AckSn" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  -- Bob completes the multisignature locally and posts the
+                  -- increment; both nodes observe it and bump to version 1.
+                  depositHead chain [n1, n2] depositUTxO
+                  -- Alice never receives Bob's AckSn, but the increment carries
+                  -- the full multisignature on-chain: she adopts snapshot 1
+                  -- from the observation.
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Having adopted it, Alice is no longer blocked behind an
+                  -- in-flight snapshot and acks Bob's next ReqSn. Bob still
+                  -- withholds his AckSns, so Alice cannot confirm snapshot 2
+                  -- herself. Bob can, and only with Alice's signature, which
+                  -- proves she has moved on.
+                  send n1 (NewTx (aValidTx 42))
+                  waitUntilMatch [n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                      guard (number == 2 && 42 `elem` (txId <$> confirmed))
+                    _ -> Nothing
+
+        it "can close and fanout with a deposit snapshot adopted from the chain" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let depositUTxO = utxoRefs [11]
+                  depositHead chain [n1, n2] depositUTxO
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 1 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Alice closes with the adopted snapshot, so the deposit is
+                  -- not lost to the withheld AckSn.
+                  send n1 Close
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
+                    _ -> Nothing
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = depositUTxO}
+
+        it "contests a stale close with a deposit snapshot adopted from the chain" $
+          shouldRunInSim $
+            -- Bob acks snapshot 1 like an honest party and withholds from
+            -- snapshot 2 on.
+            withSimulatedChainAndNetworkWithholdingAckSnFrom bob 2 $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  -- Snapshot 1 confirms for both, with nothing pending.
+                  send n1 (NewTx (aValidTx 42))
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                    _ -> Nothing
+                  -- Snapshot 2 carries the deposit. Only Bob confirms it and
+                  -- posts the increment; Alice adopts it from the observation.
+                  let depositUTxO = utxoRefs [11]
+                  depositHead chain [n1, n2] depositUTxO
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToCommit}} ->
+                      guard (number == 2 && utxoToCommit == Just depositUTxO)
+                    _ -> Nothing
+                  -- Bob closes with snapshot 1, signed at version 0, against
+                  -- the head at version 1: a 'CloseUsed' the validator accepts
+                  -- but the head could not be fanned out from. His node
+                  -- refuses to build such a close, so it is injected as
+                  -- observed.
+                  deadline <- addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
+                  injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 1 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 1 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
+                    _ -> Nothing
+                  -- Alice holds the adopted multisignature and contests with it.
+                  waitUntilMatch [n1, n2] $ \case
+                    HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 2
+                    _ -> Nothing
+                  waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                  send n1 Fanout
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [11, 42]}
+
         it "can process multiple commits" $
           shouldRunInSim $ do
             withSimulatedChainAndNetwork $ \chain ->
@@ -784,6 +874,32 @@ spec = parallel $ do
 
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
+
+        it "adopts a decommit snapshot settled on-chain even if a peer withholds its AckSn" $
+          shouldRunInSim $
+            withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  let decommitTx = aValidTx 42
+                  send n2 (Decommit decommitTx)
+                  waitUntil [n1, n2] $
+                    DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
+                  -- Bob completes the multisignature locally and posts the
+                  -- decrement; Alice never receives his AckSn but adopts the
+                  -- snapshot from the multisignature carried on-chain.
+                  waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
+                  waitUntilMatch [n1] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, utxoToDecommit}} ->
+                      guard (number == 1 && utxoToDecommit == Just (utxoRefs [42]))
+                    _ -> Nothing
+                  -- Alice is not stuck behind the in-flight snapshot and acks
+                  -- the next one, which only Bob can confirm.
+                  send n1 (NewTx (aValidTx 43))
+                  waitUntilMatch [n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                      guard (number == 2 && 43 `elem` (txId <$> confirmed))
+                    _ -> Nothing
 
         it "can only process one decommit at once" $
           shouldRunInSim $
@@ -1042,8 +1158,8 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
@@ -1053,6 +1169,52 @@ spec = parallel $ do
               waitUntilMatch [n1, n2] $ \case
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
+
+    describe "with a peer withholding its AckSn" $ do
+      it "fans out a head closed with the snapshot only the peer confirmed" $
+        shouldRunInSim $
+          withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead2 n1 n2
+                send n1 (NewTx (aValidTx 42))
+                -- Only Bob sees snapshot 1 confirmed; Alice lacks his AckSn.
+                waitUntilMatch [n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                  _ -> Nothing
+                send n2 Close
+                waitUntilMatch [n1, n2] $ \case
+                  HeadIsClosed{snapshotNumber} -> guard (snapshotNumber == 1)
+                  _ -> Nothing
+                waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                -- Alice adopted snapshot 1 from the close and fans out with it.
+                send n1 Fanout
+                waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [42]}
+
+      it "fans out a head contested with the snapshot only the peer confirmed" $
+        shouldRunInSim $
+          withSimulatedChainAndNetworkWithholdingAckSn bob $ \chain ->
+            withHydraNode aliceSk [bob] chain $ \n1 ->
+              withHydraNode bobSk [alice] chain $ \n2 -> do
+                openHead2 n1 n2
+                send n1 (NewTx (aValidTx 42))
+                waitUntilMatch [n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                  _ -> Nothing
+                -- A close with the initial snapshot, which Alice has no newer
+                -- confirmed snapshot to contest. The deadline must lie ahead,
+                -- so the head is not ready to fan out before the contest.
+                deadline <- addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) <$> getCurrentTime
+                injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline mempty, newChainState = SimpleChainState{slot = ChainSlot 0}}
+                -- Bob contests with snapshot 1, and Alice adopts it from the
+                -- contest.
+                waitUntilMatch [n1, n2] $ \case
+                  HeadIsContested{snapshotNumber} -> guard (snapshotNumber == 1)
+                  _ -> Nothing
+                waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
+                send n1 Fanout
+                waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [42]}
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
@@ -1334,6 +1496,28 @@ withSimulatedChainAndNetwork ::
   m a
 withSimulatedChainAndNetwork = withSimulatedChainAndSlowNetwork 0 0
 
+withSimulatedChainAndNetworkWithholdingAckSn ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  Party ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndNetworkWithholdingAckSn dishonest =
+  withSimulatedChainAndNetworkWithholdingAckSnFrom dishonest 1
+
+-- | Like 'withSimulatedChainAndNetworkWithholdingAckSn', but the dishonest
+-- party acks like everyone else up to the given snapshot number and withholds
+-- from that snapshot on.
+withSimulatedChainAndNetworkWithholdingAckSnFrom ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  Party ->
+  SnapshotNumber ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndNetworkWithholdingAckSnFrom dishonest fromSnapshot =
+  bracket
+    (simulatedChainAndNetworkUsing (createNetworkWithholdingAckSn dishonest fromSnapshot) 0 SimpleChainState{slot = ChainSlot 0})
+    (cancel . tickThread)
+
 -- | Simulated chain and network where the network and/or chain observations
 -- can be delivered with a configurable delay. Handy to reproduce race
 -- conditions related to message ordering.
@@ -1478,6 +1662,31 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
+-- | A network where the given party never delivers its 'AckSn' to peers. The
+-- party still receives its own AckSn, so it can complete the multisignature
+-- locally and post the increment/decrement, while the other nodes remain one
+-- signature short.
+createNetworkWithholdingAckSn ::
+  MonadAsync m =>
+  Party ->
+  -- | First snapshot number the dishonest party withholds its 'AckSn' for.
+  SnapshotNumber ->
+  DraftHydraNode tx m ->
+  TVar m [HydraNode tx m] ->
+  Network m (Message tx)
+createNetworkWithholdingAckSn dishonest fromSnapshot node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
+    allNodes <- readTVarIO nodes
+    forM_ allNodes $ \HydraNode{inputQueue, env = Environment{party = receiver}} ->
+      case msg of
+        AckSn{snapshotNumber}
+          | sender == dishonest && receiver /= dishonest && snapshotNumber >= fromSnapshot -> pure ()
+        _ -> enqueue inputQueue $ mkNetworkInput sender msg
+
+  DraftHydraNode{env = Environment{party = sender}} = node
+
 -- | Delivers messages asynchronously after a
 -- configurable delay. When the delay exceeds the chain's block time (20s),
 -- on-chain events arrive at nodes before network echoes, reproducing
@@ -1514,28 +1723,34 @@ toOnChainTx now = \case
       { headId
       , newVersion = version + 1
       , depositTxId
+      , snapshotNumber = number
+      , signatures = confirmedSignatures incrementingSnapshot
       }
    where
-    Snapshot{version} = getSnapshot incrementingSnapshot
+    Snapshot{version, number} = getSnapshot incrementingSnapshot
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId
       , newVersion = version + 1
       , distributedUTxO = fromMaybe mempty utxoToDecommit
+      , snapshotNumber = number
+      , signatures = confirmedSignatures decrementingSnapshot
       }
    where
-    Snapshot{version, utxoToDecommit} = getSnapshot decrementingSnapshot
+    Snapshot{version, number, utxoToDecommit} = getSnapshot decrementingSnapshot
   CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId
       , snapshotNumber = number (getSnapshot closingSnapshot)
       , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
+      , signatures = confirmedSignatures closingSnapshot
       }
   ContestTx{headId, contestingSnapshot} ->
     OnContestTx
       { headId
       , snapshotNumber = number (getSnapshot contestingSnapshot)
       , contestationDeadline = addUTCTime (CP.toNominalDiffTime defaultContestationPeriod) now
+      , signatures = confirmedSignatures contestingSnapshot
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = combinedUTxO utxo utxoToCommit utxoToDecommit}

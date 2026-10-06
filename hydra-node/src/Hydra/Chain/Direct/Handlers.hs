@@ -579,14 +579,14 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure $ OnDepositTx{headId, depositTxId, deposited, created = createdTime, deadline}
   Recover RecoverObservation{headId, recoveredTxId, recoveredUTxO} ->
     pure OnRecoverTx{headId, recoveredTxId, recoveredUTxO}
-  Increment IncrementObservation{headId, newVersion, depositTxId} ->
-    pure OnIncrementTx{headId, newVersion, depositTxId}
-  Decrement DecrementObservation{headId, newVersion, distributedUTxO} ->
-    pure OnDecrementTx{headId, newVersion, distributedUTxO}
-  Close CloseObservation{headId, snapshotNumber, contestationDeadline} ->
-    pure OnCloseTx{headId, snapshotNumber, contestationDeadline}
-  Contest ContestObservation{contestationDeadline, headId, snapshotNumber} ->
-    pure OnContestTx{contestationDeadline, headId, snapshotNumber}
+  Increment IncrementObservation{headId, newVersion, depositTxId, snapshotNumber, signatures} ->
+    pure OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}
+  Decrement DecrementObservation{headId, newVersion, distributedUTxO, snapshotNumber, signatures} ->
+    pure OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}
+  Close CloseObservation{headId, snapshotNumber, contestationDeadline, signatures} ->
+    pure OnCloseTx{headId, snapshotNumber, contestationDeadline, signatures}
+  Contest ContestObservation{contestationDeadline, headId, snapshotNumber, signatures} ->
+    pure OnContestTx{contestationDeadline, headId, snapshotNumber, signatures}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
   FinalPartialFanout FanoutObservation{headId, fanoutUTxO} ->
@@ -627,14 +627,14 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
-        Left _ -> throwIO (FailedToConstructCloseTx @Tx)
+        Left err -> throwIO (FailedToConstructCloseTx{failureReason = show err} :: PostTxError Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
-        Left _ -> throwIO (FailedToConstructContestTx @Tx)
+        Left err -> throwIO (FailedToConstructContestTx{failureReason = show err} :: PostTxError Tx)
         Right contestTx -> pure contestTx
     -- These are handled in mkChain.postTx before reaching this function.
     FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)

@@ -83,6 +83,8 @@ Note that any node that posts increment transaction will also pay the fees even 
 
 Upon observing increment transaction we remove the corresponding deposit from the local pending deposits and the process can start again.
 
+The increment transaction carries the full multisignature of the snapshot it settles in its redeemer. If a node is still collecting `AckSn` for that very snapshot when it observes the increment, it verifies that multisignature and adopts the snapshot as confirmed. This way a peer that withholds its `AckSn` after completing the multisignature locally cannot leave the other nodes stuck behind an in-flight snapshot they can never confirm.
+
 :::note
 Since we can potentially request many deposits, the leader will increment only one of them. While others stay pending. An honest snapshot leader _should_ consider all pending deposit and try to include it in a snapshot.
 :::
@@ -186,3 +188,11 @@ sequenceDiagram
     Chain ->> Node A: OnDecrementTx
     Node A -->> Alice: DecommitFinalized
 ```
+
+As with increments, the decrement redeemer carries the settled snapshot's multisignature, and a node still collecting `AckSn` for that snapshot adopts it as confirmed upon observing the decrement.
+
+## Closing with a snapshot still collecting signatures
+
+Close and contest redeemers carry the multisignature of the snapshot they use too. A node still collecting `AckSn` for the snapshot a head gets closed or contested with verifies that multisignature over the snapshot it signed itself and adopts it as confirmed. The closed head then commits to a snapshot the node knows, so it can fan out the head rather than depending on the peer that completed the multisignature. The node keeps the snapshot it was collecting signatures for while the head is closed, for a contest that arrives later.
+
+A node only closes or contests with a snapshot the head could be fanned out from: one signed at the head's current version, or one version behind whose own increment or decrement bumped the version. A snapshot without a pending action that is one version behind would be accepted by the head validator, but the accumulator stored with it does not match the head, so the closed head could never be fanned out. Refusing such a contest leaves the close in place, which may well be fanned out.

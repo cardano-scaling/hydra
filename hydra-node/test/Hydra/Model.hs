@@ -195,6 +195,9 @@ instance StateModel WorldState where
       , contestationPeriod :: ContestationPeriod
       , additionalUTxO :: UTxOType Payment
       , concurrentSettlements :: Bool
+      , -- Seeds the mock network's per-message delays, so each run explores a
+        -- different interleaving of network messages and chain observations.
+        networkLatencySeed :: Word64
       } ->
       -- \^ Whether the random walk may have several deposits/decommits in
       -- flight at once ('SubmitDeposit' & co., forks in every 'RequeueMode')
@@ -668,7 +671,8 @@ genSeedWith concurrentSettlements = do
     sk <- snd <$> elements seedKeys
     value <- genAdaValue
     pure (sk, value)
-  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements}
+  networkLatencySeed <- arbitrary
+  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements, networkLatencySeed}
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
@@ -836,8 +840,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, contestationPeriod} ->
-        seedWorld seedKeys contestationPeriod
+      Seed{seedKeys, contestationPeriod, networkLatencySeed} ->
+        seedWorld seedKeys contestationPeriod networkLatencySeed
       Init party ->
         performInit party
       Deposit headIdVar utxo -> do
@@ -915,12 +919,13 @@ seedWorld ::
   ) =>
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   ContestationPeriod ->
+  Word64 ->
   RunMonad m ()
-seedWorld seedKeys seedCP = do
+seedWorld seedKeys seedCP networkLatencySeed = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
-    lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys
+    lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys networkLatencySeed
   pushThread tickThread
 
   perNode <- forM seedKeys $ \(hsk, _csk) -> do

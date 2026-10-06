@@ -33,14 +33,12 @@ fi
 
 head_is_open "$PORT" || { echo "head is not open on :$PORT; init it first" >&2; exit 1; }
 
-# Public head id, read from the head (HeadIsOpen carries it). This is chain info,
-# not an operator-side L1 action.
+# Public head id, read from the head state. This is chain info, not an
+# operator-side L1 action.
 echo "reading head id from :$PORT ..." >&2
-HEAD_ID_LOG=$(mktemp)
-timeout 8 websocat -n -U "ws://127.0.0.1:$PORT?history=yes" >"$HEAD_ID_LOG" 2>/dev/null || true
-HEAD_ID=$(jq -rs '[.[] | select(.tag=="HeadIsOpen")][0].headId // empty' "$HEAD_ID_LOG" 2>/dev/null)
-rm -f "$HEAD_ID_LOG"
-[ -n "$HEAD_ID" ] && [ "$HEAD_ID" != null ] || { echo "could not read head id" >&2; exit 1; }
+HEAD_STATE=$(curl -s "127.0.0.1:$PORT/head")
+HEAD_ID=$(jq -r '.contents.headId // empty' <<<"$HEAD_STATE" 2>/dev/null)
+[ -n "$HEAD_ID" ] || { echo "could not read head id from GET /head: $(head -c 200 <<<"$HEAD_STATE")" >&2; exit 1; }
 
 # Derive the deposit script address from the embedded Hydra blueprint.
 jq -r '{type:"PlutusScriptV3",description:"",cborHex:.validators[0].compiledCode}' \

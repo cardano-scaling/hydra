@@ -10,6 +10,10 @@ changes.
 
 ## UNRELEASED
 
+- Fixed a crafted increment transaction being observed as a recover, which left
+  honest nodes with a stale head version and unable to close or contest. Recover
+  observation now requires the `Recover` redeemer and no head input.
+
 - Added a demo of a "delegated head" setup, see the README in ./delegated-demo for more information.
 
 - `maxTxsPerSnapshot` raised from 1000 to 4000; gives about a ~2x TPS speedup.
@@ -46,6 +50,15 @@ changes.
   `UnencodableLogEntry` entry carrying the failure reason and keeps draining,
   where previously a partial `ToJSON` killed the writer thread and every
   subsequent trace blocked once the log queue filled.
+
+- The node now adopts the snapshot an observed increment, decrement, close or
+  contest was posted with. The `OnIncrementTx` and `OnDecrementTx` chain events
+  carry two new fields, `snapshotNumber` and `signatures`, and `OnCloseTx` and
+  `OnContestTx` carry `signatures`.
+
+- `Close` is refused when the confirmed snapshot can no longer close the head
+  such that it could be fanned out. `FailedToConstructCloseTx` carries a new
+  `failureReason` field saying why.
 
 - **BREAKING** Fixed a bug related to partial fanout and decommits and a
   potential stuck head.

@@ -97,6 +97,7 @@ import Hydra.Tx (
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (
+  MultiSignature,
   Signature,
   Verified (..),
   aggregateInOrder,
@@ -1129,14 +1130,35 @@ onOpenChainIncrementTx ::
   SnapshotVersion ->
   -- | Deposit TxId
   TxIdType tx ->
+  SnapshotNumber ->
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
+onOpenChainIncrementTx env openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
+    <> adoptObservedSnapshotOrRequestNext
  where
+  -- The increment proves on-chain that the snapshot it settled is fully
+  -- signed. If that is the one we are still collecting AckSns for, adopt it
+  -- with the on-chain multisignature instead of waiting on a peer.
+  adoptObservedSnapshotOrRequestNext =
+    case seenSnapshot of
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, depositTxId = seenDepositTxId}, signableBytes}
+        | observedSnapshotNumber == seenSnNumber
+        , seenSnapshotVersion + 1 == newVersion
+        , seenDepositTxId == Just depositTxId
+        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
+            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) localTxs version newVersion (LastSeenSnapshot seenSnNumber) Nothing
+      _ ->
+        maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
+
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
   CoordinatedHeadState{localTxs, confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
+
+  HeadParameters{parties} = parameters
+
+  vkeys = vkey <$> parties
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1162,8 +1184,12 @@ onOpenChainDecrementTx ::
   SnapshotVersion ->
   -- | Outputs removed by the decrement
   UTxOType tx ->
+  -- | Number of the snapshot the decrement settled
+  SnapshotNumber ->
+  -- | Multisignature carried by the decrement redeemer
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO =
+onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO observedSnapshotNumber observedSignatures =
   newState
     DecommitFinalized
       { chainState = newChainState
@@ -1171,11 +1197,31 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , newVersion
       , distributedUTxO
       }
-    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot (setExistingDeposit pendingDeposits currentDepositTxId)
+    <> adoptObservedSnapshotOrRequestNext
  where
+  -- Same reasoning as in 'onOpenChainIncrementTx': the decrement proves the
+  -- snapshot it settled is fully signed, so adopt it if it is the one in flight.
+  adoptObservedSnapshotOrRequestNext =
+    case seenSnapshot of
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, utxoToDecommit = seenDecommit}, signableBytes}
+        | observedSnapshotNumber == seenSnNumber
+        , seenSnapshotVersion + 1 == newVersion
+        , isJust seenDecommit
+        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
+            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) localTxs version newVersion (LastSeenSnapshot seenSnNumber) nextDeposit
+      _ ->
+        maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot nextDeposit
+
+  nextDeposit = setExistingDeposit pendingDeposits currentDepositTxId
+
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
   CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot} = coordinatedHeadState
+
+  HeadParameters{parties} = parameters
+
+  vkeys = vkey <$> parties
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1315,6 +1361,10 @@ onOpenClientClose st =
 -- our last confirmed, we post a contest transaction. Also, we do schedule a
 -- notification for clients to fanout at the deadline.
 --
+-- A peer that withheld its 'AckSn' can close with the snapshot we are still
+-- collecting signatures for. The close carries its full multisignature, so
+-- adopt it as confirmed; otherwise we could not fan out the closed head.
+--
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
   IsTx tx =>
@@ -1325,11 +1375,29 @@ onOpenChainCloseTx ::
   SnapshotNumber ->
   -- | Contestation deadline.
   UTCTime ->
+  -- | Multisignature carried by the close redeemer.
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline =
-  newState HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
+onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline observedSignatures =
+  adoptClosedSnapshot
+    <> newState HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
     & maybePostContest
  where
+  -- The multisignature verifying over our own signable bytes proves the head
+  -- closed with exactly the snapshot we saw. Anything else leaves the confirmed
+  -- snapshot as it is.
+  adoptClosedSnapshot =
+    case seenSnapshot of
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber}, signableBytes}
+        | seenSnNumber == closedSnapshotNumber
+        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
+            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+      _ -> noop
+
+  HeadParameters{parties} = headParameters
+
+  vkeys = vkey <$> parties
+
   maybePostContest outcome =
     -- Spec: if ̅S.s > sc
     if number (getSnapshot confirmedSnapshot) > closedSnapshotNumber
@@ -1350,7 +1418,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
               }
       else outcome
 
-  CoordinatedHeadState{confirmedSnapshot, version} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, version} = coordinatedHeadState
 
   OpenState{parameters = headParameters, headId, coordinatedHeadState} = openState
 
@@ -1444,6 +1512,11 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
 --
+-- A peer that withheld its 'AckSn' can close with an older snapshot and then
+-- contest with the one we are still collecting signatures for. The contest
+-- carries its full multisignature, so adopt it as confirmed, like
+-- 'onOpenChainCloseTx' does for a close.
+--
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
   IsTx tx =>
@@ -1453,9 +1526,18 @@ onClosedChainContestTx ::
   SnapshotNumber ->
   -- | Contestation deadline.
   UTCTime ->
+  -- | Multisignature carried by the contest redeemer.
+  MultiSignature (Snapshot tx) ->
   Outcome tx
-onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline =
+onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline observedSignatures =
   if
+    | -- The multisignature verifying over our own signable bytes proves the
+      -- head was contested with exactly the snapshot we saw.
+      Just snapshot@Snapshot{number = unconfirmedSn} <- unconfirmedSnapshot
+    , unconfirmedSn == snapshotNumber
+    , Verified <- verifyMultiSignature vkeys observedSignatures snapshot ->
+        newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+          <> newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
     | -- Spec: if ̅S.s > sc
       number (getSnapshot confirmedSnapshot) > snapshotNumber ->
         -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
@@ -1479,7 +1561,11 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
     | otherwise ->
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
  where
-  ClosedState{parameters = headParameters, confirmedSnapshot, headId, version} = closedState
+  ClosedState{parameters = headParameters, confirmedSnapshot, headId, version, unconfirmedSnapshot} = closedState
+
+  HeadParameters{parties} = headParameters
+
+  vkeys = vkey <$> parties
 
 -- | Client request to fanout the whole closed head automatically. Emits a
 -- 'FanoutTx'; the chain layer either lands a single full fanout (→ 'IdleState')
@@ -1848,7 +1934,8 @@ closedToFanoutProgress closedState chainState remaining distributed mode =
 -- | Rebuild the 'ClosedState' from a 'PartialFanoutState' when reverting an
 -- optimistic 'Closed' → 'PartialFanout' transition (see 'HeadFanoutReverted').
 -- 'readyToFanoutSent' is restored to 'True' because a fanout is only reachable
--- after the head was announced 'ReadyToFanout'.
+-- after the head was announced 'ReadyToFanout'. The contestation period is over
+-- by then, so no contest can confirm an 'unconfirmedSnapshot' anymore.
 fanoutProgressToClosed :: PartialFanoutState tx -> ClosedState tx
 fanoutProgressToClosed pfs =
   ClosedState
@@ -1860,6 +1947,7 @@ fanoutProgressToClosed pfs =
     , headId
     , headSeed
     , version
+    , unconfirmedSnapshot = Nothing
     }
  where
   PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version} = pfs
@@ -2374,10 +2462,10 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
   -- Open
   ( Open openState@OpenState{headId = ourHeadId}
-    , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
+    , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline, signatures}, newChainState}
     )
       | ourHeadId == headId ->
-          onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
+          onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline signatures
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState, ChainInput Tick{chainTime, chainPoint}) ->
@@ -2388,21 +2476,21 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (eligibleDeposits openState pendingDeposits) openState
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx env openState newChainState newVersion depositTxId
+        onOpenChainIncrementTx env openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env (eligibleDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO
+        onOpenChainDecrementTx env (eligibleDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
-  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline}, newChainState})
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline, signatures}, newChainState})
     | ourHeadId == headId ->
-        onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
+        onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainPoint})
@@ -2993,7 +3081,21 @@ applyEvent st = \case
                               retainIfSettled (isJust snapshot.utxoToDecommit) chs.finalizedDecommit
                           }
                     }
-          Nothing -> Hydra.Prelude.error "applyEvent: SnapshotConfirmed but no snapshot in event or seenSnapshot"
+          -- Nothing to confirm: leave the state as it is rather than crashing
+          -- the node, which would also happen on every replay of the event.
+          Nothing -> st
+      -- Only emitted, with the snapshot, for the 'unconfirmedSnapshot' adopted
+      -- from the multisignature of an observed contest. Anything else leaves
+      -- the closed head as it is, as it did before this case existed.
+      Closed cst ->
+        case mSnapshot of
+          Just snapshot ->
+            Closed
+              cst
+                { confirmedSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                , unconfirmedSnapshot = Nothing
+                }
+          Nothing -> st
       _otherState -> st
    where
     snapshotFromSeen :: SeenSnapshot tx -> Maybe (Snapshot tx)
@@ -3101,6 +3203,7 @@ applyEvent st = \case
           , coordinatedHeadState =
             CoordinatedHeadState
               { confirmedSnapshot
+              , seenSnapshot
               , version
               }
           , headId
@@ -3116,11 +3219,16 @@ applyEvent st = \case
               , headId
               , headSeed
               , version
+              , -- Keep the snapshot still collecting AckSns: a later contest
+                -- may carry its full multisignature.
+                unconfirmedSnapshot = case seenSnapshot of
+                  SeenSnapshot{snapshot} -> Just snapshot
+                  _ -> Nothing
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, unconfirmedSnapshot} ->
         Closed
           ClosedState
             { parameters
@@ -3131,6 +3239,7 @@ applyEvent st = \case
             , headId
             , headSeed
             , version
+            , unconfirmedSnapshot
             }
       _otherState -> st
   HeadFannedOut{chainState} ->
