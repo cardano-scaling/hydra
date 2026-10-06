@@ -1,3 +1,26 @@
+.hero__background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  --fade: rgba(215, 38, 61, 1) 0%, rgba(209, 37, 80, 0.9) 10%,
+    rgba(203, 37, 100, 0.8) 20%, rgba(197, 36, 119, 0.7) 30%,
+    rgba(191, 36, 139, 0.6) 40%, rgba(185, 35, 158, 0.5) 50%,
+    rgba(178, 34, 177, 0.4) 60%, rgba(172, 34, 197, 0.3) 70%,
+    rgba(166, 33, 216, 0.2) 80%, rgba(160, 33, 236, 0.1) 90%,
+    rgba(154, 32, 255, 0) 100%;
+
+  background: radial-gradient(159.77% 56.45% at -40.23% -21.16%, var(--fade)),
+    radial-gradient(116.28% 41.08% at 131.51% 121.69%, var(--fade)), #090909;
+}
+
+@media (min-width: 768px) {
+  .hero__background {
+    background: radial-gradient(56.02% 79.7% at 2.11% -22.83%, var(--fade)),
+      radial-gradient(40.13% 69.55% at 120.34% 128.33%, var(--fade)), #090909;
+  }
+}
+
 .hero__heading {
   font-family: "Lexend";
   font-weight: 500;
