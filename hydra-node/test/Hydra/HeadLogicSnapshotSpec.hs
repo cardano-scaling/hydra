@@ -18,7 +18,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defau
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx, UTxOType, txId)
+import Hydra.Tx.IsTx (IsTx (..), UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
@@ -32,7 +32,7 @@ import Test.Hydra.Tx.Fixture (
   deriveOnChainId,
   testHeadId,
  )
-import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
+import Test.QuickCheck (Property, counterexample, forAll, oneof, suchThat, (==>))
 import Test.QuickCheck.Monadic (monadicIO, pick, run)
 
 spec :: Spec
@@ -212,7 +212,10 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             let v = fromInteger (toInteger n)
             pure (LastSeenSnapshot n, v)
         ]
-  tx <- pick $ aValidTx <$> arbitrary
+  -- Pick a tx creating a fresh output: re-creating a held one is refused.
+  let Snapshot{utxo = snapshotUTxO, utxoToCommit} = getSnapshot sn
+      held = snapshotUTxO <> fromMaybe mempty utxoToCommit
+  tx <- pick $ aValidTx <$> arbitrary `suchThat` (\n -> utxoRef n `withoutUTxO` held == utxoRef n)
   let
     aliceEnv =
       let party = alice

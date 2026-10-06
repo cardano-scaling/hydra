@@ -78,6 +78,10 @@ data RequirementFailure tx
     -- it would double claim the deposit. Only re-posting the increment settles
     -- it, see #2741.
     ReqSnDepositBlockedByFinalizedCommit {depositTxId :: TxIdType tx}
+  | -- | The requested deposit cannot be accepted: one of the outputs it adds
+    -- already exists in the head, or is created by one of the requested
+    -- transactions. See 'Hydra.HeadLogic.absorbable'.
+    ReqSnDepositOutputsHeld {depositTxId :: TxIdType tx}
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
   | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}

@@ -27,6 +27,12 @@ changes.
 - Fixed a crash on observing a `Commit`/deposit datum whose embedded
   credential, `TxId` or datum hash was not the expected length.
 
+- Deposited funds become spendable on layer 2 only once their increment has settled on-chain.
+  landed on-chain: snapshots no longer apply transactions on top of a pending
+  commit, and a commit whose increment is still settling is carried by every
+  snapshot until it lands or provably cannot anymore. Transactions re-creating
+  an output reference the head already holds are rejected.
+
 - Fixed the `/commit` endpoint handing out deposit transactions the node could
   never observe ([#2871](https://github.com/cardano-scaling/hydra/issues/2871)).
   When the deposited value did not cover the minimum ADA of the deposit output

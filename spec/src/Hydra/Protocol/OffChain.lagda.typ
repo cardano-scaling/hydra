@@ -163,6 +163,51 @@ Additionally, deposit objects are created using
 $"depositObj"(U, t_("created"), t_("deadline"), "status")$
 where status can be $"Inactive"$, $"Active"$, or $"Expired"$.
 
+A pending commit is not part of the snapshotted UTxO set until its increment
+has settled on-chain: $underline(tx)_(sans("req"))$ is applied to
+$U_(sans("active"))$ *without* $U_alpha$ in the $hpRS$ handler below, so a
+requested transaction cannot spend it. Were $U_alpha$ spendable there, such a
+transaction would consume it and its value would be accounted for twice — once
+through that transaction's outputs in $U$ and once again through $U_alpha$ —
+leaving the head under-backed. Nor may a deposit name an output reference the
+active set already holds or one a requested transaction creates: a deposit
+datum is unauthenticated, so any L1 actor can fund a deposit naming an existing
+output with a copy of its content, and absorbing it would add the deposit's
+value to the head without growing the UTxO set (the union is by reference),
+or delete that output from the ledger should the deposit expire before its
+increment. Such a request is rejected, and a leader never makes one: a fresh
+deposit is picked only if it is disjoint from $macron(mc(S)).U$ and from the
+outputs of the transactions it is requested with, while the pending commit
+still settling — which every later request at this version must carry — is
+kept and it is the transactions creating an output it names that are held
+back, together with those after them, until its increment has settled.
+
+A settling commit — $macron(mc(S)).U_alpha != bot$ at the current version — is
+dropped, by a request claiming no deposit, only once its increment can no
+longer land: $sans("unclaimable")(tx_alpha)$ holds when the deposit was spent
+on-chain (recovered, so $tx_alpha in.not mc(D)$) or the chain time passed its
+deadline — which bounds the validity of any transaction claiming it — by more
+than $Tdeposit$, the protocol's settlement margin against rollbacks (a deposit
+stops being claimed that long before its deadline for the same reason). Merely
+$sans("Expired")$ is too early — that status is set $Tdeposit$ ahead of the
+deadline — so a settling commit whose deposit counts as $sans("Expired")$ is
+still carried on.
+
+Transactions may not re-create an output reference the ledger holds either:
+unique on L1, output references are not on L2, where a deposit names arbitrary
+ones and enters the ledger with its increment. A member can compute the id of a
+transaction before submitting it, fund a deposit naming its outputs and submit
+the transaction once the deposit is absorbed; the union by reference would drop
+one of the two entries while the head keeps both values. The $hpRT$ handler
+refuses such a transaction (also one naming an output a deposit still in play
+names: one not $sans("Expired")$, or the one settling), and $hpRS$ requires
+$sans("outputs")(underline(tx)_(sans("req"))) inter U_(sans("active")) = emptyset$. Dropping it earlier would let a landing increment add the
+deposit's value to the head but not to the ledger, leaving the head over-backed
+and impossible to fan out. The $hpRS$ handler waits for $sans("unclaimable")$
+before signing such a request, since the leader may have observed the recovery
+or the chain time first; that wait is not bounded by the message's retry budget,
+as it resolves by itself once this party's chain time passes the margin.
+
 In Agda, a UTxO set is a finite map from output references to outputs, and a
 party's local state and the protocol messages are captured by dedicated record
 types.
@@ -391,12 +436,19 @@ can receive the request for a bumped version before its own chain handler has
 observed the transaction that bumped it, so a mismatch parks the request until
 the versions agree instead of aborting the routine.
 Furthermore, the protocol validates the snapshot request by:
++ Start from the last confirmed snapshot's UTxO set, folding in its pending
+  commit if that commit's increment has since settled on-chain
+  ($hatv > macron(mc(S)).v$)
 + If a decommit is requested: verify the transaction is applicable to the
   last confirmed UTxO set and update the active utxo set with it
 + If a decommit is requested: verify it produces at least one output,
   since $mtxDecrement$ materializes the decommit outputs and requires one
 + If a deposit is requested: verify the corresponding deposit is
-  $"Active"$ and update the active utxo set with it
+  $"Active"$, record it as $U_alpha$ and verify that none of the output
+  references it names is held by the active utxo set or created by the
+  requested transactions; the deposit is not added to that set, since a pending
+  commit only joins it once its increment has settled on-chain, so the
+  requested transactions cannot spend it
 + If we are on the same version as the last snapshot, any requested
   decommit or deposit must match the last snapshot.
 + Verify all requested transactions $underline(tx)_(sans("req"))$ are
@@ -982,7 +1034,7 @@ preventing inconsistency between the on-chain and off-chain state.
           column-gutter: 1em,
           [
             #proc([#kw("on") $(hpRT, tx)$ #kw("from") $party_j$])[
-              #kw("wait") $hatmL applytx tx != bot$
+              #kw("wait") $hatmL applytx tx != bot and sans("outputs")(tx) inter (hatmL union union.big_(D in mc(D), D.sans("status") != sans("Expired") or D = mc(D)[macron(mc(S)).tx_alpha]) D.U) = emptyset$
               #nst[
                 $hatmL <- hatmL applytx tx$ \
                 $hatmT <- hatmT union {tx}$ \
@@ -990,7 +1042,11 @@ preventing inconsistency between the on-chain and off-chain state.
                 #nst[
                   #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                   #nst[
-                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset$
+                  ]
+                  #kw("else if") $tx_alpha != bot$
+                  #nst[
+                    $hatmT <-$ longest prefix of $hatmT$ with $sans("outputs")(hatmT) inter mc(D)[tx_alpha].U = emptyset$ #text(size: 0.8em)[(only the settling commit is kept over a colliding transaction; nothing is requested if empty)]
                   ]
                   #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
                 ]
@@ -1004,7 +1060,14 @@ preventing inconsistency between the on-chain and off-chain state.
                 $tx_omega <- tx$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
                 #nst[
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
+                  #kw("if") $tx_alpha != bot$ #text(size: 0.8em)[(a settling commit is carried on; the decommit waits for it)]
+                  #nst[
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+                  ]
+                  #kw("else")
+                  #nst[
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
+                  ]
                 ]
               ]
             ]
@@ -1014,6 +1077,11 @@ preventing inconsistency between the on-chain and off-chain state.
               #kw("wait") $hats = macron(mc(S)).s and v = hatv$
               #nst[
                 #kw("require") $tx_omega = bot or tx_alpha = bot$ \
+                $U_(sans("active")) <- macron(mc(S)).U$ \
+                #kw("if") $hatv > macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
+                #nst[
+                  $U_(sans("active")) <- U_(sans("active")) union macron(mc(S)).U_alpha$
+                ]
                 #kw("if") $tx_omega != bot$
                 #nst[
                   #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_omega != bot$
@@ -1022,27 +1090,33 @@ preventing inconsistency between the on-chain and off-chain state.
                   ]
                   #kw("else")
                   #nst[
-                    #kw("require") $macron(mc(S)).U applytx tx_omega != bot$ \
-                    $U_(sans("active")) <- macron(mc(S)).U applytx tx_omega without sans("outputs")(tx_omega)$
+                    #kw("require") $U_(sans("active")) applytx tx_omega != bot$ \
+                    $U_(sans("active")) <- U_(sans("active")) applytx tx_omega without sans("outputs")(tx_omega)$
                   ]
+                ]
+                #kw("if") $tx_alpha = bot and v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
+                #nst[
+                  #kw("wait") $sans("unclaimable")(macron(mc(S)).tx_alpha)$ #text(size: 0.8em)[(a settling commit is dropped only once its increment can no longer land)]
                 ]
                 #kw("if") $tx_alpha != bot$
                 #nst[
                   $mc(D) <- mc(D)[tx_alpha]$ \
-                  #kw("require") $mc(D).sans("status") != sans("Expired")$ \
-                  #kw("wait") $mc(D).sans("status") = sans("Active")$
+                  #kw("wait") $mc(D).sans("status") != sans("Inactive")$
                   #nst[
                     #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
                     #nst[
-                      #kw("require") $macron(mc(S)).U_alpha = mc(D).U$
+                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on whatever its status)] \
+                      $U_alpha <- macron(mc(S)).U_alpha$
                     ]
                     #kw("else")
                     #nst[
-                      $U_alpha <- mc(D).U$ \
-                      $U_(sans("active")) <- U_(sans("active")) union U_alpha$
+                      #kw("require") $mc(D).sans("status") = sans("Active")$ \
+                      $U_alpha <- mc(D).U$
                     ]
+                    #kw("require") $U_alpha inter U_(sans("active")) = emptyset and U_alpha inter sans("outputs")(underline(tx)_(sans("req"))) = emptyset$
                   ]
                 ]
+                #kw("require") $sans("outputs")(underline(tx)_(sans("req"))) inter U_(sans("active")) = emptyset$ #text(size: 0.8em)[(no output reference is re-created)] \
                 #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
                 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
                 $hats <- s$ \
@@ -1110,7 +1184,11 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                     #nst[
-                      $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active")$
+                      $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset$
+                    ]
+                    #kw("else if") $tx_alpha != bot$
+                    #nst[
+                      $hatmT <-$ longest prefix of $hatmT$ with $sans("outputs")(hatmT) inter mc(D)[tx_alpha].U = emptyset$ #text(size: 0.8em)[(only the settling commit is kept over a colliding transaction; nothing is requested if empty)]
                     ]
                     #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
                   ]

@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, maxTxsPerSnapshot, newState, noop, selectNextIncrementalAction, setExistingDeposit, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -48,7 +48,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -78,7 +78,7 @@ import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
-import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
+import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (===))
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
@@ -280,68 +280,692 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 2
             _ -> False
 
-        it "makes a deposit spendable on L2 only after its on-chain increment" $ do
-          -- Regression: a deposit committed via an increment snapshot lives in
-          -- 'utxoToCommit' until the on-chain increment (CommitFinalized). It must
-          -- not be spendable on L2 before then; otherwise the same deposit UTxO can
-          -- be spent once per snapshot round (it is re-injected into localUTxO on
-          -- every SnapshotRequested), inflating the L2 balance. It must become
-          -- spendable once the increment is observed. We use the SAME tx for both
-          -- checks so the pre-increment rejection is clearly about the deposit's
-          -- availability, not a malformed tx.
-          now <- getCurrentTime
-          let aliceEnv' =
-                aliceEnv
-                  { depositPeriod = 60
-                  , depositActivation = 60
-                  , otherParties = []
-                  , participants = deriveOnChainId <$> [alice]
+        describe "Pending commit" $ do
+          let
+            -- Single-party head (alice leads every snapshot) with deposit 42.
+            singlePartyEnv =
+              aliceEnv
+                { depositPeriod = 60
+                , depositActivation = 60
+                , otherParties = []
+                , participants = deriveOnChainId <$> [alice]
+                }
+            pendingDepositTxId = 42 :: Integer
+            depositedUtxo = utxoRef pendingDepositTxId
+            -- Spends the deposited UTxO; applicable iff that UTxO is spendable.
+            spendDeposit = SimpleTx 100 depositedUtxo (utxoRef 100)
+            -- Observe the deposit, then tick past its activation.
+            activateDeposit now deposited =
+              let depositTime = plusTime now
+               in [ observeTxAtSlot 1 $
+                      OnDepositTx
+                        { headId = testHeadId
+                        , depositTxId = pendingDepositTxId
+                        , deposited
+                        , created = depositTime 1
+                        , deadline = depositTime 600
+                        }
+                  , ChainInput $
+                      Tick
+                        { chainTime = depositTime 2 `plusTime` toNominalDiffTime singlePartyEnv.depositPeriod
+                        , chainPoint = 2
+                        }
+                  ]
+            activeDepositOf :: UTCTime -> UTxOType SimpleTx -> Deposit SimpleTx
+            activeDepositOf now deposited =
+              Deposit{headId = testHeadId, deposited, created = now, deadline = addUTCTime 3600 now, status = Active}
+            inactiveDepositOf :: UTCTime -> UTxOType SimpleTx -> Deposit SimpleTx
+            inactiveDepositOf now deposited =
+              Deposit{headId = testHeadId, deposited, created = now, deadline = addUTCTime 3600 now, status = Inactive}
+            -- An open single-party head whose confirmed snapshot holds 'utxo'.
+            openHolding utxo =
+              inOpenState' [alice] $
+                coordinatedHeadState
+                  { localUTxO = utxo
+                  , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] utxo, signatures = mempty}
                   }
-              depositTime = plusTime now
-              depositTxId = 42 :: Integer
-              depositedUtxo = utxoRef depositTxId
-              deposit =
-                OnDepositTx
-                  { headId = testHeadId
-                  , depositTxId
-                  , deposited = depositedUtxo
-                  , created = depositTime 1
-                  , deadline = depositTime 600
-                  }
-              activateTick =
-                ChainInput $
-                  Tick
-                    { chainTime = depositTime 2 `plusTime` toNominalDiffTime aliceEnv'.depositPeriod
-                    , chainPoint = 2
+            -- A small confirmed UTxO and up to four chained txs creating fresh outputs.
+            genLedgerWalk :: Gen (UTxOType SimpleTx, [SimpleTx])
+            genLedgerWalk = do
+              n <- choose (1, 4 :: Integer)
+              k <- choose (0, 4 :: Int)
+              let go :: Int -> [Integer] -> Integer -> [SimpleTx] -> Gen [SimpleTx]
+                  go 0 _ _ acc = pure (reverse acc)
+                  go i available next acc = do
+                    spent <- sublistOf available `suchThat` (not . null)
+                    m <- choose (1, 2)
+                    let created = [next .. next + m - 1]
+                    go (i - 1) (filter (`notElem` spent) available <> created) (next + m) (SimpleTx next (utxoRefs spent) (utxoRefs created) : acc)
+              txs <- go k [1 .. n] 200 []
+              pure (utxoRefs [1 .. n], txs)
+            -- Deposited outputs and a non-empty subset of them to spend.
+            genDepositAndSpend = do
+              n <- choose (1, 4 :: Integer)
+              let outputs = [100 .. 100 + n - 1]
+              spent <- sublistOf outputs `suchThat` (not . null)
+              pure (outputs, spent)
+            -- Rejected, and never signed, because 'tx' does not apply.
+            shouldRejectAsNotApplying :: HasCallStack => Outcome SimpleTx -> SnapshotNumber -> SimpleTx -> IO ()
+            shouldRejectAsNotApplying o sn tx = case o of
+              Error (RequireFailed SnapshotDoesNotApply{requestedSn, txid}) -> do
+                requestedSn `shouldBe` sn
+                txid `shouldBe` txId tx
+              _ -> expectationFailure $ "expected SnapshotDoesNotApply, got: " <> show o
+
+          it "makes a deposit spendable on L2 only after its on-chain increment" $ do
+            now <- getCurrentTime
+            s <- runHeadLogic singlePartyEnv ledger (inOpenState [alice]) $ do
+              mapM_ step (activateDeposit now depositedUtxo)
+              _ <- step (receiveMessage $ ReqSn 0 1 [] Nothing (Just pendingDepositTxId))
+              getState
+
+            -- Before the increment lands the deposit is not spendable.
+            now' <- nowFromSlot s.chainPointTime.currentSlot
+            update singlePartyEnv ledger now' s (receiveMessage $ ReqTx spendDeposit)
+              `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+
+            -- After it lands, the same tx applies.
+            sIncremented <- runHeadLogic singlePartyEnv ledger s $ do
+              _ <- step (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = pendingDepositTxId, snapshotNumber = 1, signatures = mempty})
+              getState
+            now'' <- nowFromSlot sIncremented.chainPointTime.currentSlot
+            update singlePartyEnv ledger now'' sIncremented (receiveMessage $ ReqTx spendDeposit)
+              `hasStateChangedSatisfying` \case
+                TransactionAppliedToLocalUTxO{tx} -> tx == spendDeposit
+                _ -> False
+
+          it "rejects a ReqSn whose requested txs spend the pending deposit" $ do
+            now <- getCurrentTime
+            o <- runHeadLogic singlePartyEnv ledger (inOpenState [alice]) $ do
+              mapM_ step (activateDeposit now depositedUtxo)
+              _ <- step (receiveMessage $ ReqTx spendDeposit)
+              step (receiveMessage $ ReqSn 0 1 [txId spendDeposit] Nothing (Just pendingDepositTxId))
+            shouldRejectAsNotApplying o 1 spendDeposit
+
+          it "rejects a ReqSn continuing a pending commit whose requested txs spend it" $ do
+            now <- getCurrentTime
+            let s0 =
+                  (inOpenState' [alice] $ coordinatedHeadState{currentDepositTxId = Just pendingDepositTxId})
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))
                     }
-              -- Spends the deposited UTxO; applicable iff that UTxO is spendable.
-              spendDeposit = SimpleTx 100 depositedUtxo (utxoRef 100)
+            o <- runHeadLogic singlePartyEnv ledger s0 $ do
+              -- Snapshot 1 claims the deposit and its increment never lands.
+              o1 <- step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just pendingDepositTxId)
+              ownSignature <- case effectsOf o1 of
+                [NetworkEffect AckSn{signed, snapshotNumber = 1}] -> pure signed
+                effects -> failure $ "expected exactly an AckSn for snapshot 1, got: " <> show effects
+              _ <- step $ receiveMessage $ AckSn ownSignature 1
+              _ <- step $ receiveMessage $ ReqTx spendDeposit
+              step $ receiveMessage $ ReqSn 0 2 [txId spendDeposit] Nothing (Just pendingDepositTxId)
+            shouldRejectAsNotApplying o 2 spendDeposit
 
-          -- Observe + activate the deposit, then request the increment snapshot
-          -- (this is where localUTxO is rebuilt).
-          s <- runHeadLogic aliceEnv' ledger (inOpenState [alice]) $ do
-            step (observeTxAtSlot 1 deposit)
-            step activateTick
-            step (receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId))
-            getState
-
-          -- Before the on-chain increment lands, the deposit is NOT spendable: the
-          -- tx is deferred as not-yet-applicable (it would apply if the deposit were
-          -- available, as the post-increment check below shows).
-          now' <- nowFromSlot s.chainPointTime.currentSlot
-          update aliceEnv' ledger now' s (receiveMessage $ ReqTx spendDeposit)
-            `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
-
-          -- Once the increment is observed on-chain (CommitFinalized), the SAME tx
-          -- becomes applicable.
-          sIncremented <- runHeadLogic aliceEnv' ledger s $ do
-            step (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId, snapshotNumber = 1, signatures = mempty})
-            getState
-          now'' <- nowFromSlot sIncremented.chainPointTime.currentSlot
-          update aliceEnv' ledger now'' sIncremented (receiveMessage $ ReqTx spendDeposit)
-            `hasStateChangedSatisfying` \case
-              TransactionAppliedToLocalUTxO{tx} -> tx == spendDeposit
+          it "as a follower, signs a ReqSn continuing a pending commit next to txs not touching it" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                unrelated = SimpleTx 3 u0 (utxoRef 3)
+                s0 =
+                  ( inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))
+                    }
+            o <- runHeadLogic bobEnv ledger s0 $ do
+              _ <- step $ receiveMessage $ ReqTx unrelated
+              step $ receiveMessage $ ReqSn 0 1 [txId unrelated] Nothing (Just pendingDepositTxId)
+            o `hasEffectSatisfying` \case
+              NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 1
               _ -> False
+            o `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{utxo, utxoToCommit, depositTxId}} ->
+                utxo == utxoRef 3 && utxoToCommit == Just depositedUtxo && depositTxId == Just pendingDepositTxId
+              _ -> False
+
+          it "as a follower, signs a same-version ReqSn dropping the settling commit only once its increment can no longer land" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                claimedWith deadline =
+                  Deposit{headId = testHeadId, deposited = depositedUtxo, created = addUTCTime (-7200) now, deadline, status = Active}
+                s0 deposits =
+                  ( inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.fromList deposits)
+                    }
+                -- Sets the chain time, and so the deposit status.
+                tick = ChainInput $ Tick{chainTime = now, chainPoint = 1}
+                dropping, continuing :: Message SimpleTx
+                dropping = ReqSn 0 1 [] Nothing Nothing
+                continuing = ReqSn 0 1 [] Nothing (Just pendingDepositTxId)
+                signs :: HasCallStack => Outcome SimpleTx -> Maybe (UTxOType SimpleTx) -> IO ()
+                signs o utxoToCommit' = do
+                  o `hasEffectSatisfying` \case
+                    NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 1
+                    _ -> False
+                  o `hasStateChangedSatisfying` \case
+                    SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == utxoToCommit'
+                    _ -> False
+            -- Deposit claimable: wait, whatever the ttl.
+            claimable <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime 3600 now))]) $ step tick >> getState
+            update bobEnv ledger now claimable (receiveMessage dropping)
+              `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+            update bobEnv ledger now claimable (NetworkInput 0 ReceivedMessage{sender = alice, msg = dropping})
+              `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+            -- Expired but before the deadline: still refused; continuing is signed.
+            expired <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime 1800 now))]) $ step tick >> getState
+            update bobEnv ledger now expired (receiveMessage dropping)
+              `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+            update bobEnv ledger now expired (receiveMessage continuing) `signs` Just depositedUtxo
+            -- Deadline passed, but within the margin: still refused.
+            justPassed <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (-1) now))]) $ step tick >> getState
+            update bobEnv ledger now justPassed (receiveMessage dropping)
+              `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+            -- Past the margin: signed.
+            passed <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (-4000) now))]) $ step tick >> getState
+            update bobEnv ledger now passed (receiveMessage dropping) `signs` Nothing
+            -- Recovered (gone): the drop is signed.
+            recovered <- runHeadLogic bobEnv ledger (s0 []) $ step tick >> getState
+            update bobEnv ledger now recovered (receiveMessage dropping) `signs` Nothing
+
+          it "as the leader, keeps carrying the settling commit while its deposit is Expired but before its deadline" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                -- Expired once the chain time reaches 'now', deadline still ahead.
+                claimed = Deposit{headId = testHeadId, deposited = depositedUtxo, created = addUTCTime (-7200) now, deadline = addUTCTime 1800 now, status = Active}
+                unrelated = SimpleTx 3 u0 (utxoRef 3)
+                s0 =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId claimed)
+                    }
+            o <- runHeadLogic singlePartyEnv ledger s0 $ do
+              _ <- step (ChainInput $ Tick{chainTime = now, chainPoint = 1})
+              step (receiveMessage $ ReqTx unrelated)
+            o `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotNumber = 1, transactionIds, depositTxId} ->
+                transactionIds == [txId unrelated] && depositTxId == Just pendingDepositTxId
+              _ -> False
+
+          it "holds a decommit back while a commit is settling, even one a pending tx collides with" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1 <> utxoRef 2
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                colliding = SimpleTx pendingDepositTxId (utxoRef 2) depositedUtxo
+                decommit = SimpleTx 7 (utxoRef 1) (utxoRef 7)
+                s0 claimed =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = utxoRef 1 <> depositedUtxo
+                        , localTxs = Seq.fromList [colliding]
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId claimed)
+                    }
+                tick = ChainInput $ Tick{chainTime = now, chainPoint = 1}
+                claimedWith deadline =
+                  Deposit{headId = testHeadId, deposited = depositedUtxo, created = addUTCTime (-7200) now, deadline, status = Active}
+            -- Active, or Expired but still landable.
+            forM_ [addUTCTime 3600 now, addUTCTime 1800 now] $ \deadline -> do
+              s <- runHeadLogic singlePartyEnv ledger (s0 (claimedWith deadline)) $ step tick >> getState
+              update singlePartyEnv ledger now s (receiveMessage $ ReqDec decommit)
+                `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+
+          it "rejects a ReqSn whose tx re-creates an output the head holds" $ do
+            -- Output 42 exists, e.g. from a deposit that named it.
+            let u0 = utxoRef 1 <> utxoRef 42
+                recreating = SimpleTx 42 (utxoRef 1) (utxoRef 42)
+                st0 =
+                  inOpenState' threeParties $
+                    coordinatedHeadState
+                      { localUTxO = u0
+                      , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                      }
+            o <- runHeadLogic bobEnv ledger st0 $ do
+              _ <- step $ receiveMessage $ ReqTx recreating
+              step $ receiveMessage $ ReqSn 0 1 [txId recreating] Nothing Nothing
+            o
+              `shouldBe` Error
+                ( RequireFailed
+                    SnapshotDoesNotApply
+                      { requestedSn = 1
+                      , txid = txId recreating
+                      , error = ValidationError "transaction creates an output the head already holds"
+                      }
+                )
+
+          it "defers a tx creating an output a pending deposit names" $ do
+            now <- getCurrentTime
+            let creating = SimpleTx pendingDepositTxId (utxoRef 1) depositedUtxo
+                s0 = (openHolding (utxoRef 1)){deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))}
+            update singlePartyEnv ledger now s0 (receiveMessage $ ReqTx creating)
+              `assertWait` WaitOnNotApplicableTx (ValidationError "transaction creates an output a pending deposit names")
+
+          it "as the leader, requests an empty snapshot to prune a pending tx re-creating an output the head holds" $ do
+            -- It may be pending if accepted before the deposit was observed.
+            let u0 = utxoRef 1 <> utxoRef 42 <> utxoRef 5
+                recreating = SimpleTx 42 (utxoRef 1) (utxoRef 42)
+                another = SimpleTx 4 (utxoRef 5) (utxoRef 4)
+                s0 =
+                  inOpenState' [alice] $
+                    coordinatedHeadState
+                      { localUTxO = utxoRef 42 <> utxoRef 5
+                      , localTxs = Seq.fromList [recreating]
+                      , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                      }
+                requests :: Outcome SimpleTx -> [([Integer], Maybe Integer)]
+                requests o = [(transactionIds, depositTxId) | NetworkEffect ReqSn{transactionIds, depositTxId} <- effectsOf o]
+            (o, o') <- runHeadLogic singlePartyEnv ledger s0 $ do
+              o <- step (receiveMessage $ ReqTx another)
+              o' <- step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+              pure (o, o')
+            requests o `shouldBe` [([], Nothing)]
+            -- Confirming the empty snapshot prunes it.
+            o' `hasStateChangedSatisfying` \case
+              SnapshotRequested{newLocalTxs} -> toList newLocalTxs == [another]
+              _ -> False
+
+          prop "signs snapshots that account for the pending commit exactly once" $
+            -- In SimpleTx, value is the number of outputs.
+            forAll genLedgerWalk $ \(u0, txs) -> monadicIO $ do
+              now <- run getCurrentTime
+              let st0 =
+                    ( inOpenState' threeParties $
+                        coordinatedHeadState
+                          { localUTxO = u0
+                          , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                          }
+                    )
+                      { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))
+                      }
+              o <- run $ runHeadLogic bobEnv ledger st0 $ do
+                forM_ txs $ \tx -> step (receiveMessage $ ReqTx tx)
+                step (receiveMessage $ ReqSn 0 1 (txId <$> txs) Nothing (Just pendingDepositTxId))
+              monitor $ counterexample ("Outcome: " <> show o)
+              let expected = foldl' (flip applyTxTo) u0 txs
+              run $
+                o `hasEffectSatisfying` \case
+                  NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 1
+                  _ -> False
+              run $
+                o `hasStateChangedSatisfying` \case
+                  SnapshotRequested{requestedSnapshot = Snapshot{utxo, utxoToCommit}} ->
+                    utxo == expected
+                      && utxoToCommit == Just depositedUtxo
+                      && balance (utxo <> depositedUtxo) == balance utxo + balance depositedUtxo
+                  _ -> False
+
+          prop "never signs a snapshot claiming a pending commit it also spent" $
+            forAll genDepositAndSpend $ \(depositedOutputs, spentOutputs) -> monadicIO $ do
+              now <- run getCurrentTime
+              let deposited = foldMap utxoRef depositedOutputs
+                  spendSome = SimpleTx 7 (foldMap utxoRef spentOutputs) (utxoRef 7)
+              o <- run $ runHeadLogic singlePartyEnv ledger (inOpenState [alice]) $ do
+                mapM_ step (activateDeposit now deposited)
+                _ <- step (receiveMessage $ ReqTx spendSome)
+                step (receiveMessage $ ReqSn 0 1 [txId spendSome] Nothing (Just pendingDepositTxId))
+              monitor $ counterexample ("Outcome: " <> show o)
+              run $ shouldRejectAsNotApplying o 1 spendSome
+
+          it "as an honest follower, refuses a leader's ReqSn spending the pending deposit" $ do
+            -- Alice leads snapshot 1; bob is the follower under test.
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                st0 =
+                  ( inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))
+                    }
+            (afterReqTx, badReqSn, goodReqSn) <- runHeadLogic bobEnv ledger st0 $ do
+              _ <- step $ receiveMessage $ ReqTx spendDeposit
+              s <- getState
+              bad <- step $ receiveMessage $ ReqSn 0 1 [txId spendDeposit] Nothing (Just pendingDepositTxId)
+              -- Same deposit, nothing spending it: signed.
+              good <- step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just pendingDepositTxId)
+              pure (s, bad, good)
+            -- The tx is recorded, so only the snapshot check stops it.
+            case headState afterReqTx of
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}} ->
+                Map.member (txId spendDeposit) allTxs `shouldBe` True
+              _ -> expectationFailure "expected Open state after ReqTx"
+            shouldRejectAsNotApplying badReqSn 1 spendDeposit
+            goodReqSn `hasEffectSatisfying` \case
+              NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 1
+              _ -> False
+            goodReqSn `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{utxo, utxoToCommit}} ->
+                utxo == u0 && utxoToCommit == Just depositedUtxo
+              _ -> False
+
+          it "as a follower, rejects a ReqSn claiming a deposit naming an output the head holds" $ do
+            -- Rejected whether or not a requested tx spends the output.
+            now <- getCurrentTime
+            let s0 = (openHolding (depositedUtxo <> utxoRef 1)){deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))}
+                rejected = Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = pendingDepositTxId})
+            o <- runHeadLogic singlePartyEnv ledger s0 $ step (receiveMessage $ ReqSn 0 1 [] Nothing (Just pendingDepositTxId))
+            o `shouldBe` rejected
+            o' <- runHeadLogic singlePartyEnv ledger s0 $ do
+              _ <- step (receiveMessage $ ReqTx spendDeposit)
+              step (receiveMessage $ ReqSn 0 1 [txId spendDeposit] Nothing (Just pendingDepositTxId))
+            o' `shouldBe` rejected
+
+          it "as the leader, skips on tick a deposit naming an output the head holds" $ do
+            now <- getCurrentTime
+            let depositTime = plusTime now
+                deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
+                held = utxoRef 1
+                -- Older, so FIFO selection would pick it were it not skipped.
+                colliding = Deposit{headId = testHeadId, deposited = held, created = depositTime 1, deadline, status = Active}
+                fresh = Deposit{headId = testHeadId, deposited = utxoRef 9, created = depositTime 2, deadline, status = Active}
+                spending = SimpleTx 5 held (utxoRef 5)
+                both = trackedFromPending (Map.fromList [(42, colliding), (43, fresh)])
+                unspent = (openHolding held){deposits = both}
+                spent =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = utxoRef 5
+                        , localTxs = Seq.fromList [spending]
+                        , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] held, signatures = mempty}
+                        }
+                  )
+                    { deposits = both
+                    }
+                tick = ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3}
+                proposes :: Outcome SimpleTx -> Integer -> IO ()
+                proposes o wanted =
+                  o `hasEffectSatisfying` \case
+                    NetworkEffect ReqSn{depositTxId} -> depositTxId == Just wanted
+                    _ -> False
+            update aliceEnv ledger now unspent tick `proposes` 43
+            update aliceEnv ledger now spent tick `proposes` 43
+
+          it "as the leader, does not propose a deposit whose outputs the incoming tx spends" $ do
+            now <- getCurrentTime
+            let held = utxoRef 1
+                s0 = (openHolding held){deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now held))}
+                spendHeld = SimpleTx 5 held (utxoRef 5)
+            o <- runHeadLogic singlePartyEnv ledger s0 $ step (receiveMessage $ ReqTx spendHeld)
+            o `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotNumber = 1, transactionIds, depositTxId} ->
+                transactionIds == [txId spendHeld] && isNothing depositTxId
+              _ -> False
+
+          it "as the leader, does not propose a deposit whose outputs the snapshot it just confirmed holds" $ do
+            -- The chained request is judged against the snapshot just confirmed.
+            now <- getCurrentTime
+            let held = utxoRef 1
+                -- Creates output 2, which the deposit names.
+                creating = SimpleTx 2 held (utxoRef 2)
+                spendCreated = SimpleTx 3 (utxoRef 2) (utxoRef 3)
+                s0 = (openHolding held){deposits = trackedFromPending (Map.singleton pendingDepositTxId (inactiveDepositOf now (utxoRef 2)))}
+            o <- runHeadLogic singlePartyEnv ledger s0 $ do
+              _ <- step (receiveMessage $ ReqTx creating)
+              o1 <- step (receiveMessage $ ReqSn 0 1 [txId creating] Nothing Nothing)
+              ownSignature <- case effectsOf o1 of
+                [NetworkEffect AckSn{signed, snapshotNumber = 1}] -> pure signed
+                effects -> failure $ "expected exactly an AckSn for snapshot 1, got: " <> show effects
+              _ <- step (ChainInput $ Tick{chainTime = addUTCTime 120 now, chainPoint = 2})
+              _ <- step (receiveMessage $ ReqTx spendCreated)
+              step (receiveMessage $ AckSn ownSignature 1)
+            o `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotNumber = 2, transactionIds, depositTxId} ->
+                transactionIds == [txId spendCreated] && isNothing depositTxId
+              _ -> False
+
+          it "as a follower, rejects a ReqSn claiming a deposit naming an output a requested tx creates" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                creating = SimpleTx 2 u0 (utxoRef 2)
+                st0 =
+                  ( inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] u0, signatures = mempty}
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now (utxoRef 2)))
+                    }
+            o <- runHeadLogic bobEnv ledger st0 $ do
+              _ <- step $ receiveMessage $ ReqTx creating
+              step $ receiveMessage $ ReqSn 0 1 [txId creating] Nothing (Just pendingDepositTxId)
+            o `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = pendingDepositTxId})
+
+          it "as the leader, does not propose a deposit naming an output a pending local tx creates on tick" $ do
+            now <- getCurrentTime
+            let depositTime = plusTime now
+                deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
+                held = utxoRef 1
+                creating = SimpleTx 2 held (utxoRef 2)
+                -- Older, so FIFO selection would pick it were it not skipped.
+                collides = Deposit{headId = testHeadId, deposited = utxoRef 2, created = depositTime 1, deadline, status = Active}
+                fresh = Deposit{headId = testHeadId, deposited = utxoRef 9, created = depositTime 2, deadline, status = Active}
+                s0 =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = utxoRef 2
+                        , localTxs = Seq.fromList [creating]
+                        , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] held, signatures = mempty}
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.fromList [(42, collides), (43, fresh)])
+                    }
+            update aliceEnv ledger now s0 (ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3})
+              `hasEffectSatisfying` \case
+                NetworkEffect ReqSn{transactionIds, depositTxId} -> transactionIds == [txId creating] && depositTxId == Just 43
+                _ -> False
+
+          it "as the leader, still requests snapshots on tick with a stale deposit parked in currentDepositTxId" $ do
+            now <- getCurrentTime
+            let depositTime = plusTime now
+                deadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
+                held = utxoRef 1
+                stale = Deposit{headId = testHeadId, deposited = held, created = depositTime 1, deadline, status = Active}
+                fresh = Deposit{headId = testHeadId, deposited = utxoRef 9, created = depositTime 2, deadline, status = Active}
+                -- A pending local tx spent the parked deposit's output.
+                spending = SimpleTx 5 held (utxoRef 5)
+                s0 =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = utxoRef 5
+                        , localTxs = Seq.fromList [spending]
+                        , confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 0 0 [] held, signatures = mempty}
+                        , currentDepositTxId = Just 42
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.fromList [(42, stale), (43, fresh)])
+                    }
+            update aliceEnv ledger now s0 (ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3})
+              `hasEffectSatisfying` \case
+                NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 43
+                _ -> False
+
+          it "as the leader, proposes after AckSn a deposit the snapshot just confirmed made absorbable" $ do
+            -- The snapshot confirmed here spent the output the deposit names.
+            now <- getCurrentTime
+            let held = utxoRef 1
+                spending = SimpleTx 2 held (utxoRef 2)
+                next = SimpleTx 3 (utxoRef 2) (utxoRef 3)
+                s0 = (openHolding held){deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now held))}
+            o <- runHeadLogic singlePartyEnv ledger s0 $ do
+              _ <- step (receiveMessage $ ReqTx spending)
+              o1 <- step (receiveMessage $ ReqSn 0 1 [txId spending] Nothing Nothing)
+              ownSignature <- case effectsOf o1 of
+                [NetworkEffect AckSn{signed, snapshotNumber = 1}] -> pure signed
+                effects -> failure $ "expected exactly an AckSn for snapshot 1, got: " <> show effects
+              _ <- step (receiveMessage $ ReqTx next)
+              step (receiveMessage $ AckSn ownSignature 1)
+            o `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotNumber = 2, transactionIds, depositTxId} ->
+                transactionIds == [txId next] && depositTxId == Just pendingDepositTxId
+              _ -> False
+
+          it "parks an activated deposit in currentDepositTxId only if the next request can absorb it" $ do
+            -- Judged against the snapshot in flight and the pending txs.
+            now <- getCurrentTime
+            let held = utxoRef 1
+                creating = SimpleTx 9 (utxoRef 5) (utxoRef 9)
+                activating seenUtxo pendingTxs localU deposited =
+                  (openHolding held)
+                    { headState = case headState (openHolding held) of
+                        Open os@OpenState{coordinatedHeadState = chs} ->
+                          Open os{coordinatedHeadState = chs{seenSnapshot = mkSeenSnapshot (testSnapshot 1 0 [] seenUtxo) Map.empty, localTxs = Seq.fromList pendingTxs, localUTxO = localU}}
+                        other -> other
+                    , deposits = trackedFromPending (Map.singleton pendingDepositTxId (inactiveDepositOf now deposited))
+                    }
+                tick = ChainInput $ Tick{chainTime = addUTCTime 120 now, chainPoint = 2}
+                parkedAfter s0 = do
+                  s <- runHeadLogic singlePartyEnv ledger s0 $ step tick >> getState
+                  pure $ case headState s of
+                    Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} -> currentDepositTxId
+                    _ -> Nothing
+            -- Fresh outputs: parked.
+            parkedAfter (activating held [] held (utxoRef 9)) `shouldReturn` Just pendingDepositTxId
+            -- Naming an output the snapshot in flight holds: not parked.
+            parkedAfter (activating held [] held held) `shouldReturn` Nothing
+            -- Naming an output the snapshot in flight spent: parked.
+            parkedAfter (activating (utxoRef 5) [] (utxoRef 5) held) `shouldReturn` Just pendingDepositTxId
+            -- Naming an output a pending tx creates: not parked.
+            parkedAfter (activating (utxoRef 5) [creating] (utxoRef 9) (utxoRef 9)) `shouldReturn` Nothing
+
+          it "as the leader, continues the settling commit and holds back a tx creating an output it names" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1 <> utxoRef 2 <> utxoRef 5
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                fine = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                another = SimpleTx 4 (utxoRef 5) (utxoRef 4)
+                -- Creates output 42, which the deposit names.
+                colliding = SimpleTx pendingDepositTxId (utxoRef 2) depositedUtxo
+                settling pendingTxs localU =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = localU
+                        , localTxs = Seq.fromList pendingTxs
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton pendingDepositTxId (activeDepositOf now depositedUtxo))
+                    }
+                requests :: Outcome SimpleTx -> [([Integer], Maybe Integer)]
+                requests o = [(transactionIds, depositTxId) | NetworkEffect ReqSn{transactionIds, depositTxId} <- effectsOf o]
+            -- Txs before the colliding one go out; it and later ones wait.
+            o <- runHeadLogic singlePartyEnv ledger (settling [fine, colliding] (utxoRef 3 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
+            requests o `shouldBe` [([txId fine], Just pendingDepositTxId)]
+            -- Nothing before it: no request.
+            o' <- runHeadLogic singlePartyEnv ledger (settling [colliding] (utxoRef 1 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
+            requests o' `shouldBe` []
+
+          it "on tick, drops a settling commit only once its increment can no longer land, never claiming another" $ do
+            now <- getCurrentTime
+            let depositTime = plusTime now
+                farDeadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
+                -- The tick recomputes statuses from the deadline.
+                claimedWith deadline = Deposit{headId = testHeadId, deposited = depositedUtxo, created = depositTime 1, deadline, status = Active}
+                other = Deposit{headId = testHeadId, deposited = utxoRef 9, created = depositTime 2, deadline = farDeadline, status = Active}
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] (utxoRef 1))
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs (utxoRef 1) (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs (utxoRef 1) (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                s0 deposits =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { localUTxO = utxoRef 1
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.fromList deposits)
+                    }
+                tick = ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3}
+                requests :: Outcome SimpleTx -> [([Integer], Maybe Integer)]
+                requests o = [(transactionIds, depositTxId) | NetworkEffect ReqSn{transactionIds, depositTxId} <- effectsOf o]
+            -- Active: wait.
+            requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith farDeadline), (43, other)]) tick) `shouldBe` []
+            -- Expired but before the deadline: wait.
+            requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith (depositTime 4)), (43, other)]) tick) `shouldBe` []
+            -- Deadline passed, but within the margin: wait.
+            requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith (depositTime 2)), (43, other)]) tick) `shouldBe` []
+            -- Past the margin: drop the commit, claim nothing.
+            requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith (depositTime (-4000))), (43, other)]) tick) `shouldBe` [([], Nothing)]
+            -- Recovered: drop the commit, claim nothing.
+            requests (update aliceEnv ledger now (s0 [(43, other)]) tick) `shouldBe` [([], Nothing)]
 
         prop "does not track depositTx of another head" $ \otherHeadId -> do
           let depositOtherHead =
@@ -544,10 +1168,12 @@ spec =
                   , deadline = addUTCTime 3600 now
                   , status
                   }
-          setExistingDeposit (Map.singleton depositId (mkDeposit Expired)) (Just depositId)
-            `shouldBe` (Nothing :: Maybe Integer)
-          setExistingDeposit (Map.singleton depositId (mkDeposit Active)) (Just depositId)
-            `shouldBe` Just depositId
+          fst
+            <$> existingDeposit (Map.singleton depositId (mkDeposit Expired)) (Just depositId)
+              `shouldBe` (Nothing :: Maybe Integer)
+          fst
+            <$> existingDeposit (Map.singleton depositId (mkDeposit Active)) (Just depositId)
+              `shouldBe` Just depositId
 
         it "deposit activated while snapshot in-flight is picked up by next chained snapshot" $ do
           -- Regression: a deposit that becomes Active while a snapshot is in-flight
@@ -556,9 +1182,10 @@ spec =
           --
           -- After DepositActivated is aggregated the deposit sits in pendingDeposits
           -- with status=Active, but currentDepositTxId stays Nothing (the bug).
-          -- When maybeRequestNextSnapshot fires it calls
-          --   setExistingDeposit pendingDeposits Nothing = Nothing
-          -- so the deposit is silently dropped from every subsequent ReqSn.
+          -- When maybeRequestNextSnapshot fires, 'selectNextDeposit' (via
+          -- 'nextSnapshotRequest') finds nothing tracked and must fall back to
+          -- the oldest Active deposit, or it is silently dropped from every
+          -- subsequent ReqSn.
           now <- getCurrentTime
           let
             depositId = 999
@@ -834,6 +1461,73 @@ spec =
                   ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId decommitTx}
               )
 
+        describe "request building helpers" $ do
+          it "decides a settling commit by whether its increment can still land" $ do
+            now <- getCurrentTime
+            let margin = toNominalDiffTime aliceEnv.depositPeriod
+                depositWith deadline = Deposit{headId = testHeadId, deposited = utxoRef 1, created = now, deadline, status = Active}
+                claiming :: Snapshot SimpleTx
+                claiming = (testSnapshot 0 0 [] mempty){utxoToCommit = Just (utxoRef 1), depositTxId = Just 7}
+                decide :: SnapshotVersion -> Map.Map Integer (Deposit SimpleTx) -> Snapshot SimpleTx -> Maybe (SettlingCommit SimpleTx)
+                decide version = settlingCommitAt aliceEnv version now
+                continues, drops :: Maybe (SettlingCommit SimpleTx) -> Bool
+                continues = \case
+                  Just (ContinueCommit (7, _)) -> True
+                  _ -> False
+                drops = \case
+                  Just DropCommit -> True
+                  _ -> False
+            -- No commit, or its increment landed (chain version ahead): nothing settles.
+            isNothing (decide 0 mempty (testSnapshot 0 0 [] mempty)) `shouldBe` True
+            isNothing (decide 1 (Map.singleton 7 (depositWith (addUTCTime 3600 now))) claiming) `shouldBe` True
+            -- Landable: continued, also when Expired but before the deadline.
+            continues (decide 0 (Map.singleton 7 (depositWith (addUTCTime 3600 now))) claiming) `shouldBe` True
+            continues (decide 0 (Map.singleton 7 (depositWith (addUTCTime (-1) now)){status = Expired}) claiming) `shouldBe` True
+            -- Past the margin, recovered, or no 'depositTxId': dropped.
+            drops (decide 0 (Map.singleton 7 (depositWith (addUTCTime (negate margin - 1) now))) claiming) `shouldBe` True
+            drops (decide 0 mempty claiming) `shouldBe` True
+            drops (decide 0 (Map.singleton 7 (depositWith (addUTCTime 3600 now))) claiming{depositTxId = Nothing}) `shouldBe` True
+
+          prop "absorbs a deposit iff it names no output the ledger holds or the request creates" $
+            \(held :: [Integer]) (created :: [Integer]) (named :: [Integer]) ->
+              let utxo = utxoRefs held
+                  deposited = utxoRefs named
+                  txs = [SimpleTx 1 mempty (utxoRefs created)]
+               in absorbable utxo txs deposited === (Set.disjoint deposited utxo && Set.disjoint deposited (utxoRefs created))
+
+          prop "names none of a UTxO iff disjoint from it" $
+            \(a :: [Integer]) (b :: [Integer]) -> namesNoneOf (utxoRefs a) (utxoRefs b) === Set.disjoint (utxoRefs a) (utxoRefs b)
+
+          it "refuses a transaction re-creating an output the ledger holds" $ do
+            let u = utxoRefs [1, 2]
+            applyTransactionsWithoutCollision ledger (ChainSlot 0) u [SimpleTx 3 (utxoRef 1) (utxoRef 3)]
+              `shouldBe` Right (utxoRefs [2, 3])
+            applyTransactionsWithoutCollision ledger (ChainSlot 0) u [SimpleTx 2 (utxoRef 1) (utxoRef 2)]
+              `shouldBe` Left (SimpleTx 2 (utxoRef 1) (utxoRef 2), ValidationError "transaction creates an output the head already holds")
+
+          it "chains a request only for transactions, a fresh deposit or a prune" $ do
+            now <- getCurrentTime
+            let u0 = utxoRefs [1]
+                deposit = Deposit{headId = testHeadId, deposited = utxoRef 9, created = now, deadline = addUTCTime 3600 now, status = Active}
+                fresh = Map.singleton 7 deposit
+                settling = Just (ContinueCommit (7, deposit))
+                decommit = SimpleTx 5 (utxoRef 1) (utxoRef 5)
+                fine = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+                naming = SimpleTx 9 (utxoRef 2) (utxoRef 9)
+                recreating = SimpleTx 1 mempty (utxoRef 1)
+                summary :: SnapshotRequest SimpleTx -> ([Integer], Maybe Integer, Maybe Integer)
+                summary r = (txId <$> r.requestTxs, txId <$> r.requestDecommitTx, r.requestDepositTxId)
+            -- Only the decommit: not chained.
+            isNothing (chainedSnapshotRequest u0 mempty mempty Nothing (Just decommit) Nothing) `shouldBe` True
+            -- A fresh deposit alone: chained.
+            (summary <$> chainedSnapshotRequest u0 mempty fresh Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Just 7)
+            -- Only the settling commit: not chained. With txs: cut before the colliding one.
+            isNothing (chainedSnapshotRequest u0 mempty fresh Nothing Nothing settling) `shouldBe` True
+            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing Nothing settling)
+              `shouldBe` Just ([txId fine], Nothing, Just 7)
+            -- A pending tx re-creating a held output: chained, even empty, to prune it.
+            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [recreating]) mempty Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Nothing)
+
         it "never requests a commit and a decommit in the same snapshot" $ do
           -- An in-flight commit wins: its deposit expires on-chain while a
           -- decommit only waits. No *new* commit starts alongside a decommit, so
@@ -851,10 +1545,10 @@ spec =
                     , status = Active
                     }
               decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-          selectNextIncrementalAction pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
-            `shouldBe` (Nothing, Just depositTxId)
-          selectNextIncrementalAction pendingDeposits Nothing (Just decommitTx) Nothing
-            `shouldBe` (Just decommitTx, Nothing)
+              withDeposit = nextSnapshotRequest mempty mempty pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
+              withoutDeposit = nextSnapshotRequest mempty mempty pendingDeposits Nothing (Just decommitTx) Nothing
+          (withDeposit.requestDecommitTx, withDeposit.requestDepositTxId) `shouldBe` (Nothing, Just depositTxId)
+          (withoutDeposit.requestDecommitTx, withoutDeposit.requestDepositTxId) `shouldBe` (Just decommitTx, Nothing)
 
         it "ignores ReqDec when not in Open state" $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}

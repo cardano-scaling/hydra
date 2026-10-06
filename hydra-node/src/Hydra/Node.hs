@@ -525,6 +525,11 @@ stepHydraNode now node = do
       -- drop e.g. ReqTx before catch-up completes.
       NetworkInput _ _
         | WaitOnNodeInSync{} <- reason -> park q
+      -- Keep a snapshot request waiting for a settling commit beyond its ttl: it
+      -- resolves once this node's chain time catches up, and dropping it would
+      -- stall the leader.
+      NetworkInput _ ReceivedMessage{msg = ReqSn{}}
+        | WaitOnUnresolvedCommit{} <- reason -> reenqueue waitDelay q
       NetworkInput ttl msg
         | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}

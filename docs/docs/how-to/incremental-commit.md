@@ -287,6 +287,17 @@ The last option is most flexible one for dApp builders since they can just speci
 
 This will result in a deposit being detected by the `hydra-node` and consequently the funds to be deposited to the Head.
 
+:::info Deposited funds are spendable only after the increment settles
+A deposit is not part of the head's layer 2 ledger the moment its snapshot is
+confirmed. It is carried as a *pending commit* until the `IncrementTx` claiming
+it is observed on-chain, and only then does it enter the spendable UTxO set —
+signalled by `CommitFinalized`. Submitting a transaction that spends the
+deposited outputs before that point leaves it pending until it either becomes
+applicable or times out as invalid; a snapshot request listing such a
+transaction is rejected outright and never signed. Wait for `CommitFinalized`
+before building transactions that spend the deposited outputs.
+:::
+
 :::warning Reference scripts are not preserved
 If a deposited UTxO has an inline reference script attached, **that reference script will not be available in L2**. The deposit datum encodes UTxOs using the Plutus `TxOut` representation, which has no reference script field. The address, value and datum of the deposited UTxO are preserved faithfully, but the reference script is silently dropped. If your use case depends on reference scripts being available inside the Head, they must be published separately on L2.
 :::
