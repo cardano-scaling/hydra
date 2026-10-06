@@ -24,7 +24,7 @@ export const HeroContent = {
   ],
   buttons: [
     {
-      url: "/docs",
+      url: "/docs/getting-started",
       label: translate({
         id: "homepage.hero.buttonOne",
         message: "Open your first head",

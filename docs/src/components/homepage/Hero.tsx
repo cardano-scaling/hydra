@@ -29,6 +29,8 @@ const Hero: FC = () => {
 export default Hero;
 
 const Content = () => {
+  const ctaOneUrl = useBaseUrl(HeroContent.buttons[0].url);
+  const ctaTwoUrl = useBaseUrl(HeroContent.buttons[1].url);
   return (
     <div className="flex flex-col justify-center gap-8 tablet:gap-10 py-[2.8125rem] max-tablet:pb-0">
       <div className="flex flex-col gap-2">
@@ -44,17 +46,11 @@ const Content = () => {
         </p>
       </div>
       <div className="flex flex-col items-start gap-4 tablet:flex-wrap tablet:flex-row">
-        <a
-          href={HeroContent.buttons[0].url}
-          className="link-button link-button-light"
-        >
+        <a href={ctaOneUrl} className="link-button link-button-light">
           {HeroContent.buttons[0].label}{" "}
           <RightArrow className="size-[1.125rem]" />
         </a>
-        <a
-          href={HeroContent.buttons[1].url}
-          className="link-button link-button-transparent"
-        >
+        <a href={ctaTwoUrl} className="link-button link-button-transparent">
           {HeroContent.buttons[1].label} <Code className="w-[1.125rem] h-4" />
         </a>
       </div>

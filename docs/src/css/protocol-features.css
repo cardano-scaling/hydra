@@ -1,0 +1,37 @@
+.protocol-features__cta {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.6;
+  letter-spacing: -1%;
+}
+
+.protocol-feature__title {
+  font-family: "Lexend";
+  font-weight: 500;
+  font-size: 1.375rem; /* 22px */
+  line-height: 1.27;
+  letter-spacing: -1%;
+}
+
+@media (min-width: 768px) {
+  .protocol-feature__title {
+    font-size: 1.75rem; /* 28px */
+    line-height: 1.29;
+  }
+}
+
+.sticky-wrapper {
+  --header-nav-height: 88px;
+  position: sticky;
+  top: var(--header-nav-height);
+  height: calc(100dvh - var(--header-nav-height));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: visible;
+}
+
+@media (min-width: 768px) {
+  .sticky-wrapper {
+    --header-nav-height: 100px;
+  }
+}

@@ -8,6 +8,7 @@
 @import "./footer.css";
 @import "./hero.css";
 @import "./why-hydra.css";
+@import "./protocol-features.css";
 
 @tailwind base;
 @tailwind components;
