@@ -40,9 +40,9 @@ _: {
       # blueprint test cannot fail on registry outages; GoldenSpec points
       # aiken at it via HYDRA_AIKEN_CACHE.
       #
-      # The version is read from aiken.toml so it cannot drift silently: a
-      # stdlib bump there makes this fetch fail on the stale hash (update
-      # the hash below alongside).
+      # The version is read from aiken.toml; update the hash below with every
+      # stdlib bump, since a stale hash reuses the old zip from the store
+      # instead of failing.
       aikenCache =
         let
           aikenToml = builtins.replaceStrings [ "\n" ] [ " " ]
@@ -51,7 +51,7 @@ _: {
             (builtins.match ''.*name = "aiken-lang/stdlib" *version = "([^"]+)".*'' aikenToml);
           aikenStdlib = pkgs.fetchzip {
             url = "https://github.com/aiken-lang/stdlib/archive/refs/tags/${stdlibVersion}.zip";
-            hash = "sha256-PfnRpyt+8WAqC5No4RADag/UcFVjZhV1CtEgT8sPPKA=";
+            hash = "sha256-apUkwdX8suJo9S9I8HoZF5kD96fBd3dYVeqodCz4U7c=";
           };
         in
         pkgs.runCommand "aiken-cache" { nativeBuildInputs = [ pkgs.zip ]; } ''
