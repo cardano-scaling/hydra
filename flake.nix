@@ -5,7 +5,7 @@
       flake = false;
     };
     selfci.url = "git+https://radicle.dpc.pw/z2tDzYbAXxTQEKTGFVwiJPajkbeDU.git";
-    aiken.url = "github:aiken-lang/aiken/v1.1.9";
+    aiken.url = "github:aiken-lang/aiken/v1.1.24";
     cardano-node.url = "github:intersectmbo/cardano-node/11.1.2";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
